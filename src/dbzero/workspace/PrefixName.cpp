@@ -69,5 +69,13 @@ namespace db0
     bool PrefixName::operator!() const {
         return !m_has_value;    
     }
+    
+    bool PrefixName::operator!=(const PrefixName &other) const
+    {
+        if (!m_has_value || !other.m_has_value) {
+            return true;
+        }
+        return m_name != other.m_name;
+    }
 
 }

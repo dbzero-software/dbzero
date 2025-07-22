@@ -79,7 +79,8 @@ namespace db0::python
         // Recognize Python type of a specific object instance as TypeId (may return TypeId::UNKNOWN)
         TypeId getTypeId(ObjectPtr object_instance) const;
         TypeId getTypeId(TypeObjectPtr py_type) const;
-        
+        std::string getLangTypeName(TypeObjectPtr) const;
+
         // Retrieve a Python type object by TypeId (note that a dbzero extension type may be returned)
         // to return a native type use getTypeObject(asNative(TypeId))
         ObjectSharedPtr getTypeObject(TypeId) const;
@@ -114,6 +115,7 @@ namespace db0::python
         FieldDef &extractFieldDef(ObjectPtr) const;
         std::string extractString(ObjectPtr) const;
         TypeObjectPtr getTypeObject(ObjectPtr py_type) const;
+        ObjectPtr getLangObject(TypeObjectPtr py_type) const;
         std::shared_ptr<const Class> extractConstClass(ObjectPtr py_class) const;
         const TagDef &extractTag(ObjectPtr py_tag) const;
         ByteArray &extractMutableByteArray(ObjectPtr) const;
@@ -127,6 +129,7 @@ namespace db0::python
         */
         void addMemoType(TypeObjectPtr, const char *type_id, MemoTypeDecoration &&);
         MemoTypeDecoration &getMemoTypeDecoration(TypeObjectPtr);
+        const MemoTypeDecoration &getMemoTypeDecoration(TypeObjectPtr) const;
         
         // Called to register each newly created db0.enum type
         void addEnum(PyEnum *);

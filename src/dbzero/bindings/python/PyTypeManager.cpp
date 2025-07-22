@@ -138,9 +138,17 @@ namespace db0::python
         if (!ptr) {
             return TypeId::UNKNOWN;
         }
+
+        if (PyType_Check(ptr)) {
+            auto py_type = reinterpret_cast<PyTypeObject*>(ptr);
+            if (PyMemoType_Check(py_type)) {
+                return TypeId::DB0_CLASS;
+            }
+        }
+        
         auto py_type = Py_TYPE(ptr);
         // case for datetime
-        if(py_type == PyDateTimeAPI->DateTimeType){
+        if (py_type == PyDateTimeAPI->DateTimeType) {
             if (isDatatimeWithTZ(ptr)) {
                 return TypeId::DATETIME_TZ;
             } else {
@@ -148,7 +156,7 @@ namespace db0::python
             }
         }
 
-        if(py_type == PyDateTimeAPI->TimeType){
+        if (py_type == PyDateTimeAPI->TimeType) {
             if (isDatatimeWithTZ(ptr)) {
                 return TypeId::TIME_TZ;
             } else {
@@ -373,12 +381,16 @@ namespace db0::python
         }
     }
 
-    PyTypeManager::TypeObjectPtr PyTypeManager::getTypeObject(ObjectPtr py_type) const 
+    PyTypeManager::TypeObjectPtr PyTypeManager::getTypeObject(ObjectPtr py_type) const
     {
         assert(PyType_Check(py_type));
         return reinterpret_cast<TypeObjectPtr>(py_type);
     }
 
+    PyTypeManager::ObjectPtr PyTypeManager::getLangObject(TypeObjectPtr py_type) const {
+        return reinterpret_cast<ObjectPtr>(py_type);
+    }
+    
     PyTypeManager::ObjectIterable &PyTypeManager::extractObjectIterable(ObjectPtr obj_ptr) const
     {
         if (!PyObjectIterable_Check(obj_ptr)) {
@@ -512,6 +524,15 @@ namespace db0::python
         return reinterpret_cast<PyTag*>(py_tag)->ext();
     }
     
+    const MemoTypeDecoration &PyTypeManager::getMemoTypeDecoration(TypeObjectPtr py_type) const
+    {
+        auto it = m_type_registry.find(py_type);
+        if (it == m_type_registry.end()) {
+            THROWF(db0::InputException) << "Not a registered memo type: " << PyToolkit::getTypeName(py_type) << THROWF_END;
+        }
+        return it->second;
+    }
+
     MemoTypeDecoration &PyTypeManager::getMemoTypeDecoration(TypeObjectPtr py_type)
     {
         auto it = m_type_registry.find(py_type);
@@ -591,6 +612,10 @@ namespace db0::python
             return it->second;
         }
         return Py_BORROW(Py_None);
+    }
+    
+    std::string PyTypeManager::getLangTypeName(TypeObjectPtr py_type) const {
+        return py_type->tp_name ? py_type->tp_name : "";
     }
 
 }
