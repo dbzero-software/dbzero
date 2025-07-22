@@ -225,7 +225,9 @@ namespace db0::object_model
         UniqueAddress getUniqueAddress() const;
         
         std::uint32_t getClassRef() const;
-        
+            
+        const VFieldVector &getMembersVector() const;
+
     protected:
         friend class ClassFactory;        
         friend ClassPtr;
