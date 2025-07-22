@@ -620,5 +620,9 @@ namespace db0::object_model
     std::uint32_t Class::getClassRef() const {
         return classRef(*this, m_type_slot_addr_range);
     }
+    
+    const VFieldVector &Class::getMembersVector() const {
+        return m_members;
+    }
 
 }

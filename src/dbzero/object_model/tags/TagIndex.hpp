@@ -44,9 +44,9 @@ namespace db0::object_model
         // string tokens and classes are represented as short tags
         using ShortTagT = std::uint64_t;
         
-        TagIndex(Memspace &memspace, const ClassFactory &, EnumFactory &, RC_LimitedStringPool &, VObjectCache &,
+        TagIndex(Memspace &memspace, ClassFactory &, EnumFactory &, RC_LimitedStringPool &, VObjectCache &,
             std::shared_ptr<MutationLog> mutation_log);
-        TagIndex(mptr, const ClassFactory &, EnumFactory &, RC_LimitedStringPool &, VObjectCache &,
+        TagIndex(mptr, ClassFactory &, EnumFactory &, RC_LimitedStringPool &, VObjectCache &,
             std::shared_ptr<MutationLog> mutation_log);
         
         virtual ~TagIndex();
@@ -117,6 +117,7 @@ namespace db0::object_model
         using ActiveValueT = typename db0::FT_BaseIndex<ShortTagT>::ActiveValueT;
         
         RC_LimitedStringPool &m_string_pool;
+        ClassFactory &m_class_factory;
         EnumFactory &m_enum_factory;
         db0::FT_BaseIndex<ShortTagT> m_base_index_short;
         db0::FT_BaseIndex<LongTagT> m_base_index_long;

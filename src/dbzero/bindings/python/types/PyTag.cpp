@@ -43,16 +43,9 @@ namespace db0::python
                 Py_RETURN_NOTIMPLEMENTED;
         }
     }
-
-    static Py_hash_t PyAPI_PyTag_hash(PyTag *self)
-    {
-        static_assert(sizeof(unsigned long) == sizeof(self->ext().m_fixture_uuid));
-        static_assert(sizeof(unsigned long) == sizeof(self->ext().m_address.getValue()));
-        PyTypes::ObjectSharedPtr tuple{Py_BuildValue("(kk)", self->ext().m_fixture_uuid, self->ext().m_address.getValue()), false};
-        if(!tuple) {
-            return -1;
-        }
-        return PyObject_Hash(tuple.get());
+    
+    static Py_hash_t PyAPI_PyTag_hash(PyTag *self) {
+        return self->ext().getHash();
     }
     
     PyTypeObject PyTagType = {
@@ -81,6 +74,14 @@ namespace db0::python
         py_tag->makeNew(memo_obj.getFixture()->getUUID(), memo_obj.getAddress(), py_obj);
         return py_tag;
     }
+
+    PyObject *tryMemoTypeAsTag(PyTypeObject *py_type)
+    {
+        assert(PyMemoType_Check(py_type));
+        PyTag *py_tag = PyTagDefault_new();
+        py_tag->makeNew(py_type, db0::object_model::TagDef::type_as_tag());
+        return py_tag;
+    }
     
     PyObject *tryMemoExpiredRefAsTag(PyObject *py_obj)
     {
@@ -90,22 +91,26 @@ namespace db0::python
         py_tag->makeNew(expired_ref.getFixtureUUID(), expired_ref.getAddress(), py_obj);
         return py_tag;
     }
-
+    
     PyObject *PyAPI_as_tag(PyObject *, PyObject *const *args, Py_ssize_t nargs)
     {
         PY_API_FUNC
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "as_tag: Expected 1 argument");
             return NULL;
-        }        
+        }
         if (PyMemo_Check(args[0])) {
             return runSafe(tryMemoAsTag, args[0]);
+        } else if (PyType_Check(args[0])) {
+            auto *py_type = reinterpret_cast<PyTypeObject*>(args[0]);
+            if (PyMemoType_Check(py_type)) {
+                return runSafe(tryMemoTypeAsTag, py_type);
+            }
         } else if (MemoExpiredRef_Check(args[0])) {
             return runSafe(tryMemoExpiredRefAsTag, args[0]);
-        } else {
-            PyErr_SetString(PyExc_TypeError, "as_tag: Expected a memo object");
-            return NULL;
-        }        
+        } 
+        PyErr_SetString(PyExc_TypeError, "as_tag: Expected a memo object");
+        return NULL;        
     }
 
 }

@@ -497,7 +497,7 @@ namespace db0::python
         } else if (PyObjectIterator_Check(py_object)) {
             return reinterpret_cast<PyObjectIterator*>(py_object)->ext().getFixture()->getUUID();
         } else if (PyTag_Check(py_object)) {
-            return reinterpret_cast<PyTag*>(py_object)->ext().m_fixture_uuid;
+            return reinterpret_cast<PyTag*>(py_object)->ext().tryGetFixtureUUID();
         } else {
             return 0;
         }

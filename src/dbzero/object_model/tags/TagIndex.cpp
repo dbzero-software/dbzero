@@ -124,10 +124,11 @@ namespace db0::object_model
         std::vector<std::unique_ptr<QueryIterator> > &m_neg_iterators;
     };
 
-    TagIndex::TagIndex(Memspace &memspace, const ClassFactory &class_factory, EnumFactory &enum_factory, 
+    TagIndex::TagIndex(Memspace &memspace, ClassFactory &class_factory, EnumFactory &enum_factory,
         RC_LimitedStringPool &string_pool, VObjectCache &cache, std::shared_ptr<MutationLog> mutation_log)
         : db0::v_object<o_tag_index>(memspace)        
         , m_string_pool(string_pool)
+        , m_class_factory(class_factory)
         , m_enum_factory(enum_factory)
         , m_base_index_short(memspace, cache)
         , m_base_index_long(memspace, cache)        
@@ -139,10 +140,11 @@ namespace db0::object_model
         modify().m_base_index_long_ptr = m_base_index_long.getAddress();
     }
     
-    TagIndex::TagIndex(mptr ptr, const ClassFactory &class_factory, EnumFactory &enum_factory,
+    TagIndex::TagIndex(mptr ptr, ClassFactory &class_factory, EnumFactory &enum_factory,
         RC_LimitedStringPool &string_pool, VObjectCache &cache, std::shared_ptr<MutationLog> mutation_log)
         : db0::v_object<o_tag_index>(ptr)        
         , m_string_pool(string_pool)
+        , m_class_factory(class_factory)
         , m_enum_factory(enum_factory)
         , m_base_index_short(myPtr((*this)->m_base_index_short_ptr), cache)
         , m_base_index_long(myPtr((*this)->m_base_index_long_ptr), cache)
@@ -697,10 +699,10 @@ namespace db0::object_model
     }
     
     TagIndex::ShortTagT TagIndex::getShortTagFromTag(ObjectPtr py_arg) const
-    {        
+    {
         assert(LangToolkit::isTag(py_arg));
         // NOTE: we use only the offset part as tag - to distinguish from enum and class tags (high bits)
-        return LangToolkit::getTypeManager().extractTag(py_arg).m_address.getOffset();
+        return LangToolkit::getTypeManager().extractTag(py_arg).getAddress(m_class_factory).getOffset();
     }
     
     TagIndex::ShortTagT TagIndex::getShortTagFromEnumValue(const EnumValue &enum_value, ObjectSharedPtr *alt_repr) const
@@ -801,12 +803,12 @@ namespace db0::object_model
     {
         assert(LangToolkit::isTag(py_arg));
         auto &py_tag = LangToolkit::getTypeManager().extractTag(py_arg);
-        if (py_tag.m_fixture_uuid != m_fixture_uuid) {
+        auto addr_pair = py_tag.getLongAddress(m_class_factory);
+        if (addr_pair.first != m_fixture_uuid) {
             // must be added as long tag
             return std::nullopt;
         }
-        // NOTE: we use only the offset part as tag - to distinguish from enum and class tags (high bits)
-        return py_tag.m_address.getOffset();
+        return addr_pair.second;
     }
     
     bool TagIndex::isScopeIdentifier(ObjectPtr ptr) const {
@@ -914,11 +916,12 @@ namespace db0::object_model
         // assumed long tag if from a foreign scope
         if (type_id == TypeId::DB0_TAG) {
             auto &py_tag = LangToolkit::getTypeManager().extractTag(py_arg);
-            return py_tag.m_fixture_uuid != m_fixture_uuid;
+            auto addr_pair = py_tag.getLongAddress(m_class_factory);
+            return addr_pair.first != m_fixture_uuid;
         }
         return false;
     }
-
+    
     void TagIndex::commit() const
     {
         flush();
@@ -1058,7 +1061,8 @@ namespace db0::object_model
     {
         assert(LangToolkit::isTag(py_arg));
         auto &py_tag = LangToolkit::getTypeManager().extractTag(py_arg);
-        return { py_tag.m_fixture_uuid, py_tag.m_address.getOffset() };
+        auto addr_pair = py_tag.getLongAddress(m_class_factory);
+        return { addr_pair.first, addr_pair.second.getOffset() };
     }
     
     LongTagT TagIndex::getLongTagFromMemo(ObjectPtr py_arg) const

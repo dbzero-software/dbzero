@@ -370,3 +370,18 @@ def test_lookp_by_type_when_no_default_tags(db0_fixture):
     db0.tags(obj_1).add("tag-1")
     # object not found by type since it opted out of automatic tags
     assert len(db0.find(MemoNoDefTags)) == 1
+
+
+def test_unable_to_apply_type_as_tag_directly(db0_fixture):
+    obj_1 = MemoNoDefTags(123)
+    # NOTE: types are auto-assigned and cannot be assigned as tags directly
+    with pytest.raises(Exception):
+        db0.tags(obj_1).add(MemoTestClass)
+
+
+def test_apply_class_as_tag(db0_fixture):
+    obj_1 = MemoNoDefTags(123)
+    # NOTE: class can be appied as tag with a wrapper
+    db0.tags(obj_1).add(db0.as_tag(MemoTestClass))
+    assert len(db0.find(MemoTestClass)) == 0
+    assert len(db0.find(db0.as_tag(MemoTestClass))) == 1
