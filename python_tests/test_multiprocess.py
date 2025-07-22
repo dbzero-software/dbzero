@@ -5,8 +5,9 @@ import dbzero_ce as db0
 from python_tests.memo_test_types import MemoTestClass, MemoTestSingleton
 
 
-def test_hash_py_string():  
+def test_hash_py_string(db0_fixture):
     assert db0.hash("abc") == db0.hash("abc")
+
 
 def test_hash_enum(db0_fixture):
     Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])    
@@ -18,16 +19,19 @@ def test_hash_py_tuple(db0_fixture):
     t2 = (1, "string", 999)    
     assert db0.hash(t1) == db0.hash(t2)
 
+
 def test_hash_py_tuple_with_enum(db0_fixture):
     Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])
     t1 = (1, Colors.RED, 999)
     t2 = (1, Colors.RED, 999)    
     assert db0.hash(t1) == db0.hash(t2)
 
+
 def test_hash_with_db0_tuple(db0_fixture):
     t1 = db0.tuple([1, "string", 999])
     t2 = db0.tuple([1, "string", 999])    
     assert db0.hash(t1) == db0.hash(t2)
+
 
 def test_hash_with_db0_tuple_with_enum(db0_fixture):
     Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])
@@ -35,10 +39,12 @@ def test_hash_with_db0_tuple_with_enum(db0_fixture):
     t2 = db0.tuple([1, Colors.RED, 999])    
     assert db0.hash(t1) == db0.hash(t2)
 
+
 def test_hash_with_db0_date(db0_fixture):
     d1 = date(2021, 12, 12)
     d2 = date(2021, 12, 12)    
     assert db0.hash(d1) == db0.hash(d2)
+
 
 def test_hash_with_db0_datetime(db0_fixture):
     d1 = datetime(2021, 12, 12, 5, 5, 5)
@@ -134,7 +140,7 @@ t1 = (1, 'string', 999)
     assert sr1 == sr2
 
 
-def test_hash_bytes():
+def test_hash_bytes(db0_fixture):
     assert db0.hash(b"abc") == db0.hash(b"abc")
 
 

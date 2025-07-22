@@ -534,3 +534,19 @@ def test_dict_pop_issue1(db0_no_autocommit):
     cut = db0.dict([((0, Decimal(i)), 0) for i in range(50)])
     for key in cut.keys():
         _ = db0.hash(key)
+
+
+def test_using_type_as_dict_key(db0_no_autocommit):
+    cut = db0.dict()
+    cut[MemoTestClass] = "first item"
+    cut[MemoTestSingleton] = "second item"
+    assert cut[MemoTestClass] == "first item"
+    assert cut[MemoTestSingleton] == "second item"
+    
+    
+def test_using_mixed_type_object_keys(db0_no_autocommit):
+    keys = [MemoTestClass, MemoTestClass(123), MemoTestSingleton, MemoTestSingleton(999)]
+    cut = db0.dict({key: index for index, key in enumerate(keys)})
+    assert cut[MemoTestClass] == 0
+    assert cut[MemoTestSingleton] == 2
+    

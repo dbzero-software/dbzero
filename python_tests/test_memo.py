@@ -108,3 +108,12 @@ def test_type_as_member(db0_fixture):
     obj_1 = MemoTestClass(MemoTestEQClass)
     assert obj_1.value is MemoTestEQClass
     
+    
+def test_unreference_type_member(db0_fixture):
+    ref_cnt_1 = db0.getrefcount(MemoTestEQClass)
+    obj_1 = MemoTestClass(MemoTestEQClass)
+    ref_cnt_2 = db0.getrefcount(MemoTestEQClass)
+    assert ref_cnt_2 > ref_cnt_1
+    obj_1.value = None
+    assert db0.getrefcount(MemoTestEQClass) < ref_cnt_2
+    

@@ -33,25 +33,30 @@ namespace db0::python
     PyObject *tryDictObject_GetItem(DictObject *py_dict, PyObject *py_key)
     {
         const auto &dict_obj = py_dict->ext();
-        dict_obj.getFixture()->refreshIfUpdated();
+        auto fixture = dict_obj.getFixture();
+        fixture->refreshIfUpdated();
         auto key = migratedKey(dict_obj, py_key);
-        auto hash = getPyHash(*key);
-        if (hash == -1) {
-            auto py_str = Py_OWN(PyObject_Str(py_key));
-            auto str_name =  PyUnicode_AsUTF8(*py_str);            
-            auto error_message = "Cannot get hash for key: " + std::string(str_name);
-            PyErr_SetString(PyExc_KeyError, error_message.c_str());
-            return nullptr;
-        }
+        auto maybe_hash = getPyHashIfExists(fixture, *key);        
+        if (maybe_hash) {
+            auto hash = maybe_hash->first;
+            if (hash == -1) {
+                auto py_str = Py_OWN(PyObject_Str(py_key));
+                auto str_name =  PyUnicode_AsUTF8(*py_str);            
+                auto error_message = "Cannot get hash for key: " + std::string(str_name);
+                PyErr_SetString(PyExc_KeyError, error_message.c_str());
+                return nullptr;
+            }
 
-        auto item = dict_obj.getItem(hash, *key);
-        if (!item) {
-            auto py_str = Py_OWN(PyObject_Str(py_key));
-            auto str_name =  PyUnicode_AsUTF8(*py_str);
-            PyErr_SetString(PyExc_KeyError, str_name);
-            return nullptr;
-        }
-        return item.steal();
+            auto item = dict_obj.getItem(hash, *key);
+            if (item.get()) {
+                return item.steal();
+            }
+        }     
+        
+        auto py_str = Py_OWN(PyObject_Str(py_key));
+        auto str_name =  PyUnicode_AsUTF8(*py_str);
+        PyErr_SetString(PyExc_KeyError, str_name);
+        return nullptr;
     }
     
     PyObject *PyAPI_DictObject_GetItem(DictObject *dict_obj, PyObject *key)
@@ -63,8 +68,9 @@ namespace db0::python
     int tryDictObject_SetItem(DictObject *py_dict, PyObject *py_key, PyObject *value)
     {
         auto key = migratedKey(py_dict->ext(), py_key);
-        auto hash = getPyHash(*key);
-        if (hash == -1) {            
+        auto fixture = py_dict->ext().getFixture();
+        auto hash = getPyHash(fixture, *key);
+        if (hash == -1) {
             // set PyError
             std::stringstream _str;
             _str << "Unable to find hash function for key of type: " << Py_TYPE(*key)->tp_name;
@@ -72,7 +78,7 @@ namespace db0::python
             return -1;
         }
         
-        db0::FixtureLock lock(py_dict->ext().getFixture());
+        db0::FixtureLock lock(fixture);
         py_dict->modifyExt().setItem(lock, hash, *key, value);
         return 0;
     }
@@ -98,8 +104,9 @@ namespace db0::python
     int tryDictObject_HasItem(DictObject *py_dict, PyObject *py_key)
     {
         auto key = migratedKey(py_dict->ext(), py_key);
-        py_dict->ext().getFixture()->refreshIfUpdated();
-        auto maybe_hash_pair = getPyHashIfExists(*key, py_dict->ext());
+        auto fixture = py_dict->ext().getFixture();
+        fixture->refreshIfUpdated();
+        auto maybe_hash_pair = getPyHashIfExists(fixture, *key);
         if (!maybe_hash_pair) {
             // NOTE: element does not exist because a key does NOT exist either
             return 0;
@@ -317,14 +324,17 @@ namespace db0::python
         }
         return runSafe(tryDictObject_fromKeys, args, nargs);
     }
-
+    
     PyObject *tryDictObject_get(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs)
     {
         PyObject *py_elem = args[0];
         auto elem = migratedKey(dict_object->ext(), py_elem);
-        auto hash = getPyHash(elem.get());
-        if (dict_object->ext().hasItem(hash, *elem)) {
-            return tryDictObject_GetItem(dict_object, *elem);
+        auto fixture = dict_object->ext().getFixture();
+        auto maybe_hash = getPyHashIfExists(fixture, elem.get());
+        if (maybe_hash) {
+            if (dict_object->ext().hasItem(maybe_hash->first, *elem)) {
+                return tryDictObject_GetItem(dict_object, *elem);
+            }
         }
         auto value = Py_BORROW((PyObject*)Py_None);
         if (nargs == 2) {
@@ -357,11 +367,14 @@ namespace db0::python
         }
         
         auto elem = migratedKey(dict_object->ext(), py_elem);
-        auto hash = getPyHash(*elem);
-        if (dict_object->ext().hasItem(hash, *elem)) {            
-            return dict_object->modifyExt().pop(hash, *elem).steal();
+        auto fixture = dict_object->ext().getFixture();
+        auto maybe_hash = getPyHashIfExists(fixture, *elem);
+        if (maybe_hash) {
+            if (dict_object->ext().hasItem(maybe_hash->first, *elem)) {
+                return dict_object->modifyExt().pop(maybe_hash->first, *elem).steal();
+            }
         }
-
+        
         if (value == nullptr) {
             PyErr_SetString(PyExc_KeyError, "not found");
             return NULL;
@@ -392,7 +405,8 @@ namespace db0::python
             value = Py_BORROW((PyObject*)args[1]);
         }
         auto elem = migratedKey(dict_object->ext(), py_elem);
-        auto hash = getPyHash(*elem);
+        auto fixture = dict_object->ext().getFixture();
+        auto hash = getPyHash(fixture, *elem);
         if (!dict_object->ext().hasItem(hash, *elem)) {
             tryDictObject_SetItem(dict_object, *elem, *value);
         }

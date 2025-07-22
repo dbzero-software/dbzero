@@ -699,6 +699,15 @@ namespace db0::object_model
         unrefObjectBase<ByteArray, PyToolkit>(fixture, value.asAddress());
     }
     
+    // CLASS specialization
+    template <> void unrefMember<StorageClass::DB0_CLASS, PyToolkit>(
+        db0::swine_ptr<Fixture> &fixture, Value value)
+    {
+        auto &class_factory = fixture->get<ClassFactory>();
+        auto class_item = class_factory.getTypeByAddr(value.asUniqueAddress().getAddress());
+        class_item.m_class->decRef(false);
+    }
+
     template <> void registerUnrefMemberFunctions<PyToolkit>(
         std::vector<void (*)(db0::swine_ptr<Fixture> &, Value)> &functions)
     {
@@ -711,6 +720,7 @@ namespace db0::object_model
         functions[static_cast<int>(StorageClass::DB0_DICT)] = unrefMember<StorageClass::DB0_DICT, PyToolkit>;
         functions[static_cast<int>(StorageClass::DB0_TUPLE)] = unrefMember<StorageClass::DB0_TUPLE, PyToolkit>;
         functions[static_cast<int>(StorageClass::DB0_BYTES_ARRAY)] = unrefMember<StorageClass::DB0_BYTES_ARRAY, PyToolkit>;
+        functions[static_cast<int>(StorageClass::DB0_CLASS)] = unrefMember<StorageClass::DB0_CLASS, PyToolkit>;
         // FIXME: uncomment and refactor when handling of BYTES is fixed (same storage)
         // functions[static_cast<int>(StorageClass::DB0_SERIALIZED)] = unrefMember<StorageClass::DB0_SERIALIZED, PyToolkit>;
     }

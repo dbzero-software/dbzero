@@ -802,11 +802,12 @@ namespace db0::python
         }
         Py_RETURN_FALSE;
     }
-        
-    Py_hash_t PyAPI_MemoHash(PyObject *self)
+    
+    Py_hash_t PyAPI_MemoHash(MemoObject *self)
     {
         PY_API_FUNC
-        return runSafe(getPyHashImpl<TypeId::MEMO_OBJECT>, self);
+        auto fixture = self->ext().getFixture();
+        return runSafe(getPyHashImpl<TypeId::MEMO_OBJECT>, fixture, self);
     }
     
     PyObject *tryGetSchema(PyTypeObject *py_type)

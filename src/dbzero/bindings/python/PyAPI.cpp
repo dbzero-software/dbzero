@@ -1030,6 +1030,12 @@ namespace db0::python
         return runSafe(tryLoad, py_object, kwargs, py_exclude, &load_stack);
     }
     
+    PyObject *tryHash(PyObject *obj_ptr)
+    {
+        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture();
+        return getPyHashAsPyObject(fixture, obj_ptr);
+    }
+
     PyObject *PyAPI_hash(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
         if (nargs != 1) {
@@ -1037,9 +1043,9 @@ namespace db0::python
             return NULL;
         }
         PY_API_FUNC
-        return runSafe(getPyHashAsPyObject, args[0]);
+        return runSafe(tryHash, args[0]);
     }
-
+    
     PyObject *PyAPI_materialized(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
         if (nargs != 1) {

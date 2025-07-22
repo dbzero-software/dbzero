@@ -562,3 +562,22 @@ def test_set_difference_str_values_symmetric(db0_fixture, make_set):
     set_diff = set_diff.symmetric_difference(set_3)
     assert len(set_diff) == 5
     assert set_diff== set(["1", "2", "9", "10", "11"])
+    
+
+def test_storing_new_memo_types_as_set_keys(db0_fixture):
+    set_1 = db0.set([MemoTestClass])
+    assert MemoTestClass in set_1
+
+    
+def test_storing_existing_memo_types_as_set_keys(db0_fixture):
+    _ = MemoTestClass(123)
+    set_1 = db0.set([MemoTestClass])
+    assert MemoTestClass in set_1
+    
+    
+def test_retrieving_memo_types_as_set_keys(db0_fixture):
+    _ = MemoTestClass(123)
+    set_1 = db0.set([MemoTestClass])
+    for k in set_1:
+        assert k is MemoTestClass
+    
