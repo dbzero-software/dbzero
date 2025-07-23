@@ -96,7 +96,12 @@ namespace db0::object_model
     void Dict::setItem(FixtureLock &fixture, std::uint64_t key_hash, ObjectPtr key, ObjectPtr value)
     {
         using TypeId = db0::bindings::TypeId;
-
+        if(value == nullptr){
+            // remove the item if value is nullptr (for e.g when del is called)
+            pop(key_hash, key);
+            restoreIterators();
+            return;
+        }
         auto key_item = createTypedItem<LangToolkit>(*fixture, key);
         auto value_item = createTypedItem<LangToolkit>(*fixture, value);
 
