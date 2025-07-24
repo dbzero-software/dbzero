@@ -60,11 +60,12 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "beginLocked allows no arguments");
             return NULL;
         }
-
+        
         // this (temporary) lock is to prevent auto-commit starvation which might
         // happen in a heavy load situation when locked sections are created indefinitely
         // owning the LockedCoontext's shared mutex
         {
+            WithGIL_Unlocked no_gil;
             db0::AutoCommitThread::preventAutoCommit();
         }
 
