@@ -1058,24 +1058,86 @@ namespace db0::python
 
     PyObject *tryWait(const char *prefix, long state, long timeout)
     {
+        std::unique_lock<std::recursive_mutex> api_lock;
+        {
+            // GIL have to be released to safely lock API
+            db0::python::WithGIL_Unlocked no_gil;
+            api_lock = db0::python::PyToolkit::lockApi();
+        }
+
         db0::swine_ptr<Fixture> fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(prefix, AccessType::READ_ONLY);
         if(fixture->getAccessType() == AccessType::READ_WRITE) {
             PyErr_SetString(PyExc_RuntimeError, "wait() not supported for read-write prefix");
             return nullptr;
         }
 
-        std::optional<std::chrono::steady_clock::time_point> optional_timeout;
+        std::optional<std::chrono::milliseconds> optional_timeout;
         if(timeout > 0) {
-            optional_timeout.emplace(std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout));
+            optional_timeout.emplace(std::chrono::milliseconds(timeout));
         }
 
-        while(fixture->getPrefix().getStateNum() < (StateNumType)state) {
-            if(!fixture->awaitUpdate(optional_timeout)) {
-                Py_RETURN_FALSE;
+        class StateReachedNotifier
+        {
+            std::mutex m_mtx;
+            std::condition_variable m_cv;
+            bool m_state_reached;
+
+        public:
+            StateReachedNotifier()
+            : m_state_reached(false)
+            {}
+
+            void notify_state_reached()
+            {
+                std::unique_lock lock(m_mtx);
+                m_state_reached = true;
+                m_cv.notify_all();
             }
-            fixture->refresh();
+
+            bool wait_state_reached(const std::optional<std::chrono::milliseconds> &timeout)
+            {
+                std::unique_lock lock(m_mtx);
+                auto pred = [this]{ return m_state_reached; };
+                if(timeout) {
+                    return m_cv.wait_for(lock, *timeout, pred);
+                }
+                m_cv.wait(lock, pred);
+                return true;
+            }
+        };
+
+        class StateReachedCallback : public StateReachedCallbackBase
+        {
+            std::shared_ptr<StateReachedNotifier> m_notifier;
+
+        public:
+            explicit StateReachedCallback(std::shared_ptr<StateReachedNotifier> notifier)
+                : m_notifier(std::move(notifier))
+            {                
+            }
+
+            virtual void execute() override
+            {                
+                m_notifier->notify_state_reached();
+            }
+        };
+
+        auto notifier = std::make_shared<StateReachedNotifier>();
+        auto callback = std::make_unique<StateReachedCallback>(notifier);
+        fixture->registerPrefixStateReachedCallback(state, std::move(callback));
+        fixture = nullptr;
+        bool result;
+        {
+            // We shouldn't lock python entirely on this blocking wait
+            db0::python::WithGIL_Unlocked no_gil;
+            // We have to unlock api for refresh to happen
+            api_lock.unlock();
+            result = notifier->wait_state_reached(optional_timeout);
         }
-        Py_RETURN_TRUE;
+        if(result) {
+            Py_RETURN_TRUE;
+        }
+        Py_RETURN_FALSE;
     }
 
     PyObject *PyAPI_wait(PyObject*, PyObject *args, PyObject *kwargs)
@@ -1100,7 +1162,6 @@ namespace db0::python
             return nullptr;
         }
 
-        PY_API_FUNC
         return runSafe(tryWait, prefix, state, timeout);
     }
     
@@ -1163,15 +1224,11 @@ namespace db0::python
         return runSafe(tryExpired, args[0]);
     }
 
-    PyObject *tryAwaitPrefixState(PyObject *future, const char *prefix, int state)
+    PyObject *tryAsyncWait(PyObject *future, const char *prefix, int state)
     {
         db0::swine_ptr<Fixture> fixture = PyToolkit::getPyWorkspace().getWorkspace().tryFindFixture(prefix);
         if (!fixture) {
-            PyErr_SetString(PyExc_RuntimeError, "await_prefix_state() requires prefix to be opened");
-            return nullptr;
-        }
-        if (fixture->getAccessType() != AccessType::READ_WRITE) {
-            PyErr_SetString(PyExc_RuntimeError, "await_prefix_state() requires read-write access to prefix");
+            PyErr_SetString(PyExc_RuntimeError, "async_wait() requires prefix to be opened");
             return nullptr;
         }
 
@@ -1196,8 +1253,7 @@ namespace db0::python
 
             virtual void execute() override
             {                
-                PyGILState_STATE gstate = PyGILState_Ensure();
-                
+                auto lang_lock = LangToolkit::ensureLocked();
                 {
                     auto loop = Py_OWN(PyObject_CallMethod(*m_future, "get_loop", nullptr));
                     ObjectSharedPtr future_set_result, handle;
@@ -1211,26 +1267,24 @@ namespace db0::python
                         }
                     }
                 }
-                
                 // We want to avoid 'leaking' exceptions into the main thread
                 // The kind of errors that can occur here are related to use of python API when runtime finalization has started
                 PyErr_Clear();
-                
+                // Cleanup here while we hold the GIL
                 m_future = nullptr;
-                PyGILState_Release(gstate);
             }
         };
         fixture->registerPrefixStateReachedCallback(state, std::make_unique<StateReachedCallback>(future));
         Py_RETURN_NONE;
     }
     
-    PyObject *PyAPI_await_prefix_state(PyObject *, PyObject *args, PyObject *kwargs)
+    PyObject *PyAPI_async_wait(PyObject *, PyObject *args, PyObject *kwargs)
     {
         PyObject *future = nullptr;
         const char *prefix = nullptr;
         int state = 0;
         const char * const kwlist[] = {"future", "prefix", "state", nullptr};
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "Osi:await_prefix_state", const_cast<char**>(kwlist), &future, &prefix, &state)) {
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "Osi:async_wait", const_cast<char**>(kwlist), &future, &prefix, &state)) {
             return nullptr;
         }
         if (state <= 0) {
@@ -1239,7 +1293,7 @@ namespace db0::python
         }
 
         PY_API_FUNC
-        return runSafe(tryAwaitPrefixState, future, prefix, state);
+        return runSafe(tryAsyncWait, future, prefix, state);
     }
 
     PyObject *tryGetConfig()
