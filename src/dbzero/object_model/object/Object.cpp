@@ -269,7 +269,7 @@ namespace db0::object_model
             // this is because the actual change may be missed if performed on a different-then the 1st DP
             _touch();
         }
-
+        
         assert(m_type);
         // find already existing field index
         auto [field_id, is_init_var] = m_type->findField(field_name);

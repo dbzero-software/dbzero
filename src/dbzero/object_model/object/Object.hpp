@@ -150,8 +150,11 @@ namespace db0::object_model
         void endInit();
         
         // Assign language specific value as a field (to already initialized or uninitialized instance)
+        // NOTE: if lang_value is nullptr then the member is removed
         void set(FixtureLock &, const char *field_name, ObjectPtr lang_value);
+        
         // Assign field of an uninitialized instance (assumed as a non-mutating operation)
+        // NOTE: if lang_value is nullptr then the member is removed
         void setPreInit(const char *field_name, ObjectPtr lang_value) const;
         
         ObjectSharedPtr tryGet(const char *field_name) const;

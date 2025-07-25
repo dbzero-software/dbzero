@@ -117,3 +117,9 @@ def test_unreference_type_member(db0_fixture):
     obj_1.value = None
     assert db0.getrefcount(MemoTestEQClass) < ref_cnt_2
     
+    
+def test_memo_field_deletion(db0_fixture):
+    obj_1 = MemoTestClass(1)
+    del obj_1.value
+    assert not hasattr(obj_1, "value")
+    
