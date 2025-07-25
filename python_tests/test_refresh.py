@@ -1,7 +1,7 @@
 import pytest
-import random
 import multiprocessing
 import time
+import asyncio
 import dbzero_ce as db0
 from .conftest import DB0_DIR
 from .memo_test_types import DynamicDataClass, DynamicDataSingleton, MemoTestClass, MemoTestSingleton
@@ -412,7 +412,7 @@ def test_wait_for_updates(db0_fixture):
         db0.open(prefix, "rw")
         reader_sem.release()
         while True:
-            if not writer_sem.acquire(timeout=3.0):
+            if not writer_sem.acquire(timeout=10.0):
                 return # Safeguard
             time.sleep(0.1)
             _obj = MemoTestClass(123)
@@ -451,6 +451,17 @@ def test_wait_for_updates(db0_fixture):
     assert db0.wait(prefix, current_num + 1, 1000) == False
     # Wait long timeout
     assert db0.wait(prefix, current_num + 1, 6000) == False
+    # Retry after timeout
+    make_trasaction(1)
+    assert db0.wait(prefix, current_num + 1, 1000)
+
+    current_num = db0.get_state_num(prefix)
+    # Wait higher state timeout
+    make_trasaction(3)
+    assert db0.wait(prefix, current_num + 4, 1000) is False
+    # Retry
+    make_trasaction(1)
+    assert db0.wait(prefix, current_num + 4, 1000)
 
     p.terminate()
     p.join()
@@ -517,5 +528,71 @@ def test_refresh_issue1(db0_slab_size):
         max_repeat -= 1
     
     p.join()
-    
-        
+
+async def test_async_wait_for_updates(db0_fixture):
+    prefix = db0.get_current_prefix().name
+    db0.commit()
+    db0.close()
+
+    def writer_process(prefix, writer_sem, reader_sem):
+        db0.init(DB0_DIR)
+        db0.open(prefix, "rw")
+        reader_sem.release()
+        while True:
+            if not writer_sem.acquire(timeout=10.0):
+                return # Safeguard
+            time.sleep(0.1)
+            _obj = MemoTestClass(123)
+            db0.commit()
+
+    writer_sem = multiprocessing.Semaphore(0)
+    reader_sem = multiprocessing.Semaphore(0)
+    def make_trasaction(n):
+        for _ in range(n):
+            writer_sem.release()
+
+    p = multiprocessing.Process(target=writer_process, args=(prefix, writer_sem, reader_sem))
+    p.start()
+    reader_sem.acquire()
+
+    db0.init(DB0_DIR)
+    db0.open(prefix, "r")
+
+    async def with_timeout(future, timeout):
+        done, _pending = await asyncio.wait((future,), timeout=timeout)
+        return True if done else False
+
+    # Start waiting before transactions complete
+    current_num = db0.get_state_num(prefix)
+    make_trasaction(5)
+    assert await with_timeout(db0.async_wait(prefix, current_num + 5), 1)
+
+    # Start waiting after transactions complete
+    current_num = db0.get_state_num(prefix)
+    make_trasaction(2)
+    time.sleep(0.5)
+    assert await with_timeout(db0.async_wait(prefix, current_num + 1), 1)
+
+    current_num = db0.get_state_num(prefix)
+    # Wait current state
+    assert await with_timeout(db0.async_wait(prefix, current_num), 1)
+    # Wait past state
+    assert await with_timeout(db0.async_wait(prefix, current_num - 2), 1)
+    # Wait timeout
+    assert await with_timeout(db0.async_wait(prefix, current_num + 1), 1) is False
+    # Wait long timeout
+    assert await with_timeout(db0.async_wait(prefix, current_num + 1), 6) is False
+    # Retry after timeout
+    make_trasaction(1)
+    assert await with_timeout(db0.async_wait(prefix, current_num + 1), 1)
+
+    current_num = db0.get_state_num(prefix)
+    # Wait higher state timeout
+    make_trasaction(3)
+    assert await with_timeout(db0.async_wait(prefix, current_num + 4), 1) is False
+    # Retry
+    make_trasaction(1)
+    assert await with_timeout(db0.async_wait(prefix, current_num + 4), 1)
+
+    p.terminate()
+    p.join()

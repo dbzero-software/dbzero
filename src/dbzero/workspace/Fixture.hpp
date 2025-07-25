@@ -78,7 +78,9 @@ namespace db0
     */
     class Fixture: public Memspace
     {
-    public:        
+    public:
+        using StateReachedCallbackList = std::vector<std::unique_ptr<StateReachedCallbackBase>>;
+
         // Limited String Pool's slot number
         static constexpr std::uint32_t LSP_SLOT_NUM = 1;
         // slot number for DB0 types and enums
@@ -206,15 +208,13 @@ namespace db0
          * Get read-only snapshot of the fixture's state within a specific WorkspaceView
         */
         db0::swine_ptr<Fixture> getSnapshot(Snapshot &, std::optional<std::uint64_t> state_num) const;
-        
-        void onUpdated();
 
         /**
-         * Block until new data version is detected.
-         * Return immediately if there's already a new update pending.
-         * @return true if the fixture was updated, false on timeout
-         */
-        bool awaitUpdate(std::optional<std::chrono::steady_clock::time_point> timeout_point = std::nullopt);
+         * Mark this fixture for commit
+        */
+        void onUpdated();
+        
+        StateReachedCallbackList onRefresh();
 
         /**
          * Get the Snapshot interface of the related workspace
@@ -289,13 +289,8 @@ namespace db0
         std::atomic<bool> m_commit_pending = false;
 
         // For read/write fixtures:
-        // the onUpdate is called whenever the fixture is modified
-        // For read-only fixtures:
-        // the updates flag set to true means that the refresh thread detected external changes
-        // and refresh might be possible
+        // the onUpdated is called whenever the fixture is modified
         std::atomic<bool> m_updated = false;
-        std::mutex m_update_watch_mtx;
-        std::condition_variable m_update_watch_cv;
                 
         StringPoolT openLimitedStringPool(Memspace &, MetaAllocator &);
         
@@ -322,6 +317,7 @@ namespace db0
         
     protected:
         friend class FixtureThread;
+        friend class FixtureThreadCallbacksContext;
         friend class FixtureLock;
         friend class AutoCommitThread;
         friend class Workspace;
@@ -334,7 +330,6 @@ namespace db0
         // ends all locked sections, invokes callback for all mutated ones
         void endAllLocked(std::function<void(unsigned int)> callback);
         
-        using StateReachedCallbackList = std::vector<std::unique_ptr<StateReachedCallbackBase>>;
         std::map<StateNumType, StateReachedCallbackList> m_state_num_callbacks;
 
         /**
