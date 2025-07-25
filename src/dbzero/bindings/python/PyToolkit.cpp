@@ -683,4 +683,8 @@ namespace db0::python
         return std::make_unique<GIL_Lock>();
     }
     
+    bool PyToolkit::isValid(ObjectPtr py_object) {
+        return py_object != nullptr;
+    }
+    
 }

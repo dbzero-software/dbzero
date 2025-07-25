@@ -291,7 +291,7 @@ namespace db0::python
         // assign value to a dbzero attribute
         try {
             // must materialize the object before setting as an attribute
-            if (!db0::object_model::isMaterialized(value)) {
+            if (value && !db0::object_model::isMaterialized(value)) {
                 db0::FixtureLock lock(self->ext().getFixture());
                 db0::object_model::materialize(lock, value);
             }

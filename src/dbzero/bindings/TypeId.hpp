@@ -45,13 +45,16 @@ namespace db0::bindings
         DB0_ENUM = 110,
         DB0_ENUM_VALUE = 111,
         DB0_FIELD_DEF = 112,
+        // dbzero class object (e.g. PyClass)
         DB0_CLASS = 113,
         DB0_ENUM_VALUE_REPR = 114,
         DB0_TAG = 115,
         DB0_WEAK_PROXY = 116,
         MEMO_EXPIRED_REF = 117,
+        // Python type decorated as memo
+        MEMO_TYPE = 118,
         // COUNT determines size of the type operator arrays
-        COUNT = 118,
+        COUNT = 119,
         // unrecognized type
         UNKNOWN = std::numeric_limits<std::uint16_t>::max()
     };

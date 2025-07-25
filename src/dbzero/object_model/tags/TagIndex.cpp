@@ -539,7 +539,7 @@ namespace db0::object_model
         auto type_id = LangToolkit::getTypeManager().getTypeId(arg);
         // simple tag-convertible type
         if (type_id == TypeId::STRING || type_id == TypeId::DB0_TAG || type_id == TypeId::DB0_ENUM_VALUE || 
-            type_id == TypeId::DB0_CLASS) 
+            type_id == TypeId::DB0_CLASS)
         {
             if (isLongTag(type_id, arg)) {
                 // query as the long-tag

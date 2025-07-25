@@ -47,6 +47,7 @@ namespace db0::object_model
         void init(Object &object, TypeInitializer &&);
 
         void set(unsigned int at, StorageClass storage_class, Value value);
+        void remove(unsigned int at);
         
         void setInstanceKey(const char *str_key);
 

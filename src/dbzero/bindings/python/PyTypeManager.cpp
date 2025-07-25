@@ -138,11 +138,11 @@ namespace db0::python
         if (!ptr) {
             return TypeId::UNKNOWN;
         }
-
+        
         if (PyType_Check(ptr)) {
             auto py_type = reinterpret_cast<PyTypeObject*>(ptr);
             if (PyMemoType_Check(py_type)) {
-                return TypeId::DB0_CLASS;
+                return TypeId::MEMO_TYPE;
             }
         }
         

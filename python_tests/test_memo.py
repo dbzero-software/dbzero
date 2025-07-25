@@ -117,3 +117,25 @@ def test_unreference_type_member(db0_fixture):
     obj_1.value = None
     assert db0.getrefcount(MemoTestEQClass) < ref_cnt_2
     
+    
+def test_memo_field_deletion(db0_fixture):
+    obj_1 = MemoTestClass(1)
+    del obj_1.value
+    assert not hasattr(obj_1, "value")
+    
+    
+@db0.memo
+class MemoClassWithDel:
+    def __init__(self, value):
+        self.value = value        
+        # create value_2 and delete it before object is initialized
+        self.value_2 = value + 1
+        del self.value_2
+    
+    
+def test_memo_field_deletion_in_pre_init(db0_fixture):
+    obj_1 = MemoClassWithDel(1)
+    # NOTE: this attribute (although deleted) appears as None because it appears in the __init__ method
+    # and the null-defaulting migration rule is applied by dbzero
+    assert obj_1.value_2 is None
+    
