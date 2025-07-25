@@ -66,8 +66,8 @@ namespace db0::python
         return obj.getAddress().getValue();
     }
     
-    // CLASS specialization
-    template <> std::int64_t getPyHashImpl<TypeId::DB0_CLASS>(db0::swine_ptr<Fixture> &fixture, PyObject *obj_ptr)
+    // MEMO_TYPE specialization
+    template <> std::int64_t getPyHashImpl<TypeId::MEMO_TYPE>(db0::swine_ptr<Fixture> &fixture, PyObject *obj_ptr)
     {
         auto py_type = reinterpret_cast<PyTypeObject*>(obj_ptr);
         auto &class_factory = fixture->get<db0::object_model::ClassFactory>();
@@ -108,7 +108,7 @@ namespace db0::python
         functions[static_cast<int>(TypeId::DB0_ENUM_VALUE)] = getPyHashImpl<TypeId::DB0_ENUM_VALUE>;
         functions[static_cast<int>(TypeId::DB0_ENUM_VALUE_REPR)] = getPyHashImpl<TypeId::DB0_ENUM_VALUE_REPR>;
         functions[static_cast<int>(TypeId::MEMO_OBJECT)] = getPyHashImpl<TypeId::MEMO_OBJECT>;
-        functions[static_cast<int>(TypeId::DB0_CLASS)] = getPyHashImpl<TypeId::DB0_CLASS>;
+        functions[static_cast<int>(TypeId::MEMO_TYPE)] = getPyHashImpl<TypeId::MEMO_TYPE>;
         functions[static_cast<int>(TypeId::DATETIME)] = getPyHashImpl_for_simple_obj;
         functions[static_cast<int>(TypeId::DATETIME_TZ)] = getPyHashImpl_for_simple_obj;
         functions[static_cast<int>(TypeId::DATE)] = getPyHashImpl_for_simple_obj;

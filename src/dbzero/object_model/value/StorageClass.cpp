@@ -28,6 +28,8 @@ namespace db0::object_model
         addMapping(TypeId::BYTES, PreStorageClass::DB0_BYTES);
         addMapping(TypeId::MEMO_OBJECT, PreStorageClass::OBJECT_REF);
         addMapping(TypeId::DB0_CLASS, PreStorageClass::DB0_CLASS);
+        // storage class for memo types is DB0_CLASS
+        addMapping(TypeId::MEMO_TYPE, PreStorageClass::DB0_CLASS);
         addMapping(TypeId::DB0_LIST, PreStorageClass::DB0_LIST);
         addMapping(TypeId::DB0_DICT, PreStorageClass::DB0_DICT);
         addMapping(TypeId::DB0_SET, PreStorageClass::DB0_SET);

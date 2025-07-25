@@ -49,6 +49,7 @@ namespace db0::object_model
         
         // NOTE: index-only comparison
         bool operator==(const XValue &) const;
+        bool operator!=(const XValue &) const;
         
         // bitwise comparison
         bool equalTo(const XValue &other) const;

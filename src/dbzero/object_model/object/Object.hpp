@@ -152,10 +152,12 @@ namespace db0::object_model
         // Assign language specific value as a field (to already initialized or uninitialized instance)
         // NOTE: if lang_value is nullptr then the member is removed
         void set(FixtureLock &, const char *field_name, ObjectPtr lang_value);
+        void remove(FixtureLock &, const char *field_name);
         
         // Assign field of an uninitialized instance (assumed as a non-mutating operation)
         // NOTE: if lang_value is nullptr then the member is removed
         void setPreInit(const char *field_name, ObjectPtr lang_value) const;
+        void removePreInit(const char *field_name) const;
         
         ObjectSharedPtr tryGet(const char *field_name) const;
         ObjectSharedPtr tryGetAs(const char *field_name, TypeObjectPtr) const;
@@ -304,7 +306,7 @@ namespace db0::object_model
         */
         KV_Index *addKV_First(const XValue &);
 
-        const KV_Index *tryGetKV_Index() const;   
+        KV_Index *tryGetKV_Index() const;
         
         void dropMembers(Class &) const;
         void dropTags(Class &) const;

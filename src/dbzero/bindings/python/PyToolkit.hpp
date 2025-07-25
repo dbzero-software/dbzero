@@ -163,6 +163,7 @@ namespace db0::python
         // Get existing tag or return 0x0 if not found
         static std::uint64_t getTagFromString(ObjectPtr py_object, StringPoolT &);
         
+        static bool isValid(ObjectPtr py_object);
         static bool isString(ObjectPtr py_object);
         static bool isIterable(ObjectPtr py_object);
         static bool isSequence(ObjectPtr py_object);
