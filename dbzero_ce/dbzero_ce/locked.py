@@ -1,11 +1,11 @@
 import asyncio
 from typing import List, Tuple
-from .dbzero_ce import begin_locked, _await_prefix_state, get_config, commit
+from .dbzero_ce import begin_locked, _async_wait, get_config, commit
 
 
-def await_prefix_state(prefix_name, state_number):
+def async_wait(prefix_name, state_number):
     future = asyncio.get_running_loop().create_future()
-    _await_prefix_state(future, prefix_name, state_number)
+    _async_wait(future, prefix_name, state_number)
     return future
 
 
@@ -13,7 +13,7 @@ async def await_commit(mutation_log: List[Tuple[str, int]]):
     if mutation_log:
         if get_config()['autocommit']:
             for prefix_name, state_number in mutation_log:
-                await await_prefix_state(prefix_name, state_number)
+                await async_wait(prefix_name, state_number)
         else:
             # To ensure expected behavior, we make explicit commit when autocommit is disabled
             for prefix_name, _state_number in mutation_log:

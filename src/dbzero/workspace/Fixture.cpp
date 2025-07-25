@@ -224,7 +224,6 @@ namespace db0
         }
         
         assert(getAccessType() == AccessType::READ_ONLY && "Refresh only makes sense for read-only fixtures");
-        m_updated = false;
         if (!Memspace::beginRefresh()) {
             return false;
         }
@@ -249,32 +248,28 @@ namespace db0
 
         return true;
     }
-    
+
     void Fixture::onUpdated()
     {
+        // collect locked-section mutations            
+        m_mutation_log.onDirty();
+        m_updated = true;
+    }
+    
+    Fixture::StateReachedCallbackList Fixture::onRefresh()
+    {
+        std::unique_lock<std::mutex> lock(m_close_mutex);
+        if (Memspace::isClosed()) {
+            return {};
+        }
+
         {
-            std::unique_lock<std::mutex> lock(m_update_watch_mtx);
-            // collect locked-section mutations            
-            m_mutation_log.onDirty();
-            m_updated = true;
+            std::unique_lock<std::shared_mutex> lock(m_commit_mutex);
+            refresh();
+            return collectStateReachedCallbacks();      
         }
-        m_update_watch_cv.notify_all();
     }
-    
-    bool Fixture::awaitUpdate(std::optional<std::chrono::steady_clock::time_point> timeout_point) {
-        assert(getAccessType() == AccessType::READ_ONLY && "Waiting for update only allowed for read-only fixtures");
 
-        std::unique_lock<std::mutex> lock(m_update_watch_mtx);
-        auto pred = [this]{ return m_updated.load(); };
-
-        if(timeout_point) {
-            return m_update_watch_cv.wait_until(lock, *timeout_point, pred);
-        }
-
-        m_update_watch_cv.wait(lock, pred);
-        return true;
-    }
-    
     bool Fixture::refreshIfUpdated()
     {
         // only refresh read-only fixtures        

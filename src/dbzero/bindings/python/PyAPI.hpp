@@ -159,7 +159,7 @@ namespace db0::python
 
     PyObject *PyAPI_expired(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
 
-    PyObject *PyAPI_await_prefix_state(PyObject *, PyObject *args, PyObject *kwargs);
+    PyObject *PyAPI_async_wait(PyObject *, PyObject *args, PyObject *kwargs);
 
     PyObject *PyAPI_getConfig(PyObject *, PyObject *);
     
