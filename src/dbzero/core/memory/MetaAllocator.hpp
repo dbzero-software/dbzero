@@ -39,7 +39,7 @@ namespace db0
         
         o_meta_header(std::uint32_t page_size, std::uint32_t slab_size);
     };
-
+    
     class MetaAllocator: public Allocator
     {
     public:
@@ -258,6 +258,10 @@ namespace db0
             void close();
             void commit() const;
             void detach() const;
+            
+            void beginAtomic();
+            void endAtomic();
+            void cancelAtomic();
 
             void forAllSlabs(std::function<void(const SlabAllocator &, std::uint32_t)>) const;
         };
@@ -281,9 +285,12 @@ namespace db0
             void forAllSlabs(std::function<void(const SlabAllocator &, std::uint32_t)>) const;
 
             void detach() const;
-
             void commit() const;
 
+            void beginAtomic();
+            void endAtomic();
+            void cancelAtomic();
+            
             void close();
         };
         

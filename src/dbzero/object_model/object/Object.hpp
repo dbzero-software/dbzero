@@ -24,7 +24,7 @@ namespace db0::object_model
 
 {
 
-    class Class;    
+    class Class;
     using Fixture = db0::Fixture;
     
     class [[gnu::packed]] o_object: public db0::o_base<o_object, 0, false>

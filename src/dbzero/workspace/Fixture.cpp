@@ -478,7 +478,7 @@ namespace db0
         m_atomic_context_ptr = nullptr;
 
         m_meta_allocator.endAtomic();
-        m_v_object_cache.endAtomic();
+        m_v_object_cache.endAtomic();        
         getGC0().endAtomic();
         Memspace::endAtomic();
     }
