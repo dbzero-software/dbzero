@@ -6,7 +6,7 @@ import random
 
     
 @pytest.mark.stress_test
-@pytest.mark.parametrize("db0_slab_size", [{"slab_size": 64 << 20, "autocommit": True, "autocommit_interval": 250}], indirect=True)
+@pytest.mark.parametrize("db0_slab_size", [{"slab_size": 512 << 20, "autocommit": True, "autocommit_interval": 250}], indirect=True)
 def test_create_random_objects_stress_test(db0_slab_size):
     def rand_string(max_len = 8192):
         import random
@@ -57,9 +57,9 @@ def test_create_random_objects_stress_test(db0_slab_size):
     rand_dram_io = 0
     rand_file_write_ops = 0
     bytes_written = 0
-    for _ in range(append_count):        
+    for _ in range(append_count):
         with db0.atomic():
-            buf.append(MemoTestClass(rand_value()))
+            buf.append(MemoTestClass(rand_value()))        
         total_bytes += len(buf[-1].value)
         count += 1
         if total_bytes > report_bytes:

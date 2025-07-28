@@ -45,17 +45,18 @@ namespace db0::python
         .tp_free = PyObject_Free,
     };
     
-    PyLocked *tryBeginLocked(PyObject *self)
+    PyLocked *PyAPI_tryBeginLocked(PyObject *self)
     {   
-        auto workspace_ptr = PyToolkit::getPyWorkspace().getWorkspaceSharedPtr();        
-        auto py_object = Py_OWN(PyLocked_new(&PyLockedType, NULL, NULL));        
-        {
-            // this lock is to prevent auto-commit starvation which might
-            // happen in a heavy load situation when locked sections are created indefinitely
-            // owning the LockedCoontext's shared mutex
-            auto ac_lock = db0::AutoCommitThread::preventAutoCommit();
-        }
+        // NOTE: lock order is important here (API, GIL order is provided by PY_API_FUNC macro)
+        // 1. locked_mutex (shared)
+        // 2. API
+        // 3. GIL
         auto shared_lock = db0::LockedContext::lockShared();
+
+        PY_API_FUNC
+        auto workspace_ptr = PyToolkit::getPyWorkspace().getWorkspaceSharedPtr();
+        auto py_object = Py_OWN(PyLocked_new(&PyLockedType, NULL, NULL));
+        
         py_object->makeNew(workspace_ptr, std::move(shared_lock));        
         return py_object.steal();
     }
@@ -66,10 +67,18 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "beginLocked allows no arguments");
             return NULL;
         }
-        PY_API_FUNC
-        return runSafe(tryBeginLocked, self);
-    }
+        
+        // this (temporary) lock is to prevent auto-commit starvation which might
+        // happen in a heavy load situation when locked sections are created indefinitely
+        // owning the LockedCoontext's shared mutex
+        {
+            WithGIL_Unlocked no_gil;
+            db0::AutoCommitThread::preventAutoCommit();
+        }
 
+        return runSafe(PyAPI_tryBeginLocked, self);
+    }
+    
     bool PyLocked_Check(PyObject *object) {
         return Py_TYPE(object) == &PyLockedType;
     }

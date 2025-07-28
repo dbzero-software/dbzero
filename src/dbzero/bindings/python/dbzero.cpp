@@ -100,7 +100,7 @@ static PyMethodDef dbzero_methods[] =
     {"_get_current_prefix", &py::PyAPI_getCurrentPrefix, METH_VARARGS, "Get current prefix name & UUID as tuple"},
     {"_make_enum", (PyCFunction)&py::PyAPI_makeEnum, METH_VARARGS | METH_KEYWORDS, "Define new or retrieve existing Enum type"},
     {"_compare", (PyCFunction)&py::PyAPI_compare, METH_VARARGS | METH_KEYWORDS, "Binary-compare (shallow) 2 dbzero objects with optional tags' assignments check"},
-    {"_await_prefix_state", (PyCFunction)&py::PyAPI_await_prefix_state, METH_VARARGS | METH_KEYWORDS, "Get notified about state number being reached"},    
+    {"_async_wait", (PyCFunction)&py::PyAPI_async_wait, METH_VARARGS | METH_KEYWORDS, "Get notified about state number being reached"},    
     {"_select_mod_candidates", (PyCFunction)&py::PyAPI_selectModCandidates, METH_VARARGS | METH_KEYWORDS, "Filter to return only objects which could potentially be modified within a specific scope"},
     {"_split_by_snapshots", (PyCFunction)&py::PyAPI_splitBySnapshots, METH_FASTCALL, "Splits a given query to produce results from the 2 given snapshots (as a tuple)"},
 #ifndef NDEBUG

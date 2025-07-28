@@ -374,32 +374,32 @@ def test_memo_classes_ref_counting(db0_fixture):
     assert count_3 == count_2 + 1
     
 
-# def test_comparators_should_work_for_memo_when_opposed_opperator_is_defined(db0_fixture):
-#     obj1 = DataClassWithMinimalComparators(5)
-#     obj2 = DataClassWithMinimalComparators(10)
+def test_comparators_should_work_for_memo_when_opposed_opperator_is_defined(db0_fixture):
+    obj1 = DataClassWithMinimalComparators(5)
+    obj2 = DataClassWithMinimalComparators(10)
 
-#     # Test __eq__
-#     assert obj1 == obj1
-#     # Test __ne__ as opposed to __eq__
-#     assert obj1 != obj2
+    # Test __eq__
+    assert obj1 == obj1
+    # Test __ne__ as opposed to __eq__
+    assert obj1 != obj2
 
-#     # Test __lt__
-#     assert obj1 < obj2
-#     assert not obj2 < obj1
+    # Test __lt__
+    assert obj1 < obj2
+    assert not obj2 < obj1
 
-#     # Test __le__
-#     assert obj1 <= obj1
-#     assert obj1 <= obj2
-#     assert not obj2 <= obj1
+    # Test __le__
+    assert obj1 <= obj1
+    assert obj1 <= obj2
+    assert not obj2 <= obj1
 
-#     # Test __gt__ 
-#     assert obj2 > obj1
-#     assert not obj1 > obj2
+    # Test __gt__ 
+    assert obj2 > obj1
+    assert not obj1 > obj2
 
-#     # Test __ge__
-#     assert obj2 >= obj2
-#     assert obj2 >= obj1
-#     assert not obj1 >= obj2
+    # Test __ge__
+    assert obj2 >= obj2
+    assert obj2 >= obj1
+    assert not obj1 >= obj2
 
 
 def test_equality_operator_on_instances_created_in_line(db0_fixture):
@@ -424,8 +424,34 @@ def test_equality_operator_on_instances_created_in_line(db0_fixture):
     assert DataClassWithComparators(10) >= DataClassWithComparators(10)
     assert DataClassWithComparators(10) >= DataClassWithComparators(5)
     assert not DataClassWithComparators(5) >= DataClassWithComparators(10)
-    
-    
+
+@db0.memo
+class DataClassWitEQComparators:
+    def __init__(self, value):
+        self.value = value
+
+    def __eq__(self, other):
+        if isinstance(other, DataClassWitEQComparators):
+            return self.value == other.value
+        return NotImplemented
+
+    def __lt__(self, other):
+        if isinstance(other, DataClassWitEQComparators):
+            return self.value < other.value
+        return NotImplemented
+
+
+def test_compare_works_with_not_implemented_operator(db0_fixture):
+    # Test __eq__ and __ne__
+    assert DataClassWitEQComparators(10) == DataClassWitEQComparators(10)
+    assert DataClassWitEQComparators(5) != DataClassWitEQComparators(10)
+
+    # Test __lt__
+    assert DataClassWitEQComparators(5) < DataClassWitEQComparators(10)
+
+    assert not DataClassWitEQComparators(5) > DataClassWitEQComparators(10)
+
+
 def test_hasattr_on_memo_objects(db0_fixture):
     obj = MemoTestClass(0)
     assert hasattr(obj, "value")
@@ -459,4 +485,3 @@ def test_memo_object_ref_counting_with_tags(db0_fixture):
     assert db0.getrefcount(object_2) == 3
     db0.tags(object_2).remove("test-1", "test-2")
     assert db0.getrefcount(object_2) == 1
-                

@@ -20,6 +20,10 @@ namespace db0::object_model
         return getIndex() == other.getIndex();
     }
     
+    bool XValue::operator!=(const XValue &other) const {
+        return getIndex() != other.getIndex();        
+    }
+    
     bool XValue::equalTo(const XValue &other) const {
         return std::memcmp(this, &other, sizeof(XValue)) == 0;
     }

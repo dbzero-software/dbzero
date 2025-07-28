@@ -10,7 +10,7 @@ namespace db0
 {
 
     static constexpr double MIN_FILL_RATE = 0.25;
-    
+        
     inline unsigned char getRealmID(std::uint32_t slab_id) {
         return slab_id & MetaAllocator::REALM_MASK;
     }
@@ -156,6 +156,10 @@ namespace db0
             return m_active_slab;
         }
 
+        void resetActiveSlab() {
+            m_active_slab = {};
+        }
+
         /**
          * Retrieve the 1st slab to allocate a block of at least min_capacity
          * this is only a 'hint' and if the allocation is not possible, the next slab should be attempted         
@@ -175,7 +179,12 @@ namespace db0
                     ++it;
                     continue;
                 }
-                return openSlab(m_slab_address_func(it->m_slab_id));
+                auto slab = openSlab(m_slab_address_func(it->m_slab_id));
+                if (!m_active_slab) {
+                    // make the slab active
+                    m_active_slab = slab;
+                }
+                return slab;
             }
         }
         
@@ -196,7 +205,12 @@ namespace db0
                     // do not include active slab in find operation                    
                     continue;
                 }
-                return openSlab(m_slab_address_func(it.first->m_slab_id));
+                auto slab = openSlab(m_slab_address_func(it.first->m_slab_id));
+                if (!m_active_slab) {
+                    // make the slab active
+                    m_active_slab = slab;
+                }
+                return slab;
             }
         }
         
@@ -223,6 +237,7 @@ namespace db0
                 // if atomic operation is in progress, add to the volatile slabs
                 m_volatile_slabs.push_back(address);
             }
+            
             return { slab, slab_id };
         }
         
@@ -259,11 +274,11 @@ namespace db0
                 m_recycler_ptr->append(slab);
             }
 
-            // make the new slab active
+            // make the newly added slab active
             m_active_slab = { slab, cap_item };
             return m_active_slab;
         }
-
+        
         std::uint32_t getRemainingCapacity(std::uint32_t slab_id) const
         {
             // look up with the cache first
@@ -368,7 +383,7 @@ namespace db0
             // pull through cache
             return openSlab(slab_def).m_slab;
         }
-
+        
         /**
          * Open existing slab which has been previously reserved
         */
@@ -404,7 +419,7 @@ namespace db0
         Address getFirstAddress() const {
             return m_slab_address_func(m_realm_id) + SlabAllocator::getFirstAddress();
         }
-
+        
         void commit() const
         {
             for (auto &it : m_slabs) {
@@ -417,8 +432,8 @@ namespace db0
             // detach all cached slabs
             for (auto &it : m_slabs) {
                 it.second->detach();
-            }
-            m_active_slab = {};
+            }            
+            // NOTE: we retain the slab element because it's detached
             // invalidate cached variable
             m_next_slab_id = {};
         }
@@ -432,17 +447,17 @@ namespace db0
         }
 
         void beginAtomic()
-        {
+        {            
             assert(!m_atomic);
             assert(m_volatile_slabs.empty());
-            m_atomic = true;
+            m_atomic = true;            
         }
         
         void endAtomic()
-        {
+        {            
             assert(m_atomic);
             m_volatile_slabs.clear();
-            m_atomic = false;
+            m_atomic = false;         
         }
 
         void cancelAtomic()
@@ -460,6 +475,7 @@ namespace db0
                     m_slabs.erase(it);
                 }
             }
+            m_active_slab = {};
             m_volatile_slabs.clear();
             m_atomic = false;
         }
@@ -573,10 +589,8 @@ namespace db0
             if (!slab_def_ptr.first) {
                 return {};
             }
-
-            // make the new slab active
-            m_active_slab = openSlab(*slab_def_ptr.first);
-            return m_active_slab;
+            
+            return openSlab(*slab_def_ptr.first);            
         }
 
         FindResult openSlab(Address address) const
@@ -806,13 +820,15 @@ namespace db0
                 for (;;) {
                     auto addr = slab.m_slab->tryAlloc(size, 0, aligned);
                     if (!addr) {
+                        // NOTE: since the last allocation failed, don't use this slab as "active"
+                        realm.resetActiveSlab();
                         break;
                     }
                     
                     if (!unique || slab.m_slab->tryMakeAddressUnique(*addr, instance_id)) {
                         return addr;
                     }
-                
+                    
                     // unable to make the address unique, schedule for deferred free and try again
                     // NOTE: the allocation is lost
                     deferredFree(*addr);
@@ -1035,16 +1051,14 @@ namespace db0
     }
 
     void MetaAllocator::beginAtomic()
-    {
+    {        
         assert(!m_atomic);
         m_atomic = true;
-        for (unsigned int i = 0; i < MetaAllocator::NUM_REALMS; ++i) {
-            m_realms[i].beginAtomic();
-        }        
+        m_realms.beginAtomic();
     }
-
+    
     void MetaAllocator::endAtomic()
-    {
+    {        
         assert(m_atomic);
         m_atomic = false;
         // merge atomic deferred free operations
@@ -1054,9 +1068,7 @@ namespace db0
             }
             m_atomic_deferred_free_ops.clear();
         }
-        for (unsigned int i = 0; i < MetaAllocator::NUM_REALMS; ++i) {
-            m_realms[i].endAtomic();
-        }                
+        m_realms.endAtomic();
     }
     
     void MetaAllocator::cancelAtomic()
@@ -1065,9 +1077,7 @@ namespace db0
         m_atomic = false;
         // rollback atomic deferred free operations
         m_atomic_deferred_free_ops.clear(); 
-        for (unsigned int i = 0; i < MetaAllocator::NUM_REALMS; ++i) {
-            m_realms[i].cancelAtomic();
-        }
+        m_realms.cancelAtomic();
     }
     
     MetaAllocator::RealmsVector::RealmsVector(Memspace &metaspace, std::shared_ptr<Prefix> prefix, SlabRecycler *slab_recycler,
@@ -1103,7 +1113,28 @@ namespace db0
             realm.commit();
         }
     }
-    
+
+    void MetaAllocator::RealmsVector::beginAtomic()
+    {
+        for (auto &realm: *this) {
+            realm.beginAtomic();
+        }
+    }
+
+    void MetaAllocator::RealmsVector::endAtomic()
+    {
+        for (auto &realm: *this) {
+            realm.endAtomic();
+        }
+    }
+
+    void MetaAllocator::RealmsVector::cancelAtomic()
+    {
+        for (auto &realm: *this) {
+            realm.cancelAtomic();
+        }
+    }
+
     void MetaAllocator::RealmsVector::close()
     {
         for (auto &realm: *this) {
@@ -1119,7 +1150,19 @@ namespace db0
         }
         return max_addr;
     }
-    
+
+    void MetaAllocator::Realm::beginAtomic() {
+        m_slab_manager->beginAtomic();
+    }
+
+    void MetaAllocator::Realm::endAtomic() {
+        m_slab_manager->endAtomic();
+    }
+
+    void MetaAllocator::Realm::cancelAtomic() {
+        m_slab_manager->cancelAtomic();
+    }
+
 }
 
 namespace std 

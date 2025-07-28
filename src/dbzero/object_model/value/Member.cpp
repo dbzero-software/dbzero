@@ -291,8 +291,8 @@ namespace db0::object_model
         }
     }
     
-    // CLASS specialization
-    template <> Value createMember<TypeId::DB0_CLASS, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
+    // MEMO_TYPE specialization
+    template <> Value createMember<TypeId::MEMO_TYPE, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
         PyObjectPtr obj_ptr, StorageClass)
     {    
         const auto &type_manager = PyToolkit::getTypeManager();
@@ -353,7 +353,7 @@ namespace db0::object_model
         functions[static_cast<int>(TypeId::BOOLEAN)] = createMember<TypeId::BOOLEAN, PyToolkit>;
         functions[static_cast<int>(TypeId::DB0_BYTES_ARRAY)] = createMember<TypeId::DB0_BYTES_ARRAY, PyToolkit>;
         functions[static_cast<int>(TypeId::DB0_WEAK_PROXY)] = createMember<TypeId::DB0_WEAK_PROXY, PyToolkit>;
-        functions[static_cast<int>(TypeId::DB0_CLASS)] = createMember<TypeId::DB0_CLASS, PyToolkit>;
+        functions[static_cast<int>(TypeId::MEMO_TYPE)] = createMember<TypeId::MEMO_TYPE, PyToolkit>;
     }
     
     // STRING_REF specialization

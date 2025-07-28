@@ -240,9 +240,29 @@ namespace db0::object_model
         return { type_id, storage_class };
     }
     
+    void Object::removePreInit(const char *field_name) const
+    {
+        auto &initializer = m_init_manager.getInitializer(*this);        
+        auto &type = initializer.getClass();        
+        
+        // find already existing field index
+        auto field_id = type.findField(field_name).first;
+        if (!field_id) {
+            THROWF(db0::InputException) << "Attribute not found: " << field_name;
+        }
+        
+        // remove member from the initializer
+        initializer.remove(field_id.getIndex());
+    }
+
     void Object::setPreInit(const char *field_name, ObjectPtr obj_ptr) const
     {
         assert(!hasInstance());
+        if (!LangToolkit::isValid(obj_ptr)) {
+            removePreInit(field_name);
+            return;
+        }
+
         auto &initializer = m_init_manager.getInitializer(*this);
         auto fixture = initializer.getFixture();
         auto &type = initializer.getClass();
@@ -259,11 +279,9 @@ namespace db0::object_model
         initializer.set(field_id.getIndex(), storage_class, createMember<LangToolkit>(fixture, type_id, storage_class, obj_ptr));
     }
     
-    void Object::set(FixtureLock &fixture, const char *field_name, ObjectPtr lang_value)
-    {        
+    void Object::remove(FixtureLock &fixture, const char *field_name)
+    {
         assert(hasInstance());
-        auto [type_id, storage_class] = recognizeType(**fixture, lang_value);
-        
         if (this->span() > 1) {
             // NOTE: large objects i.e. with span > 1 must always be marked with a silent mutation flag
             // this is because the actual change may be missed if performed on a different-then the 1st DP
@@ -274,13 +292,85 @@ namespace db0::object_model
         // find already existing field index
         auto [field_id, is_init_var] = m_type->findField(field_name);
         if (!field_id) {
+            THROWF(db0::InputException) << "Attribute not found: " << field_name;
+        }
+
+        if (field_id.getIndex() < (*this)->pos_vt().size()) {
+            auto &pos_vt = modify().pos_vt();
+            auto old_storage_class = pos_vt.types()[field_id.getIndex()];    
+            unrefMember(*fixture, old_storage_class, pos_vt.values()[field_id.getIndex()]);
+            // mark member as deleted by assigning UNDEFINED storage class
+            pos_vt.set(field_id.getIndex(), StorageClass::UNDEFINED, {});
+            m_type->removeFromSchema(field_id, old_storage_class);
+            return;
+        }
+
+        // try updating field in the index-vt
+        unsigned int index_vt_pos;
+        if ((*this)->index_vt().find(field_id.getIndex(), index_vt_pos)) {
+            auto &index_vt = modify().index_vt();
+            auto old_storage_class = index_vt.xvalues()[index_vt_pos].m_type;
+            unrefMember(*fixture, index_vt.xvalues()[index_vt_pos]);
+            // mark member as deleted by assigning UNDEFINED storage class
+            index_vt.set(index_vt_pos, StorageClass::UNDEFINED, {});
+            m_type->removeFromSchema(field_id, old_storage_class);
+            return;
+        }
+        
+        // remove field from the kv_index
+        auto kv_index_ptr = tryGetKV_Index();
+        if (!kv_index_ptr) {
+            THROWF(db0::InputException) << "Attribute not found: " << field_name;
+        }
+        XValue value(field_id.getIndex());
+        if (!kv_index_ptr->findOne(value)) {        
+            THROWF(db0::InputException) << "Attribute not found: " << field_name;
+        }
+        auto old_addr = kv_index_ptr->getAddress();        
+        kv_index_ptr->erase(value);
+        auto new_addr = kv_index_ptr->getAddress();
+        if (new_addr != old_addr) {
+            // type or address of the kv-index has changed which needs to be reflected
+            modify().m_kv_address = new_addr;
+            modify().m_kv_type = kv_index_ptr->getIndexType();
+        }
+        m_type->removeFromSchema(field_id, value.m_type);
+
+        // the KV-index erase operation must be registered as the potential silent mutation
+        // but the operation can be avided if the object is already marked as modified        
+        if (!super_t::isModified()) {
+            this->_touch();
+        } 
+    }
+
+    void Object::set(FixtureLock &fixture, const char *field_name, ObjectPtr lang_value)
+    {        
+        assert(hasInstance());
+        // attribute delete operation
+        if (!PyToolkit::isValid(lang_value)) {
+            remove(fixture, field_name);
+            return;
+        }
+
+        auto [type_id, storage_class] = recognizeType(**fixture, lang_value);
+        
+        if (this->span() > 1) {
+            // NOTE: large objects i.e. with span > 1 must always be marked with a silent mutation flag
+            // this is because the actual change may be missed if performed on a different-then the 1st DP
+            _touch();
+        }
+        
+        assert(m_type);
+        // find already existing field index
+        auto [field_id, is_init_var] = m_type->findField(field_name);
+        if (!field_id) {
             // try mutating the class first
             field_id = m_type->addField(field_name);
         }
         
-        assert(field_id);
-        // FIXME: value should be destroyed on exception
-        auto value = createMember<LangToolkit>(*fixture, type_id, storage_class, lang_value);
+        assert(field_id);        
+        // FIXME: value should be destroyed on exception        
+        auto value = createMember<LangToolkit>(*fixture, type_id, storage_class, lang_value);        
         // make sure object address is not null
         assert(!(storage_class == StorageClass::OBJECT_REF && value.cast<std::uint64_t>() == 0));
         if (field_id.getIndex() < (*this)->pos_vt().size()) {
@@ -384,6 +474,10 @@ namespace db0::object_model
         }
         
         auto fixture = this->getFixture();
+        // accessing a deleted member
+        if (member.first == StorageClass::UNDEFINED) {
+            return nullptr;
+        }
         return unloadMember<LangToolkit>(fixture, member.first, member.second, field_name);
     }
     
@@ -398,6 +492,12 @@ namespace db0::object_model
             auto &class_factory = getClassFactory(*fixture);
             return PyToolkit::unloadObject(fixture, member.second.asAddress(), class_factory, lang_type);
         }
+
+        // accessing a deleted member
+        if (member.first == StorageClass::UNDEFINED) {
+            return nullptr;
+        }
+                
         return unloadMember<LangToolkit>(fixture, member.first, member.second, field_name);
     }
     
@@ -648,7 +748,7 @@ namespace db0::object_model
         return m_kv_index || (*this)->m_kv_address;
     }
     
-    const KV_Index *Object::tryGetKV_Index() const
+    KV_Index *Object::tryGetKV_Index() const
     {
         // if KV index address has changed, update the cached instance
         if (!m_kv_index || m_kv_index->getAddress() != (*this)->m_kv_address) {

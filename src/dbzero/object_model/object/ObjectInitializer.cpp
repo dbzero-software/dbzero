@@ -86,11 +86,21 @@ namespace db0::object_model
     void ObjectInitializer::operator=(std::uint32_t loc) {
         m_loc = loc;
     }
-
+    
     void ObjectInitializer::set(unsigned int at, StorageClass storage_class, Value value) {
         m_values.push_back({ at, storage_class, value });
     }
-    
+
+    void ObjectInitializer::remove(unsigned int at)
+    {
+        auto it = std::remove_if(m_values.begin(), m_values.end(), [at](const XValue &xvalue) {
+            return xvalue.getIndex() == at;
+        });
+        if (it != m_values.end()) {
+            m_values.erase(it, m_values.end());
+        }
+    }
+
     bool ObjectInitializer::tryGetAt(unsigned int index, std::pair<StorageClass, Value> &result) const
     {
         // try locating element within the unsorted items first (starting from the end)
