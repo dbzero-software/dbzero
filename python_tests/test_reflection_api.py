@@ -306,14 +306,26 @@ def test_get_mutable_prefixes(db0_fixture):
 def test_method_info_class(db0_fixture):
     obj = MemoTestClassWithMethods(123)
     metaclass = db0.get_memo_class(obj)
-    method = db0.MethodInfo('many_args_method', inspect.signature(obj.many_args_method), metaclass)
 
+    method = db0.MethodInfo('many_args_method', inspect.signature(obj.many_args_method), metaclass)
     assert method.name == 'many_args_method'
     assert method.metaclass is metaclass
     params = method.get_params()
     assert all(isinstance(param, db0.MethodParam) for param in params)
     assert all(param.method is method for param in params)
     assert [param.name for param in params] == ['param1', 'param2', 'param3']
+    assert method.has_args
+    assert method.has_kwargs
+
+    method = db0.MethodInfo('get_value', inspect.signature(obj.get_value), metaclass)
+    assert [param.name for param in method.get_params()] == []
+    assert not method.has_args
+    assert not method.has_kwargs
+
+    method = db0.MethodInfo('get_value_plus', inspect.signature(obj.get_value_plus), metaclass)
+    assert [param.name for param in method.get_params()] == ['other']
+    assert not method.has_args
+    assert not method.has_kwargs
 
 
 def test_query_class(db0_fixture):
