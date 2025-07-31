@@ -19,8 +19,8 @@ from .dbzero_ce import _get_memo_classes, _get_memo_class
 _CallableParams = namedtuple("CallableParams", ["params", "has_args", "has_kwargs"])
 def _get_callable_params(parameters):
     params = []
-    has_args = True
-    has_kwargs = True
+    has_args = False
+    has_kwargs = False
     for param in parameters.values():
         if param.kind == inspect.Parameter.VAR_POSITIONAL:
             has_args = True
@@ -47,6 +47,10 @@ class MethodInfo(inspect.Signature):
 
     def get_params(self):
         return [MethodParam(param, self) for param in self.__params.params]
+
+    @property
+    def has_args(self):
+        return self.__params.has_args
 
     @property
     def has_kwargs(self):

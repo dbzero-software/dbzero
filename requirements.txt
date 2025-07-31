@@ -4,3 +4,4 @@ build==0.10.0
 meson-python==0.13.2
 patchelf==0.17.2.1
 fasteners==0.19
+psutil==7.0.0
