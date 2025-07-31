@@ -129,7 +129,7 @@ namespace db0
             }
         }
     }
-
+    
     template <typename ResourceLockT>
     void PageMap<ResourceLockT>::forEach(std::function<void(ResourceLockT &)> f) 
     {

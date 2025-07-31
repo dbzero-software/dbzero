@@ -1,6 +1,6 @@
 import inspect
 import dis
-from .dbzero_ce import wrap_memo_type, set_prefix
+from .dbzero_ce import _wrap_memo_type, set_prefix
 
 
 def migration(func):
@@ -155,7 +155,7 @@ def memo(cls=None, **kwargs):
     def wrap(cls_):
         # note that we use the dyn_prefix mechanism only for singletons
         is_singleton = kwargs.get("singleton", False)
-        return wrap_memo_type(cls_, py_file = getfile(cls_), py_init_vars = list(dis_init_assig(cls_)), \
+        return _wrap_memo_type(cls_, py_file = getfile(cls_), py_init_vars = list(dis_init_assig(cls_)), \
             py_dyn_prefix = dyn_prefix(cls_) if is_singleton else None, \
             py_migrations = list(find_migrations(cls_)) if is_singleton else None, **kwargs
         )

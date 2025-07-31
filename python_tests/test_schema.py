@@ -68,3 +68,21 @@ def test_schema_collection_types(db0_fixture):
 def test_schema_memo_type(db0_fixture):
     _ = MemoSchemaTestClass(MemoTestClass(123))
     assert db0.get_schema(MemoSchemaTestClass)["value"]["primary_type"] is db0.MemoBase    
+
+
+@db0.memo
+class Car:
+    def __init__(self, brand, model, year, photo):
+        self.brand = brand 
+        self.model = model
+        self.year = year
+        self.photo = photo
+
+def test_docs_example_car_schema(db0_fixture):
+    toyota = Car("Toyota", "Corolla", 2020, None)
+    bmw = Car("BMW", "X5", 2021, "https://example.com/bmw-x5.jpg")
+    # photo stored as a URL
+    audi = Car("Audi", "A4", 2022, b"")
+    # photo stored as bytes directly in dbzero
+    print(db0.get_schema(Car))
+    
