@@ -680,14 +680,22 @@ namespace db0::python
         
         using TypeId = db0::bindings::TypeId;
         auto &type_manager = PyToolkit::getTypeManager();
-        auto type_id = type_manager.getTypeId(py_obj);
+        auto type_id_result = type_manager.tryGetTypeId(py_obj);
+        if (!type_id_result.has_value() || type_id_result.value() == TypeId::UNKNOWN) {
+        auto load_func = Py_OWN(PyObject_GetAttrString(py_obj, "__load__"));
+            if (load_func.get()) {
+                if (PyCallable_Check(*load_func)) {
+                    return executeLoadFunction(*load_func, kwargs, py_exclude, load_stack_ptr);
+                }
+            }
+            THROWF(db0::InputException) << "cannot recognize type and __load__ not implemented for: " << Py_TYPE(py_obj)->tp_name << THROWF_END;    
+        }
+        auto type_id = type_id_result.value();
         if (type_manager.isSimplePyTypeId(type_id)) {
             // no conversion needed for simple python types
             Py_INCREF(py_obj);
             return py_obj;
         }
-
-        // FIXME: implement for other types
         if (type_id == TypeId::DB0_TUPLE) {
             return tryLoadTuple(reinterpret_cast<TupleObject*>(py_obj), kwargs, load_stack_ptr);
         } else if (type_id == TypeId::TUPLE) {

@@ -78,7 +78,9 @@ namespace db0::python
         
         // Recognize Python type of a specific object instance as TypeId (may return TypeId::UNKNOWN)
         TypeId getTypeId(ObjectPtr object_instance) const;
+        std::optional<PyTypeManager::TypeId> tryGetTypeId(ObjectPtr ptr) const;
         TypeId getTypeId(TypeObjectPtr py_type) const;
+        std::optional<PyTypeManager::TypeId> tryGetTypeId(TypeObjectPtr ptr) const;
         std::string getLangTypeName(TypeObjectPtr) const;
 
         // Retrieve a Python type object by TypeId (note that a dbzero extension type may be returned)

@@ -731,32 +731,38 @@ namespace db0::python
         
         return py_result.steal();
     }
-    
-    PyObject *tryLoadMemo(MemoObject *memo_obj, PyObject *kwargs, PyObject *py_exclude,
-        std::unordered_set<const void*> *load_stack_ptr)
+
+    PyObject* executeLoadFunction(PyObject * load_method, PyObject *kwargs, PyObject *py_exclude,
+                                  std::unordered_set<const void*> *load_stack_ptr)
     {
-        auto load_method = Py_OWN(tryMemoObject_getattro(memo_obj, *Py_OWN(PyUnicode_FromString("__load__"))));
-        if (load_method.get()) {
-            if (py_exclude != nullptr && py_exclude != Py_None && PySequence_Check(py_exclude)) {
+        if (py_exclude != nullptr && py_exclude != Py_None && PySequence_Check(py_exclude)) {
                 PyErr_SetString(PyExc_AttributeError, "Cannot exclude values when __load__ is implemented");
                 return nullptr;
             }
             
             ObjectSharedPtr result;
             if (kwargs != nullptr) {
-                auto method_kwargs = Py_OWN(getKwargsForMethod(*load_method, kwargs));
+                auto method_kwargs = Py_OWN(getKwargsForMethod(load_method, kwargs));
                 if (!method_kwargs) {
                     return nullptr;
                 }
                 auto args = Py_OWN(PyTuple_New(0));
-                result = Py_OWN(PyObject_Call(*load_method, *args, *method_kwargs));
+                result = Py_OWN(PyObject_Call(load_method, *args, *method_kwargs));
             } else {
-                result = Py_OWN(PyObject_CallObject(*load_method, nullptr));
+                result = Py_OWN(PyObject_CallObject(load_method, nullptr));
             }
             if (!result) {
                 return nullptr;
             }
             return tryLoad(*result, kwargs, nullptr, load_stack_ptr);
+    }
+    
+    PyObject *tryLoadMemo(MemoObject *memo_obj, PyObject *kwargs, PyObject *py_exclude,
+        std::unordered_set<const void*> *load_stack_ptr)
+    {
+        auto load_method = Py_OWN(tryMemoObject_getattro(memo_obj, *Py_OWN(PyUnicode_FromString("__load__"))));
+        if (load_method.get()) {
+            return executeLoadFunction(*load_method, kwargs, py_exclude, load_stack_ptr);
         }
         
         // reset Python error

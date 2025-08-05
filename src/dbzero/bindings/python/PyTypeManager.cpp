@@ -111,11 +111,11 @@ namespace db0::python
             m_py_reference_error.steal();
         }
     }
-    
-    PyTypeManager::TypeId PyTypeManager::getTypeId(TypeObjectPtr py_type) const
+
+    std::optional<PyTypeManager::TypeId> PyTypeManager::tryGetTypeId(TypeObjectPtr py_type) const
     {
         if (!py_type) {
-            return TypeId::UNKNOWN;
+            return std::nullopt;
         }
 
         // check if a memo class first
@@ -125,15 +125,24 @@ namespace db0::python
 
         // check with the static types next
         auto it = m_id_map.find(reinterpret_cast<PyObject*>(py_type));
-        if (it == m_id_map.end()) {            
-            THROWF(db0::InputException) << "Type unsupported by dbzero: " << py_type->tp_name;
+        if (it == m_id_map.end()) {
+            return std::nullopt;
         }
 
         // return a known registered type
         return it->second;
     }
+
+    PyTypeManager::TypeId PyTypeManager::getTypeId(TypeObjectPtr py_type) const
+    {
+        auto type_id = tryGetTypeId(py_type);
+        if (!type_id) {
+            THROWF(db0::InputException) << "Type unsupported by dbzero: " << py_type->tp_name;
+        }         
+        return *type_id;
+    }
     
-    PyTypeManager::TypeId PyTypeManager::getTypeId(ObjectPtr ptr) const
+    std::optional<PyTypeManager::TypeId> PyTypeManager::tryGetTypeId(ObjectPtr ptr) const
     {
         if (!ptr) {
             return TypeId::UNKNOWN;
@@ -164,7 +173,17 @@ namespace db0::python
             }
         }
 
-        return getTypeId(py_type);
+        return tryGetTypeId(py_type);
+    }
+
+    PyTypeManager::TypeId PyTypeManager::getTypeId(ObjectPtr ptr) const
+    {
+        auto type_id = tryGetTypeId(ptr);
+        if (!type_id) {
+            THROWF(db0::InputException) << "Type unsupported by dbzero: " << Py_TYPE(ptr)->tp_name;
+        }
+        
+        return *type_id;
     }
     
     const db0::object_model::Object &PyTypeManager::extractObject(ObjectPtr memo_ptr) const
