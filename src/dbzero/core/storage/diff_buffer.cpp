@@ -49,24 +49,6 @@ namespace db0
         return result;
     }
     
-    void o_diff_buffer::dump() const
-    {
-        std::cout << "--- full dump ---" << std::endl;
-        const std::byte *at = (std::byte*)this + sizeof(o_diff_buffer);
-        auto end = (std::byte*)this + m_size;
-        while (at < end) {
-            auto diff_size = o_packed_int<std::uint16_t>::read(at);
-            std::cout << "diff_size: " << diff_size << std::endl;
-            at += diff_size;
-            std::cout << "data remaining: " << (end - at) << std::endl;
-            if (at < end) {
-                auto identical_size = o_packed_int<std::uint16_t>::read(at);
-                std::cout << "identical size: " << identical_size << std::endl;
-                std::cout << "data remaining: " << (end - at) << std::endl;
-            }
-        }
-    }
-
     void o_diff_buffer::apply(std::byte *dp_result, const std::byte *dp_end) const
     {
         // apply diffs next

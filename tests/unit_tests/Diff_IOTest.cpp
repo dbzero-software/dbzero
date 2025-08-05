@@ -169,7 +169,7 @@ namespace tests
             ASSERT_EQ(std::memcmp(m_dp_1.data(), dp.data(), page_size), 0);
         }
     }
-
+    
     TEST_F( Diff_IOTest , testDiff_IOAppendDiffWithOverflow )
     {
         CFile::create(file_name, {});
@@ -184,9 +184,9 @@ namespace tests
         db0::getDiffs(m_dp_1.data(), m_dp_2.data(), page_size, diff_buf);
         
         for (unsigned int i = 0; i < 250; ++i) {
-            auto [page_num, count] = cut.appendDiff(m_dp_2.data(), {i, i}, diff_buf);
+            auto [page_num, overflow] = cut.appendDiff(m_dp_2.data(), {i, i}, diff_buf);
             // appendDiff must return the first page written to and the number of pages
-            ASSERT_EQ(page_num + count - 1, cut.getNextPageNum().first);
+            ASSERT_EQ(page_num + (overflow ? 1 : 0), cut.getNextPageNum().first);
         }
         cut.flush();
     }
