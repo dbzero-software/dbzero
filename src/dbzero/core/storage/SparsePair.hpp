@@ -22,6 +22,8 @@ namespace db0
         SparsePair(DRAM_Pair, AccessType);
         SparsePair(tag_create, DRAM_Pair);
         
+        ~SparsePair();
+        
         inline SparseIndex &getSparseIndex() {
             return m_sparse_index;
         }

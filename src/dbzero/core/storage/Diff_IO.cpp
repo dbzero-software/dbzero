@@ -26,8 +26,8 @@ namespace db0
         // @return false if append unsuccessful (must be appended to next page)
         bool append(const std::byte *dp_data, std::pair<std::uint64_t, std::uint32_t> page_and_state,
             const std::vector<std::uint16_t> &diff_data, bool &overflow);
-
-        // Flush all bufferend contents
+        
+        // Flush all buffered contents
         // @return the number of bytes written
         std::size_t flush();
 
@@ -90,7 +90,7 @@ namespace db0
     {
         m_current += m_header.sizeOf();
     }
-
+    
     bool DiffWriter::append(const std::byte *dp_data, std::pair<std::uint64_t, std::uint32_t> page_and_state,
         const std::vector<std::uint16_t> &diff_data, bool &overflow)
     {
@@ -105,6 +105,7 @@ namespace db0
         }
         auto &diff_buf = o_diff_buffer::__new(m_current, dp_data, diff_data);
         m_current += diff_buf.sizeOf();
+        assert(m_current <= m_end);
         m_last_size = m_current - begin;
         ++m_header.m_size;
         // overflows a single DP
@@ -165,7 +166,7 @@ namespace db0
         , m_page_num(page_num)
         , m_begin(begin)
         , m_current(begin + m_page_size)
-        , m_end(end)      
+        , m_end(end)
     {
         page_io.read(page_num, m_begin + m_page_size);
         m_size = o_diff_header::__const_ref(m_current).m_size;
@@ -179,15 +180,18 @@ namespace db0
         using PairT = o_packed_int_pair<std::uint64_t, std::uint32_t>;
         while (m_size > 0) {
             auto revert_to = m_current;
+            auto revert_to_size = m_size;
             auto next_page_and_state = PairT::read(m_current);
             auto diff_buf_size = o_diff_buffer::safeSizeOf(m_current);
             if (next_page_and_state == page_and_state) {
                 if (m_current + diff_buf_size > m_end) {
                     m_current = revert_to;
+                    m_size = revert_to_size;
                     // need to handle the underflow
                     underflow = true;
                     return false;
                 }
+                                
                 o_diff_buffer::__const_ref(m_current).apply(dp_data, dp_data + m_page_size);
                 m_current += diff_buf_size;
                 --m_size;
@@ -202,7 +206,8 @@ namespace db0
     
     void DiffReader::loadNext()
     {
-        // move underflown contenxt
+        assert(m_current >= (m_begin + m_page_size));
+        // move underflown contents
         auto offset = m_current - (m_begin + m_page_size);
         auto size = m_end - m_current;
         std::memcpy(m_begin + offset, m_current, size);
@@ -235,9 +240,9 @@ namespace db0
     {
     }
     
-    std::uint64_t Diff_IO::appendDiff(const void *dp_data, std::pair<std::uint64_t, std::uint32_t> page_and_state,
-        const std::vector<std::uint16_t> &diff_data)
-    {        
+    std::pair<std::uint64_t, bool> Diff_IO::appendDiff(const void *dp_data,
+        std::pair<std::uint64_t, std::uint32_t> page_and_state, const std::vector<std::uint16_t> &diff_data)
+    {
         // must lock because the write-buffer is shared
         std::unique_lock<std::mutex> lock(m_mx_write);
         assert(m_writer);
@@ -262,7 +267,7 @@ namespace db0
                         continue;
                     }
                 }
-                return next_page_num.first;
+                return { next_page_num.first, overflow };
             } else {
                 // continue with a fresh buffer                
                 m_diff_bytes_written += m_writer->flushDP();

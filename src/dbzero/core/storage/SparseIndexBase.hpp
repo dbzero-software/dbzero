@@ -152,8 +152,9 @@ namespace db0
 
         std::uint64_t getExtraData() const;
 
-        void update(PageNumT page_num, StateNumT state_num, std::uint64_t storage_page_num);
-
+        void update(std::uint64_t max_storage_page_num);
+        void update(PageNumT page_num, StateNumT state_num, std::uint64_t max_storage_page_num);
+        
     private:
         std::shared_ptr<DRAM_Prefix> m_dram_prefix;
         std::shared_ptr<DRAM_Allocator> m_dram_allocator;
@@ -210,15 +211,22 @@ namespace db0
         , m_change_log_ptr(change_log_ptr)
     {
     }
-    
+
     template <typename ItemT, typename CompressedItemT>
-    void SparseIndexBase<ItemT, CompressedItemT>::update(PageNumT page_num, StateNumT state_num, std::uint64_t storage_page_num)
+    void SparseIndexBase<ItemT, CompressedItemT>::update(std::uint64_t max_storage_page_num)
     {   
         // update tree header if necessary
-        if (storage_page_num >= m_next_page_num) {
-            m_next_page_num = storage_page_num + 1;
+        if (max_storage_page_num >= m_next_page_num) {
+            m_next_page_num = max_storage_page_num + 1;
             m_index.modifyTreeHeader().m_next_page_num = m_next_page_num;
         }
+    }
+    
+    template <typename ItemT, typename CompressedItemT>
+    void SparseIndexBase<ItemT, CompressedItemT>::update(PageNumT page_num, StateNumT state_num, std::uint64_t max_storage_page_num)
+    {   
+        // update tree header if necessary
+        this->update(max_storage_page_num);
         if (state_num > m_max_state_num) {
             m_max_state_num = state_num;
             m_index.modifyTreeHeader().m_max_state_num = state_num;

@@ -57,6 +57,7 @@ namespace db0
         while (at < end) {
             auto diff_size = o_packed_int<std::uint16_t>::read(at);
             if (diff_size > 0) {
+                assert(dp_result + diff_size <= dp_end);
                 std::memcpy(dp_result, at, diff_size);
                 dp_result += diff_size;
                 at += diff_size;
@@ -64,7 +65,7 @@ namespace db0
             if (at < end) {
                 auto identical_size = o_packed_int<std::uint16_t>::read(at);
                 dp_result += identical_size;
-                // zero-fill when the indicator is present
+                // zero-fill when the indicator is present (special 0,0 indicator)
                 if (!diff_size && !identical_size) {
                     // make sure the indicator is only present at the beginning
                     assert(at <= (std::byte*)this + sizeof(o_diff_buffer) + sizeof(std::uint16_t) * 3);

@@ -18,7 +18,7 @@ namespace db0
         , m_first_page_num(getPageNum(address))
         , m_tail_function(tail_function)
         , m_access_type(AccessType::READ_WRITE)
-    {
+    {        
         assert(block_size % page_size == 0);
     }
     
@@ -27,6 +27,10 @@ namespace db0
         , m_page_size(page_size)
         , m_file(file)
         , m_access_type(AccessType::READ_ONLY)
+    {
+    }
+    
+    Page_IO::~Page_IO()
     {
     }
     
@@ -40,7 +44,7 @@ namespace db0
         m_file.write(m_address + m_page_count * m_page_size, m_page_size, buffer);
         return m_first_page_num + (m_page_count++);
     }
-
+    
     void Page_IO::allocateNextBlock()
     {
         // allocate the next block by appending it to the file
@@ -48,11 +52,11 @@ namespace db0
         m_first_page_num = getPageNum(m_address);
         m_page_count = 0;
     }
-
+    
     void Page_IO::read(std::uint64_t page_num, void *buffer) const {
         m_file.read(m_header_size + page_num * m_page_size, m_page_size, buffer);
     }
-    
+
     void Page_IO::write(std::uint64_t page_num, void *buffer) {
         m_file.write(m_header_size + page_num * m_page_size, m_page_size, buffer);
     }

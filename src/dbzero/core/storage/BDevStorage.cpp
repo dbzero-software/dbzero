@@ -31,7 +31,7 @@ namespace db0
     {
     }
     
-    BDevStorage::BDevStorage(const std::string &file_name, AccessType access_type, LockFlags lock_flags, 
+    BDevStorage::BDevStorage(const std::string &file_name, AccessType access_type, LockFlags lock_flags,
         std::optional<std::size_t> meta_io_step_size)
         : BaseStorage(access_type)
         , m_file(file_name, access_type, lock_flags)
@@ -43,7 +43,7 @@ namespace db0
         , m_dram_io(init(getDRAMIOStream(m_config.m_dram_io_offset, m_config.m_dram_page_size, access_type), m_dram_changelog_io))            
         , m_sparse_pair(m_dram_io.getDRAMPair(), access_type)
         , m_sparse_index(m_sparse_pair.getSparseIndex())
-        , m_diff_index(m_sparse_pair.getDiffIndex())        
+        , m_diff_index(m_sparse_pair.getDiffIndex())
         , m_page_io(getPage_IO(m_sparse_pair.getNextStoragePageNum(), access_type))
     {
         if (m_access_type == AccessType::READ_ONLY) {
@@ -279,8 +279,8 @@ namespace db0
         
         if (query.leftLessThan(max_len)) {
             // append as diff-page (NOTE: diff-writes are only appended)
-            auto storage_page_num = m_page_io.appendDiff(buffer, { page_num, state_num }, diff_data);
-            m_diff_index.insert(page_num, state_num, storage_page_num);
+            auto [storage_page_num, overflow] = m_page_io.appendDiff(buffer, { page_num, state_num }, diff_data);
+            m_diff_index.insert(page_num, state_num, storage_page_num, overflow);
         } else {
             // full-DP write
             auto storage_page_num = m_page_io.append(buffer);
@@ -384,7 +384,7 @@ namespace db0
             // return empty page IO
             return { CONFIG_BLOCK_SIZE, m_file, m_config.m_page_size };
         }
-
+        
         assert(access_type == AccessType::READ_WRITE);
         auto block_id = (next_page_hint * m_config.m_page_size) / m_config.m_block_size;
         auto block_capacity = m_config.m_block_size / m_config.m_page_size;

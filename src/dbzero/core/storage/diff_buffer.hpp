@@ -29,9 +29,9 @@ namespace db0
             return size;
         }
         
-        // Apply diffs on to a specific data-page        
-        // @param dp_result the buffer to hold the data-page affter diff application
-        void apply(std::byte *begin, const std::byte *end) const;
+        // Apply diffs on to a specific data-page
+        // @param dp_result / dp_end - the buffer to hold the result data-page affter diff application
+        void apply(std::byte *dp_result, const std::byte *dp_end) const;
         
         static std::size_t sizeOfHeader() {
             return sizeof(o_diff_buffer);

@@ -59,7 +59,7 @@ namespace db0
             m_lock = std::make_unique<InterProcessLock>(lock_path.c_str(), lock_flags);
         }
     }
-
+    
     CFile::~CFile()
     {
         if (m_file) {
@@ -160,6 +160,7 @@ namespace db0
             ++m_rand_write_ops;
         }
         assert(m_file_pos == (std::uint64_t)ftell(m_file));
+        assert(!overlap(m_protected, { address, size }));
         if (fwrite(buffer, size, 1, m_file) != 1) {
             THROWF(db0::IOException) << "CFile::write: fwrite failed";
         }
@@ -208,4 +209,12 @@ namespace db0
         return { m_bytes_read, m_bytes_written };
     }
     
+#ifndef NDEBUG    
+    void CFile::setProtectedRange(std::uint64_t begin, std::size_t size) 
+    {
+        std::unique_lock<std::mutex> lock(m_mutex);
+        m_protected = { begin, size };
+    }
+#endif
+
 }
