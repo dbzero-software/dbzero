@@ -814,20 +814,20 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "argument must be a sequence or set");
             return nullptr;
         }
-        
         ObjectSharedPtr elem;
-        auto py_result = Py_OWN(PySet_New(nullptr));
+        auto py_result = Py_OWN(PyList_New(PyObject_Length(set)));
         if (!py_result) {
             return nullptr;
         }
-        
+
+        size_t idx = 0;
         Py_FOR(elem, iterator) {        
             auto result = Py_OWN(tryLoad(*elem, kwargs, nullptr, load_stack_ptr));
             if (!result) {
                 return nullptr;
             }
-            
-            PySafeSet_Add(*py_result, result);
+            PySafeList_SetItem(*py_result, idx, result);
+            idx += 1;
         }
         return py_result.steal();
     }

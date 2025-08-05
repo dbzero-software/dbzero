@@ -76,18 +76,28 @@ def test_load_py_dict(db0_fixture):
 
 def test_load_set(db0_fixture):
     t1 = db0.set([1, "string", 999])
-    assert db0.load(t1) == {1, "string", 999}
+    loaded = db0.load(t1)
+    assert len(loaded) == 3
+    for item in t1:
+        assert item in loaded
 
 
 def test_load_py_set(db0_fixture):
     t1 = {1, "string", 999}
-    assert db0.load(t1) == {1, "string", 999}
+    loaded = db0.load(t1)
+    assert len(loaded) == 3
+    for item in t1:
+        assert item in loaded
 
 
 def test_load_returns_none_not_as_string(db0_fixture):
     assert db0.load(None) == None
     t1 = db0.set([1, "string", None])
-    assert db0.load(t1) == {1, "string", None}
+    loaded = db0.load(t1)
+    assert len(loaded) == 3
+    assert None in loaded
+    assert 1 in loaded
+    assert "string" in loaded
 
 
 def test_load_with_default_load_method(db0_fixture):
@@ -207,8 +217,10 @@ def test_load_set_of_tuples_issue1(db0_fixture):
     Issue: https://github.com/wskozlowski/dbzero_ce/issues/223
     """
     obj = db0.set([(1,2), (2,3)])
-    assert {(1,2), (2,3)} == db0.load(obj)    
-
+    lodaded = db0.load(obj)
+    assert len(lodaded) == 2
+    for item in obj:
+        assert item in lodaded
 
 def test_load_cyclic_graph_issue1(db0_fixture):
     """
