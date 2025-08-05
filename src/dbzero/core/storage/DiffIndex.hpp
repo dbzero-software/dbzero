@@ -119,7 +119,9 @@ namespace db0
         DiffIndex(tag_create, DRAM_Pair, std::vector<std::uint64_t> *change_log_ptr = nullptr);
         
         // Either insert into a new item or extend the existing one
-        void insert(PageNumT page_num, StateNumT state_num, PageNumT storage_page_num);
+        // @param overflow flag indicating if the stored page has 
+        // been written witn an "overflow" - in which case actually 2 DPs were written
+        void insert(PageNumT page_num, StateNumT state_num, PageNumT storage_page_num, bool overflow = false);
         
         std::size_t size() const;
         

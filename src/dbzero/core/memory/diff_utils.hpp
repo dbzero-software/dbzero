@@ -93,5 +93,7 @@ namespace db0
     
     // Create normalized view of the entire range
     DiffRangeView getDiffs(DiffRange &);
+    // Check whether the two ranges overlap
+    bool overlap(const std::pair<std::uint64_t, std::size_t> &, const std::pair<std::uint64_t, std::size_t> &);
     
 }

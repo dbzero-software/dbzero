@@ -140,8 +140,8 @@ namespace db0
         // SparseIndex + DiffIndex
         SparsePair m_sparse_pair;
         // DRAM-backed sparse index tree
-        SparseIndex &m_sparse_index;    
-        DiffIndex &m_diff_index;        
+        SparseIndex &m_sparse_index;
+        DiffIndex &m_diff_index;
         // the stream for storing & reading full-DPs and diff-encoded DPs
         Diff_IO m_page_io;
 #ifndef NDEBUG
@@ -150,11 +150,11 @@ namespace db0
         // a pointer to the shared throw counter
         bool m_commit_pending = false;
         unsigned int *m_throw_op_count_ptr = nullptr;
-#endif        
-                        
+#endif
+
         static DRAM_IOStream init(DRAM_IOStream &&, ChangeLogIOStream &);
         
-        static MetaIOStream init(MetaIOStream &&);        
+        static MetaIOStream init(MetaIOStream &&);
         
         /**
          * Calculates the total number of blocks stored in this file

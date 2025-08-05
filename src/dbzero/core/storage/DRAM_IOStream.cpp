@@ -108,7 +108,7 @@ namespace db0
             if (block_id.second != 0 || (!eos() && block_id.first == tellBlock().first)) {
                 THROWF(db0::IOException) << "DRAM_IOStream::load error: unaligned block";
             }
-
+            
             updateDRAMPage(chunk_addr, &allocs, header, bytes);
         }
         m_allocator->update(allocs);
@@ -168,7 +168,7 @@ namespace db0
         std::vector<std::uint64_t> dram_changelog;
         m_prefix->flushDirty([&, this](std::uint64_t page_num, const void *page_buffer) {
             // the last page must be stored in a new block to mark end of the sequence
-            auto reusable_addr = find_reusable();         
+            auto reusable_addr = find_reusable();
             if (reusable_addr) {
                 reusable_header.m_page_num = page_num;
                 std::memcpy(reusable_header.getData(), page_buffer, m_dram_page_size);

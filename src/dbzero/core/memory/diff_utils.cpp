@@ -256,6 +256,7 @@ namespace db0
         if (!diff_bytes) {
             result.clear();
         }
+
         return true;
     }
     
@@ -264,7 +265,7 @@ namespace db0
     {
         if (!max_size) {
             max_size = std::numeric_limits<std::uint16_t>::max();
-        }        
+        }
 
         assert(size <= std::numeric_limits<std::uint16_t>::max());
         if (!max_diff) {
@@ -338,7 +339,27 @@ namespace db0
             assert(sim_len);
             result.push_back(sim_len);
         }
+                
         return true;
+    }
+    
+    bool overlap(const std::pair<std::uint64_t, std::size_t> &range_1, const std::pair<std::uint64_t, std::size_t> &range_2)
+    {
+        if (range_1.second && range_2.second) {        
+            // Define the start and end points (exclusive) for each range.
+            const std::uint64_t start1 = range_1.first;
+            const std::uint64_t end1 = start1 + range_1.second;
+
+            const std::uint64_t start2 = range_2.first;
+            const std::uint64_t end2 = start2 + range_2.second;
+
+            // The intersection of two intervals [start1, end1) and [start2, end2) is
+            // the interval [max(start1, start2), min(end1, end2)).
+            // This intersection is non-empty (i.e., the ranges overlap) if and only if
+            // the start of the intersection is less than the end of the intersection.
+            return std::max(start1, start2) < std::min(end1, end2);        
+        }
+        return false;
     }
 
 }

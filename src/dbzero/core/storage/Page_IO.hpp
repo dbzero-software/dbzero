@@ -27,6 +27,8 @@ namespace db0
         
         // Read-only Page_IO
         Page_IO(std::size_t header_size, CFile &file, std::uint32_t page_size);
+        
+        ~Page_IO();
 
         // Appends a new page to the stream
         // @return page number (aka storage page number)

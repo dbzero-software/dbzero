@@ -29,3 +29,5 @@ def test_sort_filtered_query(db0_fixture, memo_tags):
     query = ix_value.sort(db0.filter(lambda x: x.value % 3 != 0, db0.find(MemoTestClass, "tag1")))
     sorted_values = [x.value for x in query]
     assert sorted_values == [1, 2, 4, 5, 7, 8]
+    
+    

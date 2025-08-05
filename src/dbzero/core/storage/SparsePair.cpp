@@ -9,11 +9,11 @@ namespace db0
         , m_diff_index(node_size, &m_change_log)
     {
     }
-    
+
     SparsePair::SparsePair(DRAM_Pair dram_pair, AccessType access_type)
         : m_sparse_index(dram_pair, access_type, Address::fromOffset(0), &m_change_log)
         , m_diff_index(dram_pair, access_type, Address::fromOffset(m_sparse_index.getExtraData()), &m_change_log)
-    {        
+    {
     }
     
     SparsePair::SparsePair(tag_create, DRAM_Pair dram_pair)
@@ -24,6 +24,10 @@ namespace db0
         m_sparse_index.setExtraData(m_diff_index.getIndexAddress().getOffset());
     }
     
+    SparsePair::~SparsePair()
+    {
+    }
+
     typename SparsePair::PageNumT SparsePair::getNextStoragePageNum() const {
         return std::max(m_sparse_index.getNextStoragePageNum(), m_diff_index.getNextStoragePageNum());
     }

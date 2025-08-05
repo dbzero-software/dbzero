@@ -77,6 +77,11 @@ namespace db0
         // Get the total number of bytes read / written
         std::pair<std::uint64_t, std::uint64_t> getIOBytes() const;
         
+#ifndef NDEBUG
+        // Protect a specific file range from being modified (debugging only feature)
+        void setProtectedRange(std::uint64_t begin, std::size_t size);
+#endif
+
     private:
         const std::string m_path;
         const AccessType m_access_type;
@@ -91,6 +96,9 @@ namespace db0
         std::unique_ptr<InterProcessLock> m_lock;        
         mutable std::mutex m_mutex;
         mutable bool m_dirty = false;
+#ifndef NDEBUG
+        std::pair<std::uint64_t, std::size_t> m_protected = { 0, 0 };        
+#endif        
         
         void flush(std::unique_lock<std::mutex> &) const;
         void setFilePos(std::uint64_t address, std::unique_lock<std::mutex> &) const;

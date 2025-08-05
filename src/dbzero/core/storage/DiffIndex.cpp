@@ -149,7 +149,7 @@ namespace db0
         return super_t::size();
     }
     
-    void DiffIndex::insert(PageNumT page_num, StateNumT state_num, PageNumT storage_page_num)
+    void DiffIndex::insert(PageNumT page_num, StateNumT state_num, PageNumT storage_page_num, bool overflow)
     {        
         // try locating existing item first
         typename super_t::ConstNodeIterator node;
@@ -160,10 +160,14 @@ namespace db0
             // NOTE: relative_state_num & relative_storage_page_num get converted from absolute to relative values
             db0::modifyMember(node, *item_ptr).append(relative_state_num, relative_storage_page_num);
             // collect the change-log
-            this->update(page_num, state_num, storage_page_num);
+            this->update(page_num, state_num, storage_page_num + (overflow ? 1 : 0));
         } else {
             // create new item
             super_t::emplace(page_num, state_num, storage_page_num);
+            // we also need to account for the overflow
+            if (overflow) {
+                this->update(storage_page_num + 1);
+            }
         }
     }
     
