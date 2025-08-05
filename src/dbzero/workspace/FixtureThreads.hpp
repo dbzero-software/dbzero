@@ -51,7 +51,7 @@ namespace db0
 
         std::vector<weak_swine_ptr<Fixture>> m_fixtures;
     };
-
+    
     /**
      * A thread object to poll fixture modification status
      * applicatble to read-only fixtures
@@ -72,10 +72,12 @@ namespace db0
         void tryRefresh(Fixture &fixture);
 
         using ClockType = std::chrono::high_resolution_clock;
+
         struct FixtureUpdateStatus {
             std::uint64_t last_updated;
             ClockType::time_point last_updated_check_tp;
         };
+
         std::unordered_map<std::uint64_t, FixtureUpdateStatus> m_fixture_status;
         std::weak_ptr<FixtureThreadCallbacksContext> m_tmp_context;
     };

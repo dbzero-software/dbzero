@@ -117,10 +117,10 @@ namespace db0
     void RefreshThread::onFixtureAdded(Fixture &fixture)
     {
         std::uint64_t uuid = fixture.getUUID();
-        assert(m_fixture_status.find(uuid) == m_fixture_status.end());
+        // NOTE: m_fixture_status may already contain this UUID since a fixture might've been closed and then reopened        
         m_fixture_status[uuid] = FixtureUpdateStatus{fixture.getPrefix().getLastUpdated(), ClockType::now()};
     }
-
+    
     std::shared_ptr<FixtureThreadContextBase> RefreshThread::prepareContext()
     {
         auto context = std::make_shared<FixtureThreadCallbacksContext>();
@@ -172,8 +172,6 @@ namespace db0
         assert(context);
         context->appendCallbacks(std::move(callbacks));
     }
-
-
 
     std::mutex AutoCommitThread::m_commit_mutex;
 
