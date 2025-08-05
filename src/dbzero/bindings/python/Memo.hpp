@@ -67,5 +67,6 @@ namespace db0::python
     PyObject *tryCompareMemo(MemoObject *, MemoObject *);
 
     PyObject *PyAPI_getSchema(PyObject *, PyObject *const *args, Py_ssize_t nargs);
-    
+    PyObject* executeLoadFunction(PyObject * load_method, PyObject *kwargs, PyObject *py_exclude,
+                                std::unordered_set<const void*> *load_stack_ptr);
 }

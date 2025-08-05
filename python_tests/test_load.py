@@ -222,3 +222,25 @@ def test_load_cyclic_graph_issue1(db0_fixture):
     
     with pytest.raises(RecursionError):
         db0.load(root)
+
+
+def test_load_set_of_objects(db0_fixture):
+    set_of_objects = db0.set([MemoTestClass("a"), MemoTestClass("b")])
+    loaded = db0.load(set_of_objects)
+    assert loaded == [{"value": "a"}, {"value": "b"}]
+
+class TestObject:
+    def __init__(self, value, other_value):
+        self.value = value
+        self.other_value = other_value
+
+    def __load__(self, **kwargs):
+        return {
+            "value": self.value,
+            "other_value": self.other_value
+        }
+
+def test_load_python_object(db0_fixture):
+    test_object = TestObject("a", "b")
+    loaded = db0.load(test_object)
+    assert loaded == {"value": "a", "other_value": "b"}
