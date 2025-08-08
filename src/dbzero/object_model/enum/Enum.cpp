@@ -117,8 +117,9 @@ namespace db0::object_model
             THROWF(db0::InputException) << "Enum value not found by UID: " << enum_value_uid.asULong();
         }
         auto fixture = this->getFixture();
-        return { fixture, enum_value_uid.m_enum_uid, enum_value_uid.m_value,
-            getStringPool(fixture).fetch(enum_value_uid.m_value) };
+        return { db0::weak_swine_ptr<Fixture>(fixture), enum_value_uid.m_enum_uid, enum_value_uid.m_value,
+            getStringPool(fixture).fetch(enum_value_uid.m_value) 
+        };
     }
     
     std::vector<EnumValue> Enum::getValues() const
@@ -126,7 +127,7 @@ namespace db0::object_model
         std::vector<EnumValue> values;
         auto fixture = this->getFixture();
         for (auto value: m_ordered_values) {
-            values.push_back({ fixture, m_uid, value, getStringPool(fixture).fetch(value) });
+            values.push_back({ db0::weak_swine_ptr<Fixture>(fixture), m_uid, value, getStringPool(fixture).fetch(value) });
         }
         return values;
     }

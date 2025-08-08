@@ -613,4 +613,33 @@ namespace db0
         return prefix_ptr ? PrefixName(prefix_ptr->getName()) : PrefixName();
     }
     
+    bool is_same(const db0::weak_swine_ptr<Fixture> &fx_1, const db0::weak_swine_ptr<Fixture> &fx_2)
+    {
+        if (fx_1 == fx_2) {
+            return true;
+        }
+        // compare actual Fixture instances by the underlying UUIDs
+        return  *(fx_1.safe_lock()) == *(fx_2.safe_lock());
+    }
+
+    bool is_same(const db0::weak_swine_ptr<Fixture> &fx_1, const db0::swine_ptr<Fixture> &fx_2)
+    {        
+        if (fx_1 == fx_2) {
+            return true;
+        }
+        // compare actual Fixture instances by the underlying UUIDs
+        assert(fx_2);
+        return  *(fx_1.safe_lock()) == *fx_2;
+    }
+
+    bool is_same(const db0::swine_ptr<Fixture> &fx_1, const db0::weak_swine_ptr<Fixture> &fx_2)
+    {
+        if (fx_2 == fx_1) {
+            return true;
+        }
+        // compare actual Fixture instances by the underlying UUIDs
+        assert(fx_1);
+        return  *fx_1 == *(fx_2.safe_lock());
+    }
+    
 }

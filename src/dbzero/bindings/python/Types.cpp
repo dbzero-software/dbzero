@@ -56,7 +56,7 @@ namespace db0::python
 
     // ENUM value specialization
     template <> db0::swine_ptr<Fixture> getFixtureOf<TypeId::DB0_ENUM_VALUE>(PyObject *py_value) {
-        return reinterpret_cast<PyEnumValue*>(py_value)->ext().m_fixture;        
+        return reinterpret_cast<PyEnumValue*>(py_value)->ext().m_fixture.safe_lock();
     }
     
     // OBJECT_ITERABLE value specialization

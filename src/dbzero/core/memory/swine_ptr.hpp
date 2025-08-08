@@ -17,6 +17,8 @@ namespace db0
         std::atomic<std::uint64_t> m_weak_count = 0;
     };
     
+    template <typename T, typename RefCountT = std::uint64_t> class weak_swine_ptr;
+
     /**
      * A simple smart-pointer which combines functionality or
      * (S)hared_ptr / (W)aeak_ptr and (IN)trusive_ptr (E) just added to sound funny
@@ -152,6 +154,16 @@ namespace db0
             return swine_ptr<T, RefCountT>(count_ptr);
         }
 
+        // The throwing version of lock_weak
+        static swine_ptr<T, RefCountT> safe_lock_weak(T *ptr)
+        {
+            SwineCountT *count_ptr = reinterpret_cast<SwineCountT*>(ptr) - 1;
+            if (!count_ptr->m_ref_count) {
+                THROWF(db0::InputException) << "Object no longer available";
+            }
+            return swine_ptr<T, RefCountT>(count_ptr);
+        }
+        
         RefCountT use_count() const
         {
             if (m_count_ptr == nullptr) {
@@ -159,12 +171,30 @@ namespace db0
             }
             return m_count_ptr->m_ref_count;
         }
+        
+        // weak_swine_ptr cast operator
+        operator weak_swine_ptr<T, RefCountT>() {
+            return weak_swine_ptr<T, RefCountT>(*this);
+        }
+        
+    protected:
+        friend class weak_swine_ptr<T, RefCountT>;
 
+        // Compares if the weak pointer originates from the same swine_ptr<T>
+        bool compare_weak(T *ptr) const
+        {
+            if (m_count_ptr == nullptr) {
+                return false;
+            }
+            SwineCountT *count_ptr = reinterpret_cast<SwineCountT*>(ptr) - 1;
+            return m_count_ptr == count_ptr;
+        }
+        
     private:
         SwineCountT *m_count_ptr = nullptr;
     };
     
-    template <typename T, typename RefCountT = std::uint64_t> class weak_swine_ptr
+    template <typename T, typename RefCountT> class weak_swine_ptr
     {
     public:
         weak_swine_ptr() = default;
@@ -182,6 +212,12 @@ namespace db0
             }
         }
 
+        weak_swine_ptr(weak_swine_ptr<T, RefCountT> &&other)
+            : m_ptr(other.m_ptr)
+        {
+            other.m_ptr = nullptr;
+        }
+
         ~weak_swine_ptr()
         {
             if (m_ptr != nullptr) {
@@ -189,10 +225,15 @@ namespace db0
             }
         }
         
-        swine_ptr<T, RefCountT> lock() {
+        swine_ptr<T, RefCountT> lock() const noexcept {
             return swine_ptr<T, RefCountT>::lock_weak(m_ptr);
         }
         
+        // the "lock" version raising an exception if the object is not available
+        swine_ptr<T, RefCountT> safe_lock() const {
+            return swine_ptr<T, RefCountT>::safe_lock_weak(m_ptr);
+        }
+
         void operator=(const weak_swine_ptr<T, RefCountT> &other)
         {
             this->~weak_swine_ptr();
@@ -201,9 +242,30 @@ namespace db0
                 swine_ptr<T, RefCountT>::take_weak(m_ptr);
             }
         }
+        
+        // is default operator (aka NOT initialized)
+        bool operator!() const {
+            return m_ptr == nullptr;
+        }
+
+        bool operator==(const weak_swine_ptr<T, RefCountT> &other) const {
+            return m_ptr == other.m_ptr;
+        }
+        
+        bool operator!=(const weak_swine_ptr<T, RefCountT> &other) const {
+            return m_ptr != other.m_ptr;
+        }
+
+        bool operator==(const swine_ptr<T, RefCountT> &other) const {
+            return other.compare_weak(m_ptr);
+        }
+        
+        bool operator!=(const swine_ptr<T, RefCountT> &other) const {
+            return !other.compare_weak(m_ptr);
+        }
 
     private:
-        T *m_ptr = nullptr;
+        mutable T *m_ptr = nullptr;
     };
     
     template <typename T, typename... Args> swine_ptr<T> make_swine(Args&&... args)

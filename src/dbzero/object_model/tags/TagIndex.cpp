@@ -131,7 +131,8 @@ namespace db0::object_model
         , m_class_factory(class_factory)
         , m_enum_factory(enum_factory)
         , m_base_index_short(memspace, cache)
-        , m_base_index_long(memspace, cache)        
+        , m_base_index_long(memspace, cache)
+        , m_fixture(enum_factory.getFixture())
         , m_fixture_uuid(enum_factory.getFixture()->getUUID())
         , m_mutation_log(mutation_log)
     {
@@ -148,6 +149,7 @@ namespace db0::object_model
         , m_enum_factory(enum_factory)
         , m_base_index_short(myPtr((*this)->m_base_index_short_ptr), cache)
         , m_base_index_long(myPtr((*this)->m_base_index_long_ptr), cache)
+        , m_fixture(enum_factory.getFixture())
         , m_fixture_uuid(enum_factory.getFixture()->getUUID())
         , m_mutation_log(mutation_log)
     {
@@ -708,7 +710,7 @@ namespace db0::object_model
     TagIndex::ShortTagT TagIndex::getShortTagFromEnumValue(const EnumValue &enum_value, ObjectSharedPtr *alt_repr) const
     {
         assert(enum_value);
-        if (enum_value.m_fixture->getUUID() != m_fixture_uuid) {
+        if (!db0::is_same(enum_value.m_fixture, m_fixture)) {
             // migrate to a different prefix if needed
             if (alt_repr) {
                 *alt_repr = m_enum_factory.tryMigrateEnumLangValue(enum_value);

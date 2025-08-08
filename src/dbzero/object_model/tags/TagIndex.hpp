@@ -137,6 +137,7 @@ namespace db0::object_model
         mutable std::unordered_map<ObjectPtr, UniqueAddress> m_active_cache;
         // Additional buffer to preserve / release ownership for active-cache objects
         mutable std::unordered_set<ObjectSharedExtPtr> m_active_pre_cache;
+        db0::weak_swine_ptr<Fixture> m_fixture;
         // the associated fixture UUID (for validation purposes)
         const std::uint64_t m_fixture_uuid;
         mutable std::shared_ptr<MutationLog> m_mutation_log;

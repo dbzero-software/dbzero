@@ -73,7 +73,7 @@ namespace db0
             lock.unlock();
             std::shared_ptr<FixtureThreadContextBase> context = prepareContext();
             // collect fixtures first
-            std::vector<weak_swine_ptr<Fixture>> fixtures;
+            std::vector<db0::swine_ptr<Fixture> > fixtures;
             fixtures.reserve(m_fixtures.size());
             lock.lock();
             for (auto it = m_fixtures.begin(); it != m_fixtures.end(); ) {
@@ -87,10 +87,8 @@ namespace db0
             }
             // then process as unlocked
             lock.unlock();
-            for (weak_swine_ptr<Fixture> &fixture_weak_ptr : fixtures) {
-                if (auto fixture_ptr = fixture_weak_ptr.lock()) {
-                    onUpdate(*fixture_ptr);
-                }      
+            for (auto &fixture_ptr : fixtures) {
+                onUpdate(*fixture_ptr);       
             }
 
             if (context) {
