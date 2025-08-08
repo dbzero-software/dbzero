@@ -254,15 +254,16 @@ namespace db0::object_model
     }
     
     void Class::refreshMemberCache() const
-    {        
+    {
+        // this is required before accessing members to prevent segfaults on a defunct object
+        auto fixture = getFixture();
         assert(m_members.size() >= m_member_cache.size());
         if (m_members.size() == m_member_cache.size()) {
             return;
         }
         
         // Fetch all members into cache
-        unsigned int index = m_member_cache.size();
-        auto fixture = getFixture();
+        unsigned int index = m_member_cache.size();        
         auto &string_pool = fixture->getLimitedStringPool();
         for (auto it = m_members.begin(index), end = m_members.end(); it != end; ++it, ++index) {
             auto field_name = string_pool.fetch(it->m_name);
@@ -624,5 +625,5 @@ namespace db0::object_model
     const VFieldVector &Class::getMembersVector() const {
         return m_members;
     }
-
+    
 }

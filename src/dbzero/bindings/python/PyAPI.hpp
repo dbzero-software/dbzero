@@ -180,6 +180,8 @@ namespace db0::python
     PyObject *getDRAM_IOMap(PyObject *, PyObject *args, PyObject *kwargs);
 
     PyObject *PyAPI_crashFromCommit(PyObject *self, PyObject *const *args, Py_ssize_t nargs);    
+
+    PyObject *PyAPI_breakpoint(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
 #endif
     
     template <typename T> db0::object_model::StorageClass getStorageClass();

@@ -70,6 +70,12 @@ namespace db0
         virtual void execute() = 0;
     };
     
+    // Compare fixture pointers by the underlying UUIDs
+    // i.e. yielding true even if taken from different snapshots
+    bool is_same(const db0::weak_swine_ptr<Fixture> &, const db0::weak_swine_ptr<Fixture> &);
+    bool is_same(const db0::weak_swine_ptr<Fixture> &, const db0::swine_ptr<Fixture> &);
+    bool is_same(const db0::swine_ptr<Fixture> &, const db0::weak_swine_ptr<Fixture> &);
+    
     /**
      * Fixture is a Memspace extension with additionaly initialized common utilities:     
      * 1) Object catalogue

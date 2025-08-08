@@ -111,6 +111,7 @@ static PyMethodDef dbzero_methods[] =
     {"dbg_crash_from_commit", (PyCFunction)&py::PyAPI_crashFromCommit, METH_FASTCALL, "The function activates abrupt process terminate from storage::commit after specific number of DP writes (for testing purposes)"},
     {"get_base_lock_usage", &py::getResourceLockUsage, METH_VARARGS, "Debug function, retrieves total memory occupied by ResourceLocks"},
     {"get_dram_io_map", (PyCFunction)&py::getDRAM_IOMap, METH_VARARGS | METH_KEYWORDS, "Get page_num -> state_num mapping related with a specific DRAM_Prefix"},    
+    {"breakpoint", (PyCFunction)&py::PyAPI_breakpoint, METH_FASTCALL, "Testing & debugging function "},
 #endif
     {NULL} // Sentinel
 };

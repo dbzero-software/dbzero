@@ -88,9 +88,9 @@ namespace db0::object_model
         using LangToolkit = LangConfig::LangToolkit;
         using ObjectPtr = LangConfig::ObjectPtr;
         using ObjectSharedPtr = LangConfig::ObjectSharedPtr;
-
-        // the associated fixture (for context validation purposes)     
-        db0::swine_ptr<Fixture> m_fixture;
+        
+        // the associated fixture (for context validation purposes)  
+        db0::weak_swine_ptr<Fixture> m_fixture;
         // the associated enum's UID (i.e. its address from the dedicated address pool)
         // Note that m_enum_id = 0 may be a vailid enum's UID
         std::uint32_t m_enum_uid = 0;
@@ -102,7 +102,7 @@ namespace db0::object_model
         EnumValue_UID getUID() const;
         
         operator bool() const {
-            return m_fixture && m_value;
+            return !!m_fixture && m_value;
         }
 
         bool operator==(const EnumValue &) const;
@@ -116,6 +116,8 @@ namespace db0::object_model
         
         static ObjectSharedPtr deserialize(Snapshot &, std::vector<std::byte>::const_iterator &iter,
             std::vector<std::byte>::const_iterator end);
+        
+        db0::swine_ptr<Fixture> getFixture() const;
     };
     
     class [[gnu::packed]] o_enum_value: public db0::o_base<o_enum_value, 0, false>

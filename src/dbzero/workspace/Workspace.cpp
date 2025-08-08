@@ -290,7 +290,7 @@ namespace db0
     }
     
     void Workspace::close(bool as_defunct, ProcessTimer *timer_ptr)
-    {    
+    {
         std::unique_ptr<ProcessTimer> timer;
         if (timer_ptr) {
             timer = std::make_unique<ProcessTimer>("Workspace::close", timer_ptr);

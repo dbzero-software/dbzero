@@ -1357,7 +1357,20 @@ namespace db0::python
         auto op_count = PyLong_AsUnsignedLong(args[0]);
         return runSafe(tryCrashFromCommit, op_count);
     }
+    
+    PyObject *PyAPI_breakpoint(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
+    {
+        PY_API_FUNC
+        if (nargs != 1) {
+            PyErr_SetString(PyExc_TypeError, "breakpoint requires exactly 1 argument");
+            return NULL;
+        }
 
+        // put your debug logic here
+        // auto memo_obj = reinterpret_cast<MemoObject*>(args[0]);        
+        // memo_obj->ext().getType().startDebug();
+        Py_RETURN_NONE;
+    }
 #endif
 
     PyObject *PyAPI_assign(PyObject *, PyObject *args, PyObject *kwargs)
