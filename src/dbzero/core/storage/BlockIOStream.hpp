@@ -174,7 +174,9 @@ namespace db0
         // Set stream position for reading
         // NOTE: only values returned by getStreamPos() can be used, otherwise the behavior is undefined
         void setStreamPos(std::uint64_t address, std::uint64_t stream_pos);
-
+        // @param stream_pos value as returned from getStreamPos
+        void setStreamPos(const std::pair<std::uint64_t, std::uint64_t> &stream_pos);
+        
         // Position the stream at its begin / head
         void setStreamPosHead();
 

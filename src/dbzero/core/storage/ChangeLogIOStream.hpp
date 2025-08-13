@@ -35,11 +35,33 @@ namespace db0
          * @return the change-log sequence or nullptr if end of the stream reached
         */
         const o_change_log *readChangeLogChunk();
-
+        
+        // Read chunk, bring your own buffer
+        const o_change_log *readChangeLogChunk(std::vector<char> &buffer);
+        
         /**
          * Get last read or written change log chunk
         */
         const o_change_log *getLastChangeLogChunk() const;
+        
+        class Reader
+        {
+        public:
+            Reader(ChangeLogIOStream &);
+
+            const o_change_log *readChangeLogChunk();
+
+            // initialize reading from the beginning
+            void reset();
+            
+        private:
+            ChangeLogIOStream &m_stream;
+            std::list<std::vector<char> > m_buffers;
+            std::list<std::vector<char> >::const_iterator m_it_next_buffer;
+        };
+        
+        // Retrieves a caching reaader, which allows multiple scan over the same data
+        Reader getStreamReader();
 
     private:
         const o_change_log *m_last_change_log_ptr = nullptr;

@@ -78,7 +78,7 @@ namespace db0
     }
     
     void DRAM_IOStream::updateDRAMPage(std::uint64_t address, std::unordered_set<std::size_t> *allocs_ptr,
-        const o_dram_chunk_header &header, void *bytes)
+        const o_dram_chunk_header &header, const void *bytes)
     {
         auto result = updateDRAMPage(address, allocs_ptr, header);
         if (result) {
@@ -221,41 +221,70 @@ namespace db0
         return { m_prefix, m_allocator };
     }
     
-    bool DRAM_IOStream::applyChanges(ChangeLogIOStream &changelog_io)
+    std::uint64_t DRAM_IOStream::beginApplyChanges(ChangeLogIOStream &changelog_io) const
     {
+        assert(m_read_ahead_chunks.empty());
+        assert(m_addr_set.empty());
+        
         if (m_access_type == AccessType::READ_WRITE) {
-            THROWF(db0::IOException) << "DRAM_IOStream::applyChanges require read-only stream";
+            THROWF(db0::InternalException) << "DRAM_IOStream::applyChanges require read-only stream";
         }
         
-        // buffer must include BlockIOStream's chunk header and data
-        std::vector<char> buffer(m_chunk_size + o_block_io_chunk_header::sizeOf());
-        auto &header = o_dram_chunk_header::__ref(buffer.data() + o_block_io_chunk_header::sizeOf());        
+        // the maximum state number
+        std::uint64_t result = 0;
+        auto stream_pos = changelog_io.getStreamPos();
+        try {
+            // Note that change log and the data chunks may be updated by other process while we read it
+            // the consistent state is only guaranteed after reaching end of the stream        
+            auto change_log_ptr = changelog_io.readChangeLogChunk();
 
-        std::unordered_set<std::uint64_t> addr_set;        
-        // Note that change log and the data chunks may be updated by other process while we read it
-        // the consistent state is only guaranteed after reaching end of the stream        
-        auto change_log_ptr = changelog_io.readChangeLogChunk();
-        bool result = false;
-        // first collect the change log to only visit each address once
-        while (change_log_ptr) {
-            for (auto address: *change_log_ptr) {
-                if (addr_set.find(address) == addr_set.end()) {
-                    addr_set.insert(address);
-                    // the address reported in changelog must already be available in the stream
-                    // it may come from a more recent update as well (and potentially may only be partially written)
-                    // therefore chunk-level checksum validation is necessary
-                    BlockIOStream::readFromChunk(address, buffer.data(), buffer.size());            
-                    // no need to keep track of DRAM allocs in read-only mode
-                    updateDRAMPage(address, nullptr, header, header.getData());
-                    result = true;
+            // first collect the change log to only visit each address once
+            while (change_log_ptr) {
+                for (auto address: *change_log_ptr) {
+                    if (m_addr_set.find(address) == m_addr_set.end()) {
+                        m_addr_set.insert(address);
+                        // buffer must include BlockIOStream's chunk header and data
+                        auto &buffer = createReadAheadBuffer(address, m_chunk_size + o_block_io_chunk_header::sizeOf());
+                        auto &header = o_dram_chunk_header::__ref(buffer.data() + o_block_io_chunk_header::sizeOf());
+                        // the address reported in changelog must already be available in the stream
+                        // it may come from a more recent update as well (and potentially may only be partially written)
+                        // therefore chunk-level checksum validation is necessary
+                        BlockIOStream::readFromChunk(address, buffer.data(), buffer.size());
+                        result = std::max(result, header.m_state_num);
+                    }
                 }
+                change_log_ptr = changelog_io.readChangeLogChunk();
             }
-            change_log_ptr = changelog_io.readChangeLogChunk();
+        } catch (db0::IOException &) {
+            changelog_io.setStreamPos(stream_pos);
+            m_read_ahead_chunks.clear();
+            m_addr_set.clear();
+            throw;
         }
-
+        
         return result;
     }
     
+    bool DRAM_IOStream::completeApplyChanges()
+    {
+        bool result = false;
+        for (auto address: m_addr_set) {
+            auto &buffer = getReadAheadBuffer(address);
+            const auto &header = o_dram_chunk_header::__const_ref(buffer.data() + o_block_io_chunk_header::sizeOf());
+            updateDRAMPage(address, nullptr, header, header.getData());
+            result = true;
+        }
+        m_addr_set.clear();
+        m_read_ahead_chunks.clear();
+        return result;
+    }
+    
+    void DRAM_IOStream::rollbackApplyChanges()
+    {
+        m_addr_set.clear();
+        m_read_ahead_chunks.clear();
+    }
+
     void DRAM_IOStream::flush() {
         THROWF(db0::IOException) << "DRAM_IOStream::flush not allowed";
     }
@@ -294,6 +323,18 @@ namespace db0
         BlockIOStream::close();
     }
     
+    std::vector<char> &DRAM_IOStream::createReadAheadBuffer(std::uint64_t address, std::size_t size) const
+    {
+        assert(m_read_ahead_chunks.find(address) == m_read_ahead_chunks.end());
+        return m_read_ahead_chunks.emplace(address, size).first->second;        
+    }
+    
+    const std::vector<char> &DRAM_IOStream::getReadAheadBuffer(std::uint64_t address) const
+    {
+        assert(m_read_ahead_chunks.find(address) != m_read_ahead_chunks.end());
+        return m_read_ahead_chunks.at(address);
+    }
+
 #ifndef NDEBUG 
     void DRAM_IOStream::getDRAM_IOMap(std::unordered_map<std::uint64_t, std::pair<std::uint64_t, std::uint64_t> > &io_map) const
     {

@@ -14,7 +14,7 @@
 namespace db0
 
 {
-        
+    
     class DRAM_Prefix;
     class DRAM_Allocator;
     class CFile;
@@ -35,6 +35,10 @@ namespace db0
         // calculate data pointer immediately following the header
         char *getData() {
             return (char*)this + sizeOf();
+        }
+
+        const char *getData() const {
+            return (const char*)this + sizeOf();
         }
     };
 
@@ -68,13 +72,16 @@ namespace db0
         */
         void flushUpdates(std::uint64_t state_num, ChangeLogIOStream &dram_changelog_io);
         
-        /**
-         * Read all consecutive change logs from the "changelog_io" stream and apply changes
-         * @param changelog_io the stream to read changelogs from
-         * @return true if any changes were applied
-        */
-        bool applyChanges(ChangeLogIOStream &changelog_io);
+        // The purpose of this operation is allowing atomic application of changes
+        // this call may end with an IOException without affecting internal state (except populating temporary buffers)
+        // @return the latest state number of available changes
+        std::uint64_t beginApplyChanges(ChangeLogIOStream &changelog_io) const;
+        
+        // Apply buffered changes (allowed on condition beginApplyChanges succeeded)
+        bool completeApplyChanges();
 
+        void rollbackApplyChanges();
+        
         /**
          * Get the underlying DRAM pair (prefix and allocator)
         */
@@ -122,8 +129,8 @@ namespace db0
         void getDRAM_IOMap(std::unordered_map<std::uint64_t, std::pair<std::uint64_t, std::uint64_t> > &) const;
         // Read physical data block from file and detect discrepancies        
         void dramIOCheck(std::vector<DRAM_CheckResult> &) const;
-#endif        
-
+#endif
+    
     private:
         const std::uint32_t m_dram_page_size;
         const std::size_t m_chunk_size;
@@ -133,7 +140,10 @@ namespace db0
         std::unordered_map<std::uint32_t, DRAM_PageInfo> m_page_map;
         std::shared_ptr<DRAM_Prefix> m_prefix;
         std::shared_ptr<DRAM_Allocator> m_allocator;
-        
+        // chunks buffer for the beginApplyChanges / completeApplyChanges operations
+        mutable std::unordered_map<std::uint64_t, std::vector<char> > m_read_ahead_chunks;
+        mutable std::unordered_set<std::uint64_t> m_addr_set;
+
         /**
          * Load entire contents from stream into the DRAM Storage
         */
@@ -141,10 +151,15 @@ namespace db0
         void *updateDRAMPage(std::uint64_t address, std::unordered_set<std::size_t> *allocs_ptr, 
             const o_dram_chunk_header &header);
         void updateDRAMPage(std::uint64_t address, std::unordered_set<std::size_t> *allocs_ptr, 
-            const o_dram_chunk_header &header, void *bytes);
-
+            const o_dram_chunk_header &header, const void *bytes);
+        
         // the number of random write operations performed while flushing updates
         std::uint64_t m_rand_ops = 0;
+        
+        // Create new read-ahead buffer
+        std::vector<char> &createReadAheadBuffer(std::uint64_t address, std::size_t size) const;
+        // Retrieve existing read-ahead buffer
+        const std::vector<char> &getReadAheadBuffer(std::uint64_t address) const;
     };
-
+    
 }

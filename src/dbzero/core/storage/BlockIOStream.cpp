@@ -342,7 +342,8 @@ namespace db0
         }
         if (!eos()) {
             // refresh does not make sense if not at end of the stream
-            return false;
+            // return true to indicate "fresh" contents available for reading
+            return true;
         }
         
         // contents might've changed without file size change
@@ -366,9 +367,9 @@ namespace db0
                     }
                 }            
             }
-        }        
+        }
 
-        // no change
+        // no change, no new contents to read
         return false;
     }
 
@@ -480,7 +481,7 @@ namespace db0
     std::pair<std::uint64_t, std::uint64_t> BlockIOStream::getStreamPos() const {
         return { m_address, tell() };
     }
-
+    
     void BlockIOStream::setStreamPos(std::uint64_t address, std::uint64_t stream_pos)
     {
         assert(!m_closed);
@@ -499,6 +500,10 @@ namespace db0
         m_eos = false;
     }
     
+    void BlockIOStream::setStreamPos(const std::pair<std::uint64_t, std::uint64_t> &pos) {
+        setStreamPos(pos.first, pos.second);
+    }
+
     void BlockIOStream::setStreamPosHead() {
         setStreamPos(m_head, 0);
     }

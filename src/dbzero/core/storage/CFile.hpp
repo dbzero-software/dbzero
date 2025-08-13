@@ -50,6 +50,9 @@ namespace db0
         bool refresh();
 
         void flush() const;
+        
+        // Make changes durable and accessible to other processes as well
+        void fsync() const;
 
         void close();
         
