@@ -335,7 +335,7 @@ namespace db0
         m_head_state_num = m_storage_ptr->getMaxStateNum();        
         return result;
     }
-
+    
     std::uint64_t PrefixImpl::getLastUpdated() const {
         return m_storage_ptr->getLastUpdated();
     }

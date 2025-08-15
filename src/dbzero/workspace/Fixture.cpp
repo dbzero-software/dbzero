@@ -542,7 +542,7 @@ namespace db0
     Fixture::StateReachedCallbackList Fixture::collectStateReachedCallbacks()
     {
         auto prefix_ptr = getPrefixPtr();
-        if(!prefix_ptr) {
+        if (!prefix_ptr) {
             return {};
         }        
 

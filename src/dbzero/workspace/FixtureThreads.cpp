@@ -158,7 +158,7 @@ namespace db0
             }
         }
     }
-
+    
     void RefreshThread::tryRefresh(Fixture &fixture)
     {
         using LangToolkit = db0::object_model::LangConfig::LangToolkit;
@@ -166,9 +166,11 @@ namespace db0
         auto lang_lock = LangToolkit::ensureLocked();
 
         auto callbacks = fixture.onRefresh();
-        auto context = m_tmp_context.lock();
-        assert(context);
-        context->appendCallbacks(std::move(callbacks));
+        if (!callbacks.empty()) {
+            auto context = m_tmp_context.lock();
+            assert(context);
+            context->appendCallbacks(std::move(callbacks));
+        }
     }
 
     std::mutex AutoCommitThread::m_commit_mutex;

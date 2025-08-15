@@ -144,6 +144,7 @@ namespace db0
         DiffIndex &m_diff_index;
         // the stream for storing & reading full-DPs and diff-encoded DPs
         Diff_IO m_page_io;
+        bool m_refresh_pending = false;
 #ifndef NDEBUG
         // total number of bytes from mutated data pages
         std::uint64_t m_page_io_raw_bytes = 0;

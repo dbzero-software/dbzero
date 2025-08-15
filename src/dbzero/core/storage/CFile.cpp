@@ -3,6 +3,7 @@
 #include <sys/stat.h>
 #include <chrono>
 #include <filesystem>
+#include <unistd.h>
 #include <dbzero/core/exception/Exceptions.hpp>
 
 namespace db0
@@ -77,6 +78,18 @@ namespace db0
             THROWF(db0::IOException) << "CFile::flush: failed to flush file " << m_path;
         }
         m_dirty = false;
+    }
+
+    void CFile::fsync() const
+    {
+        std::unique_lock<std::mutex> lock(m_mutex);
+        flush(lock);
+        if (m_access_type == AccessType::READ_ONLY) {
+            THROWF(db0::IOException) << "CFile::fsync: read-only stream";
+        }
+        if (::fsync(fileno(m_file)) == -1) {
+            THROWF(db0::IOException) << "CFile::fsync: failed to sync file " << m_path;
+        }
     }
 
     void CFile::flush() const

@@ -34,18 +34,56 @@ namespace db0
         return *m_last_change_log_ptr;
     }
     
-    const o_change_log *ChangeLogIOStream::readChangeLogChunk()
+    const o_change_log *ChangeLogIOStream::readChangeLogChunk(std::vector<char> &buffer)
     {
-        if (BlockIOStream::readChunk(m_buffer)) {
-            m_last_change_log_ptr = &o_change_log::__const_ref(m_buffer.data());
+        if (BlockIOStream::readChunk(buffer)) {
+            m_last_change_log_ptr = &o_change_log::__const_ref(buffer.data());
             return m_last_change_log_ptr;
         } else {
             return nullptr;
         }
     }
 
+    const o_change_log *ChangeLogIOStream::readChangeLogChunk() {
+        return readChangeLogChunk(m_buffer);
+    }
+
     const o_change_log *ChangeLogIOStream::getLastChangeLogChunk() const {
         return m_last_change_log_ptr;
+    }
+    
+    ChangeLogIOStream::Reader::Reader(ChangeLogIOStream &stream)
+        : m_stream(stream)
+        , m_it_next_buffer(m_buffers.end())
+    {        
+    }
+
+    ChangeLogIOStream::Reader ChangeLogIOStream::getStreamReader() {
+        return *this;
+    }
+    
+    const o_change_log *ChangeLogIOStream::Reader::readChangeLogChunk()
+    {
+        if (m_it_next_buffer == m_buffers.end()) {
+            // read and cache the result
+            m_buffers.emplace_back();
+            auto result = m_stream.readChangeLogChunk(m_buffers.back());
+            if (!result) {
+                // revert incomplete item
+                m_buffers.pop_back();                
+            }
+            m_it_next_buffer = m_buffers.end();
+            return result;
+        } else {
+            // read from a cached buffer
+            auto result = &o_change_log::__const_ref(m_it_next_buffer->data());
+            ++m_it_next_buffer;
+            return result;
+        }
+    }
+    
+    void ChangeLogIOStream::Reader::reset() {
+        m_it_next_buffer = m_buffers.begin();
     }
     
 }

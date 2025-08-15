@@ -62,7 +62,8 @@ namespace db0
             while (dram_change_log.readChangeLogChunk());
         } else {
             // apply all changes from the change-log
-            dram_io.applyChanges(dram_change_log);
+            dram_io.beginApplyChanges(dram_change_log);
+            dram_io.completeApplyChanges();            
         }
         return std::move(dram_io);
     }
@@ -327,7 +328,8 @@ namespace db0
         // flush changelog AFTER all updates from dram_io have been flushed
         m_dram_changelog_io.flush();
         m_page_io.flush();
-        m_file.flush();
+        // NOTE: fsync has stronger guarantees than flush in a multi-process environments
+        m_file.fsync();
         // commit to collect future updates correctly
         m_sparse_pair.commit();
         return true;
@@ -438,7 +440,10 @@ namespace db0
         if (m_access_type != AccessType::READ_ONLY) {
             THROWF(db0::IOException) << "BDevStorage::refresh allowed only in read-only mode";
         }
-        return m_dram_changelog_io.refresh();
+        if (!m_refresh_pending) {
+            m_refresh_pending = m_dram_changelog_io.refresh();
+        }
+        return m_refresh_pending;
     }
     
     std::uint64_t BDevStorage::completeRefresh(
@@ -448,40 +453,66 @@ namespace db0
         std::uint64_t result = 0;
         // continue refreshing until all updates retrieved to guarantee a consistent state
         do {
+            // safe stream positions for rollback on file read failure
+            auto dram_changelog_io_pos = m_dram_changelog_io.getStreamPos();
+            auto dp_changelog_io_pos = m_dp_changelog_io.getStreamPos();
+            try {
+                m_dram_io.beginApplyChanges(m_dram_changelog_io);
+                dram_changelog_io_pos = m_dram_changelog_io.getStreamPos();
+                // send all page-update notifications to the provided handler
+                if (on_page_updated) {
+                    StateNumType updated_state_num = 0;
+                    m_dp_changelog_io.refresh();
+                    // NOTE: readers allow reading the same contents multiple times
+                    auto reader = m_dp_changelog_io.getStreamReader();
+                    // feed the reader with all available chunks, in case of IOException the stream is getting reverted
+                    // this is to make the operation atomic
+                    while (reader.readChangeLogChunk());
+                    
+                    // reset to read all updates again
+                    reader.reset();
+                    for (;;) {
+                        auto dp_change_log_ptr = reader.readChangeLogChunk();
+                        if (!dp_change_log_ptr) {
+                            break;
+                        }
+                        
+                        // First element from the chunk is the updated state number
+                        auto it = dp_change_log_ptr->begin(), end = dp_change_log_ptr->end();
+                        assert(it != end);
+                        // First element in the log is the updated state number
+                        assert(*it != updated_state_num);
+                        updated_state_num = *it;
+                        // All other elements are page numbers
+                        ++it;
+                        for (; it != end; ++it) {
+                            on_page_updated(*it, updated_state_num);
+                        }
+                    }
+                }
+
+            } catch (db0::IOException &) {
+                // NOTE: this exception may appear on distributed filesystems
+                // where changes are not guaranteed to be written sequentially
+                // need to revert the refresh operation to the point where it originally started
+                m_dram_changelog_io.setStreamPos(dram_changelog_io_pos);
+                m_dp_changelog_io.setStreamPos(dp_changelog_io_pos);                
+                break;
+            }
+            
             if (!result) {
                 result = m_file.getLastModifiedTime();
             }
-            if (m_dram_io.applyChanges(m_dram_changelog_io)) {
+            
+            if (m_dram_io.completeApplyChanges()) {
                 // refresh underlying sparse index / diff index after DRAM update
                 m_sparse_pair.refresh();
             }
-            m_dp_changelog_io.refresh();
-            // send all page-update notifications to the provided handler
-            if (on_page_updated) {
-                StateNumType updated_state_num = 0;
-                for (;;) {
-                    auto dp_change_log_ptr = m_dp_changelog_io.readChangeLogChunk();
-                    if (!dp_change_log_ptr) {
-                        break;
-                    }
-                    
-                    // First element from the chunk is the updated state number
-                    auto it = dp_change_log_ptr->begin(), end = dp_change_log_ptr->end();
-                    assert(it != end);
-                    // First element in the log is the updated state number
-                    assert(*it != updated_state_num);
-                    updated_state_num = *it;
-                    // All other elements are page numbers
-                    ++it;
-                    for (; it != end; ++it) {
-                        on_page_updated(*it, updated_state_num);
-                    }
-                }
-            }
-            
             m_meta_io.refresh();
+            // refresh cycle complete
+            m_refresh_pending = false;
         }
-        while (m_dram_changelog_io.refresh());        
+        while (beginRefresh());
         return result;
     }
     

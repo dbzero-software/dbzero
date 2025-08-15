@@ -59,7 +59,7 @@ namespace db0
             ConstIterator(o_rle_sequence<std::uint64_t>::ConstIterator it);
 
             ConstIterator &operator++();
-            std::uint64_t operator*() const;            
+            std::uint64_t operator*() const;
             bool operator!=(const ConstIterator &other) const;
 
         private:
@@ -67,9 +67,12 @@ namespace db0
             o_list<o_simple<std::uint64_t> >::const_iterator m_list_it;
             o_rle_sequence<std::uint64_t>::ConstIterator m_rle_it;
         };
-
+        
         ConstIterator begin() const;
         ConstIterator end() const;
+
+        // Decode the last element from the log (possibly a sentinel)
+        std::uint64_t last() const;
 
         bool isRLECompressed() const;
 
