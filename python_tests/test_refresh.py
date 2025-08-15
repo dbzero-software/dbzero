@@ -427,7 +427,7 @@ def test_wait_for_updates(db0_fixture):
     p = multiprocessing.Process(target=writer_process, args=(prefix, writer_sem, reader_sem))
     p.start()
     reader_sem.acquire()
-
+    
     db0.init(DB0_DIR)
     db0.open(prefix, "r")
 

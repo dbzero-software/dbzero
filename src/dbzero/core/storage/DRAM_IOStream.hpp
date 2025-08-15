@@ -75,13 +75,11 @@ namespace db0
         // The purpose of this operation is allowing atomic application of changes
         // this call may end with an IOException without affecting internal state (except populating temporary buffers)
         // @return the latest state number of available changes
-        std::uint64_t beginApplyChanges(ChangeLogIOStream &changelog_io) const;
+        void beginApplyChanges(ChangeLogIOStream &changelog_io) const;
         
         // Apply buffered changes (allowed on condition beginApplyChanges succeeded)
         bool completeApplyChanges();
-
-        void rollbackApplyChanges();
-        
+    
         /**
          * Get the underlying DRAM pair (prefix and allocator)
         */
@@ -142,8 +140,8 @@ namespace db0
         std::shared_ptr<DRAM_Allocator> m_allocator;
         // chunks buffer for the beginApplyChanges / completeApplyChanges operations
         mutable std::unordered_map<std::uint64_t, std::vector<char> > m_read_ahead_chunks;
-        mutable std::unordered_set<std::uint64_t> m_addr_set;
-
+        mutable std::unordered_set<std::uint64_t> m_addr_set;        
+        
         /**
          * Load entire contents from stream into the DRAM Storage
         */

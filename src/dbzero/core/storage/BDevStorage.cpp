@@ -62,9 +62,8 @@ namespace db0
             while (dram_change_log.readChangeLogChunk());
         } else {
             // apply all changes from the change-log
-            if (dram_io.beginApplyChanges(dram_change_log)) {
-                dram_io.completeApplyChanges();
-            }            
+            dram_io.beginApplyChanges(dram_change_log);
+            dram_io.completeApplyChanges();            
         }
         return std::move(dram_io);
     }
@@ -441,7 +440,10 @@ namespace db0
         if (m_access_type != AccessType::READ_ONLY) {
             THROWF(db0::IOException) << "BDevStorage::refresh allowed only in read-only mode";
         }
-        return m_dram_changelog_io.refresh();
+        if (!m_refresh_pending) {
+            m_refresh_pending = m_dram_changelog_io.refresh();
+        }
+        return m_refresh_pending;
     }
     
     std::uint64_t BDevStorage::completeRefresh(
@@ -455,25 +457,17 @@ namespace db0
             auto dram_changelog_io_pos = m_dram_changelog_io.getStreamPos();
             auto dp_changelog_io_pos = m_dp_changelog_io.getStreamPos();
             try {
-                auto last_state_num = m_dram_io.beginApplyChanges(m_dram_changelog_io);
+                m_dram_io.beginApplyChanges(m_dram_changelog_io);
+                dram_changelog_io_pos = m_dram_changelog_io.getStreamPos();
                 // send all page-update notifications to the provided handler
                 if (on_page_updated) {
                     StateNumType updated_state_num = 0;
                     m_dp_changelog_io.refresh();
                     // NOTE: readers allow reading the same contents multiple times
                     auto reader = m_dp_changelog_io.getStreamReader();
-                    for (;;) {
-                        auto dp_change_log_ptr = reader.readChangeLogChunk();
-                        if (!dp_change_log_ptr) {
-                            // this is to indicate an incomplete stream (data not available in file yet)
-                            THROWF(db0::IOException) << "Incomplete DP change-log stream";
-                        }
-                        // log verified as complete, since the desired state number was reached
-                        // can safely continue with the full refresh
-                        if (*dp_change_log_ptr->begin() == last_state_num) {
-                            break;
-                        }
-                    }
+                    // feed the reader with all available chunks, in case of IOException the stream is getting reverted
+                    // this is to make the operation atomic
+                    while (reader.readChangeLogChunk());
                     
                     // reset to read all updates again
                     reader.reset();
@@ -494,10 +488,6 @@ namespace db0
                         for (; it != end; ++it) {
                             on_page_updated(*it, updated_state_num);
                         }
-                        if (updated_state_num == last_state_num) {
-                            // all updates processed
-                            break;
-                        }
                     }
                 }
 
@@ -506,9 +496,8 @@ namespace db0
                 // where changes are not guaranteed to be written sequentially
                 // need to revert the refresh operation to the point where it originally started
                 m_dram_changelog_io.setStreamPos(dram_changelog_io_pos);
-                m_dp_changelog_io.setStreamPos(dp_changelog_io_pos);
-                m_dram_io.rollbackApplyChanges();
-                return result;
+                m_dp_changelog_io.setStreamPos(dp_changelog_io_pos);                
+                break;
             }
             
             if (!result) {
@@ -518,8 +507,10 @@ namespace db0
             if (m_dram_io.completeApplyChanges()) {
                 // refresh underlying sparse index / diff index after DRAM update
                 m_sparse_pair.refresh();
-            }            
+            }
             m_meta_io.refresh();
+            // refresh cycle complete
+            m_refresh_pending = false;
         }
         while (beginRefresh());
         return result;

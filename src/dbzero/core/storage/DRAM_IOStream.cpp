@@ -221,7 +221,7 @@ namespace db0
         return { m_prefix, m_allocator };
     }
     
-    std::uint64_t DRAM_IOStream::beginApplyChanges(ChangeLogIOStream &changelog_io) const
+    void DRAM_IOStream::beginApplyChanges(ChangeLogIOStream &changelog_io) const
     {
         assert(m_read_ahead_chunks.empty());
         assert(m_addr_set.empty());
@@ -230,8 +230,6 @@ namespace db0
             THROWF(db0::InternalException) << "DRAM_IOStream::applyChanges require read-only stream";
         }
         
-        // the maximum state number
-        std::uint64_t result = 0;
         auto stream_pos = changelog_io.getStreamPos();
         try {
             // Note that change log and the data chunks may be updated by other process while we read it
@@ -249,8 +247,7 @@ namespace db0
                         // the address reported in changelog must already be available in the stream
                         // it may come from a more recent update as well (and potentially may only be partially written)
                         // therefore chunk-level checksum validation is necessary
-                        BlockIOStream::readFromChunk(address, buffer.data(), buffer.size());
-                        result = std::max(result, header.m_state_num);
+                        BlockIOStream::readFromChunk(address, buffer.data(), buffer.size());                        
                     }
                 }
                 change_log_ptr = changelog_io.readChangeLogChunk();
@@ -258,11 +255,9 @@ namespace db0
         } catch (db0::IOException &) {
             changelog_io.setStreamPos(stream_pos);
             m_read_ahead_chunks.clear();
-            m_addr_set.clear();
+            m_addr_set.clear();            
             throw;
-        }
-        
-        return result;
+        }        
     }
     
     bool DRAM_IOStream::completeApplyChanges()
@@ -275,16 +270,10 @@ namespace db0
             result = true;
         }
         m_addr_set.clear();
-        m_read_ahead_chunks.clear();
+        m_read_ahead_chunks.clear();        
         return result;
     }
     
-    void DRAM_IOStream::rollbackApplyChanges()
-    {
-        m_addr_set.clear();
-        m_read_ahead_chunks.clear();
-    }
-
     void DRAM_IOStream::flush() {
         THROWF(db0::IOException) << "DRAM_IOStream::flush not allowed";
     }
