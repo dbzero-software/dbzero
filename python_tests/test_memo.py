@@ -1,6 +1,7 @@
 import pytest
 import dbzero_ce as db0
 from .memo_test_types import MemoTestClass, TriColor, MemoTestSingleton
+from dataclasses import dataclass
 
 
 class RegularPyClass:
@@ -139,3 +140,39 @@ def test_memo_field_deletion_in_pre_init(db0_fixture):
     # and the null-defaulting migration rule is applied by dbzero
     assert obj_1.value_2 is None
     
+
+@db0.memo
+@dataclass
+class MemoDataClass:
+    title: str
+    author: str
+    year: int = 2024
+    is_available: bool = True
+    
+    
+def test_memo_data_class(db0_fixture):
+    obj_1 = MemoDataClass("Some Title", "Some Author", 2022, True)
+    assert obj_1.title == "Some Title"
+    assert obj_1.author == "Some Author"
+    assert obj_1.year == 2022
+    assert obj_1.is_available == True
+    assert db0.is_memo(obj_1)
+
+    
+def test_memo_data_class_kwargs_init(db0_fixture):
+    obj_1 = MemoDataClass(title = "Some Title", author = "Some Author", year = 1976, is_available = False)
+    assert obj_1.title == "Some Title"
+    assert obj_1.author == "Some Author"
+    assert obj_1.year == 1976
+    assert obj_1.is_available == False
+    assert db0.is_memo(obj_1)
+
+
+def test_memo_data_class_default_args(db0_fixture):
+    obj_1 = MemoDataClass("Some Title", "Some Author")
+    assert obj_1.title == "Some Title"
+    assert obj_1.author == "Some Author"
+    assert obj_1.year == 2024
+    assert obj_1.is_available == True
+    assert db0.is_memo(obj_1)
+
