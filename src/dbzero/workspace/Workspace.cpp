@@ -384,11 +384,12 @@ namespace db0
                     m_on_open_callback(it->second, file_created);
                 }
             }
-        } catch (...) {
+        } catch (std::exception &ex) {
             if (file_created) {
                 // remove incomplete file
                 m_fixture_catalog.drop(prefix_name);                
             }
+            std::cerr << "Error opening fixture '" << prefix_name << "': " << ex.what() << std::endl;
             return nullptr;            
         }
         
