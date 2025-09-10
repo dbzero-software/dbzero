@@ -389,7 +389,7 @@ namespace db0
                 // remove incomplete file
                 m_fixture_catalog.drop(prefix_name);                
             }
-            std::cerr << "Error opening fixture '" << prefix_name << "': " << ex.what() << std::endl;
+            std::cerr << "Error opening prefix '" << prefix_name << "': " << ex.what() << std::endl;
             return nullptr;            
         }
         
