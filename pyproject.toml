@@ -11,6 +11,9 @@ requires-python = '>=3.8'
 license = {file = 'LICENSE.txt'}
 authors = [
 ]
+dependencies = [
+    'fasteners==0.19'
+]
 
 [tool.semantic_release.remote]
 password = { env = "GH_TOKEN" }
