@@ -24,8 +24,10 @@ namespace db0
             case TypeId::INTEGER:
                 return IndexDataType::Int64;
             case TypeId::DATETIME:
+            case TypeId::DATETIME_TZ:
             case TypeId::DATE:
             case TypeId::TIME:
+            case TypeId::TIME_TZ:
             case TypeId::DECIMAL:
                 return IndexDataType::UInt64;
             default:
