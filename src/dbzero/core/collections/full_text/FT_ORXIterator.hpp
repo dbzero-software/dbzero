@@ -17,7 +17,8 @@ namespace db0
     /**
      * OR / ORX (OR exclusive) - joining iterator
      */
-	template <typename key_t = std::uint64_t> class FT_JoinORXIterator: public FT_Iterator<key_t>
+	template <typename key_t = std::uint64_t> 
+	class FT_JoinORXIterator: public FT_Iterator<key_t>
     {
 	public :
 		using self_t = FT_JoinORXIterator<key_t>;
@@ -104,7 +105,7 @@ namespace db0
 
         std::pair<bool, bool> mutateInner(const MutateFunction &f) override;
 
-        virtual void detach();
+        void detach();
 
         FTIteratorType getSerialTypeId() const override;
 		

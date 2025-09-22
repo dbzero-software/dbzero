@@ -4,12 +4,12 @@ namespace db0
 
 {
 
-    template <typename KeyT> FT_FixedKeyIterator<KeyT>::FT_FixedKeyIterator(const KeyT *begin, const KeyT *end, 
+    template <typename KeyT> FT_FixedKeyIterator<KeyT>::FT_FixedKeyIterator(const KeyT *begin, const KeyT *end,
         int direction, bool is_sorted)
         : m_sorted_keys(getSorted(begin, end, is_sorted))
         , m_keys(m_sorted_keys.data(), m_sorted_keys.size())
         , m_direction(direction)        
-    {    
+    {
         if (m_direction > 0) {
             m_current = m_keys.begin();
         } else {
@@ -108,8 +108,8 @@ namespace db0
     }
     
     template <typename KeyT> bool FT_FixedKeyIterator<KeyT>::join(KeyT join_key, int direction)
-    {        
-        m_current = m_keys.join((direction > 0 ? m_keys.begin() : m_keys.end()), join_key, direction);
+    {                
+        m_current = m_keys.join(m_current, join_key, direction);
         return m_current != m_keys.end();
     }
     

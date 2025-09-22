@@ -82,13 +82,13 @@ namespace db0
          */
         std::unique_ptr<FT_Iterator<key_t> > beginNot(int direction) const;
 
-        virtual void stop() override;
+        void stop() override;
 
-        virtual bool findBy(const std::function<bool(const FT_Iterator<key_t> &)> &f) const override;
+        bool findBy(const std::function<bool(const FT_Iterator<key_t> &)> &f) const override;
 
-        virtual std::pair<bool, bool> mutateInner(const MutateFunction &f) override;
+        std::pair<bool, bool> mutateInner(const MutateFunction &f) override;
 
-        virtual void detach();
+        void detach();
 
         FTIteratorType getSerialTypeId() const override;        
         

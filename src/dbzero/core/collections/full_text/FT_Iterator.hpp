@@ -169,4 +169,8 @@ namespace db0
     extern template class FT_Iterator<std::uint64_t>;
     extern template class FT_Iterator<int>;
     
-} // dbz namespace {
+    // CartesianProduct-specific requirements
+    extern template class FT_Iterator<UniqueAddress*>;
+    extern template class FT_Iterator<std::uint64_t*>;
+    
+}

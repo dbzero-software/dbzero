@@ -18,7 +18,7 @@ namespace db0
      * AND - joining iterator (join abstract full-text iterators)     
      */
     template <typename key_t = std::uint64_t, bool UniqueKeys = true>
-    class FT_JoinANDIterator : public FT_Iterator<key_t>
+    class FT_JoinANDIterator final: public FT_Iterator<key_t>
     {
 	public:
         using self_t = FT_JoinANDIterator<key_t, UniqueKeys>;
@@ -95,7 +95,7 @@ namespace db0
 
         std::pair<bool, bool> mutateInner(const MutateFunction &f) override;
         
-        virtual void detach();
+        void detach();
 
         FTIteratorType getSerialTypeId() const override;
         
