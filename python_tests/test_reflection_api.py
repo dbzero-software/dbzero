@@ -354,3 +354,28 @@ def test_get_memo_class_of_instance(db0_fixture):
     memo_class = db0.get_memo_class(obj)
     print(memo_class)
     assert memo_class is not None
+
+# FIXME: https://github.com/wskozlowski/dbzero_ce/issues/426
+@db0.memo
+class TestBaseClass:
+    __test__ = False
+    def __init__(self, value):
+        self.value = value
+
+@db0.memo
+class TestDerivedClass(TestBaseClass):
+    def __init__(self, value1, value2):
+        super().__init__(value1)
+        self.another_value = value2
+
+def test_base_class_attributes(db0_fixture):
+    obj = TestDerivedClass(1, 2)
+    cls = db0.get_memo_class(obj)
+    attrs = set(attr.name for attr in cls.get_attributes())
+    assert attrs == {"another_value", "value"}
+
+    base_cls = next(cls for cls in db0.get_memo_classes() if "TestBaseClass" in cls.name)
+    objs = list(base_cls.all())
+    assert objs == [obj]
+    base_attrs = set(attr.name for attr in base_cls.get_attributes())
+    assert base_attrs == {"value"}
