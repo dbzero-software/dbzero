@@ -5,8 +5,8 @@ namespace db0
 
 {
     
-    template <typename KeyT>
-    IteratorGroup<KeyT>::IteratorGroup(std::list<std::unique_ptr<FT_Iterator<KeyT> > > &&iterators)
+    template <typename KeyT, typename KeyStorageT>
+    IteratorGroup<KeyT, KeyStorageT>::IteratorGroup(std::list<std::unique_ptr<FT_IteratorT> > &&iterators)
         : m_iterators(std::move(iterators))
         , m_group(m_iterators.size())
     {
@@ -18,8 +18,9 @@ namespace db0
         }
     }
     
-    template <typename KeyT>
-	IteratorGroup<KeyT>::IteratorGroup(std::unique_ptr<FT_Iterator<KeyT> > &&it_1, std::unique_ptr<FT_Iterator<KeyT> > &&it_2)
+    template <typename KeyT, typename KeyStorageT>
+	IteratorGroup<KeyT, KeyStorageT>::IteratorGroup(std::unique_ptr<FT_IteratorT> &&it_1, 
+        std::unique_ptr<FT_IteratorT> &&it_2)
         : m_group(2)
     {
         m_group[0].m_iterator = it_1.get();
@@ -28,35 +29,36 @@ namespace db0
         m_iterators.push_back(std::move(it_2));
     }
 
-    template <typename KeyT>    
-    std::size_t IteratorGroup<KeyT>::size() const {  
+    template <typename KeyT, typename KeyStorageT> 
+    std::size_t IteratorGroup<KeyT, KeyStorageT>::size() const {  
         return m_group.size();
     }
 
-    template <typename KeyT>    
-    bool IteratorGroup<KeyT>::empty() const {  
+    template <typename KeyT, typename KeyStorageT>
+    bool IteratorGroup<KeyT, KeyStorageT>::empty() const {  
         return m_group.empty();
     }
 
-    template <typename KeyT>    
-    const typename IteratorGroup<KeyT>::GroupItem &IteratorGroup<KeyT>::front() const {
-        return m_group.front();
-    }
-    
-    template <typename KeyT>
-    typename IteratorGroup<KeyT>::GroupItem &IteratorGroup<KeyT>::front() {
+    template <typename KeyT, typename KeyStorageT>
+    const typename IteratorGroup<KeyT, KeyStorageT>::GroupItem &IteratorGroup<KeyT, KeyStorageT>::front() const {
         return m_group.front();
     }
 
-    template <typename KeyT>
-    typename IteratorGroup<KeyT>::iterator IteratorGroup<KeyT>::swapFront(iterator it) {
+    template <typename KeyT, typename KeyStorageT>
+    typename IteratorGroup<KeyT, KeyStorageT>::GroupItem &IteratorGroup<KeyT, KeyStorageT>::front() {
+        return m_group.front();
+    }
+
+    template <typename KeyT, typename KeyStorageT>
+    typename IteratorGroup<KeyT, KeyStorageT>::iterator IteratorGroup<KeyT, KeyStorageT>::swapFront(iterator it) 
+    {
         assert(it != m_group.begin());
         std::swap(*it, m_group.front());
         return m_group.begin();
     }
 
-    template <typename KeyT>
-    bool IteratorGroup<KeyT>::GroupItem::nextKey(int direction, KeyT *buf_ptr)
+    template <typename KeyT, typename KeyStorageT>
+    bool IteratorGroup<KeyT, KeyStorageT>::GroupItem::nextKey(int direction, KeyStorageT *buf_ptr)
     {
         assert(!m_iterator->isEnd());
         if (direction < 0) {
@@ -68,16 +70,17 @@ namespace db0
             return false;
         }
         if (buf_ptr) {
-            *buf_ptr = m_iterator->getKey();
+            m_iterator->getKey(*buf_ptr);
         }
         return true;
     }
-    
-    template <typename KeyT>
-    bool IteratorGroup<KeyT>::GroupItem::nextUniqueKey(int direction, KeyT *buf_ptr)
+
+    template <typename KeyT, typename KeyStorageT>
+    bool IteratorGroup<KeyT, KeyStorageT>::GroupItem::nextUniqueKey(int direction, KeyStorageT *buf_ptr)
     {
         assert(!m_iterator->isEnd());
-        auto last_key = m_iterator->getKey();
+        KeyStorageT next_key;
+        m_iterator->getKey(next_key);
         for (;;) {
             if (direction < 0) {
                 --(*m_iterator);
@@ -87,8 +90,7 @@ namespace db0
             if (m_iterator->isEnd()) {
                 return false;
             }
-            auto next_key = m_iterator->getKey();
-            if (next_key != last_key) {
+            if (m_iterator->swapKey(next_key)) {
                 if (buf_ptr) {
                     *buf_ptr = next_key;
                 }
@@ -100,5 +102,9 @@ namespace db0
 
     template class IteratorGroup<UniqueAddress>;
     template class IteratorGroup<std::uint64_t>;
+    
+    // Cartesian product specific extern template instantiations
+    template class IteratorGroup<const UniqueAddress*, CP_Vector<UniqueAddress> >;
+    template class IteratorGroup<const std::uint64_t*, CP_Vector<std::uint64_t> >;
 
 }

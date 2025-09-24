@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <vector>
 #include "FT_Iterator.hpp"
+#include "CP_Vector.hpp"
 
 namespace db0
 
@@ -16,11 +17,13 @@ namespace db0
      * until the next member call of the same instance.
     */
     template <typename key_t = std::uint64_t>
-    class CartesianProduct final: public FT_Iterator<key_t*>
+    class CartesianProduct final: public FT_Iterator<const key_t*, CP_Vector<key_t> >
     {
 	public:
-        using KeyVectorT = key_t*;
+        using KeyT = const key_t*;
+        using KeyStorageT = CP_Vector<key_t>;
 
+        CartesianProduct(const std::vector<std::unique_ptr<FT_Iterator<key_t>>> &, int direction = -1);
         CartesianProduct(std::vector<std::unique_ptr<FT_Iterator<key_t>>> &&, int direction = -1);
 
 		bool isEnd() const override;
@@ -34,25 +37,29 @@ namespace db0
 		void operator--() override;
 
         // NOTE: return value lifetime rules apply
-		KeyVectorT getKey() const override;
+		KeyT getKey() const override;
+        
+        void getKey(KeyStorageT &) const override;
+        
+        bool swapKey(KeyStorageT &) const override;
 
-		bool join(KeyVectorT, int direction = -1) override;
+		bool join(KeyT, int direction = -1) override;
 
-		void joinBound(KeyVectorT) override;
+		void joinBound(KeyT) override;
 
         // NOTE: return value lifetime rules apply
-		std::pair<KeyVectorT, bool> peek(KeyVectorT) const override;
+		std::pair<KeyT, bool> peek(KeyT) const override;
         
         bool isNextKeyDuplicated() const override;
         
-		std::unique_ptr<FT_Iterator<KeyVectorT> > beginTyped(int direction = -1) const override;
+		std::unique_ptr<FT_Iterator<KeyT, KeyStorageT> > beginTyped(int direction = -1) const override;
         
-		bool limitBy(KeyVectorT) override;
+		bool limitBy(KeyT) override;
 
 		std::ostream &dump(std::ostream &os) const override;
 				
         void stop() override;
-                        
+        
         FTIteratorType getSerialTypeId() const override;
         
         double compareToImpl(const FT_IteratorBase &it) const override;
@@ -63,10 +70,11 @@ namespace db0
         std::vector<std::unique_ptr<FT_Iterator<key_t>>> m_components;
         const bool m_direction;
         bool m_overflow = false;
-        std::vector<key_t> m_current_key;
+        KeyStorageT m_current_key;        
         
         void serializeFTIterator(std::vector<std::byte> &) const override;
-        void joinAt(unsigned int at, key_t, int direction = -1);
+        // @return swap key result (i.e. was the key component changed)
+        bool joinAt(unsigned int at, key_t, bool reset, int direction = -1);
     };
     
     extern template class CartesianProduct<UniqueAddress>;
