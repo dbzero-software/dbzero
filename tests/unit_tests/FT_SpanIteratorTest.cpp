@@ -62,7 +62,7 @@ namespace tests
             { (1u << page_shift) + 389, true },
             { (0u << page_shift) + 2094, false }
         };
-
+        
         for (const auto &join_data: results) {
             ASSERT_EQ(join_data.second, cut.join(join_data.first)); 
         }

@@ -108,9 +108,18 @@ namespace db0
     }
     
     template <typename KeyT> bool FT_FixedKeyIterator<KeyT>::join(KeyT join_key, int direction)
-    {                
-        m_current = m_keys.join(m_current, join_key, direction);
-        return m_current != m_keys.end();
+    {        
+        auto result = m_keys.join((direction > 0 ? m_keys.begin() : m_keys.end()), join_key, direction);
+        if (result == m_keys.end()) {
+            m_current = m_keys.end();
+            return false;
+        }
+        if (direction > 0) {
+            m_current = std::max(m_current, result);
+        } else {    
+            m_current = std::min(m_current, result);
+        }
+        return true;
     }
     
     template <typename KeyT> void FT_FixedKeyIterator<KeyT>::joinBound(KeyT join_key) {

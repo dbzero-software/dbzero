@@ -29,7 +29,9 @@ namespace db0
 
         CP_Vector<T> &operator=(const CP_Vector<T> &other)
         {
-            assert(this->size() == other.size());
+            if (this->size() != other.size()) {
+                this->resize(other.size());
+            }
             this->assign(other.begin(), other.end());            
             return *this;
         }
@@ -50,6 +52,20 @@ namespace db0
 
         bool operator!=(const CP_Vector<T> &other) const {
             return !(*this == other);
+        }
+
+        bool operator<(const CP_Vector<T> &other) const 
+        {
+            assert(this->size() == other.size());
+            // compare from last to first
+            return std::lexicographical_compare(this->rbegin(), this->rend(), other.rbegin(), other.rend());
+        } 
+        
+        bool operator>(const CP_Vector<T> &other) const
+        {
+            assert(this->size() == other.size());
+            // compare from last to first
+            return std::lexicographical_compare(other.rbegin(), other.rend(), this->rbegin(), this->rend());
         }
     };
     

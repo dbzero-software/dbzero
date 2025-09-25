@@ -200,7 +200,7 @@ namespace tests
         // create 2 different cartesian products
         auto cp1 = makeCartesianProduct(keys_1, 1);
         auto cp2 = makeCartesianProduct(keys_2, 1);
-                
+        
         FT_ANDIteratorFactory<const std::uint64_t*, true, CP_Vector<std::uint64_t> > factory;
         factory.add(std::move(cp1));
         factory.add(std::move(cp2));
@@ -215,5 +215,34 @@ namespace tests
         }
         ASSERT_EQ(count, 9);
     }
+    
+    TEST_F( CartesianProductTest, testCP_ORXCombine )
+    {
+        std::vector<std::uint64_t> keys_1, keys_2;
+        for (std::uint64_t i = 0; i < 15; i += 3) {
+            keys_1.push_back(i);
+        }
+        for (std::uint64_t i = 0; i < 15; i += 5) {
+            keys_2.push_back(i);
+        }
 
+        // create 2 different cartesian products
+        auto cp1 = makeCartesianProduct(keys_1, 1);
+        auto cp2 = makeCartesianProduct(keys_2, 1);
+        
+        FT_ORXIteratorFactory<const std::uint64_t*, CP_Vector<std::uint64_t> > factory;
+        factory.add(std::move(cp1));
+        factory.add(std::move(cp2));
+        auto it = factory.release(1);
+        unsigned int count = 0;
+        while (!it->isEnd()) {
+            auto key = it->getKey();
+            ASSERT_TRUE((key[0] % 3 == 0 || key[0] % 5 == 0));
+            ASSERT_TRUE((key[1] % 3 == 0 || key[1] % 5 == 0));
+            ++(*it);
+            ++count;
+        }
+        ASSERT_EQ(count, 33);
+    }
+    
 }   
