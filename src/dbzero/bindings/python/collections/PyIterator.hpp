@@ -64,8 +64,8 @@ namespace db0::python
     
     template <typename IteratorObjectT>
     PyTypeObject GetIteratorType(const char *name, const char *doc) {
-        PyTypeObject object =  {
-            PyVarObject_HEAD_INIT(NULL, 0)
+        PyTypeObject object = {
+            PYVAROBJECT_HEAD_INIT_DESIGNATED,
             .tp_name = name,
             .tp_basicsize = IteratorObjectT::sizeOf(),
             .tp_itemsize = 0,

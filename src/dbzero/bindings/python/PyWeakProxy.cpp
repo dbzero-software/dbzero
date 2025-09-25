@@ -2,6 +2,7 @@
 #include "Memo.hpp"
 #include "MemoExpiredRef.hpp"
 #include "PyToolkit.hpp"
+#include "PyInternalAPI.hpp"
 
 namespace db0::python
 
@@ -9,7 +10,7 @@ namespace db0::python
 
     PyTypeObject PyWeakProxyType = 
     {
-        PyVarObject_HEAD_INIT(NULL, 0)
+        PYVAROBJECT_HEAD_INIT_DESIGNATED,
         .tp_name = "WeakProxy",
         .tp_basicsize = sizeof(PyWeakProxy),
         .tp_itemsize = 0,

@@ -231,7 +231,7 @@ namespace db0::python
     }
 
     PyTypeObject ByteArrayObjectType = {
-        PyVarObject_HEAD_INIT(NULL, 0)
+        PYVAROBJECT_HEAD_INIT_DESIGNATED,
         .tp_name = "ByteArray",
         .tp_basicsize = ByteArrayObject::sizeOf(),
         .tp_itemsize = 0,

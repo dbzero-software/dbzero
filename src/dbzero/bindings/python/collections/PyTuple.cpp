@@ -123,7 +123,7 @@ namespace db0::python
     }
     
     PyTypeObject TupleObjectType = {
-        PyVarObject_HEAD_INIT(NULL, 0)
+        PYVAROBJECT_HEAD_INIT_DESIGNATED,
         .tp_name = "Tuple",
         .tp_basicsize = TupleObject::sizeOf(),
         .tp_itemsize = 0,

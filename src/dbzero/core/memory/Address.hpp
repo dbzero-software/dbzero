@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cassert>
 #include <functional>
+#include <ostream>
 
 namespace db0
 
@@ -140,6 +141,12 @@ namespace db0
 
         inline bool operator>=(const UniqueAddress& other) const {
             return m_value > other.m_value;
+        }
+        
+        // operator<<
+        inline friend std::ostream &operator<<(std::ostream &os, const UniqueAddress &addr) {
+            os << addr.m_value;
+            return os;
         }
 
         // Get offset + instance ID encoded in a single 64-bit value

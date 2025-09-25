@@ -233,7 +233,7 @@ namespace db0::python
     };
     
     PyTypeObject PyEnumType = {
-        PyVarObject_HEAD_INIT(NULL, 0)
+        PYVAROBJECT_HEAD_INIT_DESIGNATED,
         .tp_name = "dbzero_ce.Enum",
         .tp_basicsize = PyEnum::sizeOf(),
         .tp_itemsize = 0,
@@ -342,7 +342,7 @@ namespace db0::python
     }
     
     PyTypeObject PyEnumValueType = {
-        PyVarObject_HEAD_INIT(NULL, 0)
+        PYVAROBJECT_HEAD_INIT_DESIGNATED,
         .tp_name = "dbzero_ce.EnumValue",
         .tp_basicsize = PyEnumValue::sizeOf(),
         .tp_itemsize = 0,
@@ -366,7 +366,7 @@ namespace db0::python
     }
     
     PyTypeObject PyEnumValueReprType = {
-        PyVarObject_HEAD_INIT(NULL, 0)
+        PYVAROBJECT_HEAD_INIT_DESIGNATED,
         .tp_name = "dbzero_ce.EnumValueRepr",
         .tp_basicsize = PyEnumValueRepr::sizeOf(),
         .tp_itemsize = 0,

@@ -324,7 +324,7 @@ namespace db0
     protected:
         friend class FixtureThread;
         friend class FixtureThreadCallbacksContext;
-        friend class FixtureLock;
+        friend struct FixtureLock;
         friend class AutoCommitThread;
         friend class Workspace;
         mutable std::shared_mutex m_commit_mutex;

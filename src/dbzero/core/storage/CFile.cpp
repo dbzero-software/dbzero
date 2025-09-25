@@ -3,7 +3,14 @@
 #include <sys/stat.h>
 #include <chrono>
 #include <filesystem>
-#include <unistd.h>
+#include <algorithm>
+#ifdef _WIN32
+#  include <io.h>
+#  include <direct.h>
+#else
+#  include <unistd.h>
+#endif
+
 #include <dbzero/core/exception/Exceptions.hpp>
 
 namespace db0
@@ -37,11 +44,23 @@ namespace db0
     
     std::uint64_t getLastModifiedTime(const char *file_name)
     {
-        struct stat st;
-        if (stat(file_name, &st)) {
-            THROWF(db0::IOException) << "CFile::getLastModifiedTime: stat failed";
-        }
-        return st.st_mtim.tv_sec * 1000000000 + st.st_mtim.tv_nsec;
+        #ifdef _WIN32
+            auto tp = fs::last_write_time(fs::path(file_name));
+            auto duration = tp.time_since_epoch();
+            return std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count();
+        #else
+            auto tp = fs::last_write_time(fs::path(file_name));
+            auto duration = tp.time_since_epoch();
+            std::uint64_t time_1 = std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count();
+            struct stat st;
+            if (stat(file_name, &st)) {
+                THROWF(db0::IOException) << "CFile::getLastModifiedTime: stat failed";
+            };
+            std::uint64_t time_2 = st.st_mtim.tv_sec * 1000000000 + st.st_mtim.tv_nsec;
+            std::cerr << "getLastModifiedTime: time_1=" << time_1 << " time_2=" << time_2 << std::endl;
+            std::cerr << time_1 - time_2 << std::endl;
+            return st.st_mtim.tv_sec * 1000000000 + st.st_mtim.tv_nsec;
+        #endif
     }
 
     CFile::CFile(const std::string &file_name, AccessType access_type)
@@ -87,9 +106,15 @@ namespace db0
         if (m_access_type == AccessType::READ_ONLY) {
             THROWF(db0::IOException) << "CFile::fsync: read-only stream";
         }
+#ifdef _WIN32
+        if (!_commit(fileno(m_file))) {
+            THROWF(db0::IOException) << "CFile::fsync: failed to sync file " << m_path;
+        }
+#else
         if (::fsync(fileno(m_file)) == -1) {
             THROWF(db0::IOException) << "CFile::fsync: failed to sync file " << m_path;
         }
+#endif
     }
 
     void CFile::flush() const

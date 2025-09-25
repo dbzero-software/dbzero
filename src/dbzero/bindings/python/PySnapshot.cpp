@@ -282,7 +282,7 @@ namespace db0::python
     };
 
     PyTypeObject PySnapshotObjectType = {
-        PyVarObject_HEAD_INIT(NULL, 0)
+        PYVAROBJECT_HEAD_INIT_DESIGNATED,
         .tp_name = "Snapshot",
         .tp_basicsize = PySnapshotObject::sizeOf(),
         .tp_itemsize = 0,

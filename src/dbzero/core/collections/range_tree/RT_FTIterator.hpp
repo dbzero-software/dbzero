@@ -69,7 +69,7 @@ namespace db0
         }
 
         std::list<std::unique_ptr<FT_Iterator<ValueT> > > query;
-        auto it = (min ? tree_ptr->lowerBound(*min, min_inclusive) : tree_ptr->beginRange());
+        auto it = [&]() { if (min) return tree_ptr->lowerBound(*min, min_inclusive); else return tree_ptr->beginRange(); }();
         while (!it.isEnd()) {
             auto bounds = it.getKeyRange();
             if (bounds.first && bounds.second && fullInclusion(*bounds.first, *bounds.second)) {

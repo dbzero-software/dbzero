@@ -32,7 +32,7 @@ namespace db0::python
     }
     
     PyTypeObject PyLockedType = {
-        PyVarObject_HEAD_INIT(NULL, 0)
+        PYVAROBJECT_HEAD_INIT_DESIGNATED,
         .tp_name = "dbzero_ce.LockedContext",
         .tp_basicsize = PyLocked::sizeOf(),
         .tp_itemsize = 0,

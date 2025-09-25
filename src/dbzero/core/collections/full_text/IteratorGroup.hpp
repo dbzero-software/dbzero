@@ -14,7 +14,7 @@ namespace db0
     template <typename KeyT = std::uint64_t> class IteratorGroup
     {
 	public:
-        using self_t = IteratorGroup<key_t>;
+        using self_t = IteratorGroup<KeyT>;
         
         IteratorGroup(std::list<std::unique_ptr<FT_Iterator<KeyT> > > &&);
         // special case for the group of 2 iterators        

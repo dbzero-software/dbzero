@@ -79,11 +79,11 @@ namespace db0
         for (auto &entry : fs::directory_iterator(full_path)) {
             // visit sub-directories
             if (entry.is_directory()) {
-                // append dicrectory to path
-                refresh(fs::path(path) / entry.path().filename().string(), callback);
+                // append directory to path
+                refresh((fs::path(path) / entry.path().filename()).string(), callback);
             } if (entry.is_regular_file()) {
                 auto file_name = removeSuffix(entry.path().filename().string(), ".db0");
-                auto full_name = fs::path(path) / file_name;
+                auto full_name = (fs::path(path) / file_name).string();
                 if (m_prefix_names.find(full_name) == m_prefix_names.end()) {
                     if (callback) {
                         callback(full_name);

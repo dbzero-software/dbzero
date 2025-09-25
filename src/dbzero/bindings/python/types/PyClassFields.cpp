@@ -60,7 +60,7 @@ namespace db0::python
     };
     
     PyTypeObject PyClassFieldsType = {
-        PyVarObject_HEAD_INIT(NULL, 0)
+        PYVAROBJECT_HEAD_INIT_DESIGNATED,
         .tp_name = "dbzero_ce.ClassFields",
         .tp_basicsize = PyClassFields::sizeOf(),
         .tp_itemsize = 0,
@@ -75,7 +75,7 @@ namespace db0::python
     };
 
     PyTypeObject PyFieldDefType = {
-        PyVarObject_HEAD_INIT(NULL, 0)
+        PYVAROBJECT_HEAD_INIT_DESIGNATED,
         .tp_name = "dbzero_ce.FieldDef",
         .tp_basicsize = PyFieldDef::sizeOf(),
         .tp_itemsize = 0,

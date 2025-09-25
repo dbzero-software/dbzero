@@ -8,7 +8,7 @@ namespace db0::python
 
     PyTypeObject TagSetType = 
     {
-        PyVarObject_HEAD_INIT(NULL, 0)
+        PYVAROBJECT_HEAD_INIT_DESIGNATED,
         .tp_name = "TagSet",
         .tp_basicsize = sizeof(PyTagSet),
         .tp_itemsize = 0,
