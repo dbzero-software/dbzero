@@ -15,6 +15,8 @@ namespace db0
     template class db0::FT_Iterator<int>;
     template class db0::FT_Iterator<const UniqueAddress*, CP_Vector<UniqueAddress>>;
     template class db0::FT_Iterator<const std::uint64_t*, CP_Vector<std::uint64_t>>;
+    template class db0::FT_Iterator<const UniqueAddress*, TP_Vector<UniqueAddress>>;
+    template class db0::FT_Iterator<const std::uint64_t*, TP_Vector<std::uint64_t>>;
 
     template <typename key_t, typename key_storage_t> 
     FT_Iterator<key_t, key_storage_t>::FT_Iterator(std::uint64_t uid)

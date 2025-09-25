@@ -4,6 +4,7 @@ namespace db0
 
 {
     
+    // Cartesian-product vector - a simple wrapper over std::vector
     template <typename T>
     struct CP_Vector: public std::vector<T>
     {
