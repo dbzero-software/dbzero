@@ -72,11 +72,11 @@ namespace db0
         // Curent pair (tag + objects)
         std::unique_ptr<FT_IteratorT> m_current;
         TP_Vector<key_t> m_current_key;
-        key_t m_next_tag;
-                
-        void initNextTag();
-        void _next(void *buf = nullptr);
-
+        
+        void initNextTag(TP_Vector<key_t> &);
+        void _next(void *);
+        bool _next(TP_Vector<key_t> &);
+        
         void serializeFTIterator(std::vector<std::byte> &) const override;        
     };
 

@@ -47,6 +47,10 @@ namespace tests
             { 0, { 0, 1, 2, 3 }},
             { 1, { 3, 4, 5 }}
         };
+        std::unordered_map<std::uint64_t, std::vector<std::uint64_t> > m_index_2 {
+            { 9, { 0, 1, 2, 3 }},
+            { 6, { 3, 4, 5 }}
+        };
     };
     
     TEST_F( FT_TagProductTest, testTP_IterateOverResults )
@@ -62,6 +66,30 @@ namespace tests
             ++count;
         }
         ASSERT_EQ(count, 4);
+    }
+    
+    TEST_F( FT_TagProductTest, testTP_JoinOperation )
+    {                
+        std::vector<std::uint64_t> objects { 1, 2, 3 };
+        std::vector<std::uint64_t> tags { 6, 9 };
+        
+        // join key / expected key
+        std::vector<std::pair<TP_Vector<std::uint64_t>, TP_Vector<std::uint64_t>>> join_data {
+            {{2, 15}, {2, 9}},
+            {{2, 7}, {3, 6}},
+            {{3, 6}, {3, 6}}
+        };
+
+        auto cut = makeTagProduct(objects, tags, m_index_2);
+        for (auto &key: join_data) {
+            ASSERT_FALSE(cut.isEnd());
+            ASSERT_TRUE(cut.join(key.first));
+            ASSERT_EQ(key.second, cut.getKey());
+        }
+        
+        // iteration past bounds
+        auto last_key = TP_Vector<std::uint64_t>({1, 6});
+        ASSERT_FALSE(cut.join(last_key));
     }
     
 }   
