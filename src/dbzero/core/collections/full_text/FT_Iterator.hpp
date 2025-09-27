@@ -190,7 +190,7 @@ namespace db0
     extern template class FT_Iterator<const std::uint64_t*, CP_Vector<std::uint64_t> >;
 
     // Tag-Product specific requirements
-    extern template class FT_Iterator<const UniqueAddress*, TP_Vector<UniqueAddress> >;
-    extern template class FT_Iterator<const std::uint64_t*, TP_Vector<std::uint64_t> >;
+    extern template class FT_Iterator<const UniqueAddress*, TP_Key<UniqueAddress> >;
+    extern template class FT_Iterator<const std::uint64_t*, TP_Key<std::uint64_t> >;
 
 }

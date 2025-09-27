@@ -73,4 +73,8 @@ namespace db0
     extern template class IteratorGroup<const UniqueAddress*, CP_Vector<UniqueAddress> >;
     extern template class IteratorGroup<const std::uint64_t*, CP_Vector<std::uint64_t> >;
 
+    // Tag-Product specific types
+    extern template class IteratorGroup<const UniqueAddress*, TP_Key<UniqueAddress> >;
+    extern template class IteratorGroup<const std::uint64_t*, TP_Key<std::uint64_t> >;
+
 }
