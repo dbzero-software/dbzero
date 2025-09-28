@@ -1,9 +1,11 @@
 #include "JoinIterable.hpp"
 #include "JoinIterator.hpp"
+#include "ObjectIterable.hpp"
 #include <dbzero/object_model/class/ClassFactory.hpp>
+#include <dbzero/object_model/tags/TagIndex.hpp>
+#include <dbzero/object_model/tags/TagDef.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/Workspace.hpp>
-#include <dbzero/object_model/class/ClassFactory.hpp>
 
 namespace db0::object_model
 
@@ -139,29 +141,54 @@ namespace db0::object_model
     }
     
     db0::swine_ptr<Fixture> getJoinParams(db0::Snapshot &workspace, JoinIterable::ObjectPtr const *args, std::size_t nargs,
-        JoinIterable::ObjectPtr join_on_arg, std::vector<const ObjectIterable*> &object_iterables, const ObjectIterable* &tag_iterable, 
+        JoinIterable::ObjectPtr join_on_arg, std::vector<const ObjectIterable*> &object_iterables, 
+        const ObjectIterable* &tag_iterable, std::vector<std::unique_ptr<ObjectIterable> > &iter_buf,
         const char *prefix_name)
     {
         assert(join_on_arg);
         using LangToolkit = JoinIterable::LangToolkit;
+        using TagIndex = db0::object_model::TagIndex;
         
         auto fixture = getJoinScope(workspace, args, nargs, prefix_name);
+        auto &type_manager = LangToolkit::getTypeManager();
+        auto &tag_index = fixture->get<TagIndex>();
+        auto &class_factory = getClassFactory(*fixture);
+        
+        auto make_iterable = [&](ObjectPtr py_arg) -> const ObjectIterable* {
+            if (LangToolkit::isIterable(py_arg)) {
+                return &type_manager.extractObjectIterable(py_arg);
+            } else if (LangToolkit::isType(py_arg)) {
+                auto query = tag_index.makeIterator(TagDef(type_manager.getTypeObject(py_arg), TagDef::type_as_tag{}));
+                // FIXME: log
+                std::cout << "Type query is null: " << (query == nullptr) << std::endl;
+                auto lang_type = type_manager.getTypeObject(py_arg);
+                std::shared_ptr<Class> type;
+                if (LangToolkit::isMemoType(lang_type)) {
+                    // MemoBase type does not correspond to any find criteria
+                    // but we may use its corresponding lang type
+                    if (!type_manager.isMemoBase(lang_type)) {
+                        type = class_factory.tryGetExistingType(lang_type);
+                        if (!type) {
+                            // indicate non-existing type
+                            lang_type = nullptr;                        
+                        }
+                    }
+                }
+                
+                iter_buf.emplace_back(std::make_unique<ObjectIterable>(
+                    fixture, std::move(query), type, lang_type
+                ));
+                return iter_buf.back().get();
+            }        
+            THROWF(db0::InputException) << "Invalid argument type in join() query" << THROWF_END;            
+        };
+
         for (std::size_t args_offset = 0; args_offset < nargs; ++args_offset) {
             auto &py_arg = args[args_offset];
-            if (LangToolkit::isIterable(py_arg)) {            
-                auto &obj_iterable = LangToolkit::getTypeManager().extractObjectIterable(py_arg);
-                object_iterables.push_back(&obj_iterable);
-                continue;
-            }
-            THROWF(db0::InputException) << "Invalid argument type in join() query";
+            object_iterables.push_back(make_iterable(py_arg));            
         }
 
-        if (LangToolkit::isIterable(join_on_arg)) {
-            tag_iterable = &LangToolkit::getTypeManager().extractObjectIterable(join_on_arg);
-        } else {
-            THROWF(db0::InputException) << "Invalid 'on' argument type in join() query";
-        }
-
+        tag_iterable = make_iterable(join_on_arg);
         return fixture;
     }
 

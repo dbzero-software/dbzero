@@ -104,7 +104,7 @@ namespace db0
     template <typename key_t>
     void TagProduct<key_t>::initNextTag()
     {
-        while (!m_tags->isEnd()) {
+        while (m_tags && !m_tags->isEnd()) {
             m_tags->getKey(m_current_tag);
             auto tag_index = m_tag_func(m_current_tag, -1);
             if (tag_index) {
@@ -151,9 +151,16 @@ namespace db0
     {
         std::vector<std::unique_ptr<FT_IteratorT> > object_sets;
         for (const auto &it: m_object_sets) {
-            object_sets.push_back(it->beginTyped(-1));
+            if (it) {
+                object_sets.push_back(it->beginTyped(-1));
+            } else {
+                object_sets.push_back(nullptr);
+            }
         }
-        auto tags = m_tags->beginTyped(-1);
+        std::unique_ptr<FT_IteratorT> tags;
+        if (m_tags) {
+            tags = m_tags->beginTyped(-1);
+        }
         return std::make_unique<TagProduct<key_t> >(std::move(object_sets), std::move(tags), m_tag_func);
     }
     

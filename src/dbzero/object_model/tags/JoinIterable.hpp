@@ -90,15 +90,12 @@ namespace db0::object_model
      * Resolve join parameters from user supplied arguments
      * @param args arguments passed to the find method
      * @param nargs number of arguments
-     * @param find_args the resulting find arguments
-     * @param type the find type (if specified). Note that type can only be specified as the 1st argument
-     * @param lang_type the associated language specific type object (only returned with type), can be of a base type (e.g. MemoBase)
-     * @param no_result flag to indicate that the query yields no result
      * @param prefix_name explicitly requested scope (fixture) to use, if not provided then the scope will be determined from the arguments
-     * @return the find associated fixture (or exception raised if could not be determined)
+     * @return the join associated fixture (or exception raised if could not be determined)
      */
     db0::swine_ptr<Fixture> getJoinParams(db0::Snapshot &, JoinIterable::ObjectPtr const *args, std::size_t nargs,
-        JoinIterable::ObjectPtr join_on_arg, std::vector<const ObjectIterable*> &object_iterables, const ObjectIterable* &tag_iterable, 
+        JoinIterable::ObjectPtr join_on_arg, std::vector<const ObjectIterable*> &object_iterables, 
+        const ObjectIterable* &tag_iterable, std::vector<std::unique_ptr<ObjectIterable> > &iter_buf,
         const char *prefix_name = nullptr);
     
 }

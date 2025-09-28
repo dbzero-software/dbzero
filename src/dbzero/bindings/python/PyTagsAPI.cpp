@@ -288,14 +288,16 @@ namespace db0::python
         using TagIndex = db0::object_model::TagIndex;
         using Class = db0::object_model::Class;
         
-        // join args are either types or ObjectIterables        
+        // join args are either types or ObjectIterables
         std::vector<std::shared_ptr<Class> > types;
         std::vector<PyTypeObject*> lang_types;
         // the object iterables to join
         std::vector<const ObjectIterable*> object_iterables;
+        // iterators persistency buffer
+        std::vector<std::unique_ptr<ObjectIterable> > iter_buf;
         const ObjectIterable *tag_iterable = nullptr;
         auto fixture = db0::object_model::getJoinParams(
-            snapshot, args, nargs, join_on_arg, object_iterables, tag_iterable, prefix_name
+            snapshot, args, nargs, join_on_arg, object_iterables, tag_iterable, iter_buf, prefix_name
         );
         fixture->refreshIfUpdated();
         auto &tag_index = fixture->get<TagIndex>();        

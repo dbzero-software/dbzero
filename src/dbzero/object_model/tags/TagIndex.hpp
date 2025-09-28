@@ -118,6 +118,12 @@ namespace db0::object_model
         std::unique_ptr<TP_Iterator> makeTagProduct(
             const std::vector<const ObjectIterable*> &object_iterables, const ObjectIterable* tag_iterable) const;
         
+        // Create a query iterator for a specific tag (e.g. a type)
+        std::unique_ptr<QueryIterator> makeIterator(ObjectPtr) const;
+        // Create a query from type
+        std::unique_ptr<QueryIterator> makeIterator(const TagDef &) const;
+        std::unique_ptr<QueryIterator> makeIterator(ShortTagT) const;
+        
     private:
         using TypeId = db0::bindings::TypeId;
         using ActiveValueT = typename db0::FT_BaseIndex<ShortTagT>::ActiveValueT;
@@ -171,6 +177,7 @@ namespace db0::object_model
         ShortTagT getShortTag(TypeId, ObjectPtr, ObjectSharedPtr *alt_repr = nullptr) const;
         ShortTagT getShortTagFromString(ObjectPtr) const;
         ShortTagT getShortTagFromTag(ObjectPtr) const;
+        ShortTagT getShortTagFromTag(const TagDef &) const;
         ShortTagT getShortTagFromEnumValue(const EnumValue &, ObjectSharedPtr *alt_repr = nullptr) const;
         ShortTagT getShortTagFromEnumValue(ObjectPtr, ObjectSharedPtr *alt_repr = nullptr) const;
         ShortTagT getShortTagFromEnumValueRepr(ObjectPtr, ObjectSharedPtr *alt_repr = nullptr) const;
@@ -227,9 +234,7 @@ namespace db0::object_model
         // revert all pending operations associated with a specific object
         void revert(ObjectPtr) const;
         // check and if empty, clear all internal buffers (e.g. revert-ops)
-        bool assureEmpty() const;
-        
-        std::unique_ptr<QueryIterator> makeIterator(ShortTagT) const;
+        bool assureEmpty() const;                
     };
     
     template <typename BaseIndexT, typename BatchOperationT>

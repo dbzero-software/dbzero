@@ -706,7 +706,12 @@ namespace db0::object_model
         // NOTE: we use only the offset part as tag - to distinguish from enum and class tags (high bits)
         return LangToolkit::getTypeManager().extractTag(py_arg).getAddress(m_class_factory).getOffset();
     }
-    
+
+    TagIndex::ShortTagT TagIndex::getShortTagFromTag(const TagDef &tag_def) const {
+        // NOTE: we use only the offset part as tag - to distinguish from enum and class tags (high bits)
+        return tag_def.getAddress(m_class_factory).getOffset();
+    }
+
     TagIndex::ShortTagT TagIndex::getShortTagFromEnumValue(const EnumValue &enum_value, ObjectSharedPtr *alt_repr) const
     {
         assert(enum_value);
@@ -949,6 +954,15 @@ namespace db0::object_model
 
     const db0::FT_BaseIndex<LongTagT> &TagIndex::getBaseIndexLong() const {
         return m_base_index_long;
+    }
+
+    std::unique_ptr<TagIndex::QueryIterator> TagIndex::makeIterator(ObjectPtr obj_ptr) const {
+        assert(obj_ptr);
+        return makeIterator(getShortTag(obj_ptr));
+    }
+
+    std::unique_ptr<TagIndex::QueryIterator> TagIndex::makeIterator(const TagDef &tag_def) const {
+        return makeIterator(getShortTagFromTag(tag_def));
     }
 
     std::unique_ptr<TagIndex::QueryIterator> TagIndex::makeIterator(ShortTagT tag) const {
