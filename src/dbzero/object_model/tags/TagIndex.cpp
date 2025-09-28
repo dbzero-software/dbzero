@@ -745,9 +745,13 @@ namespace db0::object_model
     TagIndex::ShortTagT TagIndex::getShortTagFromClass(ObjectPtr py_arg) const
     {
         assert(LangToolkit::isClassObject(py_arg));
-        return LangToolkit::getTypeManager().extractConstClass(py_arg)->getAddress().getOffset();
+        return getShortTagFromClass(*LangToolkit::getTypeManager().extractConstClass(py_arg));
     }
     
+    TagIndex::ShortTagT TagIndex::getShortTagFromClass(const Class &type) const {
+        return type.getAddress().getOffset();
+    }
+
     TagIndex::ShortTagT TagIndex::getShortTagFromFieldDef(ObjectPtr py_arg) const
     {
         auto &field_def = LangToolkit::getTypeManager().extractFieldDef(py_arg);
@@ -965,7 +969,12 @@ namespace db0::object_model
         return makeIterator(getShortTagFromTag(tag_def));
     }
 
+    std::unique_ptr<TagIndex::QueryIterator> TagIndex::makeIterator(const Class &type) const {
+        return makeIterator(getShortTagFromClass(type));
+    }
+    
     std::unique_ptr<TagIndex::QueryIterator> TagIndex::makeIterator(ShortTagT tag) const {
+        flush();
         return m_base_index_short.makeIterator(tag);
     }
     

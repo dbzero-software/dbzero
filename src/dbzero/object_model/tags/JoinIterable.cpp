@@ -158,23 +158,15 @@ namespace db0::object_model
             if (LangToolkit::isIterable(py_arg)) {
                 return &type_manager.extractObjectIterable(py_arg);
             } else if (LangToolkit::isType(py_arg)) {
-                auto query = tag_index.makeIterator(TagDef(type_manager.getTypeObject(py_arg), TagDef::type_as_tag{}));
-                // FIXME: log
-                std::cout << "Type query is null: " << (query == nullptr) << std::endl;
                 auto lang_type = type_manager.getTypeObject(py_arg);
-                std::shared_ptr<Class> type;
-                if (LangToolkit::isMemoType(lang_type)) {
-                    // MemoBase type does not correspond to any find criteria
-                    // but we may use its corresponding lang type
-                    if (!type_manager.isMemoBase(lang_type)) {
-                        type = class_factory.tryGetExistingType(lang_type);
-                        if (!type) {
-                            // indicate non-existing type
-                            lang_type = nullptr;                        
-                        }
-                    }
+                auto type = class_factory.tryGetExistingType(lang_type);
+                // try creating the dbzero class when type is accessed for the first time
+                if (!type) {
+                    FixtureLock fixture(class_factory.getFixture());
+                    type = class_factory.getOrCreateType(lang_type);
                 }
                 
+                auto query = tag_index.makeIterator(*type);
                 iter_buf.emplace_back(std::make_unique<ObjectIterable>(
                     fixture, std::move(query), type, lang_type
                 ));

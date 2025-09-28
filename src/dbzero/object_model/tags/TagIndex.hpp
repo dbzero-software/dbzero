@@ -122,6 +122,7 @@ namespace db0::object_model
         std::unique_ptr<QueryIterator> makeIterator(ObjectPtr) const;
         // Create a query from type
         std::unique_ptr<QueryIterator> makeIterator(const TagDef &) const;
+        std::unique_ptr<QueryIterator> makeIterator(const Class &) const;
         std::unique_ptr<QueryIterator> makeIterator(ShortTagT) const;
         
     private:
@@ -183,6 +184,7 @@ namespace db0::object_model
         ShortTagT getShortTagFromEnumValueRepr(ObjectPtr, ObjectSharedPtr *alt_repr = nullptr) const;
         ShortTagT getShortTagFromFieldDef(ObjectPtr) const;
         ShortTagT getShortTagFromClass(ObjectPtr) const;
+        ShortTagT getShortTagFromClass(const Class &) const;
         
         /**
          * Adds a new object or increase ref-count of the existing element
