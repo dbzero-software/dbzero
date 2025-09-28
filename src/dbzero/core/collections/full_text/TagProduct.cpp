@@ -15,7 +15,7 @@ namespace db0
         JoinProduct();
 
         bool isEnd() const;
-        void next(KeyStorageT &);
+        void next(KeyStorageT *);
         
         void add(std::unique_ptr<FT_IteratorT> &&it1, std::unique_ptr<FT_IteratorT> &&it2);
 
@@ -52,26 +52,26 @@ namespace db0
             joined.next(&key);
             m_keys.push_back(key);
         }
-        // FIXME: log
-        std::cout << "JoinProduct: added " << (m_keys.size() - pos) << " keys" << std::endl;
         m_ranges.emplace_back(pos, m_keys.size() - pos);
         m_current_positions.push_back(0);
         m_end = m_end || ((m_keys.size() - pos) == 0);
     }
 
     template <typename key_t>
-    void JoinProduct<key_t>::next(KeyStorageT &key)
+    void JoinProduct<key_t>::next(KeyStorageT *key)
     {
         assert(!isEnd());
-        if (key.size() != m_current_positions.size()) {
-            key.resize(m_current_positions.size());
+        if (key && key->size() != m_current_positions.size()) {
+            key->resize(m_current_positions.size());
         }
         
         unsigned int at = 0;
         auto range = m_ranges.begin();
         bool carry = true;
         for (auto &pos: m_current_positions) {
-            key[at] = m_keys[range->first + pos];
+            if (key) {
+                (*key)[at] = m_keys[range->first + pos];
+            }
             if (carry) {
                 ++pos;
                 if (pos == range->second) {
@@ -85,7 +85,7 @@ namespace db0
         }
         m_end = carry;
     }
-
+    
     template <typename key_t>
     TagProduct<key_t>::TagProduct(std::vector<std::unique_ptr<FT_IteratorT> > &&object_sets, std::unique_ptr<FT_IteratorT> &&tags,
         tag_factory_func tag_func)
@@ -115,21 +115,17 @@ namespace db0
                 // NOTE: in common case where join product size = 1 we can
                 // optimize it by skipping the join product object's creation
                 if (!join_product.isEnd()) {
-                    // FIXME: log
-                    std::cout << "TagProduct: initialized join product for next tag" << std::endl;
                     m_join_product = std::make_unique<JoinProduct<key_t> >(std::move(join_product));
                     return;
                 }
-                // FIXME: log
-                std::cout << "JoinProduct is end" << std::endl;
             }
             m_tags->next();
         }
         m_join_product = nullptr;
     }
-
+    
     template <typename key_t>
-    void TagProduct<key_t>::next(KeyStorageT &key)
+    void TagProduct<key_t>::next(KeyStorageT *key)
     {
         assert(!isEnd());
         m_join_product->next(key);
@@ -148,6 +144,22 @@ namespace db0
     template <typename key_t>
     bool TagProduct<key_t>::join(KeyT) {
         throw std::runtime_error("Not implemented");
+    }
+
+    template <typename key_t>
+    std::unique_ptr<TagProduct<key_t> > TagProduct<key_t>::begin() const 
+    {
+        std::vector<std::unique_ptr<FT_IteratorT> > object_sets;
+        for (const auto &it: m_object_sets) {
+            object_sets.push_back(it->beginTyped(-1));
+        }
+        auto tags = m_tags->beginTyped(-1);
+        return std::make_unique<TagProduct<key_t> >(std::move(object_sets), std::move(tags), m_tag_func);
+    }
+    
+    template <typename key_t>
+    std::size_t TagProduct<key_t>::getDimension() const {
+        return m_object_sets.size();
     }
 
     template class TagProduct<std::uint64_t>;

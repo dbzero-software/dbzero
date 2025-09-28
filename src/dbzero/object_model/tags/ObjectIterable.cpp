@@ -12,6 +12,7 @@ namespace db0::object_model
 {
 
     using SortedIterator = db0::SortedIterator<UniqueAddress>;
+    
     std::unique_ptr<SortedIterator> validated(std::unique_ptr<SortedIterator> &&sorted_iterator)
     {
         if (sorted_iterator && sorted_iterator->keyTypeId() != typeid(UniqueAddress)) {
@@ -169,7 +170,7 @@ namespace db0::object_model
     }
     
     std::unique_ptr<ObjectIterable::QueryIterator> ObjectIterable::beginFTQuery(
-        std::vector<std::unique_ptr<QueryObserver> > &query_observers, int direction) const
+        int direction) const
     {
         if (isNull()) {
             return nullptr;
@@ -178,13 +179,19 @@ namespace db0::object_model
         // pull FT iterator from factory if available
         std::unique_ptr<ObjectIterator::QueryIterator> result;
         if (m_factory) {
-            result = m_factory->createFTIterator();
+            return m_factory->createFTIterator();
         } else {
             if (!m_query_iterator) {
                 THROWF(db0::InputException) << "Invalid object iterator" << THROWF_END;
             }
-            result = m_query_iterator->beginTyped(direction);
+            return m_query_iterator->beginTyped(direction);
         }
+    }
+
+    std::unique_ptr<ObjectIterable::QueryIterator> ObjectIterable::beginFTQuery(
+        std::vector<std::unique_ptr<QueryObserver> > &query_observers, int direction) const
+    {
+        auto result = beginFTQuery(direction);
         // rebase/clone observers
         if (result) {
             for (auto &observer: m_query_observers) {
@@ -401,7 +408,7 @@ namespace db0::object_model
         } else if (m_sorted_iterator) {
             iter = m_sorted_iterator->beginFTQuery();
         }
-         
+        
         if (iter) {
             Slice slice(iter.get(), m_slice_def);            
             while (!slice.isEnd()) {

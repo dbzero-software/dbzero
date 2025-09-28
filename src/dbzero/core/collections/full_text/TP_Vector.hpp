@@ -66,6 +66,10 @@ namespace db0
             std::copy(values, values + this->size(), this->begin());
         }
 
+        bool operator==(const T *values) const {
+            return std::equal(this->begin(), this->end(), values);
+        }
+        
         TP_Vector<T> &operator=(const TP_Vector<T> &other)
         {
             if (this->size() != other.size()) {

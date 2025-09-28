@@ -213,18 +213,5 @@ namespace db0
 
     extern template class FT_ANDIteratorFactory<const UniqueAddress*, false, CP_Vector<UniqueAddress> >;
     extern template class FT_ANDIteratorFactory<const UniqueAddress*, true, CP_Vector<UniqueAddress> >;
-
-    // Tag-product specific types
-    extern template class FT_JoinANDIterator<const std::uint64_t*, false, TP_Key<std::uint64_t> >;
-    extern template class FT_JoinANDIterator<const std::uint64_t*, true, TP_Key<std::uint64_t> >;
     
-    extern template class FT_JoinANDIterator<const UniqueAddress*, false, TP_Key<UniqueAddress> >;
-    extern template class FT_JoinANDIterator<const UniqueAddress*, true, TP_Key<UniqueAddress> >;
-
-    extern template class FT_ANDIteratorFactory<const std::uint64_t*, false, TP_Key<std::uint64_t> >;
-    extern template class FT_ANDIteratorFactory<const std::uint64_t*, true, TP_Key<std::uint64_t> >;
-
-    extern template class FT_ANDIteratorFactory<const UniqueAddress*, false, TP_Key<UniqueAddress> >;
-    extern template class FT_ANDIteratorFactory<const UniqueAddress*, true, TP_Key<UniqueAddress> >;
-
 }

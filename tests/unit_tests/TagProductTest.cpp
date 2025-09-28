@@ -12,7 +12,7 @@ namespace tests
     
 	using namespace db0;
     using UniqueAddress = db0::UniqueAddress;
-
+    
     class TagProductTest: public testing::Test
     {    
     protected:
@@ -28,36 +28,56 @@ namespace tests
         unsigned int count = 0;
         TP_Vector<std::uint64_t> key;
         while (!cut.isEnd()) {
-            cut.next(key);
+            cut.next(&key);
             ++count;
         }
         ASSERT_EQ(count, 4);
     }
     
-    /* FIXME:
-    TEST_F( TagProductTest, testTP_JoinOperation )
-    {
-        std::vector<std::uint64_t> objects { 1, 2, 3 };
-        std::vector<std::uint64_t> tags { 6, 9 };
-        
-        // join key / expected key
-        std::vector<std::pair<TP_Key<std::uint64_t>, TP_Key<std::uint64_t>>> join_data {
-            {{2, 15}, {2, 9}},
-            {{2, 7}, {3, 6}},
-            {{3, 6}, {3, 6}}
+    TEST_F( TagProductTest, testTP_MultipleObjectSources )
+    {                
+        std::vector<std::vector<std::uint64_t> > objects {
+            { 1, 2, 3 }, { 101, 102, 103, 104 }
         };
-
-        auto cut = makeTagProduct(objects, tags, m_data.m_index_2);
-        for (auto &key: join_data) {
-            ASSERT_FALSE(cut.isEnd());
-            ASSERT_TRUE(cut.join(key.first));
-            ASSERT_EQ(key.second, cut.getKey());
-        }
+        std::vector<std::uint64_t> tags { 0, 1 };
         
-        // iteration past bounds
-        auto last_key = TP_Key<std::uint64_t>({1, 6});
-        ASSERT_FALSE(cut.join(last_key));
+        auto cut = makeTagProduct(objects, tags, m_data.m_index_3);
+        std::vector<std::vector<std::uint64_t> > expected_keys {
+            { 3, 104 }, { 3, 103 },
+            { 3, 103 }, { 2, 103 }, { 1, 103 }, 
+            { 3, 102 }, { 2, 102 }, { 1, 102 },
+            { 3, 101 }, { 2, 101 }, { 1, 101 }
+        };
+        
+        for (auto &expected_key: expected_keys) {
+            ASSERT_FALSE(cut.isEnd());
+            TP_Vector<std::uint64_t> key;
+            cut.next(&key);
+            ASSERT_TRUE(key == expected_key.data());
+        }
+        ASSERT_TRUE(cut.isEnd());
     }
-    */
     
+    TEST_F( TagProductTest, testTagProductBegin )
+    {                
+        std::vector<std::vector<std::uint64_t> > objects {
+            { 1, 2, 3 }, { 101, 102, 103, 104 }
+        };
+        std::vector<std::uint64_t> tags { 0, 1 };
+        
+        auto cut = makeTagProduct(objects, tags, m_data.m_index_3);
+        unsigned int count = 0;
+        while (!cut.isEnd()) {            
+            cut.next();
+            ++count;
+        }
+
+        auto it = cut.begin();
+        while (!it->isEnd()) {      
+            it->next();
+            --count;
+        }
+        ASSERT_EQ(count, 0);
+    }
+
 }   

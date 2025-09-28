@@ -33,8 +33,8 @@ namespace db0::object_model
         using ObjectSharedPtr = LangToolkit::ObjectSharedPtr;
         using TypeObjectPtr = LangToolkit::TypeObjectPtr;
         using TypeObjectSharedPtr = LangToolkit::TypeObjectSharedPtr;
-
-        // full-text query iterator (KeyT must be std::uint64_t)
+        
+        // full-text query iterator (KeyT must be UniqueAddress)
         using QueryIterator = FT_Iterator<UniqueAddress>;
         using SortedIterator = db0::SortedIterator<UniqueAddress>;
         using IteratorFactory = db0::IteratorFactory<UniqueAddress>;
@@ -80,7 +80,8 @@ namespace db0::object_model
         // collect "rebased" query observers
         // NOTE: filters are not retained and must be handled separately
         std::unique_ptr<QueryIterator> beginFTQuery(std::vector<std::unique_ptr<QueryObserver> > &,
-            int direction = -1) const;
+            int direction = -1) const;        
+        std::unique_ptr<QueryIterator> beginFTQuery(int direction = -1) const;
         
         std::unique_ptr<SortedIterator> beginSorted() const;
         

@@ -6,7 +6,6 @@
 
 #include "FT_IteratorBase.hpp"
 #include "CP_Vector.hpp"
-#include "TP_Vector.hpp"
 #include <dbzero/core/serialization/Serializable.hpp>
 #include <dbzero/core/memory/Address.hpp>
 
@@ -188,9 +187,5 @@ namespace db0
     // CartesianProduct-specific requirements
     extern template class FT_Iterator<const UniqueAddress*, CP_Vector<UniqueAddress> >;
     extern template class FT_Iterator<const std::uint64_t*, CP_Vector<std::uint64_t> >;
-
-    // Tag-Product specific requirements
-    extern template class FT_Iterator<const UniqueAddress*, TP_Key<UniqueAddress> >;
-    extern template class FT_Iterator<const std::uint64_t*, TP_Key<std::uint64_t> >;
 
 }

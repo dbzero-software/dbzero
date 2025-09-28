@@ -38,9 +38,15 @@ namespace db0
 
 		bool isEnd() const;
         
-        void next(KeyStorageT &);
+        void next(KeyStorageT * = nullptr);
         
 		bool join(KeyT);
+        
+        // start the iteration over
+        std::unique_ptr<TagProduct<key_t> > begin() const;
+        
+        // Get the number of underlying joined object streams
+        std::size_t getDimension() const;
         
     protected:        
         tag_factory_func m_tag_func;
@@ -51,8 +57,8 @@ namespace db0
         
         void initNextTag();
     };
-    
+
     extern template class TagProduct<UniqueAddress>;
     extern template class TagProduct<std::uint64_t>;
-
+    
 }

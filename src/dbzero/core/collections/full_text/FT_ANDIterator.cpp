@@ -575,18 +575,5 @@ namespace db0
 
     template class FT_ANDIteratorFactory<const UniqueAddress*, false, CP_Vector<UniqueAddress> >;
     template class FT_ANDIteratorFactory<const UniqueAddress*, true, CP_Vector<UniqueAddress> >;
-
-    // Tag-Product specific explicit instantiations
-    template class FT_JoinANDIterator<const std::uint64_t*, false, TP_Key<std::uint64_t> >;
-    template class FT_JoinANDIterator<const std::uint64_t*, true, TP_Key<std::uint64_t> >;
-
-    template class FT_JoinANDIterator<const UniqueAddress*, false, TP_Key<UniqueAddress> >;
-    template class FT_JoinANDIterator<const UniqueAddress*, true, TP_Key<UniqueAddress> >;
-
-    template class FT_ANDIteratorFactory<const std::uint64_t*, false, TP_Key<std::uint64_t> >;
-    template class FT_ANDIteratorFactory<const std::uint64_t*, true, TP_Key<std::uint64_t> >;
-
-    template class FT_ANDIteratorFactory<const UniqueAddress*, false, TP_Key<UniqueAddress> >;
-    template class FT_ANDIteratorFactory<const UniqueAddress*, true, TP_Key<UniqueAddress> >;
-    
+        
 }

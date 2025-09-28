@@ -31,4 +31,20 @@ namespace tests
         );
     }
     
+    TagProduct<std::uint64_t> makeTagProduct(const std::vector<std::vector<std::uint64_t> > &objects,
+        const std::vector<std::uint64_t> &tags, const std::unordered_map<std::uint64_t, std::vector<uint64_t> > &index)
+    {
+        std::vector<std::unique_ptr<FT_IteratorT>> sources;
+        for (const auto &obj_list: objects) {
+            sources.emplace_back(std::make_unique<FT_FixedKeyIterator<std::uint64_t>>(
+                obj_list.data(), obj_list.data() + obj_list.size())
+            );
+        }
+        return TagProduct<std::uint64_t>(
+            std::move(sources),
+            std::make_unique<FT_FixedKeyIterator<std::uint64_t>>(tags.data(), tags.data() + tags.size()),
+            makeFactory(index)
+        );
+    }
+    
 }

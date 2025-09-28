@@ -25,8 +25,8 @@ namespace tests
             { 6, { 3, 4, 5 }}
         };
         std::unordered_map<std::uint64_t, std::vector<std::uint64_t> > m_index_3 {
-            { 0, { 101, 102, 103 }},
-            { 1, { 103, 104, 105 }},
+            { 0, { 0, 1, 2, 3, 101, 102, 103 }},
+            { 1, { 3, 4, 5, 103, 104, 105 } }
         };
     };
     
@@ -34,6 +34,8 @@ namespace tests
 
     // NOTE: index captures the relationships between objects & tags
     TagProduct<std::uint64_t> makeTagProduct(const std::vector<std::uint64_t> &objects,
+        const std::vector<std::uint64_t> &tags, const std::unordered_map<std::uint64_t, std::vector<uint64_t> > &index);        
+    TagProduct<std::uint64_t> makeTagProduct(const std::vector<std::vector<std::uint64_t> > &objects,
         const std::vector<std::uint64_t> &tags, const std::unordered_map<std::uint64_t, std::vector<uint64_t> > &index);    
-        
+    
 }

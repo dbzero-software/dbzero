@@ -6,6 +6,7 @@
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/core/collections/pools/StringPools.hpp>
 #include <dbzero/core/collections/full_text/FT_Iterator.hpp>
+#include <dbzero/core/collections/full_text/TagProduct.hpp>
 #include <dbzero/object_model/class/ClassFactory.hpp>
 #include <dbzero/core/utils/num_pack.hpp>
 #include "QueryObserver.hpp"
@@ -41,6 +42,7 @@ namespace db0::object_model
         using TypeObjectPtr = typename LangToolkit::TypeObjectPtr;
         // full-text query iterator
         using QueryIterator = FT_Iterator<UniqueAddress>;
+        using TP_Iterator = TagProduct<UniqueAddress>;
         // string tokens and classes are represented as short tags
         using ShortTagT = std::uint64_t;
         
@@ -111,6 +113,10 @@ namespace db0::object_model
         bool isPendingUpdate(UniqueAddress) const;
 
         bool empty() const;
+        
+        // Create a join query iterator (aka TagProduct)
+        std::unique_ptr<TP_Iterator> makeTagProduct(
+            const std::vector<const ObjectIterable*> &object_iterables, const ObjectIterable* tag_iterable) const;
         
     private:
         using TypeId = db0::bindings::TypeId;
@@ -222,6 +228,8 @@ namespace db0::object_model
         void revert(ObjectPtr) const;
         // check and if empty, clear all internal buffers (e.g. revert-ops)
         bool assureEmpty() const;
+        
+        std::unique_ptr<QueryIterator> makeIterator(ShortTagT) const;
     };
     
     template <typename BaseIndexT, typename BatchOperationT>
@@ -312,5 +320,5 @@ namespace db0::object_model
     
     // Check if the object is pending update in the TagIndex withih a specific fixture
     bool isObjectPendingUpdate(db0::swine_ptr<Fixture> &fixture, UniqueAddress);
-    
+        
 }

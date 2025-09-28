@@ -950,6 +950,10 @@ namespace db0::object_model
     const db0::FT_BaseIndex<LongTagT> &TagIndex::getBaseIndexLong() const {
         return m_base_index_long;
     }
+
+    std::unique_ptr<TagIndex::QueryIterator> TagIndex::makeIterator(ShortTagT tag) const {
+        return m_base_index_short.makeIterator(tag);
+    }
     
     std::uint64_t getFindFixtureUUID(TagIndex::ObjectPtr obj_ptr)
     {
@@ -1116,6 +1120,32 @@ namespace db0::object_model
 
         auto tag_index_ptr = fixture->tryGet<TagIndex>();
         return tag_index_ptr && tag_index_ptr->isPendingUpdate(addr);
-    }    
+    }
+    
+    std::unique_ptr<TagIndex::TP_Iterator> TagIndex::makeTagProduct(
+        const std::vector<const ObjectIterable*> &object_iterables, const ObjectIterable* tags_iterable) const
+    {
+        // collect object related query iterators
+        std::vector<std::unique_ptr<QueryIterator> > objects;
+        for (auto obj_iter: object_iterables) {
+            objects.push_back(obj_iter->beginFTQuery());
+        }
+        auto tags_query = tags_iterable->beginFTQuery();
         
+        // and the inverted index factory function
+        auto fixture_ptr = m_fixture;
+        auto tag_func = [fixture_ptr, this](UniqueAddress tag_id, int direction) -> std::unique_ptr<QueryIterator> {
+            // lock fixture to make sure it has not been closed
+            auto fixture = fixture_ptr.lock();
+            if (!fixture) {
+                THROWF(db0::InternalException) << "Fixture closed while iteration";                
+            }
+            return this->makeIterator(tag_id.getAddress());
+        };
+
+        return std::make_unique<TP_Iterator>(
+            std::move(objects), std::move(tags_query), tag_func
+        );
+    }
+    
 }   
