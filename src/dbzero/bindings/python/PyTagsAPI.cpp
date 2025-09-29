@@ -299,6 +299,15 @@ namespace db0::python
         auto fixture = db0::object_model::getJoinParams(
             snapshot, args, nargs, join_on_arg, object_iterables, tag_iterable, iter_buf, prefix_name
         );
+        
+        // collect types and lang_types
+        {
+            for (auto obj_iter : object_iterables) {
+                types.push_back(obj_iter->getType());
+                lang_types.push_back(obj_iter->getLangType());
+            }
+        }
+
         fixture->refreshIfUpdated();
         auto &tag_index = fixture->get<TagIndex>();        
         auto query_iterator = tag_index.makeTagProduct(object_iterables, tag_iterable);
