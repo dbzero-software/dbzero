@@ -6,6 +6,7 @@
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/core/collections/pools/StringPools.hpp>
 #include <dbzero/core/collections/full_text/FT_Iterator.hpp>
+#include <dbzero/core/collections/full_text/TagProduct.hpp>
 #include <dbzero/object_model/class/ClassFactory.hpp>
 #include <dbzero/core/utils/num_pack.hpp>
 #include "QueryObserver.hpp"
@@ -41,6 +42,7 @@ namespace db0::object_model
         using TypeObjectPtr = typename LangToolkit::TypeObjectPtr;
         // full-text query iterator
         using QueryIterator = FT_Iterator<UniqueAddress>;
+        using TP_Iterator = TagProduct<UniqueAddress>;
         // string tokens and classes are represented as short tags
         using ShortTagT = std::uint64_t;
         
@@ -112,6 +114,17 @@ namespace db0::object_model
 
         bool empty() const;
         
+        // Create a join query iterator (aka TagProduct)
+        std::unique_ptr<TP_Iterator> makeTagProduct(
+            const std::vector<const ObjectIterable*> &object_iterables, const ObjectIterable* tag_iterable) const;
+        
+        // Create a query iterator for a specific tag (e.g. a type)
+        std::unique_ptr<QueryIterator> makeIterator(ObjectPtr) const;
+        // Create a query from type
+        std::unique_ptr<QueryIterator> makeIterator(const TagDef &) const;
+        std::unique_ptr<QueryIterator> makeIterator(const Class &) const;
+        std::unique_ptr<QueryIterator> makeIterator(ShortTagT) const;
+        
     private:
         using TypeId = db0::bindings::TypeId;
         using ActiveValueT = typename db0::FT_BaseIndex<ShortTagT>::ActiveValueT;
@@ -165,11 +178,13 @@ namespace db0::object_model
         ShortTagT getShortTag(TypeId, ObjectPtr, ObjectSharedPtr *alt_repr = nullptr) const;
         ShortTagT getShortTagFromString(ObjectPtr) const;
         ShortTagT getShortTagFromTag(ObjectPtr) const;
+        ShortTagT getShortTagFromTag(const TagDef &) const;
         ShortTagT getShortTagFromEnumValue(const EnumValue &, ObjectSharedPtr *alt_repr = nullptr) const;
         ShortTagT getShortTagFromEnumValue(ObjectPtr, ObjectSharedPtr *alt_repr = nullptr) const;
         ShortTagT getShortTagFromEnumValueRepr(ObjectPtr, ObjectSharedPtr *alt_repr = nullptr) const;
         ShortTagT getShortTagFromFieldDef(ObjectPtr) const;
         ShortTagT getShortTagFromClass(ObjectPtr) const;
+        ShortTagT getShortTagFromClass(const Class &) const;
         
         /**
          * Adds a new object or increase ref-count of the existing element
@@ -221,7 +236,7 @@ namespace db0::object_model
         // revert all pending operations associated with a specific object
         void revert(ObjectPtr) const;
         // check and if empty, clear all internal buffers (e.g. revert-ops)
-        bool assureEmpty() const;
+        bool assureEmpty() const;                
     };
     
     template <typename BaseIndexT, typename BatchOperationT>
@@ -312,5 +327,5 @@ namespace db0::object_model
     
     // Check if the object is pending update in the TagIndex withih a specific fixture
     bool isObjectPendingUpdate(db0::swine_ptr<Fixture> &fixture, UniqueAddress);
-    
+        
 }

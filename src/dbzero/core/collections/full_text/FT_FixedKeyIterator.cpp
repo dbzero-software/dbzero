@@ -4,12 +4,12 @@ namespace db0
 
 {
 
-    template <typename KeyT> FT_FixedKeyIterator<KeyT>::FT_FixedKeyIterator(const KeyT *begin, const KeyT *end, 
+    template <typename KeyT> FT_FixedKeyIterator<KeyT>::FT_FixedKeyIterator(const KeyT *begin, const KeyT *end,
         int direction, bool is_sorted)
         : m_sorted_keys(getSorted(begin, end, is_sorted))
         , m_keys(m_sorted_keys.data(), m_sorted_keys.size())
         , m_direction(direction)        
-    {    
+    {
         if (m_direction > 0) {
             m_current = m_keys.begin();
         } else {
@@ -39,7 +39,7 @@ namespace db0
         return typeid(self_t);
     }
     
-    template <typename KeyT> bool FT_FixedKeyIterator<KeyT>::isEnd() const {        
+    template <typename KeyT> bool FT_FixedKeyIterator<KeyT>::isEnd() const {
         return m_current == m_keys.end();
     }
 
@@ -63,28 +63,18 @@ namespace db0
 	template <typename KeyT> void FT_FixedKeyIterator<KeyT>::operator++()
     {
         assert(!isEnd());
-        if (m_direction > 0) {
-            ++m_current;
-        } else {
-            if (m_current == m_keys.begin()) {
-                m_current = m_keys.end();
-            } else {
-                --m_current;
-            }
-        }
+        assert(m_direction > 0);        
+        ++m_current;
     }
 
 	template <typename KeyT> void FT_FixedKeyIterator<KeyT>::operator--()
     {
         assert(!isEnd());
-        if (m_direction > 0) {
-            if (m_current == m_keys.begin()) {
-                m_current = m_keys.end();
-            } else {
-                --m_current;
-            }
+        assert(m_direction < 0);        
+        if (m_current == m_keys.begin()) {
+            m_current = m_keys.end();
         } else {
-            ++m_current;
+            --m_current;
         }
     }
     
@@ -99,7 +89,7 @@ namespace db0
         return std::make_unique<self_t>(&m_sorted_keys.front(), &m_sorted_keys.back() + 1,
             m_direction, true);            
     }
-
+    
     template <typename KeyT> std::unique_ptr<FT_Iterator<KeyT> >
     FT_FixedKeyIterator<KeyT>::beginTyped(int direction) const
     {
@@ -108,9 +98,18 @@ namespace db0
     }
     
     template <typename KeyT> bool FT_FixedKeyIterator<KeyT>::join(KeyT join_key, int direction)
-    {        
-        m_current = m_keys.join((direction > 0 ? m_keys.begin() : m_keys.end()), join_key, direction);
-        return m_current != m_keys.end();
+    {   
+        auto result = m_keys.join((direction > 0 ? m_keys.begin() : m_keys.end()), join_key, direction);
+        if (result == m_keys.end()) {
+            m_current = m_keys.end();
+            return false;
+        }
+        if (direction > 0) {
+            m_current = std::max(m_current, result);
+        } else {    
+            m_current = std::min(m_current, result);
+        }
+        return true;
     }
     
     template <typename KeyT> void FT_FixedKeyIterator<KeyT>::joinBound(KeyT join_key) {

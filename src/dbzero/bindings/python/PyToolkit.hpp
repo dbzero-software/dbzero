@@ -147,6 +147,8 @@ namespace db0::python
         // Create a tuple from a vector of objects
         static ObjectSharedPtr makeTuple(const std::vector<ObjectSharedPtr> &);
         static ObjectSharedPtr makeTuple(std::vector<ObjectSharedPtr> &&);
+        // Extract raw elements from PyTuple (of a known size)
+        static ObjectPtr *unpackTuple(ObjectPtr py_tuple);
         
         // generate UUID of a dbzero object
         static ObjectPtr getUUID(ObjectPtr py_object);

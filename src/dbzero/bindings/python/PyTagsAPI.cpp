@@ -5,6 +5,8 @@
 #include <dbzero/object_model/tags/TagIndex.hpp>
 #include <dbzero/bindings/python/iter/PyObjectIterable.hpp>
 #include <dbzero/bindings/python/iter/PyObjectIterator.hpp>
+#include <dbzero/bindings/python/iter/PyJoinIterable.hpp>
+#include <dbzero/bindings/python/iter/PyJoinIterator.hpp>
 #include <dbzero/bindings/python/types/PyEnum.hpp>
 #include <dbzero/object_model/tags/SelectModified.hpp>
 #include <dbzero/workspace/Snapshot.hpp>
@@ -276,5 +278,36 @@ namespace db0::python
         auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
         return runSafe(tryDeserialize, &workspace, args[0]);
     }
-
+    
+    PyObject *joinIn(db0::Snapshot &snapshot, PyObject* const *args, Py_ssize_t nargs,
+        PyObject *join_on_arg, PyObject *context, const char *prefix_name)
+    {
+        assert(join_on_arg);
+        using JoinIterable = db0::object_model::JoinIterable;
+        using ObjectIterable = db0::object_model::ObjectIterable;
+        using TagIndex = db0::object_model::TagIndex;
+        using Class = db0::object_model::Class;
+        
+        // join args are either types or ObjectIterables
+        std::vector<std::shared_ptr<Class> > types;
+        std::vector<PyTypeObject*> lang_types;
+        // the object iterables to join
+        std::vector<const ObjectIterable*> object_iterables;
+        // iterators persistency buffer
+        std::vector<std::unique_ptr<ObjectIterable> > iter_buf;
+        const ObjectIterable *tag_iterable = nullptr;
+        auto fixture = db0::object_model::getJoinParams(
+            snapshot, args, nargs, join_on_arg, object_iterables, tag_iterable, iter_buf, prefix_name
+        );
+        fixture->refreshIfUpdated();
+        auto &tag_index = fixture->get<TagIndex>();        
+        auto query_iterator = tag_index.makeTagProduct(object_iterables, tag_iterable);
+        auto iter_obj = PyJoinIterableDefault_new();
+        iter_obj->makeNew(fixture, std::move(query_iterator), std::move(types), lang_types);
+        if (context) {
+            (iter_obj.get())->ext().attachContext(context);
+        }
+        return iter_obj.steal();
+    }
+    
 }

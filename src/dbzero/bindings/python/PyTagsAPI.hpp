@@ -53,5 +53,8 @@ namespace db0::python
     
     // convert bytes to instance (e.g. ObjectIterator)
     PyObject *PyAPI_deserialize(PyObject *, PyObject *const *args, Py_ssize_t nargs);
-
+    
+    PyObject *joinIn(db0::Snapshot &, PyObject* const *args, Py_ssize_t nargs, PyObject *join_on_arg, 
+        PyObject *context = nullptr, const char *prefix_name = nullptr);
+    
 }

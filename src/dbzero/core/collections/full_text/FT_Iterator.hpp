@@ -5,6 +5,7 @@
 #include <functional>
 
 #include "FT_IteratorBase.hpp"
+#include "CP_Vector.hpp"
 #include <dbzero/core/serialization/Serializable.hpp>
 #include <dbzero/core/memory/Address.hpp>
 
@@ -30,11 +31,13 @@ namespace db0
      * Abstract dbzero inverted index iterator definition
      * NOTICE: IDs are not assigned automatically, when required need to call db0:assignUniqueIDs method
      */
-	template <typename KeyT = std::uint64_t> class FT_Iterator: public FT_IteratorBase, public Serializable
+	template <typename KeyT = std::uint64_t, typename KeyStorageT = KeyT>
+    class FT_Iterator: public FT_IteratorBase, public Serializable
 	{
 	public:
+        using self_t = FT_Iterator<KeyT, KeyStorageT>;
 		using super_t = FT_IteratorBase;
-	    using MutateFunction = std::function<std::pair<bool,bool>(FT_Iterator<KeyT> &)>;
+	    using MutateFunction = std::function<std::pair<bool,bool>(self_t &)>;
 		
         FT_Iterator() = default;
 
@@ -43,6 +46,18 @@ namespace db0
          * @return current item's key
          */
 		virtual KeyT getKey() const = 0;
+        
+        // getKey version where the value is copied into provided storage
+        // default implementation provided using getKey()
+        virtual void getKey(KeyStorageT &) const;
+
+        /**
+         * Swap the provided key with current one (if different)
+         * @param key reference to the key to be swapped
+         * @return true if the key was swapped (i.e. different then interator's current key)
+         * The default implementation is provided which works with != operator
+         */
+        virtual bool swapKey(KeyStorageT &) const;
         
         const std::type_info &keyTypeId() const override;		
 
@@ -87,7 +102,7 @@ namespace db0
 		 * @param direction should be +1 or -1
 		 * @return typed iterator instance
 		 */
-		virtual std::unique_ptr<FT_Iterator<KeyT> > beginTyped(int direction = -1) const = 0;
+		virtual std::unique_ptr<self_t> beginTyped(int direction = -1) const = 0;
 
         std::unique_ptr<FT_IteratorBase> begin() const override;
 
@@ -105,7 +120,7 @@ namespace db0
          * @param scan_function
          * @param depth value to start from
          */
-        virtual void scanQueryTree(std::function<void(const FT_Iterator<KeyT> *it_ptr, int depth)> scan_function,
+        virtual void scanQueryTree(std::function<void(const self_t *, int depth)> scan_function,
             int depth = 0) const;
         
         /**
@@ -125,7 +140,7 @@ namespace db0
          * The default implementation is provided and it only executes f for self
          * @return flag indicating if find was NOT stopped by the condition (i.e. f returned false)
          */
-        virtual bool findBy(const std::function<bool(const FT_Iterator<KeyT> &)> &f) const {
+        virtual bool findBy(const std::function<bool(const self_t &)> &f) const {
             return f(*this);
         }
 
@@ -169,4 +184,8 @@ namespace db0
     extern template class FT_Iterator<std::uint64_t>;
     extern template class FT_Iterator<int>;
     
-} // dbz namespace {
+    // CartesianProduct-specific requirements
+    extern template class FT_Iterator<const UniqueAddress*, CP_Vector<UniqueAddress> >;
+    extern template class FT_Iterator<const std::uint64_t*, CP_Vector<std::uint64_t> >;
+
+}

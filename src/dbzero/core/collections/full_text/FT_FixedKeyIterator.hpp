@@ -8,7 +8,8 @@ namespace db0
 
     // The FT_FixedKeyIterator stores a fixed collection of keys in-memory
     // this is usefull in when checking if a specific object (or collection of objects) is present in query result
-    template <typename KeyT> class FT_FixedKeyIterator: public FT_Iterator<KeyT>
+    template <typename KeyT> 
+    class FT_FixedKeyIterator final: public FT_Iterator<KeyT>
     {
     public:
         using self_t = FT_FixedKeyIterator<KeyT>;
