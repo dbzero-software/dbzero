@@ -32,7 +32,7 @@ namespace db0::python
 
 {
     
-    PyToolkit::TypeManager PyToolkit::m_type_manager;
+
     PyToolkit::PyWorkspace PyToolkit::m_py_workspace;
     std::recursive_mutex PyToolkit::m_api_mutex;
     

@@ -32,7 +32,7 @@ namespace db0
     class [[gnu::packed]] o_change_log: public o_base<o_change_log, 0, false>
     {
     protected:
-        friend class o_base<o_change_log, 0, false>;
+        friend struct o_base<o_change_log, 0, false>;
         bool m_rle_compressed;
         
         o_change_log(const ChangeLogData &);

@@ -49,16 +49,11 @@ namespace db0
             auto duration = tp.time_since_epoch();
             return std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count();
         #else
-            auto tp = fs::last_write_time(fs::path(file_name));
-            auto duration = tp.time_since_epoch();
-            std::uint64_t time_1 = std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count();
             struct stat st;
             if (stat(file_name, &st)) {
                 THROWF(db0::IOException) << "CFile::getLastModifiedTime: stat failed";
             };
             std::uint64_t time_2 = st.st_mtim.tv_sec * 1000000000 + st.st_mtim.tv_nsec;
-            std::cerr << "getLastModifiedTime: time_1=" << time_1 << " time_2=" << time_2 << std::endl;
-            std::cerr << time_1 - time_2 << std::endl;
             return st.st_mtim.tv_sec * 1000000000 + st.st_mtim.tv_nsec;
         #endif
     }
@@ -104,10 +99,11 @@ namespace db0
         std::unique_lock<std::mutex> lock(m_mutex);
         flush(lock);
         if (m_access_type == AccessType::READ_ONLY) {
-            THROWF(db0::IOException) << "CFile::fsync: read-only stream";
+            THROWF(db0::IOException) << "Commit failed! errno=" << errno
+                  << " (" << strerror(errno) << ")\n";
         }
 #ifdef _WIN32
-        if (!_commit(fileno(m_file))) {
+        if (_commit(fileno(m_file)) == -1) {
             THROWF(db0::IOException) << "CFile::fsync: failed to sync file " << m_path;
         }
 #else
@@ -131,6 +127,8 @@ namespace db0
             }
             m_file = nullptr;
         }
+        //release the lock
+        m_lock.reset();
     }
     
     bool CFile::refresh()
