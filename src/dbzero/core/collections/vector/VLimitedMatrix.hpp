@@ -187,9 +187,26 @@ namespace db0
     {
         assert(index.second < maxDim2Size() && "Dimension 2 index out of range");
         if (index.second) {
-            throw std::runtime_error("Not implemented yet");
+            if (index.first >= m_dim1.size()) {                
+                m_dim1.setItem(index.first, {});
+            }            
+            auto it = m_index.find(o_dim2_index_item(index.first, 0));
+            if (it == m_index.end()) {
+                std::uint32_t key_0 = index.first;
+                std::uint32_t offset = m_sparse_matrix.size();
+                bool addr_changed = false;
+                m_index.insert(o_dim2_index_item(key_0, offset), addr_changed);
+                if (addr_changed) {
+                    this->modify().m_index_ptr = m_index.getAddress();
+                }
+                m_sparse_matrix.growBy(this->maxDim2Size() - 1);
+                m_sparse_matrix.setItem(offset + index.second - 1, value);
+            } else {
+                std::uint64_t offset = it->m_offset + index.second - 1;
+                m_sparse_matrix.setItem(offset, value);
+            }
         } else {
-            throw std::runtime_error("Not implemented yet");
+            m_dim1.setItem(index.first, value);
         }
     }
 
