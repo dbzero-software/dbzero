@@ -48,26 +48,26 @@ namespace tests
             cut.push_back(i * 10);
         }
 
-        ASSERT_EQ(cut.size(), 100u);
+        ASSERT_EQ(cut.size().first, 100u);
     }
     
     TEST_F( VLimitedMatrixTests , testPushBackToDim1AndDim2 )
     {
         auto memspace = m_workspace.getMemspace("my-test-prefix_1");
-        VLimitedMatrix<std::uint64_t> cut(memspace);
+        VLimitedMatrix<std::uint64_t, 32> cut(memspace);
         for (std::uint32_t i = 0; i < 10; ++i) {
             cut.push_back(i * 10);
         }
         cut.push_back(999, 1);
         cut.push_back(1000, 18);
 
-        ASSERT_EQ(cut.size(), 12u);
+        ASSERT_EQ(cut.size().first, 12u);
     }
 
     TEST_F( VLimitedMatrixTests , testGetExistingItems )
     {
         auto memspace = m_workspace.getMemspace("my-test-prefix_1");
-        VLimitedMatrix<std::uint64_t> cut(memspace);
+        VLimitedMatrix<std::uint64_t, 32> cut(memspace);
         for (std::uint32_t i = 0; i < 10; ++i) {
             cut.push_back(i * 10);
         }
@@ -84,7 +84,7 @@ namespace tests
     TEST_F( VLimitedMatrixTests , testTryGetNonExistingItems )
     {
         auto memspace = m_workspace.getMemspace("my-test-prefix_1");
-        VLimitedMatrix<std::uint64_t> cut(memspace);
+        VLimitedMatrix<std::uint64_t, 32> cut(memspace);
         for (std::uint32_t i = 0; i < 10; ++i) {
             cut.push_back(i * 10);
         }
@@ -96,17 +96,17 @@ namespace tests
         ASSERT_FALSE(cut.tryGet({18, 0}));
         ASSERT_FALSE(cut.tryGet({13, 1}));
     }
-    
+
     TEST_F( VLimitedMatrixTests , testSetNewItems )
     {
         auto memspace = m_workspace.getMemspace("my-test-prefix_1");
-        VLimitedMatrix<std::uint64_t> cut(memspace);
+        VLimitedMatrix<std::uint64_t, 32> cut(memspace);
         cut.set({0,0}, 123);
         cut.set({5,0}, 456);
         cut.set({10, 1}, 789);
         cut.set({11, 18}, 1001);
-
-        ASSERT_EQ(cut.size(), 12u);
+        
+        ASSERT_EQ(cut.size().first, 12u);
         ASSERT_EQ(cut.get({0,0}), 123u);
         ASSERT_EQ(cut.get({5,0}), 456u);
         ASSERT_EQ(cut.get({10, 1}), 789u);
@@ -115,6 +115,26 @@ namespace tests
         ASSERT_FALSE(cut.tryGet({0,3}));
         ASSERT_FALSE(cut.tryGet({6,0}));
         ASSERT_FALSE(cut.tryGet({10,2}));
+    }
+    
+    TEST_F( VLimitedMatrixTests , testFindUnassignedKey )
+    {
+        auto memspace = m_workspace.getMemspace("my-test-prefix_1");
+        VLimitedMatrix<std::uint64_t, 32> cut(memspace);
+        cut.set({0,0}, 123);    
+        cut.set({10, 1}, 789);
+        // 1 value already assigned @dim2
+        unsigned int count = 1;
+        for (;;) {
+            auto key_2 = cut.findUnassignedKey(10);
+            if (!key_2) {                
+                break;
+            }
+            cut.set(std::make_pair(10, *key_2), 0);
+            ++count;
+        }
+        // make sure all possible keys have been assigned @dim2
+        ASSERT_EQ(count, cut.maxDim2());
     }
 
 } 

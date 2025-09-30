@@ -20,6 +20,9 @@ namespace db0
         PtrT m_index_ptr = {};
         // Points to v_bvector holding the sparse matrix with the exclusion of Dim1[0] vector
         PtrT m_sparse_matrix_ptr = {};
+        // the total number of non-empty items in the matrix
+        std::uint64_t m_item_count = 0;
+        std::array<std::uint64_t, 2> m_reserved = {0, 0};
     };
     
     struct [[gnu::packed]] o_dim2_index_item: public o_fixed<o_dim2_index_item>
@@ -49,8 +52,8 @@ namespace db0
     //  - O(1) access time is required
     // @tparam ItemT - contained item type (fixed size, no pointers)
     // @tparam PtrT - type for inner pointers (V-Space)
-    // @tparam Dim2Size - number of bits representing Dimension 2 (max 2^Dim2Pow - 1)
-    template <typename ItemT, typename PtrT = Address, unsigned int Dim2Pow = 6> class VLimitedMatrix
+    // @tparam Dim2 - maximum size of the Dimension 2
+    template <typename ItemT, unsigned int Dim2 = 16, typename PtrT = Address> class VLimitedMatrix
         : public v_object<o_limited_matrix<PtrT> >
     {
     public:
@@ -65,13 +68,17 @@ namespace db0
         std::optional<ItemT> tryGet(std::pair<std::uint32_t, std::uint32_t> index) const;
         // get or raise if not exists
         ItemT get(std::pair<std::uint32_t, std::uint32_t> index) const;
+        // modify an existing item or raise if not exists
+        ItemT &modifyItem(std::pair<std::uint32_t, std::uint32_t> index);
 
-        // @return Dim1 size
-        std::size_t size() const;
+        // @return Dim1 x Dim2 (constant)
+        std::pair<std::size_t, std::uint32_t> size() const;
 
-        static constexpr std::size_t maxDim2Size() {
-            return (1u << Dim2Pow) - 1;
-        }
+        // @return the total number of non-empty items stored
+        std::size_t getItemCount() const;
+        
+        // Try locating first unassigned key at Dimension 2 for a specific Dim1 key
+        std::optional<std::uint32_t> findUnassignedKey(std::uint32_t dim_1) const;
 
         // push back to Dimension 1
         void push_back(const ItemT &, std::uint32_t dim2_key = 0);
@@ -79,14 +86,18 @@ namespace db0
         void detach() const;
         void commit() const;
 
+        static constexpr std::size_t maxDim2() {
+            return Dim2;
+        }
+
     private:
         v_bvector<o_optional_item<ItemT>, PtrT> m_dim1;
         v_sorted_vector<o_dim2_index_item, PtrT> m_index;
         v_bvector<o_optional_item<ItemT>, PtrT> m_sparse_matrix;
     };
     
-    template <typename ItemT, typename PtrT, unsigned int Dim2Pow>
-    VLimitedMatrix<ItemT, PtrT, Dim2Pow>::VLimitedMatrix(Memspace &memspace)
+    template <typename ItemT, unsigned int Dim2, typename PtrT>
+    VLimitedMatrix<ItemT, Dim2, PtrT>::VLimitedMatrix(Memspace &memspace)
         : v_object<o_limited_matrix<PtrT> >(memspace)
         , m_dim1(memspace)
         , m_index(memspace)
@@ -97,8 +108,8 @@ namespace db0
         this->modify().m_sparse_matrix_ptr = m_sparse_matrix.getAddress();
     }
 
-    template <typename ItemT, typename PtrT, unsigned int Dim2Pow>
-    VLimitedMatrix<ItemT, PtrT, Dim2Pow>::VLimitedMatrix(mptr ptr)
+    template <typename ItemT, unsigned int Dim2, typename PtrT>
+    VLimitedMatrix<ItemT, Dim2, PtrT>::VLimitedMatrix(mptr ptr)
         : v_object<o_limited_matrix<PtrT> >(ptr)
         , m_dim1(this->myPtr((*this)->m_dim1_ptr))
         , m_index(this->myPtr((*this)->m_index_ptr))
@@ -106,34 +117,34 @@ namespace db0
     {
     }
 
-    template <typename ItemT, typename PtrT, unsigned int Dim2Pow>
-    std::size_t VLimitedMatrix<ItemT, PtrT, Dim2Pow>::size() const
+    template <typename ItemT, unsigned int Dim2, typename PtrT> 
+    std::pair<std::size_t, std::uint32_t> VLimitedMatrix<ItemT, Dim2, PtrT>::size() const
     {
-        return m_dim1.size();
+        return { m_dim1.size(), Dim2 };
     }
 
-    template <typename ItemT, typename PtrT, unsigned int Dim2Pow>
-    void VLimitedMatrix<ItemT, PtrT, Dim2Pow>::detach() const
+    template <typename ItemT, unsigned int Dim2, typename PtrT>
+    void VLimitedMatrix<ItemT, Dim2, PtrT>::detach() const
     {
         m_dim1.detach();
         m_index.detach();
         m_sparse_matrix.detach();
         super_t::detach();
     }
-    
-    template <typename ItemT, typename PtrT, unsigned int Dim2Pow>
-    void VLimitedMatrix<ItemT, PtrT, Dim2Pow>::commit() const
+
+    template <typename ItemT, unsigned int Dim2, typename PtrT>
+    void VLimitedMatrix<ItemT, Dim2, PtrT>::commit() const
     {
         m_dim1.commit();
         m_index.commit();
         m_sparse_matrix.commit();
         super_t::commit();
     }
-    
-    template <typename ItemT, typename PtrT, unsigned int Dim2Pow>
-    void VLimitedMatrix<ItemT, PtrT, Dim2Pow>::push_back(const ItemT &value, std::uint32_t dim2_key)
+
+    template <typename ItemT, unsigned int Dim2, typename PtrT>
+    void VLimitedMatrix<ItemT, Dim2, PtrT>::push_back(const ItemT &value, std::uint32_t dim2_key)
     {
-        assert(dim2_key < maxDim2Size() && "Dimension 2 key out of range");
+        assert(dim2_key < Dim2 && "Dimension 2 key out of range");
         if (dim2_key) {
             std::uint32_t key_0 = m_dim1.size();
             m_dim1.emplace_back();
@@ -143,17 +154,18 @@ namespace db0
             if (addr_changed) {
                 this->modify().m_index_ptr = m_index.getAddress();
             }
-            m_sparse_matrix.growBy(this->maxDim2Size() - 1);
+            m_sparse_matrix.growBy(Dim2 - 1);
             m_sparse_matrix.setItem(offset + dim2_key - 1, value);
         } else {
-            m_dim1.push_back(value);
+            m_dim1.push_back(value);            
         }
+        this->modify().m_item_count += 1;
     }
 
-    template <typename ItemT, typename PtrT, unsigned int Dim2Pow>
-    std::optional<ItemT> VLimitedMatrix<ItemT, PtrT, Dim2Pow>::tryGet(std::pair<std::uint32_t, std::uint32_t> index) const
+    template <typename ItemT, unsigned int Dim2, typename PtrT>
+    std::optional<ItemT> VLimitedMatrix<ItemT, Dim2, PtrT>::tryGet(std::pair<std::uint32_t, std::uint32_t> index) const
     {
-        assert(index.second < maxDim2Size() && "Dimension 2 index out of range");
+        assert(index.second < Dim2 && "Dimension 2 index out of range");
         if (index.first >= m_dim1.size()) {
             return {};
         }
@@ -169,9 +181,9 @@ namespace db0
             return m_dim1.getItem(index.first);
         }
     }
-    
-    template <typename ItemT, typename PtrT, unsigned int Dim2Pow>
-    ItemT VLimitedMatrix<ItemT, PtrT, Dim2Pow>::get(std::pair<std::uint32_t, std::uint32_t> index) const
+
+    template <typename ItemT, unsigned int Dim2, typename PtrT>
+    ItemT VLimitedMatrix<ItemT, Dim2, PtrT>::get(std::pair<std::uint32_t, std::uint32_t> index) const
     {
         auto result = tryGet(index);
         if (result) {
@@ -181,15 +193,15 @@ namespace db0
                 << "Index (" << index.first << "," << index.second << ") not found" << THROWF_END;
         }
     }
-    
-    template <typename ItemT, typename PtrT, unsigned int Dim2Pow>
-    void VLimitedMatrix<ItemT, PtrT, Dim2Pow>::set(std::pair<std::uint32_t, std::uint32_t> index, const ItemT &value)
+
+    template <typename ItemT, unsigned int Dim2, typename PtrT>
+    void VLimitedMatrix<ItemT, Dim2, PtrT>::set(std::pair<std::uint32_t, std::uint32_t> index, const ItemT &value)
     {
-        assert(index.second < maxDim2Size() && "Dimension 2 index out of range");
+        assert(index.second < Dim2 && "Dimension 2 index out of range");
         if (index.second) {
             if (index.first >= m_dim1.size()) {                
                 m_dim1.setItem(index.first, {});
-            }            
+            }
             auto it = m_index.find(o_dim2_index_item(index.first, 0));
             if (it == m_index.end()) {
                 std::uint32_t key_0 = index.first;
@@ -199,15 +211,69 @@ namespace db0
                 if (addr_changed) {
                     this->modify().m_index_ptr = m_index.getAddress();
                 }
-                m_sparse_matrix.growBy(this->maxDim2Size() - 1);
-                m_sparse_matrix.setItem(offset + index.second - 1, value);
+                m_sparse_matrix.growBy(Dim2 - 1);                
+                m_sparse_matrix.setItem(offset + index.second - 1, value);                
+                this->modify().m_item_count += 1;
             } else {
                 std::uint64_t offset = it->m_offset + index.second - 1;
+                bool is_set = m_sparse_matrix.getItem(offset).isSet();
                 m_sparse_matrix.setItem(offset, value);
+                if (!is_set) {
+                    this->modify().m_item_count += 1;
+                }
             }
         } else {
+            bool is_set = (index.first < m_dim1.size()) && m_dim1[index.first].isSet();
             m_dim1.setItem(index.first, value);
+            if (!is_set) {
+                this->modify().m_item_count += 1;
+            }
         }
     }
 
+    template <typename ItemT, unsigned int Dim2, typename PtrT>
+    std::optional<std::uint32_t> VLimitedMatrix<ItemT, Dim2, PtrT>::findUnassignedKey(std::uint32_t dim_1) const
+    {
+        if (dim_1 >= m_dim1.size()) {
+            return {};
+        }
+        if (!m_dim1[dim_1].isSet()) {
+            return 0u; // Dim2[0] unassigned
+        }
+        auto it = m_index.find(o_dim2_index_item(dim_1, 0));
+        if (it == m_index.end()) {
+            return 1u; // all keys unassigned
+        } else {
+            std::uint64_t offset = it->m_offset;
+            for (std::uint32_t dim2_key = 1; dim2_key < Dim2; ++dim2_key) {
+                auto item = m_sparse_matrix.getItem(offset + dim2_key - 1);
+                if (!item.isSet()) {
+                    return dim2_key;
+                }
+            }
+            return {}; // all keys assigned
+        }
+    }
+
+    template <typename ItemT, unsigned int Dim2, typename PtrT>
+    ItemT &VLimitedMatrix<ItemT, Dim2, PtrT>::modifyItem(std::pair<std::uint32_t, std::uint32_t> index)
+    {
+        assert(index.second < Dim2 && "Dimension 2 index out of range");
+        if (index.first >= m_dim1.size()) {
+            THROWF(db0::InternalException)
+                << "Index (" << index.first << "," << index.second << ") not found" << THROWF_END;
+        }
+        if (index.second) {
+            auto it = m_index.find(o_dim2_index_item(index.first, 0));
+            if (it == m_index.end()) {
+                THROWF(db0::InternalException)
+                    << "Index (" << index.first << "," << index.second << ") not found" << THROWF_END;
+            }
+            std::uint64_t offset = it->m_offset + index.second - 1;
+            return m_sparse_matrix.modifyItem(offset).get();
+        } else {
+            return m_dim1.modifyItem(index.first).get();
+        }
+    }
+    
 }

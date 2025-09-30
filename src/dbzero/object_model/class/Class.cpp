@@ -52,7 +52,7 @@ namespace db0::object_model
     }
     
     o_class::o_class(RC_LimitedStringPool &string_pool, const std::string &name, std::optional<std::string> module_name,
-        const VFieldVector &members, const Schema &schema, const char *type_id, const char *prefix_name, ClassFlags flags,
+        const VFieldMatrix &members, const Schema &schema, const char *type_id, const char *prefix_name, ClassFlags flags,
         std::uint32_t base_class_ref, std::uint32_t num_bases)
         : m_uuid(db0::make_UUID())
         , m_name(string_pool.addRef(name))
@@ -89,7 +89,7 @@ namespace db0::object_model
             fixture->getLimitedStringPool(), 
             name, 
             module_name, 
-            VFieldVector(*fixture), 
+            VFieldMatrix(*fixture),
             Schema(*fixture),
             type_id, 
             prefix_name, 
@@ -100,6 +100,7 @@ namespace db0::object_model
         , m_members((*this)->m_members_ptr(*fixture))
         , m_schema((*this)->m_schema_ptr(*fixture))
         , m_base_class_ptr(base_class)
+        , m_member_cache(m_members)
         , m_uid(this->fetchUID())
     {
         m_schema.postInit(getTotalFunc());
@@ -116,6 +117,7 @@ namespace db0::object_model
         , m_type_slot_addr_range(getTypeSlotAddrRange(*fixture))
         , m_members((*this)->m_members_ptr(*fixture))
         , m_schema((*this)->m_schema_ptr(*fixture))
+        , m_member_cache(m_members)
         , m_uid(this->fetchUID())
     {
         m_schema.postInit(getTotalFunc());
@@ -124,9 +126,6 @@ namespace db0::object_model
             auto fixture = this->getFixture();
             m_base_class_ptr = getClassFactory(*fixture).getTypeByClassRef((*this)->m_base_class_ref).m_class;
         }
-
-        // fetch all members into cache
-        refreshMemberCache();
     }
     
     Class::~Class()
@@ -151,10 +150,12 @@ namespace db0::object_model
     {
         assert(m_index.find(name) == m_index.end());
         bool is_init_var = m_init_vars.find(name) != m_init_vars.end();
+        auto next_field_index = m_members.size().first;
         // NOTE: we start field IDs from 1
-        auto next_field_id = FieldID::fromIndex(m_members.size());
-        m_members.emplace_back(getFixture()->getLimitedStringPool(), name);
-        m_member_cache.emplace_back(new Member(next_field_id, name));
+        auto next_field_id = FieldID::fromIndex(next_field_index);
+        m_members.push_back(o_field { getFixture()->getLimitedStringPool(), name });
+        // update cache without needing to refresh
+        m_member_cache.set({ next_field_index, 0 }, std::make_unique<Member>(next_field_id, name));
         m_index[name] = { next_field_id, is_init_var };
         return next_field_id;
     }
@@ -163,8 +164,8 @@ namespace db0::object_model
     {
         auto it = m_index.find(name);
         if (it == m_index.end()) {
-            // try refreshing the cache
-            refreshMemberCache();
+            // try again after refreshing the cache
+            m_member_cache.refresh();
             it = m_index.find(name);
             if (it == m_index.end()) {
                 // field ID not found, check for possible initialization variable
@@ -179,16 +180,10 @@ namespace db0::object_model
     const Class::Member *Class::tryGet(FieldID field_id) const
     {
         auto index = field_id.getIndex();
-        if (index < m_member_cache.size()) {
-            return m_member_cache[index].get();
-        }
-        
-        if (index >= m_member_cache.size()) {
-            // try updating cache (fields might've been added by other process)
-            refreshMemberCache();            
-        }
-        if (index < m_member_cache.size()) {
-            return m_member_cache[index].get();
+        // NOTE: cache might be refreshed if not found at first attempt
+        auto member_ptr = m_member_cache.tryGet({ index, 0 });
+        if (member_ptr) {
+            return member_ptr->get();
         }
         return nullptr;
     }
@@ -253,17 +248,18 @@ namespace db0::object_model
         modify().m_singleton_address = object.getUniqueAddress();
     }
     
+    /* FIXME: 
     void Class::refreshMemberCache() const
     {
         // this is required before accessing members to prevent segfaults on a defunct object
         auto fixture = getFixture();
-        assert(m_members.size() >= m_member_cache.size());
-        if (m_members.size() == m_member_cache.size()) {
+        assert(m_members.size().first >= m_member_cache.size());
+        if (m_members.size().first == m_member_cache.size()) {
             return;
         }
         
         // Fetch all members into cache
-        unsigned int index = m_member_cache.size();        
+        unsigned int index = m_member_cache.size().first;
         auto &string_pool = fixture->getLimitedStringPool();
         for (auto it = m_members.begin(index), end = m_members.end(); it != end; ++it, ++index) {
             auto field_name = string_pool.fetch(it->m_name);
@@ -272,11 +268,12 @@ namespace db0::object_model
             m_index[field_name] = { FieldID::fromIndex(index), is_init_var };
         }
     }
+    */
     
     std::string Class::getTypeName() const {
         return getFixture()->getLimitedStringPool().fetch((*this)->m_name);
     }
-
+    
     std::optional<std::string> Class::tryGetModuleName() const 
     {
         if (!(*this)->m_module_name) {
@@ -370,11 +367,11 @@ namespace db0::object_model
         // 1. update in fields vector
         auto &string_pool = getFixture()->getLimitedStringPool();
         // unreference old name in the string pool
-        string_pool.unRef(m_members[field_id.getIndex()].m_name);
-        m_members.modifyItem(field_id.getIndex()).m_name = string_pool.addRef(to_name);
+        string_pool.unRef(m_members.get({ field_id.getIndex(), 0 }).m_name);
+        m_members.modifyItem({ field_id.getIndex(), 0}).m_name = string_pool.addRef(to_name);
         // 2. update in member's cache
-        refreshMemberCache();
-        m_member_cache[field_id.getIndex()]->m_name = to_name;
+        m_member_cache.refresh();
+        m_member_cache.refresh({ field_id.getIndex(), 0 });
         // 3. update in the in-memory index
         m_index.erase(from_name);
         auto is_init_var = m_init_vars.find(to_name) != m_init_vars.end();
@@ -486,7 +483,7 @@ namespace db0::object_model
     
     std::unordered_map<std::string, std::uint32_t> Class::getMembers() const
     {        
-        refreshMemberCache();
+        m_member_cache.refresh();
         std::unordered_map<std::string, std::uint32_t> result;
         for (auto &item: m_index) {
             result[item.first] = item.second.first.getIndex();
@@ -539,7 +536,7 @@ namespace db0::object_model
     void Class::getSchema(std::function<void(const std::string &field_name, SchemaTypeId primary_type,
         const std::vector<SchemaTypeId> &all_types)> callback) const
     {
-        this->refreshMemberCache();
+        m_member_cache.refresh();
         for (auto &member: m_member_cache) {
             try {
                 callback(member->m_name, m_schema.getPrimaryType(member->m_field_id), 
@@ -622,7 +619,7 @@ namespace db0::object_model
         return classRef(*this, m_type_slot_addr_range);
     }
     
-    const VFieldVector &Class::getMembersVector() const {
+    const VFieldMatrix &Class::getMembersMatrix() const {
         return m_members;
     }
     
