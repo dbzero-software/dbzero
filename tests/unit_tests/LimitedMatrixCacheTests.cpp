@@ -23,6 +23,13 @@ namespace tests
     public:
     };
 
+    template <typename T> struct UniquePtrAdapter
+    {
+        std::unique_ptr<T> operator()(const T &item) const {
+            return std::make_unique<T>(item);
+        }
+    };
+
     TEST_F( LimitedMatrixCacheTests , testLMCacheDim1 )
     {
         using MatrixT = VLimitedMatrix<std::uint64_t, 32>;
@@ -164,6 +171,22 @@ namespace tests
         mx.set({13, 7}, 555);
         cut.reload({13, 7});
         ASSERT_EQ(*cut.tryGet({13, 7}), 555);
+    }
+    
+    TEST_F( LimitedMatrixCacheTests , testLMCacheWithPtrItems )
+    {
+        using MatrixT = VLimitedMatrix<std::uint64_t, 32>;
+        auto memspace = m_workspace.getMemspace("my-test-prefix_1");
+        MatrixT mx(memspace);
+        mx.set({0,0}, 1);
+        mx.set({5,0}, 3);
+        mx.set({13,7}, 4);
+        mx.set({11,2}, 5);
+        mx.set({0,6}, 2);
+        
+        // NOTE: we store std::unique_ptr items, this requires an adapter
+        LimitedMatrixCache<MatrixT, std::unique_ptr<std::uint64_t >, UniquePtrAdapter<std::uint64_t>> cut(mx);
+        ASSERT_EQ(**cut.tryGet({0, 0}), 1);
     }
     
 } 
