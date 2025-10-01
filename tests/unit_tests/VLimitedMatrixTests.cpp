@@ -141,16 +141,40 @@ namespace tests
     {
         auto memspace = m_workspace.getMemspace("my-test-prefix_1");
         VLimitedMatrix<std::uint64_t, 32> cut(memspace);
-        cut.set({0,0}, 123);
-        cut.set({5,0}, 456);
-        cut.set({13,7}, 456);
-        cut.set({11,2}, 456);
-        cut.set({0,6}, 99);
+        cut.set({0,0}, 1);
+        cut.set({5,0}, 3);
+        cut.set({13,7}, 4);
+        cut.set({11,2}, 5);
+        cut.set({0,6}, 2);
 
+        std::vector<std::uint64_t> expected {1, 2, 3, 5, 4};
         auto it = cut.cbegin(), end = cut.cend();
         unsigned int count = 0;
-        for (; it != end; ++it, ++count);
+        for (; it != end; ++it, ++count) {
+            ASSERT_EQ(*it, expected[count]);
+        }
         ASSERT_EQ(count, 5u);
+    }
+
+    TEST_F( VLimitedMatrixTests , testLimitedMatrixConstIteratorOverDim2 )
+    {
+        auto memspace = m_workspace.getMemspace("my-test-prefix_1");
+        // create with Dim1 empty
+        VLimitedMatrix<std::uint64_t, 32> cut(memspace);
+        cut.set({0,1}, 1);
+        cut.set({0,5}, 2);
+        cut.set({0,17}, 3);
+        cut.set({3,3}, 4);
+        cut.set({3,5}, 5);
+        cut.set({7,1}, 6);
+
+        std::vector<std::uint64_t> expected {1, 2, 3, 4, 5, 6};
+        auto it = cut.cbegin(), end = cut.cend();        
+        unsigned int count = 0;
+        for (; it != end; ++it, ++count) {
+            ASSERT_EQ(*it, expected[count]);
+        }        
+        ASSERT_EQ(count, 6u);
     }
 
 } 

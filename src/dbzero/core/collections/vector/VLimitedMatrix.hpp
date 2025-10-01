@@ -441,6 +441,16 @@ namespace db0
     }
 
     template <typename ItemT, unsigned int Dim2, typename PtrT>
+    ItemT VLimitedMatrix<ItemT, Dim2, PtrT>::const_iterator::operator*() const
+    {        
+        if (m_current_index.second == 0) {
+            return m_it->m_value;
+        } else {
+            return *m_col_it;
+        }
+    }
+
+    template <typename ItemT, unsigned int Dim2, typename PtrT>
     VLimitedMatrix<ItemT, Dim2, PtrT>::column_iterator::column_iterator(
         std::uint32_t column_id, const IteratorT &begin, const IteratorT &end)
         : m_column_id(column_id)
@@ -477,4 +487,11 @@ namespace db0
         return *this;
     }
 
+    template <typename ItemT, unsigned int Dim2, typename PtrT>
+    ItemT VLimitedMatrix<ItemT, Dim2, PtrT>::column_iterator::operator*() const
+    {
+        assert(!isEnd() && "Dereferencing end iterator");
+        return m_it->m_value;
+    }
+    
 }
