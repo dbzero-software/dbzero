@@ -6,7 +6,8 @@
 #include <dbzero/core/collections/b_index/v_bindex.hpp>
 #include <dbzero/core/collections/pools/StringPools.hpp>
 #include <dbzero/core/collections/vector/v_bvector.hpp>
-#include <dbzero/core/collections/vector/VLimitedMatrix.hpp>
+//FIXME: 
+//#include <dbzero/core/collections/vector/VLimitedMatrix.hpp>
 #include <dbzero/object_model/value/StorageClass.hpp>
 #include <dbzero/object_model/object/lofi_store.hpp>
 
@@ -30,6 +31,7 @@ namespace db0::object_model
     using VFieldVector = db0::v_bvector<o_field>;
     // NOTE: we use lofi_store<2> since it's the lowest supported type fidelity
     // NOTE: +1 is required to account for regular fields (stored with offset = 0)
-    using VFieldMatrix = db0::VLimitedMatrix<o_field, lofi_store<2>::size() + 1>; 
+    // FIXME:
+    // using VFieldMatrix = db0::VLimitedMatrix<o_field, lofi_store<2>::size() + 1>; 
     
 }

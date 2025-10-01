@@ -57,7 +57,9 @@ namespace db0
         : public v_object<o_limited_matrix<PtrT> >
     {
     public:
+        using self_t = VLimitedMatrix<ItemT, Dim2, PtrT>;
         using super_t = v_object<o_limited_matrix<PtrT> >;
+
         VLimitedMatrix(Memspace &);
         VLimitedMatrix(mptr);
 
@@ -85,7 +87,7 @@ namespace db0
 
         void detach() const;
         void commit() const;
-
+        
         static constexpr std::size_t maxDim2() {
             return Dim2;
         }
@@ -94,8 +96,68 @@ namespace db0
         v_bvector<o_optional_item<ItemT>, PtrT> m_dim1;
         v_sorted_vector<o_dim2_index_item, PtrT> m_index;
         v_bvector<o_optional_item<ItemT>, PtrT> m_sparse_matrix;
+
+        // single column iterator
+        struct column_iterator    
+        {            
+            using IteratorT = typename v_bvector<o_optional_item<ItemT>, PtrT>::const_iterator;
+            
+            column_iterator(std::uint32_t column_id, const IteratorT &begin, const IteratorT &end);
+
+            ItemT operator*() const;
+            column_iterator &operator++();
+            bool isEnd() const;
+            
+            std::uint32_t m_column_id = 0;            
+            // Dim2 index (1..Dim2-1)
+            std::uint32_t m_current_index = 1;
+            IteratorT m_it;
+            IteratorT m_end;
+
+            void fix();
+        };
+
+        column_iterator beginColumn(const o_dim2_index_item &) const;
+        column_iterator endColumn() const;
+
+    public:
+
+        class const_iterator
+        {
+        public:
+            using MatrixT = VLimitedMatrix<ItemT, Dim2, PtrT>;
+            using IteratorT = typename v_bvector<o_optional_item<ItemT>, PtrT>::const_iterator;
+            using IndexIteratorT = typename v_sorted_vector<o_dim2_index_item, PtrT>::const_iterator;
+            
+            ItemT operator*() const;
+            const_iterator &operator++();
+            bool operator!=(const const_iterator &) const;
+
+            std::pair<std::uint32_t, std::uint32_t> key() const;
+
+        protected:
+            friend MatrixT;
+            const_iterator(const MatrixT &, bool is_end = false);
+
+        private:
+            std::pair<std::uint32_t, std::uint32_t> m_current_index = {0, 0};
+            
+            std::reference_wrapper<const MatrixT> m_matrix;
+            IteratorT m_it;
+            IteratorT m_end;
+            IndexIteratorT m_index_it;
+            IndexIteratorT m_index_end;
+            // current column (only for columns with dimension 2 > 1)
+            column_iterator m_col_it;
+            
+            void fix();
+        };
+
+        // Iterate over all non-empty items (all dimensions)
+        const_iterator cbegin() const;
+        const_iterator cend() const;
     };
-    
+
     template <typename ItemT, unsigned int Dim2, typename PtrT>
     VLimitedMatrix<ItemT, Dim2, PtrT>::VLimitedMatrix(Memspace &memspace)
         : v_object<o_limited_matrix<PtrT> >(memspace)
@@ -276,4 +338,143 @@ namespace db0
         }
     }
     
+    template <typename ItemT, unsigned int Dim2, typename PtrT>
+    typename VLimitedMatrix<ItemT, Dim2, PtrT>::const_iterator VLimitedMatrix<ItemT, Dim2, PtrT>::cbegin() const {
+        return const_iterator(*this, false);
+    }
+
+    template <typename ItemT, unsigned int Dim2, typename PtrT>
+    typename VLimitedMatrix<ItemT, Dim2, PtrT>::const_iterator VLimitedMatrix<ItemT, Dim2, PtrT>::cend() const {
+        return const_iterator(*this, true);
+    }
+
+    template <typename ItemT, unsigned int Dim2, typename PtrT>
+    typename VLimitedMatrix<ItemT, Dim2, PtrT>::column_iterator 
+    VLimitedMatrix<ItemT, Dim2, PtrT>::beginColumn(const o_dim2_index_item &index_item) const
+    {
+        return column_iterator(
+            index_item.m_key,
+            m_sparse_matrix.cbegin() + index_item.m_offset,
+            m_sparse_matrix.cbegin() + index_item.m_offset + (Dim2 - 1)
+        );
+    }
+
+    template <typename ItemT, unsigned int Dim2, typename PtrT>
+    typename VLimitedMatrix<ItemT, Dim2, PtrT>::column_iterator VLimitedMatrix<ItemT, Dim2, PtrT>::endColumn() const {
+        return { 0, m_sparse_matrix.cend(), m_sparse_matrix.cend() };
+    }
+
+    template <typename ItemT, unsigned int Dim2, typename PtrT>
+    VLimitedMatrix<ItemT, Dim2, PtrT>::const_iterator::const_iterator(const self_t &matrix, bool is_end)
+        : m_matrix(matrix)        
+        , m_it(is_end ? matrix.m_dim1.end() : matrix.m_dim1.begin())        
+        , m_end(matrix.m_dim1.end())
+        , m_index_it(is_end ? matrix.m_index.end() : matrix.m_index.begin())
+        , m_index_end(matrix.m_index.end())
+        , m_col_it(m_matrix.get().endColumn())
+    {
+        // advance to first set item
+        if (!is_end) {
+            fix();
+        }
+    }
+    
+    template <typename ItemT, unsigned int Dim2, typename PtrT>
+    void VLimitedMatrix<ItemT, Dim2, PtrT>::const_iterator::fix()
+    {
+        while (m_it != m_end) {
+            if (m_current_index.second == 0) {
+                if (m_it->isSet()) {
+                    return;
+                } else {
+                    if (m_index_it != m_index_end && m_index_it->m_key == m_current_index.first) {
+                        // start iterating over the column
+                        m_col_it = m_matrix.get().beginColumn(*m_index_it);
+                        if (!m_col_it.isEnd()) {
+                            m_current_index.second = m_col_it.m_current_index;
+                            return;
+                        }
+                    }
+                }
+            } else {
+                // continue iterating over the column
+                m_col_it.fix();
+                if (!m_col_it.isEnd()) {
+                    m_current_index.second = m_col_it.m_current_index;
+                    return;
+                } else {
+                    ++m_index_it;
+                }
+            }
+            ++m_it;
+            ++m_current_index.first;
+            m_current_index.second = 0;
+        }
+    }
+
+    template <typename ItemT, unsigned int Dim2, typename PtrT>
+    bool VLimitedMatrix<ItemT, Dim2, PtrT>::const_iterator::operator!=(const const_iterator &other) const
+    {
+        return m_it != other.m_it;
+    }
+    
+    template <typename ItemT, unsigned int Dim2, typename PtrT>
+    typename VLimitedMatrix<ItemT, Dim2, PtrT>::const_iterator &VLimitedMatrix<ItemT, Dim2, PtrT>::const_iterator::operator++()
+    {
+        if (m_current_index.second == 0) {
+            if (m_index_it != m_index_end && m_index_it->m_key == m_current_index.first) {
+                // start iterating over the column
+                m_col_it = m_matrix.get().beginColumn(*m_index_it);
+                m_current_index.second = m_col_it.m_current_index;
+            } else {
+                ++m_current_index.first;
+                ++m_it;
+            }
+        } else {
+            // continue iterating over the column
+            ++m_col_it;
+            ++m_current_index.second;            
+        }
+        fix();
+
+        return *this;
+    }
+
+    template <typename ItemT, unsigned int Dim2, typename PtrT>
+    VLimitedMatrix<ItemT, Dim2, PtrT>::column_iterator::column_iterator(
+        std::uint32_t column_id, const IteratorT &begin, const IteratorT &end)
+        : m_column_id(column_id)
+        , m_it(begin)
+        , m_end(end)
+    {
+        fix();
+    }
+
+    template <typename ItemT, unsigned int Dim2, typename PtrT>
+    bool VLimitedMatrix<ItemT, Dim2, PtrT>::column_iterator::column_iterator::isEnd() const {
+        return m_it == m_end;        
+    }
+
+    template <typename ItemT, unsigned int Dim2, typename PtrT>
+    void VLimitedMatrix<ItemT, Dim2, PtrT>::column_iterator::fix()
+    {
+        while (m_it != m_end) {
+            if (m_it->isSet()) {
+                return;
+            }
+            ++m_it;
+            ++m_current_index;
+        }
+    }
+
+    template <typename ItemT, unsigned int Dim2, typename PtrT>
+    typename VLimitedMatrix<ItemT, Dim2, PtrT>::column_iterator &VLimitedMatrix<ItemT, Dim2, PtrT>::column_iterator::operator++()
+    {
+        assert(!isEnd() && "Incrementing past the end of the iterator");
+        ++m_it;
+        ++m_current_index;
+        fix();
+        return *this;
+    }
+
 }

@@ -136,5 +136,21 @@ namespace tests
         // make sure all possible keys have been assigned @dim2
         ASSERT_EQ(count, cut.maxDim2());
     }
+    
+    TEST_F( VLimitedMatrixTests , testLimitedMatrixConstIteratorOverBothDims )
+    {
+        auto memspace = m_workspace.getMemspace("my-test-prefix_1");
+        VLimitedMatrix<std::uint64_t, 32> cut(memspace);
+        cut.set({0,0}, 123);
+        cut.set({5,0}, 456);
+        cut.set({13,7}, 456);
+        cut.set({11,2}, 456);
+        cut.set({0,6}, 99);
+
+        auto it = cut.cbegin(), end = cut.cend();
+        unsigned int count = 0;
+        for (; it != end; ++it, ++count);
+        ASSERT_EQ(count, 5u);
+    }
 
 } 

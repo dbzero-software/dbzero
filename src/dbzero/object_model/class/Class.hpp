@@ -9,7 +9,8 @@
 #include <dbzero/core/vspace/db0_ptr.hpp>
 #include <dbzero/core/collections/pools/StringPools.hpp>
 #include <dbzero/core/collections/vector/v_bvector.hpp>
-#include <dbzero/core/collections/vector/LimitedMatrixCache.hpp>
+// FIXME:
+// #include <dbzero/core/collections/vector/LimitedMatrixCache.hpp>
 #include <dbzero/core/utils/FlagSet.hpp>
 #include <dbzero/bindings/python/PyToolkit.hpp>
 #include <dbzero/object_model/ObjectBase.hpp>
@@ -60,7 +61,8 @@ namespace db0::object_model
         LP_String m_type_id;
         // optional scoped-class prefix
         LP_String m_prefix_name;
-        db0_ptr<VFieldMatrix> m_members_ptr;
+        // FIXME: replace with VFieldMatrix
+        db0_ptr<VFieldVector> m_members_ptr;
         db0_ptr<Schema> m_schema_ptr;
         ClassFlags m_flags;
         UniqueAddress m_singleton_address = {};
@@ -70,7 +72,7 @@ namespace db0::object_model
         std::array<std::uint64_t, 4> m_reserved = {0, 0, 0, 0};
         
         o_class(RC_LimitedStringPool &, const std::string &name, std::optional<std::string> module_name,
-            const VFieldMatrix &, const Schema &, const char *type_id, const char *prefix_name, ClassFlags, 
+            const VFieldVector &, const Schema &, const char *type_id, const char *prefix_name, ClassFlags, 
             std::uint32_t base_class_ref, std::uint32_t num_bases
         );
     };
@@ -127,7 +129,7 @@ namespace db0::object_model
         
         // Get the total number of fields declared in this class
         std::size_t size() const {
-            return m_members.getItemCount();
+            return m_members.size();
         }
         
         const Member &get(FieldID field_id) const;
@@ -227,7 +229,9 @@ namespace db0::object_model
         
         std::uint32_t getClassRef() const;
         
-        const VFieldMatrix &getMembersMatrix() const;
+        // FIXME:
+        const VFieldVector &getMembersMatrix() const;
+        // const VFieldMatrix &getMembersMatrix() const;
         
     protected:
         friend class ClassFactory;        
@@ -254,13 +258,16 @@ namespace db0::object_model
     private:
         const std::pair<std::uint64_t, std::uint64_t> m_type_slot_addr_range;
         using FieldKeyT = std::pair<std::uint32_t, std::uint32_t>;
-        using MemberCacheT = LimitedMatrixCache<VFieldMatrix, std::unique_ptr<Member>>;
+        // FIXME:
+        // using MemberCacheT = LimitedMatrixCache<VFieldMatrix, std::unique_ptr<Member>>;
         
         // member field definitions
-        VFieldMatrix m_members;
+        // FIXME: replace with VFieldMatrix
+        VFieldVector m_members;
         Schema m_schema;
         std::shared_ptr<Class> m_base_class_ptr;
-        mutable MemberCacheT m_member_cache;
+        // FIXME:
+        // mutable MemberCacheT m_member_cache;
         // Field by-name index (cache)
         // values: field id / assigned on initialization flag
         mutable std::unordered_map<std::string, std::pair<FieldID, bool> > m_index;
