@@ -63,5 +63,44 @@ namespace tests
         LimitedMatrixCache<MatrixT, std::uint64_t> cut(mx);
         ASSERT_EQ(cut.size(), 5);
     }
+
+    TEST_F( LimitedMatrixCacheTests , testLMGetExistingItems )
+    {
+        using MatrixT = VLimitedMatrix<std::uint64_t, 32>;
+        auto memspace = m_workspace.getMemspace("my-test-prefix_1");
+        MatrixT mx(memspace);
+        mx.set({0,0}, 1);
+        mx.set({5,0}, 3);
+        mx.set({13,7}, 4);
+        mx.set({11,2}, 5);
+        mx.set({0,6}, 2);
+        
+        LimitedMatrixCache<MatrixT, std::uint64_t> cut(mx);
+        ASSERT_EQ(*cut.tryGet({0,0}), 1);
+        ASSERT_EQ(*cut.tryGet({5,0}), 3);
+        ASSERT_EQ(*cut.tryGet({13,7}), 4);
+        ASSERT_EQ(*cut.tryGet({11,2}), 5);
+        ASSERT_EQ(*cut.tryGet({0,6}), 2);        
+    }
     
+    TEST_F( LimitedMatrixCacheTests , testLMTryGetNonExistingItems )
+    {
+        using MatrixT = VLimitedMatrix<std::uint64_t, 32>;
+        auto memspace = m_workspace.getMemspace("my-test-prefix_1");
+        MatrixT mx(memspace);
+        mx.set({0,0}, 1);
+        mx.set({5,0}, 3);
+        mx.set({13,7}, 4);
+        mx.set({11,2}, 5);
+        mx.set({0,6}, 2);
+        
+        LimitedMatrixCache<MatrixT, std::uint64_t> cut(mx);
+        ASSERT_EQ(cut.tryGet({1,0}), nullptr);
+        ASSERT_EQ(cut.tryGet({0,1}), nullptr);
+        ASSERT_EQ(cut.tryGet({5,1}), nullptr);
+        ASSERT_EQ(cut.tryGet({13,0}), nullptr);
+        ASSERT_EQ(cut.tryGet({11,3}), nullptr);
+        ASSERT_EQ(cut.tryGet({0,5}), nullptr);    
+    }
+
 } 
