@@ -16,6 +16,8 @@ namespace db0
     class LimitedMatrixCache
     {
     public:
+        using self_type = LimitedMatrixCache<MatrixT, ItemT>;
+
         LimitedMatrixCache(const MatrixT &);
         
         // @return number of cached items
@@ -26,24 +28,13 @@ namespace db0
         const ItemT *tryGet(std::pair<std::uint32_t, std::uint32_t>) const;
 
         // Fetch appended items only (updates or deletions not reflected)
-        void refresh();
-        // Refresh a specific item only
-        void refresh(std::pair<std::uint32_t, std::uint32_t>);
-        
-        // Iterator over all cached items
-        struct const_iterator
-        {
-            const ItemT &operator*() const;
-            const ItemT *operator->() const;
-            const_iterator &operator++();
-            
-            bool operator!=(const const_iterator &) const;
-        };
-        
-        const_iterator begin() const;
-        const_iterator end() const;
+        bool refresh();
+        // Reload / refresh a specific existing item only
+        void reload(std::pair<std::uint32_t, std::uint32_t>);
         
     private:
+        friend class const_iterator;
+        friend class column_iterator;
 
         struct column_vector: public std::vector<std::optional<ItemT> >
         {
@@ -83,9 +74,59 @@ namespace db0
         // Set item at specified position in cache
         void set(std::pair<std::uint32_t, std::uint32_t>, ItemT);
 
+        std::reference_wrapper<const MatrixT> m_matrix;
         std::size_t m_size = 0;
         // Items organized by Dimension 1
         std::vector<DataItem> m_dim1;
+        const column_vector m_null_column;
+        
+        struct column_iterator
+        {
+            column_iterator(typename column_vector::const_iterator it,
+                            typename column_vector::const_iterator end);
+                        
+            const ItemT &operator*() const;
+            column_iterator &operator++();
+            bool operator!=(const column_iterator &other) const;
+            
+            bool isEnd() const;
+            void fix();
+            
+            typename column_vector::const_iterator m_it;
+            typename column_vector::const_iterator m_end;
+        };
+
+        column_iterator endColumn() const;
+
+    public:
+
+        // Iterator over all cached items
+        class const_iterator
+        {
+        public:
+            const_iterator(const self_type &, typename std::vector<DataItem>::const_iterator it,
+                typename std::vector<DataItem>::const_iterator end);
+            
+            const ItemT &operator*() const;
+            const ItemT *operator->() const;
+            const_iterator &operator++();
+            
+            bool operator!=(const const_iterator &) const;
+            
+        private:
+            std::reference_wrapper<const self_type> m_cache;
+            typename std::vector<DataItem>::const_iterator m_it;
+            typename std::vector<DataItem>::const_iterator m_end;
+            // only valid if m_it is not at end and points to a vector
+            column_iterator m_col_it;
+            
+            column_iterator getColumn() const;
+
+            void fix();
+        };
+        
+        const_iterator cbegin() const;
+        const_iterator cend() const;
     };
     
     template <typename MatrixT, typename ItemT>
@@ -96,6 +137,7 @@ namespace db0
     
     template <typename MatrixT, typename ItemT>
     LimitedMatrixCache<MatrixT, ItemT>::LimitedMatrixCache(const MatrixT &matrix)
+        : m_matrix(matrix)
     {
         auto it = matrix.cbegin(), end = matrix.cend();
         for ( ; it != end; ++it) {
@@ -168,29 +210,31 @@ namespace db0
     }
     
     template <typename MatrixT, typename ItemT>
-    void LimitedMatrixCache<MatrixT, ItemT>::refresh()
+    bool LimitedMatrixCache<MatrixT, ItemT>::refresh()
     {
-        throw std::runtime_error("Not implemented");
-    }
+        // prevent refreshing if item count did not change
+        if (this->m_size == this->m_matrix.get().getItemCount()) {
+            return false;
+        }
 
-    template <typename MatrixT, typename ItemT>
-    void LimitedMatrixCache<MatrixT, ItemT>::refresh(std::pair<std::uint32_t, std::uint32_t> pos)
-    {
-        throw std::runtime_error("Not implemented");
-    }
-
-    template <typename MatrixT, typename ItemT>
-    typename LimitedMatrixCache<MatrixT, ItemT>::const_iterator LimitedMatrixCache<MatrixT, ItemT>::begin() const
-    {
-        throw std::runtime_error("Not implemented");
+        bool result = false;
+        auto it = m_matrix.get().cbegin(), end = m_matrix.get().cend();
+        for ( ; it != end; ++it) {
+            // only add new items
+            if (!this->tryGet(it.loc())) {
+                this->set(it.loc(), *it);
+                result = true;
+            }
+        }
+        return result;
     }
     
     template <typename MatrixT, typename ItemT>
-    typename LimitedMatrixCache<MatrixT, ItemT>::const_iterator LimitedMatrixCache<MatrixT, ItemT>::end() const
+    void LimitedMatrixCache<MatrixT, ItemT>::reload(std::pair<std::uint32_t, std::uint32_t> pos)
     {
-        throw std::runtime_error("Not implemented");
+        this->set(pos, m_matrix.get().get(pos));
     }
-
+    
     template <typename MatrixT, typename ItemT>
     LimitedMatrixCache<MatrixT, ItemT>::DataItem::DataItem(ItemT &&item)
         : m_has_value(true)
@@ -263,19 +307,32 @@ namespace db0
     template <typename MatrixT, typename ItemT>
     const ItemT &LimitedMatrixCache<MatrixT, ItemT>::const_iterator::operator*() const
     {
-        throw std::runtime_error("Not implemented");
+        assert(m_it != m_end);
+        if (m_it->m_is_item) {
+            return m_it->m_data.item;
+        } else {
+            assert(!m_col_it.isEnd());
+            return *m_col_it;
+        }
     }
 
     template <typename MatrixT, typename ItemT>
     const ItemT *LimitedMatrixCache<MatrixT, ItemT>::const_iterator::operator->() const
     {
-        throw std::runtime_error("Not implemented");
+        return &(**this);
     }
 
     template <typename MatrixT, typename ItemT>
     typename LimitedMatrixCache<MatrixT, ItemT>::const_iterator &LimitedMatrixCache<MatrixT, ItemT>::const_iterator::operator++()
     {
-        throw std::runtime_error("Not implemented");
+        if (!m_col_it.isEnd()) {
+            ++m_col_it;
+        } else {
+            ++m_it;
+            m_col_it = getColumn();
+        }
+        this->fix();
+        return *this;
     }
     
     template <typename MatrixT, typename ItemT>
@@ -300,5 +357,120 @@ namespace db0
         }
         return &(*this)[pos].value();
     }
+
+    template <typename MatrixT, typename ItemT>
+    LimitedMatrixCache<MatrixT, ItemT>::column_iterator::column_iterator(typename column_vector::const_iterator it,
+        typename column_vector::const_iterator end)
+        : m_it(it)
+        , m_end(end)
+    {
+        this->fix();
+    }
+
+    template <typename MatrixT, typename ItemT>
+    const ItemT &LimitedMatrixCache<MatrixT, ItemT>::column_iterator::operator*() const
+    {
+        assert(m_it != m_end);
+        return m_it->value();
+    }
+
+    template <typename MatrixT, typename ItemT>
+    typename LimitedMatrixCache<MatrixT, ItemT>::column_iterator &LimitedMatrixCache<MatrixT, ItemT>::column_iterator::operator++()
+    {
+        ++m_it;
+        this->fix();
+        return *this;
+    }
+
+    template <typename MatrixT, typename ItemT>
+    bool LimitedMatrixCache<MatrixT, ItemT>::column_iterator::isEnd() const
+    {
+        return m_it == m_end;
+    }
+
+    template <typename MatrixT, typename ItemT>
+    void LimitedMatrixCache<MatrixT, ItemT>::column_iterator::fix()
+    {
+        while (m_it != m_end && !m_it->has_value()) {
+            ++m_it;
+        }
+    }
+
+    template <typename MatrixT, typename ItemT>
+    typename LimitedMatrixCache<MatrixT, ItemT>::column_iterator LimitedMatrixCache<MatrixT, ItemT>::endColumn() const
+    {
+        return column_iterator(m_null_column.cend(), m_null_column.cend());
+    }
+
+    template <typename MatrixT, typename ItemT>
+    LimitedMatrixCache<MatrixT, ItemT>::const_iterator::const_iterator(const self_type &cache,
+        typename std::vector<DataItem>::const_iterator it,
+        typename std::vector<DataItem>::const_iterator end)
+        : m_cache(cache)
+        , m_it(it)
+        , m_end(end)
+        , m_col_it(getColumn())
+    {
+        this->fix();
+    }
+
+    template <typename MatrixT, typename ItemT>
+    typename LimitedMatrixCache<MatrixT, ItemT>::column_iterator LimitedMatrixCache<MatrixT, ItemT>::const_iterator::getColumn() const
+    {
+        if (m_it == m_end || !m_it->m_has_value || m_it->m_is_item) {
+            return m_cache.get().endColumn();
+        }
+        return column_iterator(m_it->m_data.vector_ptr->cbegin(),
+                              m_it->m_data.vector_ptr->cend());
+    }
+
+    template <typename MatrixT, typename ItemT>
+    void LimitedMatrixCache<MatrixT, ItemT>::const_iterator::fix()
+    {
+        while (m_it != m_end) {
+            if (m_it->m_has_value) {
+                if (m_it->m_is_item) {
+                    // Found item
+                    return;
+                }
+                // Vector
+                if (!m_col_it.isEnd()) {
+                    // Found item in vector
+                    return;
+                } else {
+                    // Move to next column
+                    ++m_it;
+                    m_col_it = getColumn();
+                }
+            } else {
+                ++m_it;
+                m_col_it = getColumn();
+            }
+        }
+    }
+
+    template <typename MatrixT, typename ItemT>
+    bool LimitedMatrixCache<MatrixT, ItemT>::const_iterator::operator!=(const const_iterator &other) const
+    {
+        return m_it != other.m_it || m_col_it != other.m_col_it;
+    }
+
+    template <typename MatrixT, typename ItemT>
+    bool LimitedMatrixCache<MatrixT, ItemT>::column_iterator::operator!=(const column_iterator &other) const
+    {
+        return m_it != other.m_it;
+    }
     
+    template <typename MatrixT, typename ItemT>
+    typename LimitedMatrixCache<MatrixT, ItemT>::const_iterator LimitedMatrixCache<MatrixT, ItemT>::cbegin() const
+    {
+        return const_iterator(*this, m_dim1.cbegin(), m_dim1.cend());
+    }
+
+    template <typename MatrixT, typename ItemT>
+    typename LimitedMatrixCache<MatrixT, ItemT>::const_iterator LimitedMatrixCache<MatrixT, ItemT>::cend() const
+    {
+        return const_iterator(*this, m_dim1.cend(), m_dim1.cend());    
+    }
+        
 }

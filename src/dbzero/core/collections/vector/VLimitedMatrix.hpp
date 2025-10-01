@@ -367,6 +367,12 @@ namespace db0
     }
 
     template <typename ItemT, unsigned int Dim2, typename PtrT>
+    std::size_t VLimitedMatrix<ItemT, Dim2, PtrT>::getItemCount() const
+    {
+        return (*this)->m_item_count;
+    }
+    
+    template <typename ItemT, unsigned int Dim2, typename PtrT>
     VLimitedMatrix<ItemT, Dim2, PtrT>::const_iterator::const_iterator(const self_t &matrix, bool is_end)
         : m_matrix(matrix)        
         , m_it(is_end ? matrix.m_dim1.end() : matrix.m_dim1.begin())        

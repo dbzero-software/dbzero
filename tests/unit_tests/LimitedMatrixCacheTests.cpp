@@ -102,5 +102,68 @@ namespace tests
         ASSERT_EQ(cut.tryGet({11,3}), nullptr);
         ASSERT_EQ(cut.tryGet({0,5}), nullptr);    
     }
+    
+    TEST_F( LimitedMatrixCacheTests , testLMCacheIterator )
+    {
+        using MatrixT = VLimitedMatrix<std::uint64_t, 32>;
+        auto memspace = m_workspace.getMemspace("my-test-prefix_1");
+        MatrixT mx(memspace);
+        mx.set({0,0}, 1);
+        mx.set({5,0}, 3);
+        mx.set({13,7}, 4);
+        mx.set({11,2}, 5);
+        mx.set({0,6}, 2);
+        
+        LimitedMatrixCache<MatrixT, std::uint64_t> cut(mx);
+        std::vector<std::uint64_t> expected = {1, 2, 3, 5, 4};
 
+        auto it = cut.cbegin(), end = cut.cend();
+        std::size_t idx = 0;
+        for ( ; it != end; ++it, ++idx) {
+            ASSERT_LT(idx, expected.size());            
+            ASSERT_EQ(*it, expected[idx]);
+        }
+        ASSERT_EQ(idx, expected.size());
+    }
+    
+    TEST_F( LimitedMatrixCacheTests , testLMCacheRefresh )
+    {
+        using MatrixT = VLimitedMatrix<std::uint64_t, 32>;
+        auto memspace = m_workspace.getMemspace("my-test-prefix_1");
+        MatrixT mx(memspace);
+        mx.set({0,0}, 1);
+        mx.set({5,0}, 3);
+        mx.set({13,7}, 4);
+        mx.set({11,2}, 5);
+        mx.set({0,6}, 2);
+        
+        LimitedMatrixCache<MatrixT, std::uint64_t> cut(mx);
+        mx.set({7,1}, 6);
+        ASSERT_TRUE(cut.refresh());
+        ASSERT_EQ(cut.size(), 6);
+        ASSERT_FALSE(cut.refresh());
+        ASSERT_EQ(cut.size(), 6);
+
+        mx.set({18,0}, 13);
+        ASSERT_TRUE(cut.refresh());
+        ASSERT_EQ(cut.size(), 7);
+    }
+
+    TEST_F( LimitedMatrixCacheTests , testLMCacheReload )
+    {
+        using MatrixT = VLimitedMatrix<std::uint64_t, 32>;
+        auto memspace = m_workspace.getMemspace("my-test-prefix_1");
+        MatrixT mx(memspace);
+        mx.set({0,0}, 1);
+        mx.set({5,0}, 3);
+        mx.set({13,7}, 4);
+        mx.set({11,2}, 5);
+        mx.set({0,6}, 2);
+        
+        LimitedMatrixCache<MatrixT, std::uint64_t> cut(mx);
+        mx.set({13, 7}, 555);
+        cut.reload({13, 7});
+        ASSERT_EQ(*cut.tryGet({13, 7}), 555);
+    }
+    
 } 
