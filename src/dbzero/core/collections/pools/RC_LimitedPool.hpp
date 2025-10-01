@@ -4,12 +4,14 @@
 #include <dbzero/core/vspace/v_object.hpp>
 #include <dbzero/core/collections/map/v_map.hpp>
 #include <dbzero/core/serialization/compose.hpp>
+#include "../../compiler_attributes.hpp"
 
 namespace db0::pools
 
 {
     
-    struct [[gnu::packed]] o_rc_limited_pool: public o_fixed<o_rc_limited_pool>
+DB0_PACKED_BEGIN
+    struct DB0_PACKED_ATTR o_rc_limited_pool: public o_fixed<o_rc_limited_pool>
     {
         Address m_pool_map_address = {};
 
@@ -18,6 +20,7 @@ namespace db0::pools
         {            
         }
     };
+DB0_PACKED_END
     
     /**
      * Limited pool with in-memory lookup index and ref-counting
@@ -74,7 +77,8 @@ namespace db0::pools
 
     private:
         // address + ref count
-        struct [[gnu::packed]] MapItemT: public o_fixed<MapItemT>
+DB0_PACKED_BEGIN
+        struct DB0_PACKED_ATTR MapItemT: public o_fixed<MapItemT>
         {
             AddressT m_address = 0;
             std::uint32_t m_ref_count = 0;
@@ -85,6 +89,7 @@ namespace db0::pools
             {
             }
         };
+DB0_PACKED_END
 
         using PoolMapT = db0::v_map<T, MapItemT, CompT>;
         PoolMapT m_pool_map;

@@ -3,12 +3,14 @@
 #include <cstring>
 #include <dbzero/core/serialization/Types.hpp>
 #include <dbzero/core/vspace/v_object.hpp>
+#include "../../compiler_attributes.hpp"
 
 namespace db0
 
 {
     
-    template <unsigned int BitN> struct [[gnu::packed]] o_fixed_bitset:
+DB0_PACKED_BEGIN
+    template <unsigned int BitN> struct DB0_PACKED_ATTR o_fixed_bitset:
         public db0::o_fixed<o_fixed_bitset<BitN> >
     {
     public:
@@ -38,6 +40,7 @@ namespace db0
     private:
         std::uint32_t m_data[(BitN  - 1) / 32 + 1];
     };
+DB0_PACKED_END
     
     template <unsigned int BitN> class VFixedBitset: public db0::v_object<o_fixed_bitset<BitN> >
     {

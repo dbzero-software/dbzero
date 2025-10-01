@@ -3,10 +3,12 @@
 #include "BlockIOStream.hpp"
 #include <dbzero/core/serialization/Base.hpp>
 #include <dbzero/core/collections/rle/RLE_Sequence.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
 
 {
+DB0_PACKED_BEGIN
 
     class ChangeLogData
     {
@@ -29,7 +31,7 @@ namespace db0
         void initRLECompress(bool is_sorted, bool add_duplicates);
     };
     
-    class [[gnu::packed]] o_change_log: public o_base<o_change_log, 0, false>
+    struct DB0_PACKED_ATTR o_change_log: public o_base<o_change_log, 0, false>
     {
     protected:
         friend struct o_base<o_change_log, 0, false>;
@@ -90,4 +92,5 @@ namespace db0
         }
     };
         
+DB0_PACKED_END
 }

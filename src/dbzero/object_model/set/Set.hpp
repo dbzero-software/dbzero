@@ -9,6 +9,7 @@
 #include <dbzero/workspace/GC0.hpp>
 #include <dbzero/object_model/item/Item.hpp>
 #include <dbzero/core/utils/weak_vector.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 #include <array>
 
 namespace db0 {
@@ -21,13 +22,15 @@ namespace db0::object_model
 
 {
 
+DB0_PACKED_BEGIN
+
     using Fixture = db0::Fixture;
     using TypedItem_Address = ValueT_Address<o_typed_item>;
     using SetIndex = CollectionIndex<o_typed_item, TypedItem_Address>;
     using set_item = db0::key_value<std::uint64_t, TypedIndexAddr<TypedItem_Address, SetIndex>>;
     class SetIterator;
     
-    struct [[gnu::packed]] o_set: public db0::o_fixed<o_set>
+    struct DB0_PACKED_ATTR o_set: public db0::o_fixed<o_set>
     {
         // common object header
         o_unique_header m_header;
@@ -100,4 +103,6 @@ namespace db0::object_model
         void restoreIterators();
     };
     
+DB0_PACKED_END
+
 }

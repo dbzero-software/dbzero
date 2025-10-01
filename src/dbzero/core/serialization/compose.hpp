@@ -1,14 +1,16 @@
 #pragma once
 
 #include "Types.hpp"
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
 
 {
+DB0_PACKED_BEGIN
     
     // o_compose allows definign a composite type
     // with a fixed-size and a variable-length components e.g. o_compose<int, o_string>
-    template <typename FixedT, typename T> class [[gnu::packed]] o_compose: public o_base<o_compose<FixedT, T>, 0, false>
+    template <typename FixedT, typename T> class DB0_PACKED_ATTR o_compose: public o_base<o_compose<FixedT, T>, 0, false>
     { 
     protected:
         using super_t = o_base<o_compose<FixedT, T>, 0, false>;
@@ -49,4 +51,5 @@ namespace db0
         }
     };
 
+DB0_PACKED_END
 }

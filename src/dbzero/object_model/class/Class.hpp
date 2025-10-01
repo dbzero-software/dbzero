@@ -15,6 +15,7 @@
 #include <dbzero/object_model/value/Value.hpp>
 #include <dbzero/object_model/value/XValue.hpp>
 #include <dbzero/workspace/GC0.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 #include "Schema.hpp"
 
 namespace db0
@@ -40,6 +41,8 @@ namespace db0::object_model
 
 {
 
+DB0_PACKED_BEGIN
+
     using namespace db0;
     using namespace db0::pools;
     using Fixture = db0::Fixture;
@@ -48,7 +51,7 @@ namespace db0::object_model
     class Class;    
     struct ObjectId;
 
-    struct [[gnu::packed]] o_class: public db0::o_fixed<o_class>
+    struct DB0_PACKED_ATTR o_class: public db0::o_fixed<o_class>
     {        
         // common object header
         db0::o_object_header m_header;
@@ -279,4 +282,6 @@ namespace db0::object_model
     
     std::optional<std::string> getNameVariant(const Class &, int variant_id);
     
+DB0_PACKED_END
+
 }

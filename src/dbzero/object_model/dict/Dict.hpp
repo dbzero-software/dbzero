@@ -9,6 +9,7 @@
 #include <dbzero/workspace/GC0.hpp>
 #include <dbzero/object_model/item/Pair.hpp>
 #include <dbzero/core/utils/weak_vector.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0 {
 
@@ -20,6 +21,8 @@ namespace db0::object_model
 
 {
 
+DB0_PACKED_BEGIN
+
     using Fixture = db0::Fixture;
     using PairItem_Address = ValueT_Address<o_pair_item>;
     // a MorphingBIndex derived collection type
@@ -28,7 +31,7 @@ namespace db0::object_model
     using dict_item = db0::key_value<std::uint64_t, TypedIndexAddr<PairItem_Address, DictIndex> >;
     class DictIterator;
     
-    struct [[gnu::packed]] o_dict: public db0::o_fixed<o_dict>
+    struct DB0_PACKED_ATTR o_dict: public db0::o_fixed<o_dict>
     {
         // common object header
         o_unique_header m_header;
@@ -105,4 +108,6 @@ namespace db0::object_model
         void restoreIterators();
     };
     
+DB0_PACKED_END
+
 }

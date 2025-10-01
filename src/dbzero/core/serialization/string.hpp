@@ -2,6 +2,7 @@
 
 #include "ansi_ptr.hpp"
 #include "packed_int.hpp"
+#include "../compiler_attributes.hpp"
 #include <iostream>
 #include <cstring>
 #include <iostream>
@@ -15,7 +16,8 @@ namespace db0
      * @tparam is_nullable flag indicating if this string can be nullable
      * NOTICE : length of the string is stored with the packed_int member
      */
-	template <typename StrT, bool is_nullable = false> class [[gnu::packed]] o_base_string:
+DB0_PACKED_BEGIN
+	template <typename StrT, bool is_nullable = false> class DB0_PACKED_ATTR o_base_string:
 	public o_base<o_base_string<StrT, is_nullable>, 0, false>
     {
 	protected:
@@ -266,6 +268,7 @@ namespace db0
             return this->getDynFirst(SizeType::type());
         }
 	};
+DB0_PACKED_END
     
 	using o_string = db0::o_base_string<db0::ansi_cs_ptr>;
     using o_nullable_string = db0::o_base_string<db0::ansi_cs_ptr, true>;

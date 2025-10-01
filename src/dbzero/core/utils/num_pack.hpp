@@ -1,11 +1,15 @@
 #pragma once
 
+#include <dbzero/core/compiler_attributes.hpp>
+
 namespace db0
 
 {
 
+DB0_PACKED_BEGIN
+
     // tuple/array of N-numbers of type T
-    template <typename T, unsigned int N> struct [[gnu::packed]] num_pack
+    template <typename T, unsigned int N> struct DB0_PACKED_ATTR num_pack
     {
         T data[N];
 
@@ -55,4 +59,6 @@ namespace db0
         return !(*this == other);
     }
         
+DB0_PACKED_END
+
 }

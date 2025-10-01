@@ -1,12 +1,15 @@
 #include "ObjectBase.hpp"
 #include <dbzero/object_model/value/StorageClass.hpp>
 #include <dbzero/core/vspace/v_object.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0::object_model
 
 {
 
-    class [[gnu::packed]] o_common_base: public db0::o_base<o_common_base, 0, false>
+DB0_PACKED_BEGIN
+
+    class DB0_PACKED_ATTR o_common_base: public db0::o_base<o_common_base, 0, false>
     {
     public:
         // common object header
@@ -18,5 +21,7 @@ namespace db0::object_model
     {
     public:
     };
+
+DB0_PACKED_END
 
 }

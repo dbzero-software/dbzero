@@ -3,11 +3,13 @@
 #include "Types.hpp"    
 #include <dbzero/core/metaprog/is_sequence.hpp>
 #include <dbzero/core/metaprog/misc_utils.hpp>
-#include <dbzero/core/metaprog/type_traits.hpp>
+#include <dbzero/core/platform/utils.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
 
 {
+DB0_PACKED_BEGIN
 
 	template <typename T, typename SizeT> class o_array;
 	template <typename T, typename SizeT> std::ostream &operator<<(std::ostream &, const o_array<T,SizeT> &);
@@ -15,8 +17,9 @@ namespace db0
 	/**
 	 * T - must be o_fixed overlaid type
 	 */
+
 	template <typename T, typename SizeT = std::uint32_t>
-    class [[gnu::packed]] o_array : public o_base<o_array<T, SizeT>, 0, false>
+    class o_array : public o_base<o_array<T, SizeT>, 0, false>
 	{
 	protected :
 		using self = o_array<T, SizeT>;
@@ -47,7 +50,7 @@ namespace db0
 		using iterator = T*;
 		using const_iterator = const T*;
 
-        class [[gnu::packed]] o_array_header : public o_fixed<o_array_header> {
+        class DB0_PACKED_ATTR o_array_header : public o_fixed<o_array_header> {
         public:
             SizeT m_this_size;
 
@@ -139,6 +142,7 @@ namespace db0
 		// header containing size of this array (number of items)
         fixed_header_type m_header;
 	};
+
 	
 	template <class T, class SizeT> std::ostream &operator<<(std::ostream &os, const o_array<T,SizeT> &array)
 	{
@@ -155,4 +159,5 @@ namespace db0
 		return os;
 	}
 
+DB0_PACKED_END
 } 

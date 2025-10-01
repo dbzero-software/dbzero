@@ -10,15 +10,18 @@
 #include <dbzero/object_model/ObjectBase.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/object_model/LangConfig.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0::object_model
 
 {
 
+DB0_PACKED_BEGIN
+
     using namespace db0::pools;
     using LP_String = db0::LP_String;
 
-    struct [[gnu::packed]] o_enum: public o_fixed<o_enum>
+    struct DB0_PACKED_ATTR o_enum: public o_fixed<o_enum>
     {
         db0::o_object_header m_header;
         // enum type name
@@ -120,6 +123,8 @@ namespace db0::object_model
     std::optional<std::string> getEnumKeyVariant(std::optional<std::string> type_id, std::optional<std::string> enum_name,
         std::optional<std::string> module_name, std::uint32_t hash, int variant_id);
     
+DB0_PACKED_END
+
 }
 
 namespace std

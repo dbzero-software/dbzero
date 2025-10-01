@@ -3,17 +3,19 @@
 #include <cstdint>
 #include "Types.hpp"
 #include <dbzero/core/exception/Exceptions.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
 
 {
+DB0_PACKED_BEGIN
 
     /**
      * @tparam IntT - underlying encoded unsigned integer type
      * @tparam is_nullable flag indicating if this type can be null-ed
      */
     template <class IntT, bool is_nullable = false>
-    class [[gnu::packed]] o_packed_int: public o_base<o_packed_int<IntT, is_nullable>, 0, false>
+    class DB0_PACKED_ATTR o_packed_int: public o_base<o_packed_int<IntT, is_nullable>, 0, false>
     {
     protected:
         using super_t = o_base<o_packed_int<IntT, is_nullable>, 0, false>;
@@ -202,4 +204,5 @@ namespace db0
     using nullable_packed_int32 = o_packed_int<std::uint32_t, true>;
     using nullable_packed_int64 = o_packed_int<std::uint64_t, true>;
 
+DB0_PACKED_END
 }

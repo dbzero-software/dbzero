@@ -5,10 +5,13 @@
 #include <dbzero/core/collections/pools/StringPools.hpp>
 #include <dbzero/object_model/LangConfig.hpp>
 #include <dbzero/core/serialization/Types.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0::object_model
 
 {
+
+DB0_PACKED_BEGIN
     
     using LP_String = db0::LP_String;
     using ObjectSharedPtr = db0::object_model::LangConfig::ObjectSharedPtr;
@@ -26,7 +29,7 @@ namespace db0::object_model
         std::uint64_t asULong() const;
     };
     
-    class [[gnu::packed]] o_enum_value_repr: public db0::o_base<o_enum_value_repr, 0, false>
+    class DB0_PACKED_ATTR o_enum_value_repr: public db0::o_base<o_enum_value_repr, 0, false>
     {
     protected:
         using self = o_enum_value_repr;
@@ -120,7 +123,7 @@ namespace db0::object_model
         db0::swine_ptr<Fixture> getFixture() const;
     };
     
-    class [[gnu::packed]] o_enum_value: public db0::o_base<o_enum_value, 0, false>
+    class DB0_PACKED_ATTR o_enum_value: public db0::o_base<o_enum_value, 0, false>
     {
     protected:
         using super_t = db0::o_base<o_enum_value, 0, false>;
@@ -149,6 +152,8 @@ namespace db0::object_model
         }
     };
     
+DB0_PACKED_END
+
 } 
 
 namespace std

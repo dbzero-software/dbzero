@@ -2,10 +2,12 @@
 
 #include <dbzero/core/serialization/Foundation.hpp>
 #include <dbzero/core/exception/Exceptions.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0 
 
 {
+DB0_PACKED_BEGIN
 
     class Memspace;
 
@@ -13,11 +15,11 @@ namespace db0
     // implements __safe_ref
     // T - actual implemented overlay type
     template <std::uint16_t VER, bool STORE_VER>
-    class [[gnu::packed]] version_base {
+    class DB0_PACKED_ATTR version_base {
     };
 
     template <std::uint16_t VER>
-    class [[gnu::packed]] version_base<VER, false>{
+    class DB0_PACKED_ATTR version_base<VER, false>{
     public:
         static constexpr bool isVerStored(){
             return false;
@@ -34,7 +36,7 @@ namespace db0
     };
 
     template <std::uint16_t VER>
-    class [[gnu::packed]] version_base<VER, true> {
+    class DB0_PACKED_ATTR version_base<VER, true> {
     private:
         std::uint16_t storedVersion = VER;
     public:
@@ -53,7 +55,7 @@ namespace db0
     };
 
     template <class T, std::uint16_t VER=0, bool STORE_VER=true>
-    class [[gnu::packed]] o_base
+    class DB0_PACKED_ATTR o_base
             : private version_base<VER, STORE_VER>
     {
     public:
@@ -303,4 +305,5 @@ namespace db0
 
     };
 
+DB0_PACKED_END
 }

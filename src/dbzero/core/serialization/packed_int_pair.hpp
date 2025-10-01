@@ -1,14 +1,16 @@
 #pragma once
 
 #include "packed_int.hpp"
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
 
 {
+DB0_PACKED_BEGIN
     
     // Pair of packed int-s
     template <typename T1, typename T2>
-    class [[gnu::packed]] o_packed_int_pair: public o_base<o_packed_int_pair<T1, T2>, 0, false>
+    class DB0_PACKED_ATTR o_packed_int_pair: public o_base<o_packed_int_pair<T1, T2>, 0, false>
     {
     protected:
         using super_t = o_base<o_packed_int_pair<T1, T2>, 0, false>;
@@ -85,5 +87,6 @@ namespace db0
         o_packed_int<T2, false>::write(at, value.second);
     }
         
+DB0_PACKED_END
 }
 

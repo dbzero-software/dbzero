@@ -5,12 +5,15 @@
 #include <initializer_list>
 #include <dbzero/core/utils/preprocessor.hpp>
 #include <dbzero/core/exception/Exceptions.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 #include "lexical_cast.hpp"
 #include "string_compare.hpp"
     
 namespace db0
 
 {
+
+DB0_PACKED_BEGIN
 
     template <typename enum_t> class FlagSetLimits
     {
@@ -29,7 +32,7 @@ namespace db0
         }
     };
     
-    template<typename EnumT> class [[gnu::packed]] FlagSet
+    template<typename EnumT> class DB0_PACKED_ATTR FlagSet
     {
     public:
         using enum_t = EnumT;
@@ -237,6 +240,8 @@ namespace std { std::ostream &operator<<(std::ostream &os, EnumTypeName option) 
             flag <<= 1; \
         } \
         THROWF(db0::InputException) << "Unrecognized flag: " << str_input << THROWF_END; } }
+
+DB0_PACKED_END
 
 namespace std 
 

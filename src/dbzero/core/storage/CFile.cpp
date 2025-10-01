@@ -53,7 +53,6 @@ namespace db0
             if (stat(file_name, &st)) {
                 THROWF(db0::IOException) << "CFile::getLastModifiedTime: stat failed";
             };
-            std::uint64_t time_2 = st.st_mtim.tv_sec * 1000000000 + st.st_mtim.tv_nsec;
             return st.st_mtim.tv_sec * 1000000000 + st.st_mtim.tv_nsec;
         #endif
     }

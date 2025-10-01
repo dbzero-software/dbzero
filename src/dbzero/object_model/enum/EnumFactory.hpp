@@ -4,6 +4,7 @@
 #include <dbzero/core/memory/Memspace.hpp>
 #include <dbzero/core/memory/swine_ptr.hpp>
 #include <dbzero/object_model/has_fixture.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 #include <optional>
 #include "EnumDef.hpp"
 #include "EnumValue.hpp"
@@ -11,12 +12,14 @@
 namespace db0::object_model
 
 {
+
+DB0_PACKED_BEGIN
     
     class Enum;
     using EnumPtr = db0::db0_ptr<Enum>;
     using VEnumMap = db0::v_map<db0::o_string, EnumPtr, o_string::comp_t>;
 
-    struct [[gnu::packed]] o_enum_factory: public o_fixed<o_enum_factory>
+    struct DB0_PACKED_ATTR o_enum_factory: public o_fixed<o_enum_factory>
     {
         // 4 variants of enum identification
         db0::db0_ptr<VEnumMap> m_enum_map_ptrs[4];
@@ -111,5 +114,7 @@ namespace db0::object_model
     };
     
     std::optional<std::string> getEnumKeyVariant(const EnumDef &, const char *type_id, int variant_id);
+
+DB0_PACKED_END
 
 }

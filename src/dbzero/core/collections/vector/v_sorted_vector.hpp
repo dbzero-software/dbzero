@@ -5,6 +5,7 @@
 #include <cstring>
 #include <algorithm>
 #include <dbzero/core/collections/vector/joinable_const_iterator.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 #include <dbzero/core/utils/heap.hpp>
 #include <dbzero/core/serialization/Base.hpp>
 #include <dbzero/core/vspace/v_object.hpp>
@@ -14,6 +15,7 @@
 namespace db0
 
 {
+DB0_PACKED_BEGIN
 
     /**
      * inverting comparator
@@ -48,7 +50,7 @@ namespace db0
      * data_t - contained element type (comparable)
      * comp_t - data comparer
      */
-    template <class data_t, class comp_t = std::less<data_t> > class [[gnu::packed]] o_sv_container
+    template <class data_t, class comp_t = std::less<data_t> > class DB0_PACKED_ATTR o_sv_container
         : public o_base<o_sv_container<data_t,comp_t>, 0, false >
     {
         using self = o_sv_container<data_t, comp_t>;
@@ -1150,4 +1152,5 @@ namespace db0
         DestroyF m_item_destroy_func;
     };
 
+DB0_PACKED_END
 }

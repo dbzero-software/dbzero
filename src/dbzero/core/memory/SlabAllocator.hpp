@@ -8,12 +8,14 @@
 #include <dbzero/core/serialization/Fixed.hpp>
 #include <dbzero/core/vspace/v_object.hpp>
 #include <dbzero/core/collections/vector/LimitedVector.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
 
 {
+DB0_PACKED_BEGIN
     
-    struct [[gnu::packed]] o_slab_header: public db0::o_fixed<o_slab_header>
+    struct DB0_PACKED_ATTR o_slab_header: public db0::o_fixed<o_slab_header>
     {
         const std::uint32_t m_version = 1;
         // number of bytes available to the underlying CRDT alllocator
@@ -199,4 +201,5 @@ namespace db0
         static Address headerAddr(Address begin_addr, std::uint32_t size);
     };
     
+DB0_PACKED_END
 }

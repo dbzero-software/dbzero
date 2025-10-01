@@ -8,10 +8,13 @@
 #include <dbzero/core/serialization/Types.hpp>
 #include <dbzero/core/serialization/Ext.hpp>
 #include <dbzero/core/serialization/string.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0::object_model
 
 {
+
+DB0_PACKED_BEGIN
     
     // Enum Type definition without enum values
     class EnumDef
@@ -43,7 +46,7 @@ namespace db0::object_model
         void serialize(std::vector<std::byte> &buffer) const;
     };
     
-    class [[gnu::packed]] o_enum_def: public db0::o_base<o_enum_def, 0, false>
+    class DB0_PACKED_ATTR o_enum_def: public db0::o_base<o_enum_def, 0, false>
     {
     protected:
         using self = o_enum_def;
@@ -110,6 +113,8 @@ namespace db0::object_model
         const char *getPrefixNamePtr() const;   
     };
     
+DB0_PACKED_END
+
 }
 
 namespace std

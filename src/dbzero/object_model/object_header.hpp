@@ -4,15 +4,18 @@
 #include <dbzero/core/serialization/Fixed.hpp>
 #include <dbzero/core/serialization/Ext.hpp>
 #include <dbzero/core/serialization/ref_counter.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
 
 {
+
+DB0_PACKED_BEGIN
     
     class Fixture;
     
     /// Common object header
-    struct [[gnu::packed]] o_object_header: public o_fixed<o_object_header>
+    struct DB0_PACKED_ATTR o_object_header: public o_fixed<o_object_header>
     {
         using RefCounterT = o_ref_counter<std::uint32_t, 6>;
         // ref-counter to hold tags / objects reference counts separately
@@ -39,7 +42,7 @@ namespace db0
     };
     
     // Unique header for objects with unique instance id
-    struct [[gnu::packed]] o_unique_header: public o_fixed_ext<o_unique_header, o_object_header>
+    struct DB0_PACKED_ATTR o_unique_header: public o_fixed_ext<o_unique_header, o_object_header>
     {
         // instance ID is decoded from object's address (see. db0::getInstanceId)
         std::uint16_t m_instance_id = 0;
@@ -56,4 +59,6 @@ namespace db0
         }
     };
     
+DB0_PACKED_END
+
 }

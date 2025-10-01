@@ -3,19 +3,21 @@
 #include <dbzero/core/serialization/Base.hpp>
 #include <dbzero/core/exception/AbstractException.hpp>
 #include <cstring>
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
 
 {
+DB0_PACKED_BEGIN
 
     class Memspace;
 
     template <std::uint16_t VER, bool STORE_VER>
-    class [[gnu::packed]] ext_version_base {
+    class DB0_PACKED_ATTR ext_version_base {
     };
 
     template <std::uint16_t VER>
-    class [[gnu::packed]] ext_version_base<VER, false>{
+    class DB0_PACKED_ATTR ext_version_base<VER, false>{
     public:
         static constexpr bool isVerStored(){
             return false;
@@ -32,7 +34,7 @@ namespace db0
     };
 
     template <std::uint16_t VER>
-    class [[gnu::packed]] ext_version_base<VER, true> {
+    class DB0_PACKED_ATTR ext_version_base<VER, true> {
     private:
         std::uint16_t storedVersion = VER;
     public:
@@ -65,7 +67,7 @@ namespace db0
         typename super_t,
         std::uint16_t VER=0, bool STORE_VER=false
     >
-    class [[gnu::packed]] o_ext : public super_t{
+    class DB0_PACKED_ATTR o_ext : public super_t{
         using this_type = o_ext<T, super_t, VER, STORE_VER>;
 
     public:
@@ -284,7 +286,7 @@ namespace db0
 
     // T - this type ( fixed size )
     // super_t - some fixed-size overlaid type to extend from
-    template <typename T, typename super_t> class [[gnu::packed]] o_fixed_ext : public super_t 
+    template <typename T, typename super_t> class DB0_PACKED_ATTR o_fixed_ext : public super_t 
     {
         struct NullInitializer {};
 
@@ -374,4 +376,5 @@ namespace db0
         }
     };
 
+DB0_PACKED_END
 }

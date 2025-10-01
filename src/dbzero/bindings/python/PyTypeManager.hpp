@@ -25,7 +25,7 @@ namespace db0::object_model {
     struct EnumValue;
     struct EnumValueRepr;
     struct FieldDef;
-    struct TagDef;
+    class TagDef;
     class ByteArray;
     class PyWeakProxy;
     

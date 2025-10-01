@@ -1,10 +1,13 @@
 #pragma once 
 
+#include "../../compiler_attributes.hpp"
+
 namespace db0
 
 {
 
-	template <class key_type, class value_type> class [[gnu::packed]] key_value 
+DB0_PACKED_BEGIN
+	template <class key_type, class value_type> class DB0_PACKED_ATTR key_value 
     {
 	public :
 		key_type key;
@@ -64,6 +67,7 @@ namespace db0
 			}
 		};
 	};
+DB0_PACKED_END
     
 } 
 

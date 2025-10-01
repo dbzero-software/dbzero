@@ -4,12 +4,14 @@
 #include <dbzero/core/serialization/Types.hpp>
 #include <dbzero/core/serialization/packed_int.hpp>
 #include <dbzero/core/serialization/list.hpp>
+#include "../../compiler_attributes.hpp"
 
 namespace db0
 
 {
 
-    template <typename ItemT> struct [[gnu::packed]] o_rle_item: public o_base<o_rle_item<ItemT>, 0, false>
+DB0_PACKED_BEGIN
+    template <typename ItemT> struct DB0_PACKED_ATTR o_rle_item: public o_base<o_rle_item<ItemT>, 0, false>
     {
     protected:
         using super_t = o_base<o_rle_item<ItemT>, 0, false>;
@@ -51,8 +53,10 @@ namespace db0
                 (packed_int32::type());
         }
     };
+DB0_PACKED_END
     
-    template <typename ItemT> class [[gnu::packed]] o_rle_sequence : protected o_list<o_rle_item<ItemT> >
+DB0_PACKED_BEGIN
+    template <typename ItemT> class DB0_PACKED_ATTR o_rle_sequence : protected o_list<o_rle_item<ItemT> >
     {
     public:
         using super_t = o_list<o_rle_item<ItemT> >;
@@ -139,6 +143,7 @@ namespace db0
             return super_t::safeSizeOf(buf);
         }
     };
+DB0_PACKED_END
 
     /**
      * RLE-compressed, sorted sequence of items

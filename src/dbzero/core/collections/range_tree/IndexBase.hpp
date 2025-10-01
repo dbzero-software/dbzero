@@ -6,6 +6,7 @@
 #include <dbzero/core/serialization/Fixed.hpp>
 #include <dbzero/object_model/object_header.hpp>
 #include <dbzero/bindings/TypeId.hpp>
+#include "../../compiler_attributes.hpp"
 
 namespace db0
 
@@ -27,7 +28,8 @@ namespace db0
         UInt64 = 3
     };
     
-    struct [[gnu::packed]] o_index: public o_fixed<o_index>
+DB0_PACKED_BEGIN
+    struct DB0_PACKED_ATTR o_index: public o_fixed<o_index>
     {
         // common object header
         o_unique_header m_header;
@@ -45,6 +47,7 @@ namespace db0
             return m_header.hasRefs();
         }
     };
+DB0_PACKED_END
     
     using IndexBase = db0::v_object<o_index>;
     

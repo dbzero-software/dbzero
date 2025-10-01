@@ -7,6 +7,7 @@
 #include <dbzero/core/serialization/Ext.hpp>
 #include <dbzero/core/memory/AccessOptions.hpp>
 #include <iostream>
+#include "../../compiler_attributes.hpp"
 
 namespace db0
 
@@ -20,7 +21,8 @@ namespace db0
     /**
      * Stores a per-node header details
     */
-    template <typename HeaderT> class [[gnu::packed]] o_lookup_header: public o_fixed_ext<o_lookup_header<HeaderT>, HeaderT>
+DB0_PACKED_BEGIN
+    template <typename HeaderT> class DB0_PACKED_ATTR o_lookup_header: public o_fixed_ext<o_lookup_header<HeaderT>, HeaderT>
     {
     public:
         // counter of lookups since the last update
@@ -38,6 +40,7 @@ namespace db0
             m_flags.set(LookupHeaderFlags::sorted, false);
         }
     };
+DB0_PACKED_END
 
     template <
         typename ItemT, 
@@ -47,7 +50,8 @@ namespace db0
         typename ItemEqualT, 
         typename HeaderT,
         int D = 2>
-    class [[gnu::packed]] o_sgb_lookup_tree_node:
+DB0_PACKED_BEGIN
+    class DB0_PACKED_ATTR o_sgb_lookup_tree_node:
     public o_ext<
         o_sgb_lookup_tree_node<ItemT, CapacityT, AddressT, ItemCompT, ItemEqualT, HeaderT, D>,
         o_sgb_tree_node<ItemT, CapacityT, AddressT, ItemCompT, ItemEqualT, o_lookup_header<HeaderT>, D>, 0, false>
@@ -322,6 +326,7 @@ namespace db0
             return this->m_size == 0;
         }
     };
+DB0_PACKED_END
 
     template <
         typename ItemType, 

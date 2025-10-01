@@ -7,6 +7,7 @@
 
 #include "SGB_LookupTree.hpp"
 #include <dbzero/core/memory/AccessOptions.hpp>
+#include "../../compiler_attributes.hpp"
 
 namespace db0
 
@@ -21,7 +22,8 @@ namespace db0
         typename ItemEqualT, 
         typename HeaderT,
         int D = 2>
-    class [[gnu::packed]] o_sgb_compressed_lookup_tree_node:
+DB0_PACKED_BEGIN
+    class DB0_PACKED_ATTR o_sgb_compressed_lookup_tree_node:
     public o_ext<
         o_sgb_compressed_lookup_tree_node<ItemT, KeyItemT, CapacityT, AddressT, ItemCompT, ItemEqualT, HeaderT, D>, 
         o_sgb_lookup_tree_node<ItemT, CapacityT, AddressT, ItemCompT, ItemEqualT, HeaderT, D>, 0, false>
@@ -132,6 +134,7 @@ namespace db0
             }
         }
     };
+DB0_PACKED_END
     
     template <
         typename ItemType, 

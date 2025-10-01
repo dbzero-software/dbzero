@@ -15,12 +15,14 @@
 #include "ChangeLogIOStream.hpp"
 #include "MetaIOStream.hpp"
 #include <dbzero/workspace/LockFlags.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
 
 {
+DB0_PACKED_BEGIN
     
-    struct [[gnu::packed]] o_prefix_config: public o_fixed<o_prefix_config>
+    struct DB0_PACKED_ATTR o_prefix_config: public o_fixed<o_prefix_config>
     {
         // magic number for the .db0 file        
         static constexpr std::uint64_t DB0_MAGIC = 0x0DB0DB0DB0DB0DB0;
@@ -193,4 +195,5 @@ namespace db0
             FlagSet<AccessOptions> = { AccessOptions::read, AccessOptions::write }, unsigned int *chain_len = nullptr) const;
     };
     
+DB0_PACKED_END
 }

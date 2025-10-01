@@ -5,6 +5,7 @@
 #include <dbzero/object_model/ObjectBase.hpp>
 #include <dbzero/object_model/class/FieldID.hpp>
 #include <dbzero/workspace/GC0.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 #include "ValueTable.hpp"
 #include "ObjectInitializer.hpp"
 #include <dbzero/object_model/value/StorageClass.hpp>
@@ -24,10 +25,12 @@ namespace db0::object_model
 
 {
 
+DB0_PACKED_BEGIN
+
     class Class;
     using Fixture = db0::Fixture;
     
-    class [[gnu::packed]] o_object: public db0::o_base<o_object, 0, false>
+    class DB0_PACKED_ATTR o_object: public db0::o_base<o_object, 0, false>
     {
     protected:
         using super_t = db0::o_base<o_object, 0, false>;
@@ -331,6 +334,8 @@ namespace db0::object_model
         void _touch();
     };
     
+DB0_PACKED_END
+
 }
 
 DECLARE_ENUM_VALUES(db0::object_model::ObjectOptions, 2)

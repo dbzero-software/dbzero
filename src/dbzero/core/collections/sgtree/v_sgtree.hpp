@@ -8,13 +8,15 @@
 #include <dbzero/core/memory/mptr.hpp>
 #include <dbzero/core/serialization/Fixed.hpp>
 #include <dbzero/core/intrusive/sgtree.hpp>
+#include "../../compiler_attributes.hpp"
 
 namespace db0
 
 {
     
     // SG-Tree node / head node pointers
-    template <class PtrT = Address> struct [[gnu::packed]] tree_ptr_set
+DB0_PACKED_BEGIN
+    template <class PtrT = Address> struct DB0_PACKED_ATTR tree_ptr_set
     {        
         PtrT parent = {};
         PtrT left = {};
@@ -34,11 +36,13 @@ namespace db0
             return parent;
         }
     };
+DB0_PACKED_END
     
     /**
      * Base container for SG-Tree nodes
      */
-    template <class ptr_set_t = tree_ptr_set<Address> > struct [[gnu::packed]] sg_node_base
+DB0_PACKED_BEGIN
+    template <class ptr_set_t = tree_ptr_set<Address> > struct DB0_PACKED_ATTR sg_node_base
         : public o_fixed<sg_node_base<ptr_set_t> >
     {
     public :
@@ -55,6 +59,8 @@ namespace db0
         const ptr_set_t &getPointers() const;
     };
 
+DB0_PACKED_END
+
     template <class ptr_set_t>
     const ptr_set_t &sg_node_base<ptr_set_t>::getPointers() const{
         return ptr_set;
@@ -63,7 +69,8 @@ namespace db0
     /**
      * NOTICE: sg_tree object is the head node at the same time
      */
-    template <std::size_t match_size = 0, class ptr_set_t = tree_ptr_set<Address> > struct [[gnu::packed]] sg_tree_data
+DB0_PACKED_BEGIN
+    template <std::size_t match_size = 0, class ptr_set_t = tree_ptr_set<Address> > struct DB0_PACKED_ATTR sg_tree_data
         : public o_fixed<sg_tree_data<match_size, ptr_set_t> >
     {
     public:
@@ -86,6 +93,7 @@ namespace db0
         std::uint32_t getSize() const;
         std::uint32_t getMaxTreeSize() const;
     };
+DB0_PACKED_END
     
     template <size_t match_size, class ptr_set_t>
     const ptr_set_t &sg_tree_data<match_size, ptr_set_t>::getPointers() const{

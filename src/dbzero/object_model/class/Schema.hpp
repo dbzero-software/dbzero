@@ -5,11 +5,14 @@
 #include <dbzero/core/collections/vector/v_bvector.hpp>
 #include <dbzero/core/vspace/db0_ptr.hpp>
 #include <dbzero/object_model/value/StorageClass.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 #include "FieldID.hpp"
 
 namespace db0::object_model
 
-{   
+{
+
+DB0_PACKED_BEGIN
 
     enum class SchemaTypeId: std::uint16_t
     {
@@ -49,7 +52,7 @@ namespace db0::object_model
     db0::bindings::TypeId getTypeId(SchemaTypeId);
     std::string getTypeName(SchemaTypeId);
     
-    struct [[gnu::packed]] o_type_item: public db0::o_fixed<o_type_item>
+    struct DB0_PACKED_ATTR o_type_item: public db0::o_fixed<o_type_item>
     {        
         SchemaTypeId m_type_id = SchemaTypeId::UNDEFINED;
         // the number of occurences of the specific type ID
@@ -74,7 +77,7 @@ namespace db0::object_model
         o_type_item &operator=(std::tuple<unsigned int, SchemaTypeId, int>);
     };
     
-    struct [[gnu::packed]] o_schema: public db0::o_fixed<o_schema>
+    struct DB0_PACKED_ATTR o_schema: public db0::o_fixed<o_schema>
     {        
         using TypeVector = db0::v_sorted_vector<o_type_item>;
         using total_func = std::function<std::uint32_t()>;
@@ -184,4 +187,6 @@ namespace db0::object_model
         void update(std::uint32_t collection_size);
     };
     
+DB0_PACKED_END
+
 }

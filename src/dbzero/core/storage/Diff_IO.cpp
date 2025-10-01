@@ -1,12 +1,14 @@
 #include "Diff_IO.hpp"
 #include <dbzero/core/serialization/packed_int_pair.hpp>
 #include <dbzero/core/exception/Exceptions.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
 
 {
+DB0_PACKED_BEGIN
 
-    struct [[gnu::packed]] o_diff_header: public o_fixed<o_diff_header>
+    struct DB0_PACKED_ATTR o_diff_header: public o_fixed<o_diff_header>
     {
         // the number of objects contained
         std::uint16_t m_size = 0;
@@ -335,4 +337,5 @@ namespace db0
         return { m_full_dp_bytes_written + m_diff_bytes_written, m_diff_bytes_written };
     }
 
+DB0_PACKED_END
 }

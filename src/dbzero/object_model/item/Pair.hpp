@@ -1,11 +1,14 @@
 #pragma once
 
 #include "Item.hpp"
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0::object_model
 {
 
-    struct [[gnu::packed]] o_pair_item: public db0::o_fixed<o_pair_item>
+DB0_PACKED_BEGIN
+
+    struct DB0_PACKED_ATTR o_pair_item: public db0::o_fixed<o_pair_item>
     {
         o_typed_item m_first;
         o_typed_item m_second;
@@ -31,5 +34,6 @@ namespace db0::object_model
         }
     };
 
+DB0_PACKED_END
 
 }

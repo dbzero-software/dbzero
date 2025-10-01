@@ -3,10 +3,12 @@
 #include <vector>
 #include <dbzero/core/serialization/Base.hpp>
 #include <dbzero/core/serialization/Fixed.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0 
 
 {
+DB0_PACKED_BEGIN
 
     class Memspace;
 
@@ -16,7 +18,7 @@ namespace db0
     /**
      * Overlaid simple type wrapper
      */
-    template <class T> class [[gnu::packed]] o_simple: public o_fixed<o_simple<T> >
+    template <class T> class DB0_PACKED_ATTR o_simple: public o_fixed<o_simple<T> >
     {
     public :
         // ctor init data
@@ -94,7 +96,7 @@ namespace db0
     /**
      * General purpose variable length binary buffer
      */
-    class [[gnu::packed]] o_binary : public o_base<o_binary, 0, false>
+    class DB0_PACKED_ATTR o_binary : public o_base<o_binary, 0, false>
     {
     protected:
         using super_t = o_base<o_binary, 0, false>;
@@ -174,7 +176,7 @@ namespace db0
     /**
      * Overlaid null type
      */
-    class [[gnu::packed]] o_null: public o_base<o_null>
+    class DB0_PACKED_ATTR o_null: public o_base<o_null>
     {
     public :
         template <typename... Args> static inline o_null &__new(void *buf, Args&& ...args)
@@ -212,6 +214,7 @@ namespace db0
     using o_float = o_simple<float>;
     using o_double = o_simple<double>;
 
+DB0_PACKED_END
 }
 
 namespace std
