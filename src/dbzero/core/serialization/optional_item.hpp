@@ -8,7 +8,7 @@ namespace db0
 
 {
 
-        template <typename ItemT> struct [[gnu::packed]] o_optional_item
+    template <typename ItemT> struct [[gnu::packed]] o_optional_item
     {
         // indicates if the item is present (1) or not (0)
         std::uint8_t m_present = 0;

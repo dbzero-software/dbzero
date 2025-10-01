@@ -50,16 +50,18 @@ namespace db0
     //  - The most common values in Dimension 2 are "0"
     //  - Elements are frequently appended but rarely removed
     //  - O(1) access time is required
-    // @tparam ItemT - contained item type (fixed size, no pointers)
+    // @tparam ItemT - Dim1 item type (fixed size, no pointers)
     // @tparam PtrT - type for inner pointers (V-Space)
     // @tparam Dim2 - maximum size of the Dimension 2
-    template <typename ItemT, unsigned int Dim2 = 16, typename PtrT = Address> class VLimitedMatrix
+    template <typename ItemT, unsigned int Dim2 = 16, typename PtrT = Address>
+    class VLimitedMatrix
         : public v_object<o_limited_matrix<PtrT> >
     {
     public:
+        using value_type = ItemT;
         using self_t = VLimitedMatrix<ItemT, Dim2, PtrT>;
         using super_t = v_object<o_limited_matrix<PtrT> >;
-
+        
         VLimitedMatrix(Memspace &);
         VLimitedMatrix(mptr);
 
@@ -103,7 +105,7 @@ namespace db0
             using IteratorT = typename v_bvector<o_optional_item<ItemT>, PtrT>::const_iterator;
             
             column_iterator(std::uint32_t column_id, const IteratorT &begin, const IteratorT &end);
-
+            
             ItemT operator*() const;
             column_iterator &operator++();
             bool isEnd() const;
@@ -133,7 +135,7 @@ namespace db0
             const_iterator &operator++();
             bool operator!=(const const_iterator &) const;
 
-            std::pair<std::uint32_t, std::uint32_t> key() const;
+            std::pair<std::uint32_t, std::uint32_t> loc() const;
 
         protected:
             friend MatrixT;
@@ -416,6 +418,12 @@ namespace db0
     bool VLimitedMatrix<ItemT, Dim2, PtrT>::const_iterator::operator!=(const const_iterator &other) const
     {
         return m_it != other.m_it;
+    }
+    
+    template <typename ItemT, unsigned int Dim2, typename PtrT>
+    std::pair<std::uint32_t, std::uint32_t> VLimitedMatrix<ItemT, Dim2, PtrT>::const_iterator::loc() const
+    {
+        return m_current_index;
     }
     
     template <typename ItemT, unsigned int Dim2, typename PtrT>

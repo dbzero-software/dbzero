@@ -177,4 +177,27 @@ namespace tests
         ASSERT_EQ(count, 6u);
     }
 
+    TEST_F( VLimitedMatrixTests , testLimitedMatrixIteratorLoc )
+    {
+        auto memspace = m_workspace.getMemspace("my-test-prefix_1");
+        // create with Dim1 empty
+        VLimitedMatrix<std::uint64_t, 32> cut(memspace);
+        cut.set({0,1}, 1);
+        cut.set({0,5}, 2);
+        cut.set({0,17}, 3);
+        cut.set({3,3}, 4);
+        cut.set({3,5}, 5);
+        cut.set({7,1}, 6);
+
+        std::vector<std::pair<std::uint32_t, std::uint32_t> > expected_loc {
+            { 0, 1 }, { 0, 5 }, { 0, 17 }, { 3, 3 }, { 3, 5 }, { 7, 1 }
+        };
+
+        auto it = cut.cbegin(), end = cut.cend();
+        unsigned int count = 0;
+        for (; it != end; ++it, ++count) {
+            ASSERT_EQ(it.loc(), expected_loc[count]);
+        }
+    }
+
 } 

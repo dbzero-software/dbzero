@@ -11,15 +11,15 @@ namespace db0
     // into a memory and provides a "refresh" method to detect and load appended items
     // the "load" function can be customized
     // @tparam MatrixT - type of the limited matrix (VLimitedMatrix)
-    // @tparam ItemT - type of a cached (in-memory) item
+    // @tparam ItemT - type of a cached (in-memory) item. Must be constructible from MatrixT::value_type
     template <typename MatrixT, typename ItemT>
     class LimitedMatrixCache
     {
     public:
         LimitedMatrixCache(const MatrixT &);
         
-        // Set item at specified position
-        void set(std::pair<std::uint32_t, std::uint32_t>, ItemT);
+        // @return number of cached items
+        std::size_t size() const;
 
         // NOTE: Cache might be refreshed if item not found at first attempt
         // @return nullptr if item not set / not found
@@ -42,40 +42,105 @@ namespace db0
         
         const_iterator begin() const;
         const_iterator end() const;
-
+        
     private:
+
+        struct column_vector: public std::vector<std::optional<ItemT> >
+        {
+            void set(std::uint32_t, ItemT item);
+        };
+
         union ItemOrVector
         {
             ItemT item;
             // Dimension 2 data (if any)
-            std::vector<std::optional<ItemT> > *vector_ptr;
+            column_vector *vector_ptr;
             
             // No delete since items will be destroyed in DataItem destructor
             ~ItemOrVector() {}
         };
         
+        struct as_vector {};
         struct DataItem
         {
-            bool m_is_item;
+            bool m_has_value = false;
+            bool m_is_item = true;
             ItemOrVector m_data;
 
+            DataItem() = default;
+            // construct as item
+            DataItem(ItemT &&);
+            DataItem(as_vector);
+            DataItem(DataItem &&);
+
             ~DataItem();
+
+            void operator=(DataItem &&other);
         };
 
+        // Set item at specified position in cache
+        void set(std::pair<std::uint32_t, std::uint32_t>, ItemT);
+
+        std::size_t m_size = 0;
         // Items organized by Dimension 1
-        std::vector<std::optional<DataItem > > m_dim1;
+        std::vector<DataItem> m_dim1;
     };
     
     template <typename MatrixT, typename ItemT>
-    LimitedMatrixCache<MatrixT, ItemT>::LimitedMatrixCache(const MatrixT & matrix)    
+    std::size_t LimitedMatrixCache<MatrixT, ItemT>::size() const
     {
-        throw std::runtime_error("Not implemented");
+        return m_size;
+    }
+    
+    template <typename MatrixT, typename ItemT>
+    LimitedMatrixCache<MatrixT, ItemT>::LimitedMatrixCache(const MatrixT &matrix)
+    {
+        auto it = matrix.cbegin(), end = matrix.cend();
+        for ( ; it != end; ++it) {
+            set(it.loc(), *it);
+            ++m_size;
+        }
     }
     
     template <typename MatrixT, typename ItemT>
     void LimitedMatrixCache<MatrixT, ItemT>::set(std::pair<std::uint32_t, std::uint32_t> pos, ItemT item)
     {
-        throw std::runtime_error("Not implemented");
+        if (pos.first >= m_dim1.size()) {
+            m_dim1.resize(pos.first + 1);
+        }
+        
+        if (pos.second == 0) {
+            if (m_dim1[pos.first].m_has_value) {
+                if (m_dim1[pos.first].m_is_item) {
+                    // Replace existing item
+                    m_dim1[pos.first].m_data.item = item;
+                } else {
+                    m_dim1[pos.first].m_data.vector_ptr->set(0, std::move(item));
+                }
+            } else {
+                // New item
+                DataItem di(std::move(item));
+                m_dim1[pos.first] = std::move(di);
+            }
+
+        } else {
+            // convert item to vector if needed            
+            if (m_dim1[pos.first].m_has_value) {
+                if (m_dim1[pos.first].m_is_item) {
+                    // Convert item to vector
+                    auto vec = new column_vector();
+                    vec->set(0, std::move(m_dim1[pos.first].m_data.item));
+                    m_dim1[pos.first].m_data.vector_ptr = vec;
+                    m_dim1[pos.first].m_is_item = false;
+                }
+            } else {
+                // New vector
+                DataItem di(as_vector{});
+                m_dim1[pos.first] = std::move(di);
+            }
+            // Set item in vector
+            m_dim1[pos.first].m_data.vector_ptr->set(pos.second, std::move(item));
+        }
     }
 
     template <typename MatrixT, typename ItemT>
@@ -109,8 +174,67 @@ namespace db0
     }
 
     template <typename MatrixT, typename ItemT>
+    LimitedMatrixCache<MatrixT, ItemT>::DataItem::DataItem(ItemT &&item)
+        : m_has_value(true)
+        , m_is_item(true)
+    {
+        new (&m_data.item) ItemT(std::move(item));
+    }
+
+    template <typename MatrixT, typename ItemT>
+    LimitedMatrixCache<MatrixT, ItemT>::DataItem::DataItem(as_vector)
+        : m_has_value(true)
+        , m_is_item(false)
+    {
+        m_data.vector_ptr = new column_vector();
+    }
+
+    template <typename MatrixT, typename ItemT>
+    LimitedMatrixCache<MatrixT, ItemT>::DataItem::DataItem(DataItem &&other)
+        : m_has_value(other.m_has_value)
+        , m_is_item(other.m_is_item)
+    {
+        if (!m_has_value) {
+            return;
+        }
+        if (m_is_item) {
+            new (&m_data.item) ItemT(std::move(other.m_data.item));
+        } else {
+            m_data.vector_ptr = other.m_data.vector_ptr;
+            other.m_data.vector_ptr = nullptr;
+        }
+        other.m_has_value = false;
+    }
+    
+    template <typename MatrixT, typename ItemT>
+    void LimitedMatrixCache<MatrixT, ItemT>::DataItem::operator=(DataItem &&other)
+    {
+        if (this == &other) {
+            return;
+        }
+        // Destroy existing value
+        this->~DataItem();
+        
+        m_has_value = other.m_has_value;
+        m_is_item = other.m_is_item;
+        if (!m_has_value) {
+            return;
+        }
+        if (m_is_item) {
+            new (&m_data.item) ItemT(std::move(other.m_data.item));
+        } else {
+            m_data.vector_ptr = other.m_data.vector_ptr;
+            other.m_data.vector_ptr = nullptr;
+        }
+        other.m_has_value = false;
+    }
+
+    template <typename MatrixT, typename ItemT>
     LimitedMatrixCache<MatrixT, ItemT>::DataItem::~DataItem()
     {
+        if (!m_has_value) {
+            return;
+        }
         if (m_is_item) {
             m_data.item.~ItemT();
         } else {
@@ -135,5 +259,14 @@ namespace db0
     {
         throw std::runtime_error("Not implemented");
     }
-        
+    
+    template <typename MatrixT, typename ItemT>
+    void LimitedMatrixCache<MatrixT, ItemT>::column_vector::set(std::uint32_t pos, ItemT item)
+    {
+        if (pos >= this->size()) {
+            this->resize(pos + 1);
+        }
+        (*this)[pos] = std::move(item);
+    }
+
 }
