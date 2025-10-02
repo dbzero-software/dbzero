@@ -67,7 +67,7 @@ def test_schema_collection_types(db0_fixture):
     
 def test_schema_memo_type(db0_fixture):
     _ = MemoSchemaTestClass(MemoTestClass(123))
-    assert db0.get_schema(MemoSchemaTestClass)["value"]["primary_type"] is db0.MemoBase    
+    assert db0.get_schema(MemoSchemaTestClass)["value"]["primary_type"] is db0.MemoBase
 
 
 @db0.memo

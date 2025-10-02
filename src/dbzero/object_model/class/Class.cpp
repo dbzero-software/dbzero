@@ -52,7 +52,7 @@ namespace db0::object_model
     }
     
     o_class::o_class(RC_LimitedStringPool &string_pool, const std::string &name, std::optional<std::string> module_name,
-        const VFieldVector &members, const Schema &schema, const char *type_id, const char *prefix_name, ClassFlags flags,
+        const VFieldMatrix &members, const Schema &schema, const char *type_id, const char *prefix_name, ClassFlags flags,
         std::uint32_t base_class_ref, std::uint32_t num_bases)
         : m_uuid(db0::make_UUID())
         , m_name(string_pool.addRef(name))
@@ -89,7 +89,7 @@ namespace db0::object_model
             fixture->getLimitedStringPool(), 
             name, 
             module_name, 
-            VFieldVector(*fixture), 
+            VFieldMatrix(*fixture),
             Schema(*fixture),
             type_id, 
             prefix_name, 
@@ -100,15 +100,11 @@ namespace db0::object_model
         , m_members((*this)->m_members_ptr(*fixture))
         , m_schema((*this)->m_schema_ptr(*fixture))
         , m_base_class_ptr(base_class)
+        , m_init_vars(this->makeInitVars(init_vars))
         , m_uid(this->fetchUID())
+        , m_member_cache(m_members, *this, this->getRefreshCallback())        
     {
         m_schema.postInit(getTotalFunc());
-        // copy all init vars from base class
-        if (m_base_class_ptr) {        
-            const auto &base_init_vars = m_base_class_ptr->getInitVars();
-            std::copy(base_init_vars.begin(), base_init_vars.end(), std::inserter(m_init_vars, m_init_vars.end()));
-        }
-        std::copy(init_vars.begin(), init_vars.end(), std::inserter(m_init_vars, m_init_vars.end()));
     }
     
     Class::Class(db0::swine_ptr<Fixture> &fixture, Address address)
@@ -117,6 +113,7 @@ namespace db0::object_model
         , m_members((*this)->m_members_ptr(*fixture))
         , m_schema((*this)->m_schema_ptr(*fixture))
         , m_uid(this->fetchUID())
+        , m_member_cache(m_members, *this, this->getRefreshCallback())
     {
         m_schema.postInit(getTotalFunc());
         // initialize base class if such exists
@@ -124,9 +121,6 @@ namespace db0::object_model
             auto fixture = this->getFixture();
             m_base_class_ptr = getClassFactory(*fixture).getTypeByClassRef((*this)->m_base_class_ref).m_class;
         }
-
-        // fetch all members into cache
-        refreshMemberCache();
     }
     
     Class::~Class()
@@ -134,7 +128,19 @@ namespace db0::object_model
         // unregister needs to be called before the destruction of members
         unregister();        
     }
-    
+
+    std::unordered_set<std::string> Class::makeInitVars(const std::vector<std::string> &init_vars) const
+    {
+        std::unordered_set<std::string> result;
+        // copy all init vars from base class
+        if (m_base_class_ptr) {        
+            const auto &base_init_vars = m_base_class_ptr->getInitVars();
+            std::copy(base_init_vars.begin(), base_init_vars.end(), std::inserter(result, result.end()));
+        }
+        std::copy(init_vars.begin(), init_vars.end(), std::inserter(result, result.end()));
+        return result;
+    }
+
     std::string Class::getName() const {
         return getFixture()->getLimitedStringPool().fetch((*this)->m_name);
     }   
@@ -151,10 +157,10 @@ namespace db0::object_model
     {
         assert(m_index.find(name) == m_index.end());
         bool is_init_var = m_init_vars.find(name) != m_init_vars.end();
+        auto next_field_index = m_members.size().first;
         // NOTE: we start field IDs from 1
-        auto next_field_id = FieldID::fromIndex(m_members.size());
-        m_members.emplace_back(getFixture()->getLimitedStringPool(), name);
-        m_member_cache.emplace_back(new Member(next_field_id, name));
+        auto next_field_id = FieldID::fromIndex(next_field_index);
+        m_members.push_back(o_field { getFixture()->getLimitedStringPool(), name });
         m_index[name] = { next_field_id, is_init_var };
         return next_field_id;
     }
@@ -163,61 +169,56 @@ namespace db0::object_model
     {
         auto it = m_index.find(name);
         if (it == m_index.end()) {
-            // try refreshing the cache
-            refreshMemberCache();
-            it = m_index.find(name);
+            // try again after refreshing the cache
+            if (m_member_cache.refresh()) {
+                it = m_index.find(name);
+            }
             if (it == m_index.end()) {
                 // field ID not found, check for possible initialization variable
                 bool is_init_var = m_init_vars.find(name) != m_init_vars.end();
                 return { FieldID(), is_init_var };
             }
         }
-
+        
         return it->second;
     }
     
-    const Class::Member *Class::tryGet(FieldID field_id) const
-    {
+    std::optional<Class::Member> Class::tryGetMember(FieldID field_id) const
+    {        
         auto index = field_id.getIndex();
-        if (index < m_member_cache.size()) {
-            return m_member_cache[index].get();
+        // NOTE: cache might be refreshed if not found at first attempt
+        auto member_ptr = m_member_cache.tryGet({ index, 0 });
+        if (!member_ptr) {
+            return {};
         }
-        
-        if (index >= m_member_cache.size()) {
-            // try updating cache (fields might've been added by other process)
-            refreshMemberCache();            
-        }
-        if (index < m_member_cache.size()) {
-            return m_member_cache[index].get();
-        }
-        return nullptr;
+        return *member_ptr;
     }
     
-    const Class::Member &Class::get(FieldID field_id) const
+    Class::Member Class::getMember(FieldID field_id) const
     {
-        auto member_ptr = tryGet(field_id);
-        if (!member_ptr) {
+        auto maybe_member = tryGetMember(field_id);
+        if (!maybe_member) {
             THROWF(db0::InputException) << "Member slot not found: " << field_id.getIndex();
         }
-        return *member_ptr;
+        return *maybe_member;
     }
     
-    const Class::Member *Class::tryGet(const char *name) const
+    std::optional<Class::Member> Class::tryGetMember(const char *name) const
     {
         auto it = m_index.find(name);
-        if (it != m_index.end()) {
-            return &get(it->second.first);
+        if (it == m_index.end()) {
+            return {};
         }
-        return nullptr;
+        return getMember(it->second.first);
     }
-
-    const Class::Member &Class::get(const char *name) const
+    
+    Class::Member Class::getMember(const char *name) const
     {
-        auto member_ptr = tryGet(name);
-        if (!member_ptr) {
+        auto maybe_member = tryGetMember(name);
+        if (!maybe_member) {
             THROWF(db0::InputException) << "Field " << name << " not found in class " << getName();
         }
-        return *member_ptr;
+        return *maybe_member;
     }
     
     bool Class::unloadSingleton(void *at) const
@@ -253,30 +254,20 @@ namespace db0::object_model
         modify().m_singleton_address = object.getUniqueAddress();
     }
     
-    void Class::refreshMemberCache() const
+    std::function<void(const Class::Member &)> Class::getRefreshCallback() const
     {
-        // this is required before accessing members to prevent segfaults on a defunct object
-        auto fixture = getFixture();
-        assert(m_members.size() >= m_member_cache.size());
-        if (m_members.size() == m_member_cache.size()) {
-            return;
-        }
-        
-        // Fetch all members into cache
-        unsigned int index = m_member_cache.size();        
-        auto &string_pool = fixture->getLimitedStringPool();
-        for (auto it = m_members.begin(index), end = m_members.end(); it != end; ++it, ++index) {
-            auto field_name = string_pool.fetch(it->m_name);
-            m_member_cache.emplace_back(new Member(FieldID::fromIndex(index), field_name));
-            bool is_init_var = m_init_vars.find(field_name) != m_init_vars.end();
-            m_index[field_name] = { FieldID::fromIndex(index), is_init_var };
-        }
+        return [this](const Member &member) {
+            // this is required before accessing members to prevent segfaults on a defunct object
+            auto fixture = getFixture();
+            bool is_init_var = m_init_vars.find(member.m_name) != m_init_vars.end();
+            m_index[member.m_name] = { member.m_field_id, is_init_var };
+        };
     }
     
     std::string Class::getTypeName() const {
         return getFixture()->getLimitedStringPool().fetch((*this)->m_name);
     }
-
+    
     std::optional<std::string> Class::tryGetModuleName() const 
     {
         if (!(*this)->m_module_name) {
@@ -351,7 +342,7 @@ namespace db0::object_model
     }
     
     void Class::renameField(const char *from_name, const char *to_name)
-    {
+    {        
         assert(from_name);
         assert(to_name);
         if (to_name == from_name) {
@@ -367,15 +358,14 @@ namespace db0::object_model
             THROWF(db0::InputException) << "Field " << from_name << " not found in class " << getName();
         }
 
-        // 1. update in fields vector
+        // 1. Update in fields matrix
         auto &string_pool = getFixture()->getLimitedStringPool();
         // unreference old name in the string pool
-        string_pool.unRef(m_members[field_id.getIndex()].m_name);
-        m_members.modifyItem(field_id.getIndex()).m_name = string_pool.addRef(to_name);
-        // 2. update in member's cache
-        refreshMemberCache();
-        m_member_cache[field_id.getIndex()]->m_name = to_name;
-        // 3. update in the in-memory index
+        string_pool.unRef(m_members.get({ field_id.getIndex(), 0 }).m_name);
+        m_members.modifyItem({ field_id.getIndex(), 0}).m_name = string_pool.addRef(to_name);
+        // 2. Update in member's cache
+        m_member_cache.reload({ field_id.getIndex(), 0 });
+        // 3. Update in the in-memory index
         m_index.erase(from_name);
         auto is_init_var = m_init_vars.find(to_name) != m_init_vars.end();
         m_index[to_name] = { field_id, is_init_var };
@@ -485,8 +475,9 @@ namespace db0::object_model
     }
     
     std::unordered_map<std::string, std::uint32_t> Class::getMembers() const
-    {        
-        refreshMemberCache();
+    {      
+        // FIXME:  
+        // m_member_cache.refresh();
         std::unordered_map<std::string, std::uint32_t> result;
         for (auto &item: m_index) {
             result[item.first] = item.second.first.getIndex();
@@ -539,15 +530,16 @@ namespace db0::object_model
     void Class::getSchema(std::function<void(const std::string &field_name, SchemaTypeId primary_type,
         const std::vector<SchemaTypeId> &all_types)> callback) const
     {
-        this->refreshMemberCache();
-        for (auto &member: m_member_cache) {
+        m_member_cache.refresh();
+        for (auto it = m_member_cache.cbegin(), end = m_member_cache.cend(); it != end; ++it) {
+            auto &member = *it;
             try {
-                callback(member->m_name, m_schema.getPrimaryType(member->m_field_id), 
-                    m_schema.getAllTypes(member->m_field_id)
+                callback(member.m_name, m_schema.getPrimaryType(member.m_field_id), 
+                    m_schema.getAllTypes(member.m_field_id)
                 );
             } catch (const db0::InputException &) {
                 // report as UNKNOWN type if the field ID is not found in the schema
-                callback(member->m_name, SchemaTypeId::UNDEFINED, {});
+                callback(member.m_name, SchemaTypeId::UNDEFINED, {});
             }
         }
     }
@@ -621,9 +613,20 @@ namespace db0::object_model
     std::uint32_t Class::getClassRef() const {
         return classRef(*this, m_type_slot_addr_range);
     }
-    
-    const VFieldVector &Class::getMembersVector() const {
+
+    const VFieldMatrix &Class::getMembersMatrix() const {
         return m_members;
     }
     
+    Class::MemberAdapter::MemberAdapter(const Class &cls)
+        : m_class(cls)
+    {
+    }
+    
+    Class::Member Class::MemberAdapter::operator()(std::pair<std::uint32_t, std::uint32_t> loc, const o_field &field) const 
+    {
+        auto field_name = m_class.get().getFixture()->getLimitedStringPool().fetch(field.m_name);
+        return Member(FieldID::fromIndex(loc.first), field_name);
+    }
+
 }

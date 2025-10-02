@@ -769,27 +769,28 @@ namespace db0::object_model
     std::unordered_set<std::string> Object::getMembers() const 
     {
         std::unordered_set<std::string> result;
-        // visit pos-vt members first
+        // Visit pos-vt members first
         auto &obj_type = this->getType();
         {
             for (unsigned int index = 0;index < (*this)->pos_vt().size(); ++index) {
-                result.insert(obj_type.get(FieldID::fromIndex(index)).m_name);
+                result.insert(obj_type.getMember(FieldID::fromIndex(index)).m_name);
             }
         }
         
-        // visit index-vt members next
+        // Visit index-vt members next
         {
             auto &xvalues = (*this)->index_vt().xvalues();
             for (auto &xvalue: xvalues) {
-                result.insert(obj_type.get(FieldID::fromIndex(xvalue.getIndex())).m_name);
+                result.insert(obj_type.getMember(FieldID::fromIndex(xvalue.getIndex())).m_name);
             }
         }
-        // finally visit kv-index members
+
+        // Finally, visit kv-index members
         auto kv_index_ptr = tryGetKV_Index();
         if (kv_index_ptr) {
             auto it = kv_index_ptr->beginJoin(1);
             for (;!it.is_end(); ++it) {
-                result.insert(obj_type.get(FieldID::fromIndex((*it).getIndex())).m_name);
+                result.insert(obj_type.getMember(FieldID::fromIndex((*it).getIndex())).m_name);
             }
         }
         return result;
@@ -797,7 +798,7 @@ namespace db0::object_model
     
     void Object::forAll(std::function<bool(const std::string &, const XValue &)> f) const
     {
-        // visit pos-vt members first
+        // Visit pos-vt members first
         auto &obj_type = this->getType();
         {
             auto &types = (*this)->pos_vt().types();
@@ -805,26 +806,28 @@ namespace db0::object_model
             auto value = values.begin();
             unsigned int index = 0;
             for (auto type = types.begin(); type != types.end(); ++type, ++value, ++index) {
-                if (!f(obj_type.get(FieldID::fromIndex(index)).m_name, { index, *type, *value })) {
+                if (!f(obj_type.getMember(FieldID::fromIndex(index)).m_name, { index, *type, *value })) {
                     return;
                 }
             }
         }
-        // visit index-vt members next
+
+        // Visit index-vt members next
         {
             auto &xvalues = (*this)->index_vt().xvalues();
             for (auto &xvalue: xvalues) {
-                if (!f(obj_type.get(FieldID::fromIndex(xvalue.getIndex())).m_name, xvalue)) {
+                if (!f(obj_type.getMember(FieldID::fromIndex(xvalue.getIndex())).m_name, xvalue)) {
                     return;
                 }
             }
         }
-        // finally visit kv-index members
+        
+        // Finally, visit kv-index members
         auto kv_index_ptr = tryGetKV_Index();
         if (kv_index_ptr) {
             auto it = kv_index_ptr->beginJoin(1);
             for (;!it.is_end(); ++it) {
-                if (!f(obj_type.get(FieldID::fromIndex((*it).getIndex())).m_name, *it)) {
+                if (!f(obj_type.getMember(FieldID::fromIndex((*it).getIndex())).m_name, *it)) {
                     return;
                 }
             }
