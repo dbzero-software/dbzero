@@ -530,20 +530,18 @@ namespace db0::object_model
     void Class::getSchema(std::function<void(const std::string &field_name, SchemaTypeId primary_type,
         const std::vector<SchemaTypeId> &all_types)> callback) const
     {
-        // FIXME:
-        /**
         m_member_cache.refresh();
-        for (auto &member: m_member_cache) {
+        for (auto it = m_member_cache.cbegin(), end = m_member_cache.cend(); it != end; ++it) {
+            auto &member = *it;
             try {
-                callback(member->m_name, m_schema.getPrimaryType(member->m_field_id), 
-                    m_schema.getAllTypes(member->m_field_id)
+                callback(member.m_name, m_schema.getPrimaryType(member.m_field_id), 
+                    m_schema.getAllTypes(member.m_field_id)
                 );
             } catch (const db0::InputException &) {
                 // report as UNKNOWN type if the field ID is not found in the schema
-                callback(member->m_name, SchemaTypeId::UNDEFINED, {});
+                callback(member.m_name, SchemaTypeId::UNDEFINED, {});
             }
         }
-        */
     }
     
     void Class::updateSchema(const std::vector<StorageClass> &types, bool add)
