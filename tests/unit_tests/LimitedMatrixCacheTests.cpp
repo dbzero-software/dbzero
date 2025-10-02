@@ -23,10 +23,10 @@ namespace tests
     public:
     };
 
-    template <typename T> struct UniquePtrAdapter
+    template <typename T> struct StringAdapter
     {
-        std::unique_ptr<T> operator()(const T &item) const {
-            return std::make_unique<T>(item);
+        std::string operator()(std::pair<std::uint32_t, std::uint32_t>, const T &item) const {
+            return std::to_string(item);
         }
     };
 
@@ -123,7 +123,7 @@ namespace tests
         
         LimitedMatrixCache<MatrixT, std::uint64_t> cut(mx);
         std::vector<std::uint64_t> expected = {1, 2, 3, 5, 4};
-
+        
         auto it = cut.cbegin(), end = cut.cend();
         std::size_t idx = 0;
         for ( ; it != end; ++it, ++idx) {
@@ -155,7 +155,7 @@ namespace tests
         ASSERT_TRUE(cut.refresh());
         ASSERT_EQ(cut.size(), 7);
     }
-
+    
     TEST_F( LimitedMatrixCacheTests , testLMCacheReload )
     {
         using MatrixT = VLimitedMatrix<std::uint64_t, 32>;
@@ -172,8 +172,8 @@ namespace tests
         cut.reload({13, 7});
         ASSERT_EQ(*cut.tryGet({13, 7}), 555);
     }
-    
-    TEST_F( LimitedMatrixCacheTests , testLMCacheWithPtrItems )
+
+    TEST_F( LimitedMatrixCacheTests , testLMCacheWithCustomAdapter )
     {
         using MatrixT = VLimitedMatrix<std::uint64_t, 32>;
         auto memspace = m_workspace.getMemspace("my-test-prefix_1");
@@ -184,9 +184,29 @@ namespace tests
         mx.set({11,2}, 5);
         mx.set({0,6}, 2);
         
-        // NOTE: we store std::unique_ptr items, this requires an adapter
-        LimitedMatrixCache<MatrixT, std::unique_ptr<std::uint64_t >, UniquePtrAdapter<std::uint64_t>> cut(mx);
-        ASSERT_EQ(**cut.tryGet({0, 0}), 1);
+        // NOTE: in cache, items are adapted to strings
+        LimitedMatrixCache<MatrixT, std::string, StringAdapter<std::uint64_t> > cut(mx);
+        ASSERT_EQ(*cut.tryGet({0,0}), "1");
+        ASSERT_EQ(*cut.tryGet({5,0}), "3");
+        ASSERT_EQ(*cut.tryGet({13,7}), "4");
     }
-    
+
+    TEST_F( LimitedMatrixCacheTests , testLMCacheAutoRefreshOnTryGet )
+    {
+        using MatrixT = VLimitedMatrix<std::uint64_t, 32>;
+        auto memspace = m_workspace.getMemspace("my-test-prefix_1");
+        MatrixT mx(memspace);
+        mx.set({0,0}, 1);
+        mx.set({5,0}, 3);
+        mx.set({13,7}, 4);
+        mx.set({11,2}, 5);
+        mx.set({0,6}, 2);
+        
+        LimitedMatrixCache<MatrixT, std::uint64_t> cut(mx);
+        ASSERT_FALSE(cut.tryGet({7,1}));
+        mx.set({7,1}, 6);
+        // NOTE: element should be auto-refreshed on tryGet
+        ASSERT_TRUE(cut.tryGet({7,1}));
+    }
+
 } 

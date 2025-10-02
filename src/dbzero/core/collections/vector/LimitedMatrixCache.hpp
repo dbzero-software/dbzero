@@ -11,7 +11,7 @@ namespace db0
     
     template <typename T1, typename T2>
     struct DefaultAdapter {
-        T1 operator()(T2 v) const {
+        T1 operator()(std::pair<std::uint32_t, std::uint32_t>, T2 v) const {
             return static_cast<T1>(v);
         }
     };
@@ -27,8 +27,10 @@ namespace db0
     {
     public:
         using self_type = LimitedMatrixCache<MatrixT, ItemT, AdapterT>;
+        using CallbackType = std::function<void(const ItemT &)>;
 
-        LimitedMatrixCache(const MatrixT &, AdapterT = {});
+        // callback will be notified on each new item added either during initial load or refresh
+        LimitedMatrixCache(const MatrixT &, AdapterT = {}, CallbackType = {});
         
         // @return number of cached items
         std::size_t size() const;
@@ -36,8 +38,9 @@ namespace db0
         // NOTE: Cache might be refreshed if item not found at first attempt
         // @return nullptr if item not set / not found
         const ItemT *tryGet(std::pair<std::uint32_t, std::uint32_t>) const;
-
+        
         // Fetch appended items only (updates or deletions not reflected)
+        // callback will be notified on each new item added
         bool refresh();
         // Reload / refresh a specific existing item only
         void reload(std::pair<std::uint32_t, std::uint32_t>);
@@ -51,45 +54,38 @@ namespace db0
             // @return number of new items added (0 or 1)
             int set(std::uint32_t, ItemT item);
             const ItemT *tryGet(std::uint32_t pos) const;
+            bool hasItem(std::uint32_t pos) const;
         };
         
-        union ItemOrVector
-        {
-            ItemT item;
-            // Dimension 2 data (if any)
-            column_vector *vector_ptr;
-            
-            // No delete since items will be destroyed in DataItem destructor
-            ~ItemOrVector() {}
-        };
-        
-        struct as_vector {};
         struct DataItem
         {
-            bool m_has_value = false;
-            bool m_is_item = true;
-            ItemOrVector m_data;
-
+            std::optional<ItemT> m_item;
+            // Dimension 2 data (if any)
+            column_vector *m_vector_ptr = nullptr;
+            
             DataItem() = default;
-            // construct as item
-            DataItem(ItemT &&);
-            DataItem(as_vector);
+            // construct with a single item
+            DataItem(ItemT &&);            
             DataItem(DataItem &&);
 
             ~DataItem();
 
             void operator=(DataItem &&other);
         };
-
+        
         // Set item at specified position in cache
         void set(std::pair<std::uint32_t, std::uint32_t>, ItemT);
-
+        const ItemT *_tryGet(std::pair<std::uint32_t, std::uint32_t>) const;
+        // Check if an item exists in cache
+        bool hasItem(std::pair<std::uint32_t, std::uint32_t>) const;
+        
         std::reference_wrapper<const MatrixT> m_matrix;
         std::size_t m_size = 0;
         // Items organized by Dimension 1
         std::vector<DataItem> m_dim1;
         const column_vector m_null_column;
         AdapterT m_adapter;
+        CallbackType m_callback;
         
         struct column_iterator
         {
@@ -128,6 +124,8 @@ namespace db0
             std::reference_wrapper<const self_type> m_cache;
             typename std::vector<DataItem>::const_iterator m_it;
             typename std::vector<DataItem>::const_iterator m_end;
+            // is positioned at first item of a column
+            bool m_first_item = true;
             // only valid if m_it is not at end and points to a vector
             column_iterator m_col_it;
             
@@ -147,36 +145,72 @@ namespace db0
     }
     
     template <typename MatrixT, typename ItemT, typename AdapterT>
-    LimitedMatrixCache<MatrixT, ItemT, AdapterT>::LimitedMatrixCache(const MatrixT &matrix, AdapterT adapter)
+    LimitedMatrixCache<MatrixT, ItemT, AdapterT>::LimitedMatrixCache(const MatrixT &matrix, AdapterT adapter, CallbackType callback)
         : m_matrix(matrix)
-        , m_adapter(adapter)
+        , m_adapter(adapter)  
+        , m_callback(callback) 
     {
         auto it = matrix.cbegin(), end = matrix.cend();
         for ( ; it != end; ++it) {
-            set(it.loc(), m_adapter(*it));
+            auto item = m_adapter(it.loc(), *it);
+            if (m_callback) {
+                m_callback(item);
+            }
+            set(it.loc(), std::move(item));
         }
+    }
+
+    template <typename MatrixT, typename ItemT, typename AdapterT>
+    bool LimitedMatrixCache<MatrixT, ItemT, AdapterT>::hasItem(std::pair<std::uint32_t, std::uint32_t> pos) const
+    {
+        if (pos.first >= m_dim1.size()) {
+            return false;
+        }
+        
+        if (pos.second == 0) {
+            if (!m_dim1[pos.first].m_item.has_value()) {
+                return false;
+            }
+            return true;
+        }
+        
+        if (!m_dim1[pos.first].m_vector_ptr) {
+            return false;
+        }
+        return m_dim1[pos.first].m_vector_ptr->hasItem(pos.second - 1);        
+    }
+
+    template <typename MatrixT, typename ItemT, typename AdapterT>
+    const ItemT *LimitedMatrixCache<MatrixT, ItemT, AdapterT>::_tryGet(std::pair<std::uint32_t, std::uint32_t> pos) const
+    {
+        if (pos.first >= m_dim1.size()) {
+            return nullptr;
+        }
+        
+        if (pos.second == 0) {
+            if (!m_dim1[pos.first].m_item.has_value()) {
+                return nullptr;
+            }
+            return &m_dim1[pos.first].m_item.value();
+        }
+        
+        if (!m_dim1[pos.first].m_vector_ptr) {
+            return nullptr;
+        }
+        return m_dim1[pos.first].m_vector_ptr->tryGet(pos.second - 1);
     }
 
     template <typename MatrixT, typename ItemT, typename AdapterT>
     const ItemT *LimitedMatrixCache<MatrixT, ItemT, AdapterT>::tryGet(std::pair<std::uint32_t, std::uint32_t> pos) const
     {
-        if (pos.first >= m_dim1.size()) {
-            return nullptr;
-        }
-
-        if (!m_dim1[pos.first].m_has_value) {
-            return nullptr;
-        }
-
-        if (m_dim1[pos.first].m_is_item) {
-            if (pos.second == 0) {
-                return &m_dim1[pos.first].m_data.item;
-            } else {
-                return nullptr;
+        auto item_ptr = _tryGet(pos);
+        if (!item_ptr) {
+            // try refreshing the cache
+            if (const_cast<self_type *>(this)->refresh()) {
+                item_ptr = _tryGet(pos);
             }
-        } else {
-            return m_dim1[pos.first].m_data.vector_ptr->tryGet(pos.second);
         }
+        return item_ptr;
     }
 
     template <typename MatrixT, typename ItemT, typename AdapterT>
@@ -187,37 +221,17 @@ namespace db0
         }
         
         if (pos.second == 0) {
-            if (m_dim1[pos.first].m_has_value) {
-                if (m_dim1[pos.first].m_is_item) {
-                    // Replace existing item
-                    m_dim1[pos.first].m_data.item = std::move(item);
-                } else {
-                    m_size += m_dim1[pos.first].m_data.vector_ptr->set(0, std::move(item));
-                }
-            } else {
-                // New item
-                DataItem di(std::move(item));
-                m_dim1[pos.first] = std::move(di);
+            if (!m_dim1[pos.first].m_item.has_value()) {
                 ++m_size;
             }
-
+            m_dim1[pos.first].m_item = std::move(item);
         } else {
-            // convert item to vector if needed
-            if (m_dim1[pos.first].m_has_value) {
-                if (m_dim1[pos.first].m_is_item) {
-                    // Convert item to vector
-                    auto vec = new column_vector();
-                    vec->set(0, std::move(m_dim1[pos.first].m_data.item));
-                    m_dim1[pos.first].m_data.vector_ptr = vec;
-                    m_dim1[pos.first].m_is_item = false;
-                }
-            } else {
-                // New empty vector
-                DataItem di(as_vector{});
-                m_dim1[pos.first] = std::move(di);
+            // create a new vector if needed
+            if (!m_dim1[pos.first].m_vector_ptr) {
+                m_dim1[pos.first].m_vector_ptr = new column_vector();
             }
             // Set/replace item in vector
-            m_size += m_dim1[pos.first].m_data.vector_ptr->set(pos.second, std::move(item));
+            m_size += m_dim1[pos.first].m_vector_ptr->set(pos.second - 1, std::move(item));
         }
     }
     
@@ -233,51 +247,40 @@ namespace db0
         auto it = m_matrix.get().cbegin(), end = m_matrix.get().cend();
         for ( ; it != end; ++it) {
             // only add new items
-            if (!this->tryGet(it.loc())) {
-                this->set(it.loc(), m_adapter(*it));
+            if (!this->hasItem(it.loc())) {
+                auto item = m_adapter(it.loc(), *it);
+                if (m_callback) {
+                    m_callback(item);
+                }
+                this->set(it.loc(), std::move(item));
                 result = true;
             }
         }
         return result;
     }
-
+    
     template <typename MatrixT, typename ItemT, typename AdapterT>
     void LimitedMatrixCache<MatrixT, ItemT, AdapterT>::reload(std::pair<std::uint32_t, std::uint32_t> pos)
     {
-        this->set(pos, m_matrix.get().get(pos));
+        auto item = m_adapter(pos, m_matrix.get().get(pos));
+        if (!this->hasItem(pos) && m_callback) {
+            m_callback(item);
+        }
+        this->set(pos, std::move(item));
     }
-
+    
     template <typename MatrixT, typename ItemT, typename AdapterT>
     LimitedMatrixCache<MatrixT, ItemT, AdapterT>::DataItem::DataItem(ItemT &&item)
-        : m_has_value(true)
-        , m_is_item(true)
+        : m_item(std::move(item))        
     {
-        new (&m_data.item) ItemT(std::move(item));
-    }
-
-    template <typename MatrixT, typename ItemT, typename AdapterT>
-    LimitedMatrixCache<MatrixT, ItemT, AdapterT>::DataItem::DataItem(as_vector)
-        : m_has_value(true)
-        , m_is_item(false)
-    {
-        m_data.vector_ptr = new column_vector();
     }
 
     template <typename MatrixT, typename ItemT, typename AdapterT>
     LimitedMatrixCache<MatrixT, ItemT, AdapterT>::DataItem::DataItem(DataItem &&other)
-        : m_has_value(other.m_has_value)
-        , m_is_item(other.m_is_item)
+        : m_item(std::move(other.m_item))        
     {
-        if (!m_has_value) {
-            return;
-        }
-        if (m_is_item) {
-            new (&m_data.item) ItemT(std::move(other.m_data.item));
-        } else {
-            m_data.vector_ptr = other.m_data.vector_ptr;
-            other.m_data.vector_ptr = nullptr;
-        }
-        other.m_has_value = false;
+        m_vector_ptr = other.m_vector_ptr;
+        other.m_vector_ptr = nullptr;
     }
     
     template <typename MatrixT, typename ItemT, typename AdapterT>
@@ -286,42 +289,30 @@ namespace db0
         if (this == &other) {
             return;
         }
-        // Destroy existing value
-        this->~DataItem();
-        
-        m_has_value = other.m_has_value;
-        m_is_item = other.m_is_item;
-        if (!m_has_value) {
-            return;
+        if (m_vector_ptr) {
+            delete m_vector_ptr;
+            m_vector_ptr = nullptr;
         }
-        if (m_is_item) {
-            new (&m_data.item) ItemT(std::move(other.m_data.item));
-        } else {
-            m_data.vector_ptr = other.m_data.vector_ptr;
-            other.m_data.vector_ptr = nullptr;
-        }
-        other.m_has_value = false;
+        m_item = std::move(other.m_item);
+        m_vector_ptr = other.m_vector_ptr;
+        other.m_vector_ptr = nullptr;
     }
 
     template <typename MatrixT, typename ItemT, typename AdapterT>
     LimitedMatrixCache<MatrixT, ItemT, AdapterT>::DataItem::~DataItem()
     {
-        if (!m_has_value) {
-            return;
-        }
-        if (m_is_item) {
-            m_data.item.~ItemT();
-        } else {
-            delete m_data.vector_ptr;
+        if (m_vector_ptr) {
+            delete m_vector_ptr;
+            m_vector_ptr = nullptr;
         }
     }
-
+    
     template <typename MatrixT, typename ItemT, typename AdapterT>
     const ItemT &LimitedMatrixCache<MatrixT, ItemT, AdapterT>::const_iterator::operator*() const
     {
         assert(m_it != m_end);
-        if (m_it->m_is_item) {
-            return m_it->m_data.item;
+        if (this->m_first_item) {
+            return m_it->m_item.value();
         } else {
             assert(!m_col_it.isEnd());
             return *m_col_it;
@@ -334,20 +325,6 @@ namespace db0
         return &(**this);
     }
 
-    template <typename MatrixT, typename ItemT, typename AdapterT>
-    typename LimitedMatrixCache<MatrixT, ItemT, AdapterT>::const_iterator &
-    LimitedMatrixCache<MatrixT, ItemT, AdapterT>::const_iterator::operator++()
-    {
-        if (!m_col_it.isEnd()) {
-            ++m_col_it;
-        } else {
-            ++m_it;
-            m_col_it = getColumn();
-        }
-        this->fix();
-        return *this;
-    }
-    
     template <typename MatrixT, typename ItemT, typename AdapterT>
     int LimitedMatrixCache<MatrixT, ItemT, AdapterT>::column_vector::set(std::uint32_t pos, ItemT item)
     {
@@ -363,10 +340,16 @@ namespace db0
     }
 
     template <typename MatrixT, typename ItemT, typename AdapterT>
+    bool LimitedMatrixCache<MatrixT, ItemT, AdapterT>::column_vector::hasItem(std::uint32_t pos) const 
+    {    
+        return pos < this->size() && (*this)[pos].has_value();
+    }
+    
+    template <typename MatrixT, typename ItemT, typename AdapterT>
     const ItemT *LimitedMatrixCache<MatrixT, ItemT, AdapterT>::column_vector::tryGet(std::uint32_t pos) const
     {
         if (pos >= this->size() || !(*this)[pos].has_value()) {
-            return nullptr;
+            return nullptr;        
         }
         return &(*this)[pos].value();
     }
@@ -430,45 +413,61 @@ namespace db0
     }
 
     template <typename MatrixT, typename ItemT, typename AdapterT>
+    typename LimitedMatrixCache<MatrixT, ItemT, AdapterT>::const_iterator &
+    LimitedMatrixCache<MatrixT, ItemT, AdapterT>::const_iterator::operator++()
+    {
+        if (this->m_first_item) {
+            this->m_first_item = false;            
+        } else {
+            if (m_col_it.isEnd()) {
+                // Move to next DataItem
+                ++m_it;
+                this->m_first_item = true;
+                m_col_it = getColumn();
+            } else {
+                ++m_col_it;
+            }
+        }
+        this->fix();
+        return *this;
+    }
+
+    template <typename MatrixT, typename ItemT, typename AdapterT>
     typename LimitedMatrixCache<MatrixT, ItemT, AdapterT>::column_iterator 
     LimitedMatrixCache<MatrixT, ItemT, AdapterT>::const_iterator::getColumn() const
     {
-        if (m_it == m_end || !m_it->m_has_value || m_it->m_is_item) {
+        if (m_it == m_end || !m_it->m_vector_ptr) {
             return m_cache.get().endColumn();
         }
-        return column_iterator(m_it->m_data.vector_ptr->cbegin(),
-                              m_it->m_data.vector_ptr->cend());
+        return column_iterator(m_it->m_vector_ptr->cbegin(), m_it->m_vector_ptr->cend());
     }
 
     template <typename MatrixT, typename ItemT, typename AdapterT>
     void LimitedMatrixCache<MatrixT, ItemT, AdapterT>::const_iterator::fix()
     {
         while (m_it != m_end) {
-            if (m_it->m_has_value) {
-                if (m_it->m_is_item) {
+            if (m_first_item) {
+                if (m_it->m_item.has_value()) {
                     // Found item
                     return;
                 }
-                // Vector
-                if (!m_col_it.isEnd()) {
-                    // Found item in vector
-                    return;
-                } else {
-                    // Move to next column
-                    ++m_it;
-                    m_col_it = getColumn();
-                }
-            } else {
-                ++m_it;
-                m_col_it = getColumn();
+                m_first_item = false;
             }
+
+            if (!m_col_it.isEnd()) {
+                return;
+            }
+            // Move to next DataItem
+            ++m_it;
+            m_first_item = true;
+            m_col_it = getColumn();            
         }
     }
-
+    
     template <typename MatrixT, typename ItemT, typename AdapterT>
     bool LimitedMatrixCache<MatrixT, ItemT, AdapterT>::const_iterator::operator!=(const const_iterator &other) const
     {
-        return m_it != other.m_it || m_col_it != other.m_col_it;
+        return m_it != other.m_it || m_first_item != other.m_first_item || m_col_it != other.m_col_it;
     }
 
     template <typename MatrixT, typename ItemT, typename AdapterT>
@@ -490,5 +489,5 @@ namespace db0
     {
         return const_iterator(*this, m_dim1.cend(), m_dim1.cend());    
     }
-        
+    
 }
