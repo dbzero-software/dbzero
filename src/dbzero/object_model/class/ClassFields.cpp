@@ -36,7 +36,7 @@ namespace db0::object_model
         }
         
         auto field_id = m_type->findField(field_name).first;
-        return { m_type->getUID(), m_type->get(field_id) };
+        return { m_type->getUID(), m_type->getMember(field_id) };
     }
     
 }

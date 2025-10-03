@@ -242,12 +242,11 @@ namespace db0
                     if (m_addr_set.find(address) == m_addr_set.end()) {
                         m_addr_set.insert(address);
                         // buffer must include BlockIOStream's chunk header and data
-                        auto &buffer = createReadAheadBuffer(address, m_chunk_size + o_block_io_chunk_header::sizeOf());
-                        auto &header = o_dram_chunk_header::__ref(buffer.data() + o_block_io_chunk_header::sizeOf());
+                        auto &buffer = createReadAheadBuffer(address, m_chunk_size + o_block_io_chunk_header::sizeOf());                        
                         // the address reported in changelog must already be available in the stream
                         // it may come from a more recent update as well (and potentially may only be partially written)
                         // therefore chunk-level checksum validation is necessary
-                        BlockIOStream::readFromChunk(address, buffer.data(), buffer.size());                        
+                        BlockIOStream::readFromChunk(address, buffer.data(), buffer.size());
                     }
                 }
                 change_log_ptr = changelog_io.readChangeLogChunk();

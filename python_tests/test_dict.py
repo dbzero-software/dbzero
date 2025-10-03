@@ -552,11 +552,8 @@ def test_using_mixed_type_object_keys(db0_no_autocommit):
     assert cut[MemoTestSingleton] == 2
     
 
-def test_dict_del_key(db0_no_autocommit):
-    print("Here 1")
-    cut = db0.dict({"a": 1, "b": 2, "c": 3, "d": 4, "e": 5})
-    print("Here 2")
-    del cut["a"]
-    print("Here 3")
+def test_dict_del_key(db0_no_autocommit):    
+    cut = db0.dict({"a": 1, "b": 2, "c": 3, "d": 4, "e": 5})    
+    del cut["a"]    
     assert len(cut) == 4
     assert "a" not in cut

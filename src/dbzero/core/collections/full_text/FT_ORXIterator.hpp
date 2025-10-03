@@ -3,6 +3,7 @@
 #include <list>
 #include "FT_Iterator.hpp"
 #include "FT_IteratorFactory.hpp"
+#include "CP_Vector.hpp"
 #include <dbzero/core/utils/heap.hpp>
 #include <dbzero/core/utils/unique_set.hpp>
 #include <dbzero/core/utils/BoundCheck.hpp>
@@ -17,20 +18,22 @@ namespace db0
     /**
      * OR / ORX (OR exclusive) - joining iterator
      */
-	template <typename key_t = std::uint64_t> class FT_JoinORXIterator: public FT_Iterator<key_t>
+	template <typename key_t = std::uint64_t, typename key_storage_t = key_t>
+	class FT_JoinORXIterator: public FT_Iterator<key_t, key_storage_t>
     {
 	public :
-		using self_t = FT_JoinORXIterator<key_t>;
-		using super_t = FT_Iterator<key_t>;
-        using MutateFunction = typename FT_Iterator<key_t>::MutateFunction;
+		using self_t = FT_JoinORXIterator<key_t, key_storage_t>;
+		using super_t = FT_Iterator<key_t, key_storage_t>;
+		using FT_IteratorT = FT_Iterator<key_t, key_storage_t>;
+        using MutateFunction = typename FT_Iterator<key_t, key_storage_t>::MutateFunction;
         
 		/**
          * @param is_orx if true, then exclusive join (ORX) is performed instead of regular OR
          * @param lazy_init if lazy init is requested the iterator is created in the state where only below methods
          * are allowed: begin, clone (this is for lazy construction of the query tree)
          */
-        FT_JoinORXIterator(std::list<std::unique_ptr<FT_Iterator<key_t> > > &&inner_iterators, int direction, bool m_is_orx,
-            bool lazy_init = false);
+        FT_JoinORXIterator(std::list<std::unique_ptr<FT_IteratorT> > &&inner_iterators, int direction, 
+			bool m_is_orx, bool lazy_init = false);
 		
 		virtual ~FT_JoinORXIterator();
 
@@ -46,6 +49,8 @@ namespace db0
 
 		key_t getKey() const override;
 
+		void getKey(key_storage_t &) const override;
+
 		bool join(key_t key, int direction) override;
 
 		void joinBound(key_t key) override;
@@ -56,7 +61,7 @@ namespace db0
 
 		bool limitBy(key_t key) override;
 		
-		std::unique_ptr<FT_Iterator<key_t> > beginTyped(int direction = -1) const override;
+		std::unique_ptr<FT_IteratorT> beginTyped(int direction = -1) const override;
 
 		std::ostream &dump(std::ostream &os) const override;
 
@@ -80,20 +85,20 @@ namespace db0
 		
 		bool isORX() const;
 
-        void scanQueryTree(std::function<void(const FT_Iterator<key_t> *it_ptr, int depth)> scan_function,
+        void scanQueryTree(std::function<void(const FT_IteratorT *, int depth)> scan_function,
             int depth = 0) const override;
 
         std::size_t getDepth() const override;
-
+		
         /**
          * Iterate all composite iterators
          * @param f function to collect result iterators (should return false to break iteration)
          */
-        void forAll(std::function<bool(const db0::FT_Iterator<key_t> &)> f) const;
-
+        void forAll(std::function<bool(const FT_IteratorT &)> f) const;
+		
         void stop() override;
 
-        bool findBy(const std::function<bool(const db0::FT_Iterator<key_t> &)> &f) const override;
+        bool findBy(const std::function<bool(const FT_IteratorT &)> &f) const override;
 
         /**
          * Stop current inner iterator available as getSimple
@@ -104,13 +109,13 @@ namespace db0
 
         std::pair<bool, bool> mutateInner(const MutateFunction &f) override;
 
-        virtual void detach();
+        void detach();
 
         FTIteratorType getSerialTypeId() const override;
 		
 		void getSignature(std::vector<std::byte> &) const override;
 		
-		static std::unique_ptr<FT_JoinORXIterator<key_t> > deserialize(Snapshot &workspace,
+		static std::unique_ptr<FT_JoinORXIterator<key_t, key_storage_t> > deserialize(Snapshot &workspace,
 			std::vector<std::byte>::const_iterator &iter, std::vector<std::byte>::const_iterator end);
 		
 		// reusable signature algorithm
@@ -149,27 +154,27 @@ namespace db0
 
     private:
 
-        FT_JoinORXIterator(std::uint64_t uid, std::list<std::unique_ptr<FT_Iterator<key_t> > > &&inner_iterators, 
+        FT_JoinORXIterator(std::uint64_t uid, std::list<std::unique_ptr<FT_IteratorT> > &&inner_iterators, 
 			int direction, bool m_is_orx, bool lazy_init = false);
 		
 		struct heap_item
 		{
-			db0::FT_Iterator<key_t> *it = nullptr;
-			key_t key;
+			FT_IteratorT *it = nullptr;
+			key_storage_t m_key;
 			bool is_end = false;
 
 			heap_item() = default;
-			heap_item(FT_Iterator<key_t> &it)
+			heap_item(FT_IteratorT &it)
                 : it(&it)
-                , key(it.getKey())
                 , is_end(false)
 			{
+				it.getKey(m_key);
 			}
 
 			bool join(key_t join_key, int direction) 
             {
 				if (it->join(join_key, direction)) {
-					key = it->getKey();
+					it->getKey(m_key);
 					return true;
 				} else {
 					this->is_end = true;
@@ -180,7 +185,7 @@ namespace db0
 			void joinBound(key_t join_key) 
 			{
 				it->joinBound(join_key);
-				this->key = it->getKey();
+				it->getKey(m_key);
 			}
 
 			void operator++() 
@@ -190,7 +195,7 @@ namespace db0
 					this->is_end = true;
 				}
 				else {
-					this->key = it->getKey();
+					it->getKey(m_key);
 				}
 			}
 
@@ -200,15 +205,15 @@ namespace db0
 				if (it->isEnd()) {
 					this->is_end = true;
 				} else {
-					this->key = it->getKey();
+					it->getKey(m_key);
 				}
 			}
 
-			bool operator!=(const FT_Iterator<key_t> &it) const {
+			bool operator!=(const FT_IteratorT &it) const {
 				return (this->it!=&it);
 			}
 
-			bool operator==(const FT_Iterator<key_t> &it) const {
+			bool operator==(const FT_IteratorT &it) const {
 				return (this->it==&it);
 			}
 
@@ -216,30 +221,31 @@ namespace db0
              * Only compare actual keys
              */
 			bool operator==(const heap_item &item) const {
-				return key==item.key;
+				return m_key == item.m_key;
 			}
 
-			FT_Iterator<key_t> &operator*() {
+			FT_IteratorT &operator*() {
 				return *it;
 			}
 
-			const FT_Iterator<key_t> &operator*() const {
+			const FT_IteratorT &operator*() const {
 				return *it;
 			}
 
-			FT_Iterator<key_t> *operator->() {
+			FT_IteratorT *operator->() {
 				return it;
 			}
 
-			const FT_Iterator<key_t> *operator->() const {
+			const FT_IteratorT *operator->() const {
 				return it;
 			}
-
-			friend std::ostream &operator<<(std::ostream &os, const heap_item &item) {
+			
+			friend std::ostream &operator<<(std::ostream &os, const heap_item &item)
+			{
 				if (item.is_end) {
 					return os << "END";
 				} else {
-					return os << item.key;
+					return os << item.m_key;
 				}
 			}
 		};
@@ -249,31 +255,31 @@ namespace db0
 		struct forward_comp_t 
 		{
 			bool operator()(const heap_item &item0,const heap_item &item1) const {
-				return (item0.key < item1.key);
+				return (item0.m_key < item1.m_key);
 			}
 		};
-
+		
 		struct back_comp_t 
 		{
-			bool operator()(const heap_item &item0,const heap_item &item1) const {
-				return (item0.key > item1.key);
+			bool operator()(const heap_item &item0, const heap_item &item1) const {
+				return (item0.m_key > item1.m_key);
 			}
-			bool operator()(const heap_item &item0,key_t key1) const {
-				return (item0.key > key1);
+			bool operator()(const heap_item &item0, key_t key1) const {
+				return (item0.m_key > key1);
 			}
 		};
         
-		int m_direction;
-		std::list<std::unique_ptr<db0::FT_Iterator<key_t> > > m_joinable;
+		const int m_direction;
+		std::list<std::unique_ptr<FT_IteratorT> > m_joinable;
 		/// iterators heap (forward join)
-		heap<heap_item,forward_comp_t> m_forward_heap;
+		heap<heap_item, forward_comp_t> m_forward_heap;
 		/// backward join heap
-		heap<heap_item,back_comp_t> m_back_heap;
+		heap<heap_item, back_comp_t> m_back_heap;
 		/// end of input reached
 		bool m_end = false;
 		bool m_is_orx;
 		BoundCheck<key_t> m_key_bound;
-		key_t m_join_key;
+		key_storage_t m_join_key;
 
 		void setEnd();
 
@@ -292,15 +298,20 @@ namespace db0
 		/**
          * Join specified inner iterator as leader
          */
-		void joinLead(const FT_Iterator<key_t> &it_lead);
+		void joinLead(const FT_IteratorT &it_lead);
 
 		void dumpJoinable(std::ostream &os) const;
 	};
 
-	template <typename key_t = std::uint64_t> class FT_OR_ORXIteratorFactory: 
-	public FT_IteratorFactory<key_t>
+	template <typename key_t = std::uint64_t, typename key_storage_t = key_t>
+	class FT_OR_ORXIteratorFactory: public FT_IteratorFactory<key_t, key_storage_t>
     {
 	public :
+		using FT_IteratorT = FT_Iterator<key_t, key_storage_t>;
+		
+		/**
+		 * @param orx_join if true then ORX (exclusive) join is performed instead of regular OR
+		 */
 		FT_OR_ORXIteratorFactory(bool orx_join);
 
 		virtual ~FT_OR_ORXIteratorFactory();
@@ -308,7 +319,7 @@ namespace db0
 		/**
          * Add single, joinable BIG iterator
          */
-		void add(std::unique_ptr<FT_Iterator<key_t> > &&) override;
+		void add(std::unique_ptr<FT_IteratorT> &&) override;
 
 		void clear() override;
 
@@ -317,12 +328,13 @@ namespace db0
 		/**
          * OR / ORX join all (as big iterator)
          */
-		virtual std::unique_ptr<FT_Iterator<key_t> > release(int direction, bool lazy_init = false) override;
-
+		virtual std::unique_ptr<FT_IteratorT> release(int direction, 
+			bool lazy_init = false) override;
+		
 		/**
          * Release and retrieve result (only if yields OR-iterator)
          */
-		std::unique_ptr<FT_Iterator<key_t> > releaseSpecial(int direction, FT_JoinORXIterator<key_t> *&result,
+		std::unique_ptr<FT_IteratorT> releaseSpecial(int direction, FT_JoinORXIterator<key_t, key_storage_t> *&result,
 		    bool lazy_init = false);
 		
 		/**
@@ -332,15 +344,17 @@ namespace db0
 
 	protected :
 		const bool m_orx_join;
-		std::list<std::unique_ptr<FT_Iterator<key_t> > > m_joinable;
+		std::list<std::unique_ptr<FT_IteratorT> > m_joinable;
 	};
-    
-	template <typename key_t = std::uint64_t> class FT_ORIteratorFactory : public FT_OR_ORXIteratorFactory<key_t> {
+
+	template <typename key_t = std::uint64_t, typename key_storage_t = key_t>
+	class FT_ORIteratorFactory : public FT_OR_ORXIteratorFactory<key_t, key_storage_t> {
 	public :
 		FT_ORIteratorFactory();
 	};
 
-	template <typename key_t = std::uint64_t> class FT_ORXIteratorFactory : public FT_OR_ORXIteratorFactory<key_t> {
+	template <typename key_t = std::uint64_t, typename key_storage_t = key_t> 
+	class FT_ORXIteratorFactory : public FT_OR_ORXIteratorFactory<key_t, key_storage_t> {
 	public :
 		FT_ORXIteratorFactory();
 	};
@@ -350,9 +364,19 @@ namespace db0
     extern template class FT_ORIteratorFactory<UniqueAddress>;
     extern template class FT_ORXIteratorFactory<UniqueAddress>;
 
+    extern template class FT_JoinORXIterator<const UniqueAddress *, CP_Vector<UniqueAddress> >;
+    extern template class FT_OR_ORXIteratorFactory<const UniqueAddress *, CP_Vector<UniqueAddress> >;
+    extern template class FT_ORIteratorFactory<const UniqueAddress *, CP_Vector<UniqueAddress> >;
+    extern template class FT_ORXIteratorFactory<const UniqueAddress *, CP_Vector<UniqueAddress> >;
+
     extern template class FT_JoinORXIterator<std::uint64_t>;
     extern template class FT_OR_ORXIteratorFactory<std::uint64_t>;
     extern template class FT_ORIteratorFactory<std::uint64_t>;
     extern template class FT_ORXIteratorFactory<std::uint64_t>;
-    
+
+    extern template class FT_JoinORXIterator<const std::uint64_t*, CP_Vector<std::uint64_t> >;
+    extern template class FT_OR_ORXIteratorFactory<const std::uint64_t*, CP_Vector<std::uint64_t> >;
+    extern template class FT_ORIteratorFactory<const std::uint64_t*, CP_Vector<std::uint64_t> >;
+    extern template class FT_ORXIteratorFactory<const std::uint64_t*, CP_Vector<std::uint64_t> >;
+
 }

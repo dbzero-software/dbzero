@@ -19,6 +19,8 @@
 #include <dbzero/bindings/python/PyWorkspace.hpp>
 #include <dbzero/bindings/python/iter/PyObjectIterable.hpp>
 #include <dbzero/bindings/python/iter/PyObjectIterator.hpp>
+#include <dbzero/bindings/python/iter/PyJoinIterable.hpp>
+#include <dbzero/bindings/python/iter/PyJoinIterator.hpp>
 #include <dbzero/bindings/python/types/PyClassFields.hpp>
 #include <dbzero/bindings/python/types/PyClass.hpp>
 #include <dbzero/bindings/python/types/PyEnum.hpp>
@@ -47,7 +49,8 @@ static PyMethodDef dbzero_methods[] =
     {"dict", (PyCFunction)&py::PyAPI_makeDict, METH_VARARGS | METH_KEYWORDS, "Create a new dbzero dict instance"},
     {"bytearray", (PyCFunction)&py::PyAPI_makeByteArray, METH_FASTCALL, "Create a new dbzero bytearray instance"},        
     {"tags", (PyCFunction)&py::makeObjectTagManager, METH_FASTCALL, ""},
-    {"find", (PyCFunction)&py::PyAPI_find, METH_VARARGS | METH_KEYWORDS, ""},
+    {"find", (PyCFunction)&py::PyAPI_find, METH_VARARGS | METH_KEYWORDS, "Find memo instances by tags with optional filtering"},
+    {"join", (PyCFunction)&py::PyAPI_join, METH_VARARGS | METH_KEYWORDS, "Join memo collections by common tags with optional filtering"},
     {"refresh", (PyCFunction)&py::refresh, METH_VARARGS, ""},
     {"get_state_num", (PyCFunction)&py::PyAPI_getStateNum, METH_VARARGS | METH_KEYWORDS, ""},
     {"get_prefix_stats", (PyCFunction)&py::getPrefixStats, METH_VARARGS | METH_KEYWORDS, "Retrieve prefix specific statistics"},
@@ -182,6 +185,8 @@ PyMODINIT_FUNC PyInit_dbzero_ce(void)
         &py::PySnapshotObjectType, 
         &py::PyObjectIterableType,
         &py::PyObjectIteratorType,
+        &py::PyJoinIterableType,
+        &py::PyJoinIteratorType,
         &py::ByteArrayObjectType,
         &py::PyEnumType, 
         &py::PyEnumValueType,

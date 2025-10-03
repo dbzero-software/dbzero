@@ -149,3 +149,15 @@ def test_memo_type_as_memo_member(db0_fixture):
     obj_x = obj_1.value(1)
     assert obj_x.value == 1
     assert type(obj_x) is MemoTestEQClass
+
+
+@db0.memo(id="/Division By Zero/project/tests/MemoTypeIdClass")
+class MemoTypeIdClass:
+    def __init__(self):
+        self.value = 123
+    
+    
+def test_memo_class_with_typeid(db0_fixture):
+    obj_1 = MemoTypeIdClass()
+    assert obj_1.value == 123
+    

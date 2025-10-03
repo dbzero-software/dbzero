@@ -10,7 +10,7 @@ namespace db0
     // SpanIterator allows managing elements which represent spans instead of specific keys
     // The span is determined by the shift operator which suits it to represent e.g. entire data pages
     template <typename KeyT>
-    class FT_SpanIterator: public FT_Iterator<KeyT>
+    class FT_SpanIterator final: public FT_Iterator<KeyT>
     {
     public:
         using self_t = FT_SpanIterator<KeyT>;

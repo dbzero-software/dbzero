@@ -48,7 +48,7 @@ namespace db0::object_model
                 type = class_factory.getOrCreateType(lang_type);
             }
             // NOTE: here we use the address of the member's vector to distinguish from auto-assigned type tags (types)
-            m_address = type->getMembersVector().getAddress();
+            m_address = type->getMembersMatrix().getAddress();
             m_fixture_uuid = type->getFixture()->getUUID();
         }
         // returns fixture UUID + Address

@@ -21,15 +21,18 @@ namespace db0
 
     using TypeIdType = decltype(db0::serial::typeId<void>());
 
-    template <typename KeyT> std::unique_ptr<db0::FT_Iterator<KeyT> > deserializeFT_Iterator(
+    template <typename KeyT, typename KeyStorageT = KeyT> 
+    std::unique_ptr<db0::FT_Iterator<KeyT, KeyStorageT> > deserializeFT_Iterator(
         db0::Snapshot &, std::vector<std::byte>::const_iterator &iter,
-        std::vector<std::byte>::const_iterator end);
+        std::vector<std::byte>::const_iterator end
+    );
 
     template <typename bindex_t, typename KeyT> std::unique_ptr<db0::FT_Iterator<KeyT> > deserializeFT_IndexIterator(
         db0::Snapshot &, std::vector<std::byte>::const_iterator &iter,
         std::vector<std::byte>::const_iterator end);
     
-    template <typename KeyT> std::unique_ptr<db0::FT_Iterator<KeyT> > deserializeFT_Iterator(
+    template <typename KeyT, typename KeyStorageT> 
+    std::unique_ptr<db0::FT_Iterator<KeyT, KeyStorageT> > deserializeFT_Iterator(
         db0::Snapshot &workspace, std::vector<std::byte>::const_iterator &iter,
         std::vector<std::byte>::const_iterator end)
     {

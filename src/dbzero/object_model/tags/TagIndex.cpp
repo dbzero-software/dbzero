@@ -706,7 +706,12 @@ namespace db0::object_model
         // NOTE: we use only the offset part as tag - to distinguish from enum and class tags (high bits)
         return LangToolkit::getTypeManager().extractTag(py_arg).getAddress(m_class_factory).getOffset();
     }
-    
+
+    TagIndex::ShortTagT TagIndex::getShortTagFromTag(const TagDef &tag_def) const {
+        // NOTE: we use only the offset part as tag - to distinguish from enum and class tags (high bits)
+        return tag_def.getAddress(m_class_factory).getOffset();
+    }
+
     TagIndex::ShortTagT TagIndex::getShortTagFromEnumValue(const EnumValue &enum_value, ObjectSharedPtr *alt_repr) const
     {
         assert(enum_value);
@@ -740,9 +745,13 @@ namespace db0::object_model
     TagIndex::ShortTagT TagIndex::getShortTagFromClass(ObjectPtr py_arg) const
     {
         assert(LangToolkit::isClassObject(py_arg));
-        return LangToolkit::getTypeManager().extractConstClass(py_arg)->getAddress().getOffset();
+        return getShortTagFromClass(*LangToolkit::getTypeManager().extractConstClass(py_arg));
     }
     
+    TagIndex::ShortTagT TagIndex::getShortTagFromClass(const Class &type) const {
+        return type.getAddress().getOffset();
+    }
+
     TagIndex::ShortTagT TagIndex::getShortTagFromFieldDef(ObjectPtr py_arg) const
     {
         auto &field_def = LangToolkit::getTypeManager().extractFieldDef(py_arg);
@@ -950,6 +959,24 @@ namespace db0::object_model
     const db0::FT_BaseIndex<LongTagT> &TagIndex::getBaseIndexLong() const {
         return m_base_index_long;
     }
+
+    std::unique_ptr<TagIndex::QueryIterator> TagIndex::makeIterator(ObjectPtr obj_ptr) const {
+        assert(obj_ptr);
+        return makeIterator(getShortTag(obj_ptr));
+    }
+
+    std::unique_ptr<TagIndex::QueryIterator> TagIndex::makeIterator(const TagDef &tag_def) const {
+        return makeIterator(getShortTagFromTag(tag_def));
+    }
+
+    std::unique_ptr<TagIndex::QueryIterator> TagIndex::makeIterator(const Class &type) const {
+        return makeIterator(getShortTagFromClass(type));
+    }
+    
+    std::unique_ptr<TagIndex::QueryIterator> TagIndex::makeIterator(ShortTagT tag) const {
+        flush();
+        return m_base_index_short.makeIterator(tag);
+    }
     
     std::uint64_t getFindFixtureUUID(TagIndex::ObjectPtr obj_ptr)
     {
@@ -1116,6 +1143,32 @@ namespace db0::object_model
 
         auto tag_index_ptr = fixture->tryGet<TagIndex>();
         return tag_index_ptr && tag_index_ptr->isPendingUpdate(addr);
-    }    
+    }
+    
+    std::unique_ptr<TagIndex::TP_Iterator> TagIndex::makeTagProduct(
+        const std::vector<const ObjectIterable*> &object_iterables, const ObjectIterable* tags_iterable) const
+    {
+        // collect object related query iterators
+        std::vector<std::unique_ptr<QueryIterator> > objects;
+        for (auto obj_iter: object_iterables) {
+            objects.push_back(obj_iter->beginFTQuery());
+        }
+        auto tags_query = tags_iterable->beginFTQuery();
         
+        // and the inverted index factory function
+        auto fixture_ptr = m_fixture;
+        auto tag_func = [fixture_ptr, this](UniqueAddress tag_id, int direction) -> std::unique_ptr<QueryIterator> {
+            // lock fixture to make sure it has not been closed
+            auto fixture = fixture_ptr.lock();
+            if (!fixture) {
+                THROWF(db0::InternalException) << "Fixture closed while iteration";                
+            }
+            return this->makeIterator(tag_id.getAddress());
+        };
+
+        return std::make_unique<TP_Iterator>(
+            std::move(objects), std::move(tags_query), tag_func
+        );
+    }
+    
 }   

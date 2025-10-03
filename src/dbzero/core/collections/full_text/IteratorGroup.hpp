@@ -3,6 +3,7 @@
 #include <optional>
 #include <vector>
 #include <memory>
+#include "CP_Vector.hpp"
 #include <dbzero/core/memory/Address.hpp>
 
 namespace db0
@@ -11,29 +12,31 @@ namespace db0
 
     // The IteratorGroup helps to manage a group of iterators    
     // Currently we use the IterorGroup in the FT_ANDIterator implementation    
-    template <typename KeyT = std::uint64_t> class IteratorGroup
+    template <typename KeyT = std::uint64_t, typename KeyStorageT = KeyT> 
+    class IteratorGroup
     {
 	public:
-        using self_t = IteratorGroup<KeyT>;
+        using self_t = IteratorGroup<KeyT, KeyStorageT>;
+        using FT_IteratorT = FT_Iterator<KeyT, KeyStorageT>;
         
-        IteratorGroup(std::list<std::unique_ptr<FT_Iterator<KeyT> > > &&);
+        IteratorGroup(std::list<std::unique_ptr<FT_IteratorT> > &&);
         // special case for the group of 2 iterators        
-		IteratorGroup(std::unique_ptr<FT_Iterator<KeyT> > &&, std::unique_ptr<FT_Iterator<KeyT> > &&);
+		IteratorGroup(std::unique_ptr<FT_IteratorT> &&, std::unique_ptr<FT_IteratorT> &&);
         
         struct GroupItem
         {
-            FT_Iterator<KeyT> *m_iterator;            
+            FT_IteratorT *m_iterator;
             
-            inline FT_Iterator<KeyT> &operator*() { return *m_iterator; }
-            inline const FT_Iterator<KeyT> &operator*() const { return *m_iterator; }
+            inline FT_IteratorT &operator*() { return *m_iterator; }
+            inline const FT_IteratorT &operator*() const { return *m_iterator; }
             
-            inline FT_Iterator<KeyT> *operator->() { return m_iterator; }
-            inline const FT_Iterator<KeyT> *operator->() const { return m_iterator; }
+            inline FT_IteratorT *operator->() { return m_iterator; }
+            inline const FT_IteratorT *operator->() const { return m_iterator; }
 
             // Try advancing iterator and retrieving the next key or ...
             // @return false if end of the iterator reached
-            bool nextKey(int direction, KeyT *buf = nullptr);
-            bool nextUniqueKey(int direction, KeyT *buf = nullptr);
+            bool nextKey(int direction, KeyStorageT *buf = nullptr);
+            bool nextUniqueKey(int direction, KeyStorageT *buf = nullptr);
         };
         
         using iterator = typename std::vector<GroupItem>::iterator;
@@ -59,11 +62,15 @@ namespace db0
 
     private:
         // persistency holder
-        std::list<std::unique_ptr<FT_Iterator<KeyT> > > m_iterators;
+        std::list<std::unique_ptr<FT_IteratorT> > m_iterators;
         std::vector<GroupItem> m_group;
     };
 
     extern template class IteratorGroup<UniqueAddress>;
     extern template class IteratorGroup<std::uint64_t>;
+
+    // Cartesian product specific types
+    extern template class IteratorGroup<const UniqueAddress*, CP_Vector<UniqueAddress> >;
+    extern template class IteratorGroup<const std::uint64_t*, CP_Vector<std::uint64_t> >;
 
 }

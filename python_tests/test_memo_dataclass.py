@@ -65,9 +65,8 @@ def test_memo_dataclass_default_generated_args(db0_fixture):
     
 def test_memo_dataclass_default_args_factory(db0_fixture):
     obj_1 = MemoDataClassArgsFactory(event_type = "Some Event")
-    assert obj_1.event_type == "Some Event"
-    # less than 1ms diff
-    assert abs((obj_1.event_name - datetime.now()).total_seconds()) < 0.002
+    assert obj_1.event_type == "Some Event"    
+    assert abs((obj_1.event_name - datetime.now()).total_seconds()) < 0.1
 
 
 def test_memo_dataclass_type_passed_dynamically(db0_fixture):

@@ -661,6 +661,14 @@ namespace db0::python
         return result;
     }
     
+    PyToolkit::ObjectPtr *PyToolkit::unpackTuple(ObjectPtr py_tuple)
+    {
+        if (!PyTuple_Check(py_tuple)) {
+            THROWF(db0::InputException) << "Invalid type in unpackTuple";
+        }
+        return reinterpret_cast<PyTupleObject *>(py_tuple)->ob_item;
+    }
+
     bool PyToolkit::isValid() {
         return Py_IsInitialized();
     }
