@@ -265,7 +265,7 @@ namespace db0::object_model
     {
         return obj_ptr == Py_True ? 1 : 0;
     }
-    
+
     // DB0_BYTES_ARRAY specialization
     template <> Value createMember<TypeId::DB0_BYTES_ARRAY, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
         PyObjectPtr obj_ptr, StorageClass)
@@ -320,7 +320,7 @@ namespace db0::object_model
         type->incRef(false);        
         return type->getUniqueAddress();
     }
-
+    
     template <> void registerCreateMemberFunctions<PyToolkit>(
         std::vector<Value (*)(db0::swine_ptr<Fixture> &, PyObjectPtr, StorageClass)> &functions)
     {
@@ -350,7 +350,7 @@ namespace db0::object_model
         functions[static_cast<int>(TypeId::OBJECT_ITERABLE)] = createMember<TypeId::OBJECT_ITERABLE, PyToolkit>;
         functions[static_cast<int>(TypeId::DB0_ENUM_VALUE)] = createMember<TypeId::DB0_ENUM_VALUE, PyToolkit>;
         functions[static_cast<int>(TypeId::DB0_ENUM_VALUE_REPR)] = createMember<TypeId::DB0_ENUM_VALUE_REPR, PyToolkit>;
-        functions[static_cast<int>(TypeId::BOOLEAN)] = createMember<TypeId::BOOLEAN, PyToolkit>;
+        functions[static_cast<int>(TypeId::BOOLEAN)] = createMember<TypeId::BOOLEAN, PyToolkit>;        
         functions[static_cast<int>(TypeId::DB0_BYTES_ARRAY)] = createMember<TypeId::DB0_BYTES_ARRAY, PyToolkit>;
         functions[static_cast<int>(TypeId::DB0_WEAK_PROXY)] = createMember<TypeId::DB0_WEAK_PROXY, PyToolkit>;
         functions[static_cast<int>(TypeId::MEMO_TYPE)] = createMember<TypeId::MEMO_TYPE, PyToolkit>;

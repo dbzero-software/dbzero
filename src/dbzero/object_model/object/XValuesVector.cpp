@@ -18,11 +18,11 @@ namespace db0::object_model
         std::vector<XValue>::push_back(xvalue);
         m_masks.push_back(mask);        
         // if number of unsorted values exceeds the sort threshold then sort
-        if ((this->size() - m_sorted_size) > m_sort_threshold) {
+        if ((this->size() - m_sorted_size) >= m_sort_threshold) {
             const_cast<XValuesVector*>(this)->sortValues();
         }
     }
-
+    
     bool XValuesVector::tryGetAt(unsigned int index, std::pair<StorageClass, Value> &result) const
     {
         bool has_value = false;
@@ -39,13 +39,13 @@ namespace db0::object_model
                     if (has_value) {
                         assert(result.first == alt_it->m_type);
                         // NOTE: we exclude already assigned values from the mask (last write wins)
-                        result.second.assign(alt_it->m_value, *it_mask & ~mask);
-                        mask |= *it_mask;
+                        result.second.assign(alt_it->m_value, *it_mask & ~mask);                        
                     } else {
                         result.first = alt_it->m_type;
                         result.second = alt_it->m_value;
                         has_value = true;
-                    }                    
+                    }
+                    mask |= *it_mask;
                 } else {
                     // a complete value was found
                     result.first = alt_it->m_type;
@@ -153,5 +153,44 @@ namespace db0::object_model
         this->erase(it_out, this->end());
         m_sorted_size = this->size();
     }
+
+    void XValuesVector::sortAndMerge()
+    {
+        if (this->size() > m_sorted_size) {
+            sortValues();
+        }
+    }
     
-}   
+    void XValuesVector::remove(unsigned int at, std::uint64_t mask)
+    {
+        sortAndMerge();
+        auto it_end = begin() + m_sorted_size;
+        auto it = std::lower_bound(begin(), it_end, at);
+        if (it == it_end || it->getIndex() != at) {
+            // element not found
+            return;
+        }
+
+        if (mask == 0) {
+            // remove the entire element
+            this->erase(it);
+            --m_sorted_size;
+        } else {
+            // lo-fi type, clear bits indicated by the mask
+            it->m_value.m_store &= ~mask;
+            // if the value is now zeroed then remove the entire element
+            if (it->m_value.m_store == 0) {
+                this->erase(it);
+                --m_sorted_size;
+            }
+        }
+    }
+    
+    void XValuesVector::clear()
+    {
+        std::vector<XValue>::clear();
+        m_masks.clear();
+        m_sorted_size = 0;
+    }
+
+}

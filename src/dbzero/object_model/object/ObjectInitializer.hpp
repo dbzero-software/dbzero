@@ -11,6 +11,7 @@
 #include <dbzero/core/memory/swine_ptr.hpp>
 #include <dbzero/object_model/value/XValue.hpp>
 #include "ValueTable.hpp"
+#include "XValuesVector.hpp"
 
 namespace db0
 
@@ -46,8 +47,9 @@ namespace db0::object_model
         void init(Object &object, std::shared_ptr<Class>);
         void init(Object &object, TypeInitializer &&);
 
-        void set(unsigned int at, StorageClass storage_class, Value value);
-        void remove(unsigned int at);
+        // @param mask required for lo-fi types (bool-pack)
+        void set(unsigned int at, StorageClass storage_class, Value value, std::uint64_t mask = 0);
+        void remove(unsigned int at, std::uint64_t mask = 0);
         
         void setInstanceKey(const char *str_key);
 
@@ -108,18 +110,10 @@ namespace db0::object_model
         Object *m_object_ptr = nullptr;
         mutable std::shared_ptr<Class> m_class;
         // indexed initialization values
-        mutable std::vector<XValue> m_values;
-        // number of m_values already sorted
-        mutable std::size_t m_sorted_size = 0;
+        mutable XValuesVector m_values;
         std::pair<std::uint32_t, std::uint32_t> m_ref_counts = {0, 0};
         mutable db0::swine_ptr<Fixture> m_fixture;
         mutable TypeInitializer m_type_initializer;
-
-        // sort & compact values
-        void sortValues();
-
-        // returns the number of unique elements extracted
-        std::uint32_t finalizeValues();
     };
     
     /**

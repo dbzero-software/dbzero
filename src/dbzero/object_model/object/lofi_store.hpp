@@ -21,21 +21,21 @@ namespace db0::object_model
             return 64u / (SizeOf + 1u);
         }
         
-        inline std::uint64_t mask(unsigned int index) const 
+        static inline std::uint64_t mask(unsigned int index)
         {
             assert(index < size());
             constexpr unsigned int stride = SizeOf + 1u; // value bits + occupancy bit
             constexpr std::uint64_t base_mask = ((std::uint64_t)0x01 << (SizeOf + 1)) - 1;
             return base_mask << (index * stride);
         }
-
+        
         // check if the element at the specific index is set
         bool isSet(unsigned int index) const;
         // check if all elements are set
         bool isFull() const;
 
-        void set(unsigned int index, std::uint64_t value);
-        std::uint64_t get(unsigned int index) const;
+        void set(unsigned int at, std::uint64_t value);
+        std::uint64_t get(unsigned int at) const;
 
         // add a new element and return its index (must not be full)
         unsigned int add(std::uint64_t value);
@@ -43,6 +43,9 @@ namespace db0::object_model
         static lofi_store<SizeOf> &fromValue(std::uint64_t &value) {
             return reinterpret_cast<lofi_store<SizeOf>&>(value);
         }
+
+        // Create value with a single element set
+        static std::uint64_t create(unsigned int at, std::uint64_t value);
 
     private:
         std::uint64_t m_data = 0;
@@ -145,4 +148,12 @@ namespace db0::object_model
         return 0u;
     }
 
+    template <unsigned int SizeOf>
+    std::uint64_t lofi_store<SizeOf>::create(unsigned int at, std::uint64_t value) 
+    {
+        lofi_store<SizeOf> store;
+        store.set(at, value);
+        return store.m_data;
+    }
+    
 }

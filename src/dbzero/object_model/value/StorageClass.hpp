@@ -53,8 +53,8 @@ namespace db0::object_model
        DB0_ENUM_VALUE = 27,
        // BOOL       
        BOOLEAN = 28,
-       // bool variables packed as 2-bit values
-       BOOL_PACK = 29,
+       // Fidelity-2 packed storage (e.g. 2-bit boolean)
+       PACK_2 = 29,
        // weak reference to other (Memo) instance on the same prefix
        OBJECT_WEAK_REF = 30,
        COUNT = 32,
@@ -103,7 +103,7 @@ namespace db0::object_model
         DB0_ENUM_VALUE = static_cast<int>(PreStorageClass::DB0_ENUM_VALUE),
         // BOOL
         BOOLEAN = static_cast<int>(PreStorageClass::BOOLEAN),
-        BOOL_PACK = static_cast<int>(PreStorageClass::BOOL_PACK),
+        PACK_2 = static_cast<int>(PreStorageClass::PACK_2),
         // weak reference to other (Memo) instance on the same prefix
         OBJECT_WEAK_REF = static_cast<int>(PreStorageClass::OBJECT_WEAK_REF),
         // weak reference to other (Memo) instance from a foreign prefix

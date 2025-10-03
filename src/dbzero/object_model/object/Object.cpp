@@ -267,19 +267,29 @@ namespace db0::object_model
         auto fixture = initializer.getFixture();
         auto &type = initializer.getClass();
         auto [type_id, storage_class] = recognizeType(*fixture, obj_ptr);
+        auto storage_fidelity = getStorageFidelity(storage_class);
         
         // Find already existing field index
         auto [field_id, is_init_var, fidelity] = type.findField(field_name);
         if (!field_id) {
             // update class definition
             // use the default fidelity for the storage class
-            std::tie(field_id, fidelity) = type.addField(field_name, getStorageFidelity(storage_class));
+            std::tie(field_id, fidelity) = type.addField(field_name, storage_fidelity);
         }
         
-        // register a member with the initializer
-        initializer.set(field_id.getIndex(), storage_class, 
-            createMember<LangToolkit>(fixture, type_id, storage_class, obj_ptr)
-        );
+        if (storage_fidelity == 0) {
+            // register a regular member with the initializer
+            initializer.set(field_id.getIndex(), storage_class, 
+                createMember<LangToolkit>(fixture, type_id, storage_class, obj_ptr)
+            );
+        } else {
+            // For now only fidelity == 2 is supported (lo-fi storage)
+            assert(storage_fidelity == 2);
+            auto [index, offset] = field_id.getIndexAndOffset();
+            auto value = lofi_store<2>::create(offset, createMember<LangToolkit>(fixture, type_id, storage_class, obj_ptr).m_store);
+            // register a lo-fi member with the initializer (using mask)
+            initializer.set(field_id.getIndex(), storage_class, value, lofi_store<2>::mask(offset));
+        }
     }
     
     void Object::remove(FixtureLock &fixture, const char *field_name)

@@ -52,13 +52,14 @@ namespace db0::object_model
     }
     
     o_class::o_class(RC_LimitedStringPool &string_pool, const std::string &name, std::optional<std::string> module_name,
-        const VFieldMatrix &members, const Schema &schema, const char *type_id, const char *prefix_name, ClassFlags flags,
-        std::uint32_t base_class_ref, std::uint32_t num_bases)
+        const VFieldMatrix &members, const VFidelityVector &fidelities, const Schema &schema, const char *type_id, 
+        const char *prefix_name, ClassFlags flags, std::uint32_t base_class_ref, std::uint32_t num_bases)
         : m_uuid(db0::make_UUID())
         , m_name(string_pool.addRef(name))
         , m_type_id(type_id ? string_pool.addRef(type_id) : LP_String())
         , m_prefix_name(prefix_name ? string_pool.addRef(prefix_name) : LP_String())
         , m_members_ptr(members)
+        , m_fidelity_ptr(fidelities)
         , m_schema_ptr(schema)
         , m_flags(flags)
         , m_base_class_ref(base_class_ref)
@@ -69,14 +70,14 @@ namespace db0::object_model
         }
     }
     
-    Class::Member::Member(FieldID field_id, const char *name)
-        : m_field_id(field_id)
+    Class::Member::Member(FieldID field_id, unsigned int fidelity, const char *name)
+        : m_member_id(field_id, fidelity)
         , m_name(name)
     {
     }
     
-    Class::Member::Member(FieldID field_id, const std::string &name)
-        : m_field_id(field_id)
+    Class::Member::Member(FieldID field_id, unsigned int fidelity, const std::string &name)
+        : m_member_id(field_id, fidelity)
         , m_name(name)
     {
     }
@@ -88,8 +89,9 @@ namespace db0::object_model
             fixture, 
             fixture->getLimitedStringPool(), 
             name, 
-            module_name, 
+            module_name,
             VFieldMatrix(*fixture),
+            VFidelityVector(*fixture),
             Schema(*fixture),
             type_id, 
             prefix_name, 
@@ -98,6 +100,7 @@ namespace db0::object_model
             base_class ? (1u + base_class->getNumBases()) : 0)
         , m_type_slot_addr_range(getTypeSlotAddrRange(*fixture))
         , m_members((*this)->m_members_ptr(*fixture))
+        , m_fidelities((*this)->m_fidelity_ptr(*fixture))
         , m_schema((*this)->m_schema_ptr(*fixture))
         , m_base_class_ptr(base_class)
         , m_init_vars(this->makeInitVars(init_vars))
@@ -111,6 +114,7 @@ namespace db0::object_model
         : super_t(super_t::tag_from_address(), fixture, address)
         , m_type_slot_addr_range(getTypeSlotAddrRange(*fixture))
         , m_members((*this)->m_members_ptr(*fixture))
+        , m_fidelities((*this)->m_fidelity_ptr(*fixture))
         , m_schema((*this)->m_schema_ptr(*fixture))
         , m_uid(this->fetchUID())
         , m_member_cache(m_members, *this, this->getRefreshCallback())
@@ -153,22 +157,19 @@ namespace db0::object_model
         return getFixture()->getLimitedStringPool().fetch((*this)->m_type_id);
     }
     
-    std::pair<FieldID, unsigned int> Class::addField(const char *name, unsigned int fidelity)
+    MemberID Class::addField(const char *name, unsigned int fidelity)
     {
+        assert(fidelity < std::numeric_limits<std::uint8_t>::max());
         assert(m_index.find(name) == m_index.end());
         bool is_init_var = m_init_vars.find(name) != m_init_vars.end();
-        auto next_field_index = m_members.size().first;
-        // NOTE: we start field IDs from 1
-        auto next_field_id = FieldID::fromIndex(next_field_index);
-        m_members.push_back(o_field { getFixture()->getLimitedStringPool(), name });
-        // FIXME: log
-        // put actual fidelity here
-        m_index[name] = { next_field_id, is_init_var, 0 };
-        // FIXME: log - assign actual fidelity here
-        return { next_field_id, 0 };
+        auto pos = assignSlot(fidelity);
+        // reserve the slot
+        m_members.set(pos, o_field { getFixture()->getLimitedStringPool(), name });
+        m_member_cache.reload(pos);
+        return m_index[name];        
     }
     
-    std::tuple<FieldID, bool, unsigned int> Class::findField(const char *name) const
+    std::pair<MemberID, bool> Class::findField(const char *name) const
     {
         auto it = m_index.find(name);
         if (it == m_index.end()) {
@@ -179,7 +180,7 @@ namespace db0::object_model
             if (it == m_index.end()) {
                 // field ID not found, check for possible initialization variable
                 bool is_init_var = m_init_vars.find(name) != m_init_vars.end();
-                return { FieldID(), is_init_var, 0 };
+                return { MemberID(), is_init_var };
             }
         }
         

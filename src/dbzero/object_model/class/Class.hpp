@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Field.hpp"
-#include "FieldID.hpp"
+#include "MemberID.hpp"
 
 #include <limits>
 #include <array>
@@ -49,6 +49,9 @@ namespace db0::object_model
     class Class;    
     struct ObjectId;
 
+    // fidelity + slot index
+    using VFidelityVector = db0::v_bvector<std::pair<std::uint8_t, unsigned int> >;
+
     struct [[gnu::packed]] o_class: public db0::o_fixed<o_class>
     {        
         // common object header
@@ -61,6 +64,8 @@ namespace db0::object_model
         // optional scoped-class prefix
         LP_String m_prefix_name;
         db0_ptr<VFieldMatrix> m_members_ptr;
+        // member slot fidelities
+        db0_ptr<VFidelityVector> m_fidelity_ptr;
         db0_ptr<Schema> m_schema_ptr;
         ClassFlags m_flags;
         UniqueAddress m_singleton_address = {};
@@ -70,7 +75,7 @@ namespace db0::object_model
         std::array<std::uint64_t, 4> m_reserved = {0, 0, 0, 0};
         
         o_class(RC_LimitedStringPool &, const std::string &name, std::optional<std::string> module_name,
-            const VFieldMatrix &, const Schema &, const char *type_id, const char *prefix_name, ClassFlags, 
+            const VFieldMatrix &, const VFidelityVector &, const Schema &, const char *type_id, const char *prefix_name, ClassFlags,
             std::uint32_t base_class_ref, std::uint32_t num_bases
         );
     };
@@ -101,11 +106,11 @@ namespace db0::object_model
         
         struct Member
         {
-            FieldID m_field_id;
+            MemberID m_member_id;
             std::string m_name;
             
-            Member(FieldID, const char *);
-            Member(FieldID, const std::string &);
+            Member(FieldID, unsigned int fidelity, const char *);
+            Member(FieldID, unsigned int fidelity, const std::string &);
         };
         
         // Pull existing type
@@ -120,21 +125,19 @@ namespace db0::object_model
         
         std::optional<std::string> getTypeId() const;
         
-        // Add a new field to this class, define initial (default) fidelity
-        // @param fidelity - if > 0, indicates the minimum number of bits required (0 = default)
-        // @return assigned field ID / fidelity
-        std::pair<FieldID, unsigned int> addField(const char *name, unsigned int fidelity);
+        // Add a new field to this class or a new fidelity
+        // @return assigned member ID
+        MemberID addField(const char *name, unsigned int fidelity);
         
-        // @return field ID / init var flag & fidelity assigned on initialization flag (see Schema Extensions)
-        // NOTE: fidelity is 0 for default, otherwise the number of bits
-        std::tuple<FieldID, bool, unsigned int> findField(const char *name) const;
+        // @return member ID / init var flag assigned on initialization flag (see Schema Extensions)
+        std::pair<MemberID, bool> findField(const char *name) const;
         
-        // Get the total number of fields declared in this class
-        std::size_t size() const {
-            return m_members.getItemCount();
+        // Get the total number of unique members declared in this class
+        std::size_t size() const {            
+            return m_index.size();
         }
         
-        Member getMember(FieldID field_id) const;
+        Member getMember(MemberID) const;
         Member getMember(const char *name) const;
         
         /**
@@ -269,12 +272,14 @@ namespace db0::object_model
         
         // member field definitions
         VFieldMatrix m_members;
+        // only holds non-default fidelities (i.e. > 0)
+        VFidelityVector m_fidelities;
         Schema m_schema;
         std::shared_ptr<Class> m_base_class_ptr;
         
         // Field by-name index (cache)
-        // values: field id / assigned on initialization flag / initial fidelity
-        mutable std::unordered_map<std::string, std::tuple<FieldID, bool, unsigned int> > m_index;
+        // values: member ID / assigned on initialization flag
+        mutable std::unordered_map<std::string, std::pair<MemberID, bool> > m_index;
         // fields initialized on class creation (from static code analysis)
         std::unordered_set<std::string> m_init_vars;
         const std::uint32_t m_uid = 0;
@@ -286,6 +291,9 @@ namespace db0::object_model
         
         // Initialization function
         std::unordered_set<std::string> makeInitVars(const std::vector<std::string> &) const;
+        
+        // Assign a new field slot with a specified fidelity
+        std::pair<std::uint32_t, std::uint32_t> assignSlot(unsigned int fidelity);
     };
     
     // retrieve one of 4 possible type name variants

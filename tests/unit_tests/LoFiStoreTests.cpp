@@ -42,6 +42,16 @@ namespace tests
         lofi_store<2>::fromValue(value).set(0, 3);
         ASSERT_TRUE(reinterpret_cast<lofi_store<2>&>(value).isSet(0));
         ASSERT_EQ(reinterpret_cast<lofi_store<2>&>(value).get(0), 3u);
+
+        lofi_store<2>::fromValue(value).set(1, 3);
+        ASSERT_EQ(value, 0x3Fu); // both 0 and 1 set to 3
+    }
+    
+    TEST_F( LoFiStoreTest, testLoFiStoreMask )
+    {
+        ASSERT_EQ(lofi_store<2>::mask(0), 0x7u);
+        ASSERT_EQ(lofi_store<2>::mask(1), 0x38u);
+        ASSERT_EQ(lofi_store<2>::mask(2), 0x1C0u);
     }
     
 }
