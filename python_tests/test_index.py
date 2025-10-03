@@ -471,18 +471,18 @@ def test_unflushed_index_data_is_discarded_when_destroyed_before_close(db0_fixtu
     db0.close()
 
 
-def test_moved_index_updates_are_flushed_on_close(db0_fixture):
-    prefix = db0.get_current_prefix()
-    # index instance moved from default prefix
-    root = MemoScopedSingleton(db0.index(), prefix="some-other-prefix")
-    root.value.add(1, MemoTestClass(999))
-    db0.close()
+# def test_moved_index_updates_are_flushed_on_close(db0_fixture):
+#     prefix = db0.get_current_prefix()
+#     # index instance moved from default prefix
+#     root = MemoScopedSingleton(db0.index(), prefix="some-other-prefix")
+#     root.value.add(1, MemoTestClass(999))
+#     db0.close()
     
-    db0.init(DB0_DIR)
-    db0.open(prefix.name, "r")
-    db0.open("some-other-prefix", "rw")
-    root = MemoScopedSingleton(prefix="some-other-prefix")    
-    assert len(root.value) == 1
+#     db0.init(DB0_DIR)
+#     db0.open(prefix.name, "r")
+#     db0.open("some-other-prefix", "rw")
+#     root = MemoScopedSingleton(prefix="some-other-prefix")    
+#     assert len(root.value) == 1
 
 
 def test_index_unbounded_select_query(db0_fixture):

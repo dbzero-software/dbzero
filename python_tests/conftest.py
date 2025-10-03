@@ -24,8 +24,8 @@ def db0_fixture():
     yield db0    
     gc.collect()
     db0.close()
-    if os.path.exists(DB0_DIR):
-        shutil.rmtree(DB0_DIR)
+    # if os.path.exists(DB0_DIR):
+    #     shutil.rmtree(DB0_DIR)
 
 
 @pytest.fixture()

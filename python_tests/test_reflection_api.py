@@ -16,8 +16,12 @@ def test_get_prefixes(db0_fixture):
     
 def test_get_prefixes_with_nested_dirs(db0_fixture):
     assert len(list(db0.get_prefixes())) == 1
+    print(f"ADDDING NEW PREFIX!!!!!!!!!!!!!!")
     db0.open("dir_1/my-new_prefix")
+    print(f"AFTER ADDDING NEW PREFIX!!!!!!!!!!!!!!")
+    assert len(list(db0.get_prefixes())) == 2
     db0.open("dir_1/subdir/my-new_prefix")
+    assert len(list(db0.get_prefixes())) == 3
     db0.open("dir_2/subdir1/subdir2/my-new_prefix")
     assert len(list(db0.get_prefixes())) == 4
 
@@ -26,6 +30,11 @@ def test_get_memo_classes_from_default_prefix(db0_fixture):
     _ = MemoTestClass(123)
     assert len(list(db0.get_memo_classes())) > 0
 
+def subprocess_get_memo_classes(result_queue, prefix):
+
+    db0.init(DB0_DIR)
+    db0.open(prefix.name)
+    result_queue.put(list(db0.get_memo_classes()))
 
 def test_get_memo_classes_from_separate_process(db0_fixture):
     prefix = db0.get_current_prefix()
@@ -33,14 +42,10 @@ def test_get_memo_classes_from_separate_process(db0_fixture):
     db0.commit()
     db0.close()
     
-    def subprocess_get_memo_classes(result_queue):
-        db0.init(DB0_DIR)
-        db0.open(prefix.name)
-        result_queue.put(list(db0.get_memo_classes()))
-    
     # run from a subprocess
     result_queue = multiprocessing.Queue()
-    p = multiprocessing.Process(target=subprocess_get_memo_classes, args = (result_queue,))
+    p = multiprocessing.Process(target=subprocess_get_memo_classes, 
+                                args = (result_queue, prefix))
     p.start()
     p.join()
     

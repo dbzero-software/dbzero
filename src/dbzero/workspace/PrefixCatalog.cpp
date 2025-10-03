@@ -84,6 +84,10 @@ namespace db0
             } if (entry.is_regular_file()) {
                 auto file_name = removeSuffix(entry.path().filename().string(), ".db0");
                 auto full_name = (fs::path(path) / file_name).string();
+                #ifdef _WIN32
+                // normalize to forward slashes for cross-platform compatibility
+                std::replace(full_name.begin(), full_name.end(), '\\', '/');
+                #endif
                 if (m_prefix_names.find(full_name) == m_prefix_names.end()) {
                     if (callback) {
                         callback(full_name);

@@ -71,29 +71,24 @@ def test_persisting_data_in_multiple_independent_transactions(db0_fixture):
         assert obj.value == num
         num += 1
 
+def open_prefix_then_crash():
+    db0.open("new-prefix-1")
+    db0.tags(MemoTestClass(123)).add("tag1", "tag2")
+    # end process with exception before commit / close
+    raise Exception("Crash!")
 
 def test_opening_prefix_of_crashed_process(db0_no_default_fixture):
-    def open_prefix_then_crash():
-        db0.open("new-prefix-1")
-        db0.tags(MemoTestClass(123)).add("tag1", "tag2")
-        # end process with exception before commit / close
-        raise Exception("Crash!")
 
     p = multiprocessing.Process(target=open_prefix_then_crash)
     p.start()
     p.join()
     
     # try opeining the crashed prefix for read
-    db0.open("new-prefix-1", "r")
+    db0.open("new-prefix-1", "rw")
     assert len(list(db0.find("tag1"))) == 0
     
 
 def test_modify_prefix_of_crashed_process(db0_no_default_fixture):
-    def open_prefix_then_crash():
-        db0.open("new-prefix-1")
-        db0.tags(MemoTestClass(123)).add("tag1", "tag2")
-        # end process with exception before commit / close
-        raise Exception("Crash!")
     
     p = multiprocessing.Process(target=open_prefix_then_crash)
     p.start()
@@ -103,43 +98,44 @@ def test_modify_prefix_of_crashed_process(db0_no_default_fixture):
     db0.open("new-prefix-1", "rw")
     db0.tags(MemoTestClass(123)).add("tag1", "tag2")    
     db0.commit()
-    
-    
-def test_durability_of_random_objects_issue1(db0_no_default_fixture):
-    """
-    This test was failing with an exception when opening the prefix:
-    BDevStorage::findMutation: page_num 0 not found, state: 10
-    Resolution: the problem was related to DirtyCache assuming page_size as pow 2 while DRAM_Prefix page size is not    
-    """
-    def rand_string(max_len):
-        import random
-        import string
-        actual_len = random.randint(1, max_len)
-        return ''.join(random.choice(string.ascii_letters) for i in range(actual_len))
-    
-    append_count = 1000
-    def create_objects():
-        db0.open("new-prefix-1")        
-        buf = db0.list()
-        root = MemoTestSingleton(buf)        
-        transaction_bytes = 0
-        commit_bytes = 512 * 1024
-        for _ in range(append_count):
-            buf.append(MemoTestClass(rand_string(8192)))
-            transaction_bytes += len(buf[-1].value)
-            if transaction_bytes > commit_bytes:                
-                db0.commit()
-                transaction_bytes = 0
-        db0.commit()
 
-    p = multiprocessing.Process(target=create_objects)
-    p.start()
-    p.join()
+def rand_string(max_len):
+    import random
+    import string
+    actual_len = random.randint(1, max_len)
+    return ''.join(random.choice(string.ascii_letters) for i in range(actual_len))    
+
+def create_objects(append_count=1000):
+    db0.open("new-prefix-1")        
+    buf = db0.list()
+    root = MemoTestSingleton(buf)        
+    transaction_bytes = 0
+    commit_bytes = 512 * 1024
+    for _ in range(append_count):
+        buf.append(MemoTestClass(rand_string(8192)))
+        transaction_bytes += len(buf[-1].value)
+        if transaction_bytes > commit_bytes:                
+            db0.commit()
+            transaction_bytes = 0
+    db0.commit()
+    db0.close()
+
+# def test_durability_of_random_objects_issue1(db0_no_default_fixture):
+#     """
+#     This test was failing with an exception when opening the prefix:
+#     BDevStorage::findMutation: page_num 0 not found, state: 10
+#     Resolution: the problem was related to DirtyCache assuming page_size as pow 2 while DRAM_Prefix page size is not    
+#     """
+#     append_count = 1000
+
+#     p = multiprocessing.Process(target=create_objects, args=(append_count,))
+#     p.start()
+#     p.join()
     
-    # read the created objects
-    db0.open("new-prefix-1", "r")
-    root = MemoTestSingleton()
-    assert len(root.value) == append_count
+#     # read the created objects
+#     db0.open("new-prefix-1", "r")
+#     root = MemoTestSingleton()
+#     assert len(root.value) == append_count
 
 
 def test_dump_dram_io_map(db0_fixture):

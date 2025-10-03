@@ -182,14 +182,7 @@ def test_group_by_with_multiple_ops_and_constant(db0_fixture, memo_enum_tags):
     for k in groups.keys():
         assert len(k) == 3
 
-
-def test_refreshing_group_by_results(db0_fixture, memo_enum_tags):
-    """
-    In this test, one process is generating data while the other - running group_by queries.
-    """
-    px_name = db0.get_current_prefix()
-
-    def create_process(num_objects: List):
+def create_process(num_objects: List, px_name):
         db0.init(DB0_DIR)
         db0.open(px_name.name, "rw")
         for count in num_objects:
@@ -199,11 +192,17 @@ def test_refreshing_group_by_results(db0_fixture, memo_enum_tags):
             db0.commit()
             time.sleep(0.05)
         db0.close()
-    
+
+def test_refreshing_group_by_results(db0_fixture, memo_enum_tags):
+    """
+    In this test, one process is generating data while the other - running group_by queries.
+    """
+    px_name = db0.get_current_prefix()
+
     db0.close()
     
     num_objects = [5, 10, 11, 6, 22,8, 11, 6]    
-    p = multiprocessing.Process(target=create_process, args = (num_objects,))
+    p = multiprocessing.Process(target=create_process, args = (num_objects, px_name))
     p.start()
     
     # start the reader process

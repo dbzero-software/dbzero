@@ -91,28 +91,40 @@ namespace db0::python
     */
     template <int ERR_RESULT = 0, typename T, typename... Args>
     typename std::invoke_result_t<T, Args...> runSafe(T func, Args&&... args)
-    {//FIXME: CHANGE THIS TO RETURN ERR_RESULT 
+    {
+        using ReturnType = std::invoke_result_t<T, Args...>;
+
+        auto returnError = []() -> ReturnType {
+            if constexpr (std::is_constructible_v<ReturnType, int>) {
+                return ReturnType(ERR_RESULT);
+            } else if constexpr (std::is_pointer_v<ReturnType>) {
+                return reinterpret_cast<ReturnType>(ERR_RESULT);
+            } else {
+                return ReturnType{};
+            }
+        };
+
         try {
             auto result = func(std::forward<Args>(args)...);
             if (PyErr_Occurred()) {
-                return NULL;
+                return returnError();
             }
             return result;
         } catch (const db0::BadAddressException &e) {
             PyErr_SetString(PyToolkit::getTypeManager().getReferenceError(), e.what());
-            return NULL;
+            return returnError();
         } catch (const db0::ClassNotFoundException &e) {
             PyErr_SetString(PyToolkit::getTypeManager().getClassNotFoundError(), e.what());
-            return NULL;
+            return returnError();
         } catch (const db0::AbstractException &e) {
             PyErr_SetString(PyExc_RuntimeError, e.what());
-            return NULL;
+            return returnError();
         } catch (const std::exception &e) {
             PyErr_SetString(PyExc_RuntimeError, e.what());
-            return NULL;
+            return returnError();
         } catch (...) {
             PyErr_SetString(PyExc_RuntimeError, "Unknown exception");
-            return NULL;
+            return returnError();
         }
     }
     

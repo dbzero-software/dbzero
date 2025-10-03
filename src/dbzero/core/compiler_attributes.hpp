@@ -14,10 +14,10 @@
     #define DB0_PACKED_END __pragma(pack(pop))
     #define DB0_PACKED_ATTR
 #elif defined(__GNUC__) || defined(__clang__)
-    // GCC and Clang support __attribute__((packed))
+    // GCC and Clang support [[gnu::packed]]
     #define DB0_PACKED_BEGIN
     #define DB0_PACKED_END
-    #define DB0_PACKED_ATTR __attribute__((packed))
+    #define DB0_PACKED_ATTR [[gnu::packed]]
 #else
     // Fallback for other compilers
     #define DB0_PACKED_BEGIN
