@@ -246,7 +246,7 @@ namespace db0::object_model
         auto &type = initializer.getClass();        
         
         // find already existing field index
-        auto field_id = type.findField(field_name).first;
+        auto field_id = std::get<0>(type.findField(field_name));
         if (!field_id) {
             THROWF(db0::InputException) << "Attribute not found: " << field_name;
         }
@@ -254,7 +254,7 @@ namespace db0::object_model
         // remove member from the initializer
         initializer.remove(field_id.getIndex());
     }
-
+    
     void Object::setPreInit(const char *field_name, ObjectPtr obj_ptr) const
     {
         assert(!hasInstance());
@@ -268,15 +268,18 @@ namespace db0::object_model
         auto &type = initializer.getClass();
         auto [type_id, storage_class] = recognizeType(*fixture, obj_ptr);
         
-        // find already existing field index
-        auto [field_id, is_init_var] = type.findField(field_name);
+        // Find already existing field index
+        auto [field_id, is_init_var, fidelity] = type.findField(field_name);
         if (!field_id) {
             // update class definition
-            field_id = type.addField(field_name);
+            // use the default fidelity for the storage class
+            std::tie(field_id, fidelity) = type.addField(field_name, getStorageFidelity(storage_class));
         }
         
         // register a member with the initializer
-        initializer.set(field_id.getIndex(), storage_class, createMember<LangToolkit>(fixture, type_id, storage_class, obj_ptr));
+        initializer.set(field_id.getIndex(), storage_class, 
+            createMember<LangToolkit>(fixture, type_id, storage_class, obj_ptr)
+        );
     }
     
     void Object::remove(FixtureLock &fixture, const char *field_name)
@@ -287,10 +290,10 @@ namespace db0::object_model
             // this is because the actual change may be missed if performed on a different-then the 1st DP
             _touch();
         }
-
+        
         assert(m_type);
         // find already existing field index
-        auto [field_id, is_init_var] = m_type->findField(field_name);
+        auto [field_id, is_init_var, fidelity] = m_type->findField(field_name);
         if (!field_id) {
             THROWF(db0::InputException) << "Attribute not found: " << field_name;
         }
@@ -362,10 +365,10 @@ namespace db0::object_model
         
         assert(m_type);
         // find already existing field index
-        auto [field_id, is_init_var] = m_type->findField(field_name);
+        auto [field_id, is_init_var, fidelity] = m_type->findField(field_name);
         if (!field_id) {
             // try mutating the class first
-            field_id = m_type->addField(field_name);
+            std::tie(field_id, fidelity) = m_type->addField(field_name, getStorageFidelity(storage_class));
         }
         
         assert(field_id);        
@@ -428,7 +431,7 @@ namespace db0::object_model
         }        
     }
     
-    std::pair<FieldID, bool> Object::findField(const char *name) const
+    std::tuple<FieldID, bool, unsigned int> Object::findField(const char *name) const
     {
         if (isDropped()) {
             // defunct objects should not be accessed
@@ -448,13 +451,13 @@ namespace db0::object_model
     
     bool Object::tryGetMember(const char *field_name, std::pair<StorageClass, Value> &member) const
     {
-        auto [field_id, is_init_var] = this->findField(field_name);
+        auto [field_id, is_init_var, fidelity] = this->findField(field_name);
         return tryGetMemberAt(field_id, is_init_var, member);        
     }
     
     std::optional<XValue> Object::tryGetX(const char *field_name) const
     {
-        auto [field_id, is_init_var] = this->findField(field_name);
+        auto [field_id, is_init_var, fidelity] = this->findField(field_name);
         if (!field_id) {
             return std::nullopt;
         }

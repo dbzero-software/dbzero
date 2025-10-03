@@ -12,7 +12,7 @@
 #include <dbzero/object_model/value/XValue.hpp>
 #include "ValueTable.hpp"
 
-namespace db0 
+namespace db0
 
 {
     
@@ -114,6 +114,9 @@ namespace db0::object_model
         std::pair<std::uint32_t, std::uint32_t> m_ref_counts = {0, 0};
         mutable db0::swine_ptr<Fixture> m_fixture;
         mutable TypeInitializer m_type_initializer;
+
+        // sort & compact values
+        void sortValues();
 
         // returns the number of unique elements extracted
         std::uint32_t finalizeValues();

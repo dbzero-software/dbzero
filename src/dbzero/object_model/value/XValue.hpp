@@ -25,8 +25,8 @@ namespace db0::object_model
             assert(index < 0x1000000);
             std::memcpy(m_index.data(), &index, 3);
         }
-
-        inline XValue(std::uint32_t index, StorageClass type, Value value)            
+        
+        inline XValue(std::uint32_t index, StorageClass type, Value value)
             : m_type(type)
             , m_value(value)
         {

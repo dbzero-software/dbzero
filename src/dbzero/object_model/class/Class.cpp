@@ -153,7 +153,7 @@ namespace db0::object_model
         return getFixture()->getLimitedStringPool().fetch((*this)->m_type_id);
     }
     
-    FieldID Class::addField(const char *name)
+    std::pair<FieldID, unsigned int> Class::addField(const char *name, unsigned int fidelity)
     {
         assert(m_index.find(name) == m_index.end());
         bool is_init_var = m_init_vars.find(name) != m_init_vars.end();
@@ -161,11 +161,14 @@ namespace db0::object_model
         // NOTE: we start field IDs from 1
         auto next_field_id = FieldID::fromIndex(next_field_index);
         m_members.push_back(o_field { getFixture()->getLimitedStringPool(), name });
-        m_index[name] = { next_field_id, is_init_var };
-        return next_field_id;
+        // FIXME: log
+        // put actual fidelity here
+        m_index[name] = { next_field_id, is_init_var, 0 };
+        // FIXME: log - assign actual fidelity here
+        return { next_field_id, 0 };
     }
     
-    std::pair<FieldID, bool> Class::findField(const char *name) const
+    std::tuple<FieldID, bool, unsigned int> Class::findField(const char *name) const
     {
         auto it = m_index.find(name);
         if (it == m_index.end()) {
@@ -176,7 +179,7 @@ namespace db0::object_model
             if (it == m_index.end()) {
                 // field ID not found, check for possible initialization variable
                 bool is_init_var = m_init_vars.find(name) != m_init_vars.end();
-                return { FieldID(), is_init_var };
+                return { FieldID(), is_init_var, 0 };
             }
         }
         
@@ -209,7 +212,7 @@ namespace db0::object_model
         if (it == m_index.end()) {
             return {};
         }
-        return getMember(it->second.first);
+        return getMember(std::get<0>(it->second));
     }
     
     Class::Member Class::getMember(const char *name) const
@@ -260,7 +263,9 @@ namespace db0::object_model
             // this is required before accessing members to prevent segfaults on a defunct object
             auto fixture = getFixture();
             bool is_init_var = m_init_vars.find(member.m_name) != m_init_vars.end();
-            m_index[member.m_name] = { member.m_field_id, is_init_var };
+            // FIXME: log
+            // retrieve initial fidelity from storage
+            m_index[member.m_name] = { member.m_field_id, is_init_var, 0 };
         };
     }
     
@@ -284,7 +289,7 @@ namespace db0::object_model
         }
         return *module_name;
     }   
-        
+    
     std::optional<std::string> getNameVariant(std::optional<std::string> type_id, std::optional<std::string> type_name,
         std::optional<std::string> module_name, std::optional<std::string> type_fields_str, int variant_id)
     {
@@ -349,10 +354,10 @@ namespace db0::object_model
             return;
         }
 
-        auto [field_id, was_init_var] = findField(from_name);
+        auto [field_id, was_init_var, fidelity] = findField(from_name);
         if (!field_id) {
-            // do not raise exception if the "to_name" field already exists (likely double rename attemp)            
-            if (findField(to_name).first) {
+            // do not raise exception if the "to_name" field already exists (likely double rename attemp)
+            if (std::get<0>(findField(to_name))) {
                 return;
             }
             THROWF(db0::InputException) << "Field " << from_name << " not found in class " << getName();
@@ -368,7 +373,7 @@ namespace db0::object_model
         // 3. Update in the in-memory index
         m_index.erase(from_name);
         auto is_init_var = m_init_vars.find(to_name) != m_init_vars.end();
-        m_index[to_name] = { field_id, is_init_var };
+        m_index[to_name] = { field_id, is_init_var, fidelity };
     }
     
     void Class::detach() const
@@ -475,12 +480,11 @@ namespace db0::object_model
     }
     
     std::unordered_map<std::string, std::uint32_t> Class::getMembers() const
-    {      
-        // FIXME:  
-        // m_member_cache.refresh();
+    {              
+        m_member_cache.refresh();
         std::unordered_map<std::string, std::uint32_t> result;
         for (auto &item: m_index) {
-            result[item.first] = item.second.first.getIndex();
+            result[item.first] = std::get<0>(item.second).getIndex();
         }
 
         return result;
@@ -502,7 +506,7 @@ namespace db0::object_model
         for (auto &name: m_init_vars) {
             auto it = m_index.find(name);
             if (it != m_index.end()) {
-                it->second.second = true;
+                std::get<1>(it->second) = true;
             }            
         }
     }

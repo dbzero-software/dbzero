@@ -101,26 +101,64 @@ namespace db0::object_model
         }
     }
 
+    void ObjectInitializer::sortValues()
+    {
+        assert(!m_values.empty());
+        // this method sorts values and then compacts packed lo-fi types
+        // must use stable-sort to preserve order of equal elements
+        std::stable_sort(m_values.begin(), m_values.end());
+        // once sorted we can compact lo-fi types and remove duplicates (keeping the last)
+        auto it_in = m_values.begin(), end = m_values.end();
+        auto it_out = m_values.begin();
+        ++it_in;
+        while (it_in != end) {
+            if (it_in->getIndex() == it_out->getIndex()) {
+                // overwrite or merge lo-fi types
+                /** FIXME: log
+                if (db0::getStorageFidelity(it_in->m_type) != 0) {
+                    // lo-fi type, merge values
+                    it_out->m_value.mergeWith(it_in->m_value);
+                } else {                    
+                    *it_out = *it_in;
+                }
+                */
+            } else {
+                ++it_out;                
+            }
+            ++it_in;
+        }
+        // it_out points to the last valid element
+        m_values.erase(it_out, m_values.end());
+        m_sorted_size = m_values.size();        
+    }
+
     bool ObjectInitializer::tryGetAt(unsigned int index, std::pair<StorageClass, Value> &result) const
     {
+        result.second = {};
         // try locating element within the unsorted items first (starting from the end)
+        // NOTE: in case of lo-fi types we must merge values from both sorted and unsorted parts
         auto alt_it = m_values.end() - 1;
         auto alt_end = m_values.begin() + m_sorted_size - 1;
         while (alt_it != alt_end) {
             if (alt_it->getIndex() == index) {
                 result.first = alt_it->m_type;
-                result.second = alt_it->m_value;                
-                return true;
+                // lo-fi type values must be merged
+                /* FIXME: log
+                if (db0::getStorageFidelity(result.first) != 0) {
+                    result.second.mergeWith(alt_it->m_value);
+                } else {
+                    result.second = alt_it->m_value;
+                    return true;
+                }            
+                */    
             }
-            --alt_it;            
+            --alt_it;
         }
 
         assert(m_sorted_size <= m_values.size());
         // if number of unsorted values exceeds 15 then sort
         if ((m_values.size() - m_sorted_size) > 15) {
-            // must use stable-sort to preserve order of equal elements
-            std::stable_sort(m_values.begin(), m_values.end());
-            m_sorted_size = m_values.size();
+            const_cast<ObjectInitializer*>(this)->sortValues();
         }
         
         // using bisect try locating element by index

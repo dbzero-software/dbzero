@@ -38,7 +38,12 @@ namespace db0::object_model
         inline UniqueAddress asUniqueAddress() const {
             return UniqueAddress::fromValue(m_store);
         }
-
+        
+        // Assign (merge) a lo-fi type value using a mask
+        inline void assign(const Value &other, std::uint64_t mask) {
+            m_store = (m_store & ~mask) | (other.m_store & mask);
+        }
+        
         bool operator==(const Value &other) const;
         
         std::uint64_t m_store = 0;

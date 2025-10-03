@@ -120,10 +120,14 @@ namespace db0::object_model
         
         std::optional<std::string> getTypeId() const;
         
-        FieldID addField(const char *name);
+        // Add a new field to this class, define initial (default) fidelity
+        // @param fidelity - if > 0, indicates the minimum number of bits required (0 = default)
+        // @return assigned field ID / fidelity
+        std::pair<FieldID, unsigned int> addField(const char *name, unsigned int fidelity);
         
-        // @return field ID / assigned on initialization flag (see Schema Extensions)
-        std::pair<FieldID, bool> findField(const char *name) const;
+        // @return field ID / init var flag & fidelity assigned on initialization flag (see Schema Extensions)
+        // NOTE: fidelity is 0 for default, otherwise the number of bits
+        std::tuple<FieldID, bool, unsigned int> findField(const char *name) const;
         
         // Get the total number of fields declared in this class
         std::size_t size() const {
@@ -266,11 +270,11 @@ namespace db0::object_model
         // member field definitions
         VFieldMatrix m_members;
         Schema m_schema;
-        std::shared_ptr<Class> m_base_class_ptr;                
+        std::shared_ptr<Class> m_base_class_ptr;
         
         // Field by-name index (cache)
-        // values: field id / assigned on initialization flag
-        mutable std::unordered_map<std::string, std::pair<FieldID, bool> > m_index;
+        // values: field id / assigned on initialization flag / initial fidelity
+        mutable std::unordered_map<std::string, std::tuple<FieldID, bool, unsigned int> > m_index;
         // fields initialized on class creation (from static code analysis)
         std::unordered_set<std::string> m_init_vars;
         const std::uint32_t m_uid = 0;

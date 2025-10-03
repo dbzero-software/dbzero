@@ -51,11 +51,13 @@ namespace db0::object_model
        DB0_BYTES_ARRAY = 25,
        DB0_ENUM_TYPE_REF = 26,
        DB0_ENUM_VALUE = 27,
-       // BOOL
+       // BOOL       
        BOOLEAN = 28,
+       // bool variables packed as 2-bit values
+       BOOL_PACK = 29,
        // weak reference to other (Memo) instance on the same prefix
-       OBJECT_WEAK_REF = 29,
-       COUNT = 31,
+       OBJECT_WEAK_REF = 30,
+       COUNT = 32,
     
        // invalid / reserved value, never used in objects
        INVALID = std::numeric_limits<std::uint8_t>::max()
@@ -101,12 +103,13 @@ namespace db0::object_model
         DB0_ENUM_VALUE = static_cast<int>(PreStorageClass::DB0_ENUM_VALUE),
         // BOOL
         BOOLEAN = static_cast<int>(PreStorageClass::BOOLEAN),
+        BOOL_PACK = static_cast<int>(PreStorageClass::BOOL_PACK),
         // weak reference to other (Memo) instance on the same prefix
         OBJECT_WEAK_REF = static_cast<int>(PreStorageClass::OBJECT_WEAK_REF),
         // weak reference to other (Memo) instance from a foreign prefix
-        OBJECT_LONG_WEAK_REF = static_cast<int>(PreStorageClass::OBJECT_WEAK_REF) + 1,
+        OBJECT_LONG_WEAK_REF = static_cast<int>(PreStorageClass::COUNT),
         // COUNT used to determine size of the StorageClass associated arrays
-        COUNT = static_cast<int>(PreStorageClass::OBJECT_WEAK_REF) + 2,
+        COUNT = static_cast<int>(PreStorageClass::COUNT) + 1,
         
         // invalid / reserved value, never used in objects
         INVALID = std::numeric_limits<std::uint8_t>::max()
@@ -133,6 +136,8 @@ namespace db0::object_model
     
     // Get storage class / type name for schema reporting purposes
     std::string getTypeName(StorageClass);
+    // @retrun 0 for default fidelity (e.g. 64bit), otherwise the number of bits
+    unsigned int getStorageFidelity(StorageClass);
     
 }
 

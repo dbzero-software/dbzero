@@ -88,4 +88,38 @@ namespace tests
         workspace.close();
     }
     
+    /**
+    TEST_F( ObjectInitializerTest, testMergePackedFields )
+    {   
+        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
+        auto fixture = workspace.getFixture(prefix_name);
+
+        std::vector<char> data(sizeof(Object));
+        std::shared_ptr<Class> mock_class = getTestClass(fixture);
+        auto object_1 = new (data.data()) Object(mock_class);
+        ObjectInitializerManager manager;
+        manager.addInitializer(*object_1, mock_class);
+        auto &cut = *manager.findInitializer(*object_1);
+        
+        std::array<std::uint64, 3> values { 0, 0, 0 };
+        lofi_store<2>::fromValue(values[0]).set(0, 1);
+        lofi_store<2>::fromValue(values[0]).set(1, 1);
+        lofi_store<2>::fromValue(values[0]).set(2, 1);
+        
+        cut.set(0, StorageClass::BOOL_PACK, Value(values[0]));
+        cut.set(1, StorageClass::POOLED_STRING, Value(0));
+        cut.set(0, StorageClass::BOOL_PACK, Value(values[1]));
+        cut.set(0, StorageClass::BOOL_PACK, Value(values[2]));
+        
+        PosVT::Data pos_vt_data;
+        cut.getData(pos_vt_data);
+        // NOTE: there should be 2 elements in pos-vt (all 3 bools packed into one slot)
+        ASSERT_EQ(pos_vt_data.m_types.size(), 2u);
+        ASSERT_EQ(pos_vt_data.m_types[0], StorageClass::BOOL_PACK);
+        ASSERT_EQ(pos_vt_data.m_types[1], StorageClass::POOLED_STRING);
+
+        object_1->~Object();
+        workspace.close();
+    }
+    */
 }

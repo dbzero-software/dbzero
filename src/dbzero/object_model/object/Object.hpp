@@ -254,7 +254,8 @@ namespace db0::object_model
             );
         }
         
-        std::pair<FieldID, bool> findField(const char *name) const;
+        // FieldID, is_init_var, fidelity
+        std::tuple<FieldID, bool, unsigned int> findField(const char *name) const;
         
         // Check if the 2 memo objects are of the same type
         bool sameType(const Object &) const;
