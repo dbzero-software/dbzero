@@ -11,7 +11,7 @@ namespace db0::object_model
     /**
      * The lofi_store is a simple fixed-size array for storing very small objects 
      * such as bool values (2-bit). It also allows allocating  and releasing slots for values
-     * @tparam SizeOf size of a single element (e.g. 2 max is 16)
+     * @tparam SizeOf bit size of a single element (e.g. 2 max is 16)
      */
     template <unsigned int SizeOf> class [[gnu::packed]] lofi_store
     {
@@ -19,6 +19,14 @@ namespace db0::object_model
         // @return the capacity of the store (e.g. 21 for 2-bit elements)
         static constexpr std::size_t size() {
             return 64u / (SizeOf + 1u);
+        }
+        
+        inline std::uint64_t mask(unsigned int index) const 
+        {
+            assert(index < size());
+            constexpr unsigned int stride = SizeOf + 1u; // value bits + occupancy bit
+            constexpr std::uint64_t base_mask = ((std::uint64_t)0x01 << (SizeOf + 1)) - 1;
+            return base_mask << (index * stride);
         }
 
         // check if the element at the specific index is set

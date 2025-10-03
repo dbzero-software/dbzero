@@ -3,6 +3,7 @@
 #include <dbzero/object_model/object/XValuesVector.hpp>
 #include <dbzero/object_model/value/Value.hpp>
 #include <dbzero/object_model/value/XValue.hpp>
+#include <dbzero/object_model/object/lofi_store.hpp>
 
 using namespace std;
 using namespace db0;
@@ -16,6 +17,16 @@ namespace tests
     class XValuesVectorTest: public testing::Test
     {
     public:
+        std::uint64_t getMask(unsigned int offset) {
+            return lofi_store<2>::mask(offset);
+        }
+        
+        Value valueAt(unsigned int offset, std::uint64_t value)
+        {
+            std::uint64_t result;
+            return lofi_store<2>::fromValue(result).set(offset, value);
+            return result;
+        }
     };
     
     TEST_F( XValuesVectorTest, testSetGetRegularTypes )
@@ -40,6 +51,18 @@ namespace tests
         
         ASSERT_FALSE(cut.tryGetAt(7, val));
         ASSERT_FALSE(cut.tryGetAt(1, val));
+    }
+
+    TEST_F( XValuesVectorTest, testSetGetMaskedTypes )
+    {   
+        XValuesVector cut;
+        // use low 2 bits
+        cut.push_back({ 0, StorageClass::INT64, valueAt(0, 1) }, getMask(0));
+        // same index / use bits 2 - 4
+        cut.push_back({ 0, StorageClass::INT64, valueAt(1, 1) }, getMask(1));
+
+        std::pair<StorageClass, Value> val;
+        ASSERT_TRUE(cut.tryGetAt(0, val));
     }
     
 }
