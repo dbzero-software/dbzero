@@ -657,4 +657,27 @@ namespace db0::object_model
         return 0;
     }
     
+    std::pair<std::uint32_t, std::uint32_t> Class::assignSlot(unsigned int fidelity)
+    {
+        if (fidelity == 0) {
+            // just append a new member
+            return { m_members.size().first, 0 };
+        } else {
+            // try allocating into an existing dimension first
+            for (unsigned int index = 0; index < m_fidelities.size(); ++index) {
+                if (m_fidelities[m_fidelities.size() - index - 1].first == fidelity) {
+                    auto at = m_fidelities[m_fidelities.size() - index - 1].second;
+                    auto maybe_offset = m_members.findUnassignedKey(at);
+                    // unallocated slot found
+                    if (maybe_offset) {
+                        return { at, *maybe_offset };
+                    }
+                }
+            }
+            // allocate a new fidelity-specific column
+            m_fidelities.push_back(std::make_pair<std::uint8_t, std::uint32_t>(fidelity, m_members.size().first));
+            return { m_members.size().first, 0 };
+        }
+    }
+    
 }
