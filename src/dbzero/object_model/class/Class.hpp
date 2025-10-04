@@ -111,6 +111,8 @@ namespace db0::object_model
             
             Member(FieldID, unsigned int fidelity, const char *);
             Member(FieldID, unsigned int fidelity, const std::string &);
+            
+            unsigned int getIndex() const;
         };
         
         // Pull existing type
@@ -253,7 +255,7 @@ namespace db0::object_model
         // Get unique class identifier within its fixture
         std::uint32_t fetchUID() const;
         
-        std::optional<Member> tryGetMember(FieldID field_id) const;
+        std::optional<Member> tryGetMember(MemberID) const;
         std::optional<Member> tryGetMember(const char *name) const;
         
     private:
@@ -291,7 +293,7 @@ namespace db0::object_model
         
         // Initialization function
         std::unordered_set<std::string> makeInitVars(const std::vector<std::string> &) const;
-        
+
         // Assign a new field slot with a specified fidelity
         std::pair<std::uint32_t, std::uint32_t> assignSlot(unsigned int fidelity);
     };

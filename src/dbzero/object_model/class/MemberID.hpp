@@ -38,11 +38,18 @@ namespace db0::object_model
                 m_secondary = { field_id, fidelity };
             }
         }
+        
+        void assign(MemberID);
 
         // get the member's primary index
         unsigned int getIndex() const {
             assert(m_primary.first);
             return m_primary.first.getIndex();            
+        }
+
+        std::pair<std::uint32_t, std::uint32_t> getIndexAndOffset() const {
+            assert(m_primary.first);
+            return m_primary.first.getIndexAndOffset();            
         }
     };
     

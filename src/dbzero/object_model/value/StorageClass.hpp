@@ -53,7 +53,7 @@ namespace db0::object_model
        DB0_ENUM_VALUE = 27,
        // BOOL       
        BOOLEAN = 28,
-       // Fidelity-2 packed storage (e.g. 2-bit boolean)
+       // Fidelity-2 packed storage (e.g. 2-bit boolean or None)
        PACK_2 = 29,
        // weak reference to other (Memo) instance on the same prefix
        OBJECT_WEAK_REF = 30,

@@ -96,7 +96,7 @@ namespace db0::object_model
     {
         switch (storage_class) {
             case StorageClass::PACK_2:
-                return 2; // 2 bits per boolean
+                return 2; // 2 bits per boolean or None
             default:
                 return 0; // default fidelity (e.g. 64bit)
         }

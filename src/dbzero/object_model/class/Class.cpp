@@ -160,13 +160,12 @@ namespace db0::object_model
     MemberID Class::addField(const char *name, unsigned int fidelity)
     {
         assert(fidelity < std::numeric_limits<std::uint8_t>::max());
-        assert(m_index.find(name) == m_index.end());
-        bool is_init_var = m_init_vars.find(name) != m_init_vars.end();
+        assert(m_index.find(name) == m_index.end());        
         auto pos = assignSlot(fidelity);
         // reserve the slot
         m_members.set(pos, o_field { getFixture()->getLimitedStringPool(), name });
         m_member_cache.reload(pos);
-        return m_index[name];        
+        return m_index[name].first;
     }
     
     std::pair<MemberID, bool> Class::findField(const char *name) const
@@ -187,22 +186,21 @@ namespace db0::object_model
         return it->second;
     }
     
-    std::optional<Class::Member> Class::tryGetMember(FieldID field_id) const
-    {        
-        auto index = field_id.getIndex();
+    std::optional<Class::Member> Class::tryGetMember(MemberID member_id) const
+    {
         // NOTE: cache might be refreshed if not found at first attempt
-        auto member_ptr = m_member_cache.tryGet({ index, 0 });
+        auto member_ptr = m_member_cache.tryGet(member_id.getIndexAndOffset());
         if (!member_ptr) {
             return {};
         }
         return *member_ptr;
     }
     
-    Class::Member Class::getMember(FieldID field_id) const
+    Class::Member Class::getMember(MemberID member_id) const
     {
-        auto maybe_member = tryGetMember(field_id);
+        auto maybe_member = tryGetMember(member_id);
         if (!maybe_member) {
-            THROWF(db0::InputException) << "Member slot not found: " << field_id.getIndex();
+            THROWF(db0::InputException) << "Member slot not found: " << member_id.getIndex();
         }
         return *maybe_member;
     }
@@ -263,10 +261,15 @@ namespace db0::object_model
         return [this](const Member &member) {
             // this is required before accessing members to prevent segfaults on a defunct object
             auto fixture = getFixture();
-            bool is_init_var = m_init_vars.find(member.m_name) != m_init_vars.end();
-            // FIXME: log
-            // retrieve initial fidelity from storage
-            m_index[member.m_name] = { member.m_field_id, is_init_var, 0 };
+            auto it = m_index.find(member.m_name);
+            if (it == m_index.end()) {
+                bool is_init_var = m_init_vars.find(member.m_name) != m_init_vars.end();
+                m_index[member.m_name] = { member.m_member_id, is_init_var };
+            } else {
+                // extend existing member ID
+                // possibly another fidelity was added
+                it->second.first.assign(member.m_member_id);
+            }
         };
     }
     
@@ -355,8 +358,8 @@ namespace db0::object_model
             return;
         }
 
-        auto [field_id, was_init_var, fidelity] = findField(from_name);
-        if (!field_id) {
+        auto [member_id, was_init_var] = findField(from_name);
+        if (!member_id) {
             // do not raise exception if the "to_name" field already exists (likely double rename attemp)
             if (std::get<0>(findField(to_name))) {
                 return;
@@ -380,6 +383,7 @@ namespace db0::object_model
     void Class::detach() const
     {
         m_members.detach();
+        m_fidelities.detach();
         m_schema.detach();
         super_t::detach();
     }
@@ -399,6 +403,7 @@ namespace db0::object_model
     void Class::commit() const
     {
         m_members.commit();        
+        m_fidelities.commit();
         m_schema.commit();
         super_t::commit();
     }
@@ -410,7 +415,7 @@ namespace db0::object_model
         }
         return this->getAddress() != rhs.getAddress();
     }
-
+    
     bool Class::operator==(const Class &rhs) const
     {
         if (*this->getFixture() != *rhs.getFixture()) {
@@ -634,4 +639,8 @@ namespace db0::object_model
         return Member(FieldID::fromIndex(loc.first), field_name);
     }
 
+    unsigned int Class::Member::getIndex() const {
+        return m_member_id.getIndex();
+    }
+    
 }
