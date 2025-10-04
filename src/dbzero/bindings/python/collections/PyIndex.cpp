@@ -88,9 +88,11 @@ namespace db0::python
     PyObject *tryIndexObject_add(IndexObject *index_obj, PyObject *const *args, Py_ssize_t nargs)
     {
         index_obj->modifyExt().add(args[0], args[1]);
+        // NOTE: we don't need to lock the fixture here, because add() is a buffered operation
+        index_obj->ext().getFixture()->onUpdated();
         Py_RETURN_NONE;
     }
-
+    
     PyObject *PyAPI_IndexObject_add(IndexObject *index_obj, PyObject *const *args, Py_ssize_t nargs)
     {
         if (nargs != 2) {
@@ -105,6 +107,8 @@ namespace db0::python
     PyObject *tryIndexObject_remove(IndexObject *index_obj, PyObject *const *args, Py_ssize_t nargs)
     {
         index_obj->modifyExt().remove(args[0], args[1]);
+        // NOTE: we don't need to lock the fixture here, because remove() is a buffered operation
+        index_obj->ext().getFixture()->onUpdated();
         Py_RETURN_NONE;
     }
 
