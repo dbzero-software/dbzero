@@ -170,19 +170,19 @@ def test_autocommit_tagging(db0_autocommit_fixture):
     assert state3 > state2
 
 
-# @pytest.mark.parametrize("db0_autocommit_fixture", [100], indirect=True)
-# def test_autocommit_tagging_index_operations(db0_autocommit_fixture):
-#     idx = db0.index()
-#     obj = MemoTestClass(123)
-#     db0.commit()
-#     state1 = db0.get_state_num()
+@pytest.mark.parametrize("db0_autocommit_fixture", [100], indirect=True)
+def test_autocommit_index_operations(db0_autocommit_fixture):
+    idx = db0.index()
+    obj = MemoTestClass(123)
+    db0.commit()
+    state1 = db0.get_state_num()
 
-#     idx.add(123, obj)
-#     time.sleep(0.3)
-#     state2 = db0.get_state_num()
-#     assert state2 > state1
+    idx.add(123, obj)
+    time.sleep(0.3)
+    state2 = db0.get_state_num()
+    assert state2 > state1
 
-#     idx.remove(123, obj)
-#     time.sleep(0.3)
-#     state3 = db0.get_state_num()
-#     assert state3 > state2
+    idx.remove(123, obj)
+    time.sleep(0.3)
+    state3 = db0.get_state_num()
+    assert state3 > state2
