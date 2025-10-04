@@ -3,7 +3,7 @@
 #include <dbzero/object_model/LangConfig.hpp>
 #include <dbzero/object_model/object_header.hpp>
 #include <dbzero/object_model/ObjectBase.hpp>
-#include <dbzero/object_model/class/FieldID.hpp>
+#include <dbzero/object_model/class/MemberID.hpp>
 #include <dbzero/workspace/GC0.hpp>
 #include "ValueTable.hpp"
 #include "ObjectInitializer.hpp"
@@ -255,7 +255,7 @@ namespace db0::object_model
         }
         
         // FieldID, is_init_var, fidelity
-        std::tuple<FieldID, bool, unsigned int> findField(const char *name) const;
+        std::pair<MemberID, bool> findField(const char *name) const;
         
         // Check if the 2 memo objects are of the same type
         bool sameType(const Object &) const;
@@ -293,8 +293,8 @@ namespace db0::object_model
         // adjusts to actual type if the type hint is a base class
         void setTypeWithHint(std::shared_ptr<Class> type_hint);
         
-        // Try retrieving member either from DB0 values (initialized) or from the initialization buffer (not initialized yet)        
-        bool tryGetMemberAt(FieldID, bool is_init_var, std::pair<StorageClass, Value> &) const;
+        // Try retrieving member either from values (initialized) or from the initialization buffer (not initialized yet)
+        bool tryGetMemberAt(std::pair<FieldID, unsigned int>, std::pair<StorageClass, Value> &) const;
         bool tryGetMember(const char *field_name, std::pair<StorageClass, Value> &) const;
 
         inline ObjectInitializer *tryGetInitializer() const {

@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <cassert>
+#include <utility>
 
 namespace db0::object_model
 
@@ -14,6 +15,11 @@ namespace db0::object_model
         static constexpr std::uint32_t MAX_OFFSET = 0x40 - 1;
         
         FieldID() = default;
+        FieldID(std::pair<std::uint32_t, std::uint32_t> loc) {
+            assert(loc.second <= MAX_OFFSET);
+            assert(loc.first <= MAX_INDEX);
+            m_value = (loc.first << 6) + loc.second + 1;
+        }
         
         inline operator bool() const {
             return m_value != 0;
@@ -40,12 +46,6 @@ namespace db0::object_model
             return FieldID((index << 6) + offset + 1);
         }
         
-        // get alternative index for low-fidelity types (e.g. bool)
-        inline std::uint32_t getAltIndex() const {
-            assert(m_value);
-            return m_value + 1;
-        }
-
     private:
         std::uint32_t m_value = 0;
         

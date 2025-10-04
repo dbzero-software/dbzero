@@ -242,17 +242,28 @@ namespace db0::object_model
     
     void Object::removePreInit(const char *field_name) const
     {
-        auto &initializer = m_init_manager.getInitializer(*this);        
-        auto &type = initializer.getClass();        
+        auto &initializer = m_init_manager.getInitializer(*this);
+        auto &type = initializer.getClass();
         
-        // find already existing field index
-        auto field_id = std::get<0>(type.findField(field_name));
-        if (!field_id) {
+        // Find an already existing field index
+        auto member_id = std::get<0>(type.findField(field_name));
+        if (!member_id) {
             THROWF(db0::InputException) << "Attribute not found: " << field_name;
         }
         
-        // remove member from the initializer
-        initializer.remove(field_id.getIndex());
+        for (const auto &field_info: member_id) {
+            assert(field_info.first);
+            std::uint64_t mask = 0;
+            auto [index, offset] = field_info.first.getIndexAndOffset();
+            if (field_info.second != 0) {
+                // lo-fi type, prepare mask
+                mask = lofi_store<2>::mask(offset);
+            }
+            // remove member from the initializer, possibly stored as a lo-fi type
+            if (initializer.remove(index, mask)) {
+                break;
+            }
+        }
     }
     
     void Object::setPreInit(const char *field_name, ObjectPtr obj_ptr) const
@@ -269,26 +280,27 @@ namespace db0::object_model
         auto [type_id, storage_class] = recognizeType(*fixture, obj_ptr);
         auto storage_fidelity = getStorageFidelity(storage_class);
         
-        // Find already existing field index
-        auto [field_id, is_init_var, fidelity] = type.findField(field_name);
-        if (!field_id) {
+        // Find an already existing field index
+        auto [member_id, is_init_var] = type.findField(field_name);
+        // NOTE: even if a field already exists we might need to extend its supported fidelities
+        if (!member_id || !member_id.hasFidelity(storage_fidelity)) {
             // update class definition
             // use the default fidelity for the storage class
-            std::tie(field_id, fidelity) = type.addField(field_name, storage_fidelity);
+            member_id = type.addField(field_name, storage_fidelity);
         }
         
         if (storage_fidelity == 0) {
             // register a regular member with the initializer
-            initializer.set(field_id.getIndex(), storage_class, 
+            initializer.set(member_id.get(0).getIndex(), storage_class, 
                 createMember<LangToolkit>(fixture, type_id, storage_class, obj_ptr)
             );
         } else {
             // For now only fidelity == 2 is supported (lo-fi storage)
             assert(storage_fidelity == 2);
-            auto [index, offset] = field_id.getIndexAndOffset();
-            auto value = lofi_store<2>::create(offset, createMember<LangToolkit>(fixture, type_id, storage_class, obj_ptr).m_store);
+            auto [index, offset] = member_id.get(storage_fidelity).getIndexAndOffset();
+            auto value = lofi_store<2>::create(offset, createMember<LangToolkit>(fixture, type_id, storage_class, obj_ptr).m_store);                   
             // register a lo-fi member with the initializer (using mask)
-            initializer.set(field_id.getIndex(), storage_class, value, lofi_store<2>::mask(offset));
+            initializer.set(index, storage_class, value, lofi_store<2>::mask(offset));
         }
     }
     
@@ -302,12 +314,14 @@ namespace db0::object_model
         }
         
         assert(m_type);
-        // find already existing field index
-        auto [field_id, is_init_var, fidelity] = m_type->findField(field_name);
-        if (!field_id) {
+        // Find an already existing field index
+        auto [member_id, is_init_var] = m_type->findField(field_name);
+        if (!member_id) {
             THROWF(db0::InputException) << "Attribute not found: " << field_name;
         }
 
+        throw std::runtime_error("Not implemented");
+        /* FIXME: implement
         if (field_id.getIndex() < (*this)->pos_vt().size()) {
             auto &pos_vt = modify().pos_vt();
             auto old_storage_class = pos_vt.types()[field_id.getIndex()];    
@@ -354,6 +368,7 @@ namespace db0::object_model
         if (!super_t::isModified()) {
             this->_touch();
         } 
+        */
     }
 
     void Object::set(FixtureLock &fixture, const char *field_name, ObjectPtr lang_value)
@@ -375,17 +390,21 @@ namespace db0::object_model
         
         assert(m_type);
         // find already existing field index
-        auto [field_id, is_init_var, fidelity] = m_type->findField(field_name);
-        if (!field_id) {
+        auto [member_id, is_init_var] = m_type->findField(field_name);
+        auto storage_fidelity = getStorageFidelity(storage_class);
+        if (!member_id) {
             // try mutating the class first
-            std::tie(field_id, fidelity) = m_type->addField(field_name, getStorageFidelity(storage_class));
+            member_id = m_type->addField(field_name, storage_fidelity);
         }
         
-        assert(field_id);        
+        assert(member_id);
         // FIXME: value should be destroyed on exception        
         auto value = createMember<LangToolkit>(*fixture, type_id, storage_class, lang_value);        
         // make sure object address is not null
         assert(!(storage_class == StorageClass::OBJECT_REF && value.cast<std::uint64_t>() == 0));
+        // get field ID matching the required storage fidelity
+        auto field_id = member_id.get(storage_fidelity);
+
         if (field_id.getIndex() < (*this)->pos_vt().size()) {
             auto &pos_vt = modify().pos_vt();
             auto old_storage_class = pos_vt.types()[field_id.getIndex()];    
@@ -441,14 +460,14 @@ namespace db0::object_model
         }        
     }
     
-    std::tuple<FieldID, bool, unsigned int> Object::findField(const char *name) const
+    std::pair<MemberID, bool> Object::findField(const char *name) const
     {
         if (isDropped()) {
             // defunct objects should not be accessed
             assert(!isDefunct());
             THROWF(db0::InputException) << "Object does not exist";
         }
-
+        
         auto class_ptr = m_type.get();
         if (!class_ptr) {
             // retrieve class from the initializer
@@ -461,22 +480,46 @@ namespace db0::object_model
     
     bool Object::tryGetMember(const char *field_name, std::pair<StorageClass, Value> &member) const
     {
-        auto [field_id, is_init_var, fidelity] = this->findField(field_name);
-        return tryGetMemberAt(field_id, is_init_var, member);        
+        auto [member_id, is_init_var] = this->findField(field_name);
+        // NOTE: either retrieve member under primary or secondary ID
+        assert(member_id.primary().first);
+        if (tryGetMemberAt(member_id.primary(), member)) {
+            return true;
+        }
+        // the primary slot was not occupied, try secondary
+        if (tryGetMemberAt(member_id.secondary(), member)) {
+            return true;
+        }
+        if (is_init_var) {
+            // report as None even if the field_id has not been assigned yet
+            member = { StorageClass::NONE, Value() };
+            return true;
+        }
+        return false;
     }
     
     std::optional<XValue> Object::tryGetX(const char *field_name) const
     {
-        auto [field_id, is_init_var, fidelity] = this->findField(field_name);
-        if (!field_id) {
+        auto [member_id, is_init_var] = this->findField(field_name);
+        if (!member_id) {
             return std::nullopt;
+        }
+        
+        assert(member_id.primary().first);
+        std::pair<StorageClass, Value> member;
+        if (tryGetMemberAt(member_id.primary(), member)) {
+            return XValue(member_id.primary().first.getIndex(), member.first, member.second);
+        }
+        // the primary slot was not occupied, try secondary
+        if (tryGetMemberAt(member_id.secondary(), member)) {
+            return XValue(member_id.secondary().first.getIndex(), member.first, member.second);
         }
 
-        std::pair<StorageClass, Value> member;
-        if (!tryGetMemberAt(field_id, is_init_var, member)) {
-            return std::nullopt;
+        if (is_init_var) {
+            // report as None even if the field_id has not been assigned yet
+            return XValue(member_id.primary().first.getIndex(), StorageClass::NONE, Value());
         }
-        return XValue(field_id.getIndex(), member.first, member.second);
+        return std::nullopt;
     }
     
     Object::ObjectSharedPtr Object::tryGet(const char *field_name) const
@@ -526,33 +569,21 @@ namespace db0::object_model
         return obj;
     }
 
-    bool Object::tryGetMemberAt(FieldID field_id, bool is_init_var, std::pair<StorageClass, Value> &result) const
+    bool Object::tryGetMemberAt(std::pair<FieldID, unsigned int> field_loc,
+        std::pair<StorageClass, Value> &result) const
     {
-        if (!field_id) {            
-            if (!is_init_var) {
-                return false;
-            }
-            // report as None even if the field_id has not been assigned yet
-            result = { StorageClass::NONE, Value() };
-            return true;
+        if (!field_loc.first) {
+            return false;
         }
-
-        auto index = field_id.getIndex();
+        
+        auto index = field_loc.first.getIndex();
         if (!hasInstance()) {
             // try retrieving from initializer
             auto initializer_ptr = m_init_manager.findInitializer(*this);
             if (!initializer_ptr) {
                 return false;
             }
-            if (initializer_ptr->tryGetAt(index, result)) {
-                return true;
-            }
-            if (!is_init_var) {
-                return false;
-            }
-            // report as None even if the field_id has not been assigned yet
-            result = { StorageClass::NONE, Value() };
-            return true;
+            return initializer_ptr->tryGetAt(index, result);
         }
         
         // retrieve from positionally encoded values
@@ -575,12 +606,7 @@ namespace db0::object_model
             }
         }
 
-        if (!is_init_var) {
-            return false;
-        }
-        // report as None even if the field_id has not been assigned yet
-        result = { StorageClass::NONE, Value() };
-        return true;
+        return false;
     }
     
     db0::swine_ptr<Fixture> Object::tryGetFixture() const
@@ -786,7 +812,12 @@ namespace db0::object_model
         auto &obj_type = this->getType();
         {
             for (unsigned int index = 0;index < (*this)->pos_vt().size(); ++index) {
-                result.insert(obj_type.getMember(FieldID::fromIndex(index)).m_name);
+                auto fidelity = obj_type.getFidelity(index);
+                if (fidelity == 0) {
+                    result.insert(obj_type.getMember(FieldID::fromIndex(index)).m_name);
+                } else {
+                    throw std::runtime_error("Not implemented");
+                }
             }
         }
         
@@ -794,16 +825,28 @@ namespace db0::object_model
         {
             auto &xvalues = (*this)->index_vt().xvalues();
             for (auto &xvalue: xvalues) {
-                result.insert(obj_type.getMember(FieldID::fromIndex(xvalue.getIndex())).m_name);
+                auto index = xvalue.getIndex();
+                auto fidelity = obj_type.getFidelity(index);
+                if (fidelity == 0) {
+                    result.insert(obj_type.getMember(FieldID::fromIndex(index)).m_name);
+                } else {
+                    throw std::runtime_error("Not implemented");
+                }
             }
         }
-
+        
         // Finally, visit kv-index members
         auto kv_index_ptr = tryGetKV_Index();
         if (kv_index_ptr) {
             auto it = kv_index_ptr->beginJoin(1);
             for (;!it.is_end(); ++it) {
-                result.insert(obj_type.getMember(FieldID::fromIndex((*it).getIndex())).m_name);
+                auto index = (*it).getIndex();
+                auto fidelity = obj_type.getFidelity(index);
+                if (fidelity == 0) {
+                    result.insert(obj_type.getMember(FieldID::fromIndex(index)).m_name);
+                } else {
+                    throw std::runtime_error("Not implemented");
+                }
             }
         }
         return result;
@@ -1056,7 +1099,7 @@ namespace db0::object_model
     void Object::addExtRef() const {
         ++m_ext_refs;
     }
-    
+
     void Object::removeExtRef() const
     {
         assert(m_ext_refs > 0);

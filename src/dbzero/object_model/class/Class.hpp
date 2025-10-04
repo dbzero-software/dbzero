@@ -106,7 +106,8 @@ namespace db0::object_model
         
         struct Member
         {
-            MemberID m_member_id;
+            FieldID m_field_id;
+            unsigned int m_fidelity = 0;
             std::string m_name;
             
             Member(FieldID, unsigned int fidelity, const char *);
@@ -139,7 +140,7 @@ namespace db0::object_model
             return m_index.size();
         }
         
-        Member getMember(MemberID) const;
+        Member getMember(FieldID) const;
         Member getMember(const char *name) const;
         
         /**
@@ -198,8 +199,8 @@ namespace db0::object_model
         // get class id (UUID) as an ObjectId type
         ObjectId getClassId() const;
         
-        // @return field name / field index map
-        std::unordered_map<std::string, std::uint32_t> getMembers() const;
+        // @return field name / member ID map
+        std::unordered_map<std::string, MemberID> getMembers() const;
         
         std::shared_ptr<Class> tryGetBaseClass() const;
         // @return base class pointer or nullptr if no base class is defined
@@ -237,6 +238,9 @@ namespace db0::object_model
         
         const VFieldMatrix &getMembersMatrix() const;
         
+        // Get specific slot's fidelity (or 0 if not assigned)
+        unsigned int getFidelity(std::uint32_t index) const;
+
     protected:
         friend class ClassFactory;        
         friend ClassPtr;
@@ -255,7 +259,7 @@ namespace db0::object_model
         // Get unique class identifier within its fixture
         std::uint32_t fetchUID() const;
         
-        std::optional<Member> tryGetMember(MemberID) const;
+        std::optional<Member> tryGetMember(FieldID) const;
         std::optional<Member> tryGetMember(const char *name) const;
         
     private:
@@ -293,7 +297,7 @@ namespace db0::object_model
         
         // Initialization function
         std::unordered_set<std::string> makeInitVars(const std::vector<std::string> &) const;
-
+        
         // Assign a new field slot with a specified fidelity
         std::pair<std::uint32_t, std::uint32_t> assignSlot(unsigned int fidelity);
     };

@@ -22,7 +22,7 @@ namespace db0::object_model
         // Try pulling an existing initialization value from under a specific index
         bool tryGetAt(unsigned int at, std::pair<StorageClass, Value> &) const;
         // Remove all entries under the specified index, use mask for lo-fi types
-        void remove(unsigned int at, std::uint64_t mask = 0);
+        bool remove(unsigned int at, std::uint64_t mask = 0);
         void sortAndMerge();
 
         void clear();

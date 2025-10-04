@@ -49,7 +49,7 @@ namespace db0::object_model
 
         // @param mask required for lo-fi types (bool-pack)
         void set(unsigned int at, StorageClass storage_class, Value value, std::uint64_t mask = 0);
-        void remove(unsigned int at, std::uint64_t mask = 0);
+        bool remove(unsigned int at, std::uint64_t mask = 0);
         
         void setInstanceKey(const char *str_key);
 

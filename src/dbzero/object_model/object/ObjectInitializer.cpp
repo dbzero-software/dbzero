@@ -87,9 +87,9 @@ namespace db0::object_model
     void ObjectInitializer::set(unsigned int at, StorageClass storage_class, Value value, std::uint64_t mask) {
         m_values.push_back({ at, storage_class, value }, mask);
     }
-
-    void ObjectInitializer::remove(unsigned int at, std::uint64_t mask) {
-        m_values.remove(at, mask);
+    
+    bool ObjectInitializer::remove(unsigned int at, std::uint64_t mask) {
+        return m_values.remove(at, mask);
     }
 
     bool ObjectInitializer::tryGetAt(unsigned int at, std::pair<StorageClass, Value> &result) const {

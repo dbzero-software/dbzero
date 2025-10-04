@@ -161,14 +161,14 @@ namespace db0::object_model
         }
     }
     
-    void XValuesVector::remove(unsigned int at, std::uint64_t mask)
+    bool XValuesVector::remove(unsigned int at, std::uint64_t mask)
     {
         sortAndMerge();
         auto it_end = begin() + m_sorted_size;
         auto it = std::lower_bound(begin(), it_end, at);
         if (it == it_end || it->getIndex() != at) {
             // element not found
-            return;
+            return false;
         }
 
         if (mask == 0) {
@@ -177,6 +177,10 @@ namespace db0::object_model
             --m_sorted_size;
         } else {
             // lo-fi type, clear bits indicated by the mask
+            if ((it->m_value.m_store & mask) == 0) {
+                // nothing stored under the mask
+                return false;
+            }
             it->m_value.m_store &= ~mask;
             // if the value is now zeroed then remove the entire element
             if (it->m_value.m_store == 0) {
@@ -184,6 +188,7 @@ namespace db0::object_model
                 --m_sorted_size;
             }
         }
+        return true;
     }
     
     void XValuesVector::clear()

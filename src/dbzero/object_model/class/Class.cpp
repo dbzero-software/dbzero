@@ -71,13 +71,15 @@ namespace db0::object_model
     }
     
     Class::Member::Member(FieldID field_id, unsigned int fidelity, const char *name)
-        : m_member_id(field_id, fidelity)
+        : m_field_id(field_id)
+        , m_fidelity(fidelity)
         , m_name(name)
     {
     }
     
     Class::Member::Member(FieldID field_id, unsigned int fidelity, const std::string &name)
-        : m_member_id(field_id, fidelity)
+        : m_field_id(field_id)
+        , m_fidelity(fidelity)
         , m_name(name)
     {
     }
@@ -186,21 +188,21 @@ namespace db0::object_model
         return it->second;
     }
     
-    std::optional<Class::Member> Class::tryGetMember(MemberID member_id) const
+    std::optional<Class::Member> Class::tryGetMember(FieldID field_id) const
     {
         // NOTE: cache might be refreshed if not found at first attempt
-        auto member_ptr = m_member_cache.tryGet(member_id.getIndexAndOffset());
+        auto member_ptr = m_member_cache.tryGet(field_id.getIndexAndOffset());
         if (!member_ptr) {
             return {};
         }
         return *member_ptr;
     }
-    
-    Class::Member Class::getMember(MemberID member_id) const
+
+    Class::Member Class::getMember(FieldID field_id) const
     {
-        auto maybe_member = tryGetMember(member_id);
+        auto maybe_member = tryGetMember(field_id);
         if (!maybe_member) {
-            THROWF(db0::InputException) << "Member slot not found: " << member_id.getIndex();
+            THROWF(db0::InputException) << "Member slot not found: " << field_id.getIndex();
         }
         return *maybe_member;
     }
@@ -211,7 +213,7 @@ namespace db0::object_model
         if (it == m_index.end()) {
             return {};
         }
-        return getMember(std::get<0>(it->second));
+        return getMember(std::get<0>(it->second).primary().first);
     }
     
     Class::Member Class::getMember(const char *name) const
@@ -264,11 +266,12 @@ namespace db0::object_model
             auto it = m_index.find(member.m_name);
             if (it == m_index.end()) {
                 bool is_init_var = m_init_vars.find(member.m_name) != m_init_vars.end();
-                m_index[member.m_name] = { member.m_member_id, is_init_var };
+                auto member_id = MemberID(member.m_field_id, member.m_fidelity);
+                m_index[member.m_name] = { member_id, is_init_var };
             } else {
                 // extend existing member ID
                 // possibly another fidelity was added
-                it->second.first.assign(member.m_member_id);
+                it->second.first.assign(member.m_field_id, member.m_fidelity);
             }
         };
     }
@@ -366,18 +369,19 @@ namespace db0::object_model
             }
             THROWF(db0::InputException) << "Field " << from_name << " not found in class " << getName();
         }
-
+        
         // 1. Update in fields matrix
         auto &string_pool = getFixture()->getLimitedStringPool();
-        // unreference old name in the string pool
-        string_pool.unRef(m_members.get({ field_id.getIndex(), 0 }).m_name);
-        m_members.modifyItem({ field_id.getIndex(), 0}).m_name = string_pool.addRef(to_name);
-        // 2. Update in member's cache
-        m_member_cache.reload({ field_id.getIndex(), 0 });
-        // 3. Update in the in-memory index
+        // 2. Update in the in-memory index
         m_index.erase(from_name);
-        auto is_init_var = m_init_vars.find(to_name) != m_init_vars.end();
-        m_index[to_name] = { field_id, is_init_var, fidelity };
+        // unreference old name in the string pool
+        for (auto &field_info: member_id) {
+            auto loc = field_info.first.getIndexAndOffset();
+            string_pool.unRef(m_members.get(loc).m_name);
+            m_members.modifyItem(loc).m_name = string_pool.addRef(to_name);
+            // 3. Update in member's cache
+            m_member_cache.reload(loc);
+        }
     }
     
     void Class::detach() const
@@ -485,12 +489,12 @@ namespace db0::object_model
         };
     }
     
-    std::unordered_map<std::string, std::uint32_t> Class::getMembers() const
+    std::unordered_map<std::string, MemberID> Class::getMembers() const
     {              
         m_member_cache.refresh();
-        std::unordered_map<std::string, std::uint32_t> result;
+        std::unordered_map<std::string, MemberID> result;
         for (auto &item: m_index) {
-            result[item.first] = std::get<0>(item.second).getIndex();
+            result[item.first] = std::get<0>(item.second);
         }
 
         return result;
@@ -541,15 +545,14 @@ namespace db0::object_model
         const std::vector<SchemaTypeId> &all_types)> callback) const
     {
         m_member_cache.refresh();
-        for (auto it = m_member_cache.cbegin(), end = m_member_cache.cend(); it != end; ++it) {
-            auto &member = *it;
+        for (auto &item: m_index) {            
             try {
-                callback(member.m_name, m_schema.getPrimaryType(member.m_field_id), 
-                    m_schema.getAllTypes(member.m_field_id)
-                );
+                auto member_id = item.second.first;
+                auto primary_id = member_id.primary().first;
+                callback(item.first, m_schema.getPrimaryType(primary_id), m_schema.getAllTypes(primary_id));
             } catch (const db0::InputException &) {
                 // report as UNKNOWN type if the field ID is not found in the schema
-                callback(member.m_name, SchemaTypeId::UNDEFINED, {});
+                callback(item.first, SchemaTypeId::UNDEFINED, {});
             }
         }
     }
@@ -633,14 +636,25 @@ namespace db0::object_model
     {
     }
     
-    Class::Member Class::MemberAdapter::operator()(std::pair<std::uint32_t, std::uint32_t> loc, const o_field &field) const 
+    Class::Member Class::MemberAdapter::operator()(std::pair<std::uint32_t, std::uint32_t> loc, const o_field &field) const
     {
         auto field_name = m_class.get().getFixture()->getLimitedStringPool().fetch(field.m_name);
-        return Member(FieldID::fromIndex(loc.first), field_name);
+        return { FieldID(loc), m_class.get().getFidelity(loc.first), field_name };
+    }
+    
+    unsigned int Class::Member::getIndex() const {
+        return m_field_id.getIndex();
     }
 
-    unsigned int Class::Member::getIndex() const {
-        return m_member_id.getIndex();
+    unsigned int Class::getFidelity(std::uint32_t index) const
+    {
+        for (auto &item: m_fidelities) {
+            if (item.first == index) {
+                return item.second;
+            }
+        }
+        // the default fidelity is 0
+        return 0;
     }
     
 }
