@@ -243,6 +243,15 @@ namespace db0
             }
         }
         
+        void operator=(const swine_ptr<T, RefCountT> &other)
+        {
+            this->~weak_swine_ptr();
+            m_ptr = other.get();
+            if (m_ptr != nullptr) {
+                swine_ptr<T, RefCountT>::take_weak(m_ptr);
+            }
+        }
+
         // is default operator (aka NOT initialized)
         bool operator!() const {
             return m_ptr == nullptr;

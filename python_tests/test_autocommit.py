@@ -150,3 +150,39 @@ def test_autocommit_config(db0_fixture):
     db0.close()
     with pytest.raises(Exception):
         cfg = db0.get_config()
+
+
+@pytest.mark.parametrize("db0_autocommit_fixture", [100], indirect=True)
+def test_autocommit_tagging(db0_autocommit_fixture):
+    # ISSUE: https://github.com/wskozlowski/dbzero_ce/issues/435
+    obj = MemoTestClass(123)
+    db0.commit()
+    state1 = db0.get_state_num()
+
+    db0.tags(obj).add("some_tag")
+    time.sleep(0.3)
+    state2 = db0.get_state_num()
+    assert state2 > state1
+
+    db0.tags(obj).remove("some_tag")
+    time.sleep(0.3)
+    state3 = db0.get_state_num()
+    assert state3 > state2
+
+
+# @pytest.mark.parametrize("db0_autocommit_fixture", [100], indirect=True)
+# def test_autocommit_tagging_index_operations(db0_autocommit_fixture):
+#     idx = db0.index()
+#     obj = MemoTestClass(123)
+#     db0.commit()
+#     state1 = db0.get_state_num()
+
+#     idx.add(123, obj)
+#     time.sleep(0.3)
+#     state2 = db0.get_state_num()
+#     assert state2 > state1
+
+#     idx.remove(123, obj)
+#     time.sleep(0.3)
+#     state3 = db0.get_state_num()
+#     assert state3 > state2

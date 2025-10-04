@@ -12,10 +12,12 @@ namespace db0::object_model
         , m_info_vec_ptr((nargs > 1) ? (new ObjectInfo[nargs - 1]) : nullptr)
         , m_info_vec_size(nargs - 1)
         , m_access_mode(m_info.m_access_mode)
+        , m_fixtures(m_info.getFixture())
     {
         assert(nargs > 0);
         for (std::size_t i = 1; i < nargs; ++i) {
             m_info_vec_ptr[i - 1] = ObjectInfo(memo_ptr[i]);
+            m_fixtures.add(m_info_vec_ptr[i - 1].getFixture());
             if (m_info_vec_ptr[i - 1].m_access_mode != AccessType::READ_WRITE) {
                 m_access_mode = AccessType::READ_ONLY;                
             }            
@@ -90,7 +92,8 @@ namespace db0::object_model
         m_info.add(args, nargs);
         for (std::size_t i = 0; i < m_info_vec_size; ++i) {
             m_info_vec_ptr[i].add(args, nargs);
-        }        
+        }
+        onUpdated(); 
     }
     
     void ObjectTagManager::remove(ObjectPtr const *args, Py_ssize_t nargs)
@@ -106,6 +109,25 @@ namespace db0::object_model
         for (std::size_t i = 0; i < m_info_vec_size; ++i) {
             m_info_vec_ptr[i].remove(args, nargs);
         }        
+        onUpdated();
     }
     
+    db0::swine_ptr<Fixture> ObjectTagManager::ObjectInfo::getFixture() const {
+        return m_object_ptr ? m_object_ptr->getFixture() : db0::swine_ptr<Fixture>();
+    }
+ 
+    void ObjectTagManager::onUpdated()
+    {
+        if (m_on_updated) {
+            return;
+        }
+        m_on_updated = true;
+        for (std::size_t i = 0; i < m_fixtures.size(); ++i) {
+            auto fx = m_fixtures[i].lock();
+            if (fx) {
+                fx->onUpdated();
+            }
+        }
+    }
+
 }
