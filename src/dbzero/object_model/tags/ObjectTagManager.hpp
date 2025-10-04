@@ -3,6 +3,7 @@
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/object_model/tags/TagIndex.hpp>
 #include <dbzero/core/memory/AccessOptions.hpp>
+#include <dbzero/workspace/WeakFixtureVector.hpp>
 
 namespace db0::object_model
 
@@ -38,7 +39,6 @@ namespace db0::object_model
         static ObjectTagManager *makeNew(void *at_ptr, ObjectPtr const *memo_ptr, std::size_t nargs);
 
     private:
-    
         // Memo object to be assigned tags to (language specific)
         struct ObjectInfo
         {
@@ -55,8 +55,10 @@ namespace db0::object_model
 
             void add(ObjectPtr const *args, Py_ssize_t nargs);
             void remove(ObjectPtr const *args, Py_ssize_t nargs);
+            
+            db0::swine_ptr<Fixture> getFixture() const;
         };
-
+        
         const bool m_empty = false;
         // first object's info
         ObjectInfo m_info;
@@ -64,6 +66,11 @@ namespace db0::object_model
         ObjectInfo *m_info_vec_ptr;
         std::size_t m_info_vec_size = 0;
         AccessType m_access_mode;
+        // fixtures of the tagged objects (to mark as updated)
+        db0::WeakFixtureVector m_fixtures;
+        bool m_on_updated = false;
+        
+        void onUpdated();
     };
     
 }
