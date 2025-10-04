@@ -295,8 +295,8 @@ namespace db0::object_model
         
         // Try retrieving member either from values (initialized) or from the initialization buffer (not initialized yet)
         bool tryGetMemberAt(std::pair<FieldID, unsigned int>, std::pair<StorageClass, Value> &) const;
-        bool tryGetMember(const char *field_name, std::pair<StorageClass, Value> &) const;
-
+        FieldID tryGetMember(const char *field_name, std::pair<StorageClass, Value> &) const;
+        
         inline ObjectInitializer *tryGetInitializer() const {
             return m_type ? static_cast<ObjectInitializer*>(nullptr) : &m_init_manager.getInitializer(*this);
         }

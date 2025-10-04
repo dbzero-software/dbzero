@@ -478,24 +478,24 @@ namespace db0::object_model
         return class_ptr->findField(name);
     }
     
-    bool Object::tryGetMember(const char *field_name, std::pair<StorageClass, Value> &member) const
+    FieldID Object::tryGetMember(const char *field_name, std::pair<StorageClass, Value> &member) const
     {
         auto [member_id, is_init_var] = this->findField(field_name);
         // NOTE: either retrieve member under primary or secondary ID
         assert(member_id.primary().first);
         if (tryGetMemberAt(member_id.primary(), member)) {
-            return true;
+            return member_id.primary().first;
         }
         // the primary slot was not occupied, try secondary
         if (tryGetMemberAt(member_id.secondary(), member)) {
-            return true;
+            return member_id.secondary().first;
         }
         if (is_init_var) {
             // report as None even if the field_id has not been assigned yet
             member = { StorageClass::NONE, Value() };
-            return true;
+            return member_id.primary().first;
         }
-        return false;
+        return {};
     }
     
     std::optional<XValue> Object::tryGetX(const char *field_name) const
@@ -525,7 +525,8 @@ namespace db0::object_model
     Object::ObjectSharedPtr Object::tryGet(const char *field_name) const
     {
         std::pair<StorageClass, Value> member;
-        if (!tryGetMember(field_name, member)) {
+        auto field_id = tryGetMember(field_name, member);
+        if (!field_id) {
             return nullptr;
         }
         
@@ -534,15 +535,21 @@ namespace db0::object_model
         if (member.first == StorageClass::UNDEFINED) {
             return nullptr;
         }
-        return unloadMember<LangToolkit>(fixture, member.first, member.second, field_name);
+        
+        // NOTE: offset is required for lo-fi members
+        return unloadMember<LangToolkit>(
+            fixture, member.first, member.second, field_id.getOffset(), field_name
+        );
     }
     
     Object::ObjectSharedPtr Object::tryGetAs(const char *field_name, TypeObjectPtr lang_type) const
     {
-        std::pair<StorageClass, Value> member;
-        if (!tryGetMember(field_name, member)) {
+        std::pair<StorageClass, Value> member;        
+        auto field_id = !tryGetMember(field_name, member);
+        if (!field_id) {
             return nullptr;
         }
+
         auto fixture = this->getFixture();
         if (member.first == StorageClass::OBJECT_REF) {
             auto &class_factory = getClassFactory(*fixture);
@@ -553,8 +560,11 @@ namespace db0::object_model
         if (member.first == StorageClass::UNDEFINED) {
             return nullptr;
         }
-                
-        return unloadMember<LangToolkit>(fixture, member.first, member.second, field_name);
+
+        // NOTE: offset is required for lo-fi members
+        return unloadMember<LangToolkit>(
+            fixture, member.first, member.second, field_id.getOffset(), field_name
+        );
     }
     
     Object::ObjectSharedPtr Object::get(const char *field_name) const

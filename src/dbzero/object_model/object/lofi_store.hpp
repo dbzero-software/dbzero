@@ -43,9 +43,11 @@ namespace db0::object_model
         static lofi_store<SizeOf> &fromValue(std::uint64_t &value) {
             return reinterpret_cast<lofi_store<SizeOf>&>(value);
         }
-
+        
         // Create value with a single element set
         static std::uint64_t create(unsigned int at, std::uint64_t value);
+        // Unload element at the specific index and return its value
+        static std::uint32_t unload(unsigned int at, std::uint64_t value);
 
     private:
         std::uint64_t m_data = 0;

@@ -162,8 +162,10 @@ namespace db0::object_model
     MemberID Class::addField(const char *name, unsigned int fidelity)
     {
         assert(fidelity < std::numeric_limits<std::uint8_t>::max());
-        assert(m_index.find(name) == m_index.end());        
+        assert(m_index.find(name) == m_index.end());
         auto pos = assignSlot(fidelity);
+        // FIXME: log
+        std::cout << "Adding field " << name << " at " << pos.first << "," << pos.second << " fidelity = " << fidelity << std::endl;
         // reserve the slot
         m_members.set(pos, o_field { getFixture()->getLimitedStringPool(), name });
         m_member_cache.reload(pos);
@@ -264,6 +266,8 @@ namespace db0::object_model
             // this is required before accessing members to prevent segfaults on a defunct object
             auto fixture = getFixture();
             auto it = m_index.find(member.m_name);
+            // FIXME: log
+            std::cout << "Refresh callback for: " << member.m_name << " at " << member.m_field_id.getIndex() << " fidelity = " << member.m_fidelity << std::endl;
             if (it == m_index.end()) {
                 bool is_init_var = m_init_vars.find(member.m_name) != m_init_vars.end();
                 auto member_id = MemberID(member.m_field_id, member.m_fidelity);
@@ -645,12 +649,12 @@ namespace db0::object_model
     unsigned int Class::Member::getIndex() const {
         return m_field_id.getIndex();
     }
-
+    
     unsigned int Class::getFidelity(std::uint32_t index) const
     {
         for (auto &item: m_fidelities) {
-            if (item.first == index) {
-                return item.second;
+            if (item.second == index) {
+                return item.first;
             }
         }
         // the default fidelity is 0

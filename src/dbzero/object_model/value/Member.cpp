@@ -358,7 +358,7 @@ namespace db0::object_model
     
     // STRING_REF specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::STRING_REF, PyToolkit>(
-        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
+        db0::swine_ptr<Fixture> &fixture, Value value, unsigned int, const char *)
     {
         db0::v_object<db0::o_string> string_ref(fixture->myPtr(value.asAddress()));
         auto str_ptr = string_ref->get();
@@ -371,21 +371,21 @@ namespace db0::object_model
     
     // INT64 specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::INT64, PyToolkit>(
-        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
+        db0::swine_ptr<Fixture> &fixture, Value value, unsigned int, const char *)
     {
         return Py_OWN(PyLong_FromLong(value.cast<std::int64_t>()));
     }
     
     // FLOAT specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::FP_NUMERIC64, PyToolkit>(
-        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
+        db0::swine_ptr<Fixture> &fixture, Value value, unsigned int, const char *)
     {
         return Py_OWN(PyFloat_FromDouble(value.cast<double>()));
     }
 
     // OBJECT_REF specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::OBJECT_REF, PyToolkit>(
-        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
+        db0::swine_ptr<Fixture> &fixture, Value value, unsigned int, const char *)
     {
         auto &class_factory = fixture->template get<ClassFactory>();
         return PyToolkit::unloadObject(fixture, value.asAddress(), class_factory);
@@ -393,35 +393,35 @@ namespace db0::object_model
 
     // DB0_LIST specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DB0_LIST, PyToolkit>(
-        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
+        db0::swine_ptr<Fixture> &fixture, Value value, unsigned int, const char *)
     {
         return PyToolkit::unloadList(fixture, value.asAddress());
     }
     
     // DB0_INDEX specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DB0_INDEX, PyToolkit>(
-        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
+        db0::swine_ptr<Fixture> &fixture, Value value, unsigned int, const char *)
     {
         return PyToolkit::unloadIndex(fixture, value.asAddress());
     }
 
     // DB0_SET specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DB0_SET, PyToolkit>(
-        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
+        db0::swine_ptr<Fixture> &fixture, Value value, unsigned int, const char *)
     {
         return PyToolkit::unloadSet(fixture, value.asAddress());
     }
     
     // DB0_DICT specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DB0_DICT, PyToolkit>(
-        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
+        db0::swine_ptr<Fixture> &fixture, Value value, unsigned int, const char *)
     {
         return PyToolkit::unloadDict(fixture, value.asAddress());
     }
 
     // BYTES specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DB0_BYTES, PyToolkit>(
-        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
+        db0::swine_ptr<Fixture> &fixture, Value value, unsigned int, const char *)
     {
         db0::v_object<db0::o_binary> bytes = fixture->myPtr(value.asAddress());
         auto bytes_ptr = bytes->getBuffer();
@@ -434,7 +434,7 @@ namespace db0::object_model
     
     // DATETIME specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DATETIME, PyToolkit>(
-        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
+        db0::swine_ptr<Fixture> &fixture, Value value, unsigned int, const char *)
     {
         auto result = Py_OWN(db0::python::uint64ToPyDatetime(value.cast<std::uint64_t>()));
         if (!result) {
@@ -445,7 +445,7 @@ namespace db0::object_model
 
     // DATETIME with TZ specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DATETIME_TZ, PyToolkit>(
-        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
+        db0::swine_ptr<Fixture> &fixture, Value value, unsigned int, const char *)
     {
         auto result = Py_OWN(db0::python::uint64ToPyDatetimeWithTZ(value.cast<std::uint64_t>()));
         if (!result) {
@@ -456,7 +456,7 @@ namespace db0::object_model
 
     // DATE specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DATE, PyToolkit>(
-        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
+        db0::swine_ptr<Fixture> &fixture, Value value, unsigned int, const char *)
     {
         auto result = Py_OWN(db0::python::uint64ToPyDate(value.cast<std::uint64_t>()));
         if (!result) {
@@ -467,7 +467,7 @@ namespace db0::object_model
 
     // Time specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::TIME, PyToolkit>(
-        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
+        db0::swine_ptr<Fixture> &fixture, Value value, unsigned int, const char *)
     {
         auto result = Py_OWN(db0::python::uint64ToPyTime(value.cast<std::uint64_t>()));
         if (!result) {
@@ -478,7 +478,7 @@ namespace db0::object_model
 
     // Time with Timezone specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::TIME_TZ, PyToolkit>(
-        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
+        db0::swine_ptr<Fixture> &fixture, Value value, unsigned int, const char *)
     {
         auto result = Py_OWN(db0::python::uint64ToPyTimeWithTz(value.cast<std::uint64_t>()));
         if (!result) {
@@ -489,7 +489,7 @@ namespace db0::object_model
 
     // DECIMAL specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DECIMAL, PyToolkit>(
-        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
+        db0::swine_ptr<Fixture> &fixture, Value value, unsigned int, const char *)
     {
         auto result = Py_OWN(db0::python::uint64ToPyDecimal(value.cast<std::uint64_t>()));
         if (!result) {
@@ -497,24 +497,24 @@ namespace db0::object_model
         }
         return result;
     }
-
+    
     // NONE specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::NONE, PyToolkit>(
-        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
+        db0::swine_ptr<Fixture> &fixture, Value value, unsigned int, const char *)
     {
         Py_RETURN_NONE;
     }
     
     // DB0_TUPLE specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DB0_TUPLE, PyToolkit>(
-        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
+        db0::swine_ptr<Fixture> &fixture, Value value, unsigned int, const char *)
     {
         return PyToolkit::unloadTuple(fixture, value.asAddress());
     }
 
     // DB0_SERIALIZED specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DB0_SERIALIZED, PyToolkit>(
-        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
+        db0::swine_ptr<Fixture> &fixture, Value value, unsigned int, const char *)
     {
         db0::v_object<db0::o_binary> bytes = fixture->myPtr(value.asAddress());
         std::vector<std::byte> buffer;
@@ -532,7 +532,7 @@ namespace db0::object_model
     
     // ENUM value specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DB0_ENUM_VALUE, PyToolkit>(
-        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
+        db0::swine_ptr<Fixture> &fixture, Value value, unsigned int, const char *)
     {
         auto &enum_factory = fixture->get<EnumFactory>();
         auto enum_value_uid = EnumValue_UID(value.cast<std::uint64_t>());
@@ -541,21 +541,21 @@ namespace db0::object_model
     
     // ENUM value specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::BOOLEAN, PyToolkit>(
-        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
+        db0::swine_ptr<Fixture> &fixture, Value value, unsigned int, const char *)
     {
          return Py_OWN(db0::python::PyBool_fromBool(value.cast<std::uint64_t>()));
     }
     
     // DB0_BYTES_ARRAY specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DB0_BYTES_ARRAY, PyToolkit>(
-        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
+        db0::swine_ptr<Fixture> &fixture, Value value, unsigned int, const char *)
     {
         return PyToolkit::unloadByteArray(fixture, value.asAddress());
     }
     
     // OBJECT_WEAK_REF
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::OBJECT_WEAK_REF, PyToolkit>(
-        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
+        db0::swine_ptr<Fixture> &fixture, Value value, unsigned int, const char *)
     {
         auto address = value.asUniqueAddress();
         // NOTE: instance_id not validated since it's a trusted reference
@@ -569,7 +569,7 @@ namespace db0::object_model
     
     // OBJECT_LONG_WEAK_REF
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::OBJECT_LONG_WEAK_REF, PyToolkit>(
-        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
+        db0::swine_ptr<Fixture> &fixture, Value value, unsigned int, const char *)
     {
         LongWeakRef weak_ref(fixture, value.asAddress());
         auto other_fixture = fixture->getWorkspace().getFixture(weak_ref->m_fixture_uuid);
@@ -585,7 +585,7 @@ namespace db0::object_model
     
     // CLASS specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DB0_CLASS, PyToolkit>(
-        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
+        db0::swine_ptr<Fixture> &fixture, Value value, unsigned int, const char *)
     {
         auto &class_factory = fixture->get<ClassFactory>();
         auto class_item = class_factory.getTypeByAddr(value.asUniqueAddress().getAddress());
@@ -593,8 +593,16 @@ namespace db0::object_model
         return PyToolkit::getTypeManager().getLangObject(lang_type.get());
     }
     
+    // PACK-2 specialization
+    template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::PACK_2, PyToolkit>(
+        db0::swine_ptr<Fixture> &fixture, Value value, unsigned int offset, const char *)
+    {
+        auto member_value = lofi_store<2>::unload(offset, value.cast<std::uint64_t>());
+        return PyToolkit::getTypeManager().getLangConstant(member_value);
+    }
+
     template <> void registerUnloadMemberFunctions<PyToolkit>(
-        std::vector<typename PyToolkit::ObjectSharedPtr (*)(db0::swine_ptr<Fixture> &, Value, const char *)> &functions)
+        std::vector<typename PyToolkit::ObjectSharedPtr (*)(db0::swine_ptr<Fixture> &, Value, unsigned int, const char *)> &functions)
     {
         functions.resize(static_cast<int>(StorageClass::COUNT));
         std::fill(functions.begin(), functions.end(), nullptr);
@@ -621,7 +629,8 @@ namespace db0::object_model
         functions[static_cast<int>(StorageClass::BOOLEAN)] = unloadMember<StorageClass::BOOLEAN, PyToolkit>;
         functions[static_cast<int>(StorageClass::DB0_BYTES_ARRAY)] = unloadMember<StorageClass::DB0_BYTES_ARRAY, PyToolkit>;
         functions[static_cast<int>(StorageClass::OBJECT_WEAK_REF)] = unloadMember<StorageClass::OBJECT_WEAK_REF, PyToolkit>;
-        functions[static_cast<int>(StorageClass::OBJECT_LONG_WEAK_REF)] = unloadMember<StorageClass::OBJECT_LONG_WEAK_REF, PyToolkit>;        
+        functions[static_cast<int>(StorageClass::OBJECT_LONG_WEAK_REF)] = unloadMember<StorageClass::OBJECT_LONG_WEAK_REF, PyToolkit>;
+        functions[static_cast<int>(StorageClass::PACK_2)] = unloadMember<StorageClass::PACK_2, PyToolkit>;
     }
     
     template <typename T, typename LangToolkit>
