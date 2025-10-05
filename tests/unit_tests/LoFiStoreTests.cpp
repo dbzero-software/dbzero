@@ -53,5 +53,5 @@ namespace tests
         ASSERT_EQ(lofi_store<2>::mask(1), 0x38u);
         ASSERT_EQ(lofi_store<2>::mask(2), 0x1C0u);
     }
-    
+        
 }

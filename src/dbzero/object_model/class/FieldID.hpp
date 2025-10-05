@@ -31,6 +31,11 @@ namespace db0::object_model
             return (m_value - 1) >> 6;
         }
 
+        inline std::uint32_t getOffset() const {
+            assert(m_value);
+            return (m_value - 1) & 0x3F;
+        }
+        
         // unpack to index and offset
         inline std::pair<std::uint32_t, std::uint32_t> getIndexAndOffset() const {
             assert(m_value);

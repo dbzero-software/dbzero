@@ -112,7 +112,7 @@ class MemoTestThreeParamsClass:
     def __init__(self, value_1, value_2, value_3):  
         self.value_1 = value_1
         self.value_2 = value_2
-        self.value_3 = value_3     
+        self.value_3 = value_3
 
 
 @db0.memo
@@ -181,3 +181,11 @@ class MemoClassForTags:
 class MemoNoDefTags:
     def __init__(self, value):
         self.value = value
+
+
+@db0.memo
+class MemoAnyAttrs:
+    def __init__(self, **kwargs):
+        # assign from kwargs
+        for key, value in kwargs.items():
+            setattr(self, key, value)

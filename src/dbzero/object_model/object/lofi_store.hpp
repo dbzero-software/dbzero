@@ -40,14 +40,13 @@ namespace db0::object_model
         // add a new element and return its index (must not be full)
         unsigned int add(std::uint64_t value);
         
-        static lofi_store<SizeOf> &fromValue(std::uint64_t &value) {
+        template <typename ValueT> static lofi_store<SizeOf> &fromValue(ValueT &value) {
+            static_assert(sizeof(ValueT) == sizeof(lofi_store<SizeOf> ), "ValueT must be 64-bit");
             return reinterpret_cast<lofi_store<SizeOf>&>(value);
         }
         
         // Create value with a single element set
         static std::uint64_t create(unsigned int at, std::uint64_t value);
-        // Unload element at the specific index and return its value
-        static std::uint32_t unload(unsigned int at, std::uint64_t value);
 
     private:
         std::uint64_t m_data = 0;
