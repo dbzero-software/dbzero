@@ -163,8 +163,6 @@ namespace db0::object_model
     {
         assert(fidelity < std::numeric_limits<std::uint8_t>::max());        
         auto pos = assignSlot(fidelity);
-        // FIXME: log
-        std::cout << "Adding field " << name << " at " << pos.first << "," << pos.second << " fidelity = " << fidelity << std::endl;
         // reserve the slot
         m_members.set(pos, o_field { getFixture()->getLimitedStringPool(), name });
         m_member_cache.reload(pos);
@@ -265,8 +263,6 @@ namespace db0::object_model
             // this is required before accessing members to prevent segfaults on a defunct object
             auto fixture = getFixture();
             auto it = m_index.find(member.m_name);
-            // FIXME: log
-            std::cout << "Refresh callback for: " << member.m_name << " at " << member.m_field_id.getIndex() << " fidelity = " << member.m_fidelity << std::endl;
             if (it == m_index.end()) {
                 bool is_init_var = m_init_vars.find(member.m_name) != m_init_vars.end();
                 auto member_id = MemberID(member.m_field_id, member.m_fidelity);

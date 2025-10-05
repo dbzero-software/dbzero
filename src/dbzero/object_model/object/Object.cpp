@@ -320,57 +320,21 @@ namespace db0::object_model
             THROWF(db0::InputException) << "Attribute not found: " << field_name;
         }
 
-        throw std::runtime_error("Not implemented");
-        /* FIXME: implement
-        if (field_id.getIndex() < (*this)->pos_vt().size()) {
-            auto &pos_vt = modify().pos_vt();
-            auto old_storage_class = pos_vt.types()[field_id.getIndex()];    
-            unrefMember(*fixture, old_storage_class, pos_vt.values()[field_id.getIndex()]);
-            // mark member as deleted by assigning UNDEFINED storage class
-            pos_vt.set(field_id.getIndex(), StorageClass::UNDEFINED, {});
-            m_type->removeFromSchema(field_id, old_storage_class);
-            return;
+        unsigned int pos = 0;
+        auto [field_info, loc_ptr] = tryGetMember(member_id, pos);
+        if (!field_info.first) {
+            THROWF(db0::InputException) << "Attribute not found: " << field_name;
         }
 
-        // try updating field in the index-vt
-        unsigned int index_vt_pos;
-        if ((*this)->index_vt().find(field_id.getIndex(), index_vt_pos)) {
-            auto &index_vt = modify().index_vt();
-            auto old_storage_class = index_vt.xvalues()[index_vt_pos].m_type;
-            unrefMember(*fixture, index_vt.xvalues()[index_vt_pos]);
-            // mark member as deleted by assigning UNDEFINED storage class
-            index_vt.set(index_vt_pos, StorageClass::UNDEFINED, {});
-            m_type->removeFromSchema(field_id, old_storage_class);
-            return;
-        }
-        
-        // remove field from the kv_index
-        auto kv_index_ptr = tryGetKV_Index();
-        if (!kv_index_ptr) {
-            THROWF(db0::InputException) << "Attribute not found: " << field_name;
-        }
-        XValue value(field_id.getIndex());
-        if (!kv_index_ptr->findOne(value)) {        
-            THROWF(db0::InputException) << "Attribute not found: " << field_name;
-        }
-        auto old_addr = kv_index_ptr->getAddress();        
-        kv_index_ptr->erase(value);
-        auto new_addr = kv_index_ptr->getAddress();
-        if (new_addr != old_addr) {
-            // type or address of the kv-index has changed which needs to be reflected
-            modify().m_kv_address = new_addr;
-            modify().m_kv_type = kv_index_ptr->getIndexType();
-        }
-        m_type->removeFromSchema(field_id, value.m_type);
+        unrefWithLoc(fixture, field_info.first, loc_ptr, pos, field_info.second);
 
         // the KV-index erase operation must be registered as the potential silent mutation
-        // but the operation can be avided if the object is already marked as modified        
-        if (!super_t::isModified()) {
+        // but the operation can be avoided if the object is already marked as modified
+        if (!loc_ptr && !super_t::isModified()) {
             this->_touch();
-        } 
-        */
+        }
     }
-
+    
     void Object::unrefPosVT(FixtureLock &fixture, FieldID field_id, unsigned int fidelity)
     {
         auto &pos_vt = modify().pos_vt();
@@ -676,8 +640,6 @@ namespace db0::object_model
     void Object::addWithLoc(FixtureLock &fixture, FieldID field_id, const void *loc_ptr, unsigned int pos,
         unsigned int fidelity, StorageClass storage_class, Value value)
     {
-        // FIXME: log
-        std::cout << "Add with loc fidelity = " << fidelity << std::endl;
         if (loc_ptr == &(*this)->pos_vt()) {
             addToPosVT(fixture, field_id, fidelity, storage_class, value);
             return;
@@ -785,17 +747,11 @@ namespace db0::object_model
         auto [member_id, is_init_var] = this->findField(field_name);
         // NOTE: either retrieve member under primary or secondary ID
         assert(member_id.primary().first);
-        // FIXME: log
-        std::cout << "Trying to get member: " << field_name << std::endl;
         if (tryGetMemberAt(member_id.primary(), member)) {
-            // FIXME: log
-            std::cout << "Found member at primary ID" << std::endl;
             return member_id.primary().first;
         }
         // the primary slot was not occupied, try secondary
         if (tryGetMemberAt(member_id.secondary(), member)) {
-            // FIXME: log
-            std::cout << "Found member at secondary ID" << std::endl;
             return member_id.secondary().first;
         }
         if (is_init_var) {
