@@ -36,6 +36,7 @@ namespace db0::object_model
         // Get the member's ID at the specified fidelity
         // if not found, an exception is thrown
         const FieldID &get(unsigned int fidelity = 0) const;
+        FieldID tryGet(unsigned int fidelity = 0) const;
         
         // assign as primary or secondary
         void assign(FieldID field_id, unsigned int fidelity);

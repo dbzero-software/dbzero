@@ -33,8 +33,11 @@ namespace db0::object_model
         bool isSet(unsigned int index) const;
         // check if all elements are set
         bool isFull() const;
-
+        
         void set(unsigned int at, std::uint64_t value);
+        // remove element at a specific position
+        void reset(unsigned int at);
+
         std::uint64_t get(unsigned int at) const;
 
         // add a new element and return its index (must not be full)
@@ -109,6 +112,13 @@ namespace db0::object_model
         m_data |= (1ull << bit_pos_occ);
     }
 
+    template <unsigned int SizeOf>
+    void lofi_store<SizeOf>::reset(unsigned int index) 
+    {
+        assert(index < size());
+        m_data &= ~mask(index);
+    }
+    
     template <unsigned int SizeOf>
     std::uint64_t lofi_store<SizeOf>::get(unsigned int index) const 
     {

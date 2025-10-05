@@ -17,6 +17,18 @@ namespace db0::object_model
         }
     }
 
+    FieldID MemberID::tryGet(unsigned int fidelity) const 
+    {
+        if (m_primary.second == fidelity) {
+            return m_primary.first;
+        } else if (m_secondary.first && m_secondary.second == fidelity) {
+            return m_secondary.first;
+        } else {
+            // not found
+            return {};
+        }
+    }
+
     void MemberID::assign(FieldID field_id, unsigned int fidelity)
     {
         if (!m_primary.first) {

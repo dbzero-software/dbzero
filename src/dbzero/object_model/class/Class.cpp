@@ -161,8 +161,7 @@ namespace db0::object_model
     
     MemberID Class::addField(const char *name, unsigned int fidelity)
     {
-        assert(fidelity < std::numeric_limits<std::uint8_t>::max());
-        assert(m_index.find(name) == m_index.end());
+        assert(fidelity < std::numeric_limits<std::uint8_t>::max());        
         auto pos = assignSlot(fidelity);
         // FIXME: log
         std::cout << "Adding field " << name << " at " << pos.first << "," << pos.second << " fidelity = " << fidelity << std::endl;

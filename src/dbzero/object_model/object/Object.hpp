@@ -301,7 +301,10 @@ namespace db0::object_model
         // Try resolving field ID of an existing member and also its storage location
         // @param pos the member's position in the containing collection
         // @return FieldID + containing collection (e.g. pos_vt())
-        std::pair<FieldID, const void *> tryGetMember(const MemberID &, unsigned int &pos) const;
+        std::pair<FieldInfo, const void *> tryGetMember(const MemberID &, unsigned int &pos) const;
+
+        // Try locating a field ID associated slot
+        std::pair<const void*, unsigned int> tryGetLoc(FieldID) const;
         
         inline ObjectInitializer *tryGetInitializer() const {
             return m_type ? static_cast<ObjectInitializer*>(nullptr) : &m_init_manager.getInitializer(*this);
@@ -340,13 +343,27 @@ namespace db0::object_model
         // Set or update member in a pos_vt
         void setPosVT(FixtureLock &, FieldID, unsigned int fidelity, StorageClass, Value);
         void setIndexVT(FixtureLock &, FieldID, unsigned int index_vt_pos, unsigned int fidelity,
-            StorageClass, Value);
-        
+            StorageClass, Value);        
         // Set or update member in kv-index
         void setKVIndexValue(FixtureLock &, FieldID, unsigned int fidelity, StorageClass, Value);
         
         // Set with a specific location (pos_vt, index_vt, kv-index)
         void setWithLoc(FixtureLock &, FieldID, const void *, unsigned int pos, unsigned int fidelity, 
+            StorageClass, Value);
+        
+        // Unreference value
+        void unrefPosVT(FixtureLock &, FieldID, unsigned int fidelity);
+        void unrefIndexVT(FixtureLock &, FieldID, unsigned int index_vt_pos, unsigned int fidelity);            
+        void unrefKVIndexValue(FixtureLock &, FieldID, unsigned int fidelity);
+        
+        void unrefWithLoc(FixtureLock &, FieldID, const void *, unsigned int pos, unsigned int fidelity);
+        
+        // Add a new value
+        void addToPosVT(FixtureLock &, FieldID, unsigned int fidelity, StorageClass, Value);
+        void addToIndexVT(FixtureLock &, FieldID, unsigned int index_vt_pos, unsigned int fidelity, StorageClass, Value);
+        void addToKVIndex(FixtureLock &, FieldID, unsigned int fidelity, StorageClass, Value);
+        
+        void addWithLoc(FixtureLock &, FieldID, const void *, unsigned int pos, unsigned int fidelity,
             StorageClass, Value);
     };
     

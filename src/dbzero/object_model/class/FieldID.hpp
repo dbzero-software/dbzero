@@ -51,10 +51,21 @@ namespace db0::object_model
             return FieldID((index << 6) + offset + 1);
         }
         
+        bool operator==(const FieldID &other) const {
+            return m_value == other.m_value;
+        }
+
+        bool operator!=(const FieldID &other) const {
+            return m_value != other.m_value;
+        }
+        
     private:
         std::uint32_t m_value = 0;
         
         FieldID(std::uint32_t value) : m_value(value) {}
     };
+    
+    // FieldID + fidelity
+    using FieldInfo = std::pair<FieldID, unsigned int>;
     
 }

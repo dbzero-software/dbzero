@@ -53,5 +53,18 @@ namespace tests
         ASSERT_EQ(lofi_store<2>::mask(1), 0x38u);
         ASSERT_EQ(lofi_store<2>::mask(2), 0x1C0u);
     }
-        
+    
+    TEST_F( LoFiStoreTest, testLoFiStoreReset )
+    {
+        std::uint64_t value = 0;
+        lofi_store<2>::fromValue(value).set(0, 3);
+        lofi_store<2>::fromValue(value).set(1, 3);
+        lofi_store<2>::fromValue(value).set(7, 0);
+
+        lofi_store<2>::fromValue(value).reset(1);
+        ASSERT_FALSE(lofi_store<2>::fromValue(value).isSet(1));
+        ASSERT_TRUE(lofi_store<2>::fromValue(value).isSet(0));
+        ASSERT_TRUE(lofi_store<2>::fromValue(value).isSet(7));
+    }
+
 }
