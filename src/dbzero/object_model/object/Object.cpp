@@ -676,6 +676,8 @@ namespace db0::object_model
     void Object::addWithLoc(FixtureLock &fixture, FieldID field_id, const void *loc_ptr, unsigned int pos,
         unsigned int fidelity, StorageClass storage_class, Value value)
     {
+        // FIXME: log
+        std::cout << "Add with loc fidelity = " << fidelity << std::endl;
         if (loc_ptr == &(*this)->pos_vt()) {
             addToPosVT(fixture, field_id, fidelity, storage_class, value);
             return;
@@ -783,11 +785,17 @@ namespace db0::object_model
         auto [member_id, is_init_var] = this->findField(field_name);
         // NOTE: either retrieve member under primary or secondary ID
         assert(member_id.primary().first);
+        // FIXME: log
+        std::cout << "Trying to get member: " << field_name << std::endl;
         if (tryGetMemberAt(member_id.primary(), member)) {
+            // FIXME: log
+            std::cout << "Found member at primary ID" << std::endl;
             return member_id.primary().first;
         }
         // the primary slot was not occupied, try secondary
         if (tryGetMemberAt(member_id.secondary(), member)) {
+            // FIXME: log
+            std::cout << "Found member at secondary ID" << std::endl;
             return member_id.secondary().first;
         }
         if (is_init_var) {
@@ -881,10 +889,7 @@ namespace db0::object_model
     
     bool Object::hasValueAt(Value value, unsigned int fidelity, unsigned int at) const
     {
-        if (fidelity == 0) {
-            // regular value
-            return true;
-        }
+        assert(fidelity != 0 && "Operation only available for lo-fi values");
         // lo-fi value
         assert(fidelity == 2);
         return lofi_store<2>::fromValue(value).isSet(at);
@@ -911,12 +916,12 @@ namespace db0::object_model
         if ((*this)->pos_vt().find(index, result)) {
             // NOTE: removed field slots might be marked as UNDEFINED
             return (field_loc.second == 0 && result.first != StorageClass::UNDEFINED) || 
-                hasValueAt(result.second, field_loc.second, offset);
+                (field_loc.second != 0 && hasValueAt(result.second, field_loc.second, offset));
         }
 
         if ((*this)->index_vt().find(index, result)) {
-            return (field_loc.second == 0 && result.first != StorageClass::UNDEFINED)
-                || hasValueAt(result.second, field_loc.second, offset);
+            return (field_loc.second == 0 && result.first != StorageClass::UNDEFINED) || 
+                (field_loc.second != 0 && hasValueAt(result.second, field_loc.second, offset));
         }
 
         auto kv_index_ptr = tryGetKV_Index();
@@ -926,8 +931,8 @@ namespace db0::object_model
                 // member fetched from the kv_index
                 result.first = xvalue.m_type;
                 result.second = xvalue.m_value;
-                return (field_loc.second == 0 && result.first != StorageClass::UNDEFINED)
-                    || hasValueAt(result.second, field_loc.second, offset);
+                return (field_loc.second == 0 && result.first != StorageClass::UNDEFINED) || 
+                    (field_loc.second != 0 && hasValueAt(result.second, field_loc.second, offset));
             }
         }
         
