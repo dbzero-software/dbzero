@@ -70,7 +70,7 @@ namespace db0::python
     };
 
     PyTypeObject PyJoinIterableType = {
-        PyVarObject_HEAD_INIT(NULL, 0)
+        PYVAROBJECT_HEAD_INIT_DESIGNATED,
         .tp_name = "JoinIterable",
         .tp_basicsize = PyJoinIterable::sizeOf(),
         .tp_itemsize = 0,

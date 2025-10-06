@@ -6,13 +6,15 @@
 #include <dbzero/core/vspace/v_object.hpp>
 #include <dbzero/core/memory/Memspace.hpp>
 #include <dbzero/core/serialization/optional_item.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
 
 {
     
     template <typename PtrT>
-    struct [[gnu::packed]] o_limited_matrix: public o_fixed<o_limited_matrix<PtrT> >
+DB0_PACKED_BEGIN
+    struct DB0_PACKED_ATTR o_limited_matrix: public o_fixed<o_limited_matrix<PtrT> >
     {
         // Points to v_bvector representing the entire Dimension 1
         PtrT m_dim1_ptr = {};
@@ -24,8 +26,10 @@ namespace db0
         std::uint64_t m_item_count = 0;
         std::array<std::uint64_t, 2> m_reserved = {0, 0};
     };
+DB0_PACKED_END
     
-    struct [[gnu::packed]] o_dim2_index_item: public o_fixed<o_dim2_index_item>
+DB0_PACKED_BEGIN
+    struct DB0_PACKED_ATTR o_dim2_index_item: public o_fixed<o_dim2_index_item>
     {
         // key from the Dimension 1
         std::uint32_t m_key;
@@ -42,6 +46,7 @@ namespace db0
             return m_key < other.m_key;
         }
     };
+DB0_PACKED_END
 
     // The LimitedMatrix type is a type optimized for representing matrices
     // with the following properties / constraints:

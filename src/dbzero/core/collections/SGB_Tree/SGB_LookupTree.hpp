@@ -7,7 +7,7 @@
 #include <dbzero/core/serialization/Ext.hpp>
 #include <dbzero/core/memory/AccessOptions.hpp>
 #include <iostream>
-#include "../../compiler_attributes.hpp"
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
 

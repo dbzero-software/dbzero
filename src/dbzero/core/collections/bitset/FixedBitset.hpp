@@ -3,7 +3,7 @@
 #include <cstring>
 #include <dbzero/core/serialization/Types.hpp>
 #include <dbzero/core/vspace/v_object.hpp>
-#include "../../compiler_attributes.hpp"
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
 

@@ -3,7 +3,7 @@
 #include <dbzero/object_model/value/XValue.hpp>
 #include <dbzero/core/collections/b_index/bindex_types.hpp>
 #include <dbzero/core/collections/b_index/mb_index.hpp>
-#include "../../core/compiler_attributes.hpp"
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0::object_model
 

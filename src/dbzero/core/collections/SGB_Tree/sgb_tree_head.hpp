@@ -2,7 +2,7 @@
 
 #include <dbzero/core/serialization/Base.hpp>
 #include <dbzero/core/serialization/Types.hpp>
-#include "../../compiler_attributes.hpp"
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
 

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <dbzero/workspace/Fixture.hpp>
-#include "../../core/compiler_attributes.hpp"
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0::object_model
 

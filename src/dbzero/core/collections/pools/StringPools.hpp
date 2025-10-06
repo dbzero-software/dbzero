@@ -3,7 +3,7 @@
 #include <dbzero/core/serialization/string.hpp>
 #include "LimitedPool.hpp"
 #include "RC_LimitedPool.hpp"
-#include "../../compiler_attributes.hpp"
+#include <dbzero/core/compiler_attributes.hpp>
     
 namespace db0::pools
 

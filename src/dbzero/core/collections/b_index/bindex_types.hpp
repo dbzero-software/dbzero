@@ -8,9 +8,8 @@
 #include <dbzero/core/collections/vector/v_sorted_vector.hpp>
 #include <dbzero/core/collections/CompT.hpp>
 #include <dbzero/object_model/object_header.hpp>
-#include "../../compiler_attributes.hpp"
 #include "type.hpp"
-
+#include <dbzero/core/compiler_attributes.hpp>
 namespace db0 
 
 {

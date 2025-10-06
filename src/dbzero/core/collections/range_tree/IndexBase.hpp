@@ -6,7 +6,7 @@
 #include <dbzero/core/serialization/Fixed.hpp>
 #include <dbzero/object_model/object_header.hpp>
 #include <dbzero/bindings/TypeId.hpp>
-#include "../../compiler_attributes.hpp"
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
 

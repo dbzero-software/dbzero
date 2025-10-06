@@ -7,7 +7,7 @@
 
 #include "SGB_LookupTree.hpp"
 #include <dbzero/core/memory/AccessOptions.hpp>
-#include "../../compiler_attributes.hpp"
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
 

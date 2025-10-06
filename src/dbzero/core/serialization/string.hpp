@@ -2,10 +2,10 @@
 
 #include "ansi_ptr.hpp"
 #include "packed_int.hpp"
-#include "../compiler_attributes.hpp"
 #include <iostream>
 #include <cstring>
 #include <iostream>
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
 

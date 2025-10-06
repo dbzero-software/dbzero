@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cassert>
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0::object_model
 
@@ -13,7 +14,9 @@ namespace db0::object_model
      * such as bool values (2-bit). It also allows allocating  and releasing slots for values
      * @tparam SizeOf size of a single element (e.g. 2 max is 16)
      */
-    template <unsigned int SizeOf> class [[gnu::packed]] lofi_store
+    template <unsigned int SizeOf>
+DB0_PACKED_BEGIN
+    class DB0_PACKED_ATTR lofi_store
     {
     public:
         // @return the capacity of the store (e.g. 21 for 2-bit elements)
@@ -136,5 +139,6 @@ namespace db0::object_model
         assert(false && "findFreeIndex() called on full lofi_store");
         return 0u;
     }
+DB0_PACKED_END
 
 }

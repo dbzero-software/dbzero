@@ -8,7 +8,7 @@
 #include <dbzero/core/memory/mptr.hpp>
 #include <dbzero/core/serialization/Fixed.hpp>
 #include <dbzero/core/intrusive/sgtree.hpp>
-#include "../../compiler_attributes.hpp"
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
 

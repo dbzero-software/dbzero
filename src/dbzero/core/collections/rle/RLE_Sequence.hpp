@@ -4,7 +4,7 @@
 #include <dbzero/core/serialization/Types.hpp>
 #include <dbzero/core/serialization/packed_int.hpp>
 #include <dbzero/core/serialization/list.hpp>
-#include "../../compiler_attributes.hpp"
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
 

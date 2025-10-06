@@ -7,7 +7,7 @@
 #include <dbzero/core/utils/dary_heap.hpp>
 #include <iostream>
 #include <cmath>
-#include "../../compiler_attributes.hpp"
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
 

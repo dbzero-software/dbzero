@@ -4,7 +4,7 @@
 #include <dbzero/core/vspace/v_object.hpp>
 #include <dbzero/core/collections/map/v_map.hpp>
 #include <dbzero/core/serialization/compose.hpp>
-#include "../../compiler_attributes.hpp"
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0::pools
 

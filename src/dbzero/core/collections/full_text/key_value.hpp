@@ -1,6 +1,6 @@
 #pragma once 
 
-#include "../../compiler_attributes.hpp"
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
 
