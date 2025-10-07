@@ -498,6 +498,10 @@ namespace db0::object_model
     {
         assert(m_type);
         XValue xvalue(field_id.getIndex(), storage_class, value);
+        // encode for lo-fi storage if needed
+        if (fidelity != 0) {
+            xvalue.m_value = lofi_store<2>::create(field_id.getOffset(), value.m_store);
+        }
         auto kv_index_ptr = addKV_First(xvalue);
         if (kv_index_ptr) {
             // try updating an existing element first
@@ -538,6 +542,10 @@ namespace db0::object_model
     {
         assert(m_type);
         XValue xvalue(field_id.getIndex(), storage_class, value);
+        // encode for lo-fi storage if needed
+        if (fidelity != 0) {
+            xvalue.m_value = lofi_store<2>::create(field_id.getOffset(), value.m_store);
+        }
         auto kv_index_ptr = addKV_First(xvalue);
         if (kv_index_ptr) {
             // NOTE: for fidelity > 0 the element might already exist
@@ -745,14 +753,14 @@ namespace db0::object_model
     FieldID Object::tryGetMember(const char *field_name, std::pair<StorageClass, Value> &member) const
     {
         auto [member_id, is_init_var] = this->findField(field_name);
-        // NOTE: either retrieve member under primary or secondary ID
-        assert(member_id.primary().first);
-        if (tryGetMemberAt(member_id.primary(), member)) {
-            return member_id.primary().first;
-        }
-        // the primary slot was not occupied, try secondary
-        if (tryGetMemberAt(member_id.secondary(), member)) {
-            return member_id.secondary().first;
+        if (member_id) {
+            if (tryGetMemberAt(member_id.primary(), member)) {
+                return member_id.primary().first;
+            }
+            // the primary slot was not occupied, try secondary
+            if (tryGetMemberAt(member_id.secondary(), member)) {
+                return member_id.secondary().first;
+            }
         }
         if (is_init_var) {
             // report as None even if the field_id has not been assigned yet

@@ -263,7 +263,8 @@ namespace db0
     void LimitedMatrixCache<MatrixT, ItemT, AdapterT>::reload(std::pair<std::uint32_t, std::uint32_t> pos)
     {
         auto item = m_adapter(pos, m_matrix.get().get(pos));
-        if (!this->hasItem(pos) && m_callback) {
+        // NOTE: here we invoke callback even if the item already exists (it might've been updated)
+        if (m_callback) {
             m_callback(item);
         }
         this->set(pos, std::move(item));

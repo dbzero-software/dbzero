@@ -66,5 +66,17 @@ namespace tests
         ASSERT_TRUE(lofi_store<2>::fromValue(value).isSet(0));
         ASSERT_TRUE(lofi_store<2>::fromValue(value).isSet(7));
     }
-
+    
+    TEST_F( LoFiStoreTest, testLoFiAllSlotsAllValues )
+    {
+        for (unsigned int i = 0; i < lofi_store<2>::size(); ++i) {
+            for (unsigned int value = 0; value < 4; ++value) {
+                std::uint64_t store_value = 0;
+                lofi_store<2>::fromValue(store_value).set(i, value);
+                ASSERT_TRUE(lofi_store<2>::fromValue(store_value).isSet(i));
+                ASSERT_EQ(lofi_store<2>::fromValue(store_value).get(i), value);
+            }
+        }
+    }
+    
 }

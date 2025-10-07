@@ -353,7 +353,7 @@ namespace db0::object_model
     }
     
     void Class::renameField(const char *from_name, const char *to_name)
-    {        
+    {   
         assert(from_name);
         assert(to_name);
         if (to_name == from_name) {
