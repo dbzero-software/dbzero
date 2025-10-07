@@ -753,44 +753,62 @@ namespace db0::object_model
     FieldID Object::tryGetMember(const char *field_name, std::pair<StorageClass, Value> &member) const
     {
         auto [member_id, is_init_var] = this->findField(field_name);
+        bool exists, deleted = false;
         if (member_id) {
-            if (tryGetMemberAt(member_id.primary(), member)) {
+            std::tie(exists, deleted) = tryGetMemberAt(member_id.primary(), member);
+            if (exists) {
+                assert(!deleted);
                 return member_id.primary().first;
             }
-            // the primary slot was not occupied, try secondary
-            if (tryGetMemberAt(member_id.secondary(), member)) {
+            // the primary slot was not occupied, try with the secondary
+            bool secondary_deleted = false;
+            std::tie(exists, secondary_deleted) = tryGetMemberAt(member_id.secondary(), member);
+            if (exists) {
+                assert(!secondary_deleted);
                 return member_id.secondary().first;
             }
+            deleted |= secondary_deleted;
         }
-        if (is_init_var) {
+        
+        if (!deleted && is_init_var) {
+            // unless explicitly deleted, 
             // report as None even if the field_id has not been assigned yet
             member = { StorageClass::NONE, Value() };
             return member_id.primary().first;
         }
+
+        // member not found
         return {};
     }
     
     std::optional<XValue> Object::tryGetX(const char *field_name) const
     {
         auto [member_id, is_init_var] = this->findField(field_name);
-        if (!member_id) {
-            return std::nullopt;
-        }
-        
-        assert(member_id.primary().first);
-        std::pair<StorageClass, Value> member;
-        if (tryGetMemberAt(member_id.primary(), member)) {
-            return XValue(member_id.primary().first.getIndex(), member.first, member.second);
-        }
-        // the primary slot was not occupied, try secondary
-        if (tryGetMemberAt(member_id.secondary(), member)) {
-            return XValue(member_id.secondary().first.getIndex(), member.first, member.second);
+        bool exists, deleted = false;
+        if (member_id) {
+            assert(member_id.primary().first);
+            std::pair<StorageClass, Value> member;
+            std::tie(exists, deleted) = tryGetMemberAt(member_id.primary(), member);
+            if (exists) {
+                assert(!deleted);
+                return XValue(member_id.primary().first.getIndex(), member.first, member.second);
+            }
+            // the primary slot was not occupied, try with the secondary
+            bool secondary_deleted = false;
+            std::tie(exists, secondary_deleted) = tryGetMemberAt(member_id.secondary(), member);
+            if (exists) {
+                assert(!secondary_deleted);
+                return XValue(member_id.secondary().first.getIndex(), member.first, member.second);
+            }
+            deleted |= secondary_deleted;
         }
 
-        if (is_init_var) {
+        if (!deleted && is_init_var) {
+            // unless explicitly deleted,
             // report as None even if the field_id has not been assigned yet
             return XValue(member_id.primary().first.getIndex(), StorageClass::NONE, Value());
         }
+        
         return std::nullopt;
     }
     
@@ -859,48 +877,67 @@ namespace db0::object_model
         return lofi_store<2>::fromValue(value).isSet(at);
     }
 
-    bool Object::tryGetMemberAt(std::pair<FieldID, unsigned int> field_loc,
+    std::pair<bool, bool> Object::tryGetMemberAt(std::pair<FieldID, unsigned int> field_info,
         std::pair<StorageClass, Value> &result) const
     {
-        if (!field_loc.first) {
-            return false;
+        if (!field_info.first) {
+            return { false, false };
         }
-        
-        auto [index, offset] = field_loc.first.getIndexAndOffset();
+
+        auto [index, offset] = field_info.first.getIndexAndOffset();
         if (!hasInstance()) {
             // try retrieving from initializer
             auto initializer_ptr = m_init_manager.findInitializer(*this);
             if (!initializer_ptr) {
-                return false;
+                return { false, false };
             }
-            return initializer_ptr->tryGetAt(index, result);
+            return { initializer_ptr->tryGetAt(index, result), false };
         }
         
         // retrieve from positionally encoded values
         if ((*this)->pos_vt().find(index, result)) {
-            // NOTE: removed field slots might be marked as UNDEFINED
-            return (field_loc.second == 0 && result.first != StorageClass::UNDEFINED) || 
-                (field_loc.second != 0 && hasValueAt(result.second, field_loc.second, offset));
-        }
+            // NOTE: removed field slots might be marked as UNDEFINED            
+            if (result.first == StorageClass::UNDEFINED) {
+                // report as deleted
+                return { false, true };
+            }
 
+            return { (field_info.second == 0 || 
+                (field_info.second != 0 && hasValueAt(result.second, field_info.second, offset))), false 
+            };
+        }
+        
         if ((*this)->index_vt().find(index, result)) {
-            return (field_loc.second == 0 && result.first != StorageClass::UNDEFINED) || 
-                (field_loc.second != 0 && hasValueAt(result.second, field_loc.second, offset));
+            if (result.first == StorageClass::UNDEFINED) {
+                // report as deleted
+                return { false, true };
+            }
+            
+            return { (field_info.second == 0 || 
+                (field_info.second != 0 && hasValueAt(result.second, field_info.second, offset))), false 
+            };
         }
-
+        
         auto kv_index_ptr = tryGetKV_Index();
         if (kv_index_ptr) {
             XValue xvalue(index);
             if (kv_index_ptr->findOne(xvalue)) {
+                if (xvalue.m_type == StorageClass::UNDEFINED) {
+                    // report as deleted
+                    return { false, true };
+                }
+
                 // member fetched from the kv_index
                 result.first = xvalue.m_type;
                 result.second = xvalue.m_value;
-                return (field_loc.second == 0 && result.first != StorageClass::UNDEFINED) || 
-                    (field_loc.second != 0 && hasValueAt(result.second, field_loc.second, offset));
+                return { (field_info.second == 0 || 
+                    (field_info.second != 0 && hasValueAt(result.second, field_info.second, offset))), false 
+                };
             }
         }
         
-        return false;
+        // Does not exist, not explicitly removed
+        return { false, false };
     }
     
     db0::swine_ptr<Fixture> Object::tryGetFixture() const

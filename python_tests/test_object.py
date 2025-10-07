@@ -259,7 +259,7 @@ def test_memo_object_destroys_its_pos_vt_dependencies(db0_fixture):
     
 def test_memo_object_destroys_its_index_vt_dependencies(db0_fixture):
     _ = DynamicDataClass(120)
-    obj = DynamicDataClass([0, 1, 2, 11, 33, 119], values = {0:0, 1:1, 2:2, 11:None, 33:None, 119:MemoTestClass(119)})
+    obj = DynamicDataClass([0, 1, 2, 11, 33, 119], values = {0:0, 1:1, 2:2, 11:"a", 33:"b", 119:MemoTestClass(119)})
     dep_uuid = db0.uuid(obj.field_119)
     # make sure member is stored as index-vt    
     assert len(db0.describe(obj)["field_layout"]["index_vt"]) == 3
