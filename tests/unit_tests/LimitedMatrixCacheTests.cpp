@@ -42,7 +42,7 @@ namespace tests
         LimitedMatrixCache<MatrixT, std::uint64_t> cut(mx);
         ASSERT_EQ(cut.size(), 3);
     }
-
+    
     TEST_F( LimitedMatrixCacheTests , testLMCacheDim2 )
     {
         using MatrixT = VLimitedMatrix<std::uint64_t, 32>;

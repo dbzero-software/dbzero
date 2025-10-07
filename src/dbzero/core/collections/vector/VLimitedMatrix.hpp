@@ -43,7 +43,7 @@ namespace db0
         }
     };
 
-    // The LimitedMatrix type is a type optimized for representing matrices
+    // The LimitedMatrix is optimized for representing matrices
     // with the following properties / constraints:
     //  - Dimension 1 holds values primarily consecutively (e.g. rows in a row-major matrix)
     //  - Dimension 2 is limited to a known, small number of values
@@ -62,9 +62,11 @@ namespace db0
         using self_t = VLimitedMatrix<ItemT, Dim2, PtrT>;
         using super_t = v_object<o_limited_matrix<PtrT> >;
         
+        // as null
+        VLimitedMatrix() = default;
         VLimitedMatrix(Memspace &);
         VLimitedMatrix(mptr);
-
+        
         // add new or update already existing item
         void set(std::pair<std::uint32_t, std::uint32_t> index, const ItemT &);
         
@@ -72,7 +74,7 @@ namespace db0
         std::optional<ItemT> tryGet(std::pair<std::uint32_t, std::uint32_t> index) const;
         // get or raise if not exists
         ItemT get(std::pair<std::uint32_t, std::uint32_t> index) const;
-        // modify an existing item or raise if not exists
+        // modify an existing item or raise if does not exist
         ItemT &modifyItem(std::pair<std::uint32_t, std::uint32_t> index);
 
         // @return Dim1 x Dim2 (constant)

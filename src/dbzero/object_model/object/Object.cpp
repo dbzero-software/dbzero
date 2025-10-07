@@ -348,10 +348,15 @@ namespace db0::object_model
         } else {
             assert(fidelity == 2);
             auto value = pos_vt.values()[loc.first];
+            if (!lofi_store<2>::fromValue(value).isSet(loc.second)) {
+                // value is already unset
+                return;
+            }
+            
+            auto old_type_id = getSchemaTypeId(old_storage_class, lofi_store<2>::fromValue(value).get(loc.second));
             lofi_store<2>::fromValue(value).reset(loc.second);
             pos_vt.set(loc.first, old_storage_class, value);
-            // FIXME: log
-            // update schema accordingly
+            m_type->removeFromSchema(field_id, old_type_id);
         }
     }
 
@@ -368,10 +373,15 @@ namespace db0::object_model
         } else {
             assert(fidelity == 2);
             auto value = index_vt.xvalues()[index_vt_pos].m_value;
-            lofi_store<2>::fromValue(value).reset(field_id.getOffset());
+            auto offset = field_id.getOffset();
+            if (!lofi_store<2>::fromValue(value).isSet(offset)) {
+                // value is already unset
+                return;
+            }
+            auto old_type_id = getSchemaTypeId(old_storage_class, lofi_store<2>::fromValue(value).get(offset));
+            lofi_store<2>::fromValue(value).reset(offset);
             index_vt.set(index_vt_pos, old_storage_class, value);
-            // FIXME: log
-            // update schema accordingly
+            m_type->removeFromSchema(field_id, old_type_id);
         }
     }
 
@@ -400,7 +410,13 @@ namespace db0::object_model
         } else {
             assert(fidelity == 2);
             auto value = xvalue.m_value;
-            lofi_store<2>::fromValue(value).reset(field_id.getOffset());
+            auto offset = field_id.getOffset();
+            if (!lofi_store<2>::fromValue(value).isSet(offset)) {
+                // value is already unset
+                return;
+            }
+            auto old_type_id = getSchemaTypeId(xvalue.m_type, lofi_store<2>::fromValue(value).get(offset));
+            lofi_store<2>::fromValue(value).reset(offset);
             xvalue.m_value = value;
             kv_index_ptr->updateExisting(xvalue);
             // in case of the IttyIndex updating an element changes the address
@@ -408,8 +424,8 @@ namespace db0::object_model
             if (kv_index_ptr->getIndexType() == bindex::type::itty) {
                 modify().m_kv_address = kv_index_ptr->getAddress();                    
             }
-            // FIXME: log
-            // update schema accordingly
+
+            m_type->removeFromSchema(field_id, old_type_id);
         }
     }
 
@@ -438,10 +454,11 @@ namespace db0::object_model
             pos_vt.set(loc.first, storage_class, value);
             m_type->updateSchema(field_id, getSchemaTypeId(old_storage_class), getSchemaTypeId(storage_class));
         } else {
+            auto old_type_id = getSchemaTypeId(storage_class, lofi_store<2>::fromValue(pos_value).get(loc.second));
             lofi_store<2>::fromValue(pos_value).set(loc.second, value.m_store);
             pos_vt.set(loc.first, storage_class, pos_value);
-            // FIXME: log
-            // should also update schema if schema type changed
+            auto new_type_id = getSchemaTypeId(storage_class, value);
+            m_type->updateSchema(field_id, old_type_id, new_type_id);
         }
     }
 
@@ -473,10 +490,12 @@ namespace db0::object_model
             m_type->updateSchema(field_id, getSchemaTypeId(old_storage_class), getSchemaTypeId(storage_class));
         } else {
             auto index_vt_value = index_vt.xvalues()[index_vt_pos].m_value;
-            lofi_store<2>::fromValue(index_vt_value).set(field_id.getOffset(), value.m_store);
+            auto offset = field_id.getOffset();
+            auto old_type_id = getSchemaTypeId(storage_class, lofi_store<2>::fromValue(index_vt_value).get(offset));
+            lofi_store<2>::fromValue(index_vt_value).set(offset, value.m_store);
             index_vt.set(index_vt_pos, storage_class, index_vt_value);
-            // FIXME: log
-            // should also update schema if schema type changed
+            auto new_type_id = getSchemaTypeId(storage_class, value);
+            m_type->updateSchema(field_id, old_type_id, new_type_id);
         }
     }
 
@@ -504,6 +523,7 @@ namespace db0::object_model
         if (fidelity != 0) {
             xvalue.m_value = lofi_store<2>::create(field_id.getOffset(), value.m_store);
         }
+
         auto kv_index_ptr = addKV_First(xvalue);
         if (kv_index_ptr) {
             // try updating an existing element first
@@ -516,11 +536,13 @@ namespace db0::object_model
                     );
                 } else {
                     auto kv_value = old_value.m_value;
-                    lofi_store<2>::fromValue(kv_value).set(field_id.getOffset(), value.m_store);
+                    auto offset = field_id.getOffset();
+                    auto old_type_id = getSchemaTypeId(old_value.m_type, lofi_store<2>::fromValue(kv_value).get(offset));                    
+                    lofi_store<2>::fromValue(kv_value).set(offset, value.m_store);
                     xvalue.m_value = kv_value;
                     kv_index_ptr->updateExisting(xvalue);
-                    // FIXME: log
-                    // need to update schema also
+                    auto new_type_id = getSchemaTypeId(storage_class, value);
+                    m_type->updateSchema(field_id, old_type_id, new_type_id);
                 }
                 // in case of the IttyIndex updating an element changes the address
                 // which needs to be updated in the object
@@ -701,7 +723,7 @@ namespace db0::object_model
             member_id = m_type->addField(field_name, storage_fidelity);
             field_id = member_id.get(storage_fidelity);
         }
-
+        
         assert(field_id && member_id);
         // FIXME: value should be destroyed on exception
         auto value = createMember<LangToolkit>(*fixture, type_id, storage_class, lang_value);        

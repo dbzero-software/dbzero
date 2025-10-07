@@ -3,10 +3,11 @@
 #include "FieldID.hpp"
 #include <dbzero/core/serialization/Types.hpp>
 #include <dbzero/core/collections/vector/v_sorted_vector.hpp>
-#include <dbzero/core/collections/vector/v_bvector.hpp>
+#include <dbzero/core/collections/vector/VLimitedMatrix.hpp>
 #include <dbzero/core/vspace/db0_ptr.hpp>
 #include <dbzero/object_model/value/StorageClass.hpp>
 #include <dbzero/object_model/value/Value.hpp>
+#include <dbzero/object_model/object/lofi_store.hpp>
 
 namespace db0::object_model
 
@@ -123,10 +124,10 @@ namespace db0::object_model
         void update(Memspace &, TypeVector &, std::uint32_t collection_size);
     };
     
-    class Schema: protected db0::v_bvector<o_schema>
+    class Schema: protected db0::VLimitedMatrix<o_schema, lofi_store<2>::size()>
     {
     public:        
-        using super_t = db0::v_bvector<o_schema>;
+        using super_t = db0::VLimitedMatrix<o_schema, lofi_store<2>::size()>;
         using total_func = std::function<std::uint32_t()>;
         
         // as null instsance
@@ -165,6 +166,7 @@ namespace db0::object_model
         void commit() const;
         
     private:
+        using FieldLoc = std::pair<std::uint32_t, std::uint32_t>;
         class Builder;
         friend class Builder;
         mutable std::unique_ptr<Builder> m_builder;
@@ -175,9 +177,9 @@ namespace db0::object_model
         
         // batch update a specific field's statistics
         // field ID, type ID, update count
-        void update(unsigned int field_id,
-            std::vector<std::tuple<unsigned int, SchemaTypeId, int> >::const_iterator begin,
-            std::vector<std::tuple<unsigned int, SchemaTypeId, int> >::const_iterator end, 
+        void update(FieldLoc field_loc,
+            std::vector<std::tuple<FieldLoc, SchemaTypeId, int> >::const_iterator begin,
+            std::vector<std::tuple<FieldLoc, SchemaTypeId, int> >::const_iterator end, 
             std::uint32_t collection_size
         );
         
