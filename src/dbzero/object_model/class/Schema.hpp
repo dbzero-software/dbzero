@@ -1,11 +1,12 @@
 #pragma once
 
+#include "FieldID.hpp"
 #include <dbzero/core/serialization/Types.hpp>
 #include <dbzero/core/collections/vector/v_sorted_vector.hpp>
 #include <dbzero/core/collections/vector/v_bvector.hpp>
 #include <dbzero/core/vspace/db0_ptr.hpp>
 #include <dbzero/object_model/value/StorageClass.hpp>
-#include "FieldID.hpp"
+#include <dbzero/object_model/value/Value.hpp>
 
 namespace db0::object_model
 
@@ -43,9 +44,13 @@ namespace db0::object_model
         WEAK_REF = static_cast<int>(StorageClass::OBJECT_WEAK_REF),
     };
     
+    // NOTE: this version is only capable of handling full types (e.g. PACK_2 will raise an exception)
     SchemaTypeId getSchemaTypeId(StorageClass);
+    // This version is capable of handling all storage classes 
+    // but requires the additional "value" parameter (unpacked)
+    SchemaTypeId getSchemaTypeId(StorageClass, Value);
     
-    // converto to a common type ID
+    // convert to a common type ID
     db0::bindings::TypeId getTypeId(SchemaTypeId);
     std::string getTypeName(SchemaTypeId);
     
@@ -137,8 +142,8 @@ namespace db0::object_model
         void postInit(total_func);
 
         // add occurrence of a specicifc type (as a specific field ID)
-        void add(unsigned int field_id, SchemaTypeId);
-        void remove(unsigned int field_id, SchemaTypeId);
+        void add(FieldID, SchemaTypeId);
+        void remove(FieldID, SchemaTypeId);
 
         // flush updates from the associated builder
         void flush() const;
@@ -148,15 +153,11 @@ namespace db0::object_model
 
         // Get primary / most likely type (avoids returning None if other types are present)
         // NOTE that it may be TypeID::UNKNOWN
-        SchemaTypeId getPrimaryType(unsigned int field_id) const;
         SchemaTypeId getPrimaryType(FieldID) const;
         
         // get primary & secondary type for a given field ID
-        std::pair<SchemaTypeId, SchemaTypeId> getType(unsigned int field_id) const;
         std::pair<SchemaTypeId, SchemaTypeId> getType(FieldID) const;
-
-        // get all types from the most to least common for a given field ID
-        std::vector<SchemaTypeId> getAllTypes(unsigned int field_id) const;
+        // get all types from the most to least common for a given field ID        
         std::vector<SchemaTypeId> getAllTypes(FieldID) const;
         
         db0::Address getAddress() const;

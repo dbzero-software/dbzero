@@ -79,4 +79,29 @@ namespace tests
         }
     }
     
+    TEST_F( LoFiStoreTest, testLoFiStoreIterator )
+    {
+        std::uint64_t value = 0;
+        lofi_store<2>::fromValue(value).set(0, 3);
+        lofi_store<2>::fromValue(value).set(1, 3);
+        lofi_store<2>::fromValue(value).set(7, 0);
+        lofi_store<2>::fromValue(value).set(13, 2);
+        lofi_store<2>::fromValue(value).set(3, 1);
+
+        std::vector<unsigned int> expected = { 0, 3, 1, 0, 2 };
+        std::vector<unsigned int> expected_indices = { 0, 1, 3, 7, 13 };
+        unsigned int count = 0;
+        for (auto value: lofi_store<2>::fromValue(value)) {
+            ASSERT_EQ(value, expected.front());
+            expected.erase(expected.begin());
+        }
+
+        auto it = lofi_store<2>::fromValue(value).begin();
+        for (;!it.isEnd(); ++it) {
+            ASSERT_EQ(it.getOffset(), expected_indices.front());
+            expected_indices.erase(expected_indices.begin());
+            ++count;
+        }
+    }
+
 }

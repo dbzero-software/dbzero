@@ -204,7 +204,7 @@ namespace db0::object_model
             
             // reference associated class
             m_type->incRef(false);
-            m_type->updateSchema(pos_vt_data.m_types);
+            m_type->updateSchema(0, pos_vt_data.m_types, pos_vt_data.m_values);
             m_type->updateSchema(index_vt_data.first, index_vt_data.second);
             
             // bind singleton address (now that instance exists)
@@ -344,7 +344,7 @@ namespace db0::object_model
             unrefMember(*fixture, old_storage_class, pos_vt.values()[loc.first]);
             // mark member as deleted by assigning UNDEFINED storage class
             pos_vt.set(loc.first, StorageClass::UNDEFINED, {});
-            m_type->removeFromSchema(field_id, old_storage_class);
+            m_type->removeFromSchema(field_id, getSchemaTypeId(old_storage_class));
         } else {
             assert(fidelity == 2);
             auto value = pos_vt.values()[loc.first];
@@ -364,7 +364,7 @@ namespace db0::object_model
             unrefMember(*fixture, index_vt.xvalues()[index_vt_pos]);
             // mark member as deleted by assigning UNDEFINED storage class
             index_vt.set(index_vt_pos, StorageClass::UNDEFINED, {});
-            m_type->removeFromSchema(field_id, old_storage_class);
+            m_type->removeFromSchema(field_id, getSchemaTypeId(old_storage_class));
         } else {
             assert(fidelity == 2);
             auto value = index_vt.xvalues()[index_vt_pos].m_value;
@@ -396,7 +396,7 @@ namespace db0::object_model
                 modify().m_kv_address = new_addr;
                 modify().m_kv_type = kv_index_ptr->getIndexType();
             }
-            m_type->removeFromSchema(field_id, xvalue.m_type);
+            m_type->removeFromSchema(field_id, getSchemaTypeId(xvalue.m_type));
         } else {
             assert(fidelity == 2);
             auto value = xvalue.m_value;
@@ -436,7 +436,7 @@ namespace db0::object_model
             unrefMember(*fixture, old_storage_class, pos_value);
             // update attribute stored in the positional value-table
             pos_vt.set(loc.first, storage_class, value);
-            m_type->updateSchema(field_id, old_storage_class, storage_class);            
+            m_type->updateSchema(field_id, getSchemaTypeId(old_storage_class), getSchemaTypeId(storage_class));
         } else {
             lofi_store<2>::fromValue(pos_value).set(loc.second, value.m_store);
             pos_vt.set(loc.first, storage_class, pos_value);
@@ -453,12 +453,13 @@ namespace db0::object_model
         auto pos_value = pos_vt.values()[loc.first];
         if (fidelity == 0) {
             // update attribute stored in the positional value-table
-            pos_vt.set(loc.first, storage_class, value);            
+            pos_vt.set(loc.first, storage_class, value);
+            m_type->addToSchema(field_id, getSchemaTypeId(storage_class));
         } else {
             lofi_store<2>::fromValue(pos_value).set(loc.second, value.m_store);
             pos_vt.set(loc.first, storage_class, pos_value);
-        }
-        m_type->addToSchema(field_id, storage_class);
+            m_type->addToSchema(field_id, getSchemaTypeId(storage_class, value));
+        }        
     }
 
     void Object::setIndexVT(FixtureLock &fixture, FieldID field_id, unsigned int index_vt_pos,
@@ -469,7 +470,7 @@ namespace db0::object_model
             auto old_storage_class = index_vt.xvalues()[index_vt_pos].m_type;
             unrefMember(*fixture, index_vt.xvalues()[index_vt_pos]);
             index_vt.set(index_vt_pos, storage_class, value);
-            m_type->updateSchema(field_id, old_storage_class, storage_class);            
+            m_type->updateSchema(field_id, getSchemaTypeId(old_storage_class), getSchemaTypeId(storage_class));
         } else {
             auto index_vt_value = index_vt.xvalues()[index_vt_pos].m_value;
             lofi_store<2>::fromValue(index_vt_value).set(field_id.getOffset(), value.m_store);
@@ -484,13 +485,14 @@ namespace db0::object_model
     {
         auto &index_vt = modify().index_vt();
         if (fidelity == 0) {
-            index_vt.set(index_vt_pos, storage_class, value);            
+            index_vt.set(index_vt_pos, storage_class, value);
+            m_type->addToSchema(field_id, getSchemaTypeId(storage_class));
         } else {
             auto index_vt_value = index_vt.xvalues()[index_vt_pos].m_value;
             lofi_store<2>::fromValue(index_vt_value).set(field_id.getOffset(), value.m_store);
             index_vt.set(index_vt_pos, storage_class, index_vt_value);
-        }
-        m_type->addToSchema(field_id, storage_class);
+            m_type->addToSchema(field_id, getSchemaTypeId(storage_class, value));
+        }        
     }
 
     void Object::setKVIndexValue(FixtureLock &fixture, FieldID field_id, unsigned int fidelity,
@@ -509,7 +511,9 @@ namespace db0::object_model
             if (kv_index_ptr->updateExisting(xvalue, &old_value)) {
                 if (fidelity == 0) {
                     unrefMember(*fixture, old_value);
-                    m_type->updateSchema(field_id, old_value.m_type, storage_class);
+                    m_type->updateSchema(field_id, getSchemaTypeId(old_value.m_type), 
+                        getSchemaTypeId(storage_class)
+                    );
                 } else {
                     auto kv_value = old_value.m_value;
                     lofi_store<2>::fromValue(kv_value).set(field_id.getOffset(), value.m_store);
@@ -529,11 +533,11 @@ namespace db0::object_model
                     modify().m_kv_address = kv_index_ptr->getAddress();
                     modify().m_kv_type = kv_index_ptr->getIndexType();
                 }
-                       
-                m_type->addToSchema(field_id, storage_class);
+                
+                m_type->addToSchema(field_id, getSchemaTypeId(storage_class, value));
             }
         } else {
-            m_type->addToSchema(field_id, storage_class);
+            m_type->addToSchema(field_id, getSchemaTypeId(storage_class, value));
         }
     }
 
@@ -568,7 +572,7 @@ namespace db0::object_model
                 }                                
             }
         }
-        m_type->addToSchema(field_id, storage_class);        
+        m_type->addToSchema(field_id, getSchemaTypeId(storage_class, value));
     }
 
     std::pair<FieldInfo, const void *> Object::tryGetMember(const MemberID &member_id,
@@ -1018,7 +1022,7 @@ namespace db0::object_model
             unsigned int index = 0;
             for (auto type = types.begin(); type != types.end(); ++type, ++value, ++index) {
                 unrefMember(fixture, *type, *value);
-                class_ref.removeFromSchema(FieldID::fromIndex(index), *type);
+                class_ref.removeFromSchema(FieldID::fromIndex(index), *type, *value);
             }
         }
         // drop index-vt members next

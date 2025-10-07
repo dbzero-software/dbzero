@@ -43,13 +43,43 @@ namespace db0::object_model
         // add a new element and return its index (must not be full)
         unsigned int add(std::uint64_t value);
         
-        template <typename ValueT> static lofi_store<SizeOf> &fromValue(ValueT &value) {
+        template <typename ValueT> static inline lofi_store<SizeOf> &fromValue(ValueT &value) {
             static_assert(sizeof(ValueT) == sizeof(lofi_store<SizeOf> ), "ValueT must be 64-bit");
             return reinterpret_cast<lofi_store<SizeOf>&>(value);
         }
-        
+
+        template <typename ValueT> static inline const lofi_store<SizeOf> &fromValue(const ValueT &value) {
+            static_assert(sizeof(ValueT) == sizeof(lofi_store<SizeOf> ), "ValueT must be 64-bit");
+            return reinterpret_cast<const lofi_store<SizeOf>&>(value);
+        }
+
         // Create value with a single element set
         static std::uint64_t create(unsigned int at, std::uint64_t value);
+
+        class const_iterator
+        {
+        public:
+            const_iterator(std::uint64_t data, unsigned int start, unsigned int end);
+            
+            bool isEnd() const;
+            bool operator!=(const const_iterator &other) const;
+            const_iterator &operator++();
+            // decoded value
+            std::uint64_t operator*() const;
+
+            // current position (set)
+            unsigned int getOffset() const;
+
+        private:
+            std::uint64_t m_data;
+            unsigned int m_current;
+            unsigned int m_end;
+
+            void fix();
+        };
+
+        const_iterator begin() const;
+        const_iterator end() const;
 
     private:
         std::uint64_t m_data = 0;
@@ -166,5 +196,69 @@ namespace db0::object_model
         store.set(at, value);
         return store.m_data;
     }
+
+    template <unsigned int SizeOf>
+    lofi_store<SizeOf>::const_iterator::const_iterator(std::uint64_t data, unsigned int start, unsigned int end)
+        : m_data(data)
+        , m_current(start)
+        , m_end(end)
+    {
+        assert(m_current <= m_end);
+        fix();
+    }
+
+    template <unsigned int SizeOf>
+    void lofi_store<SizeOf>::const_iterator::fix()
+    {
+        while (m_current != m_end) {
+            if (lofi_store<SizeOf>::fromValue(m_data).isSet(m_current)) {
+                break; // found occupied                
+            }
+            ++m_current;
+        }
+        if (m_current == m_end) {
+            m_current = m_end = 0;
+        }
+    } 
+
+    template <unsigned int SizeOf>
+    bool lofi_store<SizeOf>::const_iterator::isEnd() const {
+        return m_current == m_end;
+    }
+
+    template <unsigned int SizeOf>
+    bool lofi_store<SizeOf>::const_iterator::operator!=(const const_iterator &other) const
+    {
+        return m_current != other.m_current && m_end != other.m_end;
+    }
+
+    template <unsigned int SizeOf>
+    typename lofi_store<SizeOf>::const_iterator &lofi_store<SizeOf>::const_iterator::operator++()
+    {
+        assert(!isEnd());
+        ++m_current;
+        fix();
+        return *this;
+    }
+
+    template <unsigned int SizeOf>
+    std::uint64_t lofi_store<SizeOf>::const_iterator::operator*() const {
+        return lofi_store<SizeOf>::fromValue(m_data).get(m_current);
+    }
+
+    template <unsigned int SizeOf>
+    unsigned int lofi_store<SizeOf>::const_iterator::getOffset() const {
+        return m_current;
+    }
     
+    template <unsigned int SizeOf>
+    typename lofi_store<SizeOf>::const_iterator lofi_store<SizeOf>::begin() const {
+        return { m_data, 0, this->size() };
+    }
+    
+    template <unsigned int SizeOf>
+    typename lofi_store<SizeOf>::const_iterator lofi_store<SizeOf>::end() const {
+        return { m_data, 0, 0 };
+    }
+
 }

@@ -555,60 +555,33 @@ namespace db0::object_model
             }
         }
     }
-    
-    void Class::updateSchema(const std::vector<StorageClass> &types, bool add)
-    {
-        for (unsigned int index = 0; index < types.size(); ++index) {
-            if (types[index] != StorageClass::UNDEFINED) {
-                if (add) {
-                    m_schema.add(index, getSchemaTypeId(types[index]));
-                } else {
-                    m_schema.remove(index, getSchemaTypeId(types[index]));
-                }                
-            }
-        }
-    }
-    
-    void Class::updateSchema(const XValue *begin, const XValue *end, bool add)
-    {
-        // collect field IDs and types        
-        for (auto it = begin; it != end; ++it) {
-            if (add) {
-                m_schema.add(it->getIndex(), getSchemaTypeId(it->m_type));
-            } else {
-                m_schema.remove(it->getIndex(), getSchemaTypeId(it->m_type));
-            }
-        }
-    }
-    
-    void Class::updateSchema(FieldID field_id, StorageClass old_type, StorageClass new_type)
+        
+    void Class::updateSchema(FieldID field_id, SchemaTypeId old_type, SchemaTypeId new_type)
     {
         if (old_type == new_type) {
             // type not changed, nothing to do
             return;
         }
-        auto old_schema_type_id = getSchemaTypeId(old_type);
-        auto new_schema_type_id = getSchemaTypeId(new_type);
-        if (old_schema_type_id == new_schema_type_id) {
-            // type not changed, nothing to do
-            return;
-        }
-        m_schema.remove(field_id.getIndex(), old_schema_type_id);
-        m_schema.add(field_id.getIndex(), new_schema_type_id);
+        m_schema.remove(field_id, old_type);
+        m_schema.add(field_id, new_type);
     }
     
-    void Class::addToSchema(FieldID field_id, StorageClass type) {
-        m_schema.add(field_id.getIndex(), getSchemaTypeId(type));
+    void Class::addToSchema(FieldID field_id, SchemaTypeId type_id) {
+        m_schema.add(field_id, type_id);
     }
 
-    void Class::removeFromSchema(FieldID field_id, StorageClass type) {
-        m_schema.remove(field_id.getIndex(), getSchemaTypeId(type));
-    }
-    
-    void Class::removeFromSchema(const XValue &value) {        
-        m_schema.remove(value.getIndex(), getSchemaTypeId(value.m_type));
+    void Class::removeFromSchema(FieldID field_id, SchemaTypeId type_id) {
+        m_schema.remove(field_id, type_id);
     }
 
+    void Class::addToSchema(const XValue &value) {
+        addToSchema(value.getIndex(), value.m_type, value.m_value);
+    }
+
+    void Class::removeFromSchema(const XValue &value) {
+        removeFromSchema(value.getIndex(), value.m_type, value.m_value);
+    }
+        
     std::uint32_t Class::getNumBases() const {
         return (*this)->m_num_bases;
     }
@@ -679,4 +652,63 @@ namespace db0::object_model
         }
     }
     
+    void Class::addToSchema(unsigned int index, StorageClass storage_class, Value value)
+    {
+        if (storage_class == StorageClass::UNDEFINED) {
+            return;
+        }
+        if (storage_class == StorageClass::PACK_2) {
+            // iterate over all packed fields
+            auto it = lofi_store<2>::fromValue(value).begin();
+            for ( ; !it.isEnd(); ++it) {
+                m_schema.add(FieldID::fromIndex(index, it.getOffset()), getSchemaTypeId(storage_class, *it));                
+            }
+        } else {
+            m_schema.add(FieldID::fromIndex(index), getSchemaTypeId(storage_class));
+        }
+    }
+
+    void Class::removeFromSchema(unsigned int index, StorageClass storage_class, Value value)
+    {
+        if (storage_class == StorageClass::UNDEFINED) {
+            return;
+        }
+        if (storage_class == StorageClass::PACK_2) {
+            // iterate over all packed fields
+            auto it = lofi_store<2>::fromValue(value).begin();
+            for ( ; !it.isEnd(); ++it) {
+                m_schema.remove(FieldID::fromIndex(index, it.getOffset()), getSchemaTypeId(storage_class, *it));
+            }
+        } else {
+            m_schema.remove(FieldID::fromIndex(index), getSchemaTypeId(storage_class));
+        }
+    }
+        
+    void Class::updateSchema(unsigned int first_id, const std::vector<StorageClass> &types,
+        const std::vector<Value> &values, bool add)
+    {
+        assert(types.size() == values.size());
+        auto type = types.begin();
+        for (auto value: values) {
+            if (add) {
+                addToSchema(first_id, *type, value);
+            } else {
+                removeFromSchema(first_id, *type, value);
+            }
+            ++type;
+            ++first_id;
+        }
+    }
+
+    void Class::updateSchema(const XValue *begin, const XValue *end, bool add)
+    {
+        for (;begin != end; ++begin) {
+            if (add) {
+                addToSchema(*begin);
+            } else {
+                removeFromSchema(*begin);
+            }            
+        }
+    }
+
 }

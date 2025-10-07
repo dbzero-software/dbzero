@@ -407,41 +407,39 @@ namespace db0::object_model
         }
         return *m_builder;
     }
-
-    void Schema::add(unsigned int field_id, SchemaTypeId type_id) {
-        getBuilder().collect(field_id, type_id, 1);
-    }
-
-    void Schema::remove(unsigned int field_id, SchemaTypeId type_id) {
-        getBuilder().collect(field_id, type_id, -1);
-    }
-
-    std::pair<SchemaTypeId, SchemaTypeId> Schema::getType(unsigned int field_id) const
+    
+    void Schema::add(FieldID field_id, SchemaTypeId type_id)
     {
-        flush();
-        if (field_id >= this->size()) {
-            THROWF(db0::InputException) << "Unknown / invalid field ID: " << field_id;
-        }
-        return (*this)[field_id].getType();
+        auto loc = field_id.getIndexAndOffset();
+        getBuilder().collect(loc.first, type_id, 1);
     }
 
-    std::pair<SchemaTypeId, SchemaTypeId> Schema::getType(FieldID field_id) const {
-        return getType(field_id.getIndex());
-    }
-
-    std::vector<SchemaTypeId> Schema::getAllTypes(unsigned int field_id) const
+    void Schema::remove(FieldID field_id, SchemaTypeId type_id) 
     {
-        flush();
-        if (field_id >= this->size()) {
-            THROWF(db0::InputException) << "Unknown / invalid field ID: " << field_id;
-        }
-        return (*this)[field_id].getAllTypes(this->getMemspace());
+        auto loc = field_id.getIndexAndOffset();
+        getBuilder().collect(loc.first, type_id, -1);
     }
     
-    std::vector<SchemaTypeId> Schema::getAllTypes(FieldID field_id) const {
-        return getAllTypes(field_id.getIndex());
+    std::pair<SchemaTypeId, SchemaTypeId> Schema::getType(FieldID field_id) const
+    {
+        flush();
+        auto loc = field_id.getIndexAndOffset();
+        if (loc.first >= this->size()) {
+            THROWF(db0::InputException) << "Unknown / invalid field ID: " << loc.first << " (offset: " << loc.second << ")";
+        }
+        return (*this)[loc.first].getType();
     }
 
+    std::vector<SchemaTypeId> Schema::getAllTypes(FieldID field_id) const
+    {
+        flush();
+        auto loc = field_id.getIndexAndOffset();
+        if (loc.first >= this->size()) {
+            THROWF(db0::InputException) << "Unknown / invalid field ID: " << loc.first << " (offset: " << loc.second << ")";
+        }
+        return (*this)[loc.first].getAllTypes(this->getMemspace());
+    }
+    
     void Schema::update(unsigned int field_id,
         std::vector<std::tuple<unsigned int, SchemaTypeId, int> >::const_iterator begin,
         std::vector<std::tuple<unsigned int, SchemaTypeId, int> >::const_iterator end,
@@ -517,7 +515,7 @@ namespace db0::object_model
         super_t::commit();
     }
     
-    SchemaTypeId Schema::getPrimaryType(unsigned int field_id) const
+    SchemaTypeId Schema::getPrimaryType(FieldID field_id) const
     {
         auto type_pair = getType(field_id);
         if (type_pair.first == SchemaTypeId::UNDEFINED || type_pair.first == SchemaTypeId::NONE) {
@@ -525,11 +523,7 @@ namespace db0::object_model
         }
         return type_pair.first;
     }
-
-    SchemaTypeId Schema::getPrimaryType(FieldID field_id) const {
-        return getPrimaryType(field_id.getIndex());
-    }
-
+    
     SchemaTypeId getSchemaTypeId(StorageClass storage_class)
     {
         switch (storage_class) {            
@@ -546,6 +540,19 @@ namespace db0::object_model
         }
     }
     
+    SchemaTypeId getSchemaTypeId(StorageClass storage_class, Value value)
+    {
+        if (storage_class == StorageClass::PACK_2) {
+            // Value can represent either None or Boolean
+            if (value.m_store == 0) {
+                return SchemaTypeId::NONE;
+            } else {
+                return SchemaTypeId::BOOLEAN;
+            }
+        }
+        return getSchemaTypeId(storage_class);
+    }
+
     db0::bindings::TypeId getTypeId(SchemaTypeId schema_type_id)
     {        
         // NOTE: types are directly mappable

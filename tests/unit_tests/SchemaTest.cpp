@@ -35,7 +35,7 @@ namespace tests
         };
 
         Schema cut(memspace, get_total);
-        ASSERT_ANY_THROW( { cut.getType(0); });
+        ASSERT_ANY_THROW( { cut.getType(FieldID::fromIndex(0)); });
     }
 
     TEST_F( SchemaTest , testSchemaAddPrimaryTypeId )
@@ -46,8 +46,8 @@ namespace tests
         };
 
         Schema cut(memspace, get_total);
-        cut.add(0, SchemaTypeId::STRING);
-        ASSERT_EQ(cut.getType(0).first, SchemaTypeId::STRING);
+        cut.add(FieldID::fromIndex(0), SchemaTypeId::STRING);
+        ASSERT_EQ(cut.getType(FieldID::fromIndex(0)).first, SchemaTypeId::STRING);
     }
     
     TEST_F( SchemaTest , testSchemaAddSecondaryTypeId )
@@ -58,11 +58,11 @@ namespace tests
         };
 
         Schema cut(memspace, get_total);
-        cut.add(0, SchemaTypeId::STRING);
-        cut.add(0, SchemaTypeId::INT);
-        cut.add(0, SchemaTypeId::STRING);
-        ASSERT_EQ(cut.getType(0).first, SchemaTypeId::STRING);
-        ASSERT_EQ(cut.getType(0).second, SchemaTypeId::INT);
+        cut.add(FieldID::fromIndex(0), SchemaTypeId::STRING);
+        cut.add(FieldID::fromIndex(0), SchemaTypeId::INT);
+        cut.add(FieldID::fromIndex(0), SchemaTypeId::STRING);
+        ASSERT_EQ(cut.getType(FieldID::fromIndex(0)).first, SchemaTypeId::STRING);
+        ASSERT_EQ(cut.getType(FieldID::fromIndex(0)).second, SchemaTypeId::INT);
     }
 
     TEST_F( SchemaTest , testSchemaAddMoreTypeIds )
@@ -79,10 +79,10 @@ namespace tests
 
         Schema cut(memspace, get_total);
         for (auto typeId : typeIds) {
-            cut.add(0, typeId);
+            cut.add(FieldID::fromIndex(0), typeId);
         }
 
-        ASSERT_EQ(cut.getAllTypes(0), std::vector<SchemaTypeId>({
+        ASSERT_EQ(cut.getAllTypes(FieldID::fromIndex(0)), std::vector<SchemaTypeId>({
             SchemaTypeId::FLOAT, SchemaTypeId::INT, SchemaTypeId::DATETIME, SchemaTypeId::STRING
         }));
     }
@@ -95,13 +95,13 @@ namespace tests
         };
 
         Schema cut(memspace, get_total);
-        cut.add(0, SchemaTypeId::STRING);
-        cut.add(0, SchemaTypeId::STRING);
-        cut.add(0, SchemaTypeId::INT);
-        cut.remove(0, SchemaTypeId::STRING);
-        cut.remove(0, SchemaTypeId::STRING);
-        ASSERT_EQ(cut.getType(0).first, SchemaTypeId::INT);
-        ASSERT_EQ(cut.getType(0).second, SchemaTypeId::UNDEFINED);
+        cut.add(FieldID::fromIndex(0), SchemaTypeId::STRING);
+        cut.add(FieldID::fromIndex(0), SchemaTypeId::STRING);
+        cut.add(FieldID::fromIndex(0), SchemaTypeId::INT);
+        cut.remove(FieldID::fromIndex(0), SchemaTypeId::STRING);
+        cut.remove(FieldID::fromIndex(0), SchemaTypeId::STRING);
+        ASSERT_EQ(cut.getType(FieldID::fromIndex(0)).first, SchemaTypeId::INT);
+        ASSERT_EQ(cut.getType(FieldID::fromIndex(0)).second, SchemaTypeId::UNDEFINED);
     }
 
     TEST_F( SchemaTest , testSchemaAddRemoveMultipleFieldIDs )
@@ -119,12 +119,12 @@ namespace tests
         };
 
         for (const auto &type_info : fieldIds) {
-            cut.add(type_info.first, type_info.second);
+            cut.add(FieldID::fromIndex(type_info.first), type_info.second);
         }
-        ASSERT_NE(cut.getType(0).first, SchemaTypeId::UNDEFINED);
-        ASSERT_EQ(cut.getType(1).first, SchemaTypeId::INT);
-        ASSERT_EQ(cut.getType(1).second, SchemaTypeId::FLOAT);
-        ASSERT_NE(cut.getType(4).first, SchemaTypeId::UNDEFINED);
+        ASSERT_NE(cut.getType(FieldID::fromIndex(0)).first, SchemaTypeId::UNDEFINED);
+        ASSERT_EQ(cut.getType(FieldID::fromIndex(1)).first, SchemaTypeId::INT);
+        ASSERT_EQ(cut.getType(FieldID::fromIndex(1)).second, SchemaTypeId::FLOAT);
+        ASSERT_NE(cut.getType(FieldID::fromIndex(4)).first, SchemaTypeId::UNDEFINED);
     }
 
     TEST_F( SchemaTest , testSchemaEvolutionUpdatePrimary )
@@ -135,12 +135,12 @@ namespace tests
         };
 
         Schema cut(memspace, get_total);
-        cut.add(0, SchemaTypeId::STRING);
-        cut.add(0, SchemaTypeId::STRING);
+        cut.add(FieldID::fromIndex(0), SchemaTypeId::STRING);
+        cut.add(FieldID::fromIndex(0), SchemaTypeId::STRING);
         cut.flush();
-        cut.add(0, SchemaTypeId::STRING);
-        ASSERT_EQ(cut.getType(0).first, SchemaTypeId::STRING);
-        ASSERT_EQ(cut.getType(0).second, SchemaTypeId::UNDEFINED);
+        cut.add(FieldID::fromIndex(0), SchemaTypeId::STRING);
+        ASSERT_EQ(cut.getType(FieldID::fromIndex(0)).first, SchemaTypeId::STRING);
+        ASSERT_EQ(cut.getType(FieldID::fromIndex(0)).second, SchemaTypeId::UNDEFINED);
     }
 
     TEST_F( SchemaTest , testSchemaEvolutionAddSecondary )
@@ -151,12 +151,12 @@ namespace tests
         };
 
         Schema cut(memspace, get_total);
-        cut.add(0, SchemaTypeId::STRING);
-        cut.add(0, SchemaTypeId::STRING);
+        cut.add(FieldID::fromIndex(0), SchemaTypeId::STRING);
+        cut.add(FieldID::fromIndex(0), SchemaTypeId::STRING);
         cut.flush();
-        cut.add(0, SchemaTypeId::INT);
-        ASSERT_EQ(cut.getType(0).first, SchemaTypeId::STRING);
-        ASSERT_EQ(cut.getType(0).second, SchemaTypeId::INT);
+        cut.add(FieldID::fromIndex(0), SchemaTypeId::INT);
+        ASSERT_EQ(cut.getType(FieldID::fromIndex(0)).first, SchemaTypeId::STRING);
+        ASSERT_EQ(cut.getType(FieldID::fromIndex(0)).second, SchemaTypeId::INT);
     }
     
     TEST_F( SchemaTest , testSchemaEvolutionUpdateSecondary )
@@ -167,15 +167,15 @@ namespace tests
         };
 
         Schema cut(memspace, get_total);
-        cut.add(0, SchemaTypeId::STRING);
-        cut.add(0, SchemaTypeId::STRING);
-        cut.add(0, SchemaTypeId::STRING);
+        cut.add(FieldID::fromIndex(0), SchemaTypeId::STRING);
+        cut.add(FieldID::fromIndex(0), SchemaTypeId::STRING);
+        cut.add(FieldID::fromIndex(0), SchemaTypeId::STRING);
         cut.flush();
-        cut.add(0, SchemaTypeId::INT);
+        cut.add(FieldID::fromIndex(0), SchemaTypeId::INT);
         cut.flush();
-        cut.add(0, SchemaTypeId::INT);
-        ASSERT_EQ(cut.getType(0).first, SchemaTypeId::STRING);
-        ASSERT_EQ(cut.getType(0).second, SchemaTypeId::INT);
+        cut.add(FieldID::fromIndex(0), SchemaTypeId::INT);
+        ASSERT_EQ(cut.getType(FieldID::fromIndex(0)).first, SchemaTypeId::STRING);
+        ASSERT_EQ(cut.getType(FieldID::fromIndex(0)).second, SchemaTypeId::INT);
     }
     
     TEST_F( SchemaTest , testSchemaEvolutionAddExtra )
@@ -186,14 +186,15 @@ namespace tests
         };
 
         Schema cut(memspace, get_total);
-        cut.add(0, SchemaTypeId::STRING);
-        cut.add(0, SchemaTypeId::STRING);
-        cut.add(0, SchemaTypeId::STRING);
-        cut.add(0, SchemaTypeId::INT);
-        cut.add(0, SchemaTypeId::INT);
+        auto id0 = FieldID::fromIndex(0);
+        cut.add(id0, SchemaTypeId::STRING);
+        cut.add(id0, SchemaTypeId::STRING);
+        cut.add(id0, SchemaTypeId::STRING);
+        cut.add(id0, SchemaTypeId::INT);
+        cut.add(id0, SchemaTypeId::INT);
         cut.flush();
-        cut.add(0, SchemaTypeId::FLOAT);
-        ASSERT_EQ(cut.getAllTypes(0), std::vector<SchemaTypeId>({
+        cut.add(id0, SchemaTypeId::FLOAT);
+        ASSERT_EQ(cut.getAllTypes(id0), std::vector<SchemaTypeId>({
             SchemaTypeId::STRING, SchemaTypeId::INT, SchemaTypeId::FLOAT
         }));
     }
@@ -206,18 +207,19 @@ namespace tests
         };
              
         Schema cut(memspace, get_total);
-        cut.add(0, SchemaTypeId::STRING);
-        cut.add(0, SchemaTypeId::STRING);
-        cut.add(0, SchemaTypeId::STRING);
-        cut.add(0, SchemaTypeId::STRING);
-        cut.add(0, SchemaTypeId::INT);
-        cut.add(0, SchemaTypeId::INT);
-        cut.add(0, SchemaTypeId::INT);
-        cut.add(0, SchemaTypeId::FLOAT);
+        auto id0 = FieldID::fromIndex(0);
+        cut.add(id0, SchemaTypeId::STRING);
+        cut.add(id0, SchemaTypeId::STRING);
+        cut.add(id0, SchemaTypeId::STRING);
+        cut.add(id0, SchemaTypeId::STRING);
+        cut.add(id0, SchemaTypeId::INT);
+        cut.add(id0, SchemaTypeId::INT);
+        cut.add(id0, SchemaTypeId::INT);
+        cut.add(id0, SchemaTypeId::FLOAT);
         cut.flush();
-        cut.add(0, SchemaTypeId::FLOAT);
-        cut.add(0, SchemaTypeId::DATETIME);
-        ASSERT_EQ(cut.getAllTypes(0), std::vector<SchemaTypeId>({
+        cut.add(id0, SchemaTypeId::FLOAT);
+        cut.add(id0, SchemaTypeId::DATETIME);
+        ASSERT_EQ(cut.getAllTypes(id0), std::vector<SchemaTypeId>({
             SchemaTypeId::STRING, SchemaTypeId::INT, SchemaTypeId::FLOAT, SchemaTypeId::DATETIME
         }));
     }
@@ -231,18 +233,19 @@ namespace tests
         };
 
         Schema cut(memspace, get_total);
-        cut.add(0, SchemaTypeId::NONE);
+        auto id0 = FieldID::fromIndex(0);
+        cut.add(id0, SchemaTypeId::NONE);
         ++total;
-        cut.add(0, SchemaTypeId::NONE);
+        cut.add(id0, SchemaTypeId::NONE);
         ++total;
-        cut.add(0, SchemaTypeId::INT);
+        cut.add(id0, SchemaTypeId::INT);
         ++total;
         cut.flush();
-        cut.add(0, SchemaTypeId::INT);
+        cut.add(id0, SchemaTypeId::INT);
         ++total;
-        cut.add(0, SchemaTypeId::INT);
+        cut.add(id0, SchemaTypeId::INT);
         ++total;
-        ASSERT_EQ(cut.getType(0).first, SchemaTypeId::INT);
+        ASSERT_EQ(cut.getType(id0).first, SchemaTypeId::INT);
     }
 
     TEST_F( SchemaTest , testSchemaEvolutionSwapSecondary )
@@ -254,16 +257,17 @@ namespace tests
         };
 
         Schema cut(memspace, get_total);
-        cut.add(0, SchemaTypeId::NONE);        
-        cut.add(0, SchemaTypeId::NONE);
-        cut.add(0, SchemaTypeId::NONE);
-        cut.add(0, SchemaTypeId::INT);
+        auto id0 = FieldID::fromIndex(0);
+        cut.add(id0, SchemaTypeId::NONE);        
+        cut.add(id0, SchemaTypeId::NONE);
+        cut.add(id0, SchemaTypeId::NONE);
+        cut.add(id0, SchemaTypeId::INT);
         total += 4;
         cut.flush();
-        cut.add(0, SchemaTypeId::FLOAT);        
-        cut.add(0, SchemaTypeId::FLOAT);
+        cut.add(id0, SchemaTypeId::FLOAT);        
+        cut.add(id0, SchemaTypeId::FLOAT);
         total += 2;
-        ASSERT_EQ(cut.getType(0).second, SchemaTypeId::FLOAT);
+        ASSERT_EQ(cut.getType(id0).second, SchemaTypeId::FLOAT);
     }
 
     TEST_F( SchemaTest , testSchemaEvolutionSwapPrimaryWithExtra )
@@ -275,19 +279,20 @@ namespace tests
         };
 
         Schema cut(memspace, get_total);
-        cut.add(0, SchemaTypeId::NONE);        
-        cut.add(0, SchemaTypeId::NONE);
-        cut.add(0, SchemaTypeId::NONE);
-        cut.add(0, SchemaTypeId::INT);
+        auto id0 = FieldID::fromIndex(0);
+        cut.add(id0, SchemaTypeId::NONE);
+        cut.add(id0, SchemaTypeId::NONE);
+        cut.add(id0, SchemaTypeId::NONE);
+        cut.add(id0, SchemaTypeId::INT);
         total += 4;
         cut.flush();
-        cut.add(0, SchemaTypeId::FLOAT);
-        cut.add(0, SchemaTypeId::FLOAT);
-        cut.add(0, SchemaTypeId::FLOAT);
-        cut.add(0, SchemaTypeId::FLOAT);
+        cut.add(id0, SchemaTypeId::FLOAT);
+        cut.add(id0, SchemaTypeId::FLOAT);
+        cut.add(id0, SchemaTypeId::FLOAT);
+        cut.add(id0, SchemaTypeId::FLOAT);
         total += 4;
-        ASSERT_EQ(cut.getType(0).first, SchemaTypeId::FLOAT);
-        ASSERT_EQ(cut.getType(0).second, SchemaTypeId::NONE);
+        ASSERT_EQ(cut.getType(id0).first, SchemaTypeId::FLOAT);
+        ASSERT_EQ(cut.getType(id0).second, SchemaTypeId::NONE);
     }
 
     TEST_F( SchemaTest , testSchemaEvolutionSwapPrimaryAndSecondaryWithExtra )
@@ -299,22 +304,23 @@ namespace tests
         };
 
         Schema cut(memspace, get_total);
-        cut.add(0, SchemaTypeId::NONE);        
-        cut.add(0, SchemaTypeId::NONE);
-        cut.add(0, SchemaTypeId::INT);
+        auto id0 = FieldID::fromIndex(0);
+        cut.add(id0, SchemaTypeId::NONE);        
+        cut.add(id0, SchemaTypeId::NONE);
+        cut.add(id0, SchemaTypeId::INT);
         total += 4;
         cut.flush();
-        cut.add(0, SchemaTypeId::FLOAT);
-        cut.add(0, SchemaTypeId::FLOAT);
-        cut.remove(0, SchemaTypeId::NONE);
-        cut.remove(0, SchemaTypeId::INT);
-        cut.add(0, SchemaTypeId::FLOAT);
-        cut.add(0, SchemaTypeId::DATETIME);
-        cut.add(0, SchemaTypeId::DATETIME);
-        cut.add(0, SchemaTypeId::FLOAT);
+        cut.add(id0, SchemaTypeId::FLOAT);
+        cut.add(id0, SchemaTypeId::FLOAT);
+        cut.remove(id0, SchemaTypeId::NONE);
+        cut.remove(id0, SchemaTypeId::INT);
+        cut.add(id0, SchemaTypeId::FLOAT);
+        cut.add(id0, SchemaTypeId::DATETIME);
+        cut.add(id0, SchemaTypeId::DATETIME);
+        cut.add(id0, SchemaTypeId::FLOAT);
         total += 2;
-        ASSERT_EQ(cut.getType(0).first, SchemaTypeId::FLOAT);
-        ASSERT_EQ(cut.getType(0).second, SchemaTypeId::DATETIME);
+        ASSERT_EQ(cut.getType(id0).first, SchemaTypeId::FLOAT);
+        ASSERT_EQ(cut.getType(id0).second, SchemaTypeId::DATETIME);
     }
 
     TEST_F( SchemaTest , testSchemaEvolutionWithRemove )
@@ -326,15 +332,16 @@ namespace tests
         };
         
         Schema cut(memspace, get_total);
-        cut.add(0, SchemaTypeId::INT);
-        cut.add(0, SchemaTypeId::STRING);
-        cut.add(0, SchemaTypeId::STRING);
+        auto id0 = FieldID::fromIndex(0);
+        cut.add(id0, SchemaTypeId::INT);
+        cut.add(id0, SchemaTypeId::STRING);
+        cut.add(id0, SchemaTypeId::STRING);
         total += 3;
         cut.flush();
-        cut.remove(0, SchemaTypeId::STRING);
-        cut.remove(0, SchemaTypeId::STRING);
+        cut.remove(id0, SchemaTypeId::STRING);
+        cut.remove(id0, SchemaTypeId::STRING);
         total -= 2;
-        ASSERT_EQ(cut.getType(0).first, SchemaTypeId::INT);
+        ASSERT_EQ(cut.getType(id0).first, SchemaTypeId::INT);
     }
 
     TEST_F( SchemaTest , testSchemaEvolutionIssue1 )
@@ -346,17 +353,18 @@ namespace tests
         };
         
         Schema cut(memspace, get_total);
-        cut.add(0, SchemaTypeId::NONE);
+        auto id0 = FieldID::fromIndex(0);
+        cut.add(id0, SchemaTypeId::NONE);
         total += 1;
         cut.flush();
-        cut.remove(0, SchemaTypeId::NONE);        
-        cut.add(0, SchemaTypeId::STRING);
-        cut.add(0, SchemaTypeId::INT);
+        cut.remove(id0, SchemaTypeId::NONE);        
+        cut.add(id0, SchemaTypeId::STRING);
+        cut.add(id0, SchemaTypeId::INT);
         total += 1;
         cut.flush();
         
-        ASSERT_NE(cut.getType(0).first, SchemaTypeId::NONE);
-        ASSERT_NE(cut.getType(0).second, SchemaTypeId::NONE);
+        ASSERT_NE(cut.getType(id0).first, SchemaTypeId::NONE);
+        ASSERT_NE(cut.getType(id0).second, SchemaTypeId::NONE);
     }
-
+    
 }

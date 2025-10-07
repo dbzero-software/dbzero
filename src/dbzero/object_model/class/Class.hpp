@@ -218,15 +218,18 @@ namespace db0::object_model
         void getSchema(std::function<void(const std::string &field_name, SchemaTypeId primary_type,
             const std::vector<SchemaTypeId> &all_types)>) const;
         
-        // Add or remove from schema positionally encoded field types
-        void updateSchema(const std::vector<StorageClass> &types, bool add = true);
+        void updateSchema(unsigned int first_id, const std::vector<StorageClass> &types,
+            const std::vector<Value> &values, bool add = true);
         // Add or remove from schema index-encoded field types
         void updateSchema(const XValue *begin, const XValue *end, bool add = true);
         // Update type of a single field occurrence
-        void updateSchema(FieldID, StorageClass old_type, StorageClass new_type);
+        void updateSchema(FieldID, SchemaTypeId old_type, SchemaTypeId new_type);
         // Add a single field occurrence to the schema
-        void addToSchema(FieldID, StorageClass type);
-        void removeFromSchema(FieldID, StorageClass type);
+        void addToSchema(FieldID, SchemaTypeId);
+        void removeFromSchema(FieldID, SchemaTypeId);
+        void addToSchema(unsigned int index, StorageClass, Value);
+        void removeFromSchema(unsigned int index, StorageClass, Value);
+        void addToSchema(const XValue &);
         void removeFromSchema(const XValue &);
         
         std::uint32_t getNumBases() const;
