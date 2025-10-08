@@ -54,9 +54,9 @@ jobs:
       - run: pip3 install pipx
       - run: pipx run cibuildwheel==2.11.2
         env:
-          CIBW_SKIP: pp* cp36-* *-musllinux*
-          CIBW_ARCHS_MACOS: x86_64 arm64
-          CIBW_ARCHS_LINUX: x86_64 aarch64
+          CIBW_SKIP: pp* cp36-* cp37-* cp38-* cp39-* cp310-* cp313-* *-musllinux*
+          CIBW_ARCHS_MACOS: x86_64
+          CIBW_ARCHS_LINUX: x86_64
           CIBW_ARCHS_WINDOWS: ${{ matrix.architecture }}
       - uses: actions/upload-artifact@v4
         with:
