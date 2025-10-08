@@ -41,11 +41,16 @@ py3_inst = import('python').find_installation('python3', pure: false)
 install_dir = py3_inst.get_install_dir() / 'dbzero_ce' / 'libs'
 deps = []
 
-
+if build_machine.system() == 'linux'
+    python_embed_dep = dependency('python3-embed', main:true, required: true)
+endif
 python_deps = py3_inst.dependency()
 
 
 deps += python_deps
+if build_machine.system() == 'linux'
+    deps += python_embed_dep
+endif
 
 all_srcs = []
 subdir('src/dbzero')
