@@ -13,8 +13,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: windows-latest
-            architecture: x86
+          # - os: windows-latest
+          #   architecture: x86
           - os: windows-latest
             architecture: AMD64
 
