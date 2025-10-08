@@ -29,7 +29,7 @@ jobs:
       - name: Install Python development packages
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3-dev python3-embed
+          sudo apt-get install -y python3-dev
         if: runner.os == 'Linux'
       - uses: bus1/cabuild/action/msdevshell@v1
         with:
