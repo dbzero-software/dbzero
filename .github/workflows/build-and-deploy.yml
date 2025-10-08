@@ -121,6 +121,9 @@ jobs:
     needs: [ wheels-windows, sdist, wheels-linux]
     if: github.event_name == 'workflow_dispatch'
     environment: pypi-deployment
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -142,3 +145,4 @@ jobs:
           password: T)G48:2HGNfj
           packages-dir: ./upload/
           verbose: true
+          skip-existing: true
