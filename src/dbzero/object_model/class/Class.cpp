@@ -161,7 +161,13 @@ namespace db0::object_model
     
     MemberID Class::addField(const char *name, unsigned int fidelity)
     {
-        assert(fidelity < std::numeric_limits<std::uint8_t>::max());        
+        assert(fidelity < std::numeric_limits<std::uint8_t>::max());
+        // NOTE: before creating with fidelity = 0 we'll always pre-register
+        // a slot for fidelity = 2 which will be used as the PRIMARY identifier
+        if (fidelity == 0 && !hasSlot(name, PRIMARY_FIDELITY)) {
+            addField(name, PRIMARY_FIDELITY);
+        }
+        
         auto pos = assignSlot(fidelity);
         // reserve the slot
         m_members.set(pos, o_field { getFixture()->getLimitedStringPool(), name });
@@ -169,6 +175,23 @@ namespace db0::object_model
         return m_index[name].first;
     }
     
+    bool Class::hasSlot(const char *name, unsigned int fidelity) const
+    {
+        auto it = m_index.find(name);
+        if (it == m_index.end()) {
+            // try again after refreshing the cache
+            if (m_member_cache.refresh()) {
+                it = m_index.find(name);
+            }
+        }
+
+        if (it != m_index.end()) {
+            return it->second.first.hasFidelity(fidelity);
+        }
+        
+        return false;
+    }
+
     std::pair<MemberID, bool> Class::findField(const char *name) const
     {
         auto it = m_index.find(name);
@@ -257,6 +280,19 @@ namespace db0::object_model
         modify().m_singleton_address = object.getUniqueAddress();
     }
     
+    void Class::onMemberIDUpdated(const MemberID &member_id) const
+    {        
+        if (member_id.hasFidelity(PRIMARY_FIDELITY) && member_id.size() > 1) {
+            // ensure unique keys vector is large enough
+            auto index = member_id.secondary().first.getIndex();
+            if (m_unique_keys.size() <= index) {
+                m_unique_keys.resize(index + 1);
+            }
+            // register the unique key
+            m_unique_keys[index] = member_id.primary().first;
+        }
+    }
+
     std::function<void(const Class::Member &)> Class::getRefreshCallback() const
     {
         return [this](const Member &member) {
@@ -267,10 +303,12 @@ namespace db0::object_model
                 bool is_init_var = m_init_vars.find(member.m_name) != m_init_vars.end();
                 auto member_id = MemberID(member.m_field_id, member.m_fidelity);
                 m_index[member.m_name] = { member_id, is_init_var };
+                onMemberIDUpdated(member_id);
             } else {
                 // extend existing member ID
                 // possibly another fidelity was added
                 it->second.first.assign(member.m_field_id, member.m_fidelity);
+                onMemberIDUpdated(it->second.first);
             }
         };
     }
@@ -555,22 +593,36 @@ namespace db0::object_model
             }
         }
     }
-        
-    void Class::updateSchema(FieldID field_id, SchemaTypeId old_type, SchemaTypeId new_type)
+    
+    void Class::updateSchema(FieldID field_id, unsigned int fidelity, SchemaTypeId old_type, SchemaTypeId new_type)
     {
         if (old_type == new_type) {
             // type not changed, nothing to do
             return;
         }
+        
+        // translate into a primary field ID if needed
+        if (fidelity != PRIMARY_FIDELITY) {
+            field_id = getPrimaryKey(field_id.getIndex());            
+        }
+
         m_schema.remove(field_id, old_type);
         m_schema.add(field_id, new_type);
     }
     
-    void Class::addToSchema(FieldID field_id, SchemaTypeId type_id) {
+    void Class::addToSchema(FieldID field_id, unsigned int fidelity, SchemaTypeId type_id)
+    {
+        if (fidelity != PRIMARY_FIDELITY) {
+            field_id = getPrimaryKey(field_id.getIndex());
+        }
         m_schema.add(field_id, type_id);
     }
 
-    void Class::removeFromSchema(FieldID field_id, SchemaTypeId type_id) {
+    void Class::removeFromSchema(FieldID field_id, unsigned int fidelity, SchemaTypeId type_id) 
+    {
+        if (fidelity != PRIMARY_FIDELITY) {
+            field_id = getPrimaryKey(field_id.getIndex());
+        }
         m_schema.remove(field_id, type_id);
     }
 
@@ -664,7 +716,8 @@ namespace db0::object_model
                 m_schema.add(FieldID::fromIndex(index, it.getOffset()), getSchemaTypeId(storage_class, *it));                
             }
         } else {
-            m_schema.add(FieldID::fromIndex(index), getSchemaTypeId(storage_class));
+            // NOTE: we must retrieve the field's primary key
+            m_schema.add(getPrimaryKey(index), getSchemaTypeId(storage_class));
         }
     }
 
@@ -680,10 +733,11 @@ namespace db0::object_model
                 m_schema.remove(FieldID::fromIndex(index, it.getOffset()), getSchemaTypeId(storage_class, *it));
             }
         } else {
-            m_schema.remove(FieldID::fromIndex(index), getSchemaTypeId(storage_class));
+            // NOTE: we must retrieve the field's primary key
+            m_schema.remove(getPrimaryKey(index), getSchemaTypeId(storage_class));
         }
     }
-        
+    
     void Class::updateSchema(unsigned int first_id, const std::vector<StorageClass> &types,
         const std::vector<Value> &values, bool add)
     {
@@ -709,6 +763,12 @@ namespace db0::object_model
                 removeFromSchema(*begin);
             }            
         }
+    }
+
+    FieldID Class::getPrimaryKey(unsigned int index) const
+    {
+        assert(index < m_unique_keys.size());
+        return m_unique_keys[index];
     }
 
 }

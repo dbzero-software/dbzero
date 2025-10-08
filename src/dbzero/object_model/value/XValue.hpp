@@ -52,6 +52,10 @@ namespace db0::object_model
         bool operator!=(const XValue &) const;
         
         // bitwise comparison
+        // @param offset - required for lo-fi types (2 bits)
+        bool equalTo(const XValue &other, unsigned int offset) const;
+        
+        // bitwise compare the entire contents
         bool equalTo(const XValue &other) const;
     };
     

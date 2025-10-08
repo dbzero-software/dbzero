@@ -192,7 +192,7 @@ namespace db0::object_model
         bool isSingleton() const;
         
         // execute the function for all members (until false is returned from the input lambda)
-        void forAll(std::function<bool(const std::string &, const XValue &)>) const;
+        void forAll(std::function<bool(const std::string &, const XValue &, unsigned int offset)>) const;
         void forAll(std::function<bool(const std::string &, ObjectSharedPtr)>) const;
         
         // get dbzero member / member names assigned to this object
@@ -341,7 +341,7 @@ namespace db0::object_model
         // try retrieving member as XValue
         std::optional<XValue> tryGetX(const char *field_name) const;
         void _touch();
-
+        
         // Set or update member in a pos_vt
         void setPosVT(FixtureLock &, FieldID, unsigned int fidelity, StorageClass, Value);
         void setIndexVT(FixtureLock &, FieldID, unsigned int index_vt_pos, unsigned int fidelity,
@@ -367,6 +367,9 @@ namespace db0::object_model
         
         void addWithLoc(FixtureLock &, FieldID, const void *, unsigned int pos, unsigned int fidelity,
             StorageClass, Value);
+        
+        // lo-fi member specialized implementation
+        bool forAll(XValue, std::function<bool(const std::string &, const XValue &, unsigned int offset)>) const;
     };
     
 }

@@ -450,13 +450,13 @@ namespace db0::object_model
     
     std::pair<SchemaTypeId, SchemaTypeId> Schema::getType(FieldID field_id) const
     {
-        flush();        
+        flush();
         return this->get(field_id.getIndexAndOffset()).getType();
     }
 
     std::vector<SchemaTypeId> Schema::getAllTypes(FieldID field_id) const
     {        
-        flush();
+        flush();    
         return this->get(field_id.getIndexAndOffset()).getAllTypes(this->getMemspace());
     }
 
@@ -528,8 +528,11 @@ namespace db0::object_model
     SchemaTypeId Schema::getPrimaryType(FieldID field_id) const
     {
         auto type_pair = getType(field_id);
-        if (type_pair.first == SchemaTypeId::UNDEFINED || type_pair.first == SchemaTypeId::NONE) {
-            return type_pair.second;
+        // NOTE: this logic is to avoid reporting "None" as the primary type if other types are present
+        if (type_pair.second != SchemaTypeId::UNDEFINED) {
+            if (type_pair.first == SchemaTypeId::UNDEFINED || type_pair.first == SchemaTypeId::NONE) {                
+                return type_pair.second;
+            }
         }
         return type_pair.first;
     }
@@ -562,9 +565,9 @@ namespace db0::object_model
         }
         return getSchemaTypeId(storage_class);
     }
-
+    
     db0::bindings::TypeId getTypeId(SchemaTypeId schema_type_id)
-    {        
+    {
         // NOTE: types are directly mappable
         auto storage_class = static_cast<StorageClass>(schema_type_id);
         // NOTE: types also directly mappable

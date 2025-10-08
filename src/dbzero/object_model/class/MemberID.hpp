@@ -33,6 +33,10 @@ namespace db0::object_model
             return m_secondary;
         }
         
+        std::size_t size() const {
+            return (m_secondary.first ? 2: (m_primary.first ? 1 : 0));
+        }
+
         // Get the member's ID at the specified fidelity
         // if not found, an exception is thrown
         const FieldID &get(unsigned int fidelity = 0) const;

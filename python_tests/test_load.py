@@ -33,7 +33,7 @@ def test_py_load_list(db0_fixture):
     assert db0.load(t1) == [1, "string", 999]
 
 
-def test_load_py_tuple_of_db0_classes(db0_fixture):    
+def test_load_py_tuple_of_db0_classes(db0_fixture):
     Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])    
     memo = MemoTestClass("string")
     t1 = (Colors.RED, Colors.GREEN, memo)

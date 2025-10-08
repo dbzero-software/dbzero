@@ -11,6 +11,8 @@ namespace db0::object_model
         m_type_id_map.reserve(static_cast<std::size_t>(PreStorageClass::COUNT));
         // NOTE: None is stored as 2-bit packed value
         addMapping(TypeId::NONE, PreStorageClass::PACK_2);
+        // reverse mapping is required for Schema type conversions
+        addReverseMapping(PreStorageClass::NONE, TypeId::NONE);
         addMapping(TypeId::STRING, PreStorageClass::STRING_REF);
         addReverseMapping(PreStorageClass::POOLED_STRING, TypeId::STRING);
         addReverseMapping(PreStorageClass::STR64, TypeId::STRING);
@@ -42,6 +44,7 @@ namespace db0::object_model
         addMapping(TypeId::DB0_ENUM_VALUE_REPR, PreStorageClass::DB0_ENUM_VALUE);
         // NOTE: booleans are packed as 2-bit values
         addMapping(TypeId::BOOLEAN, PreStorageClass::PACK_2);
+        addReverseMapping(PreStorageClass::BOOLEAN, TypeId::BOOLEAN);
         addMapping(TypeId::DB0_BYTES_ARRAY, PreStorageClass::DB0_BYTES_ARRAY);
         // Note: DB0_WEAK_PROXY by default maps to OBJECT_WEAK_REF but can also be OBJECT_LONG_WEAK_REF which needs to be checked
         addMapping(TypeId::DB0_WEAK_PROXY, PreStorageClass::OBJECT_WEAK_REF);
@@ -81,7 +84,7 @@ namespace db0::object_model
         }
         m_type_id_map[int_storage_class] = type_id;
     }
-
+    
     StorageClassMapper::TypeId StorageClassMapper::getTypeId(PreStorageClass storage_class) const
     {
         auto int_storage_class = static_cast<unsigned int>(storage_class);

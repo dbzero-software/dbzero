@@ -344,7 +344,7 @@ namespace db0::object_model
             unrefMember(*fixture, old_storage_class, pos_vt.values()[loc.first]);
             // mark member as deleted by assigning UNDEFINED storage class
             pos_vt.set(loc.first, StorageClass::UNDEFINED, {});
-            m_type->removeFromSchema(field_id, getSchemaTypeId(old_storage_class));
+            m_type->removeFromSchema(field_id, fidelity, getSchemaTypeId(old_storage_class));
         } else {
             assert(fidelity == 2);
             auto value = pos_vt.values()[loc.first];
@@ -356,7 +356,7 @@ namespace db0::object_model
             auto old_type_id = getSchemaTypeId(old_storage_class, lofi_store<2>::fromValue(value).get(loc.second));
             lofi_store<2>::fromValue(value).reset(loc.second);
             pos_vt.set(loc.first, old_storage_class, value);
-            m_type->removeFromSchema(field_id, old_type_id);
+            m_type->removeFromSchema(field_id, fidelity, old_type_id);
         }
     }
 
@@ -369,7 +369,7 @@ namespace db0::object_model
             unrefMember(*fixture, index_vt.xvalues()[index_vt_pos]);
             // mark member as deleted by assigning UNDEFINED storage class
             index_vt.set(index_vt_pos, StorageClass::UNDEFINED, {});
-            m_type->removeFromSchema(field_id, getSchemaTypeId(old_storage_class));
+            m_type->removeFromSchema(field_id, fidelity, getSchemaTypeId(old_storage_class));
         } else {
             assert(fidelity == 2);
             auto value = index_vt.xvalues()[index_vt_pos].m_value;
@@ -381,7 +381,7 @@ namespace db0::object_model
             auto old_type_id = getSchemaTypeId(old_storage_class, lofi_store<2>::fromValue(value).get(offset));
             lofi_store<2>::fromValue(value).reset(offset);
             index_vt.set(index_vt_pos, old_storage_class, value);
-            m_type->removeFromSchema(field_id, old_type_id);
+            m_type->removeFromSchema(field_id, fidelity, old_type_id);
         }
     }
 
@@ -406,7 +406,7 @@ namespace db0::object_model
                 modify().m_kv_address = new_addr;
                 modify().m_kv_type = kv_index_ptr->getIndexType();
             }
-            m_type->removeFromSchema(field_id, getSchemaTypeId(xvalue.m_type));
+            m_type->removeFromSchema(field_id, fidelity, getSchemaTypeId(xvalue.m_type));
         } else {
             assert(fidelity == 2);
             auto value = xvalue.m_value;
@@ -425,7 +425,7 @@ namespace db0::object_model
                 modify().m_kv_address = kv_index_ptr->getAddress();                    
             }
 
-            m_type->removeFromSchema(field_id, old_type_id);
+            m_type->removeFromSchema(field_id, fidelity, old_type_id);
         }
     }
 
@@ -441,7 +441,7 @@ namespace db0::object_model
         }
     }
 
-    void Object::setPosVT(FixtureLock &fixture, FieldID field_id, unsigned int fidelity, 
+    void Object::setPosVT(FixtureLock &fixture, FieldID field_id, unsigned int fidelity,
         StorageClass storage_class, Value value)
     {        
         auto &pos_vt = modify().pos_vt();
@@ -452,13 +452,13 @@ namespace db0::object_model
             unrefMember(*fixture, old_storage_class, pos_value);
             // update attribute stored in the positional value-table
             pos_vt.set(loc.first, storage_class, value);
-            m_type->updateSchema(field_id, getSchemaTypeId(old_storage_class), getSchemaTypeId(storage_class));
+            m_type->updateSchema(field_id, fidelity, getSchemaTypeId(old_storage_class), getSchemaTypeId(storage_class));
         } else {
             auto old_type_id = getSchemaTypeId(storage_class, lofi_store<2>::fromValue(pos_value).get(loc.second));
             lofi_store<2>::fromValue(pos_value).set(loc.second, value.m_store);
             pos_vt.set(loc.first, storage_class, pos_value);
             auto new_type_id = getSchemaTypeId(storage_class, value);
-            m_type->updateSchema(field_id, old_type_id, new_type_id);
+            m_type->updateSchema(field_id, fidelity, old_type_id, new_type_id);
         }
     }
 
@@ -471,12 +471,12 @@ namespace db0::object_model
         if (fidelity == 0) {
             // update attribute stored in the positional value-table
             pos_vt.set(loc.first, storage_class, value);
-            m_type->addToSchema(field_id, getSchemaTypeId(storage_class));
+            m_type->addToSchema(field_id, fidelity, getSchemaTypeId(storage_class));
         } else {
             lofi_store<2>::fromValue(pos_value).set(loc.second, value.m_store);
             pos_vt.set(loc.first, storage_class, pos_value);
-            m_type->addToSchema(field_id, getSchemaTypeId(storage_class, value));
-        }        
+            m_type->addToSchema(field_id, fidelity, getSchemaTypeId(storage_class, value));
+        }
     }
 
     void Object::setIndexVT(FixtureLock &fixture, FieldID field_id, unsigned int index_vt_pos,
@@ -487,7 +487,7 @@ namespace db0::object_model
             auto old_storage_class = index_vt.xvalues()[index_vt_pos].m_type;
             unrefMember(*fixture, index_vt.xvalues()[index_vt_pos]);
             index_vt.set(index_vt_pos, storage_class, value);
-            m_type->updateSchema(field_id, getSchemaTypeId(old_storage_class), getSchemaTypeId(storage_class));
+            m_type->updateSchema(field_id, fidelity, getSchemaTypeId(old_storage_class), getSchemaTypeId(storage_class));
         } else {
             auto index_vt_value = index_vt.xvalues()[index_vt_pos].m_value;
             auto offset = field_id.getOffset();
@@ -495,7 +495,7 @@ namespace db0::object_model
             lofi_store<2>::fromValue(index_vt_value).set(offset, value.m_store);
             index_vt.set(index_vt_pos, storage_class, index_vt_value);
             auto new_type_id = getSchemaTypeId(storage_class, value);
-            m_type->updateSchema(field_id, old_type_id, new_type_id);
+            m_type->updateSchema(field_id, fidelity, old_type_id, new_type_id);
         }
     }
 
@@ -505,13 +505,13 @@ namespace db0::object_model
         auto &index_vt = modify().index_vt();
         if (fidelity == 0) {
             index_vt.set(index_vt_pos, storage_class, value);
-            m_type->addToSchema(field_id, getSchemaTypeId(storage_class));
+            m_type->addToSchema(field_id, fidelity, getSchemaTypeId(storage_class));
         } else {
             auto index_vt_value = index_vt.xvalues()[index_vt_pos].m_value;
             lofi_store<2>::fromValue(index_vt_value).set(field_id.getOffset(), value.m_store);
             index_vt.set(index_vt_pos, storage_class, index_vt_value);
-            m_type->addToSchema(field_id, getSchemaTypeId(storage_class, value));
-        }        
+            m_type->addToSchema(field_id, fidelity, getSchemaTypeId(storage_class, value));
+        }
     }
 
     void Object::setKVIndexValue(FixtureLock &fixture, FieldID field_id, unsigned int fidelity,
@@ -531,7 +531,7 @@ namespace db0::object_model
             if (kv_index_ptr->updateExisting(xvalue, &old_value)) {
                 if (fidelity == 0) {
                     unrefMember(*fixture, old_value);
-                    m_type->updateSchema(field_id, getSchemaTypeId(old_value.m_type), 
+                    m_type->updateSchema(field_id, fidelity, getSchemaTypeId(old_value.m_type), 
                         getSchemaTypeId(storage_class)
                     );
                 } else {
@@ -542,7 +542,7 @@ namespace db0::object_model
                     xvalue.m_value = kv_value;
                     kv_index_ptr->updateExisting(xvalue);
                     auto new_type_id = getSchemaTypeId(storage_class, value);
-                    m_type->updateSchema(field_id, old_type_id, new_type_id);
+                    m_type->updateSchema(field_id, fidelity, old_type_id, new_type_id);
                 }
                 // in case of the IttyIndex updating an element changes the address
                 // which needs to be updated in the object
@@ -556,10 +556,10 @@ namespace db0::object_model
                     modify().m_kv_type = kv_index_ptr->getIndexType();
                 }
                 
-                m_type->addToSchema(field_id, getSchemaTypeId(storage_class, value));
+                m_type->addToSchema(field_id, fidelity, getSchemaTypeId(storage_class, value));
             }
         } else {
-            m_type->addToSchema(field_id, getSchemaTypeId(storage_class, value));
+            m_type->addToSchema(field_id, fidelity, getSchemaTypeId(storage_class, value));
         }
     }
 
@@ -594,9 +594,9 @@ namespace db0::object_model
                 }                                
             }
         }
-        m_type->addToSchema(field_id, getSchemaTypeId(storage_class, value));
+        m_type->addToSchema(field_id, fidelity, getSchemaTypeId(storage_class, value));
     }
-
+    
     std::pair<FieldInfo, const void *> Object::tryGetMember(const MemberID &member_id,
         unsigned int &pos) const
     {
@@ -1209,7 +1209,7 @@ namespace db0::object_model
         return result;
     }
     
-    void Object::forAll(std::function<bool(const std::string &, const XValue &)> f) const
+    void Object::forAll(std::function<bool(const std::string &, const XValue &, unsigned int)> f) const
     {
         // Visit pos-vt members first
         auto &obj_type = this->getType();
@@ -1219,8 +1219,19 @@ namespace db0::object_model
             auto value = values.begin();
             unsigned int index = 0;
             for (auto type = types.begin(); type != types.end(); ++type, ++value, ++index) {
-                if (!f(obj_type.getMember(FieldID::fromIndex(index)).m_name, { index, *type, *value })) {
-                    return;
+                if (*type == StorageClass::UNDEFINED) {
+                    // skip deleted members
+                    continue;
+                }
+                if (*type == StorageClass::PACK_2) {
+                    // iterate individual lo-fi members
+                    if (!forAll({index, *type, *value}, f)) {
+                        return;
+                    }
+                } else {
+                    if (!f(obj_type.getMember(FieldID::fromIndex(index)).m_name, { index, *type, *value }, 0)) {
+                        return;
+                    }
                 }
             }
         }
@@ -1228,9 +1239,21 @@ namespace db0::object_model
         // Visit index-vt members next
         {
             auto &xvalues = (*this)->index_vt().xvalues();
-            for (auto &xvalue: xvalues) {
-                if (!f(obj_type.getMember(FieldID::fromIndex(xvalue.getIndex())).m_name, xvalue)) {
-                    return;
+            for (auto &xvalue: xvalues) {  
+                if (xvalue.m_type == StorageClass::UNDEFINED) {
+                    // skip deleted members
+                    continue;
+                }              
+                if (xvalue.m_type == StorageClass::PACK_2) {
+                    // iterate individual lo-fi members
+                    if (!forAll(xvalue, f)) {
+                        return;
+                    }
+                } else {
+                    // regular member
+                    if (!f(obj_type.getMember(FieldID::fromIndex(xvalue.getIndex())).m_name, xvalue, 0)) {
+                        return;
+                    }
                 }
             }
         }
@@ -1240,8 +1263,19 @@ namespace db0::object_model
         if (kv_index_ptr) {
             auto it = kv_index_ptr->beginJoin(1);
             for (;!it.is_end(); ++it) {
-                if (!f(obj_type.getMember(FieldID::fromIndex((*it).getIndex())).m_name, *it)) {
-                    return;
+                if ((*it).m_type == StorageClass::UNDEFINED) {
+                    // skip deleted members
+                    continue;
+                }
+                if ((*it).m_type == StorageClass::PACK_2) {
+                    // iterate individual lo-fi members
+                    if (!forAll(*it, f)) {
+                        return;
+                    }
+                } else {
+                    if (!f(obj_type.getMember(FieldID::fromIndex((*it).getIndex())).m_name, *it, 0)) {
+                        return;
+                    }
                 }
             }
         }
@@ -1250,13 +1284,30 @@ namespace db0::object_model
     void Object::forAll(std::function<bool(const std::string &, ObjectSharedPtr)> f) const
     {
         auto fixture = this->getFixture();
-        forAll([&](const std::string &name, const XValue &xvalue) -> bool {
+        forAll([&](const std::string &name, const XValue &xvalue, unsigned int offset) -> bool {
             // all references convert to UUID
-            auto py_member = unloadMember<LangToolkit>(fixture, xvalue.m_type, xvalue.m_value);
+            auto py_member = unloadMember<LangToolkit>(fixture, xvalue.m_type, xvalue.m_value, offset);
             return f(name, py_member);
         });
     }
-    
+
+    bool Object::forAll(XValue xvalue, std::function<bool(const std::string &, const XValue &, unsigned int offset)> f) const
+    {
+        assert(xvalue.m_type == StorageClass::PACK_2);
+        unsigned int index = xvalue.getIndex();
+        auto _value = xvalue.m_value;
+        auto it = lofi_store<2>::fromValue(_value).begin(), end = lofi_store<2>::fromValue(_value).end();
+        auto &obj_type = this->getType();
+        for (; it != end; ++it) {
+            if (!f(obj_type.getMember(FieldID::fromIndex(index, it.getOffset())).m_name,
+                xvalue, it.getOffset()))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
     void Object::incRef(bool is_tag)
     {
         if (hasInstance()) {
@@ -1324,14 +1375,14 @@ namespace db0::object_model
         
         // field-wise compare otherwise (slower)
         bool result = true;
-        this->forAll([&](const std::string &name, const XValue &xvalue) -> bool {
+        this->forAll([&](const std::string &name, const XValue &xvalue, unsigned int offset) -> bool {
             auto maybe_other_value = other.tryGetX(name.c_str());
             if (!maybe_other_value) {
                 result = false;
                 return false;
             }
             
-            if (!xvalue.equalTo(*maybe_other_value)) {
+            if (!xvalue.equalTo(*maybe_other_value, offset)) {
                 result = false;
                 return false;
             }

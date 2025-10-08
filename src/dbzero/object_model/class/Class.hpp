@@ -97,7 +97,8 @@ namespace db0::object_model
         GC0_Declare
         using super_t = db0::ObjectBase<Class, ClassVType, StorageClass::DB0_CLASS, false>;
     public:
-        static constexpr std::uint32_t SLOT_NUM = Fixture::TYPE_SLOT_NUM;        
+        static constexpr std::uint32_t SLOT_NUM = Fixture::TYPE_SLOT_NUM;
+        static constexpr unsigned int PRIMARY_FIDELITY = 2;
         
         // e.g. PyObject*
         using LangToolkit = db0::python::PyToolkit;
@@ -223,10 +224,10 @@ namespace db0::object_model
         // Add or remove from schema index-encoded field types
         void updateSchema(const XValue *begin, const XValue *end, bool add = true);
         // Update type of a single field occurrence
-        void updateSchema(FieldID, SchemaTypeId old_type, SchemaTypeId new_type);
+        void updateSchema(FieldID, unsigned int fidelity, SchemaTypeId old_type, SchemaTypeId new_type);
         // Add a single field occurrence to the schema
-        void addToSchema(FieldID, SchemaTypeId);
-        void removeFromSchema(FieldID, SchemaTypeId);
+        void addToSchema(FieldID, unsigned int fidelity, SchemaTypeId);
+        void removeFromSchema(FieldID, unsigned int fidelity, SchemaTypeId);
         void addToSchema(unsigned int index, StorageClass, Value);
         void removeFromSchema(unsigned int index, StorageClass, Value);
         void addToSchema(const XValue &);
@@ -289,6 +290,8 @@ namespace db0::object_model
         // Field by-name index (cache)
         // values: member ID / assigned on initialization flag
         mutable std::unordered_map<std::string, std::pair<MemberID, bool> > m_index;
+        // For fidelity = 0 this maps "index" to the unique field ID
+        mutable std::vector<FieldID> m_unique_keys;
         // fields initialized on class creation (from static code analysis)
         std::unordered_set<std::string> m_init_vars;
         const std::uint32_t m_uid = 0;
@@ -297,12 +300,18 @@ namespace db0::object_model
         // A function to retrieve the total number of instances of the schema
         std::function<unsigned int()> getTotalFunc() const;
         std::function<void(const Member &)> getRefreshCallback() const;
+        // callback for MemberID updates
+        void onMemberIDUpdated(const MemberID &) const;
+        // translate member's field ID into a unique key
+        FieldID getPrimaryKey(unsigned int index) const;
         
         // Initialization function
         std::unordered_set<std::string> makeInitVars(const std::vector<std::string> &) const;
         
         // Assign a new field slot with a specified fidelity
         std::pair<std::uint32_t, std::uint32_t> assignSlot(unsigned int fidelity);
+        // Check if a specific field (by name) exists and is assigned to a given fidelity (0 = default)
+        bool hasSlot(const char *name, unsigned int fidelity) const;
     };
     
     // retrieve one of 4 possible type name variants

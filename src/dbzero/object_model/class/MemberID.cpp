@@ -28,17 +28,24 @@ namespace db0::object_model
             return {};
         }
     }
-
+    
     void MemberID::assign(FieldID field_id, unsigned int fidelity)
     {
         if (!m_primary.first) {
             m_primary = { field_id, fidelity };
         } else {
+            assert(m_primary.first);
             assert(!m_secondary.first);
+            assert(m_primary.second != fidelity && "Fidelity already assigned as primary!");
             m_secondary = { field_id, fidelity };
+            if (m_secondary.second > m_primary.second) {
+                // ensure primary has the higher fidelity number
+                // this is to allow a deterministic unique identifier
+                std::swap(m_primary, m_secondary);
+            }
         }
     }
-
+    
     MemberID::const_iterator::const_iterator(const MemberID &member_id)
         : m_first_ptr(&member_id.m_primary)
         , m_second_ptr(member_id.m_secondary.first ? &member_id.m_secondary : nullptr)
