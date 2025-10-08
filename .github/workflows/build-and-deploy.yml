@@ -58,6 +58,7 @@ jobs:
           CIBW_ARCHS_WINDOWS: ${{ matrix.architecture }}
       - uses: actions/upload-artifact@v4
         with:
+          name: wheels-windows
           path: wheelhouse/*.whl
 
   # wheels-linux:
@@ -110,6 +111,7 @@ jobs:
       - run: python -m build --sdist
       - uses: actions/upload-artifact@v4
         with:
+          name: sdist
           path: dist/*.tar.gz
 
   deploy-to-pypi:
