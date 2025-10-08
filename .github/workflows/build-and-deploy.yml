@@ -8,50 +8,45 @@ on:
 
 jobs:
   build-linux:
-    name: Build Linux packages (manylinux)
+    name: Build wheels on manylinux
     runs-on: ubuntu-latest
+
     strategy:
-      fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12", "3.13"]
+        python-version: [ "3.8", "3.9", "3.10", "3.11", "3.12" ]
+
     steps:
-      - uses: actions/checkout@v4
-      
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      
-      - name: Generate meson files
-        run: |
-          python3 scripts/generate_meson.py ./src/dbzero/ core
-          python3 scripts/generate_meson_tests.py tests/
-      
-      - name: Configure git
-        run: |
-          git config --global user.email "ci@example.com"
-          git config --global user.name "CI Builder"
-          rm .gitignore
-          git add . && git commit -m "Update meson files for build"
-      
+
       - name: Install build dependencies
         run: |
-          pip install build cibuildwheel
-      
-      - name: Build wheels (manylinux)
-        run: python3 -m cibuildwheel --output-dir wheelhouse
-        env:
-          CIBW_BUILD: cp${{ matrix.python-version }}-*
-          CIBW_SKIP: pp* *-musllinux*
-          CIBW_ARCHS_LINUX: x86_64 aarch64
-          CIBW_MANYLINUX_X86_64_IMAGE: manylinux2014
-          CIBW_MANYLINUX_AARCH64_IMAGE: manylinux2014
-      
-      - name: Upload Linux wheels
+          python -m pip install --upgrade pip setuptools wheel build
+
+      - name: Build sdist (source distribution)
+        run: |
+          python -m build --sdist
+
+      - name: Build wheel inside manylinux container
+        run: |
+          docker run --rm \
+            -v ${{ github.workspace }}:/io \
+            quay.io/pypa/manylinux_2_28_x86_64 \
+            bash -c "cd /io && /opt/python/cp${{ matrix.python-version//./}}-cp${{ matrix.python-version//./}}/bin/python -m build --wheel"
+
+      - name: List build artifacts
+        run: ls -lh dist/
+
+      - name: Upload wheels as artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: wheels-linux-${{ matrix.python-version }}
-          path: wheelhouse/*.whl
+          name: wheels-${{ matrix.python-version }}
+          path: dist/
 
   # build-windows:
   #   name: Build Windows packages
