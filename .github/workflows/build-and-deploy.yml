@@ -34,6 +34,17 @@ jobs:
         with:
           architecture: x86
         if: runner.os == 'Windows' && matrix.architecture == 'x86'
+      - name: Generate meson files
+        run: |
+          python scripts/generate_meson.py ./src/dbzero/ core
+          python scripts/generate_meson_tests.py tests/
+      
+      - name: Configure git
+        run: |
+          git config --global user.email "ci@example.com"
+          git config --global user.name "CI Builder"
+          Remove-Item .gitignore -ErrorAction SilentlyContinue
+          git add . && git commit -m "Update meson files for build"  
       - run: pip3 install pipx
       - run: pipx run cibuildwheel==2.11.2
         env:
