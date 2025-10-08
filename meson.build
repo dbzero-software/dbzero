@@ -46,9 +46,6 @@ python_deps = py3_inst.dependency()
 
 
 deps += python_deps
-if build_machine.system() == 'linux'
-    deps += python_embed_dep
-endif
 
 all_srcs = []
 subdir('src/dbzero')
