@@ -24,7 +24,7 @@ namespace db0::object_model
         return (m_type_id == SchemaTypeId::UNDEFINED || m_count == 0);
     }
 
-    o_type_item &o_type_item::operator=(std::tuple<unsigned int, SchemaTypeId, int> item)
+    o_type_item &o_type_item::operator=(std::tuple<FieldLoc, SchemaTypeId, int> item)
     {
         m_type_id = std::get<1>(item);
         assert(std::get<2>(item) >= 0);
@@ -33,8 +33,8 @@ namespace db0::object_model
     }
     
     o_schema::o_schema(
-        Memspace &memspace, std::vector<std::tuple<unsigned int, SchemaTypeId, int> >::const_iterator begin,
-        std::vector<std::tuple<unsigned int, SchemaTypeId, int> >::const_iterator end)
+        Memspace &memspace, std::vector<std::tuple<FieldLoc, SchemaTypeId, int> >::const_iterator begin,
+        std::vector<std::tuple<FieldLoc, SchemaTypeId, int> >::const_iterator end)
         : m_primary_type_id(std::get<1>(*begin))
     {
         assert(begin != end);
@@ -91,10 +91,10 @@ namespace db0::object_model
         }
         return result;
     }
-
+    
     void o_schema::update(Memspace &memspace,
-        std::vector<std::tuple<unsigned int, SchemaTypeId, int> >::const_iterator begin,
-        std::vector<std::tuple<unsigned int, SchemaTypeId, int> >::const_iterator end,
+        std::vector<std::tuple<FieldLoc, SchemaTypeId, int> >::const_iterator begin,
+        std::vector<std::tuple<FieldLoc, SchemaTypeId, int> >::const_iterator end,
         std::uint32_t collection_size)
     {
         // NOTE: primary type is not counted
@@ -149,6 +149,10 @@ namespace db0::object_model
 
         // Reorder the primary, secondary and possibly extra types
         update(memspace, type_vector, collection_size);
+    }
+
+    bool o_schema::isPrimarySwapRequired(std::uint32_t collection_size) const {
+        return getPrimaryType(collection_size) != m_primary_type_id;
     }
 
     void o_schema::update(Memspace &memspace, std::uint32_t collection_size)
@@ -301,11 +305,11 @@ namespace db0::object_model
             // field loc, type ID, update count
             std::vector<std::tuple<FieldLoc, SchemaTypeId, int> > sorted_updates;
             // collect from secondary type updates
-            for (auto it = m_secondary_updates.cbegin(), end = m_secondary_updates.cend(); it != end; ++it) {
+            for (auto it = m_secondary_updates.begin(), end = m_secondary_updates.end(); it != end; ++it) {
                 auto loc = it.loc();
                 sorted_updates.emplace_back(loc, m_secondary_type_cache.get(loc), *it);                
             }
-
+            
             for (const auto &update : m_updates) {
                 sorted_updates.emplace_back(update.first.first, update.first.second, update.second);
             }
@@ -444,30 +448,16 @@ namespace db0::object_model
         getBuilder().collect(field_id, type_id, -1);
     }
     
-    std::pair<SchemaTypeId, SchemaTypeId> Schema::getType(FieldID field_id) const    
+    std::pair<SchemaTypeId, SchemaTypeId> Schema::getType(FieldID field_id) const
     {
-        /* FIXME: implement
-        flush();
-        auto loc = field_id.getIndexAndOffset();
-        if (loc.first >= this->size()) {
-            THROWF(db0::InputException) << "Unknown / invalid field ID: " << loc.first << " (offset: " << loc.second << ")";
-        }
-        return (*this)[loc.first].getType();
-        */
-        throw std::runtime_error("Not implemented");
+        flush();        
+        return this->get(field_id.getIndexAndOffset()).getType();
     }
 
     std::vector<SchemaTypeId> Schema::getAllTypes(FieldID field_id) const
-    {
-        /* FIXME: implement
+    {        
         flush();
-        auto loc = field_id.getIndexAndOffset();
-        if (loc.first >= this->size()) {
-            THROWF(db0::InputException) << "Unknown / invalid field ID: " << loc.first << " (offset: " << loc.second << ")";
-        }
-        return (*this)[loc.first].getAllTypes(this->getMemspace());
-        */
-        throw std::runtime_error("Not implemented");
+        return this->get(field_id.getIndexAndOffset()).getAllTypes(this->getMemspace());
     }
 
     void Schema::update(FieldLoc field_loc,
@@ -475,45 +465,29 @@ namespace db0::object_model
         std::vector<std::tuple<FieldLoc, SchemaTypeId, int> >::const_iterator end,
         std::uint32_t collection_size)
     {
-        /* FIXME: implement
-        if (field_loc >= this->size()) {
-            // fill-in empty slots
-            while (this->size() < field_id) {
-                this->emplace_back();
-            }
-            // create with values
-            this->emplace_back(this->getMemspace(), begin, end);
-            assert(this->size() == (field_id + 1));
+        if (!hasItem(field_loc)) {
+            set(field_loc, { this->getMemspace(), begin, end } );
         } else {
-            modifyItem(field_id).update(this->getMemspace(), begin, end, collection_size);
+            modifyItem(field_loc).update(this->getMemspace(), begin, end, collection_size);
         }
-        */
-        throw std::runtime_error("Not implemented");
     }
     
     void Schema::update(std::uint32_t collection_size)
-    {
-        /* FIXME: implement
-        // modify only items affected by the collection size change
-        unsigned int field_id = 0;
-
+    {        
+        // Modify only items affected by the collection size change
         // NOTE: collect the items to be modified first
-        // otherwise the v-bvector updates may lead to iterator invalidation
-        std::vector<unsigned int> updated_fields;
-                
-        for (const auto &item : *this) {
-            if (item.getPrimaryType(collection_size) != item.m_primary_type_id) {
-                updated_fields.push_back(field_id);
+        // otherwise the limited-matrix updates may lead to iterator invalidation
+        std::vector<FieldLoc> updated_fields;        
+        for (auto it = this->cbegin(), end = this->cend(); it != end; ++it) {
+            if ((*it).isPrimarySwapRequired(collection_size)) {
+                updated_fields.push_back(it.loc());
             }
-            ++field_id;
         }
-    
-        for (auto updated_field : updated_fields) {
-            modifyItem(updated_field).update(this->getMemspace(), collection_size);
+        
+        for (auto loc: updated_fields) {
+            modifyItem(loc).update(this->getMemspace(), collection_size);
         }
         m_last_collection_size = collection_size;
-        */
-        throw std::runtime_error("Not implemented");
     }
     
     void Schema::rollback() {

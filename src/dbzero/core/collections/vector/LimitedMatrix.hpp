@@ -25,6 +25,8 @@ namespace db0
         void set(std::pair<std::uint32_t, std::uint32_t>, ItemT);
         // @return nullptr if item not set / not found
         const ItemT *tryGet(std::pair<std::uint32_t, std::uint32_t>) const;
+        // @throw std::out_of_range if item not set / not found
+        const ItemT &get(std::pair<std::uint32_t, std::uint32_t>) const;
         
         // Modify an existing item (or throw)
         ItemT &modifyItem(std::pair<std::uint32_t, std::uint32_t>);
@@ -76,9 +78,15 @@ namespace db0
             bool operator!=(const column_iterator &other) const;
             bool operator==(const column_iterator &other) const;
             
+            std::uint32_t loc() const {
+                assert(m_it != m_end);
+                return static_cast<std::uint32_t>(std::distance(m_begin, m_it));
+            }
+
             bool isEnd() const;
             void fix();
             
+            typename column_vector::const_iterator m_begin;
             typename column_vector::const_iterator m_it;
             typename column_vector::const_iterator m_end;
         };
@@ -105,6 +113,7 @@ namespace db0
             
         private:
             std::reference_wrapper<const self_type> m_cache;
+            typename std::vector<DataItem>::const_iterator m_begin;
             typename std::vector<DataItem>::const_iterator m_it;
             typename std::vector<DataItem>::const_iterator m_end;
             // is positioned at first item of a column
@@ -119,16 +128,19 @@ namespace db0
         
         const_iterator begin() const;
         const_iterator end() const;
-
-        const_iterator cbegin() const;
-        const_iterator cend() const;
     };
     
+    template <typename ItemT> void LimitedMatrix<ItemT>::clear()
+    {
+        m_dim1.clear();
+        m_size = 0;
+    }
+
     template <typename ItemT>
     std::size_t LimitedMatrix<ItemT>::size() const {
         return m_size;
     }
-
+    
     template <typename ItemT>
     bool LimitedMatrix<ItemT>::hasItem(std::pair<std::uint32_t, std::uint32_t> pos) const
     {
@@ -167,6 +179,26 @@ namespace db0
             return nullptr;
         }
         return m_dim1[pos.first].m_vector_ptr->tryGet(pos.second - 1);
+    }
+
+    template <typename ItemT>
+    const ItemT &LimitedMatrix<ItemT>::get(std::pair<std::uint32_t, std::uint32_t> loc) const
+    {
+        const ItemT *item_ptr = tryGet(loc);
+        if (!item_ptr) {
+            throw std::out_of_range("Item not found");
+        }
+        return *item_ptr;
+    }
+
+    template <typename ItemT>
+    ItemT &LimitedMatrix<ItemT>::modifyItem(std::pair<std::uint32_t, std::uint32_t> loc)
+    {
+        const ItemT *item_ptr = tryGet(loc);
+        if (!item_ptr) {
+            throw std::out_of_range("Item not found");
+        }
+        return const_cast<ItemT&>(*item_ptr);
     }
 
     template <typename ItemT>
@@ -242,6 +274,17 @@ namespace db0
     }
 
     template <typename ItemT>
+    std::pair<std::uint32_t, std::uint32_t> LimitedMatrix<ItemT>::const_iterator::loc() const
+    {
+        assert(m_it != m_end);        
+        if (this->m_first_item) {
+            return { static_cast<std::uint32_t>(std::distance(m_begin, m_it)), 0 };
+        } else {
+            return { static_cast<std::uint32_t>(std::distance(m_begin, m_it)), m_col_it.loc() + 1 };
+        }
+    }
+    
+    template <typename ItemT>
     const ItemT *LimitedMatrix<ItemT>::const_iterator::operator->() const
     {
         return &(**this);
@@ -279,7 +322,8 @@ namespace db0
     template <typename ItemT>
     LimitedMatrix<ItemT>::column_iterator::column_iterator(typename column_vector::const_iterator it,
         typename column_vector::const_iterator end)
-        : m_it(it)
+        : m_begin(it)
+        , m_it(it)
         , m_end(end)
     {
         this->fix();
@@ -325,6 +369,7 @@ namespace db0
         typename std::vector<DataItem>::const_iterator it,
         typename std::vector<DataItem>::const_iterator end)
         : m_cache(cache)
+        , m_begin(it)
         , m_it(it)
         , m_end(end)
         , m_col_it(getColumn())
@@ -407,13 +452,13 @@ namespace db0
     }
 
     template <typename ItemT> typename LimitedMatrix<ItemT>::const_iterator 
-    LimitedMatrix<ItemT>::cbegin() const
+    LimitedMatrix<ItemT>::begin() const
     {
         return const_iterator(*this, m_dim1.cbegin(), m_dim1.cend());
     }
 
     template <typename ItemT> typename LimitedMatrix<ItemT>::const_iterator 
-    LimitedMatrix<ItemT>::cend() const
+    LimitedMatrix<ItemT>::end() const
     {
         return const_iterator(*this, m_dim1.cend(), m_dim1.cend());    
     }

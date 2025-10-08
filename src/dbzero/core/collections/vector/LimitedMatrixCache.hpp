@@ -49,11 +49,11 @@ namespace db0
         void reload(std::pair<std::uint32_t, std::uint32_t>);
         
         typename super_t::const_iterator cbegin() const {
-            return super_t::cbegin();
+            return super_t::begin();
         }
 
         typename super_t::const_iterator cend() const {
-            return super_t::cend();
+            return super_t::end();
         }
 
     private:        

@@ -76,7 +76,9 @@ namespace db0
         ItemT get(std::pair<std::uint32_t, std::uint32_t> index) const;
         // modify an existing item or raise if does not exist
         ItemT &modifyItem(std::pair<std::uint32_t, std::uint32_t> index);
-
+        // check if an item exists
+        bool hasItem(std::pair<std::uint32_t, std::uint32_t>) const;
+        
         // @return Dim1 x Dim2 (constant)
         std::pair<std::size_t, std::uint32_t> size() const;
 
@@ -107,8 +109,8 @@ namespace db0
             using IteratorT = typename v_bvector<o_optional_item<ItemT>, PtrT>::const_iterator;
             
             column_iterator(std::uint32_t column_id, const IteratorT &begin, const IteratorT &end);
-            
-            ItemT operator*() const;
+
+            ItemT operator*() const;            
             column_iterator &operator++();
             bool isEnd() const;
             
@@ -132,8 +134,8 @@ namespace db0
             using MatrixT = VLimitedMatrix<ItemT, Dim2, PtrT>;
             using IteratorT = typename v_bvector<o_optional_item<ItemT>, PtrT>::const_iterator;
             using IndexIteratorT = typename v_sorted_vector<o_dim2_index_item, PtrT>::const_iterator;
-            
-            ItemT operator*() const;
+
+            ItemT operator*() const;            
             const_iterator &operator++();
             bool operator!=(const const_iterator &) const;
 
@@ -228,6 +230,26 @@ namespace db0
         this->modify().m_item_count += 1;
     }
 
+    template <typename ItemT, unsigned int Dim2, typename PtrT>
+    bool VLimitedMatrix<ItemT, Dim2, PtrT>::hasItem(std::pair<std::uint32_t, std::uint32_t> index) const
+    {
+        assert(index.second < Dim2 && "Dimension 2 index out of range");
+        if (index.first >= m_dim1.size()) {
+            return false;
+        }
+        if (index.second) {
+            auto it = m_index.find(o_dim2_index_item(index.first, 0));
+            if (it != m_index.end()) {
+                std::uint64_t offset = it->m_offset + index.second - 1;
+                return m_sparse_matrix.getItem(offset).isSet();
+            } else {
+                return false;
+            }
+        } else {
+            return m_dim1[index.first].isSet();
+        }
+    }
+    
     template <typename ItemT, unsigned int Dim2, typename PtrT>
     std::optional<ItemT> VLimitedMatrix<ItemT, Dim2, PtrT>::tryGet(std::pair<std::uint32_t, std::uint32_t> index) const
     {
@@ -455,7 +477,7 @@ namespace db0
 
         return *this;
     }
-
+    
     template <typename ItemT, unsigned int Dim2, typename PtrT>
     ItemT VLimitedMatrix<ItemT, Dim2, PtrT>::const_iterator::operator*() const
     {        
@@ -509,5 +531,5 @@ namespace db0
         assert(!isEnd() && "Dereferencing end iterator");
         return m_it->m_value;
     }
-    
+
 }

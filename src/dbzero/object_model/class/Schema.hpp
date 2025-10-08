@@ -57,6 +57,7 @@ namespace db0::object_model
     
     struct [[gnu::packed]] o_type_item: public db0::o_fixed<o_type_item>
     {        
+        using FieldLoc = std::pair<std::uint32_t, std::uint32_t>;
         SchemaTypeId m_type_id = SchemaTypeId::UNDEFINED;
         // the number of occurences of the specific type ID
         std::uint32_t m_count = 0;
@@ -76,14 +77,15 @@ namespace db0::object_model
             return (m_type_id < other.m_type_id);
         }
         
-        // assign from field ID, type ID and count
-        o_type_item &operator=(std::tuple<unsigned int, SchemaTypeId, int>);
+        // assign from type ID and count (FieldID is ignored)
+        o_type_item &operator=(std::tuple<FieldLoc, SchemaTypeId, int>);
     };
     
     struct [[gnu::packed]] o_schema: public db0::o_fixed<o_schema>
     {        
         using TypeVector = db0::v_sorted_vector<o_type_item>;
         using total_func = std::function<std::uint32_t()>;
+        using FieldLoc = std::pair<std::uint32_t, std::uint32_t>;
 
         // the primary type ID (e.g. db0::bindings::StorageClass::STRING, NONE inclusive)
         SchemaTypeId m_primary_type_id = SchemaTypeId::UNDEFINED;
@@ -96,10 +98,11 @@ namespace db0::object_model
         db0::db0_ptr<TypeVector> m_type_vector_ptr;
 
         o_schema() = default;
-        // construct populated with values
+        // construct populated with values (type ID + occurrence count)
+        // NOTE: FieldLoc is for type compatibility only, it is ignored
         o_schema(Memspace &memspace,
-            std::vector<std::tuple<unsigned int, SchemaTypeId, int> >::const_iterator begin,
-            std::vector<std::tuple<unsigned int, SchemaTypeId, int> >::const_iterator end
+            std::vector<std::tuple<FieldLoc, SchemaTypeId, int> >::const_iterator begin,
+            std::vector<std::tuple<FieldLoc, SchemaTypeId, int> >::const_iterator end
         );
 
         // evaluate primary type based on the current collection size
@@ -110,15 +113,21 @@ namespace db0::object_model
 
         // get all types from the most to least common
         std::vector<SchemaTypeId> getAllTypes(Memspace &) const;
-
+        
+        // NOTE: FieldLoc is for type compatibility only, it is ignored
         void update(Memspace &memspace,
-            std::vector<std::tuple<unsigned int, SchemaTypeId, int> >::const_iterator begin,
-            std::vector<std::tuple<unsigned int, SchemaTypeId, int> >::const_iterator end,
+            std::vector<std::tuple<FieldLoc, SchemaTypeId, int> >::const_iterator begin,
+            std::vector<std::tuple<FieldLoc, SchemaTypeId, int> >::const_iterator end,
             std::uint32_t collection_size
         );
 
         // Update to reflect the collection size change only
         void update(Memspace &, std::uint32_t collection_size);
+
+    protected:
+        friend class Schema;
+        
+        bool isPrimarySwapRequired(std::uint32_t collection_size) const;
 
     private:
         void update(Memspace &, TypeVector &, std::uint32_t collection_size);
