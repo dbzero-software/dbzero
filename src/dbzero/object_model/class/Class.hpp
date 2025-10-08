@@ -107,6 +107,7 @@ namespace db0::object_model
         
         struct Member
         {
+            // primary field ID (primary key)
             FieldID m_field_id;
             unsigned int m_fidelity = 0;
             std::string m_name;
@@ -114,7 +115,8 @@ namespace db0::object_model
             Member(FieldID, unsigned int fidelity, const char *);
             Member(FieldID, unsigned int fidelity, const std::string &);
             
-            unsigned int getIndex() const;
+            // @return full index (index + offset) as a single integer
+            unsigned int getLongIndex() const;
         };
         
         // Pull existing type

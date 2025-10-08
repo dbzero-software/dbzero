@@ -248,7 +248,8 @@ def test_memo_object_destroys_its_pos_vt_dependencies(db0_fixture):
     obj = MemoTestClass(MemoTestClass(123))
     dep_uuid = db0.uuid(obj.value)
     # make sure member is stored as pos-vt
-    assert len(db0.describe(obj)["field_layout"]["pos_vt"]) == 1
+    # NOTE: there might be more slots preallocated for lo-fi members
+    assert len(db0.describe(obj)["field_layout"]["pos_vt"]) >= 1
     db0.delete(obj)
     del obj    
     db0.commit()

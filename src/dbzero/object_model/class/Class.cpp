@@ -666,8 +666,8 @@ namespace db0::object_model
         return { FieldID(loc), m_class.get().getFidelity(loc.first), field_name };
     }
     
-    unsigned int Class::Member::getIndex() const {
-        return m_field_id.getIndex();
+    unsigned int Class::Member::getLongIndex() const {
+        return m_field_id.getLongIndex();
     }
     
     unsigned int Class::getFidelity(std::uint32_t index) const

@@ -59,6 +59,11 @@ namespace db0::object_model
             return m_value != other.m_value;
         }
         
+        // @return full index (index + offset) as a single integer
+        inline std::uint32_t getLongIndex() const {
+            return m_value;
+        }
+        
     private:
         std::uint32_t m_value = 0;
         
