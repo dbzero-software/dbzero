@@ -37,8 +37,6 @@ class MemoDataClassPostInit:
     second: str = None
     
     def __post_init__(self):
-        # FIXME: log
-        print("In post init")
         if not self.first:
             self.first = "post-init initialized value"
 

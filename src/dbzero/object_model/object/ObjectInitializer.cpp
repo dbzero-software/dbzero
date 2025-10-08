@@ -12,7 +12,9 @@ namespace db0::object_model
         , m_loc(loc)
         , m_closed(false)
         , m_object_ptr(&object)
-        , m_class(db0_class)        
+        , m_class(db0_class)
+        // NOTE: limit the dim-2 size to improve performance
+        , m_has_value(lofi_store<2>::size())
     {        
     }
     
@@ -22,6 +24,8 @@ namespace db0::object_model
         , m_loc(loc)
         , m_closed(false)
         , m_object_ptr(&object)
+        // NOTE: limit the dim-2 size to improve performance
+        , m_has_value(lofi_store<2>::size())
         , m_type_initializer(std::move(type_initializer))
     {        
     }
@@ -52,10 +56,11 @@ namespace db0::object_model
         m_closed = true;
         m_object_ptr = nullptr;        
         m_class = nullptr;        
-        m_values.clear();        
+        m_values.clear();
+        m_has_value.clear();
         m_ref_counts = {0, 0};
         m_type_initializer = {};
-        m_fixture = {};
+        m_fixture = {};        
     }
     
     Class &ObjectInitializer::getClass() const {
@@ -84,12 +89,21 @@ namespace db0::object_model
         m_loc = loc;
     }
     
-    void ObjectInitializer::set(unsigned int at, StorageClass storage_class, Value value, std::uint64_t mask) {
-        m_values.push_back({ at, storage_class, value }, mask);
+    void ObjectInitializer::set(std::pair<std::uint32_t, std::uint32_t> loc, StorageClass storage_class,
+        Value value, std::uint64_t mask) 
+    {
+        m_values.push_back({ loc.first, storage_class, value }, mask);
+        m_has_value.set(loc, true);
     }
     
-    bool ObjectInitializer::remove(unsigned int at, std::uint64_t mask) {
-        return m_values.remove(at, mask);
+    bool ObjectInitializer::remove(std::pair<std::uint32_t, std::uint32_t> loc, std::uint64_t mask) 
+    {
+        if (!m_has_value.get(loc)) {
+            // no value present
+            return false;
+        }
+        m_has_value.set(loc, false);
+        return m_values.remove(loc.first, mask);
     }
 
     bool ObjectInitializer::tryGetAt(unsigned int at, std::pair<StorageClass, Value> &result) const {

@@ -188,8 +188,6 @@ namespace db0::object_model
     
     void Object::postInit(FixtureLock &fixture)
     {
-        // FIXME: log
-        std::cout << "--- object / postInit() ---" << std::endl;
         if (!hasInstance()) {
             auto &initializer = m_init_manager.getInitializer(*this);
             PosVT::Data pos_vt_data;
@@ -256,13 +254,13 @@ namespace db0::object_model
         for (const auto &field_info: member_id) {
             assert(field_info.first);
             std::uint64_t mask = 0;
-            auto [index, offset] = field_info.first.getIndexAndOffset();
+            auto loc = field_info.first.getIndexAndOffset();
             if (field_info.second != 0) {
                 // lo-fi type, prepare mask
-                mask = lofi_store<2>::mask(offset);
+                mask = lofi_store<2>::mask(loc.second);
             }
             // remove member from the initializer, possibly stored as a lo-fi type
-            if (initializer.remove(index, mask)) {
+            if (initializer.remove(loc, mask)) {
                 break;
             }
         }
@@ -292,17 +290,27 @@ namespace db0::object_model
         }
         
         if (storage_fidelity == 0) {
+            if (member_id.hasFidelity(2)) {
+                // remove any existing lo-fi initialization
+                auto loc = member_id.get(2).getIndexAndOffset();
+                initializer.remove(loc, lofi_store<2>::mask(loc.second));
+            }
             // register a regular member with the initializer
-            initializer.set(member_id.get(0).getIndex(), storage_class, 
+            initializer.set(member_id.get(0).getIndexAndOffset(), storage_class, 
                 createMember<LangToolkit>(fixture, type_id, storage_class, obj_ptr)
             );
         } else {
+            if (member_id.hasFidelity(0)) {
+                // remove any existing regular initialization
+                auto loc = member_id.get(0).getIndexAndOffset();
+                initializer.remove(loc);
+            }
             // For now only fidelity == 2 is supported (lo-fi storage)
             assert(storage_fidelity == 2);
-            auto [index, offset] = member_id.get(storage_fidelity).getIndexAndOffset();
-            auto value = lofi_store<2>::create(offset, createMember<LangToolkit>(fixture, type_id, storage_class, obj_ptr).m_store);                   
+            auto loc = member_id.get(storage_fidelity).getIndexAndOffset();
+            auto value = lofi_store<2>::create(loc.second, createMember<LangToolkit>(fixture, type_id, storage_class, obj_ptr).m_store);                   
             // register a lo-fi member with the initializer (using mask)
-            initializer.set(index, storage_class, value, lofi_store<2>::mask(offset));
+            initializer.set(loc, storage_class, value, lofi_store<2>::mask(loc.second));
         }
     }
     
@@ -327,7 +335,7 @@ namespace db0::object_model
         if (!field_info.first) {
             THROWF(db0::InputException) << "Attribute not found: " << field_name;
         }
-
+        
         unrefWithLoc(fixture, field_info.first, loc_ptr, pos, field_info.second);
 
         // the KV-index erase operation must be registered as the potential silent mutation
