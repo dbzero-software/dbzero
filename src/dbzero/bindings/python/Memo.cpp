@@ -181,6 +181,8 @@ namespace db0::python
             auto base_type = py_type->tp_base;
             
             // invoke tp_init from base type (wrapped pyhon class)
+            // FIXME: log
+            std::cout << "before tp-init" << std::endl;
             if (base_type->tp_init((PyObject*)self, args, kwds) < 0) {
                 // mark object as defunct
                 self->ext().setDefunct();
@@ -205,7 +207,9 @@ namespace db0::python
                 // Unrecognized error
                 PyErr_Restore(ptype, pvalue, ptraceback);
                 return -1;
-            }            
+            }
+            
+            std::cout << "after tp-init" << std::endl;
             
             // invoke post-init on associated dbzero object
             auto &object = self->modifyExt();

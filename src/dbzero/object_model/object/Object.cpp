@@ -188,6 +188,8 @@ namespace db0::object_model
     
     void Object::postInit(FixtureLock &fixture)
     {
+        // FIXME: log
+        std::cout << "--- object / postInit() ---" << std::endl;
         if (!hasInstance()) {
             auto &initializer = m_init_manager.getInitializer(*this);
             PosVT::Data pos_vt_data;
