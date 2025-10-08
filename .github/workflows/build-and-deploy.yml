@@ -7,91 +7,91 @@ on:
   workflow_dispatch:
 
 jobs:
-  # wheels-windows:
-  #   runs-on: ${{ matrix.os }}
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       include:
-  #         # - os: windows-latest
-  #         #   architecture: x86
-  #         - os: windows-latest
-  #           architecture: AMD64
+  wheels-windows:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # - os: windows-latest
+          #   architecture: x86
+          - os: windows-latest
+            architecture: AMD64
 
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: docker/setup-qemu-action@v2
-  #       with:
-  #         platforms: arm64
-  #       if: runner.os == 'Linux'
-  #     - name: Install Python development packages
-  #       run: |
-  #         sudo apt-get update
-  #         sudo apt-get install -y python3-dev
-  #       if: runner.os == 'Linux'
-  #     - uses: bus1/cabuild/action/msdevshell@v1
-  #       with:
-  #         architecture: x64
-  #       if: runner.os == 'Windows' && matrix.architecture == 'AMD64'
-  #     - uses: bus1/cabuild/action/msdevshell@v1
-  #       with:
-  #         architecture: x86
-  #       if: runner.os == 'Windows' && matrix.architecture == 'x86'
-  #     - name: Generate meson files
-  #       run: |
-  #         python scripts/generate_meson.py ./src/dbzero/ core
-  #         python scripts/generate_meson_tests.py tests/
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v2
+        with:
+          platforms: arm64
+        if: runner.os == 'Linux'
+      - name: Install Python development packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-dev
+        if: runner.os == 'Linux'
+      - uses: bus1/cabuild/action/msdevshell@v1
+        with:
+          architecture: x64
+        if: runner.os == 'Windows' && matrix.architecture == 'AMD64'
+      - uses: bus1/cabuild/action/msdevshell@v1
+        with:
+          architecture: x86
+        if: runner.os == 'Windows' && matrix.architecture == 'x86'
+      - name: Generate meson files
+        run: |
+          python scripts/generate_meson.py ./src/dbzero/ core
+          python scripts/generate_meson_tests.py tests/
       
-  #     - name: Configure git
-  #       run: |
-  #         git config --global user.email "ci@example.com"
-  #         git config --global user.name "CI Builder"
-  #         rm  .gitignore
-  #         git add . && git commit -m "Update meson files for build"  
+      - name: Configure git
+        run: |
+          git config --global user.email "ci@example.com"
+          git config --global user.name "CI Builder"
+          rm  .gitignore
+          git add . && git commit -m "Update meson files for build"  
       
-  #     - run: pip3 install pipx
-  #     - run: pipx run cibuildwheel==2.11.2
-  #       env:
-  #         CIBW_SKIP: pp* cp36-* cp37-* cp38-* cp39-* cp310-* cp313-* *-musllinux*
-  #         CIBW_ARCHS_MACOS: x86_64
-  #         CIBW_ARCHS_LINUX: x86_64
-  #         CIBW_ARCHS_WINDOWS: ${{ matrix.architecture }}
-  #     - uses: actions/upload-artifact@v4
-  #       with:
-  #         name: wheels-windows
-  #         path: wheelhouse/*.whl
+      - run: pip3 install pipx
+      - run: pipx run cibuildwheel==2.11.2
+        env:
+          CIBW_SKIP: pp* cp36-* cp37-* cp38-* cp39-* cp310-* cp313-* *-musllinux*
+          CIBW_ARCHS_MACOS: x86_64
+          CIBW_ARCHS_LINUX: x86_64
+          CIBW_ARCHS_WINDOWS: ${{ matrix.architecture }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-windows
+          path: wheelhouse/*.whl
 
-  # wheels-linux:
-  #   runs-on: ubuntu-latest
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       python-version: ["3.11", "3.12", "3.13"]
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - name: Set up Python ${{ matrix.python-version }}
-  #       uses: actions/setup-python@v5
-  #       with:
-  #         python-version: ${{ matrix.python-version }}
-  #     - uses: actions/checkout@v3
-  #     - run: python3 scripts/generate_meson.py ./src/dbzero/ core
-  #     - run: python3 scripts/generate_meson_tests.py tests/
-  #     - run: git config --global user.email "you@example.com"
-  #     - run: git config --global user.name "Your Name"
-  #     - run: rm .gitignore
-  #     - run: git add . && git commit -m "Update meson files"
-  #     - run: pip install build
-  #     - run: python3 -m build
-  #       env:
-  #         CIBW_SKIP: pp* cp36-* *-musllinux*
-  #         CIBW_ARCHS_MACOS: x86_64 arm64
-  #         CIBW_ARCHS_LINUX: x86_64 aarch64
-  #         CIBW_ARCHS_WINDOWS: ${{ matrix.architecture }}
+  wheels-linux:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - uses: actions/checkout@v3
+      - run: python3 scripts/generate_meson.py ./src/dbzero/ core
+      - run: python3 scripts/generate_meson_tests.py tests/
+      - run: git config --global user.email "you@example.com"
+      - run: git config --global user.name "Your Name"
+      - run: rm .gitignore
+      - run: git add . && git commit -m "Update meson files"
+      - run: pip install build
+      - run: python3 -m build
+        env:
+          CIBW_SKIP: pp* cp36-* *-musllinux*
+          CIBW_ARCHS_MACOS: x86_64 arm64
+          CIBW_ARCHS_LINUX: x86_64 aarch64
+          CIBW_ARCHS_WINDOWS: ${{ matrix.architecture }}
 
-  #     - uses: actions/upload-artifact@v4
-  #       with:
-  #         name: wheels-linux
-  #         path: wheelhouse/*.whl
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-linux
+          path: wheelhouse/*.whl
 
   sdist:
     runs-on: ubuntu-latest
@@ -118,7 +118,7 @@ jobs:
   deploy-to-pypi:
     name: Deploy to PyPI (Manual)
     runs-on: ubuntu-latest
-    needs: [ sdist]
+    needs: [sdist, wheels-linux, wheels-windows]
     if: github.event_name == 'workflow_dispatch'
     environment: pypi-deployment
     permissions:
@@ -146,3 +146,4 @@ jobs:
           packages-dir: ./upload/
           verbose: true
           skip-existing: true
+          attestations: false
