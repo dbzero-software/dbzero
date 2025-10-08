@@ -61,36 +61,37 @@ jobs:
           name: wheels-windows
           path: wheelhouse/*.whl
 
-  # wheels-linux:
-  #   runs-on: ubuntu-latest
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       python-version: ["3.11", "3.12", "3.13"]
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - name: Set up Python ${{ matrix.python-version }}
-  #       uses: actions/setup-python@v5
-  #       with:
-  #         python-version: ${{ matrix.python-version }}
-  #     - uses: actions/checkout@v3
-  #     - run: python3 scripts/generate_meson.py ./src/dbzero/ core
-  #     - run: python3 scripts/generate_meson_tests.py tests/
-  #     - run: git config --global user.email "you@example.com"
-  #     - run: git config --global user.name "Your Name"
-  #     - run: rm .gitignore
-  #     - run: git add . && git commit -m "Update meson files"
-  #     - run: pip install build
-  #     - run: python3 -m build
-  #       env:
-  #         CIBW_SKIP: pp* cp36-* *-musllinux*
-  #         CIBW_ARCHS_MACOS: x86_64 arm64
-  #         CIBW_ARCHS_LINUX: x86_64 aarch64
-  #         CIBW_ARCHS_WINDOWS: ${{ matrix.architecture }}
+  wheels-linux:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - uses: actions/checkout@v3
+      - run: python3 scripts/generate_meson.py ./src/dbzero/ core
+      - run: python3 scripts/generate_meson_tests.py tests/
+      - run: git config --global user.email "you@example.com"
+      - run: git config --global user.name "Your Name"
+      - run: rm .gitignore
+      - run: git add . && git commit -m "Update meson files"
+      - run: pip install build
+      - run: python3 -m build
+        env:
+          CIBW_SKIP: pp* cp36-* *-musllinux*
+          CIBW_ARCHS_MACOS: x86_64 arm64
+          CIBW_ARCHS_LINUX: x86_64 aarch64
+          CIBW_ARCHS_WINDOWS: ${{ matrix.architecture }}
 
-  #     - uses: actions/upload-artifact@v4
-  #       with:
-  #         path: wheelhouse/*.whl
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-wheels
+          path: wheelhouse/*.whl
 
   sdist:
     runs-on: ubuntu-latest
@@ -136,8 +137,8 @@ jobs:
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          repository-url: ${{ vars.REPO_URL }}
-          username: ${{ vars.USER }}
-          password: ${{ secrets.PASSWORD }}
+          repository-url: http://ec2-18-132-68-232.eu-west-2.compute.amazonaws.com:8081/repository/dbzero/
+          username: admin
+          password: T)G48:2HGNfj
           packages-dir: ./upload/
           verbose: true
