@@ -90,7 +90,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: linux-wheels
+          name: wheels-linux
           path: wheelhouse/*.whl
 
   sdist:
@@ -118,7 +118,7 @@ jobs:
   deploy-to-pypi:
     name: Deploy to PyPI (Manual)
     runs-on: ubuntu-latest
-    needs: [ wheels-windows, sdist]
+    needs: [ wheels-windows, sdist, wheels-linux]
     if: github.event_name == 'workflow_dispatch'
     environment: pypi-deployment
     steps:
