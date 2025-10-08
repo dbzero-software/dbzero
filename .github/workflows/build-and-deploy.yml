@@ -46,8 +46,6 @@ jobs:
           path: wheelhouse/*.whl
 
   sdist:
-    needs:
-      - release
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
