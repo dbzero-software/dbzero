@@ -7,131 +7,74 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-linux:
-    name: Build wheels on manylinux
+  release:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: write
 
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Python Semantic Release
+      uses: python-semantic-release/python-semantic-release@master
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+  
+  wheels:
+    needs:
+      - release
+    runs-on: ${{ matrix.os }}
+    env:
+      version: steps.release.outputs.version
     strategy:
+      fail-fast: false
       matrix:
-        python-version: [ "3.8", "3.9", "3.10", "3.11", "3.12" ]
+        include:
+          - os: ubuntu-20.04
+          - os: macos-11
+          - os: windows-2019
+            architecture: x86
+          - os: windows-2019
+            architecture: AMD64
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v3
+      - uses: docker/setup-qemu-action@v2
         with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Install build dependencies
-        run: |
-          python -m pip install --upgrade pip setuptools wheel build
-
-      - name: Build sdist (source distribution)
-        run: |
-          python -m build --sdist
-
-      - name: Build wheel inside manylinux container
-        run: |
-          docker run --rm \
-            -v ${{ github.workspace }}:/io \
-            quay.io/pypa/manylinux_2_28_x86_64 \
-            bash -c "cd /io && /opt/python/cp${{ matrix.python-version//./}}-cp${{ matrix.python-version//./}}/bin/python -m build --wheel"
-
-      - name: List build artifacts
-        run: ls -lh dist/
-
-      - name: Upload wheels as artifacts
-        uses: actions/upload-artifact@v4
+          platforms: arm64
+        if: runner.os == 'Linux'
+      - uses: bus1/cabuild/action/msdevshell@v1
         with:
-          name: wheels-${{ matrix.python-version }}
-          path: dist/
+          architecture: x64
+        if: runner.os == 'Windows' && matrix.architecture == 'AMD64'
+      - uses: bus1/cabuild/action/msdevshell@v1
+        with:
+          architecture: x86
+        if: runner.os == 'Windows' && matrix.architecture == 'x86'
+      - run: pip3 install pipx
+      - run: pipx run cibuildwheel==2.11.2
+        env:
+          CIBW_SKIP: pp* cp36-* *-musllinux*
+          CIBW_ARCHS_MACOS: x86_64 arm64
+          CIBW_ARCHS_LINUX: x86_64 aarch64
+          CIBW_ARCHS_WINDOWS: ${{ matrix.architecture }}
+      - uses: actions/upload-artifact@v3
+        with:
+          path: wheelhouse/*.whl
 
-  # build-windows:
-  #   name: Build Windows packages
-  #   runs-on: windows-2019
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       python-version: ["3.11", "3.12", "3.13"]
-  #       architecture: [x64, x86]
-  #   steps:
-  #     - uses: actions/checkout@v4
-      
-  #     - name: Set up Python ${{ matrix.python-version }}
-  #       uses: actions/setup-python@v5
-  #       with:
-  #         python-version: ${{ matrix.python-version }}
-  #         architecture: ${{ matrix.architecture }}
-      
-  #     - name: Set up MSVC
-  #       uses: bus1/cabuild/action/msdevshell@v1
-  #       with:
-  #         architecture: ${{ matrix.architecture }}
-      
-  #     - name: Generate meson files
-  #       run: |
-  #         python scripts/generate_meson.py ./src/dbzero/ core
-  #         python scripts/generate_meson_tests.py tests/
-      
-  #     - name: Configure git
-  #       run: |
-  #         git config --global user.email "ci@example.com"
-  #         git config --global user.name "CI Builder"
-  #         Remove-Item .gitignore -ErrorAction SilentlyContinue
-  #         git add . && git commit -m "Update meson files for build"
-      
-  #     - name: Install build dependencies
-  #       run: |
-  #         pip install build cibuildwheel
-      
-  #     - name: Build wheels (Windows)
-  #       run: python -m cibuildwheel --output-dir wheelhouse
-  #       env:
-  #         CIBW_BUILD: cp${{ matrix.python-version }}-*
-  #         CIBW_ARCHS_WINDOWS: ${{ matrix.architecture }}
-      
-  #     - name: Upload Windows wheels
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: wheels-windows-${{ matrix.python-version }}-${{ matrix.architecture }}
-  #         path: wheelhouse/*.whl
-
-  build-sdist:
-    name: Build source distribution
+  sdist:
+    needs:
+      - release
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v3
+      - run: python -m pip install build meson
+      - run: python -m build --sdist
+      - uses: actions/upload-artifact@v3
         with:
-          python-version: "3.11"
-      
-      - name: Generate meson files
-        run: |
-          python3 scripts/generate_meson.py ./src/dbzero/ core
-          python3 scripts/generate_meson_tests.py tests/
-      
-      - name: Configure git
-        run: |
-          git config --global user.email "ci@example.com"
-          git config --global user.name "CI Builder"
-          rm .gitignore
-          git add . && git commit -m "Update meson files for build"
-      
-      - name: Install build dependencies
-        run: |
-          pip install build meson
-      
-      - name: Build source distribution
-        run: python -m build --sdist
-      
-      - name: Upload sdist
-        uses: actions/upload-artifact@v4
-        with:
-          name: sdist
           path: dist/*.tar.gz
 
   deploy-to-pypi:
