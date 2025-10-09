@@ -151,7 +151,7 @@ namespace db0::object_model
             types.reserve(size);
             values.reserve(size);
             for (auto it = m_values.begin(), end = m_values.begin() + index; it != end; ++it) {
-                // fill will missing elements until reaching the index
+                // fill with undefined elements until reaching the index
                 while (types.size() < it->getIndex()) {
                     types.push_back(StorageClass::UNDEFINED);
                     values.emplace_back();

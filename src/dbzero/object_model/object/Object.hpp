@@ -370,6 +370,9 @@ namespace db0::object_model
         
         // lo-fi member specialized implementation
         bool forAll(XValue, std::function<bool(const std::string &, const XValue &, unsigned int offset)>) const;
+        
+        void getMembersFrom(const Class &this_type, unsigned int index, StorageClass, Value,
+            std::unordered_set<std::string> &) const;
     };
     
 }

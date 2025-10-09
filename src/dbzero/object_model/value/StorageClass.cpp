@@ -128,6 +128,7 @@ namespace std
     {
         switch (type) {
             case StorageClass::UNDEFINED: return os << "UNDEFINED";
+            case StorageClass::DELETED: return os << "DELETED";
             case StorageClass::NONE: return os << "NONE";
             case StorageClass::STRING_REF: return os << "STRING_REF";
             case StorageClass::POOLED_STRING: return os << "POOLED_STRING";

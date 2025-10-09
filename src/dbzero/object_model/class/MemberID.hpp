@@ -87,3 +87,11 @@ namespace db0::object_model
     };
     
 }
+
+namespace std
+
+{
+
+    ostream &operator<<(std::ostream &os, const db0::object_model::MemberID &member_id);
+    
+}

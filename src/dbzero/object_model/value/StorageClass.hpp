@@ -51,18 +51,19 @@ namespace db0::object_model
        DB0_BYTES_ARRAY = 25,
        DB0_ENUM_TYPE_REF = 26,
        DB0_ENUM_VALUE = 27,
-       // BOOL       
+       // BOOL
        BOOLEAN = 28,
        // Fidelity-2 packed storage (e.g. 2-bit boolean or None)
        PACK_2 = 29,
        // weak reference to other (Memo) instance on the same prefix
        OBJECT_WEAK_REF = 30,
-       COUNT = 32,
-    
+       // deleted value (placeholder)
+       DELETED = 31,
+       COUNT = std::numeric_limits<std::uint8_t>::max() - 32,
        // invalid / reserved value, never used in objects
        INVALID = std::numeric_limits<std::uint8_t>::max()
     };
-
+    
     /**
      * StorageClass defines possible types for object values
     */
@@ -106,11 +107,11 @@ namespace db0::object_model
         PACK_2 = static_cast<int>(PreStorageClass::PACK_2),
         // weak reference to other (Memo) instance on the same prefix
         OBJECT_WEAK_REF = static_cast<int>(PreStorageClass::OBJECT_WEAK_REF),
+        DELETED = static_cast<int>(PreStorageClass::DELETED),
         // weak reference to other (Memo) instance from a foreign prefix
         OBJECT_LONG_WEAK_REF = static_cast<int>(PreStorageClass::COUNT),
         // COUNT used to determine size of the StorageClass associated arrays
         COUNT = static_cast<int>(PreStorageClass::COUNT) + 1,
-        
         // invalid / reserved value, never used in objects
         INVALID = std::numeric_limits<std::uint8_t>::max()
     };

@@ -144,6 +144,7 @@ namespace db0::object_model
         }
         
         Member getMember(FieldID) const;
+        Member getMember(std::pair<std::uint32_t, std::uint32_t> loc) const;
         Member getMember(const char *name) const;
         
         /**
@@ -266,6 +267,7 @@ namespace db0::object_model
         std::uint32_t fetchUID() const;
         
         std::optional<Member> tryGetMember(FieldID) const;
+        std::optional<Member> tryGetMember(std::pair<std::uint32_t, std::uint32_t> loc) const;
         std::optional<Member> tryGetMember(const char *name) const;
         
     private:

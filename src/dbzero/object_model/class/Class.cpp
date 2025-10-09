@@ -219,16 +219,35 @@ namespace db0::object_model
         }
         return *member_ptr;
     }
+    
+    std::optional<Class::Member> Class::tryGetMember(std::pair<std::uint32_t, std::uint32_t> loc) const
+    {
+        // NOTE: cache might be refreshed if not found at first attempt
+        auto member_ptr = m_member_cache.tryGet(loc);
+        if (!member_ptr) {
+            return {};
+        }
+        return *member_ptr;
+    }
 
     Class::Member Class::getMember(FieldID field_id) const
     {
-        auto maybe_member = tryGetMember(field_id);
+        auto maybe_member = tryGetMember(field_id.getIndexAndOffset());
         if (!maybe_member) {
             THROWF(db0::InputException) << "Member slot not found: " << field_id.getIndex();
         }
         return *maybe_member;
     }
     
+    Class::Member Class::getMember(std::pair<std::uint32_t, std::uint32_t> loc) const
+    {
+        auto maybe_member = tryGetMember(loc);
+        if (!maybe_member) {
+            THROWF(db0::InputException) << "Member slot not found: " << loc.first << "@" << loc.second;
+        }
+        return *maybe_member;
+    }
+
     std::optional<Class::Member> Class::tryGetMember(const char *name) const
     {
         auto it = m_index.find(name);
@@ -709,6 +728,7 @@ namespace db0::object_model
         if (storage_class == StorageClass::UNDEFINED) {
             return;
         }
+        assert(storage_class != StorageClass::DELETED);
         if (storage_class == StorageClass::PACK_2) {
             // iterate over all packed fields
             auto it = lofi_store<2>::fromValue(value).begin();
@@ -726,6 +746,7 @@ namespace db0::object_model
         if (storage_class == StorageClass::UNDEFINED) {
             return;
         }
+        assert(storage_class != StorageClass::DELETED);
         if (storage_class == StorageClass::PACK_2) {
             // iterate over all packed fields
             auto it = lofi_store<2>::fromValue(value).begin();

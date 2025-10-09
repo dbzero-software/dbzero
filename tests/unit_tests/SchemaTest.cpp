@@ -142,7 +142,7 @@ namespace tests
         ASSERT_EQ(cut.getType(FieldID::fromIndex(0)).first, SchemaTypeId::STRING);
         ASSERT_EQ(cut.getType(FieldID::fromIndex(0)).second, SchemaTypeId::UNDEFINED);
     }
-
+    
     TEST_F( SchemaTest , testSchemaEvolutionAddSecondary )
     {        
         auto memspace = m_workspace.getMemspace("my-test-prefix_1");

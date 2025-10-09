@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cassert>
 #include <utility>
+#include <iostream>
 
 namespace db0::object_model
 
@@ -73,4 +74,12 @@ namespace db0::object_model
     // FieldID + fidelity
     using FieldInfo = std::pair<FieldID, unsigned int>;
     
+}
+
+namespace std
+
+{
+
+    std::ostream &operator<<(std::ostream &os, const db0::object_model::FieldID &field_id);
+
 }

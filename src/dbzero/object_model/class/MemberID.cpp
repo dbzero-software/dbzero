@@ -1,5 +1,6 @@
 #include "MemberID.hpp"
 #include <stdexcept>
+#include <iostream>
 
 namespace db0::object_model
 
@@ -63,4 +64,25 @@ namespace db0::object_model
         return *this;
     }
 
+}
+
+namespace std
+
+{
+
+    std::ostream &operator<<(std::ostream &os, const db0::object_model::MemberID &member_id)
+    {
+        os << "MemberID(";
+        bool first = true;
+        for (auto &field_info: member_id) {
+            if (!first) {
+                os << ", ";
+            }
+            os << "{ID: " << field_info.first << ", Fidelity: " << field_info.second << "}";
+            first = false;
+        }
+        os << ")";
+        return os;
+    }
+    
 }
