@@ -449,7 +449,7 @@ def test_list_pop_while_iteration(db0_fixture):
 
 
 def test_list_bool_storage(db0_fixture):
-    cut = db0.list([True, False, True, False, None])
+    cut = db0.list([True, False, True, False, None])    
     assert cut == [True, False, True, False, None]
     
     

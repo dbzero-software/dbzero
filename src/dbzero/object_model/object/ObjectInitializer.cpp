@@ -105,9 +105,16 @@ namespace db0::object_model
         m_has_value.set(loc, false);
         return m_values.remove(loc.first, mask);
     }
-
-    bool ObjectInitializer::tryGetAt(unsigned int at, std::pair<StorageClass, Value> &result) const {
-        return m_values.tryGetAt(at, result);
+    
+    bool ObjectInitializer::tryGetAt(std::pair<std::uint32_t, std::uint32_t> loc,
+        std::pair<StorageClass, Value> &result) const
+    {
+        if (!m_has_value.get(loc)) {
+            // no value present
+            return false;
+        }
+        // retrieve the whole value
+        return m_values.tryGetAt(loc.first, result);
     }
     
     db0::swine_ptr<Fixture> ObjectInitializer::getFixture() const {

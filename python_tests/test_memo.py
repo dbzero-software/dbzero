@@ -136,9 +136,8 @@ class MemoClassWithDel:
     
 def test_memo_field_deletion_in_pre_init(db0_fixture):
     obj_1 = MemoClassWithDel(1)
-    # NOTE: this attribute (although deleted) appears as None because it appears in the __init__ method
-    # and the null-defaulting migration rule is applied by dbzero
-    assert obj_1.value_2 is None
+    with pytest.raises(AttributeError):
+        assert obj_1.value_2 is None
 
 
 def test_memo_type_as_memo_member(db0_fixture):

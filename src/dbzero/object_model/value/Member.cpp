@@ -265,6 +265,7 @@ namespace db0::object_model
         PyObjectPtr obj_ptr, StorageClass)
     {
         // use common constant encoding (0 = None, 1 = False, 2 = True)
+        // irrespective of the storage class
         return obj_ptr == Py_True ? 2 : 1;
     }
     
@@ -545,7 +546,8 @@ namespace db0::object_model
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::BOOLEAN, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value, unsigned int)
     {
-         return Py_OWN(db0::python::PyBool_fromBool(value.cast<std::uint64_t>()));
+        // NOTE: we use common constant encoding (0 = None, 1 = False, 2 = True)
+        return Py_OWN(db0::python::PyBool_fromBool(value.cast<std::uint64_t>() == 2));
     }
     
     // DB0_BYTES_ARRAY specialization

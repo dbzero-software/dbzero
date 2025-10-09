@@ -75,8 +75,9 @@ namespace db0::object_model
         }
         
         // Try pulling an existing initialization value from under a specific index
-        bool tryGetAt(unsigned int index, std::pair<StorageClass, Value> &) const;
-
+        // NOTE always the whole value is retrieved (no mask support)
+        bool tryGetAt(std::pair<std::uint32_t, std::uint32_t> loc, std::pair<StorageClass, Value> &) const;
+        
         bool operator==(const Object &other) {
             return m_object_ptr == &other;
         }

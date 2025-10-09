@@ -913,7 +913,7 @@ namespace db0::object_model
         assert(fidelity == 2);
         return lofi_store<2>::fromValue(value).isSet(at);
     }
-
+    
     std::pair<bool, bool> Object::tryGetMemberAt(std::pair<FieldID, unsigned int> field_info,
         std::pair<StorageClass, Value> &result) const
     {
@@ -921,18 +921,18 @@ namespace db0::object_model
             return { false, false };
         }
 
-        auto [index, offset] = field_info.first.getIndexAndOffset();
+        auto loc = field_info.first.getIndexAndOffset();
         if (!hasInstance()) {
             // try retrieving from initializer
             auto initializer_ptr = m_init_manager.findInitializer(*this);
             if (!initializer_ptr) {
                 return { false, false };
             }
-            return { initializer_ptr->tryGetAt(index, result), false };
+            return { initializer_ptr->tryGetAt(loc, result), false };
         }
         
         // retrieve from positionally encoded values
-        if ((*this)->pos_vt().find(index, result)) {
+        if ((*this)->pos_vt().find(loc.first, result)) {
             // NOTE: removed field slots might be marked as UNDEFINED            
             if (result.first == StorageClass::UNDEFINED) {
                 // report as deleted
@@ -940,24 +940,24 @@ namespace db0::object_model
             }
 
             return { (field_info.second == 0 || 
-                (field_info.second != 0 && hasValueAt(result.second, field_info.second, offset))), false 
+                (field_info.second != 0 && hasValueAt(result.second, field_info.second, loc.second))), false 
             };
         }
         
-        if ((*this)->index_vt().find(index, result)) {
+        if ((*this)->index_vt().find(loc.first, result)) {
             if (result.first == StorageClass::UNDEFINED) {
                 // report as deleted
                 return { false, true };
             }
             
             return { (field_info.second == 0 || 
-                (field_info.second != 0 && hasValueAt(result.second, field_info.second, offset))), false 
+                (field_info.second != 0 && hasValueAt(result.second, field_info.second, loc.second))), false 
             };
         }
         
         auto kv_index_ptr = tryGetKV_Index();
         if (kv_index_ptr) {
-            XValue xvalue(index);
+            XValue xvalue(loc.first);
             if (kv_index_ptr->findOne(xvalue)) {
                 if (xvalue.m_type == StorageClass::UNDEFINED) {
                     // report as deleted
@@ -968,7 +968,7 @@ namespace db0::object_model
                 result.first = xvalue.m_type;
                 result.second = xvalue.m_value;
                 return { (field_info.second == 0 || 
-                    (field_info.second != 0 && hasValueAt(result.second, field_info.second, offset))), false 
+                    (field_info.second != 0 && hasValueAt(result.second, field_info.second, loc.second))), false 
                 };
             }
         }
