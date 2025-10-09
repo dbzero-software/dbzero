@@ -225,11 +225,11 @@ namespace db0::object_model
     bool lofi_store<SizeOf>::const_iterator::isEnd() const {
         return m_current == m_end;
     }
-
+    
     template <unsigned int SizeOf>
     bool lofi_store<SizeOf>::const_iterator::operator!=(const const_iterator &other) const
     {
-        return m_current != other.m_current && m_end != other.m_end;
+        return m_current != other.m_current || m_end != other.m_end;
     }
 
     template <unsigned int SizeOf>

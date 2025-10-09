@@ -256,3 +256,30 @@ def test_load_python_object(db0_fixture):
     test_object = TestObject("a", "b")
     loaded = db0.load(test_object)
     assert loaded == {"value": "a", "other_value": "b"}
+
+
+@db0.memo
+class TestObjectNoLoad:
+    def __init__(self, value, other_value):
+        self.value = value
+        self.other_value = other_value
+
+
+@db0.memo
+class DerivedTestObject(TestObjectNoLoad):
+    def __init__(self, value, other_value, extra):
+        super().__init__(value, other_value)
+        self.extra = extra
+        self.more_extra = None
+
+
+def test_load_with_inheritance_and_mutations(db0_fixture):
+    obj = DerivedTestObject(None, None, "c")
+    print(db0.load(obj))
+    assert db0.load(obj) == {"value": None, "other_value": None, "extra": "c", "more_extra": None}    
+    obj.value = "a"
+    assert db0.load(obj) == {"value": "a", "other_value": None, "extra": "c", "more_extra": None}
+    obj.other_value = "b"   
+    assert db0.load(obj) == {"value": "a", "other_value": "b", "extra": "c", "more_extra": None}
+    obj.more_extra = "d"
+    assert db0.load(obj) == {"value": "a", "other_value": "b", "extra": "c", "more_extra": "d"}

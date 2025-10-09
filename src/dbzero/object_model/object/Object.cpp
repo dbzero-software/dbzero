@@ -729,6 +729,11 @@ namespace db0::object_model
         if (member_id) {
             std::tie(old_field_info, old_loc_ptr) = tryGetMember(member_id, old_pos);
         }
+        
+        bool to_test = std::string(field_name) == "min_days";
+        if (to_test) {
+            std::cout << "Set " << field_name << " as " << member_id << std::endl;
+        }
 
         if (!member_id || !(field_id = member_id.tryGet(storage_fidelity))) {
             // try mutating the class first

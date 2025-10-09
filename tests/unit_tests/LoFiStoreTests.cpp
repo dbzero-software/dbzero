@@ -88,7 +88,7 @@ namespace tests
         lofi_store<2>::fromValue(value).set(13, 2);
         lofi_store<2>::fromValue(value).set(3, 1);
 
-        std::vector<unsigned int> expected = { 0, 3, 1, 0, 2 };
+        std::vector<unsigned int> expected = { 3, 3, 1, 0, 2 };
         std::vector<unsigned int> expected_indices = { 0, 1, 3, 7, 13 };
         unsigned int count = 0;
         for (auto value: lofi_store<2>::fromValue(value)) {
@@ -102,6 +102,17 @@ namespace tests
             expected_indices.erase(expected_indices.begin());
             ++count;
         }
+    }
+    
+    TEST_F( LoFiStoreTest, testLoFiIteratorIssue1 )
+    {
+        std::uint64_t value = 0x824;
+        auto it = lofi_store<2>::fromValue(value).begin(), end = lofi_store<2>::fromValue(value).end();
+        unsigned int count = 0;
+        for (; it != end; ++it) {
+            ++count;
+        }
+        ASSERT_EQ(count, 3u);
     }
 
 }
