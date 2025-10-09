@@ -91,7 +91,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: wheels-linux
-          path: wheelhouse/*.whl
+          path: dist/*.whl
 
   sdist:
     runs-on: ubuntu-latest
@@ -134,7 +134,6 @@ jobs:
         run: |
           mkdir -p ./upload/
           find ./dist/ -name "*.whl" -exec cp {} ./upload/ \;
-          find ./wheelhouse/ -name "*.whl" -exec cp {} ./upload/ \;
           find ./dist/ -name "*.tar.gz" -exec cp {} ./upload/ \;
           ls -la ./upload/
       
