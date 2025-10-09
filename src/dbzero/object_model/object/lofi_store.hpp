@@ -154,6 +154,10 @@ namespace db0::object_model
     {
         static_assert(SizeOf == 1 || SizeOf == 2 || SizeOf == 4 || SizeOf == 8 || SizeOf == 16, "Unsupported SizeOf for lofi_store::set mask");
         assert(index < size());
+        // FIXME: log
+        if (!isSet(index)) {
+            throw std::runtime_error("lofi_store::get() called on unset index");
+        }
         assert(isSet(index) && "index not set");
         constexpr std::uint64_t value_mask = detail::lofi_value_mask<SizeOf>::value;
 

@@ -122,12 +122,15 @@ namespace db0::object_model
 
         StorageClassMapper();
         // Get storage class corresponding to a specifc common language model type ID
-        PreStorageClass getPreStorageClass(TypeId) const;
+        // @param allow_packed if true, BOOLEAN and NONE map to PACK_2
+        PreStorageClass getPreStorageClass(TypeId, bool allow_packed) const;
         TypeId getTypeId(PreStorageClass) const;
         
     private:
         std::vector<PreStorageClass> m_storage_class_map;
-        std::vector<TypeId> m_type_id_map;   
+        // a mapping with packed types (BOOLEAN, NONE) mapped to PACK_2
+        std::vector<PreStorageClass> m_storage_class_packed_map;
+        std::vector<TypeId> m_type_id_map;
         
         void addMapping(TypeId, PreStorageClass);
         // adds reverse mapping only

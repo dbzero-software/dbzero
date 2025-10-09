@@ -114,7 +114,7 @@ namespace db0::python
     {
         if (py_expected_type) {
             auto type_id = PyToolkit::getTypeManager().getTypeId(py_expected_type);
-            auto pre_storage_class = db0::object_model::TypeUtils::m_storage_class_mapper.getPreStorageClass(type_id);
+            auto pre_storage_class = db0::object_model::TypeUtils::m_storage_class_mapper.getPreStorageClass(type_id, false);
             if (pre_storage_class != db0::getPreStorageClass(object_id.m_storage_class)) {
                 return false;
             }

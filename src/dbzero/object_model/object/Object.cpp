@@ -220,7 +220,8 @@ namespace db0::object_model
     std::pair<db0::bindings::TypeId, StorageClass> Object::recognizeType(Fixture &fixture, ObjectPtr lang_value) const
     {
         auto type_id = LangToolkit::getTypeManager().getTypeId(lang_value);
-        auto pre_storage_class = TypeUtils::m_storage_class_mapper.getPreStorageClass(type_id);
+        // NOTE: allow storage as PACK_2
+        auto pre_storage_class = TypeUtils::m_storage_class_mapper.getPreStorageClass(type_id, true);
         if (type_id == TypeId::MEMO_OBJECT) {
             // object reference must be from the same fixture
             auto &obj = LangToolkit::getTypeManager().extractObject(lang_value);
@@ -294,7 +295,7 @@ namespace db0::object_model
                 // remove any existing lo-fi initialization
                 auto loc = member_id.get(2).getIndexAndOffset();
                 initializer.remove(loc, lofi_store<2>::mask(loc.second));
-            }
+            }                        
             // register a regular member with the initializer
             initializer.set(member_id.get(0).getIndexAndOffset(), storage_class, 
                 createMember<LangToolkit>(fixture, type_id, storage_class, obj_ptr)
@@ -304,7 +305,7 @@ namespace db0::object_model
                 // remove any existing regular initialization
                 auto loc = member_id.get(0).getIndexAndOffset();
                 initializer.remove(loc);
-            }
+            }        
             // For now only fidelity == 2 is supported (lo-fi storage)
             assert(storage_fidelity == 2);
             auto loc = member_id.get(storage_fidelity).getIndexAndOffset();

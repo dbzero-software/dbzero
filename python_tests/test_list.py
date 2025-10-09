@@ -446,3 +446,20 @@ def test_list_pop_while_iteration(db0_fixture):
     for i in cut:
         cut.pop()
     assert len(cut) == 2
+
+
+def test_list_bool_storage(db0_fixture):
+    cut = db0.list([True, False, True, False, None])
+    assert cut == [True, False, True, False, None]
+    
+    
+def test_sliced_list_bool_storage(db0_fixture):
+    cut = db0.list([True, False, True, False, None])
+    assert cut[0:3] == [True, False, True]
+
+
+def test_list_extend_with_none(db0_fixture):
+    cut = db0.list([])
+    cut.extend([None] * 1024)
+    for i in range(1024):
+        assert cut[i] is None
