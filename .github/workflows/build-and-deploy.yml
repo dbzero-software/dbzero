@@ -12,8 +12,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13"]
-        architecture: ["AMD64"]
+        include:
+          - python-version: "3.10"
+            python-tag: "310"
+            architecture: "AMD64"
+          - python-version: "3.11"
+            python-tag: "311"
+            architecture: "AMD64"
+          - python-version: "3.12"
+            python-tag: "312"
+            architecture: "AMD64"
+          - python-version: "3.13"
+            python-tag: "313"
+            architecture: "AMD64"
 
     steps:
       - uses: actions/checkout@v4
@@ -44,7 +55,7 @@ jobs:
       - run: pip3 install pipx
       - run: pipx run cibuildwheel==2.11.2
         env:
-          CIBW_BUILD: cp${{ replace(matrix.python-version, '.', '') }}-*
+          CIBW_BUILD: cp${{ matrix.python-tag }}-*
           CIBW_ARCHS_WINDOWS: ${{ matrix.architecture }}
       - uses: actions/upload-artifact@v4
         with:
