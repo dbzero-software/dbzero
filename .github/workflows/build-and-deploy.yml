@@ -134,6 +134,7 @@ jobs:
         run: |
           mkdir -p ./upload/
           find ./dist/ -name "*.whl" -exec cp {} ./upload/ \;
+          find ./wheelhouse/ -name "*.whl" -exec cp {} ./upload/ \;
           find ./dist/ -name "*.tar.gz" -exec cp {} ./upload/ \;
           ls -la ./upload/
       
