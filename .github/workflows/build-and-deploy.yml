@@ -8,33 +8,27 @@ on:
 
 jobs:
   wheels-windows:
-    runs-on: ${{ matrix.os }}
+    runs-on: windows-latest
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - os: windows-latest
-            architecture: AMD64
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        architecture: ["AMD64"]
 
     steps:
       - uses: actions/checkout@v4
-      - uses: docker/setup-qemu-action@v2
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
         with:
-          platforms: arm64
-        if: runner.os == 'Linux'
-      - name: Install Python development packages
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y python3-dev
-        if: runner.os == 'Linux'
+          python-version: ${{ matrix.python-version }}
       - uses: bus1/cabuild/action/msdevshell@v1
         with:
           architecture: x64
-        if: runner.os == 'Windows' && matrix.architecture == 'AMD64'
+        if: matrix.architecture == 'AMD64'
       - uses: bus1/cabuild/action/msdevshell@v1
         with:
           architecture: x86
-        if: runner.os == 'Windows' && matrix.architecture == 'x86'
+        if: matrix.architecture == 'x86'
       - name: Generate meson files
         run: |
           python scripts/generate_meson.py ./src/dbzero/ core
@@ -50,13 +44,11 @@ jobs:
       - run: pip3 install pipx
       - run: pipx run cibuildwheel==2.11.2
         env:
-          CIBW_BUILD: cp310-* cp311-* cp312-* cp313-*
-          CIBW_ARCHS_MACOS: x86_64
-          CIBW_ARCHS_LINUX: x86_64
+          CIBW_BUILD: cp${{ matrix.python-version | replace('.', '') }}-*
           CIBW_ARCHS_WINDOWS: ${{ matrix.architecture }}
       - uses: actions/upload-artifact@v4
         with:
-          name: wheels-windows
+          name: wheels-windows-${{ matrix.python-version }}
           path: wheelhouse/*.whl
 
   wheels-linux:
