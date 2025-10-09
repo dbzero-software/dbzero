@@ -22,9 +22,6 @@ jobs:
           - python-version: "3.12"
             python-tag: "312"
             architecture: "AMD64"
-          - python-version: "3.13"
-            python-tag: "313"
-            architecture: "AMD64"
 
     steps:
       - uses: actions/checkout@v4
@@ -53,7 +50,7 @@ jobs:
           git add . && git commit -m "Update meson files for build"  
       
       - run: pip3 install pipx
-      - run: pipx run cibuildwheel==2.11.2
+      - run: pipx run cibuildwheel==2.16.2
         env:
           CIBW_BUILD: cp${{ matrix.python-tag }}-*
           CIBW_ARCHS_WINDOWS: ${{ matrix.architecture }}
