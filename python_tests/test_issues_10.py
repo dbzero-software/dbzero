@@ -2,6 +2,7 @@ import dbzero_ce as db0
 from .conftest import MemoTestSingleton
 from .conftest import DB0_DIR
 from datetime import datetime
+import random
 
 
 @db0.memo
@@ -51,4 +52,26 @@ def test_memo_class_mutate_issue1(db0_fixture):
     assert address.building_access_code is None
     _update_func()
     assert address.building_access_code == "1234"
+    
+    
+@db0.memo(no_default_tags=True)
+class ShoppingCart:
+    def __init__(self, as_temp: bool = False):
+        self.delivery_to: None
+        self._items: []
+
+        if as_temp:
+            db0.tags(self).add("TEMP")
+            self.__secret = random.randint(1, 1 << 32)
+
+    @property
+    def secret(self) -> int:
+        return self.__secret
+    
+    
+def test_shopping_cart_secret_issue(db0_fixture):
+    cart_1 = ShoppingCart(as_temp=True)
+    assert cart_1.secret is not None
+    cart_2 = ShoppingCart(as_temp=False)    
+    assert cart_2.secret is None
     

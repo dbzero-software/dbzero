@@ -7,9 +7,15 @@
 namespace db0::object_model
 
 {
-
+    
     struct [[gnu::packed]] Value
     {
+        // common constants
+        static constexpr std::uint64_t NONE = 0x00;
+        static constexpr std::uint64_t FALSE = 0x01;
+        static constexpr std::uint64_t TRUE = 0x02;
+        static constexpr std::uint64_t DELETED = 0x03;
+
         Value() = default;
 
         inline Value(Address address)
@@ -44,8 +50,22 @@ namespace db0::object_model
             m_store = (m_store & ~mask) | (other.m_store & mask);
         }
         
-        bool operator==(const Value &other) const;
-        
+        inline bool operator==(const Value &other) const {
+            return m_store == other.m_store;
+        }
+
+        inline bool operator!=(const Value &other) const {
+            return m_store != other.m_store;
+        }
+
+        inline bool operator==(std::uint64_t other) const {
+            return m_store == other;
+        }
+
+        inline bool operator!=(std::uint64_t other) const {
+            return m_store != other;
+        }
+
         std::uint64_t m_store = 0;
     };
        

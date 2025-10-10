@@ -166,8 +166,6 @@ namespace db0::python
 
         bool isSimplePyTypeId(TypeId type_id) const;
         
-        // Encode either of: None, False or True into a lo-fi code
-        unsigned int getValueCode(ObjectPtr) const;
         // Decode either of: None, False or True from a lo-fi code
         ObjectSharedPtr getLangConstant(unsigned int) const;
         

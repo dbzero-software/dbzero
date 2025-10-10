@@ -191,9 +191,9 @@ namespace db0::object_model
         
         return false;
     }
-
+    
     std::pair<MemberID, bool> Class::findField(const char *name) const
-    {
+    {        
         auto it = m_index.find(name);
         if (it == m_index.end()) {
             // try again after refreshing the cache

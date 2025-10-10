@@ -220,9 +220,8 @@ namespace db0::object_model
     // NONE specialization
     template <> Value createMember<TypeId::NONE, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
         PyObjectPtr obj_ptr, StorageClass)
-    {
-        // use common constant encoding (0 = None, 1 = False, 2 = True)
-        return 0;
+    {        
+        return Value::NONE;
     }
     
     // OBJECT_ITERABLE specialization (serialized member)
@@ -263,10 +262,9 @@ namespace db0::object_model
     
     template <> Value createMember<TypeId::BOOLEAN, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
         PyObjectPtr obj_ptr, StorageClass)
-    {
-        // use common constant encoding (0 = None, 1 = False, 2 = True)
+    {        
         // irrespective of the storage class
-        return obj_ptr == Py_True ? 2 : 1;
+        return obj_ptr == Py_True ? Value::TRUE : Value::FALSE;
     }
     
     // DB0_BYTES_ARRAY specialization
@@ -720,6 +718,11 @@ namespace db0::object_model
         auto class_item = class_factory.getTypeByAddr(value.asUniqueAddress().getAddress());
         class_item.m_class->decRef(false);
     }
+
+    // DELETED specialization does nothing
+    template <> void unrefMember<StorageClass::DELETED, PyToolkit>(db0::swine_ptr<Fixture> &, Value)
+    {
+    }
     
     template <> void registerUnrefMemberFunctions<PyToolkit>(
         std::vector<void (*)(db0::swine_ptr<Fixture> &, Value)> &functions)
@@ -734,6 +737,7 @@ namespace db0::object_model
         functions[static_cast<int>(StorageClass::DB0_TUPLE)] = unrefMember<StorageClass::DB0_TUPLE, PyToolkit>;
         functions[static_cast<int>(StorageClass::DB0_BYTES_ARRAY)] = unrefMember<StorageClass::DB0_BYTES_ARRAY, PyToolkit>;
         functions[static_cast<int>(StorageClass::DB0_CLASS)] = unrefMember<StorageClass::DB0_CLASS, PyToolkit>;
+        functions[static_cast<int>(StorageClass::DELETED)] = unrefMember<StorageClass::DELETED, PyToolkit>;
         // FIXME: uncomment and refactor when handling of BYTES is fixed (same storage)
         // functions[static_cast<int>(StorageClass::DB0_SERIALIZED)] = unrefMember<StorageClass::DB0_SERIALIZED, PyToolkit>;
     }

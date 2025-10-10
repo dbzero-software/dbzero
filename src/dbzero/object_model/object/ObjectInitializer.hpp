@@ -48,7 +48,7 @@ namespace db0::object_model
         void init(Object &object, std::shared_ptr<Class>);
         void init(Object &object, TypeInitializer &&);
         
-        // @param mask required for lo-fi types (bool-pack)
+        // @param mask required for lo-fi types (pack-2)
         void set(std::pair<std::uint32_t, std::uint32_t> loc, StorageClass storage_class, Value value, 
             std::uint64_t mask = 0);
         bool remove(std::pair<std::uint32_t, std::uint32_t> loc, std::uint64_t mask = 0);

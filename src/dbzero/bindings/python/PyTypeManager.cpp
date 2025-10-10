@@ -637,31 +637,19 @@ namespace db0::python
         return py_type->tp_name ? py_type->tp_name : "";
     }
     
-    unsigned int PyTypeManager::getValueCode(ObjectPtr py_value) const
-    {
-        if (!py_value || py_value == Py_None) {
-            return 0; // None
-        } else if (py_value == Py_False) {
-            return 1; // False
-        } else if (py_value == Py_True) {
-            return 2; // True
-        } else {
-            THROWF(db0::InputException) << "Expected either of: None, False or True" << THROWF_END;
-        }
-    }
-    
     PyTypeManager::ObjectSharedPtr PyTypeManager::getLangConstant(unsigned int val_code) const
     {
+        using Value = db0::object_model::Value;
         switch (val_code) {
-            case 0:
+            case Value::NONE:
                 return Py_BORROW(Py_None);
-            case 1:
+            case Value::FALSE:
                 return Py_BORROW(Py_False);
-            case 2:
+            case Value::TRUE:
                 return Py_BORROW(Py_True);
             default:
                 THROWF(db0::InputException) << "Invalid value code: " << val_code << THROWF_END;
         }
     }
-
+    
 }
