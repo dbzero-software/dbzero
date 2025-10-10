@@ -22,6 +22,12 @@ jobs:
           - python-version: "3.12"
             python-tag: "312"
             architecture: "AMD64"
+          - python-version: "3.13"
+            python-tag: "313"
+            architecture: "AMD64"
+          - python-version: "3.14"
+            python-tag: "314"
+            architecture: "AMD64"
 
     steps:
       - uses: actions/checkout@v4
@@ -50,7 +56,7 @@ jobs:
           git add . && git commit -m "Update meson files for build"  
       
       - run: pip3 install pipx
-      - run: pipx run cibuildwheel==2.16.2
+      - run: pipx run cibuildwheel
         env:
           CIBW_BUILD: cp${{ matrix.python-tag }}-*
           CIBW_ARCHS_WINDOWS: ${{ matrix.architecture }}
@@ -64,7 +70,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
@@ -112,7 +118,7 @@ jobs:
         with:
           name: sdist
           path: dist/*.tar.gz
-
+  
   deploy-to-pypi:
     name: Deploy to PyPI (Manual)
     runs-on: ubuntu-latest
