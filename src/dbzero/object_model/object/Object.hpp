@@ -3,7 +3,7 @@
 #include <dbzero/object_model/LangConfig.hpp>
 #include <dbzero/object_model/object_header.hpp>
 #include <dbzero/object_model/ObjectBase.hpp>
-#include <dbzero/object_model/class/FieldID.hpp>
+#include <dbzero/object_model/class/MemberID.hpp>
 #include <dbzero/workspace/GC0.hpp>
 #include "ValueTable.hpp"
 #include "ObjectInitializer.hpp"
@@ -192,7 +192,7 @@ namespace db0::object_model
         bool isSingleton() const;
         
         // execute the function for all members (until false is returned from the input lambda)
-        void forAll(std::function<bool(const std::string &, const XValue &)>) const;
+        void forAll(std::function<bool(const std::string &, const XValue &, unsigned int offset)>) const;
         void forAll(std::function<bool(const std::string &, ObjectSharedPtr)>) const;
         
         // get dbzero member / member names assigned to this object
@@ -254,7 +254,8 @@ namespace db0::object_model
             );
         }
         
-        std::pair<FieldID, bool> findField(const char *name) const;
+        // FieldID, is_init_var, fidelity
+        std::pair<MemberID, bool> findField(const char *name) const;
         
         // Check if the 2 memo objects are of the same type
         bool sameType(const Object &) const;
@@ -273,7 +274,7 @@ namespace db0::object_model
         // Class will only be assigned after initialization
         std::shared_ptr<Class> m_type;
         // local kv-index instance cache (created at first use)
-        mutable std::unique_ptr<KV_Index> m_kv_index;        
+        mutable std::unique_ptr<KV_Index> m_kv_index;
         static ObjectInitializerManager m_init_manager;
         mutable ObjectFlags m_flags;
         // reference counter for inner references from language objects
@@ -291,11 +292,25 @@ namespace db0::object_model
         void setType(std::shared_ptr<Class>);
         // adjusts to actual type if the type hint is a base class
         void setTypeWithHint(std::shared_ptr<Class> type_hint);
+        // @return exists / deleted
+        std::pair<bool, bool> hasValueAt(Value, unsigned int fidelity, unsigned int at) const;
+        // similar to hasValueAt but assume deleted slot as present
+        bool slotExists(Value value, unsigned int fidelity, unsigned int at) const;
         
-        // Try retrieving member either from DB0 values (initialized) or from the initialization buffer (not initialized yet)        
-        bool tryGetMemberAt(FieldID, bool is_init_var, std::pair<StorageClass, Value> &) const;
-        bool tryGetMember(const char *field_name, std::pair<StorageClass, Value> &) const;
-
+        // Try retrieving member either from values (initialized) or from the initialization buffer (not initialized yet)
+        // @return member exists, member deleted flags
+        std::pair<bool, bool> tryGetMemberAt(std::pair<FieldID, unsigned int>, 
+            std::pair<StorageClass, Value> &) const;
+        FieldID tryGetMember(const char *field_name, std::pair<StorageClass, Value> &, bool &is_init_var) const;
+        
+        // Try resolving field ID of an existing (or deleted) member and also its storage location
+        // @param pos the member's position in the containing collection
+        // @return FieldID + containing collection (e.g. pos_vt())
+        std::pair<FieldInfo, const void *> tryGetMemberSlot(const MemberID &, unsigned int &pos) const;
+        
+        // Try locating a field ID associated slot
+        std::pair<const void*, unsigned int> tryGetLoc(FieldID) const;
+        
         inline ObjectInitializer *tryGetInitializer() const {
             return m_type ? static_cast<ObjectInitializer*>(nullptr) : &m_init_manager.getInitializer(*this);
         }
@@ -329,6 +344,40 @@ namespace db0::object_model
         // try retrieving member as XValue
         std::optional<XValue> tryGetX(const char *field_name) const;
         void _touch();
+        
+        // Set or update member in a pos_vt
+        void setPosVT(FixtureLock &, FieldID, unsigned int fidelity, StorageClass, Value);
+        void setIndexVT(FixtureLock &, FieldID, unsigned int index_vt_pos, unsigned int fidelity,
+            StorageClass, Value);        
+        // Set or update member in kv-index
+        void setKVIndexValue(FixtureLock &, FieldID, unsigned int fidelity, StorageClass, Value);
+        
+        // Set with a specific location (pos_vt, index_vt, kv-index)
+        void setWithLoc(FixtureLock &, FieldID, const void *, unsigned int pos, unsigned int fidelity, 
+            StorageClass, Value);
+        
+        // Unreference value
+        // NOTE: storage_class to be assigned can either be DELETED or UNDEFINED
+        void unrefPosVT(FixtureLock &, FieldID, StorageClass, unsigned int fidelity);
+        void unrefIndexVT(FixtureLock &, FieldID, unsigned int index_vt_pos, StorageClass, unsigned int fidelity);
+        void unrefKVIndexValue(FixtureLock &, FieldID, StorageClass, unsigned int fidelity);
+        
+        void unrefWithLoc(FixtureLock &, FieldID, const void *, unsigned int pos, StorageClass, 
+            unsigned int fidelity);
+        
+        // Add a new value
+        void addToPosVT(FixtureLock &, FieldID, unsigned int fidelity, StorageClass, Value);
+        void addToIndexVT(FixtureLock &, FieldID, unsigned int index_vt_pos, unsigned int fidelity, StorageClass, Value);
+        void addToKVIndex(FixtureLock &, FieldID, unsigned int fidelity, StorageClass, Value);
+        
+        void addWithLoc(FixtureLock &, FieldID, const void *, unsigned int pos, unsigned int fidelity,
+            StorageClass, Value);
+        
+        // lo-fi member specialized implementation
+        bool forAll(XValue, std::function<bool(const std::string &, const XValue &, unsigned int offset)>) const;
+        
+        void getMembersFrom(const Class &this_type, unsigned int index, StorageClass, Value,
+            std::unordered_set<std::string> &) const;
     };
     
 }

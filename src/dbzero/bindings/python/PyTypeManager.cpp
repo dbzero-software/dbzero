@@ -636,5 +636,20 @@ namespace db0::python
     std::string PyTypeManager::getLangTypeName(TypeObjectPtr py_type) const {
         return py_type->tp_name ? py_type->tp_name : "";
     }
-
+    
+    PyTypeManager::ObjectSharedPtr PyTypeManager::getLangConstant(unsigned int val_code) const
+    {
+        using Value = db0::object_model::Value;
+        switch (val_code) {
+            case Value::NONE:
+                return Py_BORROW(Py_None);
+            case Value::FALSE:
+                return Py_BORROW(Py_False);
+            case Value::TRUE:
+                return Py_BORROW(Py_True);
+            default:
+                THROWF(db0::InputException) << "Invalid value code: " << val_code << THROWF_END;
+        }
+    }
+    
 }

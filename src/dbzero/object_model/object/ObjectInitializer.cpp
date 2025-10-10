@@ -12,9 +12,10 @@ namespace db0::object_model
         , m_loc(loc)
         , m_closed(false)
         , m_object_ptr(&object)
-        , m_class(db0_class)        
-    {
-        m_values.reserve(128);
+        , m_class(db0_class)
+        // NOTE: limit the dim-2 size to improve performance
+        , m_has_value(lofi_store<2>::size())
+    {        
     }
     
     ObjectInitializer::ObjectInitializer(ObjectInitializerManager &manager, std::uint32_t loc, Object &object,
@@ -23,9 +24,10 @@ namespace db0::object_model
         , m_loc(loc)
         , m_closed(false)
         , m_object_ptr(&object)
+        // NOTE: limit the dim-2 size to improve performance
+        , m_has_value(lofi_store<2>::size())
         , m_type_initializer(std::move(type_initializer))
-    {
-        m_values.reserve(128);
+    {        
     }
     
     void ObjectInitializer::init(Object &object, std::shared_ptr<Class> db0_class)
@@ -55,10 +57,10 @@ namespace db0::object_model
         m_object_ptr = nullptr;        
         m_class = nullptr;        
         m_values.clear();
-        m_sorted_size = 0;
+        m_has_value.clear();
         m_ref_counts = {0, 0};
         m_type_initializer = {};
-        m_fixture = {};
+        m_fixture = {};        
     }
     
     Class &ObjectInitializer::getClass() const {
@@ -87,58 +89,32 @@ namespace db0::object_model
         m_loc = loc;
     }
     
-    void ObjectInitializer::set(unsigned int at, StorageClass storage_class, Value value) {
-        m_values.push_back({ at, storage_class, value });
-    }
-
-    void ObjectInitializer::remove(unsigned int at)
+    void ObjectInitializer::set(std::pair<std::uint32_t, std::uint32_t> loc, StorageClass storage_class,
+        Value value, std::uint64_t mask) 
     {
-        auto it = std::remove_if(m_values.begin(), m_values.end(), [at](const XValue &xvalue) {
-            return xvalue.getIndex() == at;
-        });
-        if (it != m_values.end()) {
-            m_values.erase(it, m_values.end());
-        }
+        m_values.push_back({ loc.first, storage_class, value }, mask);
+        m_has_value.set(loc, true);
     }
-
-    bool ObjectInitializer::tryGetAt(unsigned int index, std::pair<StorageClass, Value> &result) const
+    
+    bool ObjectInitializer::remove(std::pair<std::uint32_t, std::uint32_t> loc, std::uint64_t mask) 
     {
-        // try locating element within the unsorted items first (starting from the end)
-        auto alt_it = m_values.end() - 1;
-        auto alt_end = m_values.begin() + m_sorted_size - 1;
-        while (alt_it != alt_end) {
-            if (alt_it->getIndex() == index) {
-                result.first = alt_it->m_type;
-                result.second = alt_it->m_value;                
-                return true;
-            }
-            --alt_it;            
-        }
-
-        assert(m_sorted_size <= m_values.size());
-        // if number of unsorted values exceeds 15 then sort
-        if ((m_values.size() - m_sorted_size) > 15) {
-            // must use stable-sort to preserve order of equal elements
-            std::stable_sort(m_values.begin(), m_values.end());
-            m_sorted_size = m_values.size();
-        }
-        
-        // using bisect try locating element by index
-        auto it_end = m_values.begin() + m_sorted_size;
-        auto it = std::lower_bound(m_values.begin(), it_end, index);
-        if (it == it_end || it->getIndex() != index) {
-            // element not found
+        if (!m_has_value.get(loc)) {
+            // no value present
             return false;
         }
-        ++it;
-        // pick the last from equal elements
-        while (it != it_end && it->getIndex() == index) {
-            ++it;
+        m_has_value.set(loc, false);
+        return m_values.remove(loc.first, mask);
+    }
+    
+    bool ObjectInitializer::tryGetAt(std::pair<std::uint32_t, std::uint32_t> loc,
+        std::pair<StorageClass, Value> &result) const
+    {
+        if (!m_has_value.get(loc)) {
+            // no value present
+            return false;
         }
-        --it;
-        result.first = it->m_type;
-        result.second = it->m_value;        
-        return true;
+        // retrieve the whole value
+        return m_values.tryGetAt(loc.first, result);
     }
     
     db0::swine_ptr<Fixture> ObjectInitializer::getFixture() const {
@@ -149,44 +125,17 @@ namespace db0::object_model
         return getClass().tryGetFixture();
     }
     
-    std::uint32_t ObjectInitializer::finalizeValues()
-    {
-        if (m_values.empty()) {
-            return 0;
-        }
-
-        // sort all values
-        std::stable_sort(m_values.begin(), m_values.end());
-        m_sorted_size = m_values.size();
-        // remove duplicates by taking the last from equal elements
-        auto it_in = m_values.begin(), end = m_values.end();
-        auto it_out = m_values.begin();
-        ++it_in;
-        if (it_in == end) {
-            return m_values.size();
-        }
-        while (it_in != end) {
-            if (it_in->getIndex() != it_out->getIndex()) {
-                ++it_out;
-            }            
-            *it_out = *it_in;            
-            ++it_in;
-        }
-        // it_out points to the last valid element
-        return it_out - m_values.begin() + 1;
-    }
-    
     std::pair<const XValue*, const XValue*> ObjectInitializer::getData(PosVT::Data &data)
     {
-        auto count = finalizeValues();
-        if (count == 0) {
+        m_values.sortAndMerge();
+        if (m_values.empty()) {
             // object has no data
             return { &*m_values.begin(), &*m_values.end() };
         }
-
-        // divide values into index-encoded and position-encoded
+        
+        // Divide values into index-encoded and position-encoded
         // index represents the number of pos-vt elements
-        auto index = count;
+        auto index = m_values.size();
         auto it = m_values.begin() + index - 1;
         // below rule allows pos-vt to be created with at fill rate of at least 50%
         while (index > 0 && (it->getIndex() > (index << 1))) {
@@ -202,7 +151,7 @@ namespace db0::object_model
             types.reserve(size);
             values.reserve(size);
             for (auto it = m_values.begin(), end = m_values.begin() + index; it != end; ++it) {
-                // fill will missing elements until reaching the index
+                // fill with undefined elements until reaching the index
                 while (types.size() < it->getIndex()) {
                     types.push_back(StorageClass::UNDEFINED);
                     values.emplace_back();
@@ -214,9 +163,9 @@ namespace db0::object_model
             assert(types.size() == size);
         }
         
-        return { &*(m_values.begin() + index), &*(m_values.begin() + count) };
+        return { &*(m_values.begin() + index), &*(m_values.end()) };
     }
-
+    
     void ObjectInitializer::incRef(bool is_tag)
     {
         if (is_tag) {

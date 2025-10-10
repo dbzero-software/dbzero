@@ -28,8 +28,19 @@ class MemoDataClassGenArgs:
 class MemoDataClassArgsFactory:
     event_type: str
     event_name: datetime = field(default_factory=datetime.now)
+
     
+@db0.memo
+@dataclass
+class MemoDataClassPostInit:
+    first: str = None
+    second: str = None
     
+    def __post_init__(self):
+        if not self.first:
+            self.first = "post-init initialized value"
+
+
 def test_memo_dataclass(db0_fixture):
     obj_1 = MemoDataClass("Some Title", "Some Author", 2022, True)
     assert obj_1.title == "Some Title"
@@ -75,3 +86,9 @@ def test_memo_dataclass_type_passed_dynamically(db0_fixture):
     
     obj_1 = factory(MemoDataClassGenArgs, event_type = "Some Event")
     assert obj_1.event_type == "Some Event"
+
+
+def test_memo_dataclass_members_initialized_from_postinit(db0_fixture):
+    obj_1 = MemoDataClassPostInit()
+    assert obj_1.first == "post-init initialized value"
+    assert obj_1.second is None

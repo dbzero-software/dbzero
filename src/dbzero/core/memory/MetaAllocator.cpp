@@ -742,7 +742,7 @@ namespace db0
         ))
     {
     }
-
+    
     Memspace MetaAllocator::createMetaspace() const
     {
         // this is to temporarily initialize for unlimited reading

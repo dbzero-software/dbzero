@@ -1,4 +1,5 @@
 import dbzero_ce as db0
+from datetime import datetime
 
 DATA_PX = "scoped-data-px"
 
@@ -112,7 +113,7 @@ class MemoTestThreeParamsClass:
     def __init__(self, value_1, value_2, value_3):  
         self.value_1 = value_1
         self.value_2 = value_2
-        self.value_3 = value_3     
+        self.value_3 = value_3
 
 
 @db0.memo
@@ -181,3 +182,41 @@ class MemoClassForTags:
 class MemoNoDefTags:
     def __init__(self, value):
         self.value = value
+
+
+@db0.memo
+class MemoAnyAttrs:
+    def __init__(self, **kwargs):
+        # assign from kwargs
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+
+@db0.memo
+class MemoTask:
+    def __init__(self, type, processor_type, data = None, key = None, parent = None,
+                 requirements = None, scheduled_at = None, deadline = None):
+        # optional task key (None is allowed)
+        self.key = key
+        # task type e.g. 'etl'
+        self.type = type
+        # task specific data dict
+        self.data = data
+        # task size in task type specific units - e.g. bytes
+        self.task_size = 0
+        # task creation date and time
+        self.created_at = datetime.now()
+        # optional deadline (affects task priority)
+        self.deadline = deadline
+        # optional task execution scheduled date and time
+        self.scheduled_at = scheduled_at
+        # task status code
+        self.status = 0
+        # task associated processor type
+        self.processor_type = processor_type
+        self.runs = []
+        self.parent = parent
+        self.root = parent.root if parent is not None else None
+        self.child_tasks = []
+        self.requirements = requirements        
+        self.max_retry = None

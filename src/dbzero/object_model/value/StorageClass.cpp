@@ -10,6 +10,8 @@ namespace db0::object_model
     {
         m_type_id_map.reserve(static_cast<std::size_t>(PreStorageClass::COUNT));
         addMapping(TypeId::NONE, PreStorageClass::NONE);
+        // NOTE: None can be stored as 2-bit packed value
+        addMapping(TypeId::NONE, PreStorageClass::PACK_2);        
         addMapping(TypeId::STRING, PreStorageClass::STRING_REF);
         addReverseMapping(PreStorageClass::POOLED_STRING, TypeId::STRING);
         addReverseMapping(PreStorageClass::STR64, TypeId::STRING);
@@ -40,35 +42,49 @@ namespace db0::object_model
         // NOTE: enum value-reprs are converted to materialized enums on storage
         addMapping(TypeId::DB0_ENUM_VALUE_REPR, PreStorageClass::DB0_ENUM_VALUE);
         addMapping(TypeId::BOOLEAN, PreStorageClass::BOOLEAN);
+        // NOTE: booleans can be packed as 2-bit values
+        addMapping(TypeId::BOOLEAN, PreStorageClass::PACK_2);
         addMapping(TypeId::DB0_BYTES_ARRAY, PreStorageClass::DB0_BYTES_ARRAY);
         // Note: DB0_WEAK_PROXY by default maps to OBJECT_WEAK_REF but can also be OBJECT_LONG_WEAK_REF which needs to be checked
         addMapping(TypeId::DB0_WEAK_PROXY, PreStorageClass::OBJECT_WEAK_REF);
     }
     
-    PreStorageClass StorageClassMapper::getPreStorageClass(TypeId type_id) const
+    PreStorageClass StorageClassMapper::getPreStorageClass(TypeId type_id, bool allow_packed) const
     {
         if (type_id == TypeId::STRING) {
             // determine string type dynamically
             return PreStorageClass::STRING_REF;
         }
         
+        auto storage_map = allow_packed ? &m_storage_class_packed_map : &m_storage_class_map;
         auto int_id = static_cast<std::size_t>(type_id);
-        if (int_id < m_storage_class_map.size()) {
-            assert(m_storage_class_map[int_id] != PreStorageClass::INVALID);
-            return m_storage_class_map[int_id];
+        if (int_id < storage_map->size()) {
+            assert((*storage_map)[int_id] != PreStorageClass::INVALID);
+            return (*storage_map)[int_id];
         }
         THROWF(db0::InputException)
             << "Storage class unknown for common language type ID: " << static_cast<int>(type_id) << THROWF_END;
     }
     
-    void StorageClassMapper::addMapping(TypeId type_id, PreStorageClass storage_class) 
+    void StorageClassMapper::addMapping(TypeId type_id, PreStorageClass storage_class)
     {
         auto int_id = static_cast<unsigned int>(type_id);
-        while (m_storage_class_map.size() <= int_id) {
-            m_storage_class_map.push_back(PreStorageClass::INVALID);
-        }
-        m_storage_class_map[int_id] = storage_class;
-        addReverseMapping(storage_class, type_id);
+        for (auto storage_map: {&m_storage_class_map, &m_storage_class_packed_map}) {
+            if (storage_class == PreStorageClass::PACK_2 
+                && storage_map != &m_storage_class_packed_map) 
+            {
+                // PACK_2 only in packed map
+                continue;
+            }
+            while (storage_map->size() <= int_id) {
+                storage_map->push_back(PreStorageClass::INVALID);
+            }
+            storage_map->at(int_id) = storage_class;
+            if (storage_class != PreStorageClass::PACK_2) {
+                // reverse mapping only for non-packed types
+                addReverseMapping(storage_class, type_id);
+            }
+        }        
     }
 
     void StorageClassMapper::addReverseMapping(PreStorageClass storage_class, TypeId type_id)
@@ -79,7 +95,7 @@ namespace db0::object_model
         }
         m_type_id_map[int_storage_class] = type_id;
     }
-
+    
     StorageClassMapper::TypeId StorageClassMapper::getTypeId(PreStorageClass storage_class) const
     {
         auto int_storage_class = static_cast<unsigned int>(storage_class);
@@ -89,6 +105,16 @@ namespace db0::object_model
         }
         THROWF(db0::InputException)
             << "Type ID unknown for storage class: " << static_cast<int>(storage_class) << THROWF_END;
+    }
+    
+    unsigned int getStorageFidelity(StorageClass storage_class)
+    {
+        switch (storage_class) {
+            case StorageClass::PACK_2:
+                return 2; // 2 bits per boolean or None
+            default:
+                return 0; // default fidelity (e.g. 64bit)
+        }
     }
     
 }
@@ -102,6 +128,7 @@ namespace std
     {
         switch (type) {
             case StorageClass::UNDEFINED: return os << "UNDEFINED";
+            case StorageClass::DELETED: return os << "DELETED";
             case StorageClass::NONE: return os << "NONE";
             case StorageClass::STRING_REF: return os << "STRING_REF";
             case StorageClass::POOLED_STRING: return os << "POOLED_STRING";
@@ -128,6 +155,7 @@ namespace std
             case StorageClass::DB0_ENUM_TYPE_REF: return os << "DB0_ENUM_TYPE_REF";
             case StorageClass::DB0_ENUM_VALUE: return os << "DB0_ENUM_VALUE";        
             case StorageClass::BOOLEAN: return os << "BOOLEAN";
+            case StorageClass::PACK_2: return os << "PACK_2";
             case StorageClass::OBJECT_WEAK_REF: return os << "OBJECT_WEAK_REF";
             case StorageClass::OBJECT_LONG_WEAK_REF: return os << "OBJECT_LONG_WEAK_REF";
             case StorageClass::INVALID: return os << "INVALID";
@@ -167,5 +195,5 @@ namespace db0
         }
         return StorageClass::OBJECT_WEAK_REF;
     }
-    
+        
 }

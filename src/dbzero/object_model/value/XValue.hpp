@@ -25,8 +25,8 @@ namespace db0::object_model
             assert(index < 0x1000000);
             std::memcpy(m_index.data(), &index, 3);
         }
-
-        inline XValue(std::uint32_t index, StorageClass type, Value value)            
+        
+        inline XValue(std::uint32_t index, StorageClass type, Value value)
             : m_type(type)
             , m_value(value)
         {
@@ -52,6 +52,10 @@ namespace db0::object_model
         bool operator!=(const XValue &) const;
         
         // bitwise comparison
+        // @param offset - required for lo-fi types (2 bits)
+        bool equalTo(const XValue &other, unsigned int offset) const;
+        
+        // bitwise compare the entire contents
         bool equalTo(const XValue &other) const;
     };
     

@@ -19,7 +19,8 @@ namespace db0::object_model
         typename LangToolkit::ObjectPtr lang_value)
     {
         auto type_id = LangToolkit::getTypeManager().getTypeId(lang_value);
-        auto pre_storage_class = TypeUtils::m_storage_class_mapper.getPreStorageClass(type_id);
+        // NOTE: packed storage not supported for dict keys/values
+        auto pre_storage_class = TypeUtils::m_storage_class_mapper.getPreStorageClass(type_id, false);
         StorageClass storage_class;
         if (pre_storage_class == PreStorageClass::OBJECT_WEAK_REF) {
             storage_class = db0::getStorageClass(pre_storage_class, fixture, lang_value);

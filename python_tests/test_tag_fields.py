@@ -23,7 +23,7 @@ def test_scoped_tags_can_be_assigned_with_field_def(db0_fixture):
     db0.tags(object).add((KVTestClass.__fields__.value, "tag2"))
     
     
-def test_scoped_tags_can_be_used_in_search(db0_fixture):
+def test_long_tags_can_be_used_in_search(db0_fixture):
     db0.tags(KVTestClass(1)).add("tag1", (KVTestClass.__fields__.key, "tag1"))
     db0.tags(KVTestClass(2)).add((KVTestClass.__fields__.value, "tag1"))
     assert [x.key for x in db0.find(KVTestClass, (KVTestClass.__fields__.key, "tag1"))] == [1]

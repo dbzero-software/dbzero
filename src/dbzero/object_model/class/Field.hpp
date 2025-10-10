@@ -27,9 +27,7 @@ namespace db0::object_model
         o_field(RC_LimitedStringPool &, const char *name);
     };
     
-    using VFieldVector = db0::v_bvector<o_field>;
     // NOTE: we use lofi_store<2> since it's the lowest supported type fidelity
-    // NOTE: +1 is required to account for regular fields (stored with offset = 0)    
-    using VFieldMatrix = db0::VLimitedMatrix<o_field, lofi_store<2>::size() + 1>;
+    using VFieldMatrix = db0::VLimitedMatrix<o_field, lofi_store<2>::size()>;
     
 }
