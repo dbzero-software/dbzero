@@ -9,18 +9,21 @@
 #include <dbzero/core/collections/full_text/TagProduct.hpp>
 #include <dbzero/object_model/class/ClassFactory.hpp>
 #include <dbzero/core/utils/num_pack.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 #include "QueryObserver.hpp"
 
 namespace db0::object_model
 
 {
+
+DB0_PACKED_BEGIN
     
     using Object = db0::object_model::Object;
     using RC_LimitedStringPool = db0::pools::RC_LimitedStringPool;
     using LongTagT = db0::LongTagT;
     class EnumFactory;
     
-    struct [[gnu::packed]] o_tag_index: public o_fixed<o_tag_index>
+    struct DB0_PACKED_ATTR o_tag_index: public o_fixed<o_tag_index>
     {
         Address m_base_index_short_ptr = {};
         Address m_base_index_long_ptr = {};
@@ -327,5 +330,7 @@ namespace db0::object_model
     
     // Check if the object is pending update in the TagIndex withih a specific fixture
     bool isObjectPendingUpdate(db0::swine_ptr<Fixture> &fixture, UniqueAddress);
-        
+    
+DB0_PACKED_END
+
 }

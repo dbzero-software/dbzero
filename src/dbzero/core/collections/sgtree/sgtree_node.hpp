@@ -4,13 +4,15 @@
 #include <dbzero/core/serialization/Ext.hpp>
 #include <dbzero/core/vspace/v_object.hpp>
 #include <dbzero/core/memory/Address.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
 
 {
 	
+DB0_PACKED_BEGIN
     template <class data_t, class ptr_set_t = tree_ptr_set<Address> >
-    class [[gnu::packed]] o_sgtree_node
+    class DB0_PACKED_ATTR o_sgtree_node
         : public o_ext<o_sgtree_node<data_t, ptr_set_t>, sg_node_base<ptr_set_t>, 0, false >
     {
     public:
@@ -76,6 +78,7 @@ namespace db0
     public :
         data_t m_data;
     };
+DB0_PACKED_END
     
     template <class data_t,class data_comp_t> class o_sgtree_node_traits
     {

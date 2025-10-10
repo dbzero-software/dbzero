@@ -2,12 +2,14 @@
 
 #include "Base.hpp"
 #include <cstdint>
+#include <dbzero/core/compiler_attributes.hpp>
 	
 namespace db0
 
 {
+DB0_PACKED_BEGIN
     
-    template <class T> class [[gnu::packed]] o_list: public o_base<o_list<T>, 0, false>
+    template <class T> class DB0_PACKED_ATTR o_list: public o_base<o_list<T>, 0, false>
     {
     protected :
         using self_t = o_list<T>;
@@ -141,5 +143,6 @@ namespace db0
         std::uint32_t count;
     };
     
+DB0_PACKED_END
 }
 

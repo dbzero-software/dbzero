@@ -4,10 +4,12 @@
 #include <dbzero/core/memory/Memspace.hpp>
 #include <dbzero/core/collections/SGB_Tree/SGB_Tree.hpp>
 #include <dbzero/core/memory/utils.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
 
 {
+DB0_PACKED_BEGIN
 
     namespace crdt 
     
@@ -64,7 +66,7 @@ namespace db0
         // higher values allow eliminating "bind spots" in the allocator, but may incur storage & performance overhead
         static constexpr std::uint32_t ALIGNED_INDEX_THRESHOLD = 4;
 
-        struct [[gnu::packed]] FillMap
+        struct DB0_PACKED_ATTR FillMap
         {            
             // the low 1 - 56 bits are used to encode unit allocations
             // the high 2 bits (i.e. 57 - 58) are used to encode size (56, 24, 8, or 1)
@@ -142,7 +144,7 @@ namespace db0
         struct Blank;
 
         // 16-byte allocation record
-        struct [[gnu::packed]] Alloc
+        struct DB0_PACKED_ATTR Alloc
         {
             std::uint32_t m_address = 0;
             std::uint32_t m_stride = 0;
@@ -638,6 +640,7 @@ namespace db0
         return blank.m_address;
     }
 
+DB0_PACKED_END
 }
 
 namespace std 

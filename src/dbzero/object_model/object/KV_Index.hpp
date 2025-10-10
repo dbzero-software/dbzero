@@ -3,19 +3,23 @@
 #include <dbzero/object_model/value/XValue.hpp>
 #include <dbzero/core/collections/b_index/bindex_types.hpp>
 #include <dbzero/core/collections/b_index/mb_index.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0::object_model
 
 {   
 
     // Represents a pointer to a known b-index type
-    struct [[gnu::packed]] KV_Ptr
+DB0_PACKED_BEGIN
+    struct DB0_PACKED_ATTR KV_Ptr
     {
         std::uint64_t m_addr = 0;
     };
+DB0_PACKED_END
     
     // Union of XValue & KV_Ptr
-    union [[gnu::packed]] KV_Address
+DB0_PACKED_BEGIN
+    union DB0_PACKED_ATTR KV_Address
     {
         // needs to be declared first to ensure proper default initialization
         XValue as_value;
@@ -30,6 +34,7 @@ namespace db0::object_model
         // binary compare
         bool operator!=(const KV_Address &) const;
     };
+DB0_PACKED_END
     
     // Key-Value index for field storage
     // the implementation is based on morphing-b-index

@@ -1,12 +1,14 @@
 #pragma once
 
 #include <dbzero/workspace/Fixture.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0::object_model
 
 {
 
-    struct [[gnu::packed]] o_typed_item: public db0::o_fixed<o_typed_item>
+DB0_PACKED_BEGIN
+    struct DB0_PACKED_ATTR o_typed_item: public db0::o_fixed<o_typed_item>
     {
         StorageClass m_storage_class;
         Value m_value;
@@ -31,9 +33,11 @@ namespace db0::object_model
             return m_value.m_store < other.m_value.m_store;
         }
     };
+DB0_PACKED_END
 
     template <typename ValueT>
-    union [[gnu::packed]] ValueT_Address
+DB0_PACKED_BEGIN
+    union DB0_PACKED_ATTR ValueT_Address
     {
         std::uint64_t as_ptr = 0;
         ValueT as_value;
@@ -58,9 +62,11 @@ namespace db0::object_model
             return memcmp(this, &other, sizeof(ValueT_Address)) != 0;
         }
     };
+DB0_PACKED_END
     
     template <typename AddressT, typename IndexT>
-    struct [[gnu::packed]] TypedIndexAddr
+DB0_PACKED_BEGIN
+    struct DB0_PACKED_ATTR TypedIndexAddr
     {
         AddressT m_index_address = {};
         bindex::type m_type = bindex::type::empty;
@@ -83,6 +89,7 @@ namespace db0::object_model
             return { memspace, m_index_address, m_type };
         }        
     };
+DB0_PACKED_END
     
     template<typename ItemT, typename AddressT>
     class CollectionIndex : public MorphingBIndex<ItemT, AddressT> 

@@ -16,7 +16,7 @@ namespace db0
     class IteratorGroup
     {
 	public:
-        using self_t = IteratorGroup<key_t, KeyStorageT>;
+        using self_t = IteratorGroup<KeyT, KeyStorageT>;
         using FT_IteratorT = FT_Iterator<KeyT, KeyStorageT>;
         
         IteratorGroup(std::list<std::unique_ptr<FT_IteratorT> > &&);

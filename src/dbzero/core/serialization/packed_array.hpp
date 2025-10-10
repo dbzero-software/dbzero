@@ -2,10 +2,12 @@
 
 #include "Base.hpp"
 #include <cstdint>
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
 
 {
+DB0_PACKED_BEGIN
     
     // packed_array is a fixed-size overlaid container for storing
     // variable number of variable-length items
@@ -13,7 +15,7 @@ namespace db0
     // @tparam SizeT the size type for the offset of the end item, determines the maximum capacity limit
     // @tparam MAX_BYTES the container's capacity / size_of
     template <typename ItemT, typename SizeT, std::size_t MAX_BYTES>
-    class [[gnu::packed]] o_packed_array: public o_fixed<o_packed_array<ItemT, SizeT, MAX_BYTES> >
+    class DB0_PACKED_ATTR o_packed_array: public o_fixed<o_packed_array<ItemT, SizeT, MAX_BYTES> >
     {
     public:
         o_packed_array()
@@ -118,4 +120,5 @@ namespace db0
         return ConstIterator(&m_payload[0] + m_end_offset);
     }
 
+DB0_PACKED_END
 };

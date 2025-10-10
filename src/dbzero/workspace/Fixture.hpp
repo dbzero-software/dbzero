@@ -10,6 +10,7 @@
 #include <dbzero/core/collections/pools/StringPools.hpp>
 #include <dbzero/core/vspace/v_object.hpp>
 #include <dbzero/core/vspace/db0_ptr.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 #include "ResourceManager.hpp"
 #include "DependencyWrapper.hpp"
 #include "MutationLog.hpp"
@@ -25,6 +26,8 @@
 namespace db0
 
 {
+
+DB0_PACKED_BEGIN
     
     class GC0;
     class MetaAllocator;
@@ -38,7 +41,7 @@ namespace db0
     using StringPoolT = db0::pools::RC_LimitedStringPool;
     using ObjectCatalogue = db0::object_model::ObjectCatalogue;
 
-    struct [[gnu::packed]] SlotDef
+    struct DB0_PACKED_ATTR SlotDef
     {
         Address m_address = {};
         std::uint64_t m_size = 0;
@@ -47,7 +50,7 @@ namespace db0
     /**
      * Fixture header placed at a fixed well-known address (e.g. 0x0)
     */
-    struct [[gnu::packed]] o_fixture: public o_fixed<o_fixture>
+    struct DB0_PACKED_ATTR o_fixture: public o_fixed<o_fixture>
     {
         // auto-generated fixture UUID
         std::uint64_t m_UUID;
@@ -324,7 +327,7 @@ namespace db0
     protected:
         friend class FixtureThread;
         friend class FixtureThreadCallbacksContext;
-        friend class FixtureLock;
+        friend struct FixtureLock;
         friend class AutoCommitThread;
         friend class Workspace;
         mutable std::shared_mutex m_commit_mutex;
@@ -410,4 +413,6 @@ namespace db0
         std::shared_lock<std::shared_mutex> m_lock;
     };
     
+DB0_PACKED_END
+
 }

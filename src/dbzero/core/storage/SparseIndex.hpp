@@ -4,10 +4,12 @@
 #include <utility>
 #include <string>
 #include "SparseIndexBase.hpp"
+#include <dbzero/core/compiler_attributes.hpp>
     
 namespace db0
 
 {
+DB0_PACKED_BEGIN
     
     struct SI_Item;
     struct SI_CompressedItem;
@@ -30,7 +32,7 @@ namespace db0
         bool operator()(std::pair<std::uint64_t, std::uint32_t>, const SI_Item &) const;
     };
 
-    struct [[gnu::packed]] SI_Item
+    struct DB0_PACKED_ATTR SI_Item
     {
         using CompT = SI_ItemCompT;
         using EqualT = SI_ItemEqualT;
@@ -75,7 +77,7 @@ namespace db0
     };
 
     // Compressed items are actual in-memory representation
-    struct [[gnu::packed]] SI_CompressedItem
+    struct DB0_PACKED_ATTR SI_CompressedItem
     {
         using CompT = SI_CompressedItemCompT;
         using EqualT = SI_CompressedItemEqualT;
@@ -121,4 +123,5 @@ namespace db0
 
     using SparseIndex = SparseIndexBase<SI_Item, SI_CompressedItem>;
 
+DB0_PACKED_END
 }

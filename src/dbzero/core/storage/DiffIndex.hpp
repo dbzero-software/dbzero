@@ -6,17 +6,19 @@
 #include "SparseIndex.hpp"
 #include <dbzero/core/serialization/packed_int_pair.hpp>
 #include <dbzero/core/serialization/packed_array.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
 
 {
+DB0_PACKED_BEGIN
 
     // DiffIndex is a specialization of SparseIndexBase for storing
     // references do diff-pages
     // Each element consists of: page num (logical) / state num + physical page num + sequence of encoded: page num / state num
     // One element can encode variable number of state updates (transactions)
 
-    struct [[gnu::packed]] DI_Item: public SI_Item
+    struct DB0_PACKED_ATTR DI_Item: public SI_Item
     {
         using CompT = SI_ItemCompT;
         using EqualT = SI_ItemEqualT;
@@ -80,7 +82,7 @@ namespace db0
         std::uint32_t findUpper(std::uint32_t state_num) const;
     };
     
-    struct [[gnu::packed]] DI_CompressedItem: public SI_CompressedItem
+    struct DB0_PACKED_ATTR DI_CompressedItem: public SI_CompressedItem
     {
         using CompT = SI_CompressedItemCompT;
         using EqualT = SI_CompressedItemEqualT;
@@ -141,4 +143,5 @@ namespace db0
         void refresh();
     };
 
+DB0_PACKED_END
 }

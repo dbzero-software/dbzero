@@ -8,10 +8,12 @@
 #include <dbzero/core/serialization/Types.hpp>
 #include <cassert>
 #include <dbzero/core/serialization/Ext.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
 
 {
+DB0_PACKED_BEGIN
     
     /**
      * Calculate a buffer's checksum (must be aligned to 8 bytes)
@@ -19,7 +21,7 @@ namespace db0
     std::uint64_t checksum(const void *begin, const void *end);
 
     // block level header
-    struct [[gnu::packed]] o_block_io_block_header: public o_fixed<o_block_io_block_header>
+    struct DB0_PACKED_ATTR o_block_io_block_header: public o_fixed<o_block_io_block_header>
     {
         std::uint64_t m_next_block_address = 0;
 
@@ -34,7 +36,7 @@ namespace db0
     };
 
     // block level header with a checksum
-    struct [[gnu::packed]] o_block_io_cs_block_header:
+    struct DB0_PACKED_ATTR o_block_io_cs_block_header:
     public o_fixed_ext<o_block_io_cs_block_header, o_block_io_block_header>
     {        
         // checksum calculated over the entire block (excluding checksum field)        
@@ -48,7 +50,7 @@ namespace db0
     };
     
     // chunk level header
-    struct [[gnu::packed]] o_block_io_chunk_header: public o_fixed<o_block_io_chunk_header>
+    struct DB0_PACKED_ATTR o_block_io_chunk_header: public o_fixed<o_block_io_chunk_header>
     {
         std::uint32_t m_chunk_size = 0;
 
@@ -280,4 +282,5 @@ namespace db0
         std::uint64_t nextAddress() const;
     };
 
+DB0_PACKED_END
 }

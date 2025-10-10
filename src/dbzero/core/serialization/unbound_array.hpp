@@ -2,15 +2,17 @@
 
 #include "Types.hpp"
 #include <dbzero/core/metaprog/is_sequence.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0 
 
 {
+DB0_PACKED_BEGIN
 
     /**
      * Unbound array is simply an array, size of which is stored externally
     */
-    template <typename T> class [[gnu::packed]] o_unbound_array: public o_base<o_unbound_array<T>, 0, false>
+    template <typename T> class DB0_PACKED_ATTR o_unbound_array: public o_base<o_unbound_array<T>, 0, false>
     {
     protected:
         using super_t = o_base<o_unbound_array<T>, 0, false>;
@@ -86,4 +88,5 @@ namespace db0
         std::fill_n(begin(), size, default_value);
     }
 
+DB0_PACKED_END
 }

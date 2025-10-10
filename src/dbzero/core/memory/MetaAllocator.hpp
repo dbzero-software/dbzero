@@ -10,15 +10,17 @@
 #include <functional>
 #include <dbzero/core/serialization/Fixed.hpp>
 #include <dbzero/core/memory/Address.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
 
 {
+DB0_PACKED_BEGIN
 
     class SlabRecycler;
     class SlabManager;
 
-    struct [[gnu::packed]] o_realm: public o_fixed<o_realm>
+    struct DB0_PACKED_ATTR o_realm: public o_fixed<o_realm>
     {
         Address m_slab_defs_ptr;
         Address m_capacity_items_ptr;
@@ -27,7 +29,7 @@ namespace db0
         o_realm(const std::pair<Address, Address> &);
     };
     
-    struct [[gnu::packed]] o_meta_header: public o_fixed<o_meta_header>
+    struct DB0_PACKED_ATTR o_meta_header: public o_fixed<o_meta_header>
     {
         // NOTE: when needed, this values can be changed to 4 (or 8?) or 1 (no realms)
         static constexpr std::size_t NUM_REALMS = 2;
@@ -60,7 +62,7 @@ namespace db0
         */
         static void formatPrefix(std::shared_ptr<Prefix> prefix, std::size_t page_size, std::size_t slab_size);
         
-        struct [[gnu::packed]] CapacityItem
+        struct DB0_PACKED_ATTR CapacityItem
         {
             std::uint32_t m_remaining_capacity;
             std::uint32_t m_lost_capacity;
@@ -109,7 +111,7 @@ namespace db0
             };
         };
 
-        struct [[gnu::packed]] SlabDef
+        struct DB0_PACKED_ATTR SlabDef
         {
             std::uint32_t m_slab_id;
             std::uint32_t m_remaining_capacity;
@@ -322,12 +324,11 @@ namespace db0
         
         // NOTE: instance ID will only be populated when unique = true
         std::optional<Address> tryAllocImpl(std::size_t size, std::uint32_t slot_num,
-            bool aligned, bool unique, std::uint16_t &instance_id, unsigned char realm_id);        
+                bool aligned, bool unique, std::uint16_t &instance_id, unsigned char realm_id);        
     };
     
-}
-
-namespace std 
+DB0_PACKED_END
+}namespace std 
 
 {
     

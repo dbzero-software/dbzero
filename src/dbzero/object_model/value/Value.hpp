@@ -3,12 +3,14 @@
 #include <cstdint>
 #include <dbzero/core/metaprog/binary_cast.hpp>
 #include <dbzero/core/memory/Address.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0::object_model
 
 {
-    
-    struct [[gnu::packed]] Value
+
+DB0_PACKED_BEGIN
+    struct DB0_PACKED_ATTR Value
     {
         // common constants
         static constexpr std::uint64_t NONE = 0x00;
@@ -68,5 +70,6 @@ namespace db0::object_model
 
         std::uint64_t m_store = 0;
     };
+DB0_PACKED_END
        
 }

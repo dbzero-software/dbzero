@@ -3,12 +3,14 @@
 #include <dbzero/core/vspace/db0_ptr.hpp>
 #include <dbzero/core/collections/b_index/v_bindex.hpp>
 #include <dbzero/core/collections/full_text/FT_IndexIterator.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
 
 {
 
-    template <typename KeyT, typename ValueT> struct [[gnu::packed]] BlockItemT
+DB0_PACKED_BEGIN
+    template <typename KeyT, typename ValueT> struct DB0_PACKED_ATTR BlockItemT
     {
         using self_t = BlockItemT<KeyT, ValueT>;
         KeyT m_key = KeyT();
@@ -105,5 +107,6 @@ namespace db0
         };
 
     };
+DB0_PACKED_END
     
 }

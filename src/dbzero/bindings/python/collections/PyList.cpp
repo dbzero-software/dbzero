@@ -247,7 +247,7 @@ namespace db0::python
     }
 
     PyTypeObject ListObjectType = {
-        PyVarObject_HEAD_INIT(NULL, 0)
+        PYVAROBJECT_HEAD_INIT_DESIGNATED,
         .tp_name = "List",
         .tp_basicsize = ListObject::sizeOf(),
         .tp_itemsize = 0,

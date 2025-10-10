@@ -2,13 +2,15 @@
 
 #include <dbzero/core/serialization/Base.hpp>
 #include <dbzero/core/serialization/Types.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
 
 {
 
     // SG-Tree node / head node pointers
-    template <class PtrT> struct [[gnu::packed]] sgb_tree_ptr_set
+DB0_PACKED_BEGIN
+    template <class PtrT> struct DB0_PACKED_ATTR sgb_tree_ptr_set
     {
         using pointer_type = PtrT;
         PtrT parent = {};
@@ -29,6 +31,7 @@ namespace db0
             return parent;
         }
     };
+DB0_PACKED_END
     
     /**
      * The SGB_Tree head node, compatible with the general SGB_Tree node type
@@ -37,7 +40,8 @@ namespace db0
      * @tparam TreeHeaderT optional user defined tree header (to store additional custom tree level data)
     */
     template <typename CapacityT, typename AddressT, typename TreeHeaderT>
-    class [[gnu::packed]] o_sgb_tree_head: public o_base<o_sgb_tree_head<CapacityT, AddressT, TreeHeaderT>, 0, false>
+DB0_PACKED_BEGIN
+    class DB0_PACKED_ATTR o_sgb_tree_head: public o_base<o_sgb_tree_head<CapacityT, AddressT, TreeHeaderT>, 0, false>
     {
     public:
         // tree pointers (possibly relative to slab)
@@ -88,5 +92,6 @@ namespace db0
             return sizeof(o_sgb_tree_head) + TreeHeaderT::sizeOf();
         }
     };
+DB0_PACKED_END
     
 }

@@ -2,10 +2,12 @@
 
 #include <vector>
 #include <dbzero/core/serialization/Foundation.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
 
 {
+DB0_PACKED_BEGIN
 
     class Memspace;
 
@@ -14,7 +16,7 @@ namespace db0
     * implements __safe_ref
     * @tparam T - actual implemented overlaid type
     */
-    template <typename T> class [[gnu::packed]] o_fixed {
+    template <typename T> class DB0_PACKED_ATTR o_fixed {
         struct NullInitializer {
         };
     public:
@@ -120,4 +122,5 @@ namespace db0
         }
     };
         
+DB0_PACKED_END
 }

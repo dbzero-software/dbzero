@@ -83,7 +83,7 @@ namespace db0
             : FT_IteratorBase(uid)
             , m_index(index)
             , m_tree_ptr(tree_ptr)
-            , m_tree_it(tree_ptr ? (min ? tree_ptr->lowerBound(*min, min_inclusive) : tree_ptr->beginRange()) : RangeIterator(true))
+            , m_tree_it([&]() -> RangeIterator { if (tree_ptr) { if (min) return tree_ptr->lowerBound(*min, min_inclusive); else return tree_ptr->beginRange(); } else return RangeIterator(true); }())
             , m_has_query(has_query)
             , m_query_it(std::move(it))
             , m_min(min)

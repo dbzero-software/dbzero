@@ -106,7 +106,11 @@ namespace db0
             : super_t(uid)
             , m_index(index)
             , m_tree_ptr(tree_ptr)
-            , m_tree_it(m_tree_ptr ? m_tree_ptr->beginRange(asc) : typename RT_TreeT::RangeIterator(asc))
+            , m_tree_it([&](){
+                if (m_tree_ptr)
+                    return m_tree_ptr->beginRange(asc);
+                return typename RT_TreeT::RangeIterator(asc);
+            }())
             , m_query_it(std::move(it))
             , m_asc(asc)
             , m_null_first(null_first)

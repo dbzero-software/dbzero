@@ -153,7 +153,7 @@ namespace db0::python
     };
 
     PyTypeObject DictObjectType = {
-        PyVarObject_HEAD_INIT(NULL, 0)
+        PYVAROBJECT_HEAD_INIT_DESIGNATED,
         .tp_name = "Dict",
         .tp_basicsize = DictObject::sizeOf(),
         .tp_itemsize = 0,

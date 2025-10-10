@@ -9,7 +9,7 @@
 #include <dbzero/core/collections/CompT.hpp>
 #include <dbzero/object_model/object_header.hpp>
 #include "type.hpp"
-
+#include <dbzero/core/compiler_attributes.hpp>
 namespace db0 
 
 {
@@ -47,7 +47,8 @@ namespace db0
         using data_vector = v_sorted_vector<item_t, AddrT, item_comp_t>;
         using DestroyF = std::function<void(const item_t &)>;
 
-        class [[gnu::packed]] bindex_node : public o_fixed<bindex_node> 
+DB0_PACKED_BEGIN
+        class DB0_PACKED_ATTR bindex_node : public o_fixed<bindex_node> 
         {
             using super_t = o_fixed<bindex_node>;
         public :
@@ -95,6 +96,7 @@ namespace db0
 
             using comp_t = CompT<bindex_node,get_key,item_comp_t>;
         };
+DB0_PACKED_END
 
         using bindex_node_traits = o_sgtree_node_traits<bindex_node, typename bindex_node::comp_t>;
         using bindex_node_t = intrusive_node<
@@ -121,7 +123,8 @@ namespace db0
         using node_iterator = typename bindex_tree_t::iterator;
         using node_stack = typename bindex_tree_t::join_stack;
 
-        class [[gnu::packed]] bindex_container : public o_fixed<bindex_container> 
+DB0_PACKED_BEGIN
+        class DB0_PACKED_ATTR bindex_container : public o_fixed<bindex_container> 
         {
         public :
             // common dbzero object header (not copied)
@@ -138,6 +141,7 @@ namespace db0
             {
             }
         };
+DB0_PACKED_END
     };
     
 } 

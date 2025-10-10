@@ -3,10 +3,13 @@
 #include "v_ptr.hpp"
 #include <dbzero/core/memory/Memspace.hpp>
 #include <dbzero/core/serialization/Fixed.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
 
 {
+
+DB0_PACKED_BEGIN
 
     template <typename T> class db0_unique_ptr;
     template <typename T> struct db0_ptr_reinterpret_cast;
@@ -15,7 +18,7 @@ namespace db0
      * A convenience o_fixed class wrapping overlay object in templated v_object.
      */
     template <typename T>
-    class [[gnu::packed]] db0_ptr : public o_fixed<db0_ptr<T> > 
+    class DB0_PACKED_ATTR db0_ptr : public o_fixed<db0_ptr<T> > 
     {
     public:
         /**
@@ -140,7 +143,7 @@ namespace db0
      * @brief db0_ptr version which will guarantee unique instance
      * @tparam T
      */
-    template <typename T> class [[gnu::packed]] db0_unique_ptr : public db0_ptr<T>
+    template <typename T> class DB0_PACKED_ATTR db0_unique_ptr : public db0_ptr<T>
     {
     public :
         db0_unique_ptr() = default;
@@ -244,6 +247,8 @@ namespace db0
     template <typename T, typename... Args> db0_unique_ptr<T> make_db0_unique_ptr(db0::Memspace &memspace, Args&&... args) {
         return db0_unique_ptr<T>(memspace, std::forward<Args>(args)...);
     }
+
+DB0_PACKED_END
 
 } 
 

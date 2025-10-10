@@ -3,15 +3,17 @@
 #include "Types.hpp"
 #include "packed_int.hpp"
 #include <dbzero/core/metaprog/is_sequence.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0 
 
 {
+DB0_PACKED_BEGIN
     
     /**
      * Constant-capacity array of fixed-size elements with variable-length packed header
     */
-    template <typename T> class [[gnu::packed]] o_micro_array: 
+    template <typename T> class DB0_PACKED_ATTR o_micro_array: 
     public o_base<o_micro_array<T>, 0, false>
     {
     protected:
@@ -156,4 +158,5 @@ namespace db0
         return packed_size().value();
     }
 
+DB0_PACKED_END
 }

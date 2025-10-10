@@ -3,7 +3,14 @@
 #include <sys/stat.h>
 #include <chrono>
 #include <filesystem>
-#include <unistd.h>
+#include <algorithm>
+#ifdef _WIN32
+#  include <io.h>
+#  include <direct.h>
+#else
+#  include <unistd.h>
+#endif
+
 #include <dbzero/core/exception/Exceptions.hpp>
 
 namespace db0
@@ -37,11 +44,17 @@ namespace db0
     
     std::uint64_t getLastModifiedTime(const char *file_name)
     {
-        struct stat st;
-        if (stat(file_name, &st)) {
-            THROWF(db0::IOException) << "CFile::getLastModifiedTime: stat failed";
-        }
-        return st.st_mtim.tv_sec * 1000000000 + st.st_mtim.tv_nsec;
+        #ifdef _WIN32
+            auto tp = fs::last_write_time(fs::path(file_name));
+            auto duration = tp.time_since_epoch();
+            return std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count();
+        #else
+            struct stat st;
+            if (stat(file_name, &st)) {
+                THROWF(db0::IOException) << "CFile::getLastModifiedTime: stat failed";
+            };
+            return st.st_mtim.tv_sec * 1000000000 + st.st_mtim.tv_nsec;
+        #endif
     }
 
     CFile::CFile(const std::string &file_name, AccessType access_type)
@@ -85,11 +98,18 @@ namespace db0
         std::unique_lock<std::mutex> lock(m_mutex);
         flush(lock);
         if (m_access_type == AccessType::READ_ONLY) {
-            THROWF(db0::IOException) << "CFile::fsync: read-only stream";
+            THROWF(db0::IOException) << "Commit failed! errno=" << errno
+                  << " (" << strerror(errno) << ")\n";
         }
+#ifdef _WIN32
+        if (_commit(fileno(m_file)) == -1) {
+            THROWF(db0::IOException) << "CFile::fsync: failed to sync file " << m_path;
+        }
+#else
         if (::fsync(fileno(m_file)) == -1) {
             THROWF(db0::IOException) << "CFile::fsync: failed to sync file " << m_path;
         }
+#endif
     }
 
     void CFile::flush() const
@@ -106,6 +126,8 @@ namespace db0
             }
             m_file = nullptr;
         }
+        //release the lock
+        m_lock.reset();
     }
     
     bool CFile::refresh()

@@ -1,4 +1,5 @@
 #include "FT_FixedKeyIterator.hpp"
+#include <algorithm>
 
 namespace db0
 

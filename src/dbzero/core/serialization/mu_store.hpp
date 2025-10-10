@@ -5,13 +5,15 @@
 #include <array>
 #include <limits>
 #include "Types.hpp"
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
 
 {
+DB0_PACKED_BEGIN
 
     // The container for storing DP micro-updates, i.e. mutated ranges
-    class [[gnu::packed]] o_mu_store: public o_base<o_mu_store>
+    class DB0_PACKED_ATTR o_mu_store: public o_base<o_mu_store>
     {
     protected:
         using super_t = o_base<o_mu_store>;
@@ -99,4 +101,5 @@ namespace db0
         result[2] = size & 0xFF;
     }
 
+DB0_PACKED_END
 }    

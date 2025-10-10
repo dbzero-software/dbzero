@@ -6,15 +6,18 @@
 #include <dbzero/object_model/value/Value.hpp>
 #include <dbzero/object_model/value/XValue.hpp>
 #include <dbzero/object_model/value/StorageClass.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0::object_model
 
 {
 
+DB0_PACKED_BEGIN
+
     /**
      * Positionally-encoded value table
     */
-    class [[gnu::packed]] PosVT: public o_base<PosVT, 0, false>
+    class DB0_PACKED_ATTR PosVT: public o_base<PosVT, 0, false>
     {
     public:
 
@@ -92,7 +95,7 @@ namespace db0::object_model
     /**
      * Indexed value table
     */
-    class [[gnu::packed]] IndexVT: public o_base<IndexVT, 0, false>
+    class DB0_PACKED_ATTR IndexVT: public o_base<IndexVT, 0, false>
     {
     protected:
         using super_t = o_base<IndexVT, 0, false>;
@@ -139,4 +142,6 @@ namespace db0::object_model
         bool operator==(const IndexVT &other) const;
     };
     
+DB0_PACKED_END
+
 }

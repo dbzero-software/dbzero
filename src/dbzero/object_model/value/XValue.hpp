@@ -2,6 +2,7 @@
 
 #include "Value.hpp"
 #include "StorageClass.hpp"
+#include <dbzero/core/compiler_attributes.hpp>
 #include <array>
 #include <cassert>
 
@@ -12,7 +13,8 @@ namespace db0::object_model
     /**
      * Typed value + 24bit index
     */
-    struct [[gnu::packed]] XValue
+DB0_PACKED_BEGIN
+    struct DB0_PACKED_ATTR XValue
     {
         std::array<std::uint8_t, 3> m_index = {};
         StorageClass m_type = StorageClass::UNDEFINED;
@@ -58,5 +60,6 @@ namespace db0::object_model
         // bitwise compare the entire contents
         bool equalTo(const XValue &other) const;
     };
+DB0_PACKED_END
     
 }

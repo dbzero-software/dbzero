@@ -1,5 +1,6 @@
 #include "MemoExpiredRef.hpp"
 #include <dbzero/bindings/python/PyToolkit.hpp>
+#include <dbzero/bindings/python/PyInternalAPI.hpp>
 
 namespace db0::python
 
@@ -39,7 +40,7 @@ namespace db0::python
     
     PyTypeObject MemoExpiredRefType = 
     {
-        PyVarObject_HEAD_INIT(NULL, 0)
+        PYVAROBJECT_HEAD_INIT_DESIGNATED,
         .tp_name = "MemoExpiredRef",
         .tp_basicsize = sizeof(MemoExpiredRef),
         .tp_itemsize = 0,    

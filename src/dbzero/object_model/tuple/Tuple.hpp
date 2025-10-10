@@ -7,6 +7,7 @@
 #include <dbzero/core/serialization/micro_array.hpp>
 #include <dbzero/object_model/item/Item.hpp>
 #include <dbzero/workspace/GC0.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
 {
@@ -19,10 +20,12 @@ namespace db0::object_model
 
 {
 
+DB0_PACKED_BEGIN
+
     using Fixture = db0::Fixture;
     class TupleIterator;
     
-    class [[gnu::packed]] o_tuple: public o_base<o_tuple, 0, false>
+    class DB0_PACKED_ATTR o_tuple: public o_base<o_tuple, 0, false>
     {
     protected:
         using super_t = o_base<o_tuple, 0, false>;
@@ -101,4 +104,6 @@ namespace db0::object_model
         std::shared_ptr<TupleIterator> getIterator(ObjectPtr lang_tuple) const;    
     };
     
+DB0_PACKED_END
+
 }

@@ -3,15 +3,18 @@
 #include <cstdint>
 #include <cassert>
 #include <dbzero/core/memory/Allocator.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 #include "StorageClass.hpp"
 
 namespace db0::object_model
 
 {
 
+DB0_PACKED_BEGIN
+
     // A struct that combines StorageClass (14bit) + address (50bits) in a single 64bit value
     // but ignores the address-embedded instance_id
-    struct [[gnu::packed]] TypedAddress
+    struct DB0_PACKED_ATTR TypedAddress
     {
         std::uint64_t m_value;
 
@@ -48,4 +51,6 @@ namespace db0::object_model
     
     TypedAddress toTypedAddress(const std::pair<UniqueAddress, StorageClass> &);
     
+DB0_PACKED_END
+
 }

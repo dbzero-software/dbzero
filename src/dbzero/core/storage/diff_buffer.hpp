@@ -1,12 +1,14 @@
 #pragma once
 
 #include <dbzero/core/serialization/Base.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
 
 {
+DB0_PACKED_BEGIN
 
-    class [[gnu::packed]] o_diff_buffer: public o_base<o_diff_buffer, 0, false>
+    class DB0_PACKED_ATTR o_diff_buffer: public o_base<o_diff_buffer, 0, false>
     {
     protected:
         using super_t = o_base<o_diff_buffer, 0, false>;
@@ -38,4 +40,5 @@ namespace db0
         }
     };
     
+DB0_PACKED_END
 }

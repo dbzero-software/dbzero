@@ -6,10 +6,12 @@
 #include <dbzero/core/dram/DRAM_Prefix.hpp>
 #include <dbzero/core/dram/DRAM_Allocator.hpp>
 #include "ChangeLogIOStream.hpp"
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
 
 {
+DB0_PACKED_BEGIN
     
     class DRAM_Prefix;
     class DRAM_Allocator;
@@ -123,7 +125,7 @@ namespace db0
         };
 
         // tree-level header type
-        struct [[gnu::packed]] o_sparse_index_header: o_fixed<o_sparse_index_header>
+        struct DB0_PACKED_ATTR o_sparse_index_header: o_fixed<o_sparse_index_header>
         {
             PageNumT m_next_page_num = 0;
             StateNumT m_max_state_num = 0;
@@ -404,4 +406,5 @@ namespace db0
         m_index.commit();        
     }
     
+DB0_PACKED_END
 }       

@@ -9,6 +9,7 @@
 #include <dbzero/core/threading/ROWO_Mutex.hpp>
 #include <dbzero/core/utils/FlagSet.hpp>
 #include <dbzero/core/metaprog/type_traits.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 #include "MappedAddress.hpp"
 #include "safe_buf_t.hpp"
 
@@ -16,10 +17,12 @@ namespace db0
     
 {
 
+DB0_PACKED_BEGIN
+
     template <typename T, std::uint32_t SLOT_NUM = 0, unsigned char REALM_ID = 0>
     class v_object;
 
-    struct [[gnu::packed]] vso_null_t
+    struct DB0_PACKED_ATTR vso_null_t
     {
     };
     
@@ -394,5 +397,7 @@ namespace db0
             return m_memspace_ptr->getAllocator().getAllocSize(m_address, REALM_ID);
         }
     };
+
+DB0_PACKED_END
 
 }

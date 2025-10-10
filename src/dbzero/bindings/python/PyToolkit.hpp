@@ -60,7 +60,8 @@ namespace db0::python
         using Object = db0::object_model::Object;
         
         inline static TypeManager &getTypeManager() {
-            return m_type_manager;    
+            static TypeManager type_manager;
+            return type_manager;    
         }
 
         inline static PyWorkspace &getPyWorkspace() {
@@ -245,7 +246,6 @@ namespace db0::python
 
     private:
         static PyWorkspace m_py_workspace;
-        static TypeManager m_type_manager;
         static std::recursive_mutex m_api_mutex;        
     };
     

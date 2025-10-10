@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 #include <cstdint>
+#include <algorithm>
+#include <random>
 #include <iostream>
 #include <utils/TestWorkspace.hpp>
 #include <dbzero/core/memory/SlabAllocator.hpp>
@@ -252,9 +254,10 @@ namespace tests
 
             addresses.push_back(*addr);
         }
-
+        std::random_device rd;
+        std::mt19937 g(rd());   // random number generator (Mersenne Twister)
         // release in random order
-        std::random_shuffle(addresses.begin(), addresses.end());
+        std::shuffle(addresses.begin(), addresses.end(), g);
         for (auto &addr: addresses) {
             cut.free(addr);
         }

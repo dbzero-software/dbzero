@@ -6,15 +6,17 @@
 #include "Types.hpp"
 #include "packed_int.hpp"
 #include <dbzero/core/exception/Exceptions.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
 
 {
+DB0_PACKED_BEGIN
 
     // Ref-counter combines 2 packed ints in a fixed-size type
     // this allows for a high combined range while preserving compact size
     template <typename IntT = std::uint32_t, std::size_t SIZEOF = 4>
-    class [[gnu::packed]] o_ref_counter: public o_fixed<o_ref_counter<IntT, SIZEOF>>
+    class DB0_PACKED_ATTR o_ref_counter: public o_fixed<o_ref_counter<IntT, SIZEOF>>
     {
     private:
         using PackedIntT = o_packed_int<IntT, false>;
@@ -112,4 +114,5 @@ namespace db0
         PackedIntT::write(at, value, m_payload.data() + SIZEOF);
     }
 
+DB0_PACKED_END
 }

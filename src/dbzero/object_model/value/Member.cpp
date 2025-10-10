@@ -33,7 +33,7 @@ namespace db0::object_model
     template <> Value createMember<TypeId::INTEGER, PyToolkit>(db0::swine_ptr<Fixture> &fixture, 
         PyObjectPtr obj_ptr, StorageClass)
     {
-        auto int_value = PyLong_AsLong(obj_ptr);
+        auto int_value = PyLong_AsLongLong(obj_ptr);
         return db0::binary_cast<std::uint64_t, std::int64_t>()(int_value);
     }
     
@@ -374,7 +374,7 @@ namespace db0::object_model
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::INT64, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value, unsigned int)
     {
-        return Py_OWN(PyLong_FromLong(value.cast<std::int64_t>()));
+        return Py_OWN(PyLong_FromLongLong(value.cast<std::int64_t>()));
     }
     
     // FLOAT specialization

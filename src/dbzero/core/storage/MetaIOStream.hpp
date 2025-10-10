@@ -3,13 +3,15 @@
 #include "BlockIOStream.hpp"
 #include <vector>
 #include <dbzero/core/serialization/list.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
 
 {
+DB0_PACKED_BEGIN
 
     // Single managed-stream associated item
-    struct [[gnu::packed]] o_meta_item: public o_fixed<o_meta_item>
+    struct DB0_PACKED_ATTR o_meta_item: public o_fixed<o_meta_item>
     {
         // the absolute file position in the managed stream
         std::uint64_t m_address = 0;
@@ -20,7 +22,7 @@ namespace db0
     };
     
     // The single log item, possibly associated with multiple managed streams
-    class [[gnu::packed]] o_meta_log: public o_base<o_meta_log, 0, false>
+    class DB0_PACKED_ATTR o_meta_log: public o_base<o_meta_log, 0, false>
     {
     protected:
         friend class o_base<o_meta_log, 0, false>;
@@ -94,4 +96,5 @@ namespace db0
         void appendMetaLog(StateNumType state_num, const std::vector<o_meta_item> &meta_items);
     };
 
+DB0_PACKED_END
 }

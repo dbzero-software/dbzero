@@ -22,7 +22,7 @@ namespace db0::python
     };
 
     PyTypeObject IndexObjectType = {
-        PyVarObject_HEAD_INIT(NULL, 0)
+        PYVAROBJECT_HEAD_INIT_DESIGNATED,
         .tp_name = "Index",
         .tp_basicsize = IndexObject::sizeOf(),
         .tp_itemsize = 0,

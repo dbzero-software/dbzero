@@ -33,7 +33,8 @@ namespace db0::python
     PyObject *uint64ToPyDecimal(std::uint64_t decimal)
     {
         PyObject *decimal_type = getDecimalClass();
-        auto numerator = get_bytes(decimal, 0, 57);
+        std::int64_t numerator = get_bytes(decimal, 0, 57);
+
         std::int64_t exponent = get_bytes(decimal, 57, 6);
         int is_negative = get_bytes(decimal, 63, 1);
         exponent = -exponent;
@@ -43,7 +44,7 @@ namespace db0::python
         if (is_negative) {
             numerator = -numerator;
         }
-        auto numerator_py = Py_OWN(PyLong_FromLong(numerator));
+        auto numerator_py = Py_OWN(PyLong_FromLongLong(numerator));
         if (!numerator_py) {
             return nullptr;
         }

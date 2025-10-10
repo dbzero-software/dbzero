@@ -3,12 +3,15 @@
 #include <cstdint>
 #include "Types.hpp"
 #include <dbzero/core/exception/Exceptions.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
 
 {
 
-    template <typename ItemT> struct [[gnu::packed]] o_optional_item
+    template <typename ItemT>
+DB0_PACKED_BEGIN
+    struct DB0_PACKED_ATTR o_optional_item
     {
         // the item value (valid only if m_present != 0)
         ItemT m_value;
@@ -60,5 +63,6 @@ namespace db0
             }
         }
     };
+DB0_PACKED_END
     
 }

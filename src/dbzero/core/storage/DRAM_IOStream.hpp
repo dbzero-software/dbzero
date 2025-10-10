@@ -10,17 +10,19 @@
 #include <unordered_set>
 #include <unordered_map>
 #include <atomic>
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
 
 {
+DB0_PACKED_BEGIN
     
     class DRAM_Prefix;
     class DRAM_Allocator;
     class CFile;
     class ChangeLogIOStream;
 
-    struct [[gnu::packed]] o_dram_chunk_header: public o_fixed<o_dram_chunk_header>
+    struct DB0_PACKED_ATTR o_dram_chunk_header: public o_fixed<o_dram_chunk_header>
     {
         std::uint64_t m_state_num = 0;
         std::uint64_t m_page_num = 0;        
@@ -160,4 +162,5 @@ namespace db0
         const std::vector<char> &getReadAheadBuffer(std::uint64_t address) const;
     };
     
+DB0_PACKED_END
 }

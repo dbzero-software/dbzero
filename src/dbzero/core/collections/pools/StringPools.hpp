@@ -3,6 +3,7 @@
 #include <dbzero/core/serialization/string.hpp>
 #include "LimitedPool.hpp"
 #include "RC_LimitedPool.hpp"
+#include <dbzero/core/compiler_attributes.hpp>
     
 namespace db0::pools
 
@@ -20,7 +21,8 @@ namespace db0::pools
         /**
          * Convenience pointer/element ID type
         */
-        struct [[gnu::packed]] PtrT
+DB0_PACKED_BEGIN
+        struct DB0_PACKED_ATTR PtrT
         {
             std::uint32_t m_value = 0;
             PtrT() = default;
@@ -38,6 +40,7 @@ namespace db0::pools
                 return m_value != other.m_value;
             }
         };
+DB0_PACKED_END
         
         /**
          * Adds a new object or increase ref-count of the existing element

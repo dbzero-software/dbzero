@@ -10,13 +10,15 @@
 #include <dbzero/core/threading/ProgressiveMutex.hpp>
 #include <dbzero/core/utils/uuid.hpp>
 #include <dbzero/object_model/object_header.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
 
 {
     
+DB0_PACKED_BEGIN
     template <typename PtrT>
-    struct [[gnu::packed]] o_bvector: public o_fixed<o_bvector<PtrT> >
+    struct DB0_PACKED_ATTR o_bvector: public o_fixed<o_bvector<PtrT> >
     {
         // common dbzero object header
         db0::o_unique_header m_header;
@@ -41,6 +43,7 @@ namespace db0
             return m_header.hasRefs();
         }
     };
+DB0_PACKED_END
     
     /**
      * dbzero scalable vector implementation

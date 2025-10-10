@@ -1,9 +1,11 @@
 #pragma once
 
 #include <cstdint>
+#include <cstddef>
 #include <dbzero/core/metaprog/tuple_utils.hpp>
 #include <dbzero/core/serialization/Types.hpp>
 #include <dbzero/core/vspace/v_object.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
 
@@ -12,7 +14,8 @@ namespace db0
     /**
      * b_class size class (additional shift)
      */
-    template <typename ItemT, std::size_t b_class> struct [[gnu::packed]] o_block_data
+DB0_PACKED_BEGIN
+    template <typename ItemT, std::size_t b_class> struct DB0_PACKED_ATTR o_block_data
         : public o_base<o_block_data<ItemT, b_class>, 0, false >
     {
     protected:
@@ -98,6 +101,7 @@ namespace db0
             return getData();
         }
     };
+DB0_PACKED_END
 
     template <typename ItemT, std::size_t b_class> class v_bdata_block
         : public v_object<o_block_data<ItemT, b_class> > 

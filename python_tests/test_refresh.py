@@ -48,6 +48,16 @@ def test_objects_are_removed_from_gc0_registry_when_deleted(db0_fixture):
     db0.clear_cache()
     assert db0.get_prefix_stats()["gc0"]["size"] < reg_size_1
 
+def change_singleton_process(prefix_name, max_value):
+    db0.init(DB0_DIR)
+    db0.open(prefix_name, "rw")
+    object_x = MemoClassX()
+    for i in range(1, max_value + 1):
+        object_x.value1 = i
+        time.sleep(0.05)
+        db0.commit()
+    del object_x
+    db0.close()
 
 def test_refresh_can_fetch_object_changes_done_by_other_process(db0_fixture):
     # create a singleton
@@ -56,22 +66,13 @@ def test_refresh_can_fetch_object_changes_done_by_other_process(db0_fixture):
     max_value = 25
     
     # start a child process that will change the singleton
-    def change_singleton_process():
-        db0.init(DB0_DIR)
-        db0.open(prefix_name, "rw")
-        object_x = MemoClassX()
-        for i in range(1, max_value + 1):
-            object_x.value1 = i
-            time.sleep(0.05)
-            db0.commit()
-        del object_x
-        db0.close()
-    
+
     # close db0 and open as read-only
     db0.commit()
     db0.close()
-    
-    p = multiprocessing.Process(target=change_singleton_process)
+
+    p = multiprocessing.Process(target=change_singleton_process, 
+                                args=(prefix_name, max_value))
     p.start()
     db0.init(DB0_DIR)
     db0.open(prefix_name, "r")
@@ -85,30 +86,31 @@ def test_refresh_can_fetch_object_changes_done_by_other_process(db0_fixture):
     p.join()
 
 
+# drop object from a separate transaction / process
+def update_process(prefix_name, object_id):
+    time.sleep(0.25)
+    db0.init(DB0_DIR)
+    db0.open(prefix_name, "rw")
+    object_x = db0.fetch(object_id)
+    # drop the singleton
+    db0.delete(object_x)
+    # must also remove python object, otherwise the instance will not be removed immediately
+    del object_x
+    db0.commit()
+    db0.close()
+
+
 def test_refresh_can_handle_objects_deleted_by_other_process(db0_fixture):
     # create singleton so that it's not dropped
     object_1 = MemoTestSingleton(123)
     object_id = db0.uuid(object_1)
     prefix_name = db0.get_prefix_of(object_1).name
     
-    # drop object from a separate transaction / process
-    def update_process():
-        time.sleep(0.25)
-        db0.init(DB0_DIR)
-        db0.open(prefix_name, "rw")
-        object_x = db0.fetch(object_id)
-        # drop the singleton
-        db0.delete(object_x)
-        # must also remove python object, otherwise the instance will not be removed immediately
-        del object_x
-        db0.commit()
-        db0.close()
-    
     # close db0 and open as read-only
     db0.commit()
     db0.close()
-    
-    p = multiprocessing.Process(target=update_process)
+
+    p = multiprocessing.Process(target=update_process, args=(prefix_name, object_id))
     p.start()
     db0.init(DB0_DIR)
     db0.open(prefix_name, "r")
@@ -126,6 +128,14 @@ def test_refresh_can_handle_objects_deleted_by_other_process(db0_fixture):
     p.join()
     assert max_repeat > 0        
 
+def update_process_auto_refresh(prefix_name):
+    time.sleep(0.25)
+    db0.init(DB0_DIR)
+    db0.open(prefix_name, "rw")
+    object_x = MemoClassX()
+    object_x.value1 = 124        
+    db0.commit()        
+    db0.close() 
 
 def test_auto_refresh(db0_fixture):
     # create singleton with a list type member
@@ -134,20 +144,11 @@ def test_auto_refresh(db0_fixture):
     prefix_name = db0.get_prefix_of(object_1).name
     
     # update object from a separate process
-    def update_process():
-        time.sleep(0.25)
-        db0.init(DB0_DIR)
-        db0.open(prefix_name, "rw")
-        object_x = MemoClassX()
-        object_x.value1 = 124        
-        db0.commit()        
-        db0.close()        
 
     # close db0 and open as read-only
     db0.commit()
     db0.close()
-    
-    p = multiprocessing.Process(target=update_process)
+    p = multiprocessing.Process(target=update_process_auto_refresh, args=(prefix_name,))
     p.start()
     db0.init(DB0_DIR)
     db0.open(prefix_name, "r")    
@@ -165,6 +166,14 @@ def test_auto_refresh(db0_fixture):
     p.join()    
     assert max_repeat > 0        
 
+def update_process_refresh_can_detect_kv_index_updates(prefix_name, object_id):
+    time.sleep(0.25)
+    db0.init(DB0_DIR)
+    db0.open(prefix_name, "rw")
+    object_x = db0.fetch(object_id)
+    object_x.new_field = 123
+    db0.commit()
+    db0.close()
 
 def test_refresh_can_detect_kv_index_updates(db0_fixture):
     # create singleton with a list type member
@@ -174,20 +183,13 @@ def test_refresh_can_detect_kv_index_updates(db0_fixture):
     prefix_name = db0.get_prefix_of(object_1).name
     
     # add dynamic (kv-index) field from a separate process
-    def update_process():
-        time.sleep(0.25)
-        db0.init(DB0_DIR)
-        db0.open(prefix_name, "rw")
-        object_x = db0.fetch(object_id)
-        object_x.new_field = 123
-        db0.commit()
-        db0.close()
         
     # close db0 and open as read-only
     db0.commit()
     db0.close()
     
-    p = multiprocessing.Process(target=update_process)
+    p = multiprocessing.Process(target=update_process_refresh_can_detect_kv_index_updates, 
+                                args=(prefix_name, object_id))
     p.start()
     db0.init(DB0_DIR)
     db0.open(prefix_name, "r")    
@@ -208,6 +210,14 @@ def test_refresh_can_detect_kv_index_updates(db0_fixture):
     p.join()
     assert max_repeat > 0
 
+def update_process_can_delete_postvt(prefix_name, object_id):
+    time.sleep(0.25)
+    db0.init(DB0_DIR)
+    db0.open(prefix_name, "rw")
+    object_x = db0.fetch(object_id)
+    object_x.value1 = 999
+    db0.commit()
+    db0.close()
 
 def test_refresh_can_detect_updates_in_posvt_fields(db0_fixture):
     object_1 = RefreshTestClass(123, "some text")
@@ -216,20 +226,13 @@ def test_refresh_can_detect_updates_in_posvt_fields(db0_fixture):
     prefix_name = db0.get_prefix_of(object_1).name
     
     # update posvt field from a separate process
-    def update_process():
-        time.sleep(0.25)
-        db0.init(DB0_DIR)
-        db0.open(prefix_name, "rw")
-        object_x = db0.fetch(object_id)
-        object_x.value1 = 999
-        db0.commit()
-        db0.close()
     
     # close db0 and open as read-only
     db0.commit()
     db0.close()
-    
-    p = multiprocessing.Process(target=update_process)
+
+    p = multiprocessing.Process(target=update_process_can_delete_postvt, 
+                                args=(prefix_name, object_id))
     p.start()
     db0.init(DB0_DIR)
     db0.open(prefix_name, "r")    
@@ -246,28 +249,28 @@ def test_refresh_can_detect_updates_in_posvt_fields(db0_fixture):
     p.join()
     assert max_repeat > 0
     
-    
+
+def update_process_can_detect_kv_index_updates(prefix_name, object_id):
+    time.sleep(0.25)
+    db0.init(DB0_DIR)
+    db0.open(prefix_name, "rw")
+    object_x = db0.fetch(object_id)
+    object_x.field_119 = 94124
+    db0.commit()
+    db0.close()
+
 def test_refresh_can_detect_updates_in_indexvt_fields(db0_fixture):
     object_1 = DynamicDataClass([0, 1, 2, 11, 33, 119])
     object_id = db0.uuid(object_1)
     root = MemoTestSingleton(object_1)
     prefix_name = db0.get_prefix_of(object_1).name
-    
-    # update index-vt field from a separate process
-    def update_process():
-        time.sleep(0.25)
-        db0.init(DB0_DIR)
-        db0.open(prefix_name, "rw")
-        object_x = db0.fetch(object_id)
-        object_x.field_119 = 94124
-        db0.commit()
-        db0.close()
-    
+
     # close db0 and open as read-only
     db0.commit()
     db0.close()
-    
-    p = multiprocessing.Process(target=update_process)
+
+    p = multiprocessing.Process(target=update_process_can_detect_kv_index_updates, 
+                                args=(prefix_name, object_id))
     p.start()
     db0.init(DB0_DIR)
     db0.open(prefix_name, "r")    
@@ -284,6 +287,14 @@ def test_refresh_can_detect_updates_in_indexvt_fields(db0_fixture):
     p.join()
     assert max_repeat > 0
 
+def update_process_can_detect_kv_index_updates_in_kvstore_fields(prefix_name):
+    time.sleep(0.25)
+    db0.init(DB0_DIR)
+    db0.open(prefix_name, "rw")
+    object_x = DynamicDataSingleton()
+    object_x.kv_field = 94124
+    db0.commit()
+    db0.close()
 
 def test_refresh_can_detect_updates_in_kvstore_fields(db0_fixture):
     prefix_name = db0.get_current_prefix().name
@@ -291,20 +302,13 @@ def test_refresh_can_detect_updates_in_kvstore_fields(db0_fixture):
     object_1.kv_field = 123
     root = MemoTestSingleton(object_1)        
     # update kv-store field from a separate process
-    def update_process():
-        time.sleep(0.25)
-        db0.init(DB0_DIR)
-        db0.open(prefix_name, "rw")
-        object_x = DynamicDataSingleton()
-        object_x.kv_field = 94124
-        db0.commit()
-        db0.close()
     
     # close db0 and open as read-only
     db0.commit()
     db0.close()
-    
-    p = multiprocessing.Process(target=update_process)
+
+    p = multiprocessing.Process(target=update_process_can_detect_kv_index_updates_in_kvstore_fields, 
+                                args=(prefix_name,))
     p.start()
     db0.init(DB0_DIR)
     db0.open(prefix_name, "r")    
@@ -321,26 +325,26 @@ def test_refresh_can_detect_updates_in_kvstore_fields(db0_fixture):
     p.join()
     assert max_repeat > 0
 
+def create_process(result_queue, prefix_name):
+    db0.init(DB0_DIR)
+    db0.open(prefix_name, "rw")
+    object_x = MemoTestClass(123123)
+    top_object = MemoTestSingleton(object_x)
+    result_queue.put(db0.uuid(object_x))
+    db0.commit()
+    db0.close()
 
 def test_objects_created_by_different_process_are_not_dropped(db0_fixture):
     some_instance = DynamicDataSingleton(5)
     object_x = MemoTestClass(123123)
     prefix_name = db0.get_current_prefix().name
     
-    def create_process(result_queue):
-        db0.init(DB0_DIR)
-        db0.open(prefix_name, "rw")
-        object_x = MemoTestClass(123123)
-        top_object = MemoTestSingleton(object_x)
-        result_queue.put(db0.uuid(object_x))
-        db0.commit()
-        db0.close()
-    
     db0.commit()
     db0.close()
     
     result_queue = multiprocessing.Queue()
-    p = multiprocessing.Process(target=create_process, args = (result_queue,))
+    p = multiprocessing.Process(target=create_process,
+                                args = (result_queue, prefix_name))
     p.start()
     p.join()    
     id = result_queue.get()
@@ -356,26 +360,27 @@ def test_objects_created_by_different_process_are_not_dropped(db0_fixture):
     assert object_1.value == 123123
     
     
+def rand_string(str_len):
+    import random
+    import string    
+    return ''.join(random.choice(string.ascii_letters) for i in range(str_len))
+    
+def create_process_refresh_query_while_adding(px_name, num_iterations, 
+                                              num_objects, str_len):
+    db0.init(DB0_DIR)
+    db0.open(px_name, "rw")
+    for _ in range(num_iterations):          
+        for index in range(num_objects):
+            obj = MemoTestClass(rand_string(str_len))
+            db0.tags(obj).add("tag1")
+            if index % 3 == 0:
+                db0.tags(obj).add("tag2")            
+        db0.commit()
+    db0.close()
+
 @pytest.mark.stress_test
 def test_refresh_query_while_adding_new_objects(db0_fixture):
     px_name = db0.get_current_prefix().name
-    
-    def rand_string(str_len):
-        import random
-        import string    
-        return ''.join(random.choice(string.ascii_letters) for i in range(str_len))
-        
-    def create_process(num_iterations, num_objects, str_len):
-        db0.init(DB0_DIR)
-        db0.open(px_name, "rw")
-        for _ in range(num_iterations):          
-            for index in range(num_objects):
-                obj = MemoTestClass(rand_string(str_len))
-                db0.tags(obj).add("tag1")
-                if index % 3 == 0:
-                    db0.tags(obj).add("tag2")            
-            db0.commit()
-        db0.close()
     
     db0.commit()
     db0.close()
@@ -383,7 +388,8 @@ def test_refresh_query_while_adding_new_objects(db0_fixture):
     num_iterations = 1
     num_objects = 1000
     str_len = 4096
-    p = multiprocessing.Process(target=create_process, args = (num_iterations, num_objects, str_len))
+    p = multiprocessing.Process(target=create_process_refresh_query_while_adding, 
+                                args = (px_name, num_iterations, num_objects, str_len))
     p.start()
     
     try:
@@ -401,13 +407,7 @@ def test_refresh_query_while_adding_new_objects(db0_fixture):
         p.join()
         db0.close()
 
-
-def test_wait_for_updates(db0_fixture):
-    prefix = db0.get_current_prefix().name
-    db0.commit()
-    db0.close()
-
-    def writer_process(prefix, writer_sem, reader_sem):
+def writer_process(prefix, writer_sem, reader_sem):
         db0.init(DB0_DIR)
         db0.open(prefix, "rw")
         reader_sem.release()
@@ -417,6 +417,11 @@ def test_wait_for_updates(db0_fixture):
             time.sleep(0.1)
             _obj = MemoTestClass(123)
             db0.commit()
+
+def test_wait_for_updates(db0_fixture):
+    prefix = db0.get_current_prefix().name
+    db0.commit()
+    db0.close()
 
     writer_sem = multiprocessing.Semaphore(0)
     reader_sem = multiprocessing.Semaphore(0)
@@ -466,6 +471,18 @@ def test_wait_for_updates(db0_fixture):
     p.terminate()
     p.join()
 
+def make_small_update(px_name, expected_values):
+    time.sleep(0.25)
+    db0.init(DB0_DIR)
+    db0.open(px_name, "rw")
+    note = MemoTestClass(expected_values[0])
+    db0.tags(note).add("tag")
+    db0.commit()                
+    time.sleep(0.25)
+    if 'D' in db0.build_flags():            
+        db0.dbg_start_logs()
+    note.value = expected_values[1]
+    db0.close()
 
 @pytest.mark.parametrize("db0_slab_size", [{"slab_size": 1 * 1024 * 1024}], indirect=True)
 def test_refresh_issue1(db0_slab_size):
@@ -492,21 +509,9 @@ def test_refresh_issue1(db0_slab_size):
         if index == len(rand_ints):
             index = 0
     db0.close()
-    
-    def make_small_update():
-        time.sleep(0.25)
-        db0.init(DB0_DIR)
-        db0.open(px_name, "rw")
-        note = MemoTestClass(expected_values[0])
-        db0.tags(note).add("tag")
-        db0.commit()                
-        time.sleep(0.25)
-        if 'D' in db0.build_flags():            
-            db0.dbg_start_logs()
-        note.value = expected_values[1]
-        db0.close()
-    
-    p = multiprocessing.Process(target=make_small_update)
+    time.sleep(1)
+    p = multiprocessing.Process(target=make_small_update, 
+                                args=(px_name, expected_values))
     p.start()
     
     db0.init(DB0_DIR)
@@ -515,7 +520,7 @@ def test_refresh_issue1(db0_slab_size):
     for i in range(2):
         state_num = db0.get_state_num(px_name)    
         # refresh until 2 transactions are detected
-        max_repeat = 5
+        max_repeat = 30
         if i == 1 and 'D' in db0.build_flags():
             db0.dbg_start_logs()
         
@@ -529,27 +534,35 @@ def test_refresh_issue1(db0_slab_size):
     
     p.join()
 
+def writer_process(prefix, writer_sem, reader_sem):
+    db0.init(DB0_DIR)
+    db0.open(prefix, "rw")
+    reader_sem.release()
+    while True:
+        if not writer_sem.acquire(timeout=10.0):
+            return # Safeguard
+        time.sleep(0.1)
+        _obj = MemoTestClass(123)
+        db0.commit()
+
+def make_trasaction(writer_sem, n):
+    for _ in range(n):
+        writer_sem.release()
+
+async def with_timeout(future, timeout):
+    done, _pending = await asyncio.wait((future,), timeout=timeout)
+    return True if done else False
+
+
 async def test_async_wait_for_updates(db0_fixture):
     prefix = db0.get_current_prefix().name
     db0.commit()
     db0.close()
 
-    def writer_process(prefix, writer_sem, reader_sem):
-        db0.init(DB0_DIR)
-        db0.open(prefix, "rw")
-        reader_sem.release()
-        while True:
-            if not writer_sem.acquire(timeout=10.0):
-                return # Safeguard
-            time.sleep(0.1)
-            _obj = MemoTestClass(123)
-            db0.commit()
+   
 
     writer_sem = multiprocessing.Semaphore(0)
     reader_sem = multiprocessing.Semaphore(0)
-    def make_trasaction(n):
-        for _ in range(n):
-            writer_sem.release()
 
     p = multiprocessing.Process(target=writer_process, args=(prefix, writer_sem, reader_sem))
     p.start()
@@ -558,18 +571,15 @@ async def test_async_wait_for_updates(db0_fixture):
     db0.init(DB0_DIR)
     db0.open(prefix, "r")
 
-    async def with_timeout(future, timeout):
-        done, _pending = await asyncio.wait((future,), timeout=timeout)
-        return True if done else False
 
     # Start waiting before transactions complete
     current_num = db0.get_state_num(prefix)
-    make_trasaction(5)
+    make_trasaction(writer_sem, 5)
     assert await with_timeout(db0.async_wait(prefix, current_num + 5), 1)
 
     # Start waiting after transactions complete
     current_num = db0.get_state_num(prefix)
-    make_trasaction(2)
+    make_trasaction(writer_sem, 2)
     time.sleep(0.5)
     assert await with_timeout(db0.async_wait(prefix, current_num + 1), 1)
 
@@ -583,15 +593,15 @@ async def test_async_wait_for_updates(db0_fixture):
     # Wait long timeout
     assert await with_timeout(db0.async_wait(prefix, current_num + 1), 6) is False
     # Retry after timeout
-    make_trasaction(1)
+    make_trasaction(writer_sem, 1)
     assert await with_timeout(db0.async_wait(prefix, current_num + 1), 1)
 
     current_num = db0.get_state_num(prefix)
     # Wait higher state timeout
-    make_trasaction(3)
+    make_trasaction(writer_sem, 3)
     assert await with_timeout(db0.async_wait(prefix, current_num + 4), 1) is False
     # Retry
-    make_trasaction(1)
+    make_trasaction(writer_sem, 1)
     assert await with_timeout(db0.async_wait(prefix, current_num + 4), 1)
 
     p.terminate()

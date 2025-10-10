@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <memory>
 #include <dbzero/core/exception/Exceptions.hpp>
+#include <dbzero/object_model/ObjectCatalogue.hpp>
 
 namespace db0::python 
 
@@ -99,7 +100,7 @@ namespace db0::python
         {
             auto &_ptr = super_t::modifyExt().m_ptr;
             if (!_ptr) {
-                THROWF(db0::InternalException) << "Instance of type: " << typeid(T).name() << " is no longer accessible";
+                THROWF(db0::InternalException) << "Instance of type: " << db0::object_model::get_type_name<T>() << " is no longer accessible";
             }
             return *_ptr;            
         }
@@ -108,7 +109,7 @@ namespace db0::python
         {
             auto &_ptr = super_t::ext().m_ptr;
             if (!_ptr) {
-                THROWF(db0::InternalException) << "Instance of type: " << typeid(T).name() << " is no longer accessible";
+                THROWF(db0::InternalException) << "Instance of type: " << db0::object_model::get_type_name<T>() << " is no longer accessible";
             }
             return *_ptr;
         }

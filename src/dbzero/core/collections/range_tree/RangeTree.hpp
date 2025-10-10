@@ -7,12 +7,14 @@
 #include "RT_NullBlock.hpp"
 #include <dbzero/core/collections/b_index/v_bindex.hpp>
 #include <dbzero/core/serialization/Types.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
 
 {
     
-    template <typename KeyT, typename ValueT> struct [[gnu::packed]] RT_ItemT
+DB0_PACKED_BEGIN
+    template <typename KeyT, typename ValueT> struct DB0_PACKED_ATTR RT_ItemT
     {
         using BlockT = RangeTreeBlock<KeyT, ValueT>;
         using ItemT = typename BlockT::ItemT;
@@ -46,8 +48,10 @@ namespace db0
         };
         
     };
+DB0_PACKED_END
     
-    struct [[gnu::packed]] o_range_tree: public o_fixed<o_range_tree>
+DB0_PACKED_BEGIN
+    struct DB0_PACKED_ATTR o_range_tree: public o_fixed<o_range_tree>
     {
         std::uint32_t m_max_block_size;
         // address of the underlying v_bindex
@@ -68,6 +72,7 @@ namespace db0
         {
         }
     };
+DB0_PACKED_END
     
     /**
      * @tparam KeyT the fixed size ordinal type (e.g. numeric), keys don't need to be unique

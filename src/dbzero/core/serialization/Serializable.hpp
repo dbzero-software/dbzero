@@ -7,6 +7,7 @@
 #include <dbzero/core/memory/Address.hpp>
 #include <dbzero/core/serialization/Types.hpp>
 #include <dbzero/core/serialization/bounded_buf_t.hpp>
+#include <dbzero/object_model/ObjectCatalogue.hpp>
 
 namespace db0::serial
 
@@ -144,23 +145,23 @@ namespace db0::serial
             // compile error: binary expression in operand of fold-expression
             std::apply([&](auto... type) {
                 std::size_t n { 0 };
-                ((type_ids[typeid(type).name()] = ++n), ...); }, TypeList()
+                ((type_ids[db0::object_model::get_type_name<decltype(type)>()] = ++n), ...); }, TypeList()
             );
         }
         
         if (type_id == 0) {
             // find existing type ID
-            auto it = type_ids.find(typeid(T).name());
+            auto it = type_ids.find(db0::object_model::get_type_name<T>());
             if (it == type_ids.end()) {
-                THROWF(db0::InternalException) << "Type ID not found for " << typeid(T).name();
+                THROWF(db0::InternalException) << "Type ID not found for " << db0::object_model::get_type_name<T>();
             }
             return it->second;
         } else {
-            if (type_ids.find(typeid(T).name()) != type_ids.end() && type_ids[typeid(T).name()] != type_id) {
-                THROWF(db0::InternalException) << "Different type ID already set for " << typeid(T).name();
+            if (type_ids.find(db0::object_model::get_type_name<T>()) != type_ids.end() && type_ids[db0::object_model::get_type_name<T>()] != type_id) {
+                THROWF(db0::InternalException) << "Different type ID already set for " << db0::object_model::get_type_name<T>();
             }
             // set new type ID
-            type_ids[typeid(T).name()] = type_id;
+            type_ids[db0::object_model::get_type_name<T>()] = type_id;
             return type_id;
         }
     }

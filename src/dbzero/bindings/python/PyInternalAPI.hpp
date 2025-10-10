@@ -10,6 +10,18 @@
 #include <type_traits>
 #include "PyToolkit.hpp"
 #include "PySafeAPI.hpp"
+
+// C++20 compatible replacement for PyVarObject_HEAD_INIT(NULL, 0)
+// This macro provides designated initializers that work with C++20's requirement
+// that all initializers in a structure must be either designated or non-designated
+#define PYVAROBJECT_HEAD_INIT_DESIGNATED \
+    .ob_base = { \
+        .ob_base = { \
+            .ob_refcnt = 1, \
+            .ob_type = NULL, \
+        }, \
+        .ob_size = 0, \
+    }
     
 namespace db0
 
@@ -80,27 +92,39 @@ namespace db0::python
     template <int ERR_RESULT = 0, typename T, typename... Args>
     typename std::invoke_result_t<T, Args...> runSafe(T func, Args&&... args)
     {
+        using ReturnType = std::invoke_result_t<T, Args...>;
+
+        auto returnError = []() -> ReturnType {
+            if constexpr (std::is_constructible_v<ReturnType, int>) {
+                return ReturnType(ERR_RESULT);
+            } else if constexpr (std::is_pointer_v<ReturnType>) {
+                return reinterpret_cast<ReturnType>(ERR_RESULT);
+            } else {
+                return ReturnType{};
+            }
+        };
+
         try {
             auto result = func(std::forward<Args>(args)...);
             if (PyErr_Occurred()) {
-                return ERR_RESULT;
+                return returnError();
             }
             return result;
         } catch (const db0::BadAddressException &e) {
             PyErr_SetString(PyToolkit::getTypeManager().getReferenceError(), e.what());
-            return ERR_RESULT;
+            return returnError();
         } catch (const db0::ClassNotFoundException &e) {
             PyErr_SetString(PyToolkit::getTypeManager().getClassNotFoundError(), e.what());
-            return ERR_RESULT;
+            return returnError();
         } catch (const db0::AbstractException &e) {
             PyErr_SetString(PyExc_RuntimeError, e.what());
-            return ERR_RESULT;
+            return returnError();
         } catch (const std::exception &e) {
             PyErr_SetString(PyExc_RuntimeError, e.what());
-            return ERR_RESULT;
+            return returnError();
         } catch (...) {
             PyErr_SetString(PyExc_RuntimeError, "Unknown exception");
-            return ERR_RESULT;
+            return returnError();
         }
     }
     

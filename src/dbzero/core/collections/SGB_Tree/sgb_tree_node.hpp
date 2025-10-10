@@ -7,6 +7,7 @@
 #include <dbzero/core/utils/dary_heap.hpp>
 #include <iostream>
 #include <cmath>
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
 
@@ -25,7 +26,8 @@ namespace db0
         typename ItemEqualT, 
         typename HeaderT,
         int D = 2>
-    class [[gnu::packed]] o_sgb_tree_node: 
+DB0_PACKED_BEGIN
+    class DB0_PACKED_ATTR o_sgb_tree_node: 
     public o_base<o_sgb_tree_node<ItemT, CapacityT, AddressT, ItemCompT, ItemEqualT, HeaderT, D>, 0, false>
     {
     protected:
@@ -418,5 +420,6 @@ namespace db0
             return sizeof(o_sgb_tree_node) + HeaderT::sizeOf() + m_size * sizeof(ItemT);
         }
     };
+DB0_PACKED_END
 
 }

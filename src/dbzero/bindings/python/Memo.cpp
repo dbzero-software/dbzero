@@ -22,6 +22,10 @@
 #include <dbzero/bindings/python/types/PyClassFields.hpp>
 #include <dbzero/bindings/TypeId.hpp>
 
+#ifndef Py_TPFLAGS_MANAGED_DICT
+#define Py_TPFLAGS_MANAGED_DICT 0
+#endif
+
 namespace db0::python
 
 {

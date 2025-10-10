@@ -3,12 +3,15 @@
 #include <cstdint>
 #include <cassert>
 #include <functional>
+#include <ostream>
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
 
 {
+DB0_PACKED_BEGIN
 
-    template <typename store_t> class [[gnu::packed]] AddressType
+    template <typename store_t> class DB0_PACKED_ATTR AddressType
     {
     public:
         using offset_t = store_t;
@@ -79,7 +82,7 @@ namespace db0
 
     // The UniqueAddress combines memory offset and instance ID
     // by definition the UniqueAddress will not be assigned more than once throughut the lifetime of the prefix
-    class [[gnu::packed]] UniqueAddress
+    class DB0_PACKED_ATTR UniqueAddress
     {
     public:
         static constexpr std::size_t INSTANCE_ID_SHIFT = 14;
@@ -141,6 +144,12 @@ namespace db0
         inline bool operator>=(const UniqueAddress& other) const {
             return m_value > other.m_value;
         }
+        
+        // operator<<
+        inline friend std::ostream &operator<<(std::ostream &os, const UniqueAddress &addr) {
+            os << addr.m_value;
+            return os;
+        }
 
         // Get offset + instance ID encoded in a single 64-bit value
         inline std::uint64_t getValue() const {
@@ -167,6 +176,7 @@ namespace db0
     
     UniqueAddress makeUniqueAddr(std::uint64_t offset, std::uint16_t id);
 
+DB0_PACKED_END
 }
 
 namespace std

@@ -3,16 +3,19 @@
 #include <dbzero/object_model/has_fixture.hpp>
 #include <dbzero/core/serialization/Types.hpp>
 #include <dbzero/core/vspace/v_object.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 #include "Value.hpp"
 #include "StorageClass.hpp"
 
 namespace db0::object_model
 
 {
+
+DB0_PACKED_BEGIN
     
     class Object;
     
-    struct [[gnu::packed]] o_long_weak_ref: public o_fixed<o_long_weak_ref>
+    struct DB0_PACKED_ATTR o_long_weak_ref: public o_fixed<o_long_weak_ref>
     {
         std::uint64_t m_fixture_uuid;
         // the full logical address (i.e. physical address + instance ID) of a memo object
@@ -29,4 +32,6 @@ namespace db0::object_model
         LongWeakRef(db0::swine_ptr<Fixture> &fixture, Address);
     };
     
+DB0_PACKED_END
+
 }

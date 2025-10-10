@@ -4,6 +4,7 @@
 #include <dbzero/core/collections/sgtree/v_sgtree.hpp>
 #include <dbzero/core/collections/sgtree/intrusive_node.hpp>
 #include <dbzero/core/vspace/v_object.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
 
@@ -13,7 +14,8 @@ namespace db0
      * v_map's intrusive node (extends sg_node_base)
      * KeyT, data_t - overlaid types (variable length allowed)
      */
-    template <class KeyT, class data_t> class [[gnu::packed]] v_map_node
+DB0_PACKED_BEGIN
+    template <class KeyT, class data_t> class DB0_PACKED_ATTR v_map_node
         : public o_ext<v_map_node<KeyT,data_t>, sg_node_base<>, 0, false >
     {
     protected :        
@@ -81,6 +83,7 @@ namespace db0
             second().destroy(memspace);
         }
     };
+DB0_PACKED_END
 
     template <typename KeyT, typename data_t, typename KeyCompT>
     class v_map_node_traits

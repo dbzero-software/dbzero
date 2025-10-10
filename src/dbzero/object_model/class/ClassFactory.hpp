@@ -10,10 +10,13 @@
 #include <dbzero/bindings/python/PyToolkit.hpp>
 #include <dbzero/core/memory/swine_ptr.hpp>
 #include <dbzero/object_model/has_fixture.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0::object_model
 
 {
+
+DB0_PACKED_BEGIN
     
     class Class;
     struct ObjectId;
@@ -23,7 +26,7 @@ namespace db0::object_model
     using namespace db0;
     using namespace db0::pools;
     
-    struct [[gnu::packed]] o_class_factory: public o_fixed<o_class_factory>
+    struct DB0_PACKED_ATTR o_class_factory: public o_fixed<o_class_factory>
     {
         // 4 variants of class identification
         db0::db0_ptr<VClassMap> m_class_map_ptrs[4];
@@ -147,5 +150,7 @@ namespace db0::object_model
     
     std::optional<std::string> getNameVariant(ClassFactory::TypeObjectPtr lang_type,
         const char *type_id, int variant_id);    
+
+DB0_PACKED_END
 
 }

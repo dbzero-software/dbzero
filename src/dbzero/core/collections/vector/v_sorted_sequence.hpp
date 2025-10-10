@@ -2,6 +2,7 @@
 
 #include <dbzero/core/vspace/v_ptr.hpp>
 #include <dbzero/core/serialization/Types.hpp>
+#include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
 
@@ -10,8 +11,9 @@ namespace db0
     /**
      * Stores exactly N elements (fixed size) of type item_t in sorted ascending order
      */
+DB0_PACKED_BEGIN
     template <typename item_t, int N, typename item_comp_t = std::less<item_t> >
-    class [[gnu::packed]] o_sorted_sequence
+    class DB0_PACKED_ATTR o_sorted_sequence
         : public o_fixed<o_sorted_sequence<item_t, N, item_comp_t> >
     {
     protected :
@@ -58,6 +60,7 @@ namespace db0
             data[index] = item;
         }
     };
+DB0_PACKED_END
     
     template <typename item_t, int N, typename AddrT = Address, typename item_comp_t = std::less<item_t> >
     class v_sorted_sequence

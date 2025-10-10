@@ -75,7 +75,7 @@ namespace db0::object_model
     std::size_t ByteArray::count(const std::byte *values, std::size_t values_size) const
     {
         // substring search using Knuth-Morris-Pratt algorithm
-        int P[values_size];
+        int *P = new int[values_size + 1];
         if (values_size == 0) {
             return size() +1;
         }
@@ -110,16 +110,19 @@ namespace db0::object_model
                 j = P[j];
             }
         }
+        delete[] P;
         return count;
     }
 
     std::size_t ByteArray::count(const ByteArray& value, std::size_t size) const
     {
-        std::byte bytes[size];
+        std::byte *bytes = new std::byte[size];
         for (std::size_t i = 0; i < size; i++) {
             bytes[i] = value[i];
         }
-        return count(bytes, size);
+        std::size_t result = count(bytes, size);
+        delete[] bytes;
+        return result;
     }
 
     bool ByteArray::operator==(const ByteArray &bytearray) const
