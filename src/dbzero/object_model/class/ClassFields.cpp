@@ -35,7 +35,7 @@ namespace db0::object_model
             m_type = class_factory.getOrCreateType(m_lang_type.get());
         }
         
-        auto field_id = m_type->findField(field_name).first;
+        auto field_id = std::get<0>(m_type->findField(field_name)).primary().first;
         return { m_type->getUID(), m_type->getMember(field_id) };
     }
     

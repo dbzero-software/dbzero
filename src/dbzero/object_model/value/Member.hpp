@@ -49,28 +49,29 @@ namespace db0::object_model
         }
         return func_ptr(fixture, obj_ptr, storage_class);
     }
-        
+    
     template <typename LangToolkit> typename LangToolkit::ObjectSharedPtr unloadMember(
-        db0::swine_ptr<Fixture> &fixture, o_typed_item typed_item, const char *name = nullptr)
+        db0::swine_ptr<Fixture> &fixture, o_typed_item typed_item, unsigned int offset = 0)
     {
-        return unloadMember<LangToolkit>(fixture, typed_item.m_storage_class, typed_item.m_value, name);
+        return unloadMember<LangToolkit>(fixture, typed_item.m_storage_class, typed_item.m_value, offset);
     }
     
     template <StorageClass storage_class, typename LangToolkit> typename LangToolkit::ObjectSharedPtr unloadMember(
-        db0::swine_ptr<Fixture> &fixture, Value value, const char *name = nullptr);
+        db0::swine_ptr<Fixture> &fixture, Value value, unsigned int offset = 0);
     
     // register StorageClass specializations
     template <typename LangToolkit> void registerUnloadMemberFunctions(
-        std::vector<typename LangToolkit::ObjectSharedPtr (*)(db0::swine_ptr<Fixture> &, Value, const char *)> &functions);
-
+        std::vector<typename LangToolkit::ObjectSharedPtr (*)(db0::swine_ptr<Fixture> &, Value, unsigned int)> &functions);
+    
     /**
      * @param name optional name (for error reporting only)
+     * @param offset optional offset for lo-fi members (default = 0)
     */
     template <typename LangToolkit> typename LangToolkit::ObjectSharedPtr unloadMember(
-        db0::swine_ptr<Fixture> &fixture, StorageClass storage_class, Value value, const char *name = nullptr)
+        db0::swine_ptr<Fixture> &fixture, StorageClass storage_class, Value value, unsigned int offset = 0)
     {
         // create member function pointer
-        using UnloadMemberFunc = typename LangToolkit::ObjectSharedPtr (*)(db0::swine_ptr<Fixture> &, Value, const char *);
+        using UnloadMemberFunc = typename LangToolkit::ObjectSharedPtr (*)(db0::swine_ptr<Fixture> &, Value, unsigned int);
         static std::vector<UnloadMemberFunc> unload_member_functions;
         if (unload_member_functions.empty()) {
             registerUnloadMemberFunctions<LangToolkit>(unload_member_functions);
@@ -78,7 +79,7 @@ namespace db0::object_model
 
         assert(static_cast<int>(storage_class) < unload_member_functions.size());
         assert(unload_member_functions[static_cast<int>(storage_class)]);
-        return unload_member_functions[static_cast<int>(storage_class)](fixture, value, name);
+        return unload_member_functions[static_cast<int>(storage_class)](fixture, value, offset);
     }
     
     // unreference a member (decref / destroy where applicable)

@@ -28,6 +28,15 @@
 
 #endif
 
+// Cross-platform unused variable attribute
+#ifdef __GNUC__
+    #define UNUSED_VAR [[gnu::unused]]
+#elif defined(_MSC_VER)
+    #define UNUSED_VAR __pragma(warning(suppress: 4101))
+#else
+    #define UNUSED_VAR
+#endif
+
 //#define _GNU_SOURCE 1
 //#include <dlfcn.h>
 
@@ -316,7 +325,7 @@ const TraceInfo &AbstractException::lastTraceInfo(){
 void AbstractException::terminateHandler(){
     static std::mutex                           m;
     //terminate may be called in multithread environment!
-    [[gnu::unused]] std::lock_guard<std::mutex> guard(m);
+    UNUSED_VAR std::lock_guard<std::mutex> guard(m);
     TraceInfo                                   ti;
 
     ti.generateInfo();
@@ -346,7 +355,7 @@ void AbstractException::terminateHandler(){
 void AbstractException::sigSegvHandler(int signal){
     static std::mutex                           m;
     //terminate may be called in multithread environment!
-    [[gnu::unused]] std::lock_guard<std::mutex> guard(m);
+    UNUSED_VAR std::lock_guard<std::mutex> guard(m);
     TraceInfo                                   ti;
 
     ti.generateInfo();

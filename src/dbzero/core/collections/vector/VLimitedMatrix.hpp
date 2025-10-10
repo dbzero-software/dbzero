@@ -48,7 +48,7 @@ DB0_PACKED_BEGIN
     };
 DB0_PACKED_END
 
-    // The LimitedMatrix type is a type optimized for representing matrices
+    // The LimitedMatrix is optimized for representing matrices
     // with the following properties / constraints:
     //  - Dimension 1 holds values primarily consecutively (e.g. rows in a row-major matrix)
     //  - Dimension 2 is limited to a known, small number of values
@@ -67,9 +67,11 @@ DB0_PACKED_END
         using self_t = VLimitedMatrix<ItemT, Dim2, PtrT>;
         using super_t = v_object<o_limited_matrix<PtrT> >;
         
+        // as null
+        VLimitedMatrix() = default;
         VLimitedMatrix(Memspace &);
         VLimitedMatrix(mptr);
-
+        
         // add new or update already existing item
         void set(std::pair<std::uint32_t, std::uint32_t> index, const ItemT &);
         
@@ -77,9 +79,11 @@ DB0_PACKED_END
         std::optional<ItemT> tryGet(std::pair<std::uint32_t, std::uint32_t> index) const;
         // get or raise if not exists
         ItemT get(std::pair<std::uint32_t, std::uint32_t> index) const;
-        // modify an existing item or raise if not exists
+        // modify an existing item or raise if does not exist
         ItemT &modifyItem(std::pair<std::uint32_t, std::uint32_t> index);
-
+        // check if an item exists
+        bool hasItem(std::pair<std::uint32_t, std::uint32_t>) const;
+        
         // @return Dim1 x Dim2 (constant)
         std::pair<std::size_t, std::uint32_t> size() const;
 
@@ -110,8 +114,8 @@ DB0_PACKED_END
             using IteratorT = typename v_bvector<o_optional_item<ItemT>, PtrT>::const_iterator;
             
             column_iterator(std::uint32_t column_id, const IteratorT &begin, const IteratorT &end);
-            
-            ItemT operator*() const;
+
+            ItemT operator*() const;            
             column_iterator &operator++();
             bool isEnd() const;
             
@@ -135,8 +139,8 @@ DB0_PACKED_END
             using MatrixT = VLimitedMatrix<ItemT, Dim2, PtrT>;
             using IteratorT = typename v_bvector<o_optional_item<ItemT>, PtrT>::const_iterator;
             using IndexIteratorT = typename v_sorted_vector<o_dim2_index_item, PtrT>::const_iterator;
-            
-            ItemT operator*() const;
+
+            ItemT operator*() const;            
             const_iterator &operator++();
             bool operator!=(const const_iterator &) const;
 
@@ -231,6 +235,26 @@ DB0_PACKED_END
         this->modify().m_item_count += 1;
     }
 
+    template <typename ItemT, unsigned int Dim2, typename PtrT>
+    bool VLimitedMatrix<ItemT, Dim2, PtrT>::hasItem(std::pair<std::uint32_t, std::uint32_t> index) const
+    {
+        assert(index.second < Dim2 && "Dimension 2 index out of range");
+        if (index.first >= m_dim1.size()) {
+            return false;
+        }
+        if (index.second) {
+            auto it = m_index.find(o_dim2_index_item(index.first, 0));
+            if (it != m_index.end()) {
+                std::uint64_t offset = it->m_offset + index.second - 1;
+                return m_sparse_matrix.getItem(offset).isSet();
+            } else {
+                return false;
+            }
+        } else {
+            return m_dim1[index.first].isSet();
+        }
+    }
+    
     template <typename ItemT, unsigned int Dim2, typename PtrT>
     std::optional<ItemT> VLimitedMatrix<ItemT, Dim2, PtrT>::tryGet(std::pair<std::uint32_t, std::uint32_t> index) const
     {
@@ -458,7 +482,7 @@ DB0_PACKED_END
 
         return *this;
     }
-
+    
     template <typename ItemT, unsigned int Dim2, typename PtrT>
     ItemT VLimitedMatrix<ItemT, Dim2, PtrT>::const_iterator::operator*() const
     {        
@@ -512,5 +536,5 @@ DB0_PACKED_END
         assert(!isEnd() && "Dereferencing end iterator");
         return m_it->m_value;
     }
-    
+
 }

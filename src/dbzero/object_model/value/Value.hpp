@@ -12,6 +12,12 @@ namespace db0::object_model
 DB0_PACKED_BEGIN
     struct DB0_PACKED_ATTR Value
     {
+        // common constants
+        static constexpr std::uint64_t NONE = 0x00;
+        static constexpr std::uint64_t FALSE = 0x01;
+        static constexpr std::uint64_t TRUE = 0x02;
+        static constexpr std::uint64_t DELETED = 0x03;
+
         Value() = default;
 
         inline Value(Address address)
@@ -40,9 +46,28 @@ DB0_PACKED_BEGIN
         inline UniqueAddress asUniqueAddress() const {
             return UniqueAddress::fromValue(m_store);
         }
-
-        bool operator==(const Value &other) const;
         
+        // Assign (merge) a lo-fi type value using a mask
+        inline void assign(const Value &other, std::uint64_t mask) {
+            m_store = (m_store & ~mask) | (other.m_store & mask);
+        }
+        
+        inline bool operator==(const Value &other) const {
+            return m_store == other.m_store;
+        }
+
+        inline bool operator!=(const Value &other) const {
+            return m_store != other.m_store;
+        }
+
+        inline bool operator==(std::uint64_t other) const {
+            return m_store == other;
+        }
+
+        inline bool operator!=(std::uint64_t other) const {
+            return m_store != other;
+        }
+
         std::uint64_t m_store = 0;
     };
 DB0_PACKED_END

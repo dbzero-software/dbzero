@@ -1,6 +1,7 @@
 #include "Schema.hpp"
 #include <vector>
 #include <dbzero/object_model/value/TypeUtils.hpp>
+#include <dbzero/core/collections/vector/LimitedMatrix.hpp>
 
 namespace db0::object_model
 
@@ -11,19 +12,19 @@ namespace db0::object_model
         , m_count(count)
     {        
     }
-
+    
     o_type_item::o_type_item(SchemaTypeId type_id, int count)
         : m_type_id(type_id)
         , m_count(static_cast<std::uint32_t>(count))
     {
-        assert(count >= 0);        
+        assert(count >= 0);
     }
 
     bool o_type_item::operator!() const {
         return (m_type_id == SchemaTypeId::UNDEFINED || m_count == 0);
     }
 
-    o_type_item &o_type_item::operator=(std::tuple<unsigned int, SchemaTypeId, int> item)
+    o_type_item &o_type_item::operator=(std::tuple<FieldLoc, SchemaTypeId, int> item)
     {
         m_type_id = std::get<1>(item);
         assert(std::get<2>(item) >= 0);
@@ -32,8 +33,8 @@ namespace db0::object_model
     }
     
     o_schema::o_schema(
-        Memspace &memspace, std::vector<std::tuple<unsigned int, SchemaTypeId, int> >::const_iterator begin,
-        std::vector<std::tuple<unsigned int, SchemaTypeId, int> >::const_iterator end)
+        Memspace &memspace, std::vector<std::tuple<FieldLoc, SchemaTypeId, int> >::const_iterator begin,
+        std::vector<std::tuple<FieldLoc, SchemaTypeId, int> >::const_iterator end)
         : m_primary_type_id(std::get<1>(*begin))
     {
         assert(begin != end);
@@ -90,10 +91,10 @@ namespace db0::object_model
         }
         return result;
     }
-
+    
     void o_schema::update(Memspace &memspace,
-        std::vector<std::tuple<unsigned int, SchemaTypeId, int> >::const_iterator begin,
-        std::vector<std::tuple<unsigned int, SchemaTypeId, int> >::const_iterator end,
+        std::vector<std::tuple<FieldLoc, SchemaTypeId, int> >::const_iterator begin,
+        std::vector<std::tuple<FieldLoc, SchemaTypeId, int> >::const_iterator end,
         std::uint32_t collection_size)
     {
         // NOTE: primary type is not counted
@@ -148,6 +149,10 @@ namespace db0::object_model
 
         // Reorder the primary, secondary and possibly extra types
         update(memspace, type_vector, collection_size);
+    }
+
+    bool o_schema::isPrimarySwapRequired(std::uint32_t collection_size) const {
+        return getPrimaryType(collection_size) != m_primary_type_id;
     }
 
     void o_schema::update(Memspace &memspace, std::uint32_t collection_size)
@@ -239,25 +244,34 @@ namespace db0::object_model
         {
         }
         
-        void collect(unsigned int field_id, SchemaTypeId type_id, int update)
+        void collect(FieldID field_id, SchemaTypeId type_id, int update)
         {
             assert(update != 0);
             // note: primary types are not counted
-            if (type_id != m_primary_type_cache.get(field_id)) {
+            auto loc = field_id.getIndexAndOffset();
+            if (type_id != m_primary_type_cache.get(loc)) {
                 // register either with the secondary type updates or with the updates map (for all types)
-                if (type_id == m_secondary_type_cache.get(field_id)) {
-                    if (field_id >= m_secondary_updates.size()) {
-                        m_secondary_updates.resize(field_id + 1, 0);
+                if (type_id == m_secondary_type_cache.get(loc)) {
+                    if (!m_secondary_updates.hasItem(loc)) {
+                        m_secondary_updates.set(loc, 0);
                     }
-                    m_secondary_updates[field_id] += update;
+                    auto &item = m_secondary_updates.modifyItem(loc);
+                    item += update;
                     // cleanup
-                    if (m_secondary_updates[field_id] == 0) {
-                        if (std::all_of(m_secondary_updates.begin(), m_secondary_updates.end(), [](int count) { return count == 0; })) {
+                    if (item == 0) {
+                        bool has_any = false;
+                        for (auto updates: m_secondary_updates) {
+                            if (updates != 0) {
+                                has_any = true;
+                                break;
+                            }
+                        }
+                        if (!has_any) {                        
                             m_secondary_updates.clear();
                         }
                     }
                 } else {
-                    auto key = std::make_pair(field_id, type_id);
+                    auto key = std::make_pair(loc, type_id);
                     auto it = m_updates.find(key);
                     if (it == m_updates.end()) {
                         m_updates[key] = update;
@@ -273,29 +287,42 @@ namespace db0::object_model
 
         bool empty() const
         {
-            return m_updates.empty() && 
-                std::all_of(m_secondary_updates.begin(), m_secondary_updates.end(), [](int count) { return count == 0; });
+            bool has_any = false;
+            for (auto updates: m_secondary_updates) {
+                if (updates != 0) {
+                    has_any = true;
+                    break;
+                }
+            }
+            return m_updates.empty() && !has_any;
         }
-
+        
         void flush(std::uint32_t collection_size)
         {
-            // collect the updates and flush with the schema
-            // field ID, type ID, update count
-            std::vector<std::tuple<unsigned int, SchemaTypeId, int> > sorted_updates;
-            // collect from secondary type updates
-            for (unsigned int field_id = 0; field_id < m_secondary_updates.size(); ++field_id) {                
-                sorted_updates.emplace_back(field_id, m_secondary_type_cache.get(field_id), m_secondary_updates[field_id]);
-            }
+            using FieldLoc = std::pair<std::uint32_t, std::uint32_t>;
 
+            // Collect the updates and flush with the schema
+            // field loc, type ID, update count
+            std::vector<std::tuple<FieldLoc, SchemaTypeId, int> > sorted_updates;
+            // collect from secondary type updates
+            for (auto it = m_secondary_updates.begin(), end = m_secondary_updates.end(); it != end; ++it) {
+                auto loc = it.loc();
+                sorted_updates.emplace_back(loc, m_secondary_type_cache.get(loc), *it);                
+            }
+            
             for (const auto &update : m_updates) {
                 sorted_updates.emplace_back(update.first.first, update.first.second, update.second);
             }
 
             std::sort(sorted_updates.begin(), sorted_updates.end(),
                 [](const auto &a, const auto &b) {
-                    if (std::get<0>(a) != std::get<0>(b)) {
-                        return std::get<0>(a) < std::get<0>(b);
+                    if (std::get<0>(a).first != std::get<0>(b).first) {
+                        return std::get<0>(a).first < std::get<0>(b).first;
                     }
+                    if (std::get<0>(a).second != std::get<0>(b).second) {
+                        return std::get<0>(a).second < std::get<0>(b).second;
+                    }
+
                     // sort by update count descending
                     return std::get<2>(a) > std::get<2>(b);
                 }
@@ -304,11 +331,11 @@ namespace db0::object_model
             auto it_begin = sorted_updates.begin(), end = sorted_updates.end();
             auto it = it_begin;
             while (it != end) {
-                auto field_id = std::get<0>(*it_begin);
-                while (it != end && std::get<0>(*it) == field_id) {
+                auto field_loc = std::get<0>(*it_begin);
+                while (it != end && std::get<0>(*it) == field_loc) {
                     ++it;
                 }
-                m_schema.update(field_id, it_begin, it, collection_size);
+                m_schema.update(field_loc, it_begin, it, collection_size);
                 it_begin = it;
             }
             
@@ -317,14 +344,15 @@ namespace db0::object_model
             m_primary_type_cache.clear();
             m_secondary_type_cache.clear();
         }
-
+        
     private:
         Schema &m_schema;
         // the secondary type ID occurrence count updates
-        std::vector<int> m_secondary_updates;     
+        db0::LimitedMatrix<int> m_secondary_updates;
 
-        struct TypeCache: public std::vector<SchemaTypeId>
+        struct TypeCache: public db0::LimitedMatrix<SchemaTypeId>
         {            
+            using super_t = db0::LimitedMatrix<SchemaTypeId>;
             const Schema &m_schema;
             const bool m_primary;
 
@@ -333,40 +361,44 @@ namespace db0::object_model
                 , m_primary(primary)                
             {
             }
-
-            SchemaTypeId get(unsigned int field_id)
+            
+            SchemaTypeId get(std::pair<std::uint32_t, std::uint32_t> loc)
             {
-                if (field_id >= this->size()) {
-                    this->resize(field_id + 1, SchemaTypeId::UNDEFINED);
-                }
-                auto result = (*this)[field_id];
-                if (result == SchemaTypeId::UNDEFINED && field_id < m_schema.size()) {
-                    if (m_primary) {
-                        (*this)[field_id] = m_schema[field_id].m_primary_type_id;
+                if (!hasItem(loc)) {
+                    auto item = m_schema.tryGet(loc);
+                    if (item) {
+                        if (m_primary) {
+                            set(loc, item->m_primary_type_id);
+                        } else {
+                            set(loc, item->m_secondary_type.m_type_id);
+                        }
                     } else {
-                        (*this)[field_id] = m_schema[field_id].m_secondary_type.m_type_id;
+                        set(loc, SchemaTypeId::UNDEFINED);
                     }
-                    result = (*this)[field_id];
                 }
-                return result;                
+                
+                assert(hasItem(loc));
+                return super_t::get(loc);
             }
         };
 
         mutable TypeCache m_primary_type_cache;
         mutable TypeCache m_secondary_type_cache;
 
+        using FieldLoc = std::pair<std::uint32_t, std::uint32_t>;
         struct Hash
         {
-            std::size_t operator()(const std::pair<unsigned int, SchemaTypeId> &key) const {
-                return std::hash<unsigned int>()(key.first) ^ std::hash<SchemaTypeId>()(key.second);
+            std::size_t operator()(const std::pair<FieldLoc, SchemaTypeId> &key) const {
+                return std::hash<unsigned int>()(key.first.first) ^ 
+                    std::hash<SchemaTypeId>()(key.second) ^ std::hash<unsigned int>()(key.first.second);
             }
         };
 
-        std::unordered_map<std::pair<unsigned int, SchemaTypeId>, int, Hash> m_updates;
+        std::unordered_map<std::pair<FieldLoc, SchemaTypeId>, int, Hash> m_updates;
     };
 
     Schema::Schema()
-        : super_t()        
+        : super_t()
     {
     }
 
@@ -407,77 +439,53 @@ namespace db0::object_model
         }
         return *m_builder;
     }
-
-    void Schema::add(unsigned int field_id, SchemaTypeId type_id) {
+    
+    void Schema::add(FieldID field_id, SchemaTypeId type_id) {
         getBuilder().collect(field_id, type_id, 1);
     }
-
-    void Schema::remove(unsigned int field_id, SchemaTypeId type_id) {
+    
+    void Schema::remove(FieldID field_id, SchemaTypeId type_id) {
         getBuilder().collect(field_id, type_id, -1);
     }
-
-    std::pair<SchemaTypeId, SchemaTypeId> Schema::getType(unsigned int field_id) const
-    {
-        flush();
-        if (field_id >= this->size()) {
-            THROWF(db0::InputException) << "Unknown / invalid field ID: " << field_id;
-        }
-        return (*this)[field_id].getType();
-    }
-
-    std::pair<SchemaTypeId, SchemaTypeId> Schema::getType(FieldID field_id) const {
-        return getType(field_id.getIndex());
-    }
-
-    std::vector<SchemaTypeId> Schema::getAllTypes(unsigned int field_id) const
-    {
-        flush();
-        if (field_id >= this->size()) {
-            THROWF(db0::InputException) << "Unknown / invalid field ID: " << field_id;
-        }
-        return (*this)[field_id].getAllTypes(this->getMemspace());
-    }
     
-    std::vector<SchemaTypeId> Schema::getAllTypes(FieldID field_id) const {
-        return getAllTypes(field_id.getIndex());
+    std::pair<SchemaTypeId, SchemaTypeId> Schema::getType(FieldID field_id) const
+    {
+        flush();
+        return this->get(field_id.getIndexAndOffset()).getType();
     }
 
-    void Schema::update(unsigned int field_id,
-        std::vector<std::tuple<unsigned int, SchemaTypeId, int> >::const_iterator begin,
-        std::vector<std::tuple<unsigned int, SchemaTypeId, int> >::const_iterator end,
+    std::vector<SchemaTypeId> Schema::getAllTypes(FieldID field_id) const
+    {        
+        flush();    
+        return this->get(field_id.getIndexAndOffset()).getAllTypes(this->getMemspace());
+    }
+
+    void Schema::update(FieldLoc field_loc,
+        std::vector<std::tuple<FieldLoc, SchemaTypeId, int> >::const_iterator begin,
+        std::vector<std::tuple<FieldLoc, SchemaTypeId, int> >::const_iterator end,
         std::uint32_t collection_size)
     {
-        if (field_id >= this->size()) {
-            // fill-in empty slots
-            while (this->size() < field_id) {
-                this->emplace_back();
-            }
-            // create with values
-            this->emplace_back(this->getMemspace(), begin, end);
-            assert(this->size() == (field_id + 1));
+        if (!hasItem(field_loc)) {
+            set(field_loc, { this->getMemspace(), begin, end } );
         } else {
-            modifyItem(field_id).update(this->getMemspace(), begin, end, collection_size);
+            modifyItem(field_loc).update(this->getMemspace(), begin, end, collection_size);
         }
     }
     
     void Schema::update(std::uint32_t collection_size)
-    {
-        // modify only items affected by the collection size change
-        unsigned int field_id = 0;
-
+    {        
+        // Modify only items affected by the collection size change
         // NOTE: collect the items to be modified first
-        // otherwise the v-bvector updates may lead to iterator invalidation
-        std::vector<unsigned int> updated_fields;
-                
-        for (const auto &item : *this) {
-            if (item.getPrimaryType(collection_size) != item.m_primary_type_id) {
-                updated_fields.push_back(field_id);
+        // otherwise the limited-matrix updates may lead to iterator invalidation
+        std::vector<FieldLoc> updated_fields;        
+        for (auto it = this->cbegin(), end = this->cend(); it != end; ++it) {
+            if ((*it).isPrimarySwapRequired(collection_size)) {
+                updated_fields.push_back(it.loc());
             }
-            ++field_id;
         }
-    
-        for (auto updated_field : updated_fields) {
-            modifyItem(updated_field).update(this->getMemspace(), collection_size);
+        
+        for (auto loc: updated_fields) {
+            modifyItem(loc).update(this->getMemspace(), collection_size);
         }
         m_last_collection_size = collection_size;
     }
@@ -517,19 +525,18 @@ namespace db0::object_model
         super_t::commit();
     }
     
-    SchemaTypeId Schema::getPrimaryType(unsigned int field_id) const
+    SchemaTypeId Schema::getPrimaryType(FieldID field_id) const
     {
         auto type_pair = getType(field_id);
-        if (type_pair.first == SchemaTypeId::UNDEFINED || type_pair.first == SchemaTypeId::NONE) {
-            return type_pair.second;
+        // NOTE: this logic is to avoid reporting "None" as the primary type if other types are present
+        if (type_pair.second != SchemaTypeId::UNDEFINED) {
+            if (type_pair.first == SchemaTypeId::UNDEFINED || type_pair.first == SchemaTypeId::NONE) {                
+                return type_pair.second;
+            }
         }
         return type_pair.first;
     }
-
-    SchemaTypeId Schema::getPrimaryType(FieldID field_id) const {
-        return getPrimaryType(field_id.getIndex());
-    }
-
+    
     SchemaTypeId getSchemaTypeId(StorageClass storage_class)
     {
         switch (storage_class) {            
@@ -546,8 +553,21 @@ namespace db0::object_model
         }
     }
     
+    SchemaTypeId getSchemaTypeId(StorageClass storage_class, Value value)
+    {
+        if (storage_class == StorageClass::PACK_2) {
+            // Value can represent either None or Boolean
+            if (value.m_store == 0) {
+                return SchemaTypeId::NONE;
+            } else {
+                return SchemaTypeId::BOOLEAN;
+            }
+        }
+        return getSchemaTypeId(storage_class);
+    }
+    
     db0::bindings::TypeId getTypeId(SchemaTypeId schema_type_id)
-    {        
+    {
         // NOTE: types are directly mappable
         auto storage_class = static_cast<StorageClass>(schema_type_id);
         // NOTE: types also directly mappable

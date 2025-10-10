@@ -165,7 +165,10 @@ namespace db0::python
         bool isSimplePyType(ObjectPtr) const;
 
         bool isSimplePyTypeId(TypeId type_id) const;
-
+        
+        // Decode either of: None, False or True from a lo-fi code
+        ObjectSharedPtr getLangConstant(unsigned int) const;
+        
         void close();
         
     private:

@@ -9,10 +9,12 @@
 #include "ValueTable.hpp"
 #include <dbzero/core/exception/Exceptions.hpp>
 #include <dbzero/core/memory/swine_ptr.hpp>
+#include <dbzero/core/collections/vector/SparseBoolMatrix.hpp>
 #include <dbzero/object_model/value/XValue.hpp>
 #include "ValueTable.hpp"
+#include "XValuesVector.hpp"
 
-namespace db0 
+namespace db0
 
 {
     
@@ -45,9 +47,11 @@ namespace db0::object_model
         
         void init(Object &object, std::shared_ptr<Class>);
         void init(Object &object, TypeInitializer &&);
-
-        void set(unsigned int at, StorageClass storage_class, Value value);
-        void remove(unsigned int at);
+        
+        // @param mask required for lo-fi types (pack-2)
+        void set(std::pair<std::uint32_t, std::uint32_t> loc, StorageClass storage_class, Value value, 
+            std::uint64_t mask = 0);
+        bool remove(std::pair<std::uint32_t, std::uint32_t> loc, std::uint64_t mask = 0);
         
         void setInstanceKey(const char *str_key);
 
@@ -71,8 +75,9 @@ namespace db0::object_model
         }
         
         // Try pulling an existing initialization value from under a specific index
-        bool tryGetAt(unsigned int index, std::pair<StorageClass, Value> &) const;
-
+        // NOTE always the whole value is retrieved (no mask support)
+        bool tryGetAt(std::pair<std::uint32_t, std::uint32_t> loc, std::pair<StorageClass, Value> &) const;
+        
         bool operator==(const Object &other) {
             return m_object_ptr == &other;
         }
@@ -108,15 +113,12 @@ namespace db0::object_model
         Object *m_object_ptr = nullptr;
         mutable std::shared_ptr<Class> m_class;
         // indexed initialization values
-        mutable std::vector<XValue> m_values;
-        // number of m_values already sorted
-        mutable std::size_t m_sorted_size = 0;
+        mutable XValuesVector m_values;
+        // flags indicating values presence (for fast removal pruning)
+        mutable SparseBoolMatrix m_has_value;
         std::pair<std::uint32_t, std::uint32_t> m_ref_counts = {0, 0};
         mutable db0::swine_ptr<Fixture> m_fixture;
         mutable TypeInitializer m_type_initializer;
-
-        // returns the number of unique elements extracted
-        std::uint32_t finalizeValues();
     };
     
     /**

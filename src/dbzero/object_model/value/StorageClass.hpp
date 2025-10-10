@@ -53,14 +53,17 @@ namespace db0::object_model
        DB0_ENUM_VALUE = 27,
        // BOOL
        BOOLEAN = 28,
+       // Fidelity-2 packed storage (e.g. 2-bit boolean or None)
+       PACK_2 = 29,
        // weak reference to other (Memo) instance on the same prefix
-       OBJECT_WEAK_REF = 29,
-       COUNT = 31,
-    
+       OBJECT_WEAK_REF = 30,
+       // deleted value (placeholder)
+       DELETED = 31,
+       COUNT = std::numeric_limits<std::uint8_t>::max() - 32,
        // invalid / reserved value, never used in objects
        INVALID = std::numeric_limits<std::uint8_t>::max()
     };
-
+    
     /**
      * StorageClass defines possible types for object values
     */
@@ -101,13 +104,14 @@ namespace db0::object_model
         DB0_ENUM_VALUE = static_cast<int>(PreStorageClass::DB0_ENUM_VALUE),
         // BOOL
         BOOLEAN = static_cast<int>(PreStorageClass::BOOLEAN),
+        PACK_2 = static_cast<int>(PreStorageClass::PACK_2),
         // weak reference to other (Memo) instance on the same prefix
         OBJECT_WEAK_REF = static_cast<int>(PreStorageClass::OBJECT_WEAK_REF),
+        DELETED = static_cast<int>(PreStorageClass::DELETED),
         // weak reference to other (Memo) instance from a foreign prefix
-        OBJECT_LONG_WEAK_REF = static_cast<int>(PreStorageClass::OBJECT_WEAK_REF) + 1,
+        OBJECT_LONG_WEAK_REF = static_cast<int>(PreStorageClass::COUNT),
         // COUNT used to determine size of the StorageClass associated arrays
-        COUNT = static_cast<int>(PreStorageClass::OBJECT_WEAK_REF) + 2,
-        
+        COUNT = static_cast<int>(PreStorageClass::COUNT) + 1,
         // invalid / reserved value, never used in objects
         INVALID = std::numeric_limits<std::uint8_t>::max()
     };
@@ -119,12 +123,15 @@ namespace db0::object_model
 
         StorageClassMapper();
         // Get storage class corresponding to a specifc common language model type ID
-        PreStorageClass getPreStorageClass(TypeId) const;
+        // @param allow_packed if true, BOOLEAN and NONE map to PACK_2
+        PreStorageClass getPreStorageClass(TypeId, bool allow_packed) const;
         TypeId getTypeId(PreStorageClass) const;
         
     private:
         std::vector<PreStorageClass> m_storage_class_map;
-        std::vector<TypeId> m_type_id_map;   
+        // a mapping with packed types (BOOLEAN, NONE) mapped to PACK_2
+        std::vector<PreStorageClass> m_storage_class_packed_map;
+        std::vector<TypeId> m_type_id_map;
         
         void addMapping(TypeId, PreStorageClass);
         // adds reverse mapping only
@@ -133,6 +140,8 @@ namespace db0::object_model
     
     // Get storage class / type name for schema reporting purposes
     std::string getTypeName(StorageClass);
+    // @retrun 0 for default fidelity (e.g. 64bit), otherwise the number of bits
+    unsigned int getStorageFidelity(StorageClass);
     
 }
 

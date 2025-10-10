@@ -45,9 +45,9 @@ namespace tests
         manager.addInitializer(*object_1, mock_class);
         auto &cut = *manager.findInitializer(*object_1);
         // fill rate = 3 / 4
-        cut.set(0, StorageClass::INT64, Value(0));
-        cut.set(1, StorageClass::POOLED_STRING, Value(0));
-        cut.set(3, StorageClass::INT64, Value(0));
+        cut.set({0, 0}, StorageClass::INT64, Value(0));
+        cut.set({1, 0}, StorageClass::POOLED_STRING, Value(0));
+        cut.set({3, 0}, StorageClass::INT64, Value(0));
 
         PosVT::Data pos_vt_data;
         cut.getData(pos_vt_data);
@@ -74,11 +74,11 @@ namespace tests
         manager.addInitializer(*object_1, mock_class);
         auto &cut = *manager.findInitializer(*object_1);
         // NOTE: only the first 4 elements should be selected to pos-vt
-        cut.set(0, StorageClass::INT64, Value(0));
-        cut.set(13, StorageClass::INT64, Value(0));
-        cut.set(1, StorageClass::POOLED_STRING, Value(0));
-        cut.set(3, StorageClass::INT64, Value(0));
-        cut.set(12, StorageClass::INT64, Value(0));
+        cut.set({0, 0}, StorageClass::INT64, Value(0));
+        cut.set({13, 0}, StorageClass::INT64, Value(0));
+        cut.set({1, 0}, StorageClass::POOLED_STRING, Value(0));
+        cut.set({3, 0}, StorageClass::INT64, Value(0));
+        cut.set({12, 0}, StorageClass::INT64, Value(0));
 
         PosVT::Data pos_vt_data;
         cut.getData(pos_vt_data);

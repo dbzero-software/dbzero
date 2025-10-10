@@ -209,8 +209,8 @@ namespace db0::python
                 // Unrecognized error
                 PyErr_Restore(ptype, pvalue, ptraceback);
                 return -1;
-            }            
-            
+            }
+                        
             // invoke post-init on associated dbzero object
             auto &object = self->modifyExt();
             db0::FixtureLock fixture(object.getFixture());            

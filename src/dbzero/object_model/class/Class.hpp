@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Field.hpp"
-#include "FieldID.hpp"
+#include "MemberID.hpp"
 
 #include <limits>
 #include <array>
@@ -52,6 +52,9 @@ DB0_PACKED_BEGIN
     class Class;    
     struct ObjectId;
 
+    // fidelity + slot index
+    using VFidelityVector = db0::v_bvector<std::pair<std::uint8_t, unsigned int> >;
+
     struct DB0_PACKED_ATTR o_class: public db0::o_fixed<o_class>
     {        
         // common object header
@@ -64,6 +67,8 @@ DB0_PACKED_BEGIN
         // optional scoped-class prefix
         LP_String m_prefix_name;
         db0_ptr<VFieldMatrix> m_members_ptr;
+        // member slot fidelities
+        db0_ptr<VFidelityVector> m_fidelity_ptr;
         db0_ptr<Schema> m_schema_ptr;
         ClassFlags m_flags;
         UniqueAddress m_singleton_address = {};
@@ -73,7 +78,7 @@ DB0_PACKED_BEGIN
         std::array<std::uint64_t, 4> m_reserved = {0, 0, 0, 0};
         
         o_class(RC_LimitedStringPool &, const std::string &name, std::optional<std::string> module_name,
-            const VFieldMatrix &, const Schema &, const char *type_id, const char *prefix_name, ClassFlags, 
+            const VFieldMatrix &, const VFidelityVector &, const Schema &, const char *type_id, const char *prefix_name, ClassFlags,
             std::uint32_t base_class_ref, std::uint32_t num_bases
         );
     };
@@ -95,7 +100,8 @@ DB0_PACKED_BEGIN
         GC0_Declare
         using super_t = db0::ObjectBase<Class, ClassVType, StorageClass::DB0_CLASS, false>;
     public:
-        static constexpr std::uint32_t SLOT_NUM = Fixture::TYPE_SLOT_NUM;        
+        static constexpr std::uint32_t SLOT_NUM = Fixture::TYPE_SLOT_NUM;
+        static constexpr unsigned int PRIMARY_FIDELITY = 2;
         
         // e.g. PyObject*
         using LangToolkit = db0::python::PyToolkit;
@@ -104,11 +110,16 @@ DB0_PACKED_BEGIN
         
         struct Member
         {
+            // primary field ID (primary key)
             FieldID m_field_id;
+            unsigned int m_fidelity = 0;
             std::string m_name;
             
-            Member(FieldID, const char *);
-            Member(FieldID, const std::string &);
+            Member(FieldID, unsigned int fidelity, const char *);
+            Member(FieldID, unsigned int fidelity, const std::string &);
+            
+            // @return full index (index + offset) as a single integer
+            unsigned int getLongIndex() const;
         };
         
         // Pull existing type
@@ -123,17 +134,20 @@ DB0_PACKED_BEGIN
         
         std::optional<std::string> getTypeId() const;
         
-        FieldID addField(const char *name);
+        // Add a new field to this class or a new fidelity
+        // @return assigned member ID
+        MemberID addField(const char *name, unsigned int fidelity);
         
-        // @return field ID / assigned on initialization flag (see Schema Extensions)
-        std::pair<FieldID, bool> findField(const char *name) const;
+        // @return member ID / init var flag assigned on initialization flag (see Schema Extensions)
+        std::pair<MemberID, bool> findField(const char *name) const;
         
-        // Get the total number of fields declared in this class
-        std::size_t size() const {
-            return m_members.getItemCount();
+        // Get the total number of unique members declared in this class
+        std::size_t size() const {            
+            return m_index.size();
         }
         
-        Member getMember(FieldID field_id) const;
+        Member getMember(FieldID) const;
+        Member getMember(std::pair<std::uint32_t, std::uint32_t> loc) const;
         Member getMember(const char *name) const;
         
         /**
@@ -192,8 +206,8 @@ DB0_PACKED_BEGIN
         // get class id (UUID) as an ObjectId type
         ObjectId getClassId() const;
         
-        // @return field name / field index map
-        std::unordered_map<std::string, std::uint32_t> getMembers() const;
+        // @return field name / member ID map
+        std::unordered_map<std::string, MemberID> getMembers() const;
         
         std::shared_ptr<Class> tryGetBaseClass() const;
         // @return base class pointer or nullptr if no base class is defined
@@ -211,15 +225,18 @@ DB0_PACKED_BEGIN
         void getSchema(std::function<void(const std::string &field_name, SchemaTypeId primary_type,
             const std::vector<SchemaTypeId> &all_types)>) const;
         
-        // Add or remove from schema positionally encoded field types
-        void updateSchema(const std::vector<StorageClass> &types, bool add = true);
+        void updateSchema(unsigned int first_id, const std::vector<StorageClass> &types,
+            const std::vector<Value> &values, bool add = true);
         // Add or remove from schema index-encoded field types
         void updateSchema(const XValue *begin, const XValue *end, bool add = true);
         // Update type of a single field occurrence
-        void updateSchema(FieldID, StorageClass old_type, StorageClass new_type);
+        void updateSchema(FieldID, unsigned int fidelity, SchemaTypeId old_type, SchemaTypeId new_type);
         // Add a single field occurrence to the schema
-        void addToSchema(FieldID, StorageClass type);
-        void removeFromSchema(FieldID, StorageClass type);
+        void addToSchema(FieldID, unsigned int fidelity, SchemaTypeId);
+        void removeFromSchema(FieldID, unsigned int fidelity, SchemaTypeId);
+        void addToSchema(unsigned int index, StorageClass, Value);
+        void removeFromSchema(unsigned int index, StorageClass, Value);
+        void addToSchema(const XValue &);
         void removeFromSchema(const XValue &);
         
         std::uint32_t getNumBases() const;
@@ -231,6 +248,9 @@ DB0_PACKED_BEGIN
         
         const VFieldMatrix &getMembersMatrix() const;
         
+        // Get specific slot's fidelity (or 0 if not assigned)
+        unsigned int getFidelity(std::uint32_t index) const;
+
     protected:
         friend class ClassFactory;        
         friend ClassPtr;
@@ -249,7 +269,8 @@ DB0_PACKED_BEGIN
         // Get unique class identifier within its fixture
         std::uint32_t fetchUID() const;
         
-        std::optional<Member> tryGetMember(FieldID field_id) const;
+        std::optional<Member> tryGetMember(FieldID) const;
+        std::optional<Member> tryGetMember(std::pair<std::uint32_t, std::uint32_t> loc) const;
         std::optional<Member> tryGetMember(const char *name) const;
         
     private:
@@ -268,12 +289,16 @@ DB0_PACKED_BEGIN
         
         // member field definitions
         VFieldMatrix m_members;
+        // only holds non-default fidelities (i.e. > 0)
+        VFidelityVector m_fidelities;
         Schema m_schema;
-        std::shared_ptr<Class> m_base_class_ptr;                
+        std::shared_ptr<Class> m_base_class_ptr;
         
         // Field by-name index (cache)
-        // values: field id / assigned on initialization flag
-        mutable std::unordered_map<std::string, std::pair<FieldID, bool> > m_index;
+        // values: member ID / assigned on initialization flag
+        mutable std::unordered_map<std::string, std::pair<MemberID, bool> > m_index;
+        // For fidelity = 0 this maps "index" to the unique field ID
+        mutable std::vector<FieldID> m_unique_keys;
         // fields initialized on class creation (from static code analysis)
         std::unordered_set<std::string> m_init_vars;
         const std::uint32_t m_uid = 0;
@@ -282,9 +307,18 @@ DB0_PACKED_BEGIN
         // A function to retrieve the total number of instances of the schema
         std::function<unsigned int()> getTotalFunc() const;
         std::function<void(const Member &)> getRefreshCallback() const;
+        // callback for MemberID updates
+        void onMemberIDUpdated(const MemberID &) const;
+        // translate member's field ID into a unique key
+        FieldID getPrimaryKey(unsigned int index) const;
         
         // Initialization function
         std::unordered_set<std::string> makeInitVars(const std::vector<std::string> &) const;
+        
+        // Assign a new field slot with a specified fidelity
+        std::pair<std::uint32_t, std::uint32_t> assignSlot(unsigned int fidelity);
+        // Check if a specific field (by name) exists and is assigned to a given fidelity (0 = default)
+        bool hasSlot(const char *name, unsigned int fidelity) const;
     };
     
     // retrieve one of 4 possible type name variants

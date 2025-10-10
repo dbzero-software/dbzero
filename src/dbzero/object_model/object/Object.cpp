@@ -204,7 +204,7 @@ namespace db0::object_model
             
             // reference associated class
             m_type->incRef(false);
-            m_type->updateSchema(pos_vt_data.m_types);
+            m_type->updateSchema(0, pos_vt_data.m_types, pos_vt_data.m_values);
             m_type->updateSchema(index_vt_data.first, index_vt_data.second);
             
             // bind singleton address (now that instance exists)
@@ -220,7 +220,8 @@ namespace db0::object_model
     std::pair<db0::bindings::TypeId, StorageClass> Object::recognizeType(Fixture &fixture, ObjectPtr lang_value) const
     {
         auto type_id = LangToolkit::getTypeManager().getTypeId(lang_value);
-        auto pre_storage_class = TypeUtils::m_storage_class_mapper.getPreStorageClass(type_id);
+        // NOTE: allow storage as PACK_2
+        auto pre_storage_class = TypeUtils::m_storage_class_mapper.getPreStorageClass(type_id, true);
         if (type_id == TypeId::MEMO_OBJECT) {
             // object reference must be from the same fixture
             auto &obj = LangToolkit::getTypeManager().extractObject(lang_value);
@@ -242,19 +243,34 @@ namespace db0::object_model
     
     void Object::removePreInit(const char *field_name) const
     {
-        auto &initializer = m_init_manager.getInitializer(*this);        
-        auto &type = initializer.getClass();        
+        auto &initializer = m_init_manager.getInitializer(*this);
+        auto &type = initializer.getClass();
         
-        // find already existing field index
-        auto field_id = type.findField(field_name).first;
-        if (!field_id) {
+        // Find an already existing field index
+        auto member_id = std::get<0>(type.findField(field_name));
+        if (!member_id) {
             THROWF(db0::InputException) << "Attribute not found: " << field_name;
         }
         
-        // remove member from the initializer
-        initializer.remove(field_id.getIndex());
+        for (const auto &field_info: member_id) {
+            assert(field_info.first);            
+            auto loc = field_info.first.getIndexAndOffset();
+            // mark as deleted
+            if (field_info.second == 0) {
+                initializer.set(loc, StorageClass::DELETED, {});
+            } else {
+                assert(field_info.second == 2 && "Only fidelity == 2 is supported");
+                if (member_id.hasFidelity(0)) {
+                    // remove any existing regular initialization
+                    auto loc0 = member_id.get(0).getIndexAndOffset();
+                    initializer.remove(loc0);
+                }                
+                initializer.set(loc, StorageClass::PACK_2, Value::DELETED,
+                    lofi_store<2>::mask(loc.second));
+            }
+        }
     }
-
+    
     void Object::setPreInit(const char *field_name, ObjectPtr obj_ptr) const
     {
         assert(!hasInstance());
@@ -267,16 +283,40 @@ namespace db0::object_model
         auto fixture = initializer.getFixture();
         auto &type = initializer.getClass();
         auto [type_id, storage_class] = recognizeType(*fixture, obj_ptr);
+        auto storage_fidelity = getStorageFidelity(storage_class);
         
-        // find already existing field index
-        auto [field_id, is_init_var] = type.findField(field_name);
-        if (!field_id) {
+        // Find an already existing field index
+        auto [member_id, is_init_var] = type.findField(field_name);
+        // NOTE: even if a field already exists we might need to extend its supported fidelities
+        if (!member_id || !member_id.hasFidelity(storage_fidelity)) {
             // update class definition
-            field_id = type.addField(field_name);
+            // use the default fidelity for the storage class
+            member_id = type.addField(field_name, storage_fidelity);
         }
         
-        // register a member with the initializer
-        initializer.set(field_id.getIndex(), storage_class, createMember<LangToolkit>(fixture, type_id, storage_class, obj_ptr));
+        if (storage_fidelity == 0) {
+            if (member_id.hasFidelity(2)) {
+                // remove any existing lo-fi initialization
+                auto loc = member_id.get(2).getIndexAndOffset();
+                initializer.remove(loc, lofi_store<2>::mask(loc.second));
+            }                        
+            // register a regular member with the initializer
+            initializer.set(member_id.get(0).getIndexAndOffset(), storage_class, 
+                createMember<LangToolkit>(fixture, type_id, storage_class, obj_ptr)
+            );
+        } else {
+            if (member_id.hasFidelity(0)) {
+                // remove any existing regular initialization
+                auto loc = member_id.get(0).getIndexAndOffset();
+                initializer.remove(loc);
+            }
+            // For now only fidelity == 2 is supported (lo-fi storage)
+            assert(storage_fidelity == 2);
+            auto loc = member_id.get(storage_fidelity).getIndexAndOffset();
+            auto value = lofi_store<2>::create(loc.second, createMember<LangToolkit>(fixture, type_id, storage_class, obj_ptr).m_store);
+            // register a lo-fi member with the initializer (using mask)
+            initializer.set(loc, storage_class, value, lofi_store<2>::mask(loc.second));
+        }
     }
     
     void Object::remove(FixtureLock &fixture, const char *field_name)
@@ -287,62 +327,411 @@ namespace db0::object_model
             // this is because the actual change may be missed if performed on a different-then the 1st DP
             _touch();
         }
-
+        
         assert(m_type);
-        // find already existing field index
-        auto [field_id, is_init_var] = m_type->findField(field_name);
-        if (!field_id) {
+        // Find an already existing field index
+        auto [member_id, is_init_var] = m_type->findField(field_name);
+        if (!member_id) {
             THROWF(db0::InputException) << "Attribute not found: " << field_name;
         }
-
-        if (field_id.getIndex() < (*this)->pos_vt().size()) {
-            auto &pos_vt = modify().pos_vt();
-            auto old_storage_class = pos_vt.types()[field_id.getIndex()];    
-            unrefMember(*fixture, old_storage_class, pos_vt.values()[field_id.getIndex()]);
-            // mark member as deleted by assigning UNDEFINED storage class
-            pos_vt.set(field_id.getIndex(), StorageClass::UNDEFINED, {});
-            m_type->removeFromSchema(field_id, old_storage_class);
-            return;
+        
+        unsigned int pos = 0;
+        auto [field_info, loc_ptr] = tryGetMemberSlot(member_id, pos);
+        if (!field_info.first) {
+            THROWF(db0::InputException) << "Attribute not found: " << field_name;
         }
+        
+        // NOTE: unreference as DELETED
+        unrefWithLoc(fixture, field_info.first, loc_ptr, pos, StorageClass::DELETED, 
+            field_info.second);
+        
+        // the KV-index erase operation must be registered as the potential silent mutation
+        // but the operation can be avoided if the object is already marked as modified
+        if (!loc_ptr && !super_t::isModified()) {
+            this->_touch();
+        }
+    }
+    
+    void Object::unrefPosVT(FixtureLock &fixture, FieldID field_id, StorageClass storage_class,
+        unsigned int fidelity)
+    {
+        auto &pos_vt = modify().pos_vt();
+        auto loc = field_id.getIndexAndOffset();
+        auto old_storage_class = pos_vt.types()[loc.first];
+        if (fidelity == 0) {
+            unrefMember(*fixture, old_storage_class, pos_vt.values()[loc.first]);
+            // mark member as unreferenced by assigning storage class
+            pos_vt.set(loc.first, storage_class, {});
+            m_type->removeFromSchema(field_id, fidelity, getSchemaTypeId(old_storage_class));
+        } else {
+            assert(fidelity == 2);
+            auto value = pos_vt.values()[loc.first];
+            if (storage_class != StorageClass::DELETED && !lofi_store<2>::fromValue(value).isSet(loc.second)) {
+                // value is already unset
+                return;
+            }
+            
+            auto old_type_id = getSchemaTypeId(old_storage_class, lofi_store<2>::fromValue(value).get(loc.second));
+            // either reset or mark as deleted
+            if (storage_class == StorageClass::DELETED) {
+                lofi_store<2>::fromValue(value).set(loc.second, Value::DELETED);
+            } else {
+                lofi_store<2>::fromValue(value).reset(loc.second);
+            }
+            pos_vt.set(loc.first, old_storage_class, value);
+            m_type->removeFromSchema(field_id, fidelity, old_type_id);
+        }
+    }
 
-        // try updating field in the index-vt
-        unsigned int index_vt_pos;
-        if ((*this)->index_vt().find(field_id.getIndex(), index_vt_pos)) {
-            auto &index_vt = modify().index_vt();
+    void Object::unrefIndexVT(FixtureLock &fixture, FieldID field_id, unsigned int index_vt_pos,
+        StorageClass storage_class, unsigned int fidelity)
+    {
+        auto &index_vt = modify().index_vt();
+        auto old_storage_class = index_vt.xvalues()[index_vt_pos].m_type;
+        if (fidelity == 0) {
+            unrefMember(*fixture, index_vt.xvalues()[index_vt_pos]);
+            // mark member as unreferenced by assigning storage class
+            index_vt.set(index_vt_pos, storage_class, {});
+            m_type->removeFromSchema(field_id, fidelity, getSchemaTypeId(old_storage_class));
+        } else {
+            assert(fidelity == 2);
+            auto value = index_vt.xvalues()[index_vt_pos].m_value;
+            auto offset = field_id.getOffset();
+            if (storage_class != StorageClass::DELETED && !lofi_store<2>::fromValue(value).isSet(offset)) {
+                // value is already unset
+                return;
+            }
+            auto old_type_id = getSchemaTypeId(old_storage_class, lofi_store<2>::fromValue(value).get(offset));
+            if (storage_class == StorageClass::DELETED) {
+                lofi_store<2>::fromValue(value).set(offset, Value::DELETED);
+            } else {
+                lofi_store<2>::fromValue(value).reset(offset);
+            }            
+            index_vt.set(index_vt_pos, old_storage_class, value);
+            m_type->removeFromSchema(field_id, fidelity, old_type_id);
+        }
+    }
+
+    void Object::unrefKVIndexValue(FixtureLock &fixture, FieldID field_id, StorageClass storage_class,
+        unsigned int fidelity)
+    {
+        auto kv_index_ptr = tryGetKV_Index();
+        if (!kv_index_ptr) {
+            THROWF(db0::InputException) << "Attribute not found";
+        }
+        XValue xvalue(field_id.getIndex());
+        if (!kv_index_ptr->findOne(xvalue)) {        
+            THROWF(db0::InputException) << "Attribute not found";
+        }
+        
+        if (fidelity == 0) {
+            unrefMember(*fixture, xvalue);
+            if (storage_class == StorageClass::DELETED) {
+                // mark as deleted in kv-index
+                xvalue.m_type = StorageClass::DELETED;
+                kv_index_ptr->updateExisting(xvalue);
+                // in case of the IttyIndex updating an element changes the address
+                // which needs to be updated in the object
+                if (kv_index_ptr->getIndexType() == bindex::type::itty) {
+                    modify().m_kv_address = kv_index_ptr->getAddress();                    
+                }
+            } else {
+                auto old_addr = kv_index_ptr->getAddress();
+                kv_index_ptr->erase(xvalue);
+                auto new_addr = kv_index_ptr->getAddress();
+                if (new_addr != old_addr) {
+                    // type or address of the kv-index has changed which needs to be reflected
+                    modify().m_kv_address = new_addr;
+                    modify().m_kv_type = kv_index_ptr->getIndexType();
+                }
+            }
+            m_type->removeFromSchema(field_id, fidelity, getSchemaTypeId(xvalue.m_type));
+        } else {
+            assert(fidelity == 2);
+            auto value = xvalue.m_value;
+            auto offset = field_id.getOffset();
+            if (storage_class != StorageClass::DELETED && !lofi_store<2>::fromValue(value).isSet(offset)) {
+                // value is already unset
+                return;
+            }
+            auto old_type_id = getSchemaTypeId(xvalue.m_type, lofi_store<2>::fromValue(value).get(offset));
+            if (storage_class == StorageClass::DELETED) {
+                lofi_store<2>::fromValue(value).set(offset, Value::DELETED);
+            } else {
+                lofi_store<2>::fromValue(value).reset(offset);
+            }            
+            xvalue.m_value = value;
+            kv_index_ptr->updateExisting(xvalue);
+            // in case of the IttyIndex updating an element changes the address
+            // which needs to be updated in the object
+            if (kv_index_ptr->getIndexType() == bindex::type::itty) {
+                modify().m_kv_address = kv_index_ptr->getAddress();                    
+            }
+
+            m_type->removeFromSchema(field_id, fidelity, old_type_id);
+        }
+    }
+
+    void Object::unrefWithLoc(FixtureLock &fixture, FieldID field_id, const void *loc_ptr, unsigned int pos,
+        StorageClass storage_class, unsigned int fidelity)
+    {
+        if (loc_ptr == &(*this)->pos_vt()) {
+            unrefPosVT(fixture, field_id, storage_class, fidelity);
+        } else if (loc_ptr == &(*this)->index_vt()) {
+            unrefIndexVT(fixture, field_id, pos, storage_class, fidelity);
+        } else {
+            unrefKVIndexValue(fixture, field_id, storage_class, fidelity);
+        }
+    }
+
+    void Object::setPosVT(FixtureLock &fixture, FieldID field_id, unsigned int fidelity,
+        StorageClass storage_class, Value value)
+    {        
+        auto &pos_vt = modify().pos_vt();
+        auto loc = field_id.getIndexAndOffset();
+        auto pos_value = pos_vt.values()[loc.first];
+        if (fidelity == 0) {
+            auto old_storage_class = pos_vt.types()[loc.first];
+            unrefMember(*fixture, old_storage_class, pos_value);
+            // update attribute stored in the positional value-table
+            pos_vt.set(loc.first, storage_class, value);
+            m_type->updateSchema(field_id, fidelity, getSchemaTypeId(old_storage_class), getSchemaTypeId(storage_class));
+        } else {
+            auto old_type_id = getSchemaTypeId(storage_class, lofi_store<2>::fromValue(pos_value).get(loc.second));
+            lofi_store<2>::fromValue(pos_value).set(loc.second, value.m_store);
+            pos_vt.set(loc.first, storage_class, pos_value);
+            auto new_type_id = getSchemaTypeId(storage_class, value);
+            m_type->updateSchema(field_id, fidelity, old_type_id, new_type_id);
+        }
+    }
+
+    void Object::addToPosVT(FixtureLock &fixture, FieldID field_id, unsigned int fidelity,
+        StorageClass storage_class, Value value)
+    {        
+        auto &pos_vt = modify().pos_vt();
+        auto loc = field_id.getIndexAndOffset();
+        auto pos_value = pos_vt.values()[loc.first];
+        if (fidelity == 0) {
+            // update attribute stored in the positional value-table
+            pos_vt.set(loc.first, storage_class, value);
+            m_type->addToSchema(field_id, fidelity, getSchemaTypeId(storage_class));
+        } else {
+            lofi_store<2>::fromValue(pos_value).set(loc.second, value.m_store);
+            pos_vt.set(loc.first, storage_class, pos_value);
+            m_type->addToSchema(field_id, fidelity, getSchemaTypeId(storage_class, value));
+        }
+    }
+
+    void Object::setIndexVT(FixtureLock &fixture, FieldID field_id, unsigned int index_vt_pos,
+        unsigned int fidelity, StorageClass storage_class, Value value)
+    {
+        auto &index_vt = modify().index_vt();
+        if (fidelity == 0) {
             auto old_storage_class = index_vt.xvalues()[index_vt_pos].m_type;
             unrefMember(*fixture, index_vt.xvalues()[index_vt_pos]);
-            // mark member as deleted by assigning UNDEFINED storage class
-            index_vt.set(index_vt_pos, StorageClass::UNDEFINED, {});
-            m_type->removeFromSchema(field_id, old_storage_class);
+            index_vt.set(index_vt_pos, storage_class, value);
+            m_type->updateSchema(field_id, fidelity, getSchemaTypeId(old_storage_class), getSchemaTypeId(storage_class));
+        } else {
+            auto index_vt_value = index_vt.xvalues()[index_vt_pos].m_value;
+            auto offset = field_id.getOffset();
+            auto old_type_id = getSchemaTypeId(storage_class, lofi_store<2>::fromValue(index_vt_value).get(offset));
+            lofi_store<2>::fromValue(index_vt_value).set(offset, value.m_store);
+            index_vt.set(index_vt_pos, storage_class, index_vt_value);
+            auto new_type_id = getSchemaTypeId(storage_class, value);
+            m_type->updateSchema(field_id, fidelity, old_type_id, new_type_id);
+        }
+    }
+
+    void Object::addToIndexVT(FixtureLock &fixture, FieldID field_id, unsigned int index_vt_pos,
+        unsigned int fidelity, StorageClass storage_class, Value value)
+    {
+        auto &index_vt = modify().index_vt();
+        if (fidelity == 0) {
+            index_vt.set(index_vt_pos, storage_class, value);
+            m_type->addToSchema(field_id, fidelity, getSchemaTypeId(storage_class));
+        } else {
+            auto index_vt_value = index_vt.xvalues()[index_vt_pos].m_value;
+            lofi_store<2>::fromValue(index_vt_value).set(field_id.getOffset(), value.m_store);
+            index_vt.set(index_vt_pos, storage_class, index_vt_value);
+            m_type->addToSchema(field_id, fidelity, getSchemaTypeId(storage_class, value));
+        }
+    }
+
+    void Object::setKVIndexValue(FixtureLock &fixture, FieldID field_id, unsigned int fidelity,
+        StorageClass storage_class, Value value)
+    {
+        assert(m_type);
+        XValue xvalue(field_id.getIndex(), storage_class, value);
+        // encode for lo-fi storage if needed
+        if (fidelity != 0) {
+            xvalue.m_value = lofi_store<2>::create(field_id.getOffset(), value.m_store);
+        }
+
+        auto kv_index_ptr = addKV_First(xvalue);
+        if (kv_index_ptr) {
+            // try updating an existing element first
+            XValue old_value;
+            if (kv_index_ptr->updateExisting(xvalue, &old_value)) {
+                if (fidelity == 0) {
+                    unrefMember(*fixture, old_value);
+                    m_type->updateSchema(field_id, fidelity, getSchemaTypeId(old_value.m_type), 
+                        getSchemaTypeId(storage_class)
+                    );
+                } else {
+                    auto kv_value = old_value.m_value;
+                    auto offset = field_id.getOffset();
+                    auto old_type_id = getSchemaTypeId(old_value.m_type, lofi_store<2>::fromValue(kv_value).get(offset));                    
+                    lofi_store<2>::fromValue(kv_value).set(offset, value.m_store);
+                    xvalue.m_value = kv_value;
+                    kv_index_ptr->updateExisting(xvalue);
+                    auto new_type_id = getSchemaTypeId(storage_class, value);
+                    m_type->updateSchema(field_id, fidelity, old_type_id, new_type_id);
+                }
+                // in case of the IttyIndex updating an element changes the address
+                // which needs to be updated in the object
+                if (kv_index_ptr->getIndexType() == bindex::type::itty) {
+                    modify().m_kv_address = kv_index_ptr->getAddress();                    
+                }
+            } else {
+                if (kv_index_ptr->insert(xvalue)) {
+                    // type or address of the kv-index has changed which needs to be reflected                    
+                    modify().m_kv_address = kv_index_ptr->getAddress();
+                    modify().m_kv_type = kv_index_ptr->getIndexType();
+                }
+                
+                m_type->addToSchema(field_id, fidelity, getSchemaTypeId(storage_class, value));
+            }
+        } else {
+            m_type->addToSchema(field_id, fidelity, getSchemaTypeId(storage_class, value));
+        }
+    }
+
+    void Object::addToKVIndex(FixtureLock &fixture, FieldID field_id, unsigned int fidelity,
+        StorageClass storage_class, Value value)
+    {
+        assert(m_type);
+        XValue xvalue(field_id.getIndex(), storage_class, value);
+        // encode for lo-fi storage if needed
+        if (fidelity != 0) {
+            xvalue.m_value = lofi_store<2>::create(field_id.getOffset(), value.m_store);
+        }
+        auto kv_index_ptr = addKV_First(xvalue);
+        if (kv_index_ptr) {
+            // NOTE: for fidelity > 0 the element might already exist
+            XValue old_value;
+            if (fidelity > 0 && kv_index_ptr->updateExisting(xvalue, &old_value)) {
+                auto kv_value = old_value.m_value;
+                lofi_store<2>::fromValue(kv_value).set(field_id.getOffset(), value.m_store);
+                xvalue.m_value = kv_value;
+                kv_index_ptr->updateExisting(xvalue);
+                // in case of the IttyIndex updating an element changes the address
+                // which needs to be updated in the object
+                if (kv_index_ptr->getIndexType() == bindex::type::itty) {
+                    modify().m_kv_address = kv_index_ptr->getAddress();                    
+                }
+            } else {
+                if (kv_index_ptr->insert(xvalue)) {
+                    // type or address of the kv-index has changed which needs to be reflected                    
+                    modify().m_kv_address = kv_index_ptr->getAddress();
+                    modify().m_kv_type = kv_index_ptr->getIndexType();
+                }                                
+            }
+        }
+               
+        m_type->addToSchema(field_id, fidelity, getSchemaTypeId(storage_class, value));
+    }
+    
+    std::pair<FieldInfo, const void *> Object::tryGetMemberSlot(const MemberID &member_id,
+        unsigned int &pos) const
+    {
+        for (auto &field_info: member_id) {
+            auto [index, offset] = field_info.first.getIndexAndOffset();
+            // pos-vt lookup
+            if (index < (*this)->pos_vt().size()) {
+                if (field_info.second == 0 || slotExists((*this)->pos_vt().values()[index], field_info.second, offset)) {
+                    pos = index;
+                    return { field_info, &(*this)->pos_vt() };
+                } else {
+                    continue;             
+                }
+            }
+            
+            // index-vt lookup
+            if ((*this)->index_vt().find(index, pos)) {
+                if (field_info.second == 0 || slotExists((*this)->index_vt().xvalues()[pos].m_value, field_info.second, offset)) {
+                    return { field_info, &(*this)->index_vt() };
+                } else {
+                    continue;
+                }
+            }
+            
+            // kv-index lookup
+            auto kv_index_ptr = tryGetKV_Index();
+            if (kv_index_ptr) {
+                XValue value(index);
+                if (kv_index_ptr->findOne(value)) {
+                    if (field_info.second == 0 || slotExists(value.m_value, field_info.second, offset)) {
+                        return { field_info, nullptr };
+                    }
+                }
+            }
+        }
+        
+        // not found or deleted
+        return { {}, nullptr };  
+    }
+    
+    std::pair<const void*, unsigned int> Object::tryGetLoc(FieldID field_id) const
+    {
+        auto index = field_id.getIndex();
+        // pos-vt lookup
+        if (index < (*this)->pos_vt().size()) {
+            return { &(*this)->pos_vt(), index };
+        }
+        // index-vt lookup
+        unsigned int index_vt_pos;
+        if ((*this)->index_vt().find(index, index_vt_pos)) {
+            return { &(*this)->index_vt(), index_vt_pos };
+        }
+        // not found or located in the kv-index
+        return { nullptr, 0 };
+    }
+
+    void Object::setWithLoc(FixtureLock &fixture, FieldID field_id, const void *loc_ptr, unsigned int pos,
+        unsigned int fidelity, StorageClass storage_class, Value value)
+    {
+        if (loc_ptr == &(*this)->pos_vt()) {
+            setPosVT(fixture, field_id, fidelity, storage_class, value);
             return;
         }
         
-        // remove field from the kv_index
-        auto kv_index_ptr = tryGetKV_Index();
-        if (!kv_index_ptr) {
-            THROWF(db0::InputException) << "Attribute not found: " << field_name;
+        if (loc_ptr == &(*this)->index_vt()) {
+            setIndexVT(fixture, field_id, pos, fidelity, storage_class, value);
+            return;
         }
-        XValue value(field_id.getIndex());
-        if (!kv_index_ptr->findOne(value)) {        
-            THROWF(db0::InputException) << "Attribute not found: " << field_name;
-        }
-        auto old_addr = kv_index_ptr->getAddress();        
-        kv_index_ptr->erase(value);
-        auto new_addr = kv_index_ptr->getAddress();
-        if (new_addr != old_addr) {
-            // type or address of the kv-index has changed which needs to be reflected
-            modify().m_kv_address = new_addr;
-            modify().m_kv_type = kv_index_ptr->getIndexType();
-        }
-        m_type->removeFromSchema(field_id, value.m_type);
-
-        // the KV-index erase operation must be registered as the potential silent mutation
-        // but the operation can be avided if the object is already marked as modified        
-        if (!super_t::isModified()) {
-            this->_touch();
-        } 
+        
+        // must be in the kv-index
+        assert(!loc_ptr);
+        setKVIndexValue(fixture, field_id, fidelity, storage_class, value);
     }
+    
+    void Object::addWithLoc(FixtureLock &fixture, FieldID field_id, const void *loc_ptr, unsigned int pos,
+        unsigned int fidelity, StorageClass storage_class, Value value)
+    {
+        if (loc_ptr == &(*this)->pos_vt()) {
+            addToPosVT(fixture, field_id, fidelity, storage_class, value);
+            return;
+        }
 
+        if (loc_ptr == &(*this)->index_vt()) {
+            addToIndexVT(fixture, field_id, pos, fidelity, storage_class, value);
+            return;
+        }
+
+        assert(!loc_ptr);
+        addToKVIndex(fixture, field_id, fidelity, storage_class, value);
+    }
+    
     void Object::set(FixtureLock &fixture, const char *field_name, ObjectPtr lang_value)
     {        
         assert(hasInstance());
@@ -362,80 +751,62 @@ namespace db0::object_model
         
         assert(m_type);
         // find already existing field index
-        auto [field_id, is_init_var] = m_type->findField(field_name);
-        if (!field_id) {
-            // try mutating the class first
-            field_id = m_type->addField(field_name);
+        auto [member_id, is_init_var] = m_type->findField(field_name);
+        auto storage_fidelity = getStorageFidelity(storage_class);
+        // get field ID matching the required storage fidelity
+        FieldID field_id;
+        FieldInfo old_field_info;
+        unsigned int old_pos = 0;
+        const void *old_loc_ptr = nullptr;
+        if (member_id) {
+            std::tie(old_field_info, old_loc_ptr) = tryGetMemberSlot(member_id, old_pos);
         }
         
-        assert(field_id);        
-        // FIXME: value should be destroyed on exception        
+        if (!member_id || !(field_id = member_id.tryGet(storage_fidelity))) {
+            // try mutating the class first
+            member_id = m_type->addField(field_name, storage_fidelity);
+            field_id = member_id.get(storage_fidelity);
+        }
+
+        assert(field_id && member_id);
+        // FIXME: value should be destroyed on exception
         auto value = createMember<LangToolkit>(*fixture, type_id, storage_class, lang_value);        
         // make sure object address is not null
         assert(!(storage_class == StorageClass::OBJECT_REF && value.cast<std::uint64_t>() == 0));
-        if (field_id.getIndex() < (*this)->pos_vt().size()) {
-            auto &pos_vt = modify().pos_vt();
-            auto old_storage_class = pos_vt.types()[field_id.getIndex()];    
-            unrefMember(*fixture, old_storage_class, pos_vt.values()[field_id.getIndex()]);
-            // update attribute stored in the positional value-table
-            pos_vt.set(field_id.getIndex(), storage_class, value);
-            m_type->updateSchema(field_id, old_storage_class, storage_class);            
-            return;
-        }
-        
-        // try updating field in the index-vt
-        unsigned int index_vt_pos;
-        if ((*this)->index_vt().find(field_id.getIndex(), index_vt_pos)) {
-            auto &index_vt = modify().index_vt();
-            auto old_storage_class = index_vt.xvalues()[index_vt_pos].m_type;
-            unrefMember(*fixture, index_vt.xvalues()[index_vt_pos]);
-            index_vt.set(index_vt_pos, storage_class, value);
-            m_type->updateSchema(field_id, old_storage_class, storage_class);            
-            return;
-        }
-        
-        // add field to the kv_index
-        XValue xvalue(field_id.getIndex(), storage_class, value);
-        auto kv_index_ptr = addKV_First(xvalue);
-        if (kv_index_ptr) {
-            // try updating an existing element first
-            XValue old_value;
-            if (kv_index_ptr->updateExisting(xvalue, &old_value)) {
-                unrefMember(*fixture, old_value);
-                // in case of the IttyIndex updating an element changes the address
-                // which needs to be updated in the object
-                if (kv_index_ptr->getIndexType() == bindex::type::itty) {
-                    modify().m_kv_address = kv_index_ptr->getAddress();                    
-                }
-                m_type->updateSchema(field_id, old_value.m_type, storage_class);
-            } else {
-                if (kv_index_ptr->insert(xvalue)) {
-                    // type or address of the kv-index has changed which needs to be reflected                    
-                    modify().m_kv_address = kv_index_ptr->getAddress();
-                    modify().m_kv_type = kv_index_ptr->getIndexType();
-                }
-                                
-                m_type->addToSchema(field_id, storage_class);
+                
+        if (field_id == old_field_info.first) {
+            // Set / update value at the existing location
+            setWithLoc(fixture, field_id, old_loc_ptr, old_pos, storage_fidelity, storage_class, value);
+        } else {
+            // must reset / unreference the old value (stored elsewhere)
+            if (old_field_info.first) {
+                unrefWithLoc(fixture, old_field_info.first, old_loc_ptr, old_pos, StorageClass::UNDEFINED, 
+                    old_field_info.second);
             }
-        } else {            
-            m_type->addToSchema(field_id, storage_class);
+            
+            const void *loc_ptr = nullptr;
+            unsigned int pos = 0;
+            // NOTE: slot may already exist (pos-vt or index-vt) either for regular or lo-fi storage
+            std::tie(loc_ptr, pos) = tryGetLoc(field_id);            
+            // Either use existing slot or create a new (kv-index)
+            addWithLoc(fixture, field_id, loc_ptr, pos, storage_fidelity, storage_class, value);
         }
         
         // the KV-index insert operation must be registered as the potential silent mutation
-        // but the operation can be avided if the object is already marked as modified        
+        // but the operation can be avoided if the object is already marked as modified
         if (!super_t::isModified()) {
             this->_touch();
         }        
     }
     
-    std::pair<FieldID, bool> Object::findField(const char *name) const
+    std::pair<MemberID, bool> Object::findField(const char *name) const
     {
         if (isDropped()) {
             // defunct objects should not be accessed
             assert(!isDefunct());
             THROWF(db0::InputException) << "Object does not exist";
         }
-
+        
         auto class_ptr = m_type.get();
         if (!class_ptr) {
             // retrieve class from the initializer
@@ -446,59 +817,111 @@ namespace db0::object_model
         return class_ptr->findField(name);
     }
     
-    bool Object::tryGetMember(const char *field_name, std::pair<StorageClass, Value> &member) const
-    {
-        auto [field_id, is_init_var] = this->findField(field_name);
-        return tryGetMemberAt(field_id, is_init_var, member);        
+    FieldID Object::tryGetMember(const char *field_name, std::pair<StorageClass, Value> &member,
+        bool &is_init_var) const
+    {   
+        MemberID member_id;
+        std::tie(member_id, is_init_var) = this->findField(field_name);        
+        bool exists, deleted = false;
+        if (member_id) {
+            std::tie(exists, deleted) = tryGetMemberAt(member_id.primary(), member);
+            if (exists) {
+                assert(!deleted);
+                return member_id.primary().first;
+            }
+            
+            // the primary slot was not occupied, try with the secondary
+            bool secondary_deleted = false;
+            std::tie(exists, secondary_deleted) = tryGetMemberAt(member_id.secondary(), member);
+            if (exists) {
+                assert(!secondary_deleted);
+                return member_id.secondary().first;
+            }
+
+            deleted |= secondary_deleted;
+        }
+        
+        if (is_init_var) {
+            // unless explicitly deleted, 
+            // report as None even if the field_id has not been assigned yet
+            member = { deleted ? StorageClass::DELETED : StorageClass::NONE, Value() };
+        }
+
+        // member not found
+        return {};
     }
     
     std::optional<XValue> Object::tryGetX(const char *field_name) const
     {
-        auto [field_id, is_init_var] = this->findField(field_name);
-        if (!field_id) {
-            return std::nullopt;
+        auto [member_id, is_init_var] = this->findField(field_name);
+        bool exists, deleted = false;
+        if (member_id) {
+            assert(member_id.primary().first);
+            std::pair<StorageClass, Value> member;
+            std::tie(exists, deleted) = tryGetMemberAt(member_id.primary(), member);
+            if (exists) {
+                assert(!deleted);
+                return XValue(member_id.primary().first.getIndex(), member.first, member.second);
+            }
+            // the primary slot was not occupied, try with the secondary
+            bool secondary_deleted = false;
+            std::tie(exists, secondary_deleted) = tryGetMemberAt(member_id.secondary(), member);
+            if (exists) {
+                assert(!secondary_deleted);
+                return XValue(member_id.secondary().first.getIndex(), member.first, member.second);
+            }
+            deleted |= secondary_deleted;
         }
 
-        std::pair<StorageClass, Value> member;
-        if (!tryGetMemberAt(field_id, is_init_var, member)) {
-            return std::nullopt;
+        if (!deleted && is_init_var) {
+            // unless explicitly deleted,
+            // report as None even if the field_id has not been assigned yet
+            return XValue(member_id.primary().first.getIndex(), StorageClass::NONE, Value());
         }
-        return XValue(field_id.getIndex(), member.first, member.second);
+        
+        return std::nullopt;
     }
     
     Object::ObjectSharedPtr Object::tryGet(const char *field_name) const
     {
         std::pair<StorageClass, Value> member;
-        if (!tryGetMember(field_name, member)) {
-            return nullptr;
+        bool is_init_var = false;
+        auto field_id = tryGetMember(field_name, member, is_init_var);
+        // NOTE: init vars are always reported as None if not explicitly set nor explicitly deleted
+        if (field_id || (is_init_var && member.first != StorageClass::DELETED)) {
+            auto fixture = this->getFixture();
+            // prevent accessing a deleted or undefined member
+            assert(member.first != StorageClass::DELETED && member.first != StorageClass::UNDEFINED);        
+            // NOTE: offset is required for lo-fi members
+            return unloadMember<LangToolkit>(
+                fixture, member.first, member.second, field_id.maybeOffset()
+            );
         }
         
-        auto fixture = this->getFixture();
-        // accessing a deleted member
-        if (member.first == StorageClass::UNDEFINED) {
-            return nullptr;
-        }
-        return unloadMember<LangToolkit>(fixture, member.first, member.second, field_name);
+        return nullptr;
     }
     
     Object::ObjectSharedPtr Object::tryGetAs(const char *field_name, TypeObjectPtr lang_type) const
     {
         std::pair<StorageClass, Value> member;
-        if (!tryGetMember(field_name, member)) {
-            return nullptr;
-        }
-        auto fixture = this->getFixture();
-        if (member.first == StorageClass::OBJECT_REF) {
-            auto &class_factory = getClassFactory(*fixture);
-            return PyToolkit::unloadObject(fixture, member.second.asAddress(), class_factory, lang_type);
+        bool is_init_var = false;
+        auto field_id = tryGetMember(field_name, member, is_init_var);
+        if (field_id || (is_init_var && member.first != StorageClass::DELETED)) {
+            // prevent accessing a deleted member
+            assert(member.first != StorageClass::DELETED && member.first != StorageClass::UNDEFINED);
+            auto fixture = this->getFixture();
+            if (member.first == StorageClass::OBJECT_REF) {
+                auto &class_factory = getClassFactory(*fixture);
+                return PyToolkit::unloadObject(fixture, member.second.asAddress(), class_factory, lang_type);
+            }
+            
+            // NOTE: offset is required for lo-fi members
+            return unloadMember<LangToolkit>(
+                fixture, member.first, member.second, field_id.getOffset()
+            );
         }
 
-        // accessing a deleted member
-        if (member.first == StorageClass::UNDEFINED) {
-            return nullptr;
-        }
-                
-        return unloadMember<LangToolkit>(fixture, member.first, member.second, field_name);
+        return nullptr;
     }
     
     Object::ObjectSharedPtr Object::get(const char *field_name) const
@@ -513,61 +936,98 @@ namespace db0::object_model
         return obj;
     }
 
-    bool Object::tryGetMemberAt(FieldID field_id, bool is_init_var, std::pair<StorageClass, Value> &result) const
+    bool  Object::slotExists(Value value, unsigned int fidelity, unsigned int at) const
     {
-        if (!field_id) {            
-            if (!is_init_var) {
-                return false;
-            }
-            // report as None even if the field_id has not been assigned yet
-            result = { StorageClass::NONE, Value() };
-            return true;
+        assert(fidelity != 0 && "Operation only available for lo-fi values");
+        // lo-fi value
+        assert(fidelity == 2);
+        return lofi_store<2>::fromValue(value).isSet(at);
+    }
+
+    std::pair<bool, bool> Object::hasValueAt(Value value, unsigned int fidelity, unsigned int at) const
+    {
+        assert(fidelity != 0 && "Operation only available for lo-fi values");
+        // lo-fi value
+        assert(fidelity == 2);
+        if (lofi_store<2>::fromValue(value).isSet(at)) {
+            // might be deleted
+            bool deleted = (lofi_store<2>::fromValue(value).get(at) == Value::DELETED);
+            return { !deleted, deleted };
+        } else {
+            // NOTE: unset value is assumed as empty / undefined
+            return { false, false };
+        }
+    }
+    
+    std::pair<bool, bool> Object::tryGetMemberAt(std::pair<FieldID, unsigned int> field_info,
+        std::pair<StorageClass, Value> &result) const
+    {
+        if (!field_info.first) {
+            return { false, false };
         }
 
-        auto index = field_id.getIndex();
+        auto loc = field_info.first.getIndexAndOffset();
         if (!hasInstance()) {
             // try retrieving from initializer
             auto initializer_ptr = m_init_manager.findInitializer(*this);
             if (!initializer_ptr) {
-                return false;
+                return { false, false };
             }
-            if (initializer_ptr->tryGetAt(index, result)) {
-                return true;
-            }
-            if (!is_init_var) {
-                return false;
-            }
-            // report as None even if the field_id has not been assigned yet
-            result = { StorageClass::NONE, Value() };
-            return true;
+            return { initializer_ptr->tryGetAt(loc, result), false };
         }
         
         // retrieve from positionally encoded values
-        if ((*this)->pos_vt().find(index, result)) {
-            return true;
+        if ((*this)->pos_vt().find(loc.first, result)) {
+            // NOTE: removed field slots might be marked as DELETED            
+            if (result.first == StorageClass::DELETED) {
+                // report as deleted
+                return { false, true };
+            }
+            
+            if (field_info.second == 0) {
+                return { result.first != StorageClass::UNDEFINED, false };
+            } else {
+                return hasValueAt(result.second, field_info.second, loc.second);
+            }
         }
-
-        if ((*this)->index_vt().find(index, result)) {
-            return true;
+        
+        if ((*this)->index_vt().find(loc.first, result)) {
+            if (result.first == StorageClass::DELETED) {
+                // report as deleted
+                return { false, true };
+            }
+            
+            if (field_info.second == 0) {
+                return { result.first != StorageClass::UNDEFINED, false };
+            } else {
+                return hasValueAt(result.second, field_info.second, loc.second);
+            }
         }
-
+        
         auto kv_index_ptr = tryGetKV_Index();
         if (kv_index_ptr) {
-            XValue xvalue(index);
+            XValue xvalue(loc.first);
             if (kv_index_ptr->findOne(xvalue)) {
+                assert(xvalue.getIndex() == loc.first);
+                if (xvalue.m_type == StorageClass::DELETED) {
+                    // report as deleted
+                    return { false, true };
+                }
+
                 // member fetched from the kv_index
                 result.first = xvalue.m_type;
                 result.second = xvalue.m_value;
-                return true;
+
+                if (field_info.second == 0) {
+                    return { result.first != StorageClass::UNDEFINED, false };
+                } else {
+                    return hasValueAt(result.second, field_info.second, loc.second);
+                }
             }
         }
-
-        if (!is_init_var) {
-            return false;
-        }
-        // report as None even if the field_id has not been assigned yet
-        result = { StorageClass::NONE, Value() };
-        return true;
+        
+        // Does not exist, not explicitly removed
+        return { false, false };
     }
     
     db0::swine_ptr<Fixture> Object::tryGetFixture() const
@@ -647,14 +1107,22 @@ namespace db0::object_model
             auto value = values.begin();
             unsigned int index = 0;
             for (auto type = types.begin(); type != types.end(); ++type, ++value, ++index) {
+                if (*type == StorageClass::DELETED || *type == StorageClass::UNDEFINED) {
+                    // skip undefined or deleted members
+                    continue;
+                }
                 unrefMember(fixture, *type, *value);
-                class_ref.removeFromSchema(FieldID::fromIndex(index), *type);
+                class_ref.removeFromSchema(index, *type, *value);
             }
         }
         // drop index-vt members next
         {
             auto &xvalues = (*this)->index_vt().xvalues();
             for (auto &xvalue: xvalues) {
+                if (xvalue.m_type == StorageClass::DELETED || xvalue.m_type == StorageClass::UNDEFINED) {
+                    // skip undefined or deleted members
+                    continue;
+                }
                 unrefMember(fixture, xvalue);
                 class_ref.removeFromSchema(xvalue);
             }
@@ -664,6 +1132,10 @@ namespace db0::object_model
         if (kv_index_ptr) {
             auto it = kv_index_ptr->beginJoin(1);
             for (;!it.is_end(); ++it) {
+                if ((*it).m_type == StorageClass::DELETED || (*it).m_type == StorageClass::UNDEFINED) {
+                    // skip undefined or deleted members
+                    continue;
+                }
                 unrefMember(fixture, *it);
                 class_ref.removeFromSchema(*it);
             }
@@ -765,6 +1237,24 @@ namespace db0::object_model
     Class &Object::getType() {
         return m_type ? *m_type : m_init_manager.getInitializer(*this).getClass();
     }
+
+    void Object::getMembersFrom(const Class &this_type, unsigned int index, StorageClass storage_class,
+        Value value, std::unordered_set<std::string> &result) const
+    {
+        if (storage_class == StorageClass::DELETED || storage_class == StorageClass::UNDEFINED) {
+            // skip undefined or deleted members
+            return;
+        }
+
+        if (storage_class == StorageClass::PACK_2) {
+            auto it = lofi_store<2>::fromValue(value).begin(), end = lofi_store<2>::fromValue(value).end();
+            for (; it != end; ++it) {
+                result.insert(this_type.getMember({ index, it.getOffset() }).m_name);
+            }
+        } else {
+            result.insert(this_type.getMember(FieldID::fromIndex(index)).m_name);
+        }
+    }
     
     std::unordered_set<std::string> Object::getMembers() const 
     {
@@ -773,7 +1263,7 @@ namespace db0::object_model
         auto &obj_type = this->getType();
         {
             for (unsigned int index = 0;index < (*this)->pos_vt().size(); ++index) {
-                result.insert(obj_type.getMember(FieldID::fromIndex(index)).m_name);
+                getMembersFrom(obj_type, index, (*this)->pos_vt().types()[index], (*this)->pos_vt().values()[index], result);
             }
         }
         
@@ -781,22 +1271,24 @@ namespace db0::object_model
         {
             auto &xvalues = (*this)->index_vt().xvalues();
             for (auto &xvalue: xvalues) {
-                result.insert(obj_type.getMember(FieldID::fromIndex(xvalue.getIndex())).m_name);
+                auto index = xvalue.getIndex();
+                getMembersFrom(obj_type, index, xvalue.m_type, xvalue.m_value, result);
             }
         }
-
+        
         // Finally, visit kv-index members
         auto kv_index_ptr = tryGetKV_Index();
         if (kv_index_ptr) {
             auto it = kv_index_ptr->beginJoin(1);
             for (;!it.is_end(); ++it) {
-                result.insert(obj_type.getMember(FieldID::fromIndex((*it).getIndex())).m_name);
+                auto index = (*it).getIndex();
+                getMembersFrom(obj_type, index, (*it).m_type, (*it).m_value, result);
             }
         }
         return result;
     }
     
-    void Object::forAll(std::function<bool(const std::string &, const XValue &)> f) const
+    void Object::forAll(std::function<bool(const std::string &, const XValue &, unsigned int)> f) const
     {
         // Visit pos-vt members first
         auto &obj_type = this->getType();
@@ -806,8 +1298,19 @@ namespace db0::object_model
             auto value = values.begin();
             unsigned int index = 0;
             for (auto type = types.begin(); type != types.end(); ++type, ++value, ++index) {
-                if (!f(obj_type.getMember(FieldID::fromIndex(index)).m_name, { index, *type, *value })) {
-                    return;
+                if (*type == StorageClass::DELETED || *type == StorageClass::UNDEFINED) {
+                    // skip deleted or undefined members
+                    continue;
+                }
+                if (*type == StorageClass::PACK_2) {
+                    // iterate individual lo-fi members
+                    if (!forAll({index, *type, *value}, f)) {
+                        return;
+                    }
+                } else {
+                    if (!f(obj_type.getMember(FieldID::fromIndex(index)).m_name, { index, *type, *value }, 0)) {
+                        return;
+                    }
                 }
             }
         }
@@ -815,9 +1318,21 @@ namespace db0::object_model
         // Visit index-vt members next
         {
             auto &xvalues = (*this)->index_vt().xvalues();
-            for (auto &xvalue: xvalues) {
-                if (!f(obj_type.getMember(FieldID::fromIndex(xvalue.getIndex())).m_name, xvalue)) {
-                    return;
+            for (auto &xvalue: xvalues) {  
+                if (xvalue.m_type == StorageClass::DELETED || xvalue.m_type == StorageClass::UNDEFINED) {
+                    // skip deleted or undefined members                    
+                    continue;
+                }              
+                if (xvalue.m_type == StorageClass::PACK_2) {
+                    // iterate individual lo-fi members
+                    if (!forAll(xvalue, f)) {
+                        return;
+                    }
+                } else {
+                    // regular member
+                    if (!f(obj_type.getMember(FieldID::fromIndex(xvalue.getIndex())).m_name, xvalue, 0)) {
+                        return;
+                    }
                 }
             }
         }
@@ -827,8 +1342,19 @@ namespace db0::object_model
         if (kv_index_ptr) {
             auto it = kv_index_ptr->beginJoin(1);
             for (;!it.is_end(); ++it) {
-                if (!f(obj_type.getMember(FieldID::fromIndex((*it).getIndex())).m_name, *it)) {
-                    return;
+                if ((*it).m_type == StorageClass::DELETED || (*it).m_type == StorageClass::UNDEFINED) {
+                    // skip deleted or undefined members
+                    continue;
+                }
+                if ((*it).m_type == StorageClass::PACK_2) {
+                    // iterate individual lo-fi members
+                    if (!forAll(*it, f)) {
+                        return;
+                    }
+                } else {
+                    if (!f(obj_type.getMember(FieldID::fromIndex((*it).getIndex())).m_name, *it, 0)) {
+                        return;
+                    }
                 }
             }
         }
@@ -837,13 +1363,30 @@ namespace db0::object_model
     void Object::forAll(std::function<bool(const std::string &, ObjectSharedPtr)> f) const
     {
         auto fixture = this->getFixture();
-        forAll([&](const std::string &name, const XValue &xvalue) -> bool {
+        forAll([&](const std::string &name, const XValue &xvalue, unsigned int offset) -> bool {
             // all references convert to UUID
-            auto py_member = unloadMember<LangToolkit>(fixture, xvalue.m_type, xvalue.m_value);
+            auto py_member = unloadMember<LangToolkit>(fixture, xvalue.m_type, xvalue.m_value, offset);
             return f(name, py_member);
         });
     }
-    
+
+    bool Object::forAll(XValue xvalue, std::function<bool(const std::string &, const XValue &, unsigned int offset)> f) const
+    {
+        assert(xvalue.m_type == StorageClass::PACK_2);
+        unsigned int index = xvalue.getIndex();
+        auto _value = xvalue.m_value;
+        auto it = lofi_store<2>::fromValue(_value).begin(), end = lofi_store<2>::fromValue(_value).end();
+        auto &obj_type = this->getType();
+        for (; it != end; ++it) {
+            if (!f(obj_type.getMember(FieldID::fromIndex(index, it.getOffset())).m_name,
+                xvalue, it.getOffset()))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
     void Object::incRef(bool is_tag)
     {
         if (hasInstance()) {
@@ -911,14 +1454,14 @@ namespace db0::object_model
         
         // field-wise compare otherwise (slower)
         bool result = true;
-        this->forAll([&](const std::string &name, const XValue &xvalue) -> bool {
+        this->forAll([&](const std::string &name, const XValue &xvalue, unsigned int offset) -> bool {
             auto maybe_other_value = other.tryGetX(name.c_str());
             if (!maybe_other_value) {
                 result = false;
                 return false;
             }
             
-            if (!xvalue.equalTo(*maybe_other_value)) {
+            if (!xvalue.equalTo(*maybe_other_value, offset)) {
                 result = false;
                 return false;
             }
@@ -1043,11 +1586,11 @@ namespace db0::object_model
     void Object::addExtRef() const {
         ++m_ext_refs;
     }
-    
+
     void Object::removeExtRef() const
     {
         assert(m_ext_refs > 0);
         --m_ext_refs;
     }
-    
+
 }
