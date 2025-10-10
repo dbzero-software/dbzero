@@ -894,10 +894,10 @@ namespace db0::object_model
             assert(member.first != StorageClass::DELETED && member.first != StorageClass::UNDEFINED);        
             // NOTE: offset is required for lo-fi members
             return unloadMember<LangToolkit>(
-                fixture, member.first, member.second, field_id.getOffset()
+                fixture, member.first, member.second, field_id.maybeOffset()
             );
         }
-
+        
         return nullptr;
     }
     
@@ -1107,14 +1107,22 @@ namespace db0::object_model
             auto value = values.begin();
             unsigned int index = 0;
             for (auto type = types.begin(); type != types.end(); ++type, ++value, ++index) {
+                if (*type == StorageClass::DELETED || *type == StorageClass::UNDEFINED) {
+                    // skip undefined or deleted members
+                    continue;
+                }
                 unrefMember(fixture, *type, *value);
-                class_ref.removeFromSchema(FieldID::fromIndex(index), *type, *value);
+                class_ref.removeFromSchema(index, *type, *value);
             }
         }
         // drop index-vt members next
         {
             auto &xvalues = (*this)->index_vt().xvalues();
             for (auto &xvalue: xvalues) {
+                if (xvalue.m_type == StorageClass::DELETED || xvalue.m_type == StorageClass::UNDEFINED) {
+                    // skip undefined or deleted members
+                    continue;
+                }
                 unrefMember(fixture, xvalue);
                 class_ref.removeFromSchema(xvalue);
             }
@@ -1124,6 +1132,10 @@ namespace db0::object_model
         if (kv_index_ptr) {
             auto it = kv_index_ptr->beginJoin(1);
             for (;!it.is_end(); ++it) {
+                if ((*it).m_type == StorageClass::DELETED || (*it).m_type == StorageClass::UNDEFINED) {
+                    // skip undefined or deleted members
+                    continue;
+                }
                 unrefMember(fixture, *it);
                 class_ref.removeFromSchema(*it);
             }

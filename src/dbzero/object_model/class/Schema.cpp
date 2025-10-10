@@ -12,12 +12,12 @@ namespace db0::object_model
         , m_count(count)
     {        
     }
-
+    
     o_type_item::o_type_item(SchemaTypeId type_id, int count)
         : m_type_id(type_id)
         , m_count(static_cast<std::uint32_t>(count))
     {
-        assert(count >= 0);        
+        assert(count >= 0);
     }
 
     bool o_type_item::operator!() const {

@@ -1,5 +1,4 @@
 import dbzero_ce as db0
-from .conftest import MemoTestSingleton
 from .conftest import DB0_DIR
 from datetime import datetime
 import random

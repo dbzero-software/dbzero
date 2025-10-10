@@ -725,10 +725,9 @@ namespace db0::object_model
     
     void Class::addToSchema(unsigned int index, StorageClass storage_class, Value value)
     {
-        if (storage_class == StorageClass::UNDEFINED) {
+        if (storage_class == StorageClass::UNDEFINED || storage_class == StorageClass::DELETED) {
             return;
-        }
-        assert(storage_class != StorageClass::DELETED);
+        }        
         if (storage_class == StorageClass::PACK_2) {
             // iterate over all packed fields
             auto it = lofi_store<2>::fromValue(value).begin();
@@ -743,10 +742,9 @@ namespace db0::object_model
 
     void Class::removeFromSchema(unsigned int index, StorageClass storage_class, Value value)
     {
-        if (storage_class == StorageClass::UNDEFINED) {
+        if (storage_class == StorageClass::UNDEFINED || storage_class == StorageClass::DELETED) {
             return;
-        }
-        assert(storage_class != StorageClass::DELETED);
+        }        
         if (storage_class == StorageClass::PACK_2) {
             // iterate over all packed fields
             auto it = lofi_store<2>::fromValue(value).begin();
@@ -774,7 +772,7 @@ namespace db0::object_model
             ++first_id;
         }
     }
-
+    
     void Class::updateSchema(const XValue *begin, const XValue *end, bool add)
     {
         for (;begin != end; ++begin) {

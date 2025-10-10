@@ -1,5 +1,15 @@
 #include "FieldID.hpp"
 
+namespace db0::object_model
+
+{
+
+    std::uint32_t FieldID::maybeOffset() const {
+        return m_value ? getOffset() : 0;            
+    }
+    
+}
+
 namespace std
 
 {
