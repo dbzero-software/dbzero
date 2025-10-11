@@ -8,11 +8,11 @@ on:
 
 env:
   # Define matrix configurations in one place
-  PYTHON_VERSIONS: '["3.12"]'
+  PYTHON_VERSIONS: '["3.10", "3.11", "3.12", "3.13", "3.14"]'
   WINDOWS_MATRIX: |
     [
 
-      {"python-version": "3.12", "python-tag": "312", "architecture": "AMD64"},
+      {"python-version": "3.12", "python-tag": "312", "architecture": "AMD64"}
 
     ]
 
