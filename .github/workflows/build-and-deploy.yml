@@ -6,15 +6,26 @@ on:
       - feature/ci_test
   workflow_dispatch:
 
-env:
-  # Define matrix configurations in one place
-  PYTHON_VERSIONS: '["3.10", "3.11", "3.12", "3.13", "3.14"]'
-  WINDOWS_MATRIX: |
-    [
+# Define matrix configurations as YAML anchors for reuse
+# Note: These are defined at the top level for easy maintenance
+x-python-versions: &python-versions ["3.10", "3.11", "3.12", "3.13", "3.14"]
 
-      {"python-version": "3.12", "python-tag": "312", "architecture": "AMD64"}
-
-    ]
+x-windows-matrix: &windows-matrix
+  - python-version: "3.10"
+    python-tag: "310"
+    architecture: "AMD64"
+  - python-version: "3.11"
+    python-tag: "311"
+    architecture: "AMD64"
+  - python-version: "3.12"
+    python-tag: "312"
+    architecture: "AMD64"
+  - python-version: "3.13"
+    python-tag: "313"
+    architecture: "AMD64"
+  - python-version: "3.14"
+    python-tag: "314"
+    architecture: "AMD64"
 
 jobs:
   wheels-windows:
@@ -22,7 +33,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include: ${{ fromJson(env.WINDOWS_MATRIX) }}
+        include: *windows-matrix
 
     steps:
       - uses: actions/checkout@v4
@@ -65,7 +76,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ${{ fromJson(env.PYTHON_VERSIONS) }}
+        python-version: *python-versions
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
@@ -98,7 +109,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include: ${{ fromJson(env.WINDOWS_MATRIX) }}
+        include: *windows-matrix
 
     steps:
       - uses: actions/checkout@v4
@@ -126,7 +137,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ${{ fromJson(env.PYTHON_VERSIONS) }}
+        python-version: *python-versions
     
     steps:
       - uses: actions/checkout@v4
