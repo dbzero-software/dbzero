@@ -36,14 +36,20 @@ namespace tests
         ASSERT_EQ ( 1u, sizeof(StorageClass) );
         ASSERT_EQ ( 3u, o_micro_array<StorageClass>::measure(values) );
     }
-
+    
+    TEST_F( ValueTableTest , testMicroArrayWithOffsetMeasure )
+    {
+        std::vector<StorageClass> values = { StorageClass::INT64, StorageClass::POOLED_STRING };
+        ASSERT_EQ ( 4u, (o_micro_array<StorageClass, true>::measure(values)) );
+    }
+    
     TEST_F( ValueTableTest , testPosVTMeasure )
     {
         PosVT::Data data;
         data.m_types = std::vector<StorageClass> { StorageClass::INT64, StorageClass::POOLED_STRING };
         data.m_values = std::vector<Value> { Value(0), Value(0) };
 
-        ASSERT_EQ ( 19u, PosVT::measure(data) );
+        ASSERT_EQ ( 20u, PosVT::measure(data, 0) );
     }
     
     TEST_F( ValueTableTest , testMicroArrayCanBeCreatedWithValues )
@@ -70,7 +76,7 @@ namespace tests
         data.m_values = std::vector<Value> { Value(0), Value(0) };
 
         using PosVTObject = v_object<PosVT>;
-        PosVTObject cut(*fixture, data);
+        PosVTObject cut(*fixture, data, 0);
         EXPECT_EQ(2, cut->size());
         EXPECT_EQ(StorageClass::INT64, cut->types()[0]);
         EXPECT_EQ(StorageClass::POOLED_STRING, cut->types()[1]);
@@ -87,7 +93,7 @@ namespace tests
         data.m_values = std::vector<Value> { Value(0), Value(0) };
 
         using PosVTObject = v_object<PosVT>;
-        PosVTObject cut(*fixture, data);
+        PosVTObject cut(*fixture, data, 0);
         cut.modify().types()[0] = StorageClass::POOLED_STRING;
         cut.modify().values()[0] = Value(1);
         
@@ -104,15 +110,15 @@ namespace tests
         PosVT::Data data;
         data.m_types = std::vector<StorageClass> { StorageClass::INT64, StorageClass::POOLED_STRING };
         data.m_values = std::vector<Value> { Value(0), Value(0) };
-
+        
         using PosVTObject = v_object<PosVT>;
-        PosVTObject cut(*fixture, data);
+        PosVTObject cut(*fixture, data, 0);
         auto size_of = cut->sizeOf();
-        ASSERT_EQ(19u, size_of);
+        ASSERT_EQ(20u, size_of);
         ASSERT_EQ(0, (char*)&cut->types() - (char*)cut.getData());
         auto offset_values = (char*)&cut->values() - (char*)cut.getData();
         ASSERT_EQ((char*)&cut->values(), (char*)cut->values().begin());
-        ASSERT_EQ(3u, offset_values);
+        ASSERT_EQ(4u, offset_values);
         ASSERT_EQ(2u, cut->size());
         
         workspace.close();

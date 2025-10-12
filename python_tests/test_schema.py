@@ -86,3 +86,19 @@ def test_docs_example_car_schema(db0_fixture):
     # photo stored as bytes directly in dbzero
     print(db0.get_schema(Car))
     
+    
+def test_schema_after_deletions_and_reassign(db0_fixture):
+    obj_1 = MemoTestClass(1)
+    del obj_1.value
+    assert not hasattr(obj_1, "value")
+    # assign after deletion
+    obj_1.value = False
+    assert obj_1.value == False
+    # delete again
+    del obj_1.value
+    assert not hasattr(obj_1, "value")
+    # assign with full-length value
+    obj_1.value = "Full Length Value"
+    assert db0.get_schema(MemoTestClass)["value"]["primary_type"] is str
+    assert db0.get_schema(MemoTestClass)["value"]["all_types"] == [str]    
+    

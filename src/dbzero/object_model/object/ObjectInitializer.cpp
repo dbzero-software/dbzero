@@ -124,8 +124,8 @@ namespace db0::object_model
     db0::swine_ptr<Fixture> ObjectInitializer::tryGetFixture() const {
         return getClass().tryGetFixture();
     }
-    
-    std::pair<const XValue*, const XValue*> ObjectInitializer::getData(PosVT::Data &data)
+
+    std::pair<const XValue*, const XValue*> ObjectInitializer::getData(PosVT::Data &data, unsigned int &offset)
     {
         m_values.sortAndMerge();
         if (m_values.empty()) {
@@ -133,18 +133,20 @@ namespace db0::object_model
             return { &*m_values.begin(), &*m_values.end() };
         }
         
-        // Divide values into index-encoded and position-encoded
+        // offset if the first pos-vt index
+        offset = m_values.front().getIndex();
+        // Divide values into index-encoded and position-encoded (pos-vt)
         // index represents the number of pos-vt elements
         auto index = m_values.size();
         auto it = m_values.begin() + index - 1;
-        // below rule allows pos-vt to be created with at fill rate of at least 50%
-        while (index > 0 && (it->getIndex() > (index << 1))) {
+        // below rule allows pos-vt to be created with the fill-rate of at least 50%
+        while (index > 0 && ((it->getIndex() - offset) > (index << 1))) {
             --index;
             --it;
         }
         
         if (index > 0) {
-            auto size = it->getIndex() + 1;
+            auto size = (it->getIndex() - offset) + 1;
             // copy pos-vt elements if such exist
             auto &types = data.m_types;
             auto &values = data.m_values;
@@ -152,7 +154,7 @@ namespace db0::object_model
             values.reserve(size);
             for (auto it = m_values.begin(), end = m_values.begin() + index; it != end; ++it) {
                 // fill with undefined elements until reaching the index
-                while (types.size() < it->getIndex()) {
+                while (types.size() < (it->getIndex() - offset)) {
                     types.push_back(StorageClass::UNDEFINED);
                     values.emplace_back();
                 }

@@ -636,8 +636,8 @@ namespace db0::object_model
         }
         m_schema.add(field_id, type_id);
     }
-
-    void Class::removeFromSchema(FieldID field_id, unsigned int fidelity, SchemaTypeId type_id) 
+    
+    void Class::removeFromSchema(FieldID field_id, unsigned int fidelity, SchemaTypeId type_id)
     {
         if (fidelity != PRIMARY_FIDELITY) {
             field_id = getPrimaryKey(field_id.getIndex());
@@ -732,7 +732,11 @@ namespace db0::object_model
             // iterate over all packed fields
             auto it = lofi_store<2>::fromValue(value).begin();
             for ( ; !it.isEnd(); ++it) {
-                m_schema.add(FieldID::fromIndex(index, it.getOffset()), getSchemaTypeId(storage_class, *it));                
+                if (*it == Value::DELETED) {
+                    continue;
+                }
+                m_schema.add(FieldID::fromIndex(index, it.getOffset()), 
+                    getSchemaTypeId(storage_class, *it));
             }
         } else {
             // NOTE: we must retrieve the field's primary key
@@ -749,7 +753,12 @@ namespace db0::object_model
             // iterate over all packed fields
             auto it = lofi_store<2>::fromValue(value).begin();
             for ( ; !it.isEnd(); ++it) {
-                m_schema.remove(FieldID::fromIndex(index, it.getOffset()), getSchemaTypeId(storage_class, *it));
+                if (*it == Value::DELETED) {
+                    continue;
+                }
+                // only remove non-deleted values
+                m_schema.remove(FieldID::fromIndex(index, it.getOffset()), 
+                    getSchemaTypeId(storage_class, *it));
             }
         } else {
             // NOTE: we must retrieve the field's primary key
@@ -772,7 +781,7 @@ namespace db0::object_model
             ++first_id;
         }
     }
-    
+
     void Class::updateSchema(const XValue *begin, const XValue *end, bool add)
     {
         for (;begin != end; ++begin) {
@@ -783,7 +792,7 @@ namespace db0::object_model
             }            
         }
     }
-
+    
     FieldID Class::getPrimaryKey(unsigned int index) const
     {
         assert(index < m_unique_keys.size());

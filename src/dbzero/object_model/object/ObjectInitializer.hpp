@@ -53,8 +53,6 @@ namespace db0::object_model
             std::uint64_t mask = 0);
         bool remove(std::pair<std::uint32_t, std::uint32_t> loc, std::uint64_t mask = 0);
         
-        void setInstanceKey(const char *str_key);
-
         // Allows migrating initialization to other fixture (only for empty ObjectInitializer)
         // @return false if operation failed (exception not thrown)
         bool trySetFixture(db0::swine_ptr<Fixture> &fixture);
@@ -63,8 +61,8 @@ namespace db0::object_model
          * Collect and retrieve pos-vt / index-vt data
          * @return first / end pointers to the index-vt table
         */
-        std::pair<const XValue*, const XValue*> getData(PosVT::Data &data);
-
+        std::pair<const XValue*, const XValue*> getData(PosVT::Data &data, unsigned int &pos_vt_offset);
+        
         /**
          * Finalize all initializations and prepare initializer for a next object
          */

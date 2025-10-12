@@ -37,27 +37,22 @@ DB0_PACKED_BEGIN
     protected: 
         using super_t = o_base<PosVT, 0, false>;
         friend super_t;
-
-        /**
-         * Create empty value table
-        */
-        PosVT(std::size_t size);
         
-        /**
-         * Create fully populated value table
-        */        
-        PosVT(const std::vector<StorageClass> &types, const std::vector<Value> &values);
+        // Create empty value table
+        PosVT(std::size_t size, unsigned int offset);                
+        // Create fully populated value table
+        PosVT(const std::vector<StorageClass> &types, const std::vector<Value> &values, unsigned int offset);
+        PosVT(const Data &, unsigned int offset);
         
-        PosVT(const Data &);
-
     public:
+        using TypesArrayT = o_micro_array<StorageClass, true>;
 
-        inline o_micro_array<StorageClass> &types() {
-            return getDynFirst(o_micro_array<StorageClass>::type());
+        inline TypesArrayT &types() {
+            return getDynFirst(TypesArrayT::type());
         }
 
-        inline const o_micro_array<StorageClass> &types() const {
-            return getDynFirst(o_micro_array<StorageClass>::type());
+        inline const TypesArrayT &types() const {
+            return getDynFirst(TypesArrayT::type());
         }
         
         o_unbound_array<Value> &values();
@@ -65,29 +60,29 @@ DB0_PACKED_BEGIN
         const o_unbound_array<Value> &values() const;
 
         std::size_t size() const;
+        unsigned int offset() const;
         
         std::size_t sizeOf() const;
 
-        static std::size_t measure(const Data &);
+        static std::size_t measure(const Data &, unsigned int offset);
 
         template <typename BufT> static std::size_t safeSizeOf(BufT buf)
         {
             auto start = buf;
-            auto size = o_micro_array<StorageClass>::__const_ref(buf).size();
-            buf += o_micro_array<StorageClass>::safeSizeOf(buf);
+            auto size = TypesArrayT::__const_ref(buf).size();
+            buf += TypesArrayT::safeSizeOf(buf);
             buf += o_unbound_array<Value>::measure(size);
             return buf - start;
         }
         
-        /**
-         * Try finding element at a specific index
-        */
+        // Try finding element with a specific index
+        // NOTE: index if the actual members number, not its position
         bool find(unsigned int index, std::pair<StorageClass, Value> &result) const;
-
-        /**
-         * Update element at a specific position / index
-        */
-        void set(unsigned int index, StorageClass, Value);
+        // Translate index to position or return false if not found / invalid index
+        bool find(unsigned int index, unsigned int &pos) const;
+        
+        // Set or update element at a specific known position (not index !)
+        void set(unsigned int pos, StorageClass, Value);
 
         bool operator==(const PosVT &other) const;
     };

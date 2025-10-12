@@ -40,22 +40,24 @@ namespace db0::object_model
         return static_cast<std::uint8_t>(value);
     }
 
-    o_object::o_object(std::uint32_t class_ref, std::pair<std::uint32_t, std::uint32_t> ref_counts, std::uint8_t num_type_tags,
-        const PosVT::Data &pos_vt_data, const XValue *index_vt_begin, const XValue *index_vt_end)
+    o_object::o_object(std::uint32_t class_ref, std::pair<std::uint32_t, std::uint32_t> ref_counts, 
+        std::uint8_t num_type_tags, const PosVT::Data &pos_vt_data, unsigned int pos_vt_offset, 
+        const XValue *index_vt_begin, const XValue *index_vt_end)
         : m_header(ref_counts)
         , m_class_ref(class_ref)        
         , m_num_type_tags(num_type_tags)
     {
         arrangeMembers()
-            (PosVT::type(), pos_vt_data)
+            (PosVT::type(), pos_vt_data, pos_vt_offset)
             (IndexVT::type(), index_vt_begin, index_vt_end);
     }
     
-    std::size_t o_object::measure(std::uint32_t, std::pair<std::uint32_t, std::uint32_t>, std::uint8_t, const PosVT::Data &pos_vt_data,
+    std::size_t o_object::measure(std::uint32_t, std::pair<std::uint32_t, std::uint32_t>, std::uint8_t,
+        const PosVT::Data &pos_vt_data, unsigned int pos_vt_offset, 
         const XValue *index_vt_begin, const XValue *index_vt_end)
     {
         return super_t::measureMembers()
-            (PosVT::type(), pos_vt_data)
+            (PosVT::type(), pos_vt_data, pos_vt_offset)
             (IndexVT::type(), index_vt_begin, index_vt_end);
     }
     
@@ -111,10 +113,10 @@ namespace db0::object_model
         m_init_manager.addInitializer(*this, std::move(type_initializer));
     }
     
-    Object::Object(db0::swine_ptr<Fixture> &fixture, std::shared_ptr<Class> type, std::pair<std::uint32_t, std::uint32_t> ref_counts,
-        const PosVT::Data &pos_vt_data)
-        : super_t(fixture, type->getClassRef(), ref_counts, 
-            safeCast<std::uint8_t>(type->getNumBases() + 1, "Too many base classes"), pos_vt_data)
+    Object::Object(db0::swine_ptr<Fixture> &fixture, std::shared_ptr<Class> type,
+        std::pair<std::uint32_t, std::uint32_t> ref_counts, const PosVT::Data &pos_vt_data, unsigned int pos_vt_offset)
+        : super_t(fixture, type->getClassRef(), ref_counts,
+            safeCast<std::uint8_t>(type->getNumBases() + 1, "Too many base classes"), pos_vt_data, pos_vt_offset)
         , m_type(type)
     {
     }
@@ -191,20 +193,21 @@ namespace db0::object_model
         if (!hasInstance()) {
             auto &initializer = m_init_manager.getInitializer(*this);
             PosVT::Data pos_vt_data;
-            auto index_vt_data = initializer.getData(pos_vt_data);
+            unsigned int pos_vt_offset = 0;
+            auto index_vt_data = initializer.getData(pos_vt_data, pos_vt_offset);
             
             // place object in the same fixture as its class
             // construct the dbzero instance & assign to self
             m_type = initializer.getClassPtr();
             assert(m_type);
             super_t::init(*fixture, m_type->getClassRef(), initializer.getRefCounts(),
-                safeCast<std::uint8_t>(m_type->getNumBases() + 1, "Too many base classes"), pos_vt_data, 
-                index_vt_data.first, index_vt_data.second
+                safeCast<std::uint8_t>(m_type->getNumBases() + 1, "Too many base classes"), 
+                pos_vt_data, pos_vt_offset, index_vt_data.first, index_vt_data.second
             );
             
             // reference associated class
             m_type->incRef(false);
-            m_type->updateSchema(0, pos_vt_data.m_types, pos_vt_data.m_values);
+            m_type->updateSchema(pos_vt_offset, pos_vt_data.m_types, pos_vt_data.m_values);
             m_type->updateSchema(index_vt_data.first, index_vt_data.second);
             
             // bind singleton address (now that instance exists)
@@ -352,33 +355,33 @@ namespace db0::object_model
         }
     }
     
-    void Object::unrefPosVT(FixtureLock &fixture, FieldID field_id, StorageClass storage_class,
+    void Object::unrefPosVT(FixtureLock &fixture, FieldID field_id, unsigned int pos, StorageClass storage_class,
         unsigned int fidelity)
     {
-        auto &pos_vt = modify().pos_vt();
-        auto loc = field_id.getIndexAndOffset();
-        auto old_storage_class = pos_vt.types()[loc.first];
+        auto &pos_vt = modify().pos_vt();        
+        auto old_storage_class = pos_vt.types()[pos];
         if (fidelity == 0) {
-            unrefMember(*fixture, old_storage_class, pos_vt.values()[loc.first]);
+            unrefMember(*fixture, old_storage_class, pos_vt.values()[pos]);
             // mark member as unreferenced by assigning storage class
-            pos_vt.set(loc.first, storage_class, {});
+            pos_vt.set(pos, storage_class, {});
             m_type->removeFromSchema(field_id, fidelity, getSchemaTypeId(old_storage_class));
         } else {
             assert(fidelity == 2);
-            auto value = pos_vt.values()[loc.first];
-            if (storage_class != StorageClass::DELETED && !lofi_store<2>::fromValue(value).isSet(loc.second)) {
+            auto value = pos_vt.values()[pos];
+            auto offset = field_id.getOffset();
+            if (storage_class != StorageClass::DELETED && !lofi_store<2>::fromValue(value).isSet(offset)) {
                 // value is already unset
                 return;
             }
-            
-            auto old_type_id = getSchemaTypeId(old_storage_class, lofi_store<2>::fromValue(value).get(loc.second));
+
+            auto old_type_id = getSchemaTypeId(old_storage_class, lofi_store<2>::fromValue(value).get(offset));
             // either reset or mark as deleted
             if (storage_class == StorageClass::DELETED) {
-                lofi_store<2>::fromValue(value).set(loc.second, Value::DELETED);
+                lofi_store<2>::fromValue(value).set(offset, Value::DELETED);
             } else {
-                lofi_store<2>::fromValue(value).reset(loc.second);
+                lofi_store<2>::fromValue(value).reset(offset);
             }
-            pos_vt.set(loc.first, old_storage_class, value);
+            pos_vt.set(pos, old_storage_class, value);
             m_type->removeFromSchema(field_id, fidelity, old_type_id);
         }
     }
@@ -471,12 +474,12 @@ namespace db0::object_model
             m_type->removeFromSchema(field_id, fidelity, old_type_id);
         }
     }
-
+    
     void Object::unrefWithLoc(FixtureLock &fixture, FieldID field_id, const void *loc_ptr, unsigned int pos,
         StorageClass storage_class, unsigned int fidelity)
     {
         if (loc_ptr == &(*this)->pos_vt()) {
-            unrefPosVT(fixture, field_id, storage_class, fidelity);
+            unrefPosVT(fixture, field_id, pos, storage_class, fidelity);
         } else if (loc_ptr == &(*this)->index_vt()) {
             unrefIndexVT(fixture, field_id, pos, storage_class, fidelity);
         } else {
@@ -484,44 +487,44 @@ namespace db0::object_model
         }
     }
 
-    void Object::setPosVT(FixtureLock &fixture, FieldID field_id, unsigned int fidelity,
+    void Object::setPosVT(FixtureLock &fixture, FieldID field_id, unsigned int pos, unsigned int fidelity,
         StorageClass storage_class, Value value)
     {        
-        auto &pos_vt = modify().pos_vt();
-        auto loc = field_id.getIndexAndOffset();
-        auto pos_value = pos_vt.values()[loc.first];
+        auto &pos_vt = modify().pos_vt(); 
+        auto pos_value = pos_vt.values()[pos];
         if (fidelity == 0) {
-            auto old_storage_class = pos_vt.types()[loc.first];
+            auto old_storage_class = pos_vt.types()[pos];
             unrefMember(*fixture, old_storage_class, pos_value);
             // update attribute stored in the positional value-table
-            pos_vt.set(loc.first, storage_class, value);
+            pos_vt.set(pos, storage_class, value);
             m_type->updateSchema(field_id, fidelity, getSchemaTypeId(old_storage_class), getSchemaTypeId(storage_class));
         } else {
-            auto old_type_id = getSchemaTypeId(storage_class, lofi_store<2>::fromValue(pos_value).get(loc.second));
-            lofi_store<2>::fromValue(pos_value).set(loc.second, value.m_store);
-            pos_vt.set(loc.first, storage_class, pos_value);
+            auto offset = field_id.getOffset();
+            auto old_type_id = getSchemaTypeId(storage_class, lofi_store<2>::fromValue(pos_value).get(offset));
+            lofi_store<2>::fromValue(pos_value).set(offset, value.m_store);
+            pos_vt.set(pos, storage_class, pos_value);
             auto new_type_id = getSchemaTypeId(storage_class, value);
             m_type->updateSchema(field_id, fidelity, old_type_id, new_type_id);
         }
     }
 
-    void Object::addToPosVT(FixtureLock &fixture, FieldID field_id, unsigned int fidelity,
+    void Object::addToPosVT(FixtureLock &fixture, FieldID field_id, unsigned int pos, unsigned int fidelity,
         StorageClass storage_class, Value value)
-    {        
+    {
         auto &pos_vt = modify().pos_vt();
-        auto loc = field_id.getIndexAndOffset();
-        auto pos_value = pos_vt.values()[loc.first];
+        auto pos_value = pos_vt.values()[pos];
         if (fidelity == 0) {
             // update attribute stored in the positional value-table
-            pos_vt.set(loc.first, storage_class, value);
+            pos_vt.set(pos, storage_class, value);
             m_type->addToSchema(field_id, fidelity, getSchemaTypeId(storage_class));
         } else {
-            lofi_store<2>::fromValue(pos_value).set(loc.second, value.m_store);
-            pos_vt.set(loc.first, storage_class, pos_value);
+            unsigned int offset = field_id.getOffset();
+            lofi_store<2>::fromValue(pos_value).set(offset, value.m_store);
+            pos_vt.set(pos, storage_class, pos_value);
             m_type->addToSchema(field_id, fidelity, getSchemaTypeId(storage_class, value));
         }
     }
-
+    
     void Object::setIndexVT(FixtureLock &fixture, FieldID field_id, unsigned int index_vt_pos,
         unsigned int fidelity, StorageClass storage_class, Value value)
     {
@@ -647,9 +650,8 @@ namespace db0::object_model
         for (auto &field_info: member_id) {
             auto [index, offset] = field_info.first.getIndexAndOffset();
             // pos-vt lookup
-            if (index < (*this)->pos_vt().size()) {
-                if (field_info.second == 0 || slotExists((*this)->pos_vt().values()[index], field_info.second, offset)) {
-                    pos = index;
+            if ((*this)->pos_vt().find(index, pos)) {
+                if (field_info.second == 0 || slotExists((*this)->pos_vt().values()[pos], field_info.second, offset)) {                    
                     return { field_info, &(*this)->pos_vt() };
                 } else {
                     continue;             
@@ -684,24 +686,24 @@ namespace db0::object_model
     std::pair<const void*, unsigned int> Object::tryGetLoc(FieldID field_id) const
     {
         auto index = field_id.getIndex();
+        unsigned int pos = 0;
         // pos-vt lookup
-        if (index < (*this)->pos_vt().size()) {
-            return { &(*this)->pos_vt(), index };
+        if ((*this)->pos_vt().find(index, pos)) {
+            return { &(*this)->pos_vt(), pos };
         }
         // index-vt lookup
-        unsigned int index_vt_pos;
-        if ((*this)->index_vt().find(index, index_vt_pos)) {
-            return { &(*this)->index_vt(), index_vt_pos };
+        if ((*this)->index_vt().find(index, pos)) {
+            return { &(*this)->index_vt(), pos };
         }
         // not found or located in the kv-index
         return { nullptr, 0 };
     }
-
+    
     void Object::setWithLoc(FixtureLock &fixture, FieldID field_id, const void *loc_ptr, unsigned int pos,
         unsigned int fidelity, StorageClass storage_class, Value value)
     {
         if (loc_ptr == &(*this)->pos_vt()) {
-            setPosVT(fixture, field_id, fidelity, storage_class, value);
+            setPosVT(fixture, field_id, pos, fidelity, storage_class, value);
             return;
         }
         
@@ -719,7 +721,7 @@ namespace db0::object_model
         unsigned int fidelity, StorageClass storage_class, Value value)
     {
         if (loc_ptr == &(*this)->pos_vt()) {
-            addToPosVT(fixture, field_id, fidelity, storage_class, value);
+            addToPosVT(fixture, field_id, pos, fidelity, storage_class, value);
             return;
         }
 
@@ -1105,7 +1107,7 @@ namespace db0::object_model
             auto &types = (*this)->pos_vt().types();
             auto &values = (*this)->pos_vt().values();
             auto value = values.begin();
-            unsigned int index = 0;
+            unsigned int index = types.offset();
             for (auto type = types.begin(); type != types.end(); ++type, ++value, ++index) {
                 if (*type == StorageClass::DELETED || *type == StorageClass::UNDEFINED) {
                     // skip undefined or deleted members
@@ -1256,14 +1258,18 @@ namespace db0::object_model
         }
     }
     
-    std::unordered_set<std::string> Object::getMembers() const 
+    std::unordered_set<std::string> Object::getMembers() const
     {
         std::unordered_set<std::string> result;
         // Visit pos-vt members first
         auto &obj_type = this->getType();
         {
-            for (unsigned int index = 0;index < (*this)->pos_vt().size(); ++index) {
-                getMembersFrom(obj_type, index, (*this)->pos_vt().types()[index], (*this)->pos_vt().values()[index], result);
+            auto &types = (*this)->pos_vt().types();
+            auto &values = (*this)->pos_vt().values();
+            unsigned int index = types.offset();
+            auto size = types.size();
+            for (unsigned int pos = 0;pos < size; ++index, ++pos) {
+                getMembersFrom(obj_type, index, types[pos], values[pos], result);
             }
         }
         
@@ -1296,7 +1302,7 @@ namespace db0::object_model
             auto &types = (*this)->pos_vt().types();
             auto &values = (*this)->pos_vt().values();
             auto value = values.begin();
-            unsigned int index = 0;
+            unsigned int index = types.offset();
             for (auto type = types.begin(); type != types.end(); ++type, ++value, ++index) {
                 if (*type == StorageClass::DELETED || *type == StorageClass::UNDEFINED) {
                     // skip deleted or undefined members

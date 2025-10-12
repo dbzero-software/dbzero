@@ -24,7 +24,7 @@ namespace db0::object_model
         // Remove all entries under the specified index, use mask for lo-fi types
         bool remove(unsigned int at, std::uint64_t mask = 0);
         void sortAndMerge();
-
+        
         void clear();
         
     private:

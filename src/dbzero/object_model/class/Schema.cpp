@@ -441,10 +441,16 @@ namespace db0::object_model
     }
     
     void Schema::add(FieldID field_id, SchemaTypeId type_id) {
+        if (type_id == SchemaTypeId::UNDEFINED || type_id == SchemaTypeId::DELETED) {
+            return;
+        }
         getBuilder().collect(field_id, type_id, 1);
     }
     
     void Schema::remove(FieldID field_id, SchemaTypeId type_id) {
+        if (type_id == SchemaTypeId::UNDEFINED || type_id == SchemaTypeId::DELETED) {
+            return;
+        }
         getBuilder().collect(field_id, type_id, -1);
     }
     
@@ -556,11 +562,19 @@ namespace db0::object_model
     SchemaTypeId getSchemaTypeId(StorageClass storage_class, Value value)
     {
         if (storage_class == StorageClass::PACK_2) {
-            // Value can represent either None or Boolean
-            if (value.m_store == 0) {
-                return SchemaTypeId::NONE;
-            } else {
-                return SchemaTypeId::BOOLEAN;
+            // Value can represent either None or Boolean or DELETED
+            switch (value.m_store) {
+                case Value::NONE:
+                    return SchemaTypeId::NONE;
+                case Value::TRUE:
+                case Value::FALSE:
+                    return SchemaTypeId::BOOLEAN;
+                case Value::DELETED:
+                    return SchemaTypeId::DELETED;
+                default:
+                    assert(false && "Invalid packed value store");
+                    THROWF(db0::InputException) << "Invalid packed value store: " 
+                        << value.cast<std::uint64_t>() << THROWF_END;
             }
         }
         return getSchemaTypeId(storage_class);
@@ -579,6 +593,7 @@ namespace db0::object_model
     {
         switch (type_id) {
             case SchemaTypeId::UNDEFINED: return "UNDEFINED";
+            case SchemaTypeId::DELETED: return "DELETED";
             case SchemaTypeId::NONE: return "None";
             case SchemaTypeId::STRING: return "str";
             case SchemaTypeId::INT: return "int";

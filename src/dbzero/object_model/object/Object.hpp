@@ -46,8 +46,6 @@ DB0_PACKED_BEGIN
         bindex::type m_kv_type;
         // number of auto-assigned type tags
         std::uint8_t m_num_type_tags = 0;
-        // reserved for future purposes (e.g. instance flags)
-        std::uint16_t m_reserved = 0;
         
         PosVT &pos_vt();
 
@@ -59,11 +57,11 @@ DB0_PACKED_BEGIN
 
         // ref_counts - the initial reference counts (tags / objects) inherited from the initializer
         o_object(std::uint32_t class_ref, std::pair<std::uint32_t, std::uint32_t> ref_counts, std::uint8_t num_type_tags, 
-            const PosVT::Data &pos_vt_data, const XValue *index_vt_begin = nullptr, 
+            const PosVT::Data &pos_vt_data, unsigned int pos_vt_offset, const XValue *index_vt_begin = nullptr, 
             const XValue *index_vt_end = nullptr);
         
         static std::size_t measure(std::uint32_t, std::pair<std::uint32_t, std::uint32_t>, std::uint8_t num_type_tags,
-            const PosVT::Data &pos_vt_data, const XValue *index_vt_begin = nullptr, 
+            const PosVT::Data &pos_vt_data, unsigned int pos_vt_offset, const XValue *index_vt_begin = nullptr, 
             const XValue *index_vt_end = nullptr);
         
         template <typename BufT> static std::size_t safeSizeOf(BufT buf)
@@ -134,7 +132,7 @@ DB0_PACKED_BEGIN
         
         Object(db0::swine_ptr<Fixture> &, Address);
         Object(db0::swine_ptr<Fixture> &, std::shared_ptr<Class>, std::pair<std::uint32_t, std::uint32_t> ref_counts, 
-            const PosVT::Data &);
+            const PosVT::Data &, unsigned int pos_vt_offset);
         Object(db0::swine_ptr<Fixture> &, ObjectStem &&, std::shared_ptr<Class>);
         
         ~Object();
@@ -349,7 +347,7 @@ DB0_PACKED_BEGIN
         void _touch();
         
         // Set or update member in a pos_vt
-        void setPosVT(FixtureLock &, FieldID, unsigned int fidelity, StorageClass, Value);
+        void setPosVT(FixtureLock &, FieldID, unsigned int pos, unsigned int fidelity, StorageClass, Value);
         void setIndexVT(FixtureLock &, FieldID, unsigned int index_vt_pos, unsigned int fidelity,
             StorageClass, Value);        
         // Set or update member in kv-index
@@ -361,7 +359,7 @@ DB0_PACKED_BEGIN
         
         // Unreference value
         // NOTE: storage_class to be assigned can either be DELETED or UNDEFINED
-        void unrefPosVT(FixtureLock &, FieldID, StorageClass, unsigned int fidelity);
+        void unrefPosVT(FixtureLock &, FieldID, unsigned int pos, StorageClass, unsigned int fidelity);
         void unrefIndexVT(FixtureLock &, FieldID, unsigned int index_vt_pos, StorageClass, unsigned int fidelity);
         void unrefKVIndexValue(FixtureLock &, FieldID, StorageClass, unsigned int fidelity);
         
@@ -369,7 +367,7 @@ DB0_PACKED_BEGIN
             unsigned int fidelity);
         
         // Add a new value
-        void addToPosVT(FixtureLock &, FieldID, unsigned int fidelity, StorageClass, Value);
+        void addToPosVT(FixtureLock &, FieldID, unsigned int pos, unsigned int fidelity, StorageClass, Value);
         void addToIndexVT(FixtureLock &, FieldID, unsigned int index_vt_pos, unsigned int fidelity, StorageClass, Value);
         void addToKVIndex(FixtureLock &, FieldID, unsigned int fidelity, StorageClass, Value);
         

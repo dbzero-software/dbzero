@@ -93,5 +93,4 @@ namespace db0::object_model
         return unload(fixture, address);
     }
 
-
 }
