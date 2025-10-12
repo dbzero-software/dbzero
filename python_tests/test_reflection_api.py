@@ -15,10 +15,8 @@ def test_get_prefixes(db0_fixture):
     
     
 def test_get_prefixes_with_nested_dirs(db0_fixture):
-    assert len(list(db0.get_prefixes())) == 1
-    print(f"ADDDING NEW PREFIX!!!!!!!!!!!!!!")
-    db0.open("dir_1/my-new_prefix")
-    print(f"AFTER ADDDING NEW PREFIX!!!!!!!!!!!!!!")
+    assert len(list(db0.get_prefixes())) == 1    
+    db0.open("dir_1/my-new_prefix")    
     assert len(list(db0.get_prefixes())) == 2
     db0.open("dir_1/subdir/my-new_prefix")
     assert len(list(db0.get_prefixes())) == 3

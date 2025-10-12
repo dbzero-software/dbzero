@@ -5,23 +5,23 @@
 namespace db0::object_model
 
 {
-    
+
     PosVT::Data::Data(std::size_t size)
         : m_types(size)
         , m_values(size)
     {
     }
-
-    PosVT::PosVT(const Data &data)
+    
+    PosVT::PosVT(const Data &data, unsigned int offset)
     {
         assert(data.m_types.size() == data.m_values.size());
         auto at = arrangeMembers()
-            (o_micro_array<StorageClass>::type(), data.m_types).ptr();
+            (TypesArrayT::type(), data.m_types, offset).ptr();
 
         // cannot use arranger to instantiate o_unbound_array because it lacks sizeOf() method
         o_unbound_array<Value>::__new(at, data.m_values);
     }
-    
+
     o_unbound_array<Value> &PosVT::values() {
         return getDynAfter(types(), o_unbound_array<Value>::type());
     }
@@ -33,7 +33,7 @@ namespace db0::object_model
     std::size_t PosVT::sizeOf() const
     {
         return sizeOfMembers()
-            (o_micro_array<StorageClass>::type())
+            (TypesArrayT::type())
             (o_unbound_array<Value>::measure(this->size()));
     }
 
@@ -41,31 +41,35 @@ namespace db0::object_model
         return types().size();
     }
     
-    std::size_t PosVT::measure(const Data &data)
+    std::size_t PosVT::measure(const Data &data, unsigned int offset)
     {
         assert(data.m_types.size() == data.m_values.size());
         return measureMembers()
-            (o_micro_array<StorageClass>::measure(data.m_types))
+            (TypesArrayT::measure(data.m_types, offset))
             (o_unbound_array<Value>::measure(data.m_values));        
+    }
+    
+    bool PosVT::find(unsigned int index, unsigned int &pos) const {
+        return types().find(index, pos);
     }
     
     bool PosVT::find(unsigned int index, std::pair<StorageClass, Value> &result) const
     {
-        if (index >= this->size()) {
-            // index not in the range
+        unsigned int pos;
+        if (!find(index, pos)) {
             return false;
         }
         
-        result.first = types()[index];
-        result.second = values()[index];
+        result.first = types()[pos];
+        result.second = values()[pos];
         return true;
     }
     
-    void PosVT::set(unsigned int index, StorageClass type, Value value)
+    void PosVT::set(unsigned int pos, StorageClass type, Value value)
     {
-        assert(index < this->size());
-        types()[index] = type;
-        values()[index] = value;
+        assert(pos < this->size());
+        types()[pos] = type;
+        values()[pos] = value;
     }
     
     bool PosVT::operator==(const PosVT &other) const

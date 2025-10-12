@@ -48,9 +48,11 @@ namespace tests
         cut.set({0, 0}, StorageClass::INT64, Value(0));
         cut.set({1, 0}, StorageClass::POOLED_STRING, Value(0));
         cut.set({3, 0}, StorageClass::INT64, Value(0));
-
+        
         PosVT::Data pos_vt_data;
-        cut.getData(pos_vt_data);
+        unsigned int pos_vt_offset = 0;
+        cut.getData(pos_vt_data, pos_vt_offset);
+        ASSERT_EQ(pos_vt_offset, 0);
         // NOTE: there should be 4 elements in pos-vt, but only 3 are filled
         ASSERT_EQ(pos_vt_data.m_types.size(), 4u);
         ASSERT_EQ(pos_vt_data.m_types[0], StorageClass::INT64);
@@ -79,9 +81,10 @@ namespace tests
         cut.set({1, 0}, StorageClass::POOLED_STRING, Value(0));
         cut.set({3, 0}, StorageClass::INT64, Value(0));
         cut.set({12, 0}, StorageClass::INT64, Value(0));
-
+        
         PosVT::Data pos_vt_data;
-        cut.getData(pos_vt_data);
+        unsigned int pos_vt_offset = 0;
+        cut.getData(pos_vt_data, pos_vt_offset);
         // NOTE: there should be 4 elements in pos-vt, but only 3 are filled
         ASSERT_EQ(pos_vt_data.m_types.size(), 4u);
         object_1->~Object();
