@@ -20,6 +20,7 @@ DB0_PACKED_BEGIN
     {
         // undefined value (not set)
         UNDEFINED = static_cast<int>(StorageClass::UNDEFINED),
+        DELETED = static_cast<int>(StorageClass::DELETED),
         // null value
         NONE = static_cast<int>(StorageClass::NONE),
         // reference to the string instance

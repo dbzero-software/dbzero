@@ -173,3 +173,18 @@ def test_memo_unsed_value_defaults_to_none(db0_fixture):
     obj_1 = MemoConditionalMember(15)
     assert obj_1.cond_value is None
     
+    
+def test_reassign_deleted_member(db0_fixture):
+    obj_1 = MemoTestClass(1)
+    del obj_1.value
+    assert not hasattr(obj_1, "value")
+    # assign after deletion
+    obj_1.value = False
+    assert obj_1.value == False
+    # delete again
+    del obj_1.value
+    assert not hasattr(obj_1, "value")
+    # assign with full-length value
+    obj_1.value = "Full Length Value"
+    assert obj_1.value == "Full Length Value"
+    
