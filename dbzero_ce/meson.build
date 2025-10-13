@@ -3,6 +3,7 @@ python_sources = [
     'dbzero_ce/atomic.py',
     'dbzero_ce/connection.py',
     'dbzero_ce/dbzero_ce.py',
+    'dbzero_ce/dbzero_ce.pyi',
     'dbzero_ce/decorators.py',
     'dbzero_ce/enum.py',
     'dbzero_ce/fast_query.py',
