@@ -2,7 +2,7 @@ import pytest
 import multiprocessing
 import time
 import asyncio
-import dbzero_ce as db0
+import dbzero as db0
 from .conftest import DB0_DIR
 from .memo_test_types import DynamicDataClass, DynamicDataSingleton, MemoTestClass, MemoTestSingleton
 

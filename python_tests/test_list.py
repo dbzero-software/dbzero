@@ -1,5 +1,5 @@
 import pytest
-import dbzero_ce as db0
+import dbzero as db0
 from .memo_test_types import MemoTestClass, MemoTestSingleton
 from .conftest import DB0_DIR
 from .memo_test_types import MemoTestClass
@@ -439,7 +439,7 @@ def test_list_index_access_issue_1(db0_fixture):
 
 def test_list_pop_while_iteration(db0_fixture):
     """
-    Issue: https://github.com/wskozlowski/dbzero_ce/issues/252
+    Issue: https://github.com/wskozlowski/dbzero/issues/252
     The test was failing with: segmentation fault
     """
     cut = db0.list([0, 1, 2, 3, 4])

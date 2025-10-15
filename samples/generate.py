@@ -1,6 +1,6 @@
-import dbzero_ce as db0
+import dbzero as db0
 import inspect
-from dbzero_ce import memo
+from dbzero import memo
 from model import *
 
 

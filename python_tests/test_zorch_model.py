@@ -1,6 +1,6 @@
 import pytest
-import dbzero_ce as db0
-from dbzero_ce import memo, no
+import dbzero as db0
+from dbzero import memo, no
 from datetime import datetime
 from itertools import islice
 

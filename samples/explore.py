@@ -1,4 +1,4 @@
-import dbzero_ce as db0
+import dbzero as db0
 import argparse
 import itertools
 

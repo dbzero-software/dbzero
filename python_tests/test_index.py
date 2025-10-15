@@ -1,8 +1,8 @@
 import pytest
-import dbzero_ce as db0
+import dbzero as db0
 from .conftest import DB0_DIR
 from .memo_test_types import MemoTestClass, MemoTestSingleton, MemoScopedClass, MemoScopedSingleton
-from dbzero_ce import find
+from dbzero import find
 from datetime import timedelta, datetime
 import random
 
@@ -679,7 +679,7 @@ def test_index_self_insert(db0_fixture):
 def test_index_sort_desc_null_last(db0_fixture):
     """
     Issue related with the following ticket:
-    https://github.com/wskozlowski/dbzero_ce/issues/281
+    https://github.com/wskozlowski/dbzero/issues/281
     """
     index = db0.index()
     for p in [666, None, 555, 888, None]:
@@ -705,7 +705,7 @@ def test_index_default_sort_select_segv_issue_1(db0_fixture):
 def test_find_in_index_range_issue_1(db0_fixture):
     """
     Issue related with the following ticket:
-    https://github.com/wskozlowski/dbzero_ce/issues/239
+    https://github.com/wskozlowski/dbzero/issues/239
     """    
     index = db0.index()
     index.add(1, MemoTestClass(1))

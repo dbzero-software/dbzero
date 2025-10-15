@@ -1,5 +1,5 @@
 import pytest
-import dbzero_ce as db0
+import dbzero as db0
 from random import randint
 from .memo_test_types import MemoTestClass
     

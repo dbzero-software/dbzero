@@ -1,8 +1,8 @@
 import pytest
-import dbzero_ce as db0
+import dbzero as db0
 import multiprocessing
 import inspect
-from dbzero_ce.reflection_api import CallableType
+from dbzero.reflection_api import CallableType
 from .conftest import DB0_DIR
 from .memo_test_types import MemoTestClass, MemoTestSingleton, MemoTestClassPropertiesAndImmutables, MemoTestClassWithMethods
 from datetime import datetime

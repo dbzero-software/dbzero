@@ -1,5 +1,5 @@
-import dbzero_ce as db0
-from .dbzero_ce import _select_mod_candidates, _split_by_snapshots
+import dbzero as db0
+from .dbzero import _select_mod_candidates, _split_by_snapshots
 
 
 def select_new(query, pre_snapshot, last_snapshot):

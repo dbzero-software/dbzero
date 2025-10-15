@@ -1,4 +1,4 @@
-import dbzero_ce as db0
+import dbzero as db0
 from decimal import Decimal
 from .conftest import MemoTestClass
 from python_tests.test_object import DataClassWithAttr

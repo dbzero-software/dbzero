@@ -83,7 +83,7 @@ namespace db0::python
     
     PyTypeObject PyObjectTagManagerType = {
         PYVAROBJECT_HEAD_INIT_DESIGNATED,
-        .tp_name = "dbzero_ce.Tags",
+        .tp_name = "dbzero.Tags",
         .tp_basicsize = PyObjectTagManager::sizeOf(),
         .tp_itemsize = 0,
         .tp_dealloc = (destructor)PyObjectTagManager_del,

@@ -1,5 +1,5 @@
 function show_help {
-    echo "Build dbzero_ce python package in the ./build directory and optionally install it"
+    echo "Build dbzero python package in the ./build directory and optionally install it"
     echo "Use: build_package.sh [options]"
     echo " -h, --help   Shows this help screen."
     echo " --install    Install the package locally"
@@ -16,8 +16,8 @@ while true ; do
 done
 
 mkdir .build
-mkdir .build/dbzero_ce
-cp ./dbzero_ce/* ./.build/dbzero_ce
+mkdir .build/dbzero
+cp ./dbzero/* ./.build/dbzero
 cp setup.py .build/setup.py
 cp LICENSE .build/LICENSE
 cp README.md .build/README.md
@@ -28,9 +28,9 @@ python3 setup.py sdist
 PYTHON3_VERSION=$(python3 -c 'import sys; print(f"{sys.version_info.minor}")')
 if [ "${INSTALL}" ] ; then
     if [ "$PYTHON3_VERSION" -ge 11 ]; then
-        pip3 install ./dist/dbzero_ce-0.0.1.tar.gz --break-system-packages
+        pip3 install ./dist/dbzero-0.0.1.tar.gz --break-system-packages
     else
-        pip3 install ./dist/dbzero_ce-0.0.1.tar.gz
+        pip3 install ./dist/dbzero-0.0.1.tar.gz
     fi
 fi
 

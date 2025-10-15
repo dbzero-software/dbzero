@@ -14,7 +14,7 @@ namespace db0::python
 {
     
     using ObjectSharedPtr = PyTypes::ObjectSharedPtr;
-    PyTypeObject DictIteratorObjectType = GetIteratorType<DictIteratorObject>("dbzero_ce.DictIterator", "dbzero dict iterator");
+    PyTypeObject DictIteratorObjectType = GetIteratorType<DictIteratorObject>("dbzero.DictIterator", "dbzero dict iterator");
 
     DictIteratorObject *tryDictObject_iter(DictObject *self)
     {        

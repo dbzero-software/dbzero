@@ -89,9 +89,9 @@ namespace db0::python
         addStaticdbzeroType(&PyWeakProxyType, TypeId::DB0_WEAK_PROXY);
         addStaticdbzeroType(&MemoExpiredRefType, TypeId::MEMO_EXPIRED_REF);
 
-        m_py_bad_prefix_error = PyErr_NewException("dbzero_ce.BadPrefixError", NULL, NULL);
-        m_py_class_not_found_error = PyErr_NewException("dbzero_ce.ClassNotFoundError", NULL, NULL);
-        m_py_reference_error = PyErr_NewException("dbzero_ce.ReferenceError", NULL, NULL);
+        m_py_bad_prefix_error = PyErr_NewException("dbzero.BadPrefixError", NULL, NULL);
+        m_py_class_not_found_error = PyErr_NewException("dbzero.ClassNotFoundError", NULL, NULL);
+        m_py_reference_error = PyErr_NewException("dbzero.ReferenceError", NULL, NULL);
     }
     
     PyTypeManager::~PyTypeManager()
@@ -348,7 +348,7 @@ namespace db0::python
         }
         
         // identify the MemoBase Type
-        if (type_id && std::string(type_id) == "Division By Zero/dbzero_ce/MemoBase") {
+        if (type_id && std::string(type_id) == "Division By Zero/dbzero/MemoBase") {
             m_memo_base_type = type;
             // register the type with mappings
             addStaticdbzeroType(m_memo_base_type, TypeId::MEMO_OBJECT);

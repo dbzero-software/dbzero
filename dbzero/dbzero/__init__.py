@@ -1,4 +1,4 @@
-from .dbzero_ce import *
+from .dbzero import *
 from .memo import *
 from .enum import *
 from .fast_query import *

@@ -1,4 +1,4 @@
-from .dbzero_ce import _make_enum
+from .dbzero import _make_enum
 
 
 def enum(cls=None, *args, **kwargs):

@@ -1,6 +1,6 @@
 from typing import Any
 import pytest
-import dbzero_ce as db0
+import dbzero as db0
 import pickle
 import io
 from .memo_test_types import MemoTestClass
@@ -66,7 +66,7 @@ def test_query_uuid_is_same_between_transactions(db0_fixture):
         
 def test_uuid_issue_1(db0_fixture):
     """
-    Issue: https://github.com/wskozlowski/dbzero_ce/issues/171
+    Issue: https://github.com/wskozlowski/dbzero/issues/171
     Resolution: added validation and exception "Cannot get UUID of an uninitialized object"
     """
     with pytest.raises(Exception) as excinfo:

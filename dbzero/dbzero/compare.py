@@ -1,5 +1,5 @@
-import dbzero_ce as db0
-from .dbzero_ce import _compare
+import dbzero as db0
+from .dbzero import _compare
 
 
 def compare(obj_1, obj_2, tags=None):

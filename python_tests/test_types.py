@@ -1,5 +1,5 @@
 import pytest
-import dbzero_ce as db0
+import dbzero as db0
 
 
 def test_isinstance_dict(db0_fixture):

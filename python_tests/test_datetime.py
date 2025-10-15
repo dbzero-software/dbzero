@@ -1,5 +1,5 @@
 from datetime import datetime, timezone, timedelta
-from dbzero_ce import memo
+from dbzero import memo
     
 @memo
 class DateTimeMock:

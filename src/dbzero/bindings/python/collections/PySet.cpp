@@ -16,7 +16,7 @@ namespace db0::python
     using ObjectSharedPtr = PyTypes::ObjectSharedPtr;
     using SetIteratorObject = PySharedWrapper<db0::object_model::SetIterator, false>;
 
-    PyTypeObject SetIteratorObjectType = GetIteratorType<SetIteratorObject>("dbzero_ce.SetObjectIterator",
+    PyTypeObject SetIteratorObjectType = GetIteratorType<SetIteratorObject>("dbzero.SetObjectIterator",
         "dbzero typed query object iterator");
 
     SetIteratorObject *trySetObject_iter(SetObject *self)

@@ -38,7 +38,7 @@ namespace db0::python
         std::stringstream str;
         str << "Memo_" << (*py_class)->tp_name;
         auto type_name = str.str();
-        auto full_type_name = std::string("dbzero_ce.") + type_name;
+        auto full_type_name = std::string("dbzero.") + type_name;
         return { type_name, full_type_name };
     }
     

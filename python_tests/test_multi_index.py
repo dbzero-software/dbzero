@@ -1,8 +1,8 @@
 import pytest
-import dbzero_ce as db0
+import dbzero as db0
 from .conftest import DB0_DIR
 from .memo_test_types import MemoTestClass, MemoTestSingleton, MemoScopedClass, MemoScopedSingleton
-from dbzero_ce import find
+from dbzero import find
 
 
 def test_select_from_multiple_indexes(db0_fixture):

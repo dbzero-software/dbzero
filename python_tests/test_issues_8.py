@@ -1,10 +1,10 @@
-import dbzero_ce as db0
+import dbzero as db0
 from .conftest import MemoTestClass
 
 
 def test_list_clear_produce_mutation_log_entry_issue(db0_fixture):
     """
-    Issue: FIXME: https://github.com/wskozlowski/dbzero_ce/issues/403
+    Issue: FIXME: https://github.com/wskozlowski/dbzero/issues/403
     """
     with db0.locked() as lock:
         obj = MemoTestClass([1, 2, 3])
