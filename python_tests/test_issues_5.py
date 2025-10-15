@@ -1,5 +1,5 @@
 import pytest
-import dbzero_ce as db0
+import dbzero as db0
 from .memo_test_types import MemoTestClass
 from unittest.mock import patch
 
@@ -33,7 +33,7 @@ class MemberCycleSubClass(MemberCycleBaseClass):
     
 def test_reference_cycle_member_issue_1(db0_fixture):
     """
-    Issue description: The test was failing with AttributeError: 'dbzero_ce.Memo_PrivMemberSubClass' object has no attribute 'my_dict'
+    Issue description: The test was failing with AttributeError: 'dbzero.Memo_PrivMemberSubClass' object has no attribute 'my_dict'
     when a cycle was created in the object graph.    
     """
     obj = MemberCycleSubClass(42)

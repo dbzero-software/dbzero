@@ -1,4 +1,4 @@
-# dbzero_ce
+# dbzero
 
 dbzero Community Edition
 
@@ -15,14 +15,14 @@ Already a pro? Just edit this README.md and make it your own. Want to make it ea
 
 ```
 cd existing_repo
-git remote add origin https://gitlab-01.itx.pl/wkozlowski/dbzero_ce.git
+git remote add origin https://gitlab-01.itx.pl/wkozlowski/dbzero.git
 git branch -M main
 git push -uf origin main
 ```
 
 ## Integrate with your tools
 
-- [ ] [Set up project integrations](https://gitlab-01.itx.pl/wkozlowski/dbzero_ce/-/settings/integrations)
+- [ ] [Set up project integrations](https://gitlab-01.itx.pl/wkozlowski/dbzero/-/settings/integrations)
 
 ## Collaborate with your team
 

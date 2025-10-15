@@ -21,7 +21,7 @@ namespace db0::python
     PyTypeObject ObjectIdType = 
     {
         PYVAROBJECT_HEAD_INIT_DESIGNATED,
-        .tp_name = "dbzero_ce.ObjectId",
+        .tp_name = "dbzero.ObjectId",
         .tp_basicsize = sizeof(PyObjectId),
         .tp_itemsize = 0,
         .tp_dealloc = (destructor)PyObject_Del,

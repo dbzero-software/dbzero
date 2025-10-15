@@ -1,4 +1,4 @@
-import dbzero_ce as db0
+import dbzero as db0
 
 def test_taggify():
     assert list(db0.taggify("--Mińsk Mazowiecki", max_len = 4)) == ['MINS', 'MAZO']

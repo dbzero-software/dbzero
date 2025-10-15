@@ -1,5 +1,5 @@
 import pytest
-import dbzero_ce as db0
+import dbzero as db0
 from .memo_test_types import MemoTestClass
 
 
@@ -72,7 +72,7 @@ def test_tuples_destroy_removes_reference(db0_fixture):
         db0.fetch(dep_uuid)
 
 
-# FIXME: test failing with Type dbzero_ce.Dict does not have a UUID (not implemented feature)
+# FIXME: test failing with Type dbzero.Dict does not have a UUID (not implemented feature)
 # def test_tuples_destroy_removes_reference_to_dict(db0_fixture):
 #     obj = MemoTestClass(db0.tuple([{"a": "b"}]))
 #     assert obj.value[0] is not None

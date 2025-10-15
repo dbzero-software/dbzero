@@ -1,4 +1,4 @@
-from .dbzero_ce import begin_atomic, assign
+from .dbzero import begin_atomic, assign
 
 
 class AtomicManager:

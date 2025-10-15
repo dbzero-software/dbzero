@@ -4,7 +4,7 @@ import itertools
 import pathlib
 import pkgutil
 import typing
-import dbzero_ce as db0
+import dbzero as db0
 import inspect
 import importlib
 import importlib.util
@@ -13,7 +13,7 @@ import sys
 
 from .decorators import check_params_not_equal
 from .storage_api import PrefixMetaData
-from .dbzero_ce import _get_memo_classes, _get_memo_class
+from .dbzero import _get_memo_classes, _get_memo_class
 
 
 _CallableParams = namedtuple("CallableParams", ["params", "has_args", "has_kwargs"])

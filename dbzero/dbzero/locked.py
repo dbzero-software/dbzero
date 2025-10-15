@@ -1,6 +1,6 @@
 import asyncio
 from typing import List, Tuple
-from .dbzero_ce import begin_locked, _async_wait, get_config, commit
+from .dbzero import begin_locked, _async_wait, get_config, commit
 
 
 def async_wait(prefix_name, state_number):

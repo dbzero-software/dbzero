@@ -1,7 +1,7 @@
 import pytest
 import random
 import datetime
-import dbzero_ce as db0
+import dbzero as db0
 from .conftest import DB0_DIR
 from .memo_test_types import MemoTestSingleton, MemoTestClass, MemoScopedSingleton, MemoScopedClass, MonthTag, DATA_PX
 from decimal import Decimal

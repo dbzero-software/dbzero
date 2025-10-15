@@ -1,5 +1,5 @@
-from dbzero_ce import db0
-from dbzero_ce.connection import Connection
+from dbzero import db0
+from dbzero.connection import Connection
 import os
 import datetime
 

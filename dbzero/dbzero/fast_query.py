@@ -1,6 +1,6 @@
 # This is an experimental version of a possible Query Engine
 # implementation for dbzero
-import dbzero_ce as db0
+import dbzero as db0
 import inspect
 import typing
 import types as py_types

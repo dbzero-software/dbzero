@@ -1,7 +1,7 @@
 import pytest
-import dbzero_ce as db0
+import dbzero as db0
 from datetime import datetime
-from dbzero_ce import memo
+from dbzero import memo
     
 @memo
 class BytesMock:

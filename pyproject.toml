@@ -3,7 +3,7 @@ build-backend = 'mesonpy'
 requires = ['meson-python']
 
 [project]
-name = 'DBZeroCE'
+name = 'DBzero'
 version = '0.0.1'
 description = 'DBZero Community edition'
 readme = 'README.md'

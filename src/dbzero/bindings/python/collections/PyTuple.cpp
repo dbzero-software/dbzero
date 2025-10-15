@@ -14,7 +14,7 @@ namespace db0::python
     using ObjectSharedPtr = PyTypes::ObjectSharedPtr;
     using TupleIteratorObject = PySharedWrapper<db0::object_model::TupleIterator, false>;
 
-    PyTypeObject TupleIteratorObjectType = GetIteratorType<TupleIteratorObject>("dbzero_ce.TupleIterator",
+    PyTypeObject TupleIteratorObjectType = GetIteratorType<TupleIteratorObject>("dbzero.TupleIterator",
                                                                               "dbzero tuple iterator");
 
     TupleIteratorObject *tryTupleObject_iter(TupleObject *self)

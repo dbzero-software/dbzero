@@ -1,7 +1,7 @@
 import pytest
 from datetime import datetime
 import time
-import dbzero_ce as db0
+import dbzero as db0
 import random
 from .memo_test_types import MemoTestClass
 from .conftest import DB0_DIR
@@ -154,7 +154,7 @@ def test_autocommit_config(db0_fixture):
 
 @pytest.mark.parametrize("db0_autocommit_fixture", [100], indirect=True)
 def test_autocommit_tagging(db0_autocommit_fixture):
-    # ISSUE: https://github.com/wskozlowski/dbzero_ce/issues/435
+    # ISSUE: https://github.com/wskozlowski/dbzero/issues/435
     obj = MemoTestClass(123)
     db0.commit()
     state1 = db0.get_state_num()

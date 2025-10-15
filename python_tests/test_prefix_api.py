@@ -1,4 +1,4 @@
-import dbzero_ce as db0
+import dbzero as db0
 from .memo_test_types import MemoTestClass,TriColor
 
 

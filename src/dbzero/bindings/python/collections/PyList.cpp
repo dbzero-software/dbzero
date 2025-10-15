@@ -14,7 +14,7 @@ namespace db0::python
     
     using ListIteratorObject = PySharedWrapper<db0::object_model::ListIterator, false>;
 
-    PyTypeObject ListIteratorObjectType = GetIteratorType<ListIteratorObject>("dbzero_ce.ListIterator",
+    PyTypeObject ListIteratorObjectType = GetIteratorType<ListIteratorObject>("dbzero.ListIterator",
                                                                               "dbzero list iterator");
 
     ListIteratorObject *tryListObject_iter(ListObject *self)

@@ -71,8 +71,8 @@ meson install
 cd ../..
 # build package
 
-cd dbzero_ce
+cd dbzero
 
-envsubst < dbzero_ce/dbzero_ce.template > dbzero_ce/dbzero_ce.py
+envsubst < dbzero/dbzero.template > dbzero/dbzero.py
 ./build_package.sh --install
 echo $build_type

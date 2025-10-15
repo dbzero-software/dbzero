@@ -1,6 +1,6 @@
 import inspect
 import dis
-from .dbzero_ce import _wrap_memo_type, set_prefix
+from .dbzero import _wrap_memo_type, set_prefix
 
 
 def migration(func):
@@ -169,6 +169,6 @@ def memo(cls=None, **kwargs):
     return wrap(cls, **kwargs)
 
 
-@memo(id="Division By Zero/dbzero_ce/MemoBase")
+@memo(id="Division By Zero/dbzero/MemoBase")
 class MemoBase:
     pass

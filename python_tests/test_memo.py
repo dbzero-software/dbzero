@@ -1,5 +1,5 @@
 import pytest
-import dbzero_ce as db0
+import dbzero as db0
 from .memo_test_types import MemoTestClass, TriColor, MemoTestSingleton
 from dataclasses import dataclass
 
@@ -72,7 +72,7 @@ def test_is_memo_for_types(db0_fixture):
 @pytest.mark.skip(reason="Skipping due to unresolved issue #237")
 def test_memo_property_decorator_issue1(db0_fixture):
     """
-    Issue: https://github.com/wskozlowski/dbzero_ce/issues/237
+    Issue: https://github.com/wskozlowski/dbzero/issues/237
     """    
     test_obj = MemoClassWithSetter(1)
     assert test_obj.value == 1
