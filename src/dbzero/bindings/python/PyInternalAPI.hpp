@@ -94,7 +94,6 @@ namespace db0::python
     {
         using ReturnType = std::invoke_result_t<T, Args...>;
 
-        auto returnError = []() -> ReturnType {
             if constexpr (std::is_constructible_v<ReturnType, int>) {
                 return ReturnType(ERR_RESULT);
             } else if constexpr (std::is_pointer_v<ReturnType>) {
@@ -116,16 +115,26 @@ namespace db0::python
         } catch (const db0::ClassNotFoundException &e) {
             PyErr_SetString(PyToolkit::getTypeManager().getClassNotFoundError(), e.what());
             return returnError();
-        } catch (const db0::AbstractException &e) {
-            PyErr_SetString(PyExc_RuntimeError, e.what());
-            return returnError();
-        } catch (const std::exception &e) {
+        } 
+        #if ENABLE_DEBUG_EXCEPTIONS
+            catch (const db0::AbstractException &e) {
+                PyErr_SetString(PyExc_RuntimeError, e.what());
+                return returnError();
+            } 
+        #else
+            catch (const db0::AbstractException &e) {
+                PyErr_SetString(PyExc_RuntimeError, e.getDesc().c_str());
+                return returnError();
+            }
+        #endif 
+        catch (const std::exception &e) {
             PyErr_SetString(PyExc_RuntimeError, e.what());
             return returnError();
         } catch (...) {
             PyErr_SetString(PyExc_RuntimeError, "Unknown exception");
             return returnError();
         }
+
     }
     
     // Universal implementaton for both Workspace and WorkspaceView (aka Snapshot)

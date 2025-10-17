@@ -26,6 +26,17 @@ if build_machine.system() == 'linux'
     add_project_arguments('-std:c++20', language : 'cpp')
  endif
 
+enable_debug_exceptions = get_option('enable_debug_exceptions')
+
+message('Enable debug exceptions: ' + enable_debug_exceptions.to_string())
+if enable_debug_exceptions
+  message('Enabling debug exceptions')
+  add_project_arguments('-DENABLE_DEBUG_EXCEPTIONS=1', language: 'c')
+else
+  message('Disabling debug exceptions')
+  add_project_arguments('-DENABLE_DEBUG_EXCEPTIONS=0', language: 'c')
+endif
+
 buildtype = get_option('buildtype')
 build_suffix = ''
 if buildtype.startswith('release')

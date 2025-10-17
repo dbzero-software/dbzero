@@ -9,6 +9,7 @@ function show_help {
     echo " -r, --release                Compile as release. Note: debug build is by default."
     echo " -s, --sanitize               Compile with sanitizers."
     echo " -i, --install                Install build in specified directory"
+    echo " -e, --disable_debug_exceptions      Disable debug exceptions (exceptions and stack traces from c++ code)."
     echo ""
     exit 0;
 }
@@ -19,8 +20,9 @@ cores=`grep -c ^processor /proc/cpuinfo`
 export build_type="debug"
 install_dir=""
 sanitizer="OFF"
-    
-TEMP=`getopt -o hj:rsi: --long help,jobs:,release,sanitize,install: -n 'build.sh' -- "$@"`
+enable_debug_exceptions="true"
+
+TEMP=`getopt -o hj:rsie --long help,jobs:,release,sanitize,install,debug_exceptions -n 'build.sh' -- "$@"`
 if [ ! $? -eq 0 ]; then
     exit
 fi
@@ -31,12 +33,12 @@ while true ; do
         -h|--help) show_help ; shift ;;
         -s|--sanitize) sanitizer="ON" ; shift ;;
         -r|--release) build_type="release" ; shift ;;
+        -e|--disable_debug_exceptions) enable_debug_exceptions="false" ; shift ;;
         -j|--jobs)
             case "$2" in
                 "") shift 2 ;;
                 *) cores=$2 ; shift 2 ;;
             esac ;;
-        -i|--install) install_dir=`realpath -m $2` ; shift 2 ;;
         --) shift ; break ;;
         *) echo "Argument parsing error: $1" ; exit 1 ;;
     esac
@@ -57,10 +59,10 @@ python3 scripts/generate_meson_tests.py tests/
 mkdir -p build
 
 if [ "$build_type" == "debug" ]; then
-	meson setup --buildtype="debug"  build/debug
+	meson setup --buildtype="debug"  -Denable_debug_exceptions=$enable_debug_exceptions build/debug
     cd build/debug
 else
-	meson setup --buildtype="release" build/release 
+	meson setup --buildtype="release" -Denable_debug_exceptions=$enable_debug_exceptions build/release
     cd build/release
 fi
 
