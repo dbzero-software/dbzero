@@ -94,6 +94,8 @@ namespace db0::python
     {
         using ReturnType = std::invoke_result_t<T, Args...>;
 
+
+        auto returnError = []() -> ReturnType {
             if constexpr (std::is_constructible_v<ReturnType, int>) {
                 return ReturnType(ERR_RESULT);
             } else if constexpr (std::is_pointer_v<ReturnType>) {
