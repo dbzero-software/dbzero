@@ -272,7 +272,8 @@ namespace db0::python
         return isExistingSingleton(fixture, py_type);
     }
     
-    void renameField(PyTypeObject *py_type, const char *from_name, const char *to_name)
+    
+    PyObject* tryRenameField(PyTypeObject *py_type, const char *from_name, const char *to_name)
     {        
         using ClassFactory = db0::object_model::ClassFactory;
         auto fixture_uuid = MemoTypeDecoration::get(py_type).getFixtureUUID();
@@ -286,7 +287,14 @@ namespace db0::python
         // resolve existing DB0 type from python type
         auto type = class_factory.getExistingType(py_type);
         type->renameField(from_name, to_name);
+        Py_RETURN_NONE;
     }
+
+    PyObject *renameField(PyTypeObject *py_type, const char *from_name, const char *to_name){
+        PY_API_FUNC
+        return runSafe(tryRenameField, py_type, from_name, to_name);
+    }
+
     
 #ifndef NDEBUG    
     

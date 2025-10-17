@@ -44,7 +44,8 @@ namespace db0::python
         return runSafe(tryGetUUID, args[0]);
     }
     
-    PyObject *ObjectId_repr(PyObject *self)
+    
+    PyObject *TryObjectId_repr(PyObject *self)
     {
         // Format as base-32 string
         char buffer[ObjectId::maxEncodedSize() + 1];
@@ -53,6 +54,11 @@ namespace db0::python
         return PyUnicode_FromString(buffer);
     }
     
+    PyObject *ObjectId_repr(PyObject *self){
+        PY_API_FUNC
+        return runSafe(TryObjectId_repr, self);
+    }
+
     bool ObjectId_Check(PyObject *obj) {
         return PyObject_IsInstance(obj, reinterpret_cast<PyObject*>(&ObjectIdType));
     }
