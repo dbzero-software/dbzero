@@ -26,13 +26,19 @@ namespace db0::python
     bool TagSet_Check(PyObject *obj) {
         return PyObject_TypeCheck(obj, &TagSetType);
     }
-    
-    PyObject *negTagSet(PyObject *, PyObject *const *args, Py_ssize_t nargs)
+
+    PyObject *try_NegateTagSet( PyObject *const *args, Py_ssize_t nargs)
     {
         auto py_tag_set = PyObject_New(PyTagSet, &TagSetType);
         // construct actual instance via placement new
         new (&py_tag_set->m_tag_set) TagSet(args, nargs, true);
         return reinterpret_cast<PyObject *>(py_tag_set);
+    }
+
+    PyObject *negTagSet(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
+    {
+        PY_API_FUNC;
+        return runSafe(try_NegateTagSet, args, nargs);
     }
     
 }

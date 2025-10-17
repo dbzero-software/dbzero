@@ -100,7 +100,7 @@ namespace db0::python
     Py_ssize_t getLenPyObjectOrSet(PyObject *obj)
     {
         if (SetObject_Check(obj)) {
-            return trySetObject_len((SetObject*)obj);
+            return runSafe(trySetObject_len, (SetObject*)obj);
         }
         return PyObject_Length(obj);
     }

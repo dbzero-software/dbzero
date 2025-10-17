@@ -62,12 +62,14 @@ namespace db0::python
 
     #define ADD_CALL_METHOD(NAME) \
         PyObject *ByteArray_##NAME(ByteArrayObject *object_inst, PyObject* args, PyObject* kwargs) { \
-            return callMethod(#NAME, object_inst, args, kwargs); \
+            PY_API_FUNC \
+            return runSafe(callMethod, #NAME, object_inst, args, kwargs); \
         }
 
     #define ADD_BYTEARRAY_CALL_METHOD(NAME) \
         PyObject *ByteArray_##NAME(ByteArrayObject *object_inst, PyObject* args, PyObject* kwargs) { \
-            return ByteArray_CallMethod(#NAME, object_inst, args, kwargs); \
+            PY_API_FUNC \
+            return runSafe(ByteArray_CallMethod, #NAME, object_inst, args, kwargs); \
         }
 
     ADD_BYTEARRAY_CALL_METHOD(capitalize)
@@ -107,10 +109,8 @@ namespace db0::python
     ADD_BYTEARRAY_CALL_METHOD(title)
     ADD_BYTEARRAY_CALL_METHOD(upper)
     ADD_BYTEARRAY_CALL_METHOD(zfill)
-    
-    PyObject *PyAPI_ByteArray_Count(ByteArrayObject *object_inst, PyObject *const *args, Py_ssize_t nargs)
-    {
-        PY_API_FUNC
+
+    PyObject * tryPyAPI_ByteArray_Count(ByteArrayObject *object_inst, PyObject *const *args, Py_ssize_t nargs){
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "count() takes exactly one argument");
             return NULL;
@@ -137,6 +137,12 @@ namespace db0::python
             return NULL;
         }
         return 0;
+    }
+
+    PyObject *PyAPI_ByteArray_Count(ByteArrayObject *object_inst, PyObject *const *args, Py_ssize_t nargs)
+    {
+        PY_API_FUNC
+        return runSafe(tryPyAPI_ByteArray_Count, object_inst, args, nargs);
     }
 
     #define CREATE_METHOD_DEF(NAME, DESCRIPTION) \
@@ -211,9 +217,8 @@ namespace db0::python
         {NULL}
     };
     
-    static PyObject *PyAPI_ByteArrayObject_rq(ByteArrayObject *list_obj, PyObject *other, int op) 
+    static PyObject *tryPyAPI_ByteArrayObject_rq(ByteArrayObject *list_obj, PyObject *other, int op) 
     {
-        PY_API_FUNC
         if (ByteArrayObject_Check(other)) {
             ByteArrayObject * other_list = (ByteArrayObject*) other;
             switch (op)
@@ -228,6 +233,12 @@ namespace db0::python
         } else {
             Py_RETURN_NOTIMPLEMENTED;
         }
+    }
+
+    static PyObject *PyAPI_ByteArrayObject_rq(ByteArrayObject *list_obj, PyObject *other, int op) 
+    {
+        PY_API_FUNC
+        return runSafe(tryPyAPI_ByteArrayObject_rq, list_obj, other, op);
     }
 
     PyTypeObject ByteArrayObjectType = {
@@ -264,9 +275,9 @@ namespace db0::python
         Py_TYPE(bytearray_obj)->tp_free((PyObject*)bytearray_obj);
     }
     
-    ByteArrayObject *PyAPI_makeByteArray(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
+    ByteArrayObject *tryPyAPI_makeByteArray(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
-        PY_API_FUNC
+
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "make_bytearray() takes exacly 1 arguments");
             return NULL;
@@ -284,6 +295,11 @@ namespace db0::python
         lock->getLangCache().add(bytearray_object.get()->ext().getAddress(), bytearray_object.get());
         return bytearray_object.steal();
     }
+
+     ByteArrayObject *PyAPI_makeByteArray(PyObject *self, PyObject *const *args, Py_ssize_t nargs){
+        PY_API_FUNC
+        return runSafe(tryPyAPI_makeByteArray, self, args, nargs);
+     }
     
     bool ByteArrayObject_Check(PyObject *object) {
         return Py_TYPE(object) == &ByteArrayObjectType;        

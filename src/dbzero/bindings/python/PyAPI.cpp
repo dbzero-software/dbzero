@@ -41,9 +41,8 @@ namespace db0::python
 
     using ObjectSharedPtr = PyTypes::ObjectSharedPtr;
 
-    PyObject *getCacheStats(PyObject *, PyObject *)
+    PyObject *tryGetCacheStats()
     {
-        PY_API_FUNC
         auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
         auto &cache_recycler = workspace.getCacheRecycler();
         std::size_t deferred_free_count = 0;
@@ -70,10 +69,15 @@ namespace db0::python
 #endif        
         return dict.steal();
     }
-    
-    PyObject *getLangCacheStats(PyObject *, PyObject *)
+
+    PyObject *getCacheStats(PyObject *, PyObject *)
     {
         PY_API_FUNC
+        return runSafe(tryGetCacheStats);
+    }
+
+    PyObject *tryGetLangCacheStats()
+    {
         auto lang_cache = PyToolkit::getPyWorkspace().getWorkspace().getLangCache();
         
         auto dict = Py_OWN(PyDict_New());
@@ -85,14 +89,23 @@ namespace db0::python
         PySafeDict_SetItemString(*dict, "capacity", Py_OWN(PyLong_FromLong(lang_cache->getCapacity())));
         return dict.steal();
     }
-    
-    PyObject *PyAPI_clearCache(PyObject *, PyObject *)
-    {
+
+    PyObject *getLangCacheStats(PyObject *, PyObject *){
         PY_API_FUNC
+        return runSafe(tryGetLangCacheStats);
+    }
+    
+    PyObject *TryPyAPI_clearCache()
+    {
         PyToolkit::getPyWorkspace().getWorkspace().clearCache();
         Py_RETURN_NONE;
     }
     
+    PyObject *PyAPI_clearCache(PyObject *, PyObject *){
+        PY_API_FUNC
+        return runSafe(TryPyAPI_clearCache);
+    }
+
     shared_py_object<PyObject*> tryFetch(PyObject *py_id, PyTypeObject *type, const char *prefix_name) {
         return tryFetchFrom(PyToolkit::getPyWorkspace().getWorkspace(), py_id, type, prefix_name);
     }
@@ -571,9 +584,14 @@ namespace db0::python
         PY_API_FUNC        
         return runSafe(tryRenameField, args);
     }
-    
-    PyObject *PyAPI_isSingleton(PyObject *, PyObject *args)
+
+    PyObject *TryPyAPI_isSingleton(PyObject *py_object)
     {
+
+        return PyBool_fromBool(reinterpret_cast<MemoObject*>(py_object)->ext().isSingleton());
+    }
+
+    PyObject *PyAPI_isSingleton(PyObject *, PyObject *args){
         PY_API_FUNC
         PyObject *py_object;
         if (!PyArg_ParseTuple(args, "O", &py_object)) {
@@ -586,7 +604,7 @@ namespace db0::python
             return NULL;
         }
 
-        return PyBool_fromBool(reinterpret_cast<MemoObject*>(py_object)->ext().isSingleton());
+        return runSafe(TryPyAPI_isSingleton, py_object);
     }
 
     PyObject *PyAPI_getRefCount(PyObject *, PyObject *args)

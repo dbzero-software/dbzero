@@ -64,6 +64,7 @@ namespace db0::python
     }
 
     DictViewObject *DictViewObject_new(PyTypeObject *type, PyObject *, PyObject *) {
+        PY_API_FUNC
         return DictViewObject_newInternal(type, NULL, NULL);
     }
     
@@ -83,7 +84,7 @@ namespace db0::python
         return Py_TYPE(object) == &DictViewObjectType;        
     }
     
-    DictViewObject *makeDictView(PyObject *py_dict, const db0::object_model::Dict *ptr,
+    DictViewObject *tryMakeDictView(PyObject *py_dict, const db0::object_model::Dict *ptr,
         db0::object_model::IteratorType iterator_type)
     {
         // make actual dbzero instance, use default fixture
@@ -91,5 +92,11 @@ namespace db0::python
         dict_view_object->makeNew(ptr, py_dict, iterator_type);
         return dict_view_object;
     }
-    
+
+     DictViewObject *makeDictView(PyObject *py_dict, const db0::object_model::Dict *ptr,
+        db0::object_model::IteratorType iterator_type){
+        PY_API_FUNC
+        return runSafe(tryMakeDictView, py_dict, ptr, iterator_type);
+    }
+
 }
