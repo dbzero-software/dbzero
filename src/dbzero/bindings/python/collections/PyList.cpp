@@ -246,15 +246,50 @@ namespace db0::python
         return runSafe(tryListObject_rq, list_obj, other, op);
     }
 
+    PyObject *tryListObject_str(ListObject *self)
+    {
+        std::stringstream str;
+        str << "[";
+        // iterate through list elements
+        auto iterator = Py_OWN(PyObject_GetIter(reinterpret_cast<PyObject*>(self)));
+        if (!iterator) {
+            return nullptr;
+        }
+        bool first = true;
+        ObjectSharedPtr elem;
+        Py_FOR(elem, iterator) {
+            if(!first){
+                str << ", ";
+            } else {
+                first = false;
+            }
+            auto str_value = Py_OWN(PyObject_Repr(*elem));
+            if (!str_value) {
+                return nullptr;
+            }
+            str << PyUnicode_AsUTF8(*str_value);
+        } 
+        str << "]";
+        return PyUnicode_FromString(str.str().c_str());
+    }
+
+    PyObject *PyAPI_ListObject_str(ListObject *self)
+    {
+        PY_API_FUNC
+        return runSafe(tryListObject_str, self);
+    }
+
     PyTypeObject ListObjectType = {
         PYVAROBJECT_HEAD_INIT_DESIGNATED,
         .tp_name = "List",
         .tp_basicsize = ListObject::sizeOf(),
         .tp_itemsize = 0,
         .tp_dealloc = (destructor)PyAPI_ListObject_del,
+        .tp_repr = (reprfunc)PyAPI_ListObject_str,
         .tp_as_number = &ListObject_as_num,
         .tp_as_sequence = &ListObject_sq,
         .tp_as_mapping = &ListObject_mp,
+        .tp_str = (reprfunc)PyAPI_ListObject_str,
         .tp_flags =  Py_TPFLAGS_DEFAULT,
         .tp_doc = "dbzero indexed collection object",
         .tp_richcompare = (richcmpfunc)PyAPI_ListObject_rq,

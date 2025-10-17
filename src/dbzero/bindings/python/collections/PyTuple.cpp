@@ -121,6 +121,39 @@ namespace db0::python
         PY_API_FUNC
         return runSafe(tryTupleObject_rq, tuple_obj, other, op);
     }
+
+    PyObject *tryTupleObject_str(TupleObject *self)
+    {
+        std::stringstream str;
+        str << "(";
+        // iterate through list elements
+        auto iterator = Py_OWN(PyObject_GetIter(reinterpret_cast<PyObject*>(self)));
+        if (!iterator) {
+            return nullptr;
+        }
+        bool first = true;
+        ObjectSharedPtr elem;
+        Py_FOR(elem, iterator) {
+            if(!first){
+                str << ", ";
+            } else {
+                first = false;
+            }
+            auto str_value = Py_OWN(PyObject_Repr(*elem));
+            if (!str_value) {
+                return nullptr;
+            }
+            str << PyUnicode_AsUTF8(*str_value);
+        } 
+        str << ")";
+        return PyUnicode_FromString(str.str().c_str());
+    }
+
+    PyObject *PyAPI_TupleObject_str(TupleObject *self)
+    {
+        PY_API_FUNC
+        return runSafe(tryTupleObject_str, self);
+    }
     
     PyTypeObject TupleObjectType = {
         PYVAROBJECT_HEAD_INIT_DESIGNATED,
@@ -128,7 +161,9 @@ namespace db0::python
         .tp_basicsize = TupleObject::sizeOf(),
         .tp_itemsize = 0,
         .tp_dealloc = (destructor)PyAPI_TupleObject_del,
+        .tp_repr = (reprfunc)PyAPI_TupleObject_str,
         .tp_as_sequence = &TupleObject_sq,
+        .tp_str = (reprfunc)PyAPI_TupleObject_str,
         .tp_flags =  Py_TPFLAGS_DEFAULT,
         .tp_doc = "dbzero tuple",
         .tp_richcompare = (richcmpfunc)PyAPI_TupleObject_rq,
