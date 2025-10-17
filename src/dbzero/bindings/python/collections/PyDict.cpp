@@ -8,6 +8,7 @@
 #include <dbzero/bindings/python/PyInternalAPI.hpp>
 #include <dbzero/bindings/python/PyHash.hpp>
 #include "CollectionMethods.hpp"
+#include <iostream>
 
 namespace db0::python
 
@@ -127,7 +128,65 @@ namespace db0::python
         dict_obj->destroy();
         Py_TYPE(dict_obj)->tp_free((PyObject*)dict_obj);
     }
+
     
+    PyObject *tryDictObject_items(DictObject *dict_obj) {
+        return makeDictView(dict_obj, &dict_obj->ext(), db0::object_model::IteratorType::ITEMS);        
+    }
+    
+    PyObject *PyAPI_DictObject_items(DictObject *dict_obj)
+    {
+        PY_API_FUNC
+        return runSafe(tryDictObject_items, dict_obj);    
+    }
+    
+    
+    PyObject *tryDictObject_str(DictObject *self)
+    {
+        std::stringstream str;
+        str << "{";
+        // iterate through dict items (key-value pairs)
+        auto items_view = tryDictObject_items(self);
+        if (!items_view ) {
+            return nullptr;
+        }
+        
+        auto iterator = Py_OWN(PyObject_GetIter(items_view));
+        if (!iterator) {
+            return nullptr;
+        }
+        bool first = true;
+        ObjectSharedPtr item;
+        Py_FOR(item, iterator) {
+            if(!first){
+                str << ", ";
+            } else {
+                first = false;
+            }
+            // item is a tuple of (key, value)
+            // Borrowed references. no need to Py_OWN
+            auto key = PyTuple_GetItem(*item, 0);
+            auto value = PyTuple_GetItem(*item, 1);
+            if (!key || !value) {
+                return nullptr;
+            }
+            auto key_repr = Py_OWN(PyObject_Repr(key));
+            auto value_repr = Py_OWN(PyObject_Repr(value));
+            if (!key_repr || !value_repr) {
+                return nullptr;
+            }
+            str << PyUnicode_AsUTF8(*key_repr) << ": " << PyUnicode_AsUTF8(*value_repr);
+        } 
+        str << "}";
+        return PyUnicode_FromString(str.str().c_str());
+    }
+
+    PyObject *PyAPI_DictObject_str(DictObject *self)
+    {
+        PY_API_FUNC
+        return runSafe(tryDictObject_str, self);
+    }
+
     static PySequenceMethods DictObject_seq = {
         .sq_contains = (objobjproc)PyAPI_DictObject_HasItem
     };
@@ -152,14 +211,18 @@ namespace db0::python
         {NULL}
     };
 
+
+    
     PyTypeObject DictObjectType = {
         PYVAROBJECT_HEAD_INIT_DESIGNATED,
         .tp_name = "Dict",
         .tp_basicsize = DictObject::sizeOf(),
         .tp_itemsize = 0,
         .tp_dealloc = (destructor)PyAPI_DictObject_del,
+        .tp_repr = (reprfunc)PyAPI_DictObject_str,
         .tp_as_sequence = &DictObject_seq,
         .tp_as_mapping = &DictObject_mp,
+        .tp_str = (reprfunc)PyAPI_DictObject_str,
         .tp_flags = Py_TPFLAGS_DEFAULT,
         .tp_doc = "dbzero dict collection object",
         .tp_iter = (getiterfunc)PyAPI_DictObject_iter,
@@ -447,16 +510,6 @@ namespace db0::python
         return runSafe(tryDictObject_values, dict_obj);    
     }
 
-    PyObject *tryDictObject_items(DictObject *dict_obj) {
-        return makeDictView(dict_obj, &dict_obj->ext(), db0::object_model::IteratorType::ITEMS);        
-    }
-    
-    PyObject *PyAPI_DictObject_items(DictObject *dict_obj)
-    {
-        PY_API_FUNC
-        return runSafe(tryDictObject_items, dict_obj);    
-    }
-    
     bool DictObject_Check(PyObject *object) {
         return Py_TYPE(object) == &DictObjectType;        
     }

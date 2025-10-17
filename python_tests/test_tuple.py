@@ -114,3 +114,26 @@ def test_invalid_constructor_arguments(db0_fixture):
     for i in range(5):
         with pytest.raises(ValueError):
             db0.tuple(broken_iterator())
+
+
+def test_db0_tuple_str_same_as_python_tuple(db0_fixture):
+    db0_tuple = db0.tuple([1, "two", 3.0, None])
+    py_tuple = (1, "two", 3.0, None)
+    assert str(db0_tuple) == str(py_tuple)
+    assert repr(db0_tuple) == repr(py_tuple)
+
+def test_db0_tuple_str_with_nested_objects(db0_fixture):
+    inner_tuple = db0.tuple([1, 2, 3])
+    db0_tuple = db0.tuple([inner_tuple, "test", None])
+    py_inner_tuple = (1, 2, 3)
+    py_tuple = (py_inner_tuple, "test", None)
+    assert str(db0_tuple) == str(py_tuple)
+    assert repr(db0_tuple) == repr(py_tuple)
+
+def test_db0_tuple_str_with_nested_memo_objects(db0_fixture):
+    inner_memo = MemoTestClass("inner")
+    db0_tuple = db0.tuple([inner_memo, "test", None])
+    py_inner_memo = inner_memo
+    py_tuple = (py_inner_memo, "test", None)
+    assert str(db0_tuple) == str(py_tuple)
+    assert repr(db0_tuple) == repr(py_tuple)
