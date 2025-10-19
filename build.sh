@@ -53,6 +53,7 @@ fi
 
 python3 scripts/generate_meson.py ./src/dbzero/ core
 python3 scripts/generate_meson_tests.py tests/
+python3 scripts/generate_meson_dbzero.py dbzero/
 
 
 

@@ -105,10 +105,20 @@ namespace db0::python
                 return nullptr;
             }
             switch (op) {
-                case Py_EQ:
-                    return PyBool_fromBool(has_all_elements_same(tuple_obj, *iterator));
-                case Py_NE:
-                    return PyBool_fromBool(!has_all_elements_same(tuple_obj, *iterator));
+                case Py_EQ: {
+                    auto eq_result = has_all_elements_same(tuple_obj, iterator.get());
+                    if (!eq_result) {
+                        return nullptr;
+                    }
+                    return PyBool_fromBool(*eq_result);
+                }
+                case Py_NE: {
+                    auto ne_result = has_all_elements_same(tuple_obj, iterator.get());
+                    if (!ne_result) {
+                        return nullptr;
+                    }
+                    return PyBool_fromBool(!*ne_result);
+                }
                 default:
                     Py_RETURN_NOTIMPLEMENTED;
             }            

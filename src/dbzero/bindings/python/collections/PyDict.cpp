@@ -181,6 +181,61 @@ namespace db0::python
         return PyUnicode_FromString(str.str().c_str());
     }
 
+    PyObject *tryDictObject_rq(DictObject *dict_obj, PyObject *other, int op)
+    {
+        switch (op) {
+            case Py_EQ: {
+                // First check sizes
+                if (dict_obj->ext().size() != PyDict_Size(other)) {
+                    return PyBool_fromBool(false);
+                }
+                
+                // Check all key-value pairs match
+                auto iterator = Py_OWN(PyObject_GetIter(dict_obj));
+                if (!iterator) {
+                    return nullptr;
+                }
+                
+                ObjectSharedPtr key;
+                Py_FOR(key, iterator) {
+                    auto our_value = Py_OWN(tryDictObject_GetItem(dict_obj, *key));
+                    if (!our_value) {
+                        return nullptr;
+                    }
+
+                    auto their_value = Py_OWN(PyDict_GetItem(other, *key));
+                    if (!their_value) {
+                        return PyBool_fromBool(false);
+                    }
+
+                    int cmp_result = PyObject_RichCompareBool(*our_value, *their_value, Py_EQ);
+                    if (cmp_result == -1) {
+                        return nullptr;
+                    }
+                    if (cmp_result != 1) {
+                        return PyBool_fromBool(false);
+                    }
+                }
+                return PyBool_fromBool(true);
+            }
+            case Py_NE: {
+                auto eq_result = Py_OWN(tryDictObject_rq(dict_obj, other, Py_EQ));
+                if (!eq_result) {
+                    return nullptr;
+                }
+                return PyBool_fromBool(PyObject_IsTrue(*eq_result) == 0);
+            }
+            default:
+                Py_RETURN_NOTIMPLEMENTED;
+        }
+    }
+
+    PyObject *PyAPI_DictObject_rq(DictObject *dict_obj, PyObject *other, int op)
+    {
+        PY_API_FUNC
+        return runSafe(tryDictObject_rq, dict_obj, other, op);
+    }
+
     PyObject *PyAPI_DictObject_str(DictObject *self)
     {
         PY_API_FUNC
@@ -225,6 +280,7 @@ namespace db0::python
         .tp_str = (reprfunc)PyAPI_DictObject_str,
         .tp_flags = Py_TPFLAGS_DEFAULT,
         .tp_doc = "dbzero dict collection object",
+        .tp_richcompare = (richcmpfunc)PyAPI_DictObject_rq,
         .tp_iter = (getiterfunc)PyAPI_DictObject_iter,
         .tp_methods = DictObject_methods,        
         .tp_alloc = PyType_GenericAlloc,

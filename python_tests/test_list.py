@@ -1,3 +1,4 @@
+import itertools
 import pytest
 import dbzero as db0
 from .memo_test_types import MemoTestClass, MemoTestSingleton
@@ -485,3 +486,10 @@ def test_db0_list_str_with_nested_memo_objects(db0_fixture):
     py_list = [py_inner_memo, "test", None]
     assert str(db0_list) == str(py_list)
     assert repr(db0_list) == repr(py_list)
+
+def test_db0_list_islice_iteration(db0_fixture):
+    db0_list = db0.list(range(30))
+    expected_values = [10, 12, 14, 16, 18]
+    for index, value in enumerate(itertools.islice(db0_list, 10, 20, 2)):
+        print(f"Index: {index}, Value: {value}, Expected: {expected_values[index]}")
+        assert value == expected_values[index]
