@@ -10,6 +10,7 @@
 #include "ObjectInitializer.hpp"
 #include <dbzero/object_model/value/StorageClass.hpp>
 #include <dbzero/core/serialization/Types.hpp>
+#include <dbzero/core/serialization/packed_int.hpp>
 #include <dbzero/core/vspace/v_object.hpp>
 #include "KV_Index.hpp"
 
@@ -38,8 +39,7 @@ DB0_PACKED_BEGIN
     public:
         static constexpr unsigned char REALM_ID = 1;
         // common object header
-        o_unique_header m_header;
-        const std::uint32_t m_class_ref;
+        o_unique_header m_header;        
         // optional address of the key-value store (to store extension fields)
         KV_Address m_kv_address;
         // kv-index type must be stored separately from the address
@@ -48,8 +48,10 @@ DB0_PACKED_BEGIN
         std::uint8_t m_num_type_tags = 0;
         
         PosVT &pos_vt();
-
         const PosVT &pos_vt() const;
+
+        const packed_int32 &classRef() const;
+        std::uint32_t getClassRef() const;
         
         const IndexVT &index_vt() const;
 
@@ -68,6 +70,7 @@ DB0_PACKED_BEGIN
         {
             return super_t::sizeOfMembers(buf)
                 (PosVT::type())
+                (packed_int32::type())            
                 (IndexVT::type());
         }     
         

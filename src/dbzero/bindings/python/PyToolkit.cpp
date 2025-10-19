@@ -153,7 +153,7 @@ namespace db0::python
             // object not found
             return {};
         }
-        auto [type, lang_type] = class_factory.getTypeByClassRef(stem->m_class_ref);
+        auto [type, lang_type] = class_factory.getTypeByClassRef(stem->getClassRef());
         
         if (!lang_type_ptr) {
             if (!lang_type) {
