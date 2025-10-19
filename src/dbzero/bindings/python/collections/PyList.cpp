@@ -18,7 +18,7 @@ namespace db0::python
                                                                               "dbzero list iterator");
 
     ListIteratorObject *tryListObject_iter(ListObject *self)
-    {        
+    {
         return makeIterator<ListIteratorObject, db0::object_model::ListIterator>(
             ListIteratorObjectType, self->ext().begin(), &self->ext(), self
         );
@@ -107,26 +107,32 @@ namespace db0::python
 
         // Check if the key is a slice object
         if (PySlice_Check(elem)) {
-            // FIXME: this operation should be immutable
-            db0::FixtureLock lock(py_src_list->ext().getFixture());
-
-            Py_ssize_t start, stop, step;
-            PySlice_GetIndices(elem, py_src_list->ext().size(), &start, &stop, &step);
-            auto py_list = tryMake_ListInternal(nullptr, nullptr, 0);
-            auto compare = [step](Py_ssize_t i, Py_ssize_t stop) {
-                if (step > 0) {
-                    return i < stop; 
-                } else {
-                    return i > stop;
-                }
-            };
-
-            auto &list = py_list->modifyExt();
-            for (Py_ssize_t i = start; compare(i, stop); i += step) {
-                list.append(lock, py_src_list->ext().getItem(i));
+            // Parse slice object to get start, stop, step
+            Py_ssize_t start, stop, step, slice_length;
+            Py_ssize_t list_size = py_src_list->ext().size();
+            
+            if (PySlice_GetIndicesEx(elem, list_size, &start, &stop, &step, &slice_length) < 0) {
+                return nullptr;
             }
-
-            return py_list;
+            
+            // Create a new Python list for the slice result
+            PyObject* py_result = PyList_New(slice_length);
+            if (!py_result) {
+                return nullptr;
+            }
+            
+            // Copy elements according to slice parameters
+            for (Py_ssize_t i = 0; i < slice_length; ++i) {
+                Py_ssize_t src_index = start + i * step;
+                PyObject* item = py_src_list->ext().getItem(src_index).steal();
+                if (!item) {
+                    Py_DECREF(py_result);
+                    return nullptr;
+                }
+                PyList_SET_ITEM(py_result, i, item);  // steals reference to item
+            }
+            
+            return py_result;
         }
         
         THROWF(db0::InputException) 
@@ -228,10 +234,20 @@ namespace db0::python
                 return nullptr;
             }
             switch (op) {
-                case Py_EQ:
-                    return PyBool_fromBool(has_all_elements_same(list_obj, iterator.get()));
-                case Py_NE:
-                    return PyBool_fromBool(!has_all_elements_same(list_obj, iterator.get()));
+                case Py_EQ: {
+                    auto eq_result = has_all_elements_same(list_obj, iterator.get());
+                    if (!eq_result) {
+                        return nullptr;
+                    }
+                    return PyBool_fromBool(*eq_result);
+                }
+                case Py_NE: {
+                    auto ne_result = has_all_elements_same(list_obj, iterator.get());
+                    if (!ne_result) {
+                        return nullptr;
+                    }
+                    return PyBool_fromBool(!(*ne_result));
+                }
                 default:
                     Py_RETURN_NOTIMPLEMENTED;
             }

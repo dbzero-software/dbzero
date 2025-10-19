@@ -609,7 +609,12 @@ namespace db0::python
     }
     
     bool PyToolkit::compare(ObjectPtr py_object1, ObjectPtr py_object2) {
-        return PyObject_RichCompareBool(py_object1, py_object2, Py_EQ);
+        auto result = PyObject_RichCompareBool(py_object1, py_object2, Py_EQ);
+        if (result < 0) {
+            // comparison failed
+            THROWF(db0::InputException) << "Comparison failed" << THROWF_END;
+        }
+        return result == 1;
     }
     
     bool PyToolkit::isClassObject(ObjectPtr py_object) {

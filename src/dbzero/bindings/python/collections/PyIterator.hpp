@@ -50,7 +50,7 @@ namespace db0::python
 
     template <typename IteratorObjectT>
     PyObject *tryIteratorObject_iternext(IteratorObjectT *iter_obj)
-    {        
+    {       
         if (iter_obj->ext().is_end()) {
             // raise stop iteration
             PyErr_SetNone(PyExc_StopIteration);
