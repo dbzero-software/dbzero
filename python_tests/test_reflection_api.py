@@ -354,6 +354,5 @@ def test_discover_schema(db0_fixture):
 
 def test_get_memo_class_of_instance(db0_fixture):
     obj = MemoTestClass(123)
-    memo_class = db0.get_memo_class(obj)
-    print(memo_class)
+    memo_class = db0.get_memo_class(obj)    
     assert memo_class is not None

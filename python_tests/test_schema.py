@@ -84,7 +84,7 @@ def test_docs_example_car_schema(db0_fixture):
     # photo stored as a URL
     audi = Car("Audi", "A4", 2022, b"")
     # photo stored as bytes directly in dbzero
-    print(db0.get_schema(Car))
+    assert db0.get_schema(Car)["photo"]["primary_type"] is bytes
     
     
 def test_schema_after_deletions_and_reassign(db0_fixture):
