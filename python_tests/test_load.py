@@ -274,8 +274,7 @@ class DerivedTestObject(TestObjectNoLoad):
 
 
 def test_load_with_inheritance_and_mutations(db0_fixture):
-    obj = DerivedTestObject(None, None, "c")
-    print(db0.load(obj))
+    obj = DerivedTestObject(None, None, "c")    
     assert db0.load(obj) == {"value": None, "other_value": None, "extra": "c", "more_extra": None}    
     obj.value = "a"
     assert db0.load(obj) == {"value": "a", "other_value": None, "extra": "c", "more_extra": None}
