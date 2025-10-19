@@ -11,7 +11,7 @@ namespace db0::object_model
         m_type_id_map.reserve(static_cast<std::size_t>(PreStorageClass::COUNT));
         addMapping(TypeId::NONE, PreStorageClass::NONE);
         // NOTE: None can be stored as 2-bit packed value
-        addMapping(TypeId::NONE, PreStorageClass::PACK_2);        
+        addMapping(TypeId::NONE, PreStorageClass::PACK_2);
         addMapping(TypeId::STRING, PreStorageClass::STRING_REF);
         addReverseMapping(PreStorageClass::POOLED_STRING, TypeId::STRING);
         addReverseMapping(PreStorageClass::STR64, TypeId::STRING);
