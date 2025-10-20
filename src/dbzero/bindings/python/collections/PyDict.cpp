@@ -185,29 +185,39 @@ namespace db0::python
     {
         switch (op) {
             case Py_EQ: {
-                // First check sizes
-                if (dict_obj->ext().size() != PyDict_Size(other)) {
+                
+                // check sizes
+
+                if(PyDict_Check(other)) {
+                    if (dict_obj->ext().size() != (size_t)(PyDict_Size(other))) {
+                        return PyBool_fromBool(false);
+                    }
+                } else if (DictObject_Check(other)) {
+                    DictObject * other_list = (DictObject*) other;
+                    if (dict_obj->ext().size() != other_list->ext().size()) {
+                        return PyBool_fromBool(false);
+                    }
+                } else {
+                    // false if types do not match
                     return PyBool_fromBool(false);
                 }
-                
+
+
                 // Check all key-value pairs match
                 auto iterator = Py_OWN(PyObject_GetIter(dict_obj));
                 if (!iterator) {
                     return nullptr;
                 }
-                
                 ObjectSharedPtr key;
                 Py_FOR(key, iterator) {
                     auto our_value = Py_OWN(tryDictObject_GetItem(dict_obj, *key));
                     if (!our_value) {
                         return nullptr;
                     }
-
                     auto their_value = Py_OWN(PyDict_GetItem(other, *key));
                     if (!their_value) {
                         return PyBool_fromBool(false);
                     }
-
                     int cmp_result = PyObject_RichCompareBool(*our_value, *their_value, Py_EQ);
                     if (cmp_result == -1) {
                         return nullptr;
