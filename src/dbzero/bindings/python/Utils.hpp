@@ -12,7 +12,7 @@ namespace db0::python
     using ObjectSharedPtr = PyTypes::ObjectSharedPtr;
 
     template <typename PyCollection>
-    bool has_all_elements_same(PyCollection *collection, PyObject *iter)
+    std::optional<bool> has_all_elements_same(PyCollection *collection, PyObject *iter)
     {        
         auto py_collection_iter = Py_OWN(PyObject_GetIter(collection));
         if (!py_collection_iter) {
@@ -26,8 +26,12 @@ namespace db0::python
             if (!lh) {
                 return false;
             }
-
-            if (PyObject_RichCompareBool(*lh, *rh, Py_NE) == 1) {
+            auto cmp_result = PyObject_RichCompareBool(*lh, *rh, Py_NE);
+            if (cmp_result == -1) {
+                // return nullopt on error
+                return std::nullopt;
+            }
+            if (cmp_result == 1) {
                 return false;
             }
         }

@@ -24,9 +24,8 @@ namespace db0::python
         Py_TYPE(self)->tp_free((PyObject*)self);
     }
 
-    static PyObject *PyAPI_PyTag_richcompare(PyTag *self, PyObject *other, int op)
+    static PyObject *TryPyAPI_PyTag_richcompare(PyTag *self, PyObject *other, int op)
     {
-        PY_API_FUNC
         bool result = false;
         if (PyTag_Check(other)) {
             PyTag * other_tag = reinterpret_cast<PyTag*>(other);
@@ -43,6 +42,11 @@ namespace db0::python
                 Py_RETURN_NOTIMPLEMENTED;
         }
     }
+
+    static PyObject *PyAPI_PyTag_richcompare(PyTag *self, PyObject *other, int op){
+        PY_API_FUNC
+        return runSafe(TryPyAPI_PyTag_richcompare, self, other, op);
+    }
     
     static Py_hash_t PyAPI_PyTag_hash(PyTag *self) {
         return self->ext().getHash();
@@ -50,7 +54,7 @@ namespace db0::python
     
     PyTypeObject PyTagType = {
         PYVAROBJECT_HEAD_INIT_DESIGNATED,
-        .tp_name = "dbzero_ce.Tag",
+        .tp_name = "dbzero.Tag",
         .tp_basicsize = PyTag::sizeOf(),
         .tp_itemsize = 0,
         .tp_dealloc = (destructor)PyTag_del,

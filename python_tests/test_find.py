@@ -1,5 +1,5 @@
 import pytest
-import dbzero_ce as db0
+import dbzero as db0
 from .memo_test_types import MemoTestClass, MemoDataPxClass, MemoTestSingleton, MemoClassForTags, MemoScopedClass
 from .conftest import DB0_DIR, DATA_PX
 import itertools
@@ -282,7 +282,7 @@ def test_use_not_operator_with_find(db0_fixture, memo_tags):
 
 def test_find_issue_1(db0_fixture):
     """
-    Issue: https://github.com/wskozlowski/dbzero_ce/issues/298
+    Issue: https://github.com/wskozlowski/dbzero/issues/298
     """        
     query_object = MemoTestClass("test")
     query_object2 = MemoTestClass("test")
@@ -324,7 +324,7 @@ class Attribute:
     
 def test_tagging_and_untagging_in_single_commit_breaks_tag_search_issue2(db0_fixture):
     """
-    Issue: https://github.com/wskozlowski/dbzero_ce/issues/184
+    Issue: https://github.com/wskozlowski/dbzero/issues/184
     """
     obj = Attribute("1", "1")
     assert obj.name == "1"

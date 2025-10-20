@@ -12,11 +12,11 @@ namespace db0::python
     using PyObjectTagManager = PyWrapper<ObjectTagManager, false>;
 
     PyObjectTagManager *PyObjectTagManager_new(PyTypeObject *type, PyObject *, PyObject *);
-    void PyObjectTagManager_del(PyObjectTagManager* self);
-    PyObject *PyObjectTagManager_add(PyObjectTagManager *, PyObject *const *args, Py_ssize_t nargs);
-    PyObject *PyObjectTagManager_add_binary(PyObjectTagManager *, PyObject *obj);
-    PyObject *PyObjectTagManager_remove(PyObjectTagManager *, PyObject *const *args, Py_ssize_t nargs);
-    PyObject *PyObjectTagManager_remove_binary(PyObjectTagManager *, PyObject *obj);
+    void PyAPI_PyObjectTagManager_del(PyObjectTagManager* self);
+    PyObject *PyAPI_PyObjectTagManager_add(PyObjectTagManager *, PyObject *const *args, Py_ssize_t nargs);
+    PyObject *PyAPI_PyObjectTagManager_add_binary(PyObjectTagManager *, PyObject *obj);
+    PyObject *PyAPI_PyObjectTagManager_remove(PyObjectTagManager *, PyObject *const *args, Py_ssize_t nargs);
+    PyObject *PyAPI_PyObjectTagManager_remove_binary(PyObjectTagManager *, PyObject *obj);
     
     extern PyTypeObject PyObjectTagManagerType;
     

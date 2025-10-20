@@ -39,28 +39,29 @@ namespace db0::object_model
         }
         return static_cast<std::uint8_t>(value);
     }
-
-    o_object::o_object(std::uint32_t class_ref, std::pair<std::uint32_t, std::uint32_t> ref_counts, 
+    
+    o_object::o_object(std::uint32_t class_ref, std::pair<std::uint32_t, std::uint32_t> ref_counts,
         std::uint8_t num_type_tags, const PosVT::Data &pos_vt_data, unsigned int pos_vt_offset, 
         const XValue *index_vt_begin, const XValue *index_vt_end)
-        : m_header(ref_counts)
-        , m_class_ref(class_ref)        
+        : m_header(ref_counts)        
         , m_num_type_tags(num_type_tags)
     {
         arrangeMembers()
             (PosVT::type(), pos_vt_data, pos_vt_offset)
+            (packed_int32::type(), class_ref)
             (IndexVT::type(), index_vt_begin, index_vt_end);
     }
     
-    std::size_t o_object::measure(std::uint32_t, std::pair<std::uint32_t, std::uint32_t>, std::uint8_t,
+    std::size_t o_object::measure(std::uint32_t class_ref, std::pair<std::uint32_t, std::uint32_t>, std::uint8_t,
         const PosVT::Data &pos_vt_data, unsigned int pos_vt_offset, 
         const XValue *index_vt_begin, const XValue *index_vt_end)
     {
         return super_t::measureMembers()
             (PosVT::type(), pos_vt_data, pos_vt_offset)
+            (packed_int32::type(), class_ref)
             (IndexVT::type(), index_vt_begin, index_vt_end);
     }
-    
+
     const PosVT &o_object::pos_vt() const {
         return getDynFirst(PosVT::type());
     }
@@ -69,12 +70,20 @@ namespace db0::object_model
         return getDynFirst(PosVT::type());
     }
 
+    const packed_int32 &o_object::classRef() const {
+        return getDynAfter(pos_vt(), packed_int32::type());
+    }
+
+    std::uint32_t o_object::getClassRef() const {
+        return classRef().value();
+    }
+
     const IndexVT &o_object::index_vt() const {
-        return getDynAfter(pos_vt(), IndexVT::type());
+        return getDynAfter(classRef(), IndexVT::type());
     }
     
     IndexVT &o_object::index_vt() {
-        return getDynAfter(pos_vt(), IndexVT::type());
+        return getDynAfter(classRef(), IndexVT::type());
     }
     
     void o_object::incRef(bool is_tag) {
@@ -141,7 +150,7 @@ namespace db0::object_model
     }
     
     Object::Object(db0::swine_ptr<Fixture> &fixture, ObjectStem &&stem, std::shared_ptr<Class> type_hint, with_type_hint)
-        : Object(fixture, std::move(stem), getTypeWithHint(*fixture, stem->m_class_ref, type_hint))
+        : Object(fixture, std::move(stem), getTypeWithHint(*fixture, stem->getClassRef(), type_hint))
     {
     }
 
@@ -1069,7 +1078,7 @@ namespace db0::object_model
         assert(!m_type);
         assert(type_hint);
         assert(hasInstance());
-        if (type_hint->getClassRef() == (*this)->m_class_ref) {
+        if (type_hint->getClassRef() == (*this)->getClassRef()) {
             m_type = type_hint;
         } else {
             m_type = unloadType();
@@ -1437,7 +1446,7 @@ namespace db0::object_model
             THROWF(db0::InputException) << "Object does not exist";
         }
 
-        if ((*this)->m_class_ref != other->m_class_ref) {
+        if ((*this)->getClassRef() != other->getClassRef()) {
             // different types
             return false;
         }
@@ -1523,7 +1532,7 @@ namespace db0::object_model
     std::shared_ptr<Class> Object::unloadType() const
     {
         auto fixture = this->getFixture();
-        return getClassFactory(*fixture).getTypeByClassRef((*this)->m_class_ref).m_class;
+        return getClassFactory(*fixture).getTypeByClassRef((*this)->getClassRef()).m_class;
     }
     
     Address Object::getAddress() const
@@ -1548,8 +1557,8 @@ namespace db0::object_model
     
     bool Object::hasValidClassRef() const
     {
-        if (hasInstance() && m_type) {            
-            return (*this)->m_class_ref == m_type->getClassRef();
+        if (hasInstance() && m_type) {
+            return (*this)->getClassRef() == m_type->getClassRef();
         }
         return true;
     }

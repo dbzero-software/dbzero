@@ -1,5 +1,5 @@
 import pytest
-import dbzero_ce as db0
+import dbzero as db0
 from .conftest import DB0_DIR
 from .memo_test_types import MemoScopedClass, MemoScopedSingleton, MemoTestClass
 from typing import List
@@ -55,7 +55,7 @@ def test_hardening_of_non_empty_list_reference_not_supported(db0_fixture):
 
 def test_dict_as_a_scoped_type_member(db0_fixture):
     obj = ScopedDataClass({"a": 1, "b": 2})  
-    assert dict(obj.value) == {"a": 1, "b": 2}
+    assert obj.value == {"a": 1, "b": 2}
     
 
 def test_set_as_a_scoped_type_member(db0_fixture):
@@ -65,12 +65,7 @@ def test_set_as_a_scoped_type_member(db0_fixture):
 
 def test_tuple_as_a_scoped_type_member(db0_fixture):
     obj = ScopedDataClass((1,2,3))
-    assert tuple(obj.value) == (1,2,3)
-
-
-def test_tuple_as_a_scoped_type_member(db0_fixture):
-    obj = ScopedDataClass((1,2,3))
-    assert tuple(obj.value) == (1,2,3)
+    assert obj.value == (1,2,3)
 
 
 def test_auto_hardening_of_weak_index_references(db0_fixture):

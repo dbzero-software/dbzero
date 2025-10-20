@@ -42,8 +42,6 @@ namespace db0::object_model
 
 {
 
-DB0_PACKED_BEGIN
-
     using namespace db0;
     using namespace db0::pools;
     using Fixture = db0::Fixture;
@@ -54,6 +52,8 @@ DB0_PACKED_BEGIN
 
     // fidelity + slot index
     using VFidelityVector = db0::v_bvector<std::pair<std::uint8_t, unsigned int> >;
+    
+DB0_PACKED_BEGIN
 
     struct DB0_PACKED_ATTR o_class: public db0::o_fixed<o_class>
     {        
@@ -83,6 +83,8 @@ DB0_PACKED_BEGIN
         );
     };
     
+DB0_PACKED_END
+
     // address <-> class_ref conversion functions
     // @param type_slot_addr_range the address of the types-specific slot
     std::uint32_t classRef(const Class &, std::pair<std::uint64_t, std::uint64_t> type_slot_addr_range);
@@ -327,6 +329,4 @@ DB0_PACKED_BEGIN
     
     std::optional<std::string> getNameVariant(const Class &, int variant_id);
     
-DB0_PACKED_END
-
 }

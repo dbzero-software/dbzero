@@ -1,5 +1,5 @@
 import pytest
-import dbzero_ce as db0
+import dbzero as db0
 from .memo_test_types import MemoTestClass, MemoDataPxClass, TriColor
 from .conftest import DB0_DIR, DATA_PX
 

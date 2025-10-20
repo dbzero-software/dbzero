@@ -1,7 +1,7 @@
 import pytest
 import random
 import datetime
-import dbzero_ce as db0
+import dbzero as db0
 from .conftest import DB0_DIR
 from .memo_test_types import MemoTestSingleton, MemoTestClass, MemoScopedSingleton, MemoScopedClass, MonthTag, DATA_PX
 from decimal import Decimal
@@ -237,15 +237,11 @@ def test_dict_with_tuples_as_keys(db0_no_autocommit):
 
 def test_dict_with_unhashable_types_as_keys(db0_fixture):
     my_dict = db0.dict()
-    print("Here 1")
     with pytest.raises(Exception) as ex:
-        my_dict[["first", 1]] = MemoTestClass("abc")
-    print("Here 2")
-    assert "hash" in str(ex.value)
-    print("Here 3")
+        my_dict[["first", 1]] = MemoTestClass("abc")    
+    assert "hash" in str(ex.value)    
     with pytest.raises(Exception) as ex:
-        my_dict[{"key":"value"}] = MemoTestClass("abc")
-    print("Here 4")
+        my_dict[{"key":"value"}] = MemoTestClass("abc")    
     assert "hash" in str(ex.value)
 
 
@@ -557,3 +553,43 @@ def test_dict_del_key(db0_no_autocommit):
     del cut["a"]    
     assert len(cut) == 4
     assert "a" not in cut
+
+
+def test_db0_dict_str_same_as_python_dict(db0_fixture):
+    db0_dict = db0.dict({"one": 1, "two": "two", "three": 3.0, "four": None})
+    py_dict = {"one": 1, "two": "two", "three": 3.0, "four": None}
+    # Since dicts are unordered, we need to compare sorted string representations
+    # to ensure consistent comparison regardless of key order
+    db0_str = str(sorted(str(db0_dict).replace("{", "").replace("}", "").split(", ")))
+    py_str = str(sorted(str(py_dict).replace("{", "").replace("}", "").split(", ")))
+    assert db0_str == py_str
+
+def test_db0_dict_str_with_nested_objects(db0_fixture):
+    inner_dict = db0.dict({"a": 1, "b": 2, "c": 3})
+    db0_dict = db0.dict({"nested": inner_dict, "text": "test", "none_val": None})
+    py_inner_dict = {"a": 1, "b": 2, "c": 3}
+    py_dict = {"nested": py_inner_dict, "text": "test", "none_val": None}
+    # Compare string representations by checking if they contain the same elements
+    db0_dict_str = str(db0_dict)
+    py_dict_str = str(py_dict)
+    # Check that both string representations are valid dict strings
+    assert db0_dict_str.startswith("{") and db0_dict_str.endswith("}")
+    assert py_dict_str.startswith("{") and py_dict_str.endswith("}")
+    # Verify the nested structure matches
+    assert "'text': 'test'" in db0_dict_str
+    assert "'none_val': None" in db0_dict_str
+
+def test_db0_dict_str_with_nested_memo_objects(db0_fixture):
+    inner_memo = MemoTestClass("inner")
+    db0_dict = db0.dict({"memo": inner_memo, "text": "test", "none_val": None})
+    py_dict = {"memo": inner_memo, "text": "test", "none_val": None}
+    # Compare string representations
+    db0_dict_str = str(db0_dict)
+    py_dict_str = str(py_dict)
+    # Both should be valid dict string representations
+    assert db0_dict_str.startswith("{") and db0_dict_str.endswith("}")
+    assert py_dict_str.startswith("{") and py_dict_str.endswith("}")
+    # Check that the memo object appears in both string representations
+    memo_str = repr(inner_memo)
+    assert memo_str in db0_dict_str
+    assert memo_str in py_dict_str

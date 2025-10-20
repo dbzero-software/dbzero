@@ -1,8 +1,8 @@
 import pytest
-import dbzero_ce as db0
+import dbzero as db0
 import multiprocessing
 import inspect
-from dbzero_ce.reflection_api import CallableType
+from dbzero.reflection_api import CallableType
 from .conftest import DB0_DIR
 from .memo_test_types import MemoTestClass, MemoTestSingleton, MemoTestClassPropertiesAndImmutables, MemoTestClassWithMethods
 from datetime import datetime
@@ -354,6 +354,5 @@ def test_discover_schema(db0_fixture):
 
 def test_get_memo_class_of_instance(db0_fixture):
     obj = MemoTestClass(123)
-    memo_class = db0.get_memo_class(obj)
-    print(memo_class)
+    memo_class = db0.get_memo_class(obj)    
     assert memo_class is not None

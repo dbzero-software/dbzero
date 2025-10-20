@@ -1,5 +1,5 @@
 import pytest
-import dbzero_ce as db0
+import dbzero as db0
 from .memo_test_types import (MemoTestClass, MemoTestThreeParamsClass, MemoTestCustomLoadClass, 
                               MemoTestCustomLoadClassWithParams, MemoTestSingleton)
 
@@ -214,7 +214,7 @@ def test_load_can_load_keys_in_db0_dict(db0_fixture):
 
 def test_load_set_of_tuples_issue1(db0_fixture):
     """
-    Issue: https://github.com/wskozlowski/dbzero_ce/issues/223
+    Issue: https://github.com/wskozlowski/dbzero/issues/223
     """
     obj = db0.set([(1,2), (2,3)])
     lodaded = db0.load(obj)
@@ -224,7 +224,7 @@ def test_load_set_of_tuples_issue1(db0_fixture):
 
 def test_load_cyclic_graph_issue1(db0_fixture):
     """
-    Issue: https://github.com/wskozlowski/dbzero_ce/issues/338
+    Issue: https://github.com/wskozlowski/dbzero/issues/338
     """
     root = MemoTestSingleton({})
     root.value["a"] = MemoTestClass(123)
@@ -274,8 +274,7 @@ class DerivedTestObject(TestObjectNoLoad):
 
 
 def test_load_with_inheritance_and_mutations(db0_fixture):
-    obj = DerivedTestObject(None, None, "c")
-    print(db0.load(obj))
+    obj = DerivedTestObject(None, None, "c")    
     assert db0.load(obj) == {"value": None, "other_value": None, "extra": "c", "more_extra": None}    
     obj.value = "a"
     assert db0.load(obj) == {"value": "a", "other_value": None, "extra": "c", "more_extra": None}

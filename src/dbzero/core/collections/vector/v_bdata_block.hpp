@@ -21,42 +21,38 @@ DB0_PACKED_BEGIN
     protected:
         using super_t = o_base<o_block_data<ItemT, b_class>, 0, false >;
         friend super_t;
-
-        o_block_data(std::uint32_t)
-        {            
+        
+        o_block_data(std::uint32_t page_size_hint) {
+            auto count = 0x1u << shift(page_size_hint);
+            // initialize with default values
+            std::uninitialized_fill(this->getData(), this->getData() + count, ItemT());            
         }
 
     public:
         using iterator = ItemT*;
         using const_iterator = const ItemT*;
         
-        ItemT *getData()
-        {
+        ItemT *getData() {
             return reinterpret_cast<ItemT *>(this);
         }
         
-        const ItemT *getData() const
-        {
+        const ItemT *getData() const {
             return reinterpret_cast<const ItemT *>(this);            
         }  
 
-        static std::size_t measure(std::uint32_t page_size_hint)
-        {
+        static std::size_t measure(std::uint32_t page_size_hint) {
             return sizeof(ItemT) << shift(page_size_hint);
         } 
 
-        template <class buf_t> static std::size_t safeSizeOf(buf_t buf)
-        {
+        template <class buf_t> static std::size_t safeSizeOf(buf_t buf) {
             throw std::runtime_error("o_block_data::safeSizeOf member not available");
         }
 
-        inline const ItemT &getItem(std::size_t index) const 
-        {            
+        inline const ItemT &getItem(std::size_t index) const {
             return getData()[index];
         }
 
-        ItemT &modifyItem(std::size_t index)
-        {            
+        ItemT &modifyItem(std::size_t index) {
             return getData()[index];
         }
 
@@ -84,20 +80,14 @@ DB0_PACKED_BEGIN
             }
             return result;
         }
-
-        /**
-         * Pull begin (first item) iterator for write
-         */
-        iterator begin() 
-        {
+        
+        // Pull begin (first item) iterator for write
+        iterator begin() {
             return getData();
         }
-
-        /**
-         * Pull begin (first item) iterator for read
-         */
-        const_iterator begin() const 
-        {
+        
+        // Pull begin (first item) iterator for read
+        const_iterator begin() const {
             return getData();
         }
     };

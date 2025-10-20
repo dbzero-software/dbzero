@@ -1,7 +1,7 @@
-from typing import Any, Optional, List
+from typing import Optional, List
 from .interfaces import Memo, Tag
-import dbzero_ce as db0
-from .dbzero_ce import _compare
+import dbzero as db0
+from .dbzero import _compare
 
 
 def compare(obj_1: Memo, obj_2: Memo, tags: Optional[List[Tag]] = None) -> bool:

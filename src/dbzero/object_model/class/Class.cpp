@@ -146,10 +146,10 @@ namespace db0::object_model
         std::copy(init_vars.begin(), init_vars.end(), std::inserter(result, result.end()));
         return result;
     }
-
+    
     std::string Class::getName() const {
         return getFixture()->getLimitedStringPool().fetch((*this)->m_name);
-    }   
+    }
     
     std::optional<std::string> Class::getTypeId() const
     {
@@ -276,7 +276,7 @@ namespace db0::object_model
         auto &class_factory = getClassFactory(*fixture);
         auto stem = Object::unloadStem(fixture, (*this)->m_singleton_address);
         auto type = class_factory.getTypeByPtr(
-            db0::db0_ptr_reinterpret_cast<Class>()(classRefToAddress(stem->m_class_ref, m_type_slot_addr_range))).m_class;
+            db0::db0_ptr_reinterpret_cast<Class>()(classRefToAddress(stem->getClassRef(), m_type_slot_addr_range))).m_class;
         // unload from stem
         new (at) Object(fixture, std::move(stem), type, Object::with_type_hint{});
         return true;
@@ -355,7 +355,7 @@ namespace db0::object_model
     
     std::optional<std::string> getNameVariant(std::optional<std::string> type_id, std::optional<std::string> type_name,
         std::optional<std::string> module_name, std::optional<std::string> type_fields_str, int variant_id)
-    {
+    {        
         switch (variant_id) {
             case 0: {
                 if (!type_id) {

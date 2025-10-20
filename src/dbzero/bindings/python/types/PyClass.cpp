@@ -95,7 +95,7 @@ namespace db0::python
     
     PyTypeObject ClassObjectType = {
         PYVAROBJECT_HEAD_INIT_DESIGNATED,
-        .tp_name = "dbzero_ce.Class",
+        .tp_name = "dbzero.Class",
         .tp_basicsize = ClassObject::sizeOf(),
         .tp_itemsize = 0,
         .tp_dealloc = (destructor)PyAPI_ClassObject_del,

@@ -1,7 +1,7 @@
-from typing import Any, Optional, Callable, Iterable, Tuple
+from typing import Optional, Callable, Iterable, Tuple
 from .interfaces import Memo, QueryObject, Snapshot
-import dbzero_ce as db0
-from .dbzero_ce import _select_mod_candidates, _split_by_snapshots
+import dbzero as db0
+from .dbzero import _select_mod_candidates, _split_by_snapshots
 
 
 def select_new(query: QueryObject, pre_snapshot: Optional[Snapshot], last_snapshot: Snapshot) -> QueryObject:

@@ -1,7 +1,7 @@
 import inspect
 import dis
 from typing import Callable, Optional
-from .dbzero_ce import _wrap_memo_type, set_prefix
+from .dbzero import _wrap_memo_type, set_prefix
 
 
 def migration(func: Callable) -> Callable:
@@ -221,6 +221,6 @@ def memo(cls: Optional[type] = None, **kwargs) -> type:
     return wrap(cls, **kwargs)
 
 
-@memo(id="Division By Zero/dbzero_ce/MemoBase")
+@memo(id="Division By Zero/dbzero/MemoBase")
 class MemoBase:
     pass

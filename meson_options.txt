@@ -1,0 +1,5 @@
+option('enable_debug_exceptions',
+  type: 'boolean',
+  value: false,
+  description: 'Enable debug exceptions (exceptions and stack traces from c++ code).'
+)

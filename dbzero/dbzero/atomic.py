@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict
 from .interfaces import Memo
-from .dbzero_ce import begin_atomic, assign
+from .dbzero import begin_atomic, assign
 
 
 class AtomicManager:

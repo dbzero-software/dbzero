@@ -1,6 +1,6 @@
 from collections import namedtuple
 from typing import Iterator, Any
-from .dbzero_ce import _get_prefixes, _get_current_prefix, _get_prefix_of, _get_mutable_prefixes
+from .dbzero import _get_prefixes, _get_current_prefix, _get_prefix_of, _get_mutable_prefixes
 
 
 PrefixMetaData = namedtuple("PrefixMetaData", ["name", "uuid"])

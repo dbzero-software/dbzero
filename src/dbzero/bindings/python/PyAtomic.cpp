@@ -30,7 +30,7 @@ namespace db0::python
 
     PyTypeObject PyAtomicType = {
         PYVAROBJECT_HEAD_INIT_DESIGNATED,
-        .tp_name = "dbzero_ce.AtomicContext",
+        .tp_name = "dbzero.AtomicContext",
         .tp_basicsize = PyAtomic::sizeOf(),
         .tp_itemsize = 0,
         .tp_dealloc = (destructor)PyAPI_PyAtomic_del, 

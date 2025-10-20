@@ -9,13 +9,13 @@ namespace db0::python
     using ObjectTagManager = db0::object_model::ObjectTagManager;
     
     static PyNumberMethods PyObjectTagManager_as_num = {
-        .nb_add = (binaryfunc)PyObjectTagManager_add_binary,
-        .nb_subtract= (binaryfunc)PyObjectTagManager_remove_binary
+        .nb_add = (binaryfunc)PyAPI_PyObjectTagManager_add_binary,
+        .nb_subtract= (binaryfunc)PyAPI_PyObjectTagManager_remove_binary
     };
 
     static PyMethodDef PyObjectTagManager_methods[] = {
-        {"add", (PyCFunction)PyObjectTagManager_add, METH_FASTCALL, "Assign tags to an instance."},
-        {"remove", (PyCFunction)PyObjectTagManager_remove, METH_FASTCALL, "Remove tags from an instance."},
+        {"add", (PyCFunction)PyAPI_PyObjectTagManager_add, METH_FASTCALL, "Assign tags to an instance."},
+        {"remove", (PyCFunction)PyAPI_PyObjectTagManager_remove, METH_FASTCALL, "Remove tags from an instance."},
         {NULL}
     };
 
@@ -23,7 +23,7 @@ namespace db0::python
         return reinterpret_cast<PyObjectTagManager*>(type->tp_alloc(type, 0));
     }
 
-    void PyObjectTagManager_del(PyObjectTagManager* tags_obj)
+    void PyAPI_PyObjectTagManager_del(PyObjectTagManager* tags_obj)
     {
         PY_API_FUNC
         // destroy associated DB0 instance
@@ -38,7 +38,7 @@ namespace db0::python
         return tag_manager;
     }
 
-    PyObject *PyObjectTagManager_add_binary(PyObjectTagManager *tag_manager, PyObject *object) 
+    PyObject *PyAPI_PyObjectTagManager_add_binary(PyObjectTagManager *tag_manager, PyObject *object) 
     {
         PY_API_FUNC
         return runSafe(tryPyObjectTagManager_add_binary, tag_manager, object);
@@ -50,7 +50,7 @@ namespace db0::python
         Py_RETURN_NONE;
     }
 
-    PyObject *PyObjectTagManager_add(PyObjectTagManager *tag_manager, PyObject *const *args, Py_ssize_t nargs) 
+    PyObject *PyAPI_PyObjectTagManager_add(PyObjectTagManager *tag_manager, PyObject *const *args, Py_ssize_t nargs) 
     {
         PY_API_FUNC
         return runSafe(tryPyObjectTagManager_add, tag_manager, args, nargs);
@@ -63,7 +63,7 @@ namespace db0::python
         return tag_manager;
     }
 
-    PyObject *PyObjectTagManager_remove_binary(PyObjectTagManager *tag_manager, PyObject *object) 
+    PyObject *PyAPI_PyObjectTagManager_remove_binary(PyObjectTagManager *tag_manager, PyObject *object) 
     {
         PY_API_FUNC
         return runSafe(tryPyObjectTagManager_remove_binary, tag_manager, object);
@@ -75,7 +75,7 @@ namespace db0::python
         Py_RETURN_NONE;
     }
 
-    PyObject *PyObjectTagManager_remove(PyObjectTagManager *tag_manager, PyObject *const *args, Py_ssize_t nargs) 
+    PyObject *PyAPI_PyObjectTagManager_remove(PyObjectTagManager *tag_manager, PyObject *const *args, Py_ssize_t nargs) 
     {
         PY_API_FUNC
         return runSafe(tryPyObjectTagManager_remove, tag_manager, args, nargs);
@@ -83,10 +83,10 @@ namespace db0::python
     
     PyTypeObject PyObjectTagManagerType = {
         PYVAROBJECT_HEAD_INIT_DESIGNATED,
-        .tp_name = "dbzero_ce.Tags",
+        .tp_name = "dbzero.Tags",
         .tp_basicsize = PyObjectTagManager::sizeOf(),
         .tp_itemsize = 0,
-        .tp_dealloc = (destructor)PyObjectTagManager_del,
+        .tp_dealloc = (destructor)PyAPI_PyObjectTagManager_del,
         .tp_as_number = &PyObjectTagManager_as_num,
         .tp_flags = Py_TPFLAGS_DEFAULT,
         .tp_doc = "dbzero tag manager object",

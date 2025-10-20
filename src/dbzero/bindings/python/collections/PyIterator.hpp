@@ -24,13 +24,21 @@ namespace db0::python
     } 
     
     template <typename IteratorObjectT, typename IteratorModelT, typename IteratorT, typename ObjectT>
-    IteratorObjectT *makeIterator(PyTypeObject& typeObject, IteratorT iterator, const ObjectT *ptr, PyObject *collection_ptr)
+    IteratorObjectT *tryMakeIterator(PyTypeObject& typeObject, IteratorT iterator, const ObjectT *ptr, PyObject *collection_ptr)
     {
         assert(ptr);
         auto iter = (*ptr).getIterator(collection_ptr);
         auto py_iter = IteratorObject_new<IteratorObjectT>(&typeObject, NULL, NULL);
         py_iter->makeNew(iter);
         return py_iter;
+    }
+
+    template <typename IteratorObjectT, typename IteratorModelT, typename IteratorT, typename ObjectT>
+    IteratorObjectT *makeIterator(PyTypeObject& typeObject, IteratorT iterator, const ObjectT *ptr, PyObject *collection_ptr)
+    {
+        PY_API_FUNC
+        return runSafe(tryMakeIterator<IteratorObjectT, IteratorModelT, IteratorT, ObjectT>, 
+            typeObject, iterator, ptr, collection_ptr);
     }
     
     template <typename IteratorObjectT>
@@ -42,7 +50,7 @@ namespace db0::python
 
     template <typename IteratorObjectT>
     PyObject *tryIteratorObject_iternext(IteratorObjectT *iter_obj)
-    {        
+    {       
         if (iter_obj->ext().is_end()) {
             // raise stop iteration
             PyErr_SetNone(PyExc_StopIteration);

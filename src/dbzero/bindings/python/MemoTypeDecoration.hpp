@@ -64,7 +64,7 @@ namespace db0::python
             return m_type_id;
         }
         
-        // Check if scoped of this type is limited to a specific prefix
+        // Check if scope of this type is limited to a specific prefix
         bool isScoped() const;
         
         // NOTE: may return invalid / empty prefix name

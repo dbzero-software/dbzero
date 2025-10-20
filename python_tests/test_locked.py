@@ -2,7 +2,7 @@ import pytest
 import random
 import asyncio
 from .memo_test_types import MemoTestClass, MemoScopedClass, MemoTestSingleton
-import dbzero_ce as db0
+import dbzero as db0
 
 
 def test_locked_section_can_be_entered(db0_fixture):

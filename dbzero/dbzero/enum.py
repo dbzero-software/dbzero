@@ -1,6 +1,6 @@
 from typing import Any, Optional, List, Union, overload
 from .interfaces import EnumType
-from .dbzero_ce import _make_enum
+from .dbzero import _make_enum
 
 
 @overload

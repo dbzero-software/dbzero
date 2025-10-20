@@ -1,6 +1,6 @@
 import pytest
-import dbzero_ce as db0
-from .memo_test_types import MemoTestClass, TriColor, MemoTestSingleton
+import dbzero as db0
+from .memo_test_types import MemoTestClass, TriColor, MemoAnyAttrs
 from dataclasses import dataclass
 
 
@@ -72,7 +72,7 @@ def test_is_memo_for_types(db0_fixture):
 @pytest.mark.skip(reason="Skipping due to unresolved issue #237")
 def test_memo_property_decorator_issue1(db0_fixture):
     """
-    Issue: https://github.com/wskozlowski/dbzero_ce/issues/237
+    Issue: https://github.com/wskozlowski/dbzero/issues/237
     """    
     test_obj = MemoClassWithSetter(1)
     assert test_obj.value == 1
@@ -187,4 +187,23 @@ def test_reassign_deleted_member(db0_fixture):
     # assign with full-length value
     obj_1.value = "Full Length Value"
     assert obj_1.value == "Full Length Value"
+    
+    
+def test_selective_assign_members(db0_fixture):
+    obj_1 = MemoAnyAttrs(f1 = 0, f2 = 1, f3 = 2)
+    # NOTE: additional slot assigned to pack-2 values (initially unused)
+    assert len(db0.describe(obj_1)["field_layout"]["pos_vt"]) == 4
+    # assigned at first use
+    obj_1.f2 = False
+    assert len(db0.describe(obj_1)["field_layout"]["pos_vt"]) == 4
+    
+    _ = MemoAnyAttrs(f4 = False, f5 = 1, f6 = 2, f7 = 3.5, f8 = 1, f9 = 2)
+    obj_3 = MemoAnyAttrs(f7 = 3.5, f8 = 1, f9 = 2)
+    assert len(db0.describe(obj_3)["field_layout"]["pos_vt"]) == 3
+    # NOTE: pack-2 slot included on condition fill-rate is at least 50%
+    obj_4 = MemoAnyAttrs(f4 = False, f5 = 1, f6 = 2, f7 = 3.5)
+    assert len(db0.describe(obj_4)["field_layout"]["pos_vt"]) >= 4    
+    obj_5 = MemoAnyAttrs(f4 = False, f6 = 1, f9 = 11)
+    # too spread apart, only some fraction of slots to be allocated to pos-vt
+    assert len(db0.describe(obj_5)["field_layout"]["pos_vt"]) < 3
     

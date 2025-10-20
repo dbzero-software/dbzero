@@ -26,6 +26,17 @@ if build_machine.system() == 'linux'
     add_project_arguments('-std:c++20', language : 'cpp')
  endif
 
+enable_debug_exceptions = get_option('enable_debug_exceptions')
+
+message('Enable debug exceptions: ' + enable_debug_exceptions.to_string())
+if enable_debug_exceptions
+  message('Enabling debug exceptions')
+  add_project_arguments('-DENABLE_DEBUG_EXCEPTIONS=1', language: 'c')
+else
+  message('Disabling debug exceptions')
+  add_project_arguments('-DENABLE_DEBUG_EXCEPTIONS=0', language: 'c')
+endif
+
 buildtype = get_option('buildtype')
 build_suffix = ''
 if buildtype.startswith('release')
@@ -38,7 +49,7 @@ dbzero_deps = []
 include_dirs = include_directories(['src/'])
 include_dirs_test = include_directories(['src/','tests/'])
 py3_inst = import('python').find_installation('python3', pure: false)
-install_dir = py3_inst.get_install_dir() / 'dbzero_ce' / 'libs'
+install_dir = py3_inst.get_install_dir() / 'dbzero' / 'libs'
 deps = []
 
 if build_machine.system() == 'linux'
@@ -54,7 +65,7 @@ endif
 
 all_srcs = []
 subdir('src/dbzero')
-subdir('dbzero_ce')
+subdir('dbzero')
 
 link_with = []
 
@@ -84,7 +95,7 @@ e = executable('tests' + build_suffix + '.x', [all_srcs,tests_sources], dependen
 
 test('gtest tests', e)
 
-py3avlw = py3_inst.extension_module('dbzero_ce',
+py3avlw = py3_inst.extension_module('dbzero',
     sources: ['src/dbzero/bindings/python/dbzero.cpp'], 
     dependencies : [deps, gtest_dep, gmock_dep],
     include_directories:include_dirs,
@@ -94,5 +105,5 @@ py3avlw = py3_inst.extension_module('dbzero_ce',
         'cpp_rtti=true',
     ],
     install: true,
-    subdir: 'dbzero_ce',
+    subdir: 'dbzero',
 )

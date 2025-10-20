@@ -2,7 +2,7 @@ from datetime import date, datetime
 import pytest
 import subprocess
 import multiprocessing
-import dbzero_ce as db0
+import dbzero as db0
 from python_tests.memo_test_types import MemoTestClass, MemoTestSingleton
 from .conftest import DB0_DIR
 
@@ -56,7 +56,7 @@ def test_hash_with_db0_datetime(db0_fixture):
 def get_test_without_remove(script, setup_script=""):
     return f"""
 import os
-import dbzero_ce as db0
+import dbzero as db0
 import shutil
 import gc
 DB0_DIR = os.path.join(os.getcwd(), "db0-test-data-subprocess/")
@@ -75,7 +75,7 @@ db0.close()
 def get_cleanup_script():
     return """
 import os
-import dbzero_ce as db0
+import dbzero as db0
 import shutil
 import gc
 DB0_DIR = os.path.join(os.getcwd(), "db0-test-data-subprocess/")
@@ -86,7 +86,7 @@ if os.path.exists(DB0_DIR):
 def get_test_for_subprocess(value_to_hash, setup_script=""):
     return f"""
 import os
-import dbzero_ce as db0
+import dbzero as db0
 import shutil
 import gc
 

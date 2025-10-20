@@ -1,5 +1,6 @@
+import itertools
 import pytest
-import dbzero_ce as db0
+import dbzero as db0
 from .memo_test_types import MemoTestClass, MemoTestSingleton
 from .conftest import DB0_DIR
 from .memo_test_types import MemoTestClass
@@ -439,7 +440,7 @@ def test_list_index_access_issue_1(db0_fixture):
 
 def test_list_pop_while_iteration(db0_fixture):
     """
-    Issue: https://github.com/wskozlowski/dbzero_ce/issues/252
+    Issue: https://github.com/wskozlowski/dbzero/issues/252
     The test was failing with: segmentation fault
     """
     cut = db0.list([0, 1, 2, 3, 4])
@@ -463,3 +464,31 @@ def test_list_extend_with_none(db0_fixture):
     cut.extend([None] * 1024)
     for i in range(1024):
         assert cut[i] is None
+
+def test_db0_list_str_same_as_python_list(db0_fixture):
+    db0_list = db0.list([1, "two", 3.0, None])
+    py_list = [1, "two", 3.0, None]
+    assert str(db0_list) == str(py_list)
+    assert repr(db0_list) == repr(py_list)
+
+def test_db0_list_str_with_nested_objects(db0_fixture):
+    inner_list = db0.list([1, 2, 3])
+    db0_list = db0.list([inner_list, "test", None])
+    py_inner_list = [1, 2, 3]
+    py_list = [py_inner_list, "test", None]
+    assert str(db0_list) == str(py_list)
+    assert repr(db0_list) == repr(py_list)
+
+def test_db0_list_str_with_nested_memo_objects(db0_fixture):
+    inner_memo = MemoTestClass("inner")
+    db0_list = db0.list([inner_memo, "test", None])
+    py_inner_memo = inner_memo
+    py_list = [py_inner_memo, "test", None]
+    assert str(db0_list) == str(py_list)
+    assert repr(db0_list) == repr(py_list)
+
+def test_db0_list_islice_iteration(db0_fixture):
+    db0_list = db0.list(range(30))
+    expected_values = [10, 12, 14, 16, 18]
+    for index, value in enumerate(itertools.islice(db0_list, 10, 20, 2)):    
+        assert value == expected_values[index]

@@ -3,7 +3,7 @@
 import os
 import pytest
 import gc
-import dbzero_ce as db0
+import dbzero as db0
 import shutil
 from .memo_test_types import MemoTestClass, MemoTestSingleton, MemoDataPxClass, \
         MemoDataPxSingleton, DATA_PX

@@ -119,9 +119,9 @@ static PyMethodDef dbzero_methods[] =
     {NULL} // Sentinel
 };
 
-static struct PyModuleDef dbzero_ce_module = {
+static struct PyModuleDef dbzero_module = {
     PyModuleDef_HEAD_INIT,
-    "dbzero_ce",
+    "dbzero",
     NULL,
     -1,
     dbzero_methods
@@ -129,7 +129,7 @@ static struct PyModuleDef dbzero_ce_module = {
     
 static struct PyModuleDef dbzero_types_module = {
     PyModuleDef_HEAD_INIT,
-    "dbzero_ce.types",
+    "dbzero.types",
     NULL,
     -1,
     NULL,
@@ -163,9 +163,9 @@ void initPyError(PyObject *mod, PyObject *py_error, const char *error_name)
 }
 
 // Module initialization function for Python 3.x
-PyMODINIT_FUNC PyInit_dbzero_ce(void)
+PyMODINIT_FUNC PyInit_dbzero(void)
 {   
-    auto mod = PyModule_Create(&dbzero_ce_module);
+    auto mod = PyModule_Create(&dbzero_module);
     auto types_mod = PyModule_Create(&dbzero_types_module);
 
     if (PyModule_AddObject(mod, "types", types_mod) < 0) {        

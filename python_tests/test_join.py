@@ -1,6 +1,6 @@
 import pytest
 import operator
-import dbzero_ce as db0
+import dbzero as db0
 from .memo_test_types import MemoTestClass, MemoClassForTags
 from .conftest import DB0_DIR, DATA_PX
 import datetime

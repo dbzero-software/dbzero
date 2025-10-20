@@ -83,7 +83,7 @@ namespace db0::python
     bool isExistingObject(db0::swine_ptr<Fixture> &fixture, ObjectId object_id, 
         PyTypeObject *py_expected_type = nullptr);
     
-    void renameField(PyTypeObject *py_type, const char *from_name, const char *to_name);
+    PyObject *renameField(PyTypeObject *py_type, const char *from_name, const char *to_name);
     
     /**
      * Runs a function, catch exeptions and translate into Python errors
@@ -93,6 +93,7 @@ namespace db0::python
     typename std::invoke_result_t<T, Args...> runSafe(T func, Args&&... args)
     {
         using ReturnType = std::invoke_result_t<T, Args...>;
+
 
         auto returnError = []() -> ReturnType {
             if constexpr (std::is_constructible_v<ReturnType, int>) {
@@ -116,16 +117,26 @@ namespace db0::python
         } catch (const db0::ClassNotFoundException &e) {
             PyErr_SetString(PyToolkit::getTypeManager().getClassNotFoundError(), e.what());
             return returnError();
-        } catch (const db0::AbstractException &e) {
-            PyErr_SetString(PyExc_RuntimeError, e.what());
-            return returnError();
-        } catch (const std::exception &e) {
+        } 
+        #if ENABLE_DEBUG_EXCEPTIONS
+            catch (const db0::AbstractException &e) {
+                PyErr_SetString(PyExc_RuntimeError, e.what());
+                return returnError();
+            } 
+        #else
+            catch (const db0::AbstractException &e) {
+                PyErr_SetString(PyExc_RuntimeError, e.getDesc().c_str());
+                return returnError();
+            }
+        #endif 
+        catch (const std::exception &e) {
             PyErr_SetString(PyExc_RuntimeError, e.what());
             return returnError();
         } catch (...) {
             PyErr_SetString(PyExc_RuntimeError, "Unknown exception");
             return returnError();
         }
+
     }
     
     // Universal implementaton for both Workspace and WorkspaceView (aka Snapshot)

@@ -16,7 +16,7 @@ namespace db0::python
     using ObjectSharedPtr = PyTypes::ObjectSharedPtr;
     using SetIteratorObject = PySharedWrapper<db0::object_model::SetIterator, false>;
 
-    PyTypeObject SetIteratorObjectType = GetIteratorType<SetIteratorObject>("dbzero_ce.SetObjectIterator",
+    PyTypeObject SetIteratorObjectType = GetIteratorType<SetIteratorObject>("dbzero.SetObjectIterator",
         "dbzero typed query object iterator");
 
     SetIteratorObject *trySetObject_iter(SetObject *self)
@@ -100,7 +100,7 @@ namespace db0::python
     Py_ssize_t getLenPyObjectOrSet(PyObject *obj)
     {
         if (SetObject_Check(obj)) {
-            return trySetObject_len((SetObject*)obj);
+            return runSafe(trySetObject_len, (SetObject*)obj);
         }
         return PyObject_Length(obj);
     }
@@ -239,14 +239,51 @@ namespace db0::python
         return runSafe(trySetObject_rq, set_obj, other, op);
     }
 
+
+    
+    PyObject *trySetObject_str(SetObject *self)
+    {
+        std::stringstream str;
+        str << "{";
+        // iterate through set elements
+        auto iterator = Py_OWN(PyObject_GetIter(reinterpret_cast<PyObject*>(self)));
+        if (!iterator) {
+            return nullptr;
+        }
+        bool first = true;
+        ObjectSharedPtr elem;
+        Py_FOR(elem, iterator) {
+            if(!first){
+                str << ", ";
+            } else {
+                first = false;
+            }
+            auto str_value = Py_OWN(PyObject_Repr(*elem));
+            if (!str_value) {
+                return nullptr;
+            }  
+            str << PyUnicode_AsUTF8(*str_value);
+        } 
+        str << "}";
+        return PyUnicode_FromString(str.str().c_str());
+    }
+
+    PyObject *PyAPI_SetObject_str(SetObject *self)
+    {
+        PY_API_FUNC
+        return runSafe(trySetObject_str, self);
+    }
+
     PyTypeObject SetObjectType = {
         PYVAROBJECT_HEAD_INIT_DESIGNATED,
         .tp_name = "Set",
         .tp_basicsize = SetObject::sizeOf(),
         .tp_itemsize = 0,
         .tp_dealloc = (destructor)SetObject_del,
+        .tp_repr = (reprfunc)PyAPI_SetObject_str,
         .tp_as_number = &SetObject_as_num,
         .tp_as_sequence = &SetObject_sq,
+        .tp_str = (reprfunc)PyAPI_SetObject_str,
         .tp_flags = Py_TPFLAGS_DEFAULT,
         .tp_doc = "dbzero set collection object",
         .tp_richcompare = (richcmpfunc)PyAPI_SetObject_rq,

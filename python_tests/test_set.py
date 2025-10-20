@@ -1,7 +1,7 @@
 import pytest
 import datetime
 import random
-import dbzero_ce as db0
+import dbzero as db0
 from .memo_test_types import MemoTestClass, MemoTestSingleton
 from .conftest import DB0_DIR
 
@@ -581,3 +581,65 @@ def test_retrieving_memo_types_as_set_keys(db0_fixture):
     for k in set_1:
         assert k is MemoTestClass
     
+def test_db0_set_str_same_as_python_set(db0_fixture):
+    db0_set = db0.set([1, "two", 3.0])
+    py_set = {1, "two", 3.0}
+    
+    # Test that both sets are equal (same elements)
+    assert db0_set == py_set
+    
+    # Test that string representation has proper format (starts and ends with braces)
+    db0_str = str(db0_set)
+    py_str = str(py_set)
+    assert db0_str.startswith('{') and db0_str.endswith('}')
+    assert py_str.startswith('{') and py_str.endswith('}')
+    
+    # Test that all elements appear in both string representations
+    for element in [1, "two", 3.0]:
+        assert str(element) in db0_str
+        assert str(element) in py_str
+
+def test_db0_set_str_with_nested_objects(db0_fixture):
+    inner_tuple = db0.tuple([1, 2, 3])
+    db0_set = db0.set([inner_tuple, "test"])
+    py_inner_tuple = (1, 2, 3)
+    py_set = {py_inner_tuple, "test"}
+    
+    # Test that both sets are equal (same elements)
+    assert db0_set == py_set
+    
+    # Test that string representation has proper format
+    db0_str = str(db0_set)
+    py_str = str(py_set)
+    assert db0_str.startswith('{') and db0_str.endswith('}')
+    assert py_str.startswith('{') and py_str.endswith('}')
+    
+    # Test that tuple and string elements appear in both representations
+    assert "'test'" in db0_str
+    assert "'test'" in py_str
+    assert "(1, 2, 3)" in db0_str
+    assert "(1, 2, 3)" in py_str
+
+def test_db0_set_str_with_nested_memo_objects(db0_fixture):
+    inner_memo = MemoTestClass("inner")
+    db0_set = db0.set([inner_memo, "test"])
+    py_inner_memo = inner_memo
+    py_set = {py_inner_memo, "test"}
+    
+    # Test that both sets are equal (same elements)
+    assert db0_set == py_set
+    
+    # Test that string representation has proper format
+    db0_str = str(db0_set)
+    py_str = str(py_set)
+    assert db0_str.startswith('{') and db0_str.endswith('}')
+    assert py_str.startswith('{') and py_str.endswith('}')
+    
+    # Test that string element appears in both representations
+    assert "'test'" in db0_str
+    assert "'test'" in py_str
+    
+    # Test that memo object appears in both (exact string comparison for memo object)
+    memo_str = repr(inner_memo)
+    assert memo_str in db0_str
+    assert memo_str in py_str

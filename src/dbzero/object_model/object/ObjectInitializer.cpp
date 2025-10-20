@@ -140,9 +140,14 @@ namespace db0::object_model
         auto index = m_values.size();
         auto it = m_values.begin() + index - 1;
         // below rule allows pos-vt to be created with the fill-rate of at least 50%
-        while (index > 0 && ((it->getIndex() - offset) > (index << 1))) {
+        while (index > 0 && ((it->getIndex() - offset) > ((index - offset) << 1))) {
             --index;
             --it;
+        }
+        
+        // Special rule to include lo-fi slot @pos = 0
+        if (offset == 1 && (it->getIndex() < (index + (index >> 1)))) {
+            offset = 0;
         }
         
         if (index > 0) {

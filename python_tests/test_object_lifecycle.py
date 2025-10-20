@@ -1,6 +1,6 @@
 from typing import Any
 import pytest
-import dbzero_ce as db0
+import dbzero as db0
 from .conftest import DB0_DIR
 from .memo_test_types import MemoTestClass, MemoTestSingleton, DynamicDataClass
 

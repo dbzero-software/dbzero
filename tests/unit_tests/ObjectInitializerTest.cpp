@@ -90,5 +90,82 @@ namespace tests
         object_1->~Object();
         workspace.close();
     }
+
+    TEST_F( ObjectInitializerTest, testReducedPosVTWithOffset )
+    {    
+        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
+        auto fixture = workspace.getFixture(prefix_name);
+
+        std::vector<char> data(sizeof(Object));
+        std::shared_ptr<Class> mock_class = getTestClass(fixture);
+        auto object_1 = new (data.data()) Object(mock_class);
+        ObjectInitializerManager manager;
+        manager.addInitializer(*object_1, mock_class);
+        auto &cut = *manager.findInitializer(*object_1);
+        // NOTE: only the first 4 elements should be selected to pos-vt
+        cut.set({7, 0}, StorageClass::INT64, Value(0));
+        cut.set({15, 0}, StorageClass::INT64, Value(0));
+        cut.set({4, 0}, StorageClass::POOLED_STRING, Value(0));
+        cut.set({6, 0}, StorageClass::INT64, Value(0));
+        cut.set({13, 0}, StorageClass::INT64, Value(0));
+        
+        PosVT::Data pos_vt_data;
+        unsigned int pos_vt_offset = 0;
+        cut.getData(pos_vt_data, pos_vt_offset);
+        ASSERT_EQ(pos_vt_offset, 4);
+        // elements: 4, 6, 7 should only be picked for pos-vt
+        ASSERT_EQ(pos_vt_data.m_types.size(), 4u);
+        object_1->~Object();
+        workspace.close();
+    }
+
+    TEST_F( ObjectInitializerTest, testPosVTLoFiExclusive )
+    {    
+        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
+        auto fixture = workspace.getFixture(prefix_name);
+
+        std::vector<char> data(sizeof(Object));
+        std::shared_ptr<Class> mock_class = getTestClass(fixture);
+        auto object_1 = new (data.data()) Object(mock_class);
+        ObjectInitializerManager manager;
+        manager.addInitializer(*object_1, mock_class);
+        auto &cut = *manager.findInitializer(*object_1);
+        cut.set({1, 0}, StorageClass::INT64, Value(0));
+        
+        // Lo-fi member slot not included
+        PosVT::Data pos_vt_data;
+        unsigned int pos_vt_offset = 0;
+        cut.getData(pos_vt_data, pos_vt_offset);
+        ASSERT_EQ(pos_vt_offset, 1);
+        ASSERT_EQ(pos_vt_data.m_types.size(), 1u);
+        object_1->~Object();
+        workspace.close();
+    }
+
+    TEST_F( ObjectInitializerTest, testPosVTLoFiInclusive )
+    {    
+        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
+        auto fixture = workspace.getFixture(prefix_name);
+
+        std::vector<char> data(sizeof(Object));
+        std::shared_ptr<Class> mock_class = getTestClass(fixture);
+        auto object_1 = new (data.data()) Object(mock_class);
+        ObjectInitializerManager manager;
+        manager.addInitializer(*object_1, mock_class);
+        auto &cut = *manager.findInitializer(*object_1);
+        cut.set({1, 0}, StorageClass::INT64, Value(0));
+        cut.set({2, 0}, StorageClass::INT64, Value(0));
+        cut.set({3, 0}, StorageClass::INT64, Value(0));
+
+        // NOTE: even though pos-vt starts at 1, member 0 should also be included
+        // this is to pre-allocate space for lo-fi types where the footprint is small enough
+        PosVT::Data pos_vt_data;
+        unsigned int pos_vt_offset = 0;
+        cut.getData(pos_vt_data, pos_vt_offset);
+        ASSERT_EQ(pos_vt_offset, 0);
+        ASSERT_EQ(pos_vt_data.m_types.size(), 4u);
+        object_1->~Object();
+        workspace.close();
+    }
     
 }

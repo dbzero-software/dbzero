@@ -2,7 +2,7 @@
 # implementation for dbzero
 from typing import Union, Callable, Tuple, Dict
 from .interfaces import QueryObject, Tag
-import dbzero_ce as db0
+import dbzero as db0
 import inspect
 import typing
 import types as py_types

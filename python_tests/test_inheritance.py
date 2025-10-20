@@ -1,7 +1,7 @@
 import pytest
-import dbzero_ce as db0
+import dbzero as db0
 from .conftest import DB0_DIR
-from dbzero_ce import memo
+from dbzero import memo
 
 
 @memo
@@ -64,7 +64,7 @@ def test_call_method_from_base_class(db0_fixture):
 def test_child_class_eq_issue_1(db0_fixture):
     """
     Issue related with the following ticket:
-    https://github.com/wskozlowski/dbzero_ce/issues/232
+    https://github.com/wskozlowski/dbzero/issues/232
     """
     a = DerivedClass(1, 2)
     assert a is a
