@@ -355,7 +355,7 @@ namespace db0::object_model
     
     std::optional<std::string> getNameVariant(std::optional<std::string> type_id, std::optional<std::string> type_name,
         std::optional<std::string> module_name, std::optional<std::string> type_fields_str, int variant_id)
-    {
+    {        
         switch (variant_id) {
             case 0: {
                 if (!type_id) {

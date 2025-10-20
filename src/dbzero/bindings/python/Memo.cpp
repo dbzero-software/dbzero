@@ -685,10 +685,29 @@ namespace db0::python
     
     PyObject *tryGetAttributes(PyTypeObject *type)
     {
-        auto &decor = MemoTypeDecoration::get(type);        
-        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(decor.getFixtureUUID(), AccessType::READ_ONLY);
-        auto &class_factory = fixture->get<db0::object_model::ClassFactory>();        
-        return tryGetClassAttributes(*class_factory.getExistingType(type));
+        auto &decor = MemoTypeDecoration::get(type);
+        auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
+        auto fixture = workspace.getFixture(decor.getFixtureUUID(), AccessType::READ_ONLY);
+        auto &class_factory = fixture->get<db0::object_model::ClassFactory>();
+        // for scoped types, we raise an error if class not found
+        if (decor.isScoped()) {
+            return tryGetClassAttributes(*class_factory.getExistingType(type));
+        } else {
+            // otherwise we check the default prefix and also scan other open prefixes
+            // in search for the class
+            auto type_ptr = class_factory.tryGetExistingType(type);
+            workspace.forEachFixture([&](const Fixture &existing_fixture) {
+                if (!type_ptr && existing_fixture != *fixture) {
+                    auto &class_factory = existing_fixture.get<db0::object_model::ClassFactory>();
+                    type_ptr = class_factory.tryGetExistingType(type);
+                }
+                return !type_ptr;
+            });
+            if (!type_ptr) {
+                THROWF(db0::InputException) << "Class not found: " << PyToolkit::getTypeName(type);
+            }
+            return tryGetClassAttributes(*type_ptr);
+        }
     }
     
     PyObject *tryGetAttrAs(MemoObject *memo_obj, PyObject *attr, PyTypeObject *py_type)
