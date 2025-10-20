@@ -213,7 +213,7 @@ DB0_PACKED_END
         m_sparse_matrix.commit();
         super_t::commit();
     }
-
+    
     template <typename ItemT, unsigned int Dim2, typename PtrT>
     void VLimitedMatrix<ItemT, Dim2, PtrT>::push_back(const ItemT &value, std::uint32_t dim2_key)
     {
@@ -286,7 +286,7 @@ DB0_PACKED_END
                 << "Index (" << index.first << "," << index.second << ") not found" << THROWF_END;
         }
     }
-
+    
     template <typename ItemT, unsigned int Dim2, typename PtrT>
     void VLimitedMatrix<ItemT, Dim2, PtrT>::set(std::pair<std::uint32_t, std::uint32_t> index, const ItemT &value)
     {

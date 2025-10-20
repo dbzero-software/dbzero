@@ -171,7 +171,7 @@ namespace db0
     std::uint32_t CRDT_Allocator::Alloc::getAllocSize(std::uint32_t address) const
     {
         // Get allocation size under a specific address or throw exception
-        if (!isAllocated(address)) {            
+        if (!isAllocated(address)) {
             THROWF(db0::BadAddressException) << "Invalid address: " << address << THROWF_END;
         }
         return m_stride;

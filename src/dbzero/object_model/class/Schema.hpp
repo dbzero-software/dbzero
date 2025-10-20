@@ -135,8 +135,11 @@ DB0_PACKED_BEGIN
 
     private:
         void update(Memspace &, TypeVector &, std::uint32_t collection_size);
+        void initTypeVector(Memspace &, TypeVector &);
     };
     
+DB0_PACKED_END
+
     class Schema: protected db0::VLimitedMatrix<o_schema, lofi_store<2>::size()>
     {
     public:        
@@ -199,7 +202,5 @@ DB0_PACKED_BEGIN
         // Update to reflect the collection size change only
         void update(std::uint32_t collection_size);
     };
-    
-DB0_PACKED_END
 
 }

@@ -14,13 +14,13 @@
 namespace db0::object_model
 
 {
-
-DB0_PACKED_BEGIN
     
     class Class;
     using namespace db0;
     using namespace db0::pools;
     using ClassPtr = db0::db0_ptr<Class>;
+
+DB0_PACKED_BEGIN
     
     struct DB0_PACKED_ATTR o_field: public db0::o_fixed<o_field>
     {
@@ -29,10 +29,10 @@ DB0_PACKED_BEGIN
         o_field() = default;
         o_field(RC_LimitedStringPool &, const char *name);
     };
-    
+
+DB0_PACKED_END
+
     // NOTE: we use lofi_store<2> since it's the lowest supported type fidelity
     using VFieldMatrix = db0::VLimitedMatrix<o_field, lofi_store<2>::size()>;
-    
-DB0_PACKED_END
 
 }
