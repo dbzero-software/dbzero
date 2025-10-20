@@ -1,3 +1,4 @@
+from __future__ import annotations
 from collections import namedtuple
 from enum import Enum
 import itertools
@@ -10,6 +11,7 @@ import importlib
 import importlib.util
 import os
 import sys
+from typing import Any, List
 
 from .decorators import check_params_not_equal
 from .storage_api import PrefixMetaData
@@ -33,37 +35,45 @@ def _get_callable_params(parameters):
 
 
 class AttributeInfo:
-    def __init__(self, name: str, metaclass):
+    """Metadata info of Memo class attriute."""
+
+    def __init__(self, name: str, metaclass: MemoMetaClass):
         self.name = name
         self.metaclass = metaclass
 
 
 class MethodInfo(inspect.Signature):
-    def __init__(self, name: str, signature: inspect.Signature, metaclass):
+    """Metadata info of Memo class method."""
+
+    def __init__(self, name: str, signature: inspect.Signature, metaclass: MemoMetaClass):
         super().__init__(signature.parameters.values(), return_annotation=signature.return_annotation)
         self.name = name
         self.metaclass = metaclass
         self.__params = _get_callable_params(self.parameters)
 
-    def get_params(self):
+    def get_params(self) -> List[MethodParam]:
         return [MethodParam(param, self) for param in self.__params.params]
 
     @property
-    def has_args(self):
+    def has_args(self) -> bool:
         return self.__params.has_args
 
     @property
-    def has_kwargs(self):
+    def has_kwargs(self) -> bool:
         return self.__params.has_kwargs
 
 
 class MethodParam(inspect.Parameter):
+    """Metadata info of Memo class method parameter."""
+
     def __init__(self, param: inspect.Parameter, method: MethodInfo):
         super().__init__(param.name, param.kind, default=param.default, annotation=param.annotation)
         self.method = method
 
 
 class MemoMetaClass:
+    """Memo class metadata info."""
+
     def __init__(self, name, module, class_uuid, is_singleton=False, instance_uuid=None):
         self.__name = name
         self.__module = module
@@ -73,46 +83,50 @@ class MemoMetaClass:
         self.__cls = None
     
     @property
-    def name(self):
+    def name(self) -> str:
+        """Memo class name."""
         return self.__name
     
     @property
     def module(self):
+        """Module containing memo class."""
         return self.__module
     
     @property
-    def class_uuid(self):
+    def class_uuid(self) -> str:
+        """UUID of memo class."""
         return self.__class_uuid
     
-    def get_class(self):
+    def get_class(self) -> Any:
+        """Get Memo class object."""
         if self.__cls is None:
             self.__cls = db0.fetch(self.__class_uuid)
         return self.__cls
 
-    def type_exists(self):
+    def type_exists(self) -> bool:
+        """Check if Memo class Python type exist and can be resolved."""
         return self.get_class().type_exists()
 
-    def get_type(self):
+    def get_type(self)-> type:
+        """Get Memo class Python type."""
         return self.get_class().type()
     
     @property
     def is_singleton(self):
+        """Is Memo class a singleton."""
         return self.__is_singleton
     
     @property
     def instance_uuid(self):
+        """Memo class singleton object instance UUID."""
         return self.__instance_uuid
     
     def get_instance(self):
-        """
-        Get the associated singleton instance of this class.
-        """
+        """Get the associated singleton instance of this class."""
         return db0.fetch(self.__instance_uuid)
     
     def get_attributes(self, include_properties=False):
-        """
-        get_attributes works for known and unknown types
-        """
+        """Get attribute info of a Memo class."""
         for attr in self.get_class().get_attributes():
             yield AttributeInfo(attr[0], self)
 
@@ -124,9 +138,7 @@ class MemoMetaClass:
                     yield AttributeInfo(attr_name, self)
     
     def get_methods(self):
-        """
-        get_methods works for known types only
-        """
+        """Get Memo class methods of known Python type."""
         def is_private(name):
             return name.startswith("_")
         
@@ -138,9 +150,11 @@ class MemoMetaClass:
                 yield MethodInfo(attr_name, inspect.signature(attr), self)
     
     def get_schema(self):
+        """Get Memo class attributes schema."""
         return db0.get_schema(self.get_type())
     
     def all(self, snapshot=None, as_memo_base=False):
+        """Find all instances of this Memo class."""
         if not as_memo_base and self.get_class().is_known_type():
             if snapshot is not None:
                 return snapshot.find(self.get_class().type())
@@ -154,6 +168,7 @@ class MemoMetaClass:
             return db0.find(db0.MemoBase, self.get_class())
     
     def get_instance_count(self):
+        """Get number of instances of this Memo class."""
         return db0.getrefcount(self.get_class())
     
     def __str__(self):
@@ -167,6 +182,7 @@ class MemoMetaClass:
         
     
 def get_memo_classes(prefix: PrefixMetaData = None):
+    """Get metadata info of all Memo classes."""
     if type(prefix) is str:
         # fallback to prefix name
         for memo_class in (_get_memo_classes(prefix) if prefix is not None else _get_memo_classes()):
@@ -177,11 +193,13 @@ def get_memo_classes(prefix: PrefixMetaData = None):
 
 
 def get_memo_class(arg: str | db0.MemoBase):
+    """Get Memo class metadata info from class UUID or of a Memo object instance."""
     type_info = _get_memo_class(arg) if db0.is_memo(arg) else db0.fetch(arg).type_info()    
     return MemoMetaClass(*type_info)
 
 
 class Query(inspect.Signature):
+    """dbzero query function metadata info."""
     def __init__(self, name: str, function_obj: typing.Callable):
         signature = inspect.signature(function_obj)
         super().__init__(signature.parameters.values(), return_annotation=signature.return_annotation)
@@ -191,27 +209,34 @@ class Query(inspect.Signature):
 
     @property
     def name(self):
+        """Function name."""
         return self.__name
 
     @property
     def function_object(self):
+        """Function callable."""
         return self.__function_obj
 
     @property
     def has_kwargs(self):
+        """Has **kwargs arguments."""
         return self.__params.has_kwargs
 
     @property
     def has_params(self):
+        """Has any named of kwargs arguments."""
         return len(self.__params.params) > 0 or self.has_kwargs
 
     def get_params(self):
+        """Get query function parameters."""
         return [QueryParam(param, self) for param in self.__params.params]
     
     def execute(self, *args, **kwargs):
+        """Execute query function."""
         return self.__function_obj(*args, **kwargs)
 
 class QueryParam(inspect.Parameter):
+    """Query function parameter metadata info."""
     def __init__(self, param: inspect.Parameter, query: Query):
         super().__init__(param.name, param.kind, default=param.default, annotation=param.annotation)
         self.query = query
@@ -241,7 +266,7 @@ def __import_from_file(file_path, submodule_search_locations):
     return importlib.import_module(path_obj.stem)
     
 
-def import_submodules(package, module):
+def __import_submodules(package, module):
     if not hasattr(package, "__path__"):
         return
     for loader, module_name, is_pkg in pkgutil.iter_modules(package.__path__):
@@ -257,7 +282,7 @@ def __import_module(module_or_file_name, package = None):
         module = importlib.import_module(module_or_file_name, package)
         # Optionally import all public attributes
         sys.modules[module_or_file_name] = module
-        import_submodules(module, package)
+        __import_submodules(module, package)
         return [module]
     except Exception as ex:
         pass
@@ -272,10 +297,12 @@ def __import_module(module_or_file_name, package = None):
 
 
 def import_model(module_or_file_name, package=None):
+    """Import dbzero Memo classes from a Python package."""
     return importlib.import_module(module_or_file_name, package)
 
 
 def get_queries(*module_names):
+    """Get dbzero query functions from Python modules."""
     # Dynamically import modules
     for name in module_names:
         module = importlib.import_module(name)

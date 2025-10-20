@@ -8,6 +8,7 @@ def check_params_not_equal(params, count):
     return len(params.args) != count or params.varargs or params.varkw or params.kwonlyargs
 
 def immutable(f):
+    """A deorator to mark a function as not modifying."""
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
         retval = f(*args, **kwargs)
@@ -19,6 +20,7 @@ def immutable(f):
 
 
 def fulltext(f):
+    """A decorator to mark a function as fulltext query."""
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
         retval = f(*args, **kwargs)
@@ -57,6 +59,7 @@ def _get_function_context(f):
     return context
 
 def complete_with(action):
+    """A decorator for specifying confirmed action."""
     def decorator(f):
         # context = _get_function_context(f)
         # if not hasattr(context, action):

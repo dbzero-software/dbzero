@@ -1,4 +1,4 @@
-import typing
+from typing import Iterator
 
 _NORMALIZE_TRANSLATION_SOURCE = 'ĄĆĘŁŃÓŚŻŹ'
 _NORMALIZE_TRANSLATION_MAPPINGS = 'ACELNOSZZ'
@@ -7,36 +7,62 @@ _NORMALIZE_TRANSLATION_TABLE = str.maketrans(_NORMALIZE_TRANSLATION_SOURCE, _NOR
 _EXTRA_SPLIT_DELIMITERS = '.,;:-!?\t\n"\''
 _EXTRA_SPLIT_TABLE = str.maketrans(_EXTRA_SPLIT_DELIMITERS, ' ' * len(_EXTRA_SPLIT_DELIMITERS))
 
-def taggify(input_text: str, max_len = 3, min_len = 1, suffix = False) -> typing.Iterator[str]:
-    """
-    This function tokenizes an arbitrary string and breaks it into an iterable of tags - which are constructed by taking a prefix of up to
-    a specific length, removing any whitespaces and delimiters and normalizing to uppercase and latin characters.
-    Parameters:
-    input_text: the arbitrary input text (unicode)
-    max_len: the maximum prefix length (must be > 0), if None then return unlimited length tags
-    min_len: the minimum prefix length to be returned
-    Returns:
-    An iterable of unique tags (see example below)
+def taggify(input_text: str, max_len: int = 3, min_len: int = 1, suffix: bool = False) -> Iterator[str]:
+    """Tokenize an arbitrary string and convert it into an iterable of normalized tags.
 
-    Example:
-    # returns ["MINS", "MAZO"]
-    db0.taggify("--Mińsk Mazowiecki", max_len = 4)
+    This function breaks text into tokens, removes whitespaces and delimiters, and 
+    normalizes to uppercase Latin characters. Tags are constructed by taking a prefix 
+    (or suffix) of up to a specific length from each token.
 
-    # returns ["MAR"]
-    db0.taggify("Markowski, Marek", max_len = 3)
+    Parameters
+    ----------
+    input_text : str
+        The arbitrary input text (unicode) to tokenize.
+    max_len : int, default 3
+        The maximum prefix length (must be > 0).
+    min_len : int, default 1
+        The minimum prefix length to be returned. Tokens shorter than this are filtered out.
+    suffix : bool, default False
+        If True, take suffix instead of prefix from tokens.
 
-    # returns ["KOW"]
-    db0.taggify("A.Kowalski", min_len = 3)
+    Returns
+    -------
+    Iterator[str]
+        An iterator of unique tags.
 
-    # returns ["A", "KOWALSKI"]
-    db0.taggify("A.Kowalski", max_len = None)
+    Examples
+    --------
+    Basic usage with maximum length:
+    
+    >>> list(dbzero.taggify("--Mińsk Mazowiecki", max_len=4))
+    ['MINS', 'MAZO']
 
-    How input text is processed:
-    * The input is split into tokens by whitespace (and other delimiters, like '.')
-    * Non-alphanumeric characters are removed
-    * Tokens shorter than 'min_len' are filtered out
-    * Letters are converted to upper-case. Diacritic characters are transliterated to latin counterparts.
-    * Slice of 'max_len' characters is returned for each token
+    Filtering by maximum length:
+    
+    >>> list(dbzero.taggify("Markowski, Marek", max_len=3))
+    ['MAR']
+
+    Filtering by minimum length:
+    
+    >>> list(dbzero.taggify("A.Kowalski", min_len=3))
+    ['KOW']
+
+    Unlimited length tags:
+    
+    >>> list(dbzero.taggify("A.Kowalski", max_len=None))
+    ['A', 'KOWALSKI']
+
+    Notes
+    -----
+    Text Processing Steps:
+    
+    1. The input is split into tokens by whitespace and delimiters (.,;:-!?\\t\\n"')
+    2. Non-alphanumeric characters are removed from each token
+    3. Tokens shorter than `min_len` are filtered out
+    4. Letters are converted to upper-case
+    5. Diacritic characters are transliterated to Latin counterparts (Ą→A, Ć→C, etc.)
+    6. A slice of `max_len` characters is taken from each token
+    7. Only unique tags are yielded
     """
 
     yielded_tags = set()

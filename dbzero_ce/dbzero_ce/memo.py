@@ -1,17 +1,69 @@
 import inspect
 import dis
+from typing import Callable, Optional
 from .dbzero_ce import _wrap_memo_type, set_prefix
 
 
-def migration(func):
-    """
-    Decorator for marking a function as a migration function.
-    """
+def migration(func: Callable) -> Callable:
+    """Decorator for marking a function as a migration function"""
     func._db0_migration = None
     return func
 
+
+def memo(cls: Optional[type] = None, **kwargs) -> type:
+    """Transform a standard Python class into a persistent, dbzero-managed object.
+
+    The objects' serialization, storage and lifecycle is handled transparently,
+    allowing to interact with it as if it was a regular python object.
+
+    Parameters
+    ----------
+    singleton : bool, default False
+        When True, the decorated class becomes a singleton within its prefix. The first 
+        time you instantiate the class, the object is created and persisted. All subsequent 
+        calls to the constructor within the same prefix will return the existing instance.
+    prefix : str, optional
+        Specifies a static prefix for the class and all its instances.
+        If not provided, the class uses the current active prefix set by dbzero.open().
+    no_default_tags : bool, default False
+        If True, dbzero will not automatically add default system tags (such as the class 
+        name) to new instances of this class.
+
+    Returns
+    -------
+    type
+        Decorated Memo class.
+
+    Examples
+    --------
+    Basic persistent class:
+
+    >>> @dbzero.memo
+    ... class Task:
+    ...     def __init__(self, description):
+    ...         self.description = description
+    ...         self.completed = False
+    >>> 
+    >>> # Creates a new persistent object
+    >>> task1 = Task("Write documentation")
+    >>> # Attribute modifications are automatically persisted
+    >>> task1.completed = True
+
+    Singleton pattern:
     
-def memo(cls=None, **kwargs):
+    >>> @dbzero.memo(singleton=True)
+    ... class AppSettings:
+    ...     def __init__(self, theme="dark"):
+    ...         self.theme = theme
+    >>> 
+    >>> # First call creates the object
+    >>> settings1 = AppSettings(theme="light")
+    >>> print(settings1.theme)  # "light"
+    >>> 
+    >>> # Subsequent calls return the *same* object; arguments are ignored
+    >>> settings2 = AppSettings(theme="dark")
+    >>> print(settings2.theme)  # "light"
+    """
     def getfile(cls_):
         # inspect.getfile() can raise TypeError if cls_ is a built-in class (e.g. defined in a notebook).
         try:

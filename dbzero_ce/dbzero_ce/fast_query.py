@@ -1,5 +1,7 @@
 # This is an experimental version of a possible Query Engine
 # implementation for dbzero
+from typing import Union, Callable, Tuple, Dict
+from .interfaces import QueryObject, Tag
 import dbzero_ce as db0
 import inspect
 import typing
@@ -11,7 +13,19 @@ __px_fast_query = None
 __lambda_regex = re.compile(r'lambda\s.*?:\s*([^,)]*)')
 
 
-def init_fast_query(prefix=None):
+def init_fast_query(prefix: str) -> None:
+    """Initialize the fast query caching system using a specified prefix.
+
+    This function designates a specific prefix to act as a cache for computationally 
+    intensive queries, most notably `dbzero.group_by`. Useful when primary data prefix
+    is accessed in a read-only mode, so the cache prefix can remain writable.
+
+    Parameters
+    ----------
+    prefix : str
+        The name of the prefix to use for caching. This prefix must be opened in
+        read-write ("rw") mode.
+    """
     global __px_fast_query
     if prefix:
         __px_fast_query = prefix
@@ -293,9 +307,88 @@ class GroupByEval:
         return result
     
     
-def group_by(group_defs, query, ops=(count_op,)) -> typing.Dict:
-    """
-    Group query results by the given key
+def group_by(group_defs: Union[Callable, Tag, Tuple], query: QueryObject, ops: Tuple[Callable, ...] = (count_op,)) -> Dict:
+    """Perform cached group-and-aggregate queries over a set of objects.
+
+    The group_by() method categorizes objects returned by input query based on 
+    one or more criteria and then applies aggregation operations to each category.
+
+    The first time a specific query is run, it performs a full scan and caches the result.
+    Subsequent group_by operations of the exact same query use cached result to speedup computation.
+
+    Parameters
+    ----------
+    group_defs : lambda | Iterable[EnumValue] | str | tuple
+        The criteria used to group the objects. This can be:
+        
+        * A lambda function: Applied to each object to determine its grouping key.
+          For caching to work, the lambda's source code must be identical between calls.
+        * Tag: To group objects by tags they are taged with.
+          The group keys will be the string names of the enum members.
+        * A tuple of the above: For multi-level grouping. The resulting dictionary keys 
+          will be tuples.
+    query : Any
+        A dbzero QueryObject to be grouped.
+    ops : tuple of callable, default (count_op,)
+        A tuple of aggregation operations to perform on each group.
+
+    Returns
+    -------
+    dict
+        A dictionary where:
+        
+        * Keys are the group identifiers determined by the group_defs criteria. If multiple 
+          criteria are used, the key will be a tuple.
+        * Values are the results of the aggregation(s). If a single operation is provided 
+          in ops, the value is a single result (e.g., an int). If multiple operations are 
+          provided, the value is a tuple containing the result of each operation in the 
+          specified order.
+
+    Examples
+    --------
+    Simple grouping by attribute:
+    
+    >>> # Assume objects are instances of a class with a 'key' attribute
+    >>> objects = []
+    >>> keys = ["one", "two", "three"]
+    ... for i in range(10):
+    ...     objects.append(SomeClass(key=keys[i % 3]))
+    >>> dbzero.tags(*objects).add("my-tag")
+    >>> 
+    >>> # Group objects with "my-tag" by their 'key'
+    >>> groups = dbzero.group_by(lambda row: row.key, dbzero.find("my-tag"))
+    >>> # Example result: {'one': 4, 'two': 3, 'three': 3}
+
+    Multi-level grouping:
+    
+    >>> Colors = dbzero.enum("Colors", ["RED", "GREEN", "BLUE"])
+    >>> 
+    >>> # Group by color tag and then by whether the value is even (0) or odd (1)
+    >>> groups = dbzero.group_by(
+    ...     (Colors.values(), lambda x: x.value % 2),
+    ...     dbzero.find(MemoTestClass)
+    ... )
+    >>> # Example result: {('RED', 0): 2, ('RED', 1): 2, ('GREEN', 1): 3, ('BLUE', 0): 2, ...}
+
+    Grouping with custom aggregations:
+    
+    >>> # Define two operations: default count and a sum of the 'value' attribute
+    >>> query_ops = (dbzero.count_op, dbzero.make_sum(lambda x: x.value))
+    >>> 
+    >>> groups = dbzero.group_by(
+    ...     lambda x: "even" if x.value % 2 == 0 else "odd",
+    ...     dbzero.find(MemoTestClass),
+    ...     ops=query_ops
+    ... )
+    >>> # Example result where each value is a tuple (count, sum_of_values):
+    >>> # {'even': (5, 20), 'odd': (5, 25)}
+
+    Notes
+    -----
+    This method creates and updates an internal cache to speed up subsequent identical queries.
+    For the cache to be persistent across program runs, it must first be initialized using 
+    dbzero.init_fast_query(). A query is considered "identical" if its parameters and its
+    group_defs are the same as from the previous call
     """
     def delta(start, end):
         # compute delta between the 2 snapshots                

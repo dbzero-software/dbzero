@@ -13,7 +13,8 @@ python_sources = [
     'dbzero_ce/utilities.py',
     'dbzero_ce/locked.py',
     'dbzero_ce/select.py',
-    'dbzero_ce/compare.py'
+    'dbzero_ce/compare.py',
+    'dbzero_ce/interfaces.py'
 ]
 
 py3_inst.install_sources(
