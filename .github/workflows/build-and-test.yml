@@ -43,7 +43,7 @@ jobs:
   test-wheels-linux:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: wheels-linux
+    needs: build-linux
     strategy:
       fail-fast: false
       matrix:
