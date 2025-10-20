@@ -237,15 +237,11 @@ def test_dict_with_tuples_as_keys(db0_no_autocommit):
 
 def test_dict_with_unhashable_types_as_keys(db0_fixture):
     my_dict = db0.dict()
-    print("Here 1")
     with pytest.raises(Exception) as ex:
-        my_dict[["first", 1]] = MemoTestClass("abc")
-    print("Here 2")
-    assert "hash" in str(ex.value)
-    print("Here 3")
+        my_dict[["first", 1]] = MemoTestClass("abc")    
+    assert "hash" in str(ex.value)    
     with pytest.raises(Exception) as ex:
-        my_dict[{"key":"value"}] = MemoTestClass("abc")
-    print("Here 4")
+        my_dict[{"key":"value"}] = MemoTestClass("abc")    
     assert "hash" in str(ex.value)
 
 

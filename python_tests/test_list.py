@@ -490,6 +490,5 @@ def test_db0_list_str_with_nested_memo_objects(db0_fixture):
 def test_db0_list_islice_iteration(db0_fixture):
     db0_list = db0.list(range(30))
     expected_values = [10, 12, 14, 16, 18]
-    for index, value in enumerate(itertools.islice(db0_list, 10, 20, 2)):
-        print(f"Index: {index}, Value: {value}, Expected: {expected_values[index]}")
+    for index, value in enumerate(itertools.islice(db0_list, 10, 20, 2)):    
         assert value == expected_values[index]
