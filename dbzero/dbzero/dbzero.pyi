@@ -2,11 +2,16 @@
 Type stubs for dbzero module.
 """
 
-from typing import Any, Optional, Iterable, Set, Dict, List, Tuple, Iterator, Union, Callable
+from typing import Any, Optional, Iterable, Dict, List, Tuple, Union, Callable
+from .interfaces import (
+    Memo, MemoWeakProxy, QueryObject, Tag, TagSet, EnumValue,
+    ListObject, IndexObject, TupleObject, SetObject, DictObject, ByteArrayObject,
+    ObjectTagManager, Snapshot
+)
 
 # Core workspace management functions
 
-def init(db0_dir: str, config: Optional[Dict[str, Any]] = None) -> None:
+def init(path: str, config: Optional[Dict[str, Any]] = None) -> None:
     """Initialize the dbzero environment in a specified directory and apply global configurations.
 
     This function sets up the underlying state management engine.
@@ -16,7 +21,7 @@ def init(db0_dir: str, config: Optional[Dict[str, Any]] = None) -> None:
 
     Parameters
     ----------
-    db0_dir : str
+    path : str
         The path to the data files directory. If the directory doesn't exist, 
         it will be created.
     config : dict, optional
@@ -41,7 +46,7 @@ def init(db0_dir: str, config: Optional[Dict[str, Any]] = None) -> None:
     """
     ...
 
-def open(prefix: str, mode: str = "rw", **kwargs: Any) -> None:
+def open(prefix_name: str, open_mode: str = "rw", **kwargs: Any) -> None:
     """Open a data prefix and set it as the current working context.
 
     This function is the primary way to access a specific dataset within the dbzero environment.
@@ -49,9 +54,9 @@ def open(prefix: str, mode: str = "rw", **kwargs: Any) -> None:
 
     Parameters
     ----------
-    prefix : str
+    prefix_name : str
         The unique name for the data partition you want to open.
-    mode : {"rw", "r"}, default "rw"
+    open_mode : {"rw", "r"}, default "rw"
         The mode for opening the prefix. "rw" for read-write mode (allows both 
         reading and modifying objects), "r" for read-only mode (prevents any 
         changes to the data).
@@ -83,7 +88,7 @@ def open(prefix: str, mode: str = "rw", **kwargs: Any) -> None:
     """
     ...
 
-def close(prefix: Optional[str] = None) -> None:
+def close(prefix_name: Optional[str] = None) -> None:
     """Gracefully shut down dbzero, persisting changes and releasing resources.
 
     When called without arguments, closes all open prefixes and terminates the entire
@@ -92,7 +97,7 @@ def close(prefix: Optional[str] = None) -> None:
 
     Parameters
     ----------
-    prefix : str, optional
+    prefix_name : str, optional
         Optional name of the prefix to close.
         If omitted, all prefixes and the dbzero instance are closed.
 
@@ -113,14 +118,14 @@ def close(prefix: Optional[str] = None) -> None:
     """
     ...
 
-def commit(prefix: Optional[str] = None) -> None:
+def commit(prefix_name: Optional[str] = None) -> None:
     """Save all in-memory object changes to persistent storage.
 
     Finalizes the current open transaction, ensuring data is durable and consistent.
 
     Parameters
     ----------
-    prefix : str, optional
+    prefix_name : str, optional
         Optional specific data prefix to commit.
         If omitted, commits changes for all open prefixes.
 
@@ -143,7 +148,7 @@ def commit(prefix: Optional[str] = None) -> None:
 
 # Object retrieval and management
 
-def fetch(id: Union[str, type], expected_type: Optional[type] = None, prefix: Optional[str] = None) -> Any:
+def fetch(id: Union[str, type], type: Optional[type] = None, prefix: Optional[str] = None) -> Memo:
     """Retrieve a single object directly from memory using its unique identifier.
 
     The fastest way to access an object, operating in constant time O(1).
@@ -156,7 +161,7 @@ def fetch(id: Union[str, type], expected_type: Optional[type] = None, prefix: Op
         
         * UUID string: Returns the specific object instance for that UUID
         * type (singleton class): Returns the unique instance of that singleton
-    expected_type : type, optional
+    type : type, optional
         Optional type to validate the retrieved object.
         Raises exception if the fetched object is not an instance of this type.
     prefix : str, optional
@@ -165,8 +170,8 @@ def fetch(id: Union[str, type], expected_type: Optional[type] = None, prefix: Op
 
     Returns
     -------
-    Any
-        The requested object instance. Subsequent calls with the same UUID return
+    Memo
+        The requested Memo object instance. Subsequent calls with the same UUID return
         the exact same Python object, not a copy.
 
     Raises
@@ -197,7 +202,7 @@ def fetch(id: Union[str, type], expected_type: Optional[type] = None, prefix: Op
     """
     ...
 
-def exists(identifier: Union[str, type], object_type: Optional[type] = None, prefix: Optional[str] = None) -> bool:
+def exists(id: Union[str, type], type: Optional[type] = None, prefix: Optional[str] = None) -> bool:
     """Check if a dbzero object exists.
 
     Can check by UUID or by singleton type.
@@ -205,12 +210,12 @@ def exists(identifier: Union[str, type], object_type: Optional[type] = None, pre
 
     Parameters
     ----------
-    identifier : str or type
+    id : str or type
         The object to check for.
         
         * str: Check for object with its unique identifier
         * type: Check for instance of this singleton type
-    object_type : type, optional
+    type : type, optional
         Optional expected type when checking by UUID.
         Verifies the found object is an instance of this type.
     prefix : str, optional
@@ -220,7 +225,7 @@ def exists(identifier: Union[str, type], object_type: Optional[type] = None, pre
     Returns
     -------
     bool
-        True if the object exists (and matches object_type if specified), False otherwise.
+        True if the object exists (and matches type if specified), False otherwise.
 
     Examples
     --------
@@ -246,7 +251,7 @@ def exists(identifier: Union[str, type], object_type: Optional[type] = None, pre
     """
     ...
 
-def uuid(obj: Any) -> str:
+def uuid(obj: Memo, /) -> str:
     """Get the unique, persistent identifier (UUID) for a dbzero-managed object.
 
     Returns a stable handle that allows the object to be reliably fetched
@@ -281,7 +286,7 @@ def uuid(obj: Any) -> str:
     """
     ...
 
-def load(obj: Any, *, exclude: Optional[Union[List[str], Tuple[str, ...]]] = None, **kwargs: Any) -> Any:
+def load(obj: Any, /, *, exclude: Optional[Union[List[str], Tuple[str, ...]]] = None, **kwargs: Any) -> Any:
     """Recursively convert any object into its equivalent native Python representation.
 
     Useful for exporting application state for APIs or functions expecting standard Python types, 
@@ -361,7 +366,7 @@ def load(obj: Any, *, exclude: Optional[Union[List[str], Tuple[str, ...]]] = Non
     """
     ...
 
-def hash(obj: Any) -> int:
+def hash(obj: Any, /) -> int:
     """Compute a deterministic 64-bit integer hash for any object.
 
     Generates a hash value guaranteed to be consistent across different Python
@@ -407,14 +412,15 @@ def hash(obj: Any) -> int:
     """
     ...
 
-def set_prefix(instance: Any, prefix: Optional[str]) -> None:
-    """Set the persistence prefix for a @dbzero.memo class instance dynamically at runtime.
+def set_prefix(object: Memo, prefix: Optional[str]) -> None:
+    """Set the persistence prefix for a Memo instance dynamically at runtime.
 
     Allows to control which data prefix an object belongs to.
+    MUST be called as the first statement inside __init__ constructor.
 
     Parameters
     ----------
-    instance : Any
+    object : Memo
         The class instance being initialized. You should always pass 'self'.
     prefix : str, optional
         Name of the prefix (scope) for the instance. If None, uses current default prefix.
@@ -432,30 +438,23 @@ def set_prefix(instance: Any, prefix: Optional[str]) -> None:
     ...
     ...     def set(self, key, value):
     ...         self.data[key] = value
-
-    Notes
-    -----
-    **Use constraints:**
-    
-    * MUST be called as the first statement inside __init__ constructor
-    * Objects can only hold direct references to others from the same prefix
     """
     ...
 
-def materialized(obj: Any) -> Any:
-    """Provide a reference to a @dbzero.memo object that is safe for use within its own __init__.
+def materialized(obj: Memo, /) -> Memo:
+    """Provide a reference to a Memo object that is safe for use within its own __init__.
 
     Solves the chicken-and-egg problem where an object isn't fully initialized in dbzero
     until its __init__ completes, but you need to reference it during construction.
 
     Parameters
     ----------
-    obj : Any
+    obj : Memo
         The object instance (typically 'self') being initialized.
 
     Returns
     -------
-    Any
+    Memo
         A stable handle to the object that can be used with other dbzero functions.
 
     Examples
@@ -486,7 +485,7 @@ def materialized(obj: Any) -> Any:
     """
     ...
 
-def assign(*objects: Any, **attributes: Any) -> None:
+def assign(*objects: Memo, **attributes: Dict[str, Any]) -> None:
     """Perform bulk attribute updates on one or more Memo objects.
 
     Convenient way to set multiple attributes to new values in a single,
@@ -494,9 +493,9 @@ def assign(*objects: Any, **attributes: Any) -> None:
 
     Parameters
     ----------
-    *objects : Any
+    *objects : Memo
         One or more Memo objects whose attributes you want to update.
-    **attributes : dict
+    **attributes : Dict[str, Any]
         The attributes to update, provided as name=value pairs.
 
     Examples
@@ -526,13 +525,13 @@ def assign(*objects: Any, **attributes: Any) -> None:
     """
     ...
 
-def touch(*objects: Any) -> None:
-    """Mark one or more memo objects as modified without changing their data.
+def touch(*objects: Memo) -> None:
+    """Mark one or more Memo objects as modified without changing their data.
 
     Parameters
     ----------
-    *objects : Any
-        The memo object(s) to be touched/marked as modified.
+    *objects : Memo
+        The Memo object(s) to be touched/marked as modified.
 
     Examples
     --------
@@ -550,7 +549,7 @@ def touch(*objects: Any) -> None:
     ...
 
 def rename_field(class_obj: type, old_name: str, new_name: str) -> None:
-    """Rename a field for a given class.
+    """Rename a field for a given Memo class.
 
     Modifies the internal field layout for all existing and future instances
     of the class. After execution, field is accessible only by its new name.
@@ -625,7 +624,7 @@ def clear_cache() -> None:
     """
     ...
 
-def set_cache_size(size: int) -> None:
+def set_cache_size(size: int, /) -> None:
     """Set the maximum size of the in-memory cache in bytes.
 
     Allows dynamic adjustment of memory ceiling for cache at runtime. Increase
@@ -647,7 +646,7 @@ def set_cache_size(size: int) -> None:
 
 # Collection creation functions
 
-def list(iterable: Optional[Iterable[Any]] = None) -> List:
+def list(iterable: Optional[Iterable[Any]] = None, /) -> ListObject:
     """Create a persistent, mutable sequence object.
 
     Parameters
@@ -657,8 +656,8 @@ def list(iterable: Optional[Iterable[Any]] = None) -> List:
 
     Returns
     -------
-    dbzero.list
-        A new dbzero.list object that has the same interface as python list.
+    ListObject
+        A new ListObject that has the same interface as Python list.
 
     Examples
     --------
@@ -681,7 +680,7 @@ def list(iterable: Optional[Iterable[Any]] = None) -> List:
     """
     ...
 
-def index() -> Any:
+def index() -> IndexObject:
     """Create a persistent, ordered data structure for efficient queries.
 
     An index is like a dictionary where keys are always sorted, enabling fast range scans
@@ -689,13 +688,8 @@ def index() -> Any:
 
     Returns
     -------
-    dbzero.index
-        A new dbzero.index object supporting following methods:
-
-        * add(key, value): Associate a value with a sortable key
-        * remove(key, value): Remove specific key-value pair
-        * select(min_key, max_key, null_first): Query objects within key range
-        * sort(iterable, desc, null_first): Sort objects by their keys in this index
+    IndexObject
+        A new IndexObject.
 
     Examples
     --------
@@ -735,7 +729,7 @@ def index() -> Any:
     """
     ...
 
-def tuple(iterable: Iterable[Any] = ()) -> Tuple:
+def tuple(iterable: Iterable[Any] = (), /) -> TupleObject:
     """Create a persistent, immutable sequence object.
 
     Parameters
@@ -746,8 +740,8 @@ def tuple(iterable: Iterable[Any] = ()) -> Tuple:
 
     Returns
     -------
-    dbzero.tuple
-        A new dbzero.tuple object that has the same interface as python tuple.
+    TupleObject
+        A new TupleObject that has the same interface as Python tuple.
 
     Examples
     --------
@@ -780,7 +774,7 @@ def tuple(iterable: Iterable[Any] = ()) -> Tuple:
     """
     ...
 
-def set(iterable: Optional[Iterable[Any]] = None) -> Set:
+def set(iterable: Optional[Iterable[Any]] = None, /) -> SetObject:
     """Create a persistent, mutable, unordered collection of unique elements.
 
     Parameters
@@ -791,8 +785,8 @@ def set(iterable: Optional[Iterable[Any]] = None) -> Set:
 
     Returns
     -------
-    dbzero.set
-        A new dbzero.set object that has the same interface as python set.
+    SetObject
+        A new SetObject that has the same interface as Python set.
 
     Examples
     --------
@@ -822,20 +816,20 @@ def set(iterable: Optional[Iterable[Any]] = None) -> Set:
     """
     ...
 
-def dict(iterable: Optional[Iterable], **kwargs: Any) -> Dict:
+def dict(iterable: Optional[Iterable], /, **kwargs: Any) -> DictObject:
     """Create a persistent, mutable mapping object.
 
     Parameters
     ----------
     iterable : Iterable, optional
-        Mapping object ot iterable of key-value pairs.
+        Mapping object or iterable of key-value pairs.
     **kwargs : Any
         Initialize dictionary with keyword arguments
 
     Returns
     -------
-    dbzero.dict
-        A new dbzero.dict object that has the same interface as python dict.
+    DictObject
+        A new DictObject object that has the same interface as Python dict.
 
     Examples
     --------
@@ -864,7 +858,7 @@ def dict(iterable: Optional[Iterable], **kwargs: Any) -> Dict:
     """
     ...
 
-def bytearray(source: Union[bytes, Iterable[int]] = b'') -> Any:
+def bytearray(source: Union[bytes, Iterable[int]] = b'', /) -> ByteArrayObject:
     """Create a mutable persisted sequence of bytes.
 
     Parameters
@@ -875,8 +869,8 @@ def bytearray(source: Union[bytes, Iterable[int]] = b'') -> Any:
 
     Returns
     -------
-    dbzero.bytearray
-        A new dbzero.bytearray object that has the same interface as python bytearray.
+    ByteArrayObject
+        A new ByteArrayObject that has the same interface as Python bytearray.
 
     Examples
     --------
@@ -895,24 +889,18 @@ def bytearray(source: Union[bytes, Iterable[int]] = b'') -> Any:
 
 # Tag and query functions
 
-def tags(*objects: Any) -> Any:
-    """Get a tag controller for managing tags on dbzero objects.
-
-    Returns a special tag controller object that provides interface to add or remove
-    tags from the specified object(s).
+def tags(*objects: Memo) -> ObjectTagManager:
+    """Get a tag manager instance for Memo objects.
 
     Parameters
     ----------
-    *objects : Any
-        One or more dbzero-managed objects to manage tags for.
+    *objects : Memo
+        One or more Memo objects to manage tags for.
 
     Returns
     -------
-    Any
-        A TagController instance with methods:
-        
-        * add(*tags): Associate one or more tags with the object(s)
-        * remove(*tags): Disassociate one or more tags from the object(s)
+    ObjectTagManager
+        A ObjectTagManager instance for given Memo objects.
 
     Examples
     --------
@@ -938,7 +926,7 @@ def tags(*objects: Any) -> Any:
     """
     ...
 
-def find(*query_criteria: Any, prefix: Optional[str] = None) -> Iterator[Any]:
+def find(*query_criteria: Union[Tag, List[Tag], Tuple[Tag], QueryObject, TagSet], prefix: Optional[str] = None) -> QueryObject:
     """Query for memo objects based on search criteria such as tags, types, or subqueries.
 
     The primary way to search for objects. All top-level criteria are combined
@@ -946,7 +934,7 @@ def find(*query_criteria: Any, prefix: Optional[str] = None) -> Iterator[Any]:
 
     Parameters
     ----------
-    *query_criteria : Any
+    *query_criteria : Union[Tag, List[Tag], Tuple[Tag], Query, TagSet]
         Variable number of criteria to filter objects:
         
         * Type: A class to filter by type (includes subclasses)
@@ -954,17 +942,16 @@ def find(*query_criteria: Any, prefix: Optional[str] = None) -> Iterator[Any]:
         * Object tag: Any memo object used as a tag
         * List of tags (OR): Objects with at least one of the specified tags
         * Tuple of tags (AND): Objects with all of the specified tags
-        * Subquery: Result of another dbzero.find or index.select query
-        * Logical NOT: Use dbzero.no() to negate a query
+        * Query: Result of another query
+        * TagSet: Logical set operation.
     prefix : str, optional
         Optional data prefix to run the query on.
-        If omitted, uses the current default prefix.
+        If omitted, the prefix to run the query is resolved from query criteria.
 
     Returns
     -------
-    Iterator[Any]
-        A lazily-evaluated iterable query object. Supports iteration, len(), slicing,
-        and boolean evaluation. Actual lookup is deferred until iteration.
+    Query
+        An iterable query object.
 
     Examples
     --------
@@ -1003,7 +990,7 @@ def find(*query_criteria: Any, prefix: Optional[str] = None) -> Iterator[Any]:
     """
     ...
 
-def no(predicate: Union[str, Any]) -> Any:
+def no(predicate: Union[str, QueryObject], /) -> TagSet:
     """Create a negative predicate (NOT condition) for find queries.
 
     Allows to exclude objects that match the given predicate,
@@ -1011,13 +998,13 @@ def no(predicate: Union[str, Any]) -> Any:
 
     Parameters
     ----------
-    predicate : str or Any
+    predicate : str or Query
         The condition to negate.
 
     Returns
     -------
-    Any
-        A predicate object that dbzero.find interprets as a logical NOT operation.
+    TagSet
+        A predicate object representing logical NOT operation.
 
     Examples
     --------
@@ -1046,22 +1033,22 @@ def no(predicate: Union[str, Any]) -> Any:
     """
     ...
 
-def as_tag(obj: Any) -> Any:
+def as_tag(obj: Union[Memo, MemoWeakProxy, type]) -> Tag:
     """Create a searchable Tag object from a Memo instance or class.
 
-    Allows to use any object or class as a label for other objects.
+    Allows to use Memo object or class as a label for other objects.
     Tags created from objects are stable identifiers that will
     work even if the original object is deleted.
 
     Parameters
     ----------
-    obj : Any
-        The object instance or class to convert into a tag.
+    obj : Union[Memo, type]
+        The Memo object or class to convert into a tag.
 
     Returns
     -------
-    Any
-        A special Tag object
+    Tag
+        Objects' tag.
 
     Examples
     --------
@@ -1084,34 +1071,31 @@ def as_tag(obj: Any) -> Any:
     """
     ...
 
-def split_by(groups: Union[List[str], List[Any]], query: Any, exclusive: bool = True) -> Any:
+def split_by(tags: List[Tag], query: QueryObject, exclusive: bool = True) -> QueryObject:
     """Transform a query by decorating result items with specified groups,
     such as tags or enum values which they are tagged with.
 
-    Effectively, it partitions or categorizes query results. For each item returned by
-    the input query that is associated with a group, it additionaly yields a tag in a (item, decorator) tuple.
+    Effectively, it categorizes query results. For each item returned by
+    the input query that is associated with a group, it additionaly yields
+    a tag in a (item, decorator) tuple.
 
     Parameters
     ----------
-    groups : List[str] or List[Any]
-        Collection of groups to split results by:
-        
-        * List of string tags
-        * List of enum values
-    query : Any
-        The input query whose results will be categorized.
-        Any dbzero query object from dbzero.find(), dbzero.filter(), etc.
+    tags : List[Tag]
+        A list of tags to split results by.
+    query : Query
+        The input query whose result set will be categorized.
     exclusive : bool, default True
         Controls handling of items belonging to multiple groups:
         
-        * True: Item appears once, paired with one matching group
-        * False: Item appears for every matching group (multiple times)
+        * True: Item appears only once, paired with one matching group
+        * False: Item appears for every matching group
 
     Returns
     -------
-    Any
-        A new query iterator yielding (item, decorator) tuples where item is
-        from the original query and decorator is the matched tag/enum group.
+    Query
+        A new query yielding (item, decorator) tuples where item is from
+        the original query and decorator is the matched tag/enum group.
 
     Examples
     --------
@@ -1146,27 +1130,25 @@ def split_by(groups: Union[List[str], List[Any]], query: Any, exclusive: bool = 
     """
     ...
 
-def filter(filter_func: Callable[[Any], bool], iterable: Any) -> Any:
-    """Apply fine-grained, custom filtering logic to a sequence of objects.
+def filter(filter: Callable[[Any], bool], query: QueryObject) -> QueryObject:
+    """Apply fine-grained, custom filtering logic to a query.
 
-    Useful in situations where complex filtering conditions cannot be expressed with
-    dbzero.find(). Works similarly to Python's built-in filter(), but seamlessly integrates
-    into the dbzero query pipeline.
+    Useful in situations where complex filtering conditions cannot be expressed
+    with tags and dbzero.find(). Works similarly to Python's built-in filter(),
+    but seamlessly integrates into the dbzero query pipeline.
 
     Parameters
     ----------
-    filter_func : Callable[[Any], bool]
+    filter : Callable[[Any], bool]
         A function or lambda that takes a single object as argument.
         Must return True to include the object, False to exclude it.
-    iterable : Any
-        The sequence of objects to filter. Typically result of another
-        dbzero operation like dbzero.find(), dbzero.index().range(), etc.
+    query : Query
+        A query to filter.
 
     Returns
     -------
-    Any
-        An iterable that yields only items from input iterable
-        for which filter_func returns True.
+    Query
+        A query that only yields items for which filter function returned True.
 
     Examples
     --------
@@ -1256,7 +1238,7 @@ def get_state_num(prefix: Optional[str] = None, finalized: bool = False) -> int:
 
 # Snapshot functions
 
-def snapshot(state_spec: Optional[Union[int, Dict[str, int]]] = None) -> Any:
+def snapshot(state_spec: Optional[Union[int, Dict[str, int]]] = None) -> Snapshot:
     """Create a read-only, point-in-time view of the prefix for time-travel queries.
 
     Essential for isolating long-running queries from concurrent writes, analyzing
@@ -1273,14 +1255,8 @@ def snapshot(state_spec: Optional[Union[int, Dict[str, int]]] = None) -> Any:
 
     Returns
     -------
-    Any
-        A Snapshot context manager object with methods:
-        
-        * find(): Query objects within the snapshot
-        * fetch(): Retrieve single object by UUID or singleton by class
-        * get_state_num(): Get state number for a prefix within snapshot
-        * deserialize(): Deserialize and run query against snapshot's state
-        * close(): Manually close snapshot
+    Snapshot
+        A Snapshot context manager object.
 
     Examples
     --------
@@ -1309,17 +1285,17 @@ def snapshot(state_spec: Optional[Union[int, Dict[str, int]]] = None) -> Any:
     """
     ...
 
-def get_snapshot_of(obj: Any) -> Any:
+def get_snapshot_of(obj: Memo, /) -> Snapshot:
     """Retrieve the Snapshot instance from which a given object originates.
 
     Parameters
     ----------
-    obj : Any
+    obj : Memo
         An object instance previously fetched from a snapshot.
 
     Returns
     -------
-    Any
+    Snapshot
         The Snapshot object corresponding to the state from which obj was loaded.
 
     Examples
@@ -1338,7 +1314,7 @@ def get_snapshot_of(obj: Any) -> Any:
     """
     ...
 
-def is_memo(obj: Any) -> bool:
+def is_memo(obj: Any, /) -> bool:
     """Check if a given object is a dbzero memo class or instance of one.
 
     Parameters
@@ -1384,7 +1360,7 @@ def is_memo(obj: Any) -> bool:
     """
     ...
 
-def is_singleton(obj: Any) -> bool:
+def is_singleton(obj: Any, /) -> bool:
     """Check if a given object is a dbzero singleton instance.
 
     Parameters
@@ -1418,7 +1394,7 @@ def is_singleton(obj: Any) -> bool:
     """
     ...
 
-def is_enum(value: Any) -> bool:
+def is_enum(value: Any, /) -> bool:
     """Check if an object is a dbzero enum type.
 
     Parameters
@@ -1446,7 +1422,7 @@ def is_enum(value: Any) -> bool:
     """
     ...
 
-def is_enum_value(value: Any) -> bool:
+def is_enum_value(value: Any, /) -> bool:
     """Check if an object is a dbzero enum value.
 
     Parameters
@@ -1477,7 +1453,7 @@ def is_enum_value(value: Any) -> bool:
     """
     ...
 
-def get_schema(cls: type) -> Dict[str, Dict[str, Any]]:
+def get_schema(cls: type, /) -> Dict[str, Dict[str, Any]]:
     """Introspect all in-memory instances of a @dbzero.memo class to generate dynamic schema.
 
     Provides current overview of attributes and their most common data types
@@ -1578,7 +1554,7 @@ def get_config() -> Dict[str, Any]:
 
 # Serialization functions
 
-def serialize(obj: Any) -> bytes:
+def serialize(obj: Union[QueryObject, EnumValue], /) -> bytes:
     """Convert a dbzero query iterable or enum value into platform-independent binary representation.
 
     Parameters
@@ -1586,8 +1562,8 @@ def serialize(obj: Any) -> bytes:
     obj : Any
         The dbzero object to serialize:
         
-        * Query iterable (result of dbzero.find(...))
-        * dbzero enum value (e.g., Colors.RED)
+        * Query iterable
+        * dbzero enum value
 
     Returns
     -------
@@ -1616,8 +1592,8 @@ def serialize(obj: Any) -> bytes:
     """
     ...
 
-def deserialize(data: bytes) -> Any:
-    """Reconstruct a dbzero query iterable or enum value from serialized bytes.
+def deserialize(data: bytes, /) -> Any:
+    """Reconstruct a dbzero object from serialized bytes.
 
     Parameters
     ----------
@@ -1627,14 +1603,13 @@ def deserialize(data: bytes) -> Any:
     Returns
     -------
     Any
-        A fully functional dbzero object (query iterable or enum value) that was
-        encoded in the data bytes.
+        A dbzero object that was encoded in the data bytes.
     """
     ...
 
 # Synchronization functions
 
-def wait(prefix: str, state_num: int, timeout: Optional[int] = None) -> bool:
+def wait(prefix: str, state: int, timeout: Optional[int] = None) -> bool:
     """Block execution until desired prefix reaches target state or timeout occurs.
 
     Low-level mechanism for synchronizing processes by waiting on data updates.
@@ -1646,7 +1621,7 @@ def wait(prefix: str, state_num: int, timeout: Optional[int] = None) -> bool:
     prefix : str
         Name of the prefix to monitor for changes.
         Use dbzero.get_current_prefix().name for current prefix.
-    state_num : int
+    state : int
         Target state number to wait for.
         Use dbzero.get_state_num(prefix) for current state.
     timeout : int, optional
@@ -1655,7 +1630,7 @@ def wait(prefix: str, state_num: int, timeout: Optional[int] = None) -> bool:
     Returns
     -------
     bool
-        True if database reached/surpassed target state_num within timeout.
+        True if prefix reached/surpassed target state_num within timeout.
         False if timeout occured. Returns True immediately if current state
         is already >= target state_num.
 
@@ -1693,7 +1668,7 @@ def wait(prefix: str, state_num: int, timeout: Optional[int] = None) -> bool:
 
 # Object lifecycle functions
 
-def getrefcount(obj: Any) -> int:
+def getrefcount(obj: Union[Memo, type]) -> int:
     """Get the number of strong references to a memo object or class.
 
     Low-level utility useful for debugging and understanding memory management within dbzero.
@@ -1766,22 +1741,22 @@ def getrefcount(obj: Any) -> int:
     """
     ...
 
-def weak_proxy(obj: Any) -> Any:
-    """Create a weak reference to a dbzero managed object.
+def weak_proxy(obj: Memo) -> MemoWeakProxy:
+    """Create a weak reference to a Memo object.
 
     Allows storing reference to an object without increasing its reference count.
     Crucial for preventing circular dependencies and enabling cross-prefix references.
 
     Parameters
     ----------
-    obj : Any
+    obj : Memo
         A dbzero managed object to create a weak reference to.
 
     Returns
     -------
-    Any
+    MemoWeakProxy
         A special weak proxy object that behaves like the original for most operations
-        but doesn't keep the original object alive.
+        but doesn't extend the original objects' lifetime.
 
     Examples
     --------
@@ -1814,15 +1789,15 @@ def weak_proxy(obj: Any) -> Any:
     """
     ...
 
-def expired(proxy_object: Any) -> bool:
+def expired(proxy_object: MemoWeakProxy) -> bool:
     """Check if the target object of a dbzero.weak_proxy has been garbage-collected.
 
     Used to determine if the original object still exists and can be accessed.
 
     Parameters
     ----------
-    proxy_object : Any
-        The weak proxy object (from dbzero.weak_proxy()) to check.
+    proxy_object : MemoWeakProxy
+        The weak proxy object to check.
 
     Returns
     -------
