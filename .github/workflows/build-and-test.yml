@@ -23,6 +23,7 @@ jobs:
       - uses: actions/checkout@v3
       - run: python3 scripts/generate_meson.py ./src/dbzero/ core
       - run: python3 scripts/generate_meson_tests.py tests/
+      - run: python3 scripts/generate_meson_dbzero.py dbzero/
       - run: git config --global user.email "you@example.com"
       - run: git config --global user.name "Your Name"
       - run: rm .gitignore
