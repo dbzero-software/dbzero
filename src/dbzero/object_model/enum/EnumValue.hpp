@@ -10,8 +10,6 @@
 namespace db0::object_model
 
 {
-
-DB0_PACKED_BEGIN
     
     using LP_String = db0::LP_String;
     using ObjectSharedPtr = db0::object_model::LangConfig::ObjectSharedPtr;
@@ -29,6 +27,8 @@ DB0_PACKED_BEGIN
         std::uint64_t asULong() const;
     };
     
+DB0_PACKED_BEGIN
+
     class DB0_PACKED_ATTR o_enum_value_repr: public db0::o_base<o_enum_value_repr, 0, false>
     {
     protected:
@@ -54,6 +54,8 @@ DB0_PACKED_BEGIN
         }   
     };
     
+DB0_PACKED_END
+
     // EnumValue placeholder when EnumValue could not be created
     // e.g. due to read-only access
     struct EnumValueRepr
@@ -123,6 +125,8 @@ DB0_PACKED_BEGIN
         db0::swine_ptr<Fixture> getFixture() const;
     };
     
+DB0_PACKED_BEGIN
+
     class DB0_PACKED_ATTR o_enum_value: public db0::o_base<o_enum_value, 0, false>
     {
     protected:

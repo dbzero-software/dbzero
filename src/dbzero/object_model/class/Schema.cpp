@@ -92,6 +92,18 @@ namespace db0::object_model
         return result;
     }
     
+    void o_schema::initTypeVector(Memspace &memspace, TypeVector &type_vector)
+    {
+        if (!type_vector) {
+            if (!m_type_vector_ptr) {
+                type_vector = TypeVector(memspace);
+                m_type_vector_ptr = db0::db0_ptr<TypeVector>(type_vector);
+            } else {
+                type_vector = m_type_vector_ptr(memspace);
+            }
+        }
+    }
+    
     void o_schema::update(Memspace &memspace,
         std::vector<std::tuple<FieldLoc, SchemaTypeId, int> >::const_iterator begin,
         std::vector<std::tuple<FieldLoc, SchemaTypeId, int> >::const_iterator end,
@@ -117,13 +129,7 @@ namespace db0::object_model
                     m_secondary_type = o_type_item();
                 }
             } else {
-                if (!type_vector) {
-                    if (m_type_vector_ptr) {
-                        type_vector = m_type_vector_ptr(memspace);
-                    } else {
-                        type_vector = TypeVector(memspace);
-                    }
-                }
+                initTypeVector(memspace, type_vector);
                 auto it = type_vector.find(o_type_item{std::get<1>(*begin), 0});
                 if (it == type_vector.end()) {
                     // add new type ID
@@ -160,7 +166,7 @@ namespace db0::object_model
         TypeVector type_vector;
         update(memspace, type_vector, collection_size);
     }
-
+    
     void o_schema::update(Memspace &memspace, TypeVector &type_vector, std::uint32_t collection_size)
     {
         // try swapping primary / secondary and extra types
@@ -183,9 +189,8 @@ namespace db0::object_model
             return;
         }
 
-        if (!type_vector) {
-            type_vector = m_type_vector_ptr(memspace);
-        }
+        initTypeVector(memspace, type_vector);
+        assert(type_vector);
         
         o_type_item max_item, second_max_item;
         for (auto &type_item : type_vector) {
@@ -440,14 +445,16 @@ namespace db0::object_model
         return *m_builder;
     }
     
-    void Schema::add(FieldID field_id, SchemaTypeId type_id) {
+    void Schema::add(FieldID field_id, SchemaTypeId type_id) 
+    {
         if (type_id == SchemaTypeId::UNDEFINED || type_id == SchemaTypeId::DELETED) {
             return;
         }
         getBuilder().collect(field_id, type_id, 1);
     }
     
-    void Schema::remove(FieldID field_id, SchemaTypeId type_id) {
+    void Schema::remove(FieldID field_id, SchemaTypeId type_id) 
+    {
         if (type_id == SchemaTypeId::UNDEFINED || type_id == SchemaTypeId::DELETED) {
             return;
         }
