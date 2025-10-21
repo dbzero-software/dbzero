@@ -84,7 +84,7 @@ namespace db0::python
     }
     
     ListObject *tryMake_ListInternal(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
-    {        
+    {
         if (nargs != 1 && nargs != 0) {
             PyErr_SetString(PyExc_TypeError, "list() takes exactly one or zero argument");
             return NULL;
@@ -227,7 +227,7 @@ namespace db0::python
                 default:
                     Py_RETURN_NOTIMPLEMENTED;
             }
-        } else {
+        } else if(PyList_Check(other)) {
             auto iterator = Py_OWN(PyObject_GetIter(other));
             if (!iterator) {
                 PyErr_SetString(PyExc_TypeError, "argument must be a sequence");
@@ -252,8 +252,20 @@ namespace db0::python
                     Py_RETURN_NOTIMPLEMENTED;
             }
             
-            Py_RETURN_TRUE;
+            Py_RETURN_FALSE;
+        } else {
+            switch (op) {
+                case Py_EQ: {
+                    Py_RETURN_FALSE;
+                }
+                case Py_NE: {
+                    Py_RETURN_TRUE;
+                }
+                default:
+                    Py_RETURN_NOTIMPLEMENTED;
+            }
         }
+        Py_RETURN_NOTIMPLEMENTED;
     }
     
     PyObject *PyAPI_ListObject_rq(ListObject *list_obj, PyObject *other, int op)

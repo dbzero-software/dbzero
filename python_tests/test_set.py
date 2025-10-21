@@ -148,8 +148,8 @@ def test_set_issubset(db0_no_autocommit, make_set):
     assert set_1.issubset(set_2)
     assert not set_1.issubset(set_3)
     assert set_1.issubset(set_1)
-    assert set_1.issubset([2,3,1,2,4])
-    assert not set_1.issubset([2,3,5,6,7])
+    assert set_1.issubset({2,3,1,2,4})
+    assert not set_1.issubset({2,3,5,6,7})
 
 
 @pytest.mark.parametrize("make_set", set_test_params)
@@ -160,8 +160,8 @@ def test_set_issubset_str(db0_no_autocommit, make_set):
     assert set_1.issubset(set_2)
     assert not set_1.issubset(set_3)
     assert set_1.issubset(set_1)
-    assert set_1.issubset(["2", "3", "1", "2", "4"])
-    assert not set_1.issubset(["2", "3", "5", "6", "7"])
+    assert set_1.issubset({"2", "3", "1", "2", "4"})
+    assert not set_1.issubset({"2", "3", "5", "6", "7"})
 
 @pytest.mark.parametrize("make_set", set_test_params)
 def test_set_issubset_le(db0_no_autocommit, make_set):
@@ -643,3 +643,10 @@ def test_db0_set_str_with_nested_memo_objects(db0_fixture):
     memo_str = repr(inner_memo)
     assert memo_str in db0_str
     assert memo_str in py_str
+
+def test_db0_set_compare_with_other_types(db0_fixture):
+    db0_set = db0.set([1, 2, 3])
+    python_list = [1, 2, 3]
+    python_tuple = (1, 2, 3)
+    assert db0_set != python_list
+    assert db0_set != python_tuple
