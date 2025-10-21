@@ -98,7 +98,7 @@ namespace db0::python
                 default:
                     Py_RETURN_NOTIMPLEMENTED;
             }
-        } else {
+        } else  if (PyTuple_Check(other)) {
             auto iterator = Py_OWN(PyObject_GetIter(other));
             if (!iterator) {
                 PyErr_SetString(PyExc_TypeError, "argument must be an iterable");
@@ -122,8 +122,19 @@ namespace db0::python
                 default:
                     Py_RETURN_NOTIMPLEMENTED;
             }            
-            Py_RETURN_TRUE;
+        } else {
+            switch (op) {
+                case Py_EQ: {
+                    Py_RETURN_FALSE;
+                }
+                case Py_NE: {
+                    Py_RETURN_TRUE;
+                }
+                default:
+                    Py_RETURN_NOTIMPLEMENTED;
+            } 
         }
+        Py_RETURN_NOTIMPLEMENTED;
     }
     
     PyObject *PyAPI_TupleObject_rq(TupleObject *tuple_obj, TupleObject *other, int op)

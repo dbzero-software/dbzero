@@ -130,7 +130,7 @@ namespace db0::python
                 }
                 ++it2;
             }
-        } else {
+        } else if (PySet_Check(args[0])) {
             PyObject *other = args[0];
             if (trySetObject_len(self) == 0 || PyObject_Length(other) == 0) {
                 Py_RETURN_TRUE;
@@ -147,6 +147,8 @@ namespace db0::python
                     Py_RETURN_FALSE;
                 }                                
             }
+        } else {
+            Py_RETURN_FALSE;
         }
         Py_RETURN_TRUE;
     }
@@ -199,36 +201,48 @@ namespace db0::python
 
     PyObject *trySetObject_rq(SetObject *set_obj, PyObject *other, int op)
     {        
-        PyObject** args = &other;    
-        switch (op) {
-            case Py_EQ:
-                if (trySetObject_len(set_obj) != getLenPyObjectOrSet(other)) {
-                    Py_RETURN_FALSE;
+        PyObject** args = &other;
+        if(PySet_Check(other) || SetObject_Check(other)) {
+
+            switch (op) {
+                case Py_EQ:
+                    if (trySetObject_len(set_obj) != getLenPyObjectOrSet(other)) {
+                        Py_RETURN_FALSE;
+                    }
+                    return PyBool_fromBool(has_all_elements_in_collection(set_obj, other));
+                case Py_NE:
+                    if (trySetObject_len(set_obj) != getLenPyObjectOrSet(other)) {
+                        Py_RETURN_TRUE;
+                    }
+                    return PyBool_fromBool(!has_all_elements_in_collection(set_obj, other));
+                case Py_LE:  // Test whether every element in the set is in other.
+                    return trySetObject_issubsetInternal(set_obj, args, 1);
+                case Py_LT:{  // Test whether the set is a proper subset of other, that is, set <= other and set != other.
+                    if (trySetObject_len(set_obj) == getLenPyObjectOrSet(other)) {
+                        Py_RETURN_FALSE;
+                    }
+                    return trySetObject_issubsetInternal(set_obj, args, 1);
                 }
-                return PyBool_fromBool(has_all_elements_in_collection(set_obj, other));
-            case Py_NE:
-                if (trySetObject_len(set_obj) != getLenPyObjectOrSet(other)) {
+                case Py_GE:  // Test whether every element in the set is in other.
+                    return trySetObject_issupersetInternal(set_obj, args, 1);
+                case Py_GT:{  // Test whether the set is a proper superset of other, that is, set >= other and set != other.
+                    if (trySetObject_len(set_obj) == getLenPyObjectOrSet(other)) {
+                        Py_RETURN_FALSE;
+                    }
+                    return trySetObject_issupersetInternal(set_obj, args, 1);
+                }
+                default:
+                    Py_RETURN_NOTIMPLEMENTED;
+            }
+        } else {
+            switch (op) {
+                case Py_EQ:
+                    Py_RETURN_FALSE;
+                case Py_NE:
                     Py_RETURN_TRUE;
-                }
-                return PyBool_fromBool(!has_all_elements_in_collection(set_obj, other));
-            case Py_LE:  // Test whether every element in the set is in other.
-                return trySetObject_issubsetInternal(set_obj, args, 1);
-            case Py_LT:{  // Test whether the set is a proper subset of other, that is, set <= other and set != other.
-                if (trySetObject_len(set_obj) == getLenPyObjectOrSet(other)) {
-                    Py_RETURN_FALSE;
-                }
-                return trySetObject_issubsetInternal(set_obj, args, 1);
+                default:
+                    Py_RETURN_NOTIMPLEMENTED;
             }
-            case Py_GE:  // Test whether every element in the set is in other.
-                return trySetObject_issupersetInternal(set_obj, args, 1);
-            case Py_GT:{  // Test whether the set is a proper superset of other, that is, set >= other and set != other.
-                if (trySetObject_len(set_obj) == getLenPyObjectOrSet(other)) {
-                    Py_RETURN_FALSE;
-                }
-                return trySetObject_issupersetInternal(set_obj, args, 1);
-            }
-            default:
-                Py_RETURN_NOTIMPLEMENTED;
         }
         Py_RETURN_NOTIMPLEMENTED;
     }

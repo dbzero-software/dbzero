@@ -492,3 +492,10 @@ def test_db0_list_islice_iteration(db0_fixture):
     expected_values = [10, 12, 14, 16, 18]
     for index, value in enumerate(itertools.islice(db0_list, 10, 20, 2)):    
         assert value == expected_values[index]
+
+def test_db0_list_compare_with_other_typse(db0_fixture):
+    db0_list = db0.list([1, 2, 3])
+    python_tuple = (1, 2, 3)
+    python_set = {1, 2, 3}
+    assert db0_list != python_tuple
+    assert db0_list != python_set

@@ -137,3 +137,10 @@ def test_db0_tuple_str_with_nested_memo_objects(db0_fixture):
     py_tuple = (py_inner_memo, "test", None)
     assert str(db0_tuple) == str(py_tuple)
     assert repr(db0_tuple) == repr(py_tuple)
+
+def test_db0_tuple_compare_with_other_types(db0_fixture):
+    db0_tuple = db0.tuple([1, 2, 3])
+    python_list = [1, 2, 3]
+    python_set = {1, 2, 3}
+    assert db0_tuple != python_list
+    assert db0_tuple != python_set
