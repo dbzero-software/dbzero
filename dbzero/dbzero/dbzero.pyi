@@ -11,7 +11,7 @@ from .interfaces import (
 
 # Core workspace management functions
 
-def init(path: str, config: Optional[Dict[str, Any]] = None) -> None:
+def init(path: str, config: Optional[Dict[str, Any]] = None, lock_flags: Optional[Dict[str, Any]] = None) -> None:
     """Initialize the dbzero environment in a specified directory and apply global configurations.
 
     This function sets up the underlying state management engine.
@@ -29,8 +29,15 @@ def init(path: str, config: Optional[Dict[str, Any]] = None) -> None:
 
         * autocommit (bool, default True) to enable automatic commits
         * autocommit_interval (int, default 250) for commit interval in milliseconds  
-        * cache_size (int, default 4 GiB) for main object cache size in bytes
+        * cache_size (int, default 2 GiB) for main object cache size in bytes
         * lang_cache_size (int, optional) for language model data cache size
+    lock_flags : dict, optional
+        Dictionary with configuration of locking behavior when opening the prefix in read-write mode.
+
+        * blocking (bool, default False) to wait when trying to acquire the lock
+        * timeout (int) to set maximum waiting time in seconds when blocking wait is enabled
+        * force_unlock (bool, default False) to force unlocking of existing lock
+
 
     Examples
     --------
@@ -66,6 +73,7 @@ def open(prefix_name: str, open_mode: str = "rw", **kwargs: Any) -> None:
         * autocommit (bool) to disable automatic commits for this prefix
         * slab_size (int) for memory slab allocation size in bytes
         * meta_io_step_size (int) for metadata I/O operation chunk size
+        * lock_flags (dict) to change locking behavior when opening the prefix for read-write
 
     Examples
     --------
@@ -148,7 +156,7 @@ def commit(prefix_name: Optional[str] = None) -> None:
 
 # Object retrieval and management
 
-def fetch(id: Union[str, type], type: Optional[type] = None, prefix: Optional[str] = None) -> Memo:
+def fetch(identifier: Union[str, type], expected_type: Optional[type] = None, prefix: Optional[str] = None) -> Memo:
     """Retrieve a single object directly from memory using its unique identifier.
 
     The fastest way to access an object, operating in constant time O(1).
@@ -156,12 +164,12 @@ def fetch(id: Union[str, type], type: Optional[type] = None, prefix: Optional[st
 
     Parameters
     ----------
-    id : str or type
+    identifier : str or type
         The identifier for the object you want to retrieve.
         
         * UUID string: Returns the specific object instance for that UUID
         * type (singleton class): Returns the unique instance of that singleton
-    type : type, optional
+    expected_type : type, optional
         Optional type to validate the retrieved object.
         Raises exception if the fetched object is not an instance of this type.
     prefix : str, optional
@@ -202,7 +210,7 @@ def fetch(id: Union[str, type], type: Optional[type] = None, prefix: Optional[st
     """
     ...
 
-def exists(id: Union[str, type], type: Optional[type] = None, prefix: Optional[str] = None) -> bool:
+def exists(identifier: Union[str, type], expected_type: Optional[type] = None, prefix: Optional[str] = None) -> bool:
     """Check if a dbzero object exists.
 
     Can check by UUID or by singleton type.
@@ -210,12 +218,12 @@ def exists(id: Union[str, type], type: Optional[type] = None, prefix: Optional[s
 
     Parameters
     ----------
-    id : str or type
-        The object to check for.
+    identifier : str or type
+        The identifier for object to check for.
         
         * str: Check for object with its unique identifier
         * type: Check for instance of this singleton type
-    type : type, optional
+    expected_type : type, optional
         Optional expected type when checking by UUID.
         Verifies the found object is an instance of this type.
     prefix : str, optional
@@ -548,7 +556,7 @@ def touch(*objects: Memo) -> None:
     """
     ...
 
-def rename_field(class_obj: type, old_name: str, new_name: str) -> None:
+def rename_field(class_obj: type, from_name: str, to_name: str) -> None:
     """Rename a field for a given Memo class.
 
     Modifies the internal field layout for all existing and future instances
@@ -558,9 +566,9 @@ def rename_field(class_obj: type, old_name: str, new_name: str) -> None:
     ----------
     class_obj : type
         The memo type for which to rename the field.
-    old_name : str
+    from_name : str
         The current name of the field you want to change.
-    new_name : str
+    to_name : str
         The new name for the field.
 
     Examples

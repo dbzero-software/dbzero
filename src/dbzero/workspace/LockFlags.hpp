@@ -15,7 +15,7 @@ namespace db0
         LockFlags(bool no_lock);
         
 
-        bool m_blocking = true;
+        bool m_blocking = false;
         int m_timeout = 0;
         bool m_relock_on_removed_lock = false;
         bool m_force_unlock = false;
