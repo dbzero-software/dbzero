@@ -114,12 +114,11 @@ namespace db0::python
         return PyBool_fromBool(tryExistsIn(PyToolkit::getPyWorkspace().getWorkspace(), py_id, type, prefix_name));
     }
     
-    bool tryParseFetchArgs(PyObject *, PyObject *args, PyObject *kwargs, PyObject *&py_id,
+    bool tryParseFetchArgs(PyObject *args, PyObject *kwargs, PyObject *&py_id,
         PyObject *&py_type, const char *&prefix_name)
     {
-        static const char *kwlist[] = { "id", "type", "prefix", NULL };
+        static const char *kwlist[] = { "identifier", "expected_type", "prefix", NULL };
         if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|Os", const_cast<char**>(kwlist), &py_id, &py_type, &prefix_name)) {
-            PyErr_SetString(PyExc_TypeError, "Invalid arguments");
             return false;
         }
 
@@ -140,7 +139,7 @@ namespace db0::python
         PyObject *py_id = nullptr;
         PyObject *py_type = nullptr;
         const char *prefix_name = nullptr;
-        if (!tryParseFetchArgs(nullptr, args, kwargs, py_id, py_type, prefix_name)) {
+        if (!tryParseFetchArgs(args, kwargs, py_id, py_type, prefix_name)) {
             // error already set in tryParseFetchArgs
             return NULL;
         }
@@ -155,7 +154,7 @@ namespace db0::python
         PyObject *py_type = nullptr;
         const char *prefix_name = nullptr;
         // takes same arguments as fetch
-        if (!tryParseFetchArgs(nullptr, args, kwargs, py_id, py_type, prefix_name)) {
+        if (!tryParseFetchArgs(args, kwargs, py_id, py_type, prefix_name)) {
             // error already set in tryParseFetchArgs
             return NULL;
         }
@@ -176,10 +175,9 @@ namespace db0::python
         PyObject *py_slab_size = nullptr;
         PyObject *py_lock_flags = nullptr;
         PyObject *py_meta_io_step_size = nullptr;
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|sOOOO", const_cast<char**>(kwlist),
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|sOOOO:open", const_cast<char**>(kwlist),
             &prefix_name, &open_mode, &py_autocommit, &py_slab_size, &py_lock_flags, &py_meta_io_step_size))
         {
-            PyErr_SetString(PyExc_TypeError, "Invalid arguments");
             return NULL;
         }
         
@@ -237,11 +235,10 @@ namespace db0::python
     {        
         PyObject *py_path = nullptr;
         PyObject *py_config = nullptr;
-        PyObject *py_flags= nullptr;        
+        PyObject *py_flags = nullptr;        
         // extract optional "path" string argument and "autcommit_interval" keyword argument
         static const char *kwlist[] = {"path", "config", "lock_flags", NULL};
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|OOO", const_cast<char**>(kwlist), &py_path, &py_config, &py_flags)) {
-            PyErr_SetString(PyExc_TypeError, "Invalid arguments");
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|OOO:init", const_cast<char**>(kwlist), &py_path, &py_config, &py_flags)) {
             return NULL;
         }
 
@@ -260,40 +257,50 @@ namespace db0::python
             return NULL;
         }
         
-        // py_config must be a dict
+        // py_flags must be a dict
         if (py_flags && !PyDict_Check(py_flags)) {
             PyErr_SetString(PyExc_TypeError, "Invalid argument type: flags");
             return NULL;
         }
 
-        using ObjectSharedPtr = PyTypes::ObjectSharedPtr;
-        ObjectSharedPtr config_obj;
-        if (py_config) {
-            config_obj = Py_OWN(PyDict_Copy(py_config));
-        }
-        else {
-            config_obj = Py_OWN(PyDict_New());
-        }
+        auto config_obj = Py_OWN(PyDict_New());
         if (!config_obj) {
             return nullptr;
         }
         
         using DefaultValueFunction = PyObject*(*)();
         const std::pair<const char*, const DefaultValueFunction> defaults[] = {
+            {"cache_size", []{ return PyLong_FromLong(BaseWorkspace::DEFAULT_CACHE_SIZE); }},
+            {"lang_cache_size", []{ return PyLong_FromLong(LangCache::DEFAULT_CAPACITY); }},
             {"autocommit", []{ Py_RETURN_TRUE; }},
             {"autocommit_interval", []{ return PyLong_FromLong(Workspace::DEFAULT_AUTOCOMMIT_INTERVAL_MS); }}
         };
-        for (const auto &[key, value_function] : defaults) {
+        for (const auto &[key_str, default_fn] : defaults) {
             // Populate default values so then can be easily accessed with get_config
-            auto key_obj = Py_OWN(PyUnicode_FromString(key));
+            auto key = Py_OWN(PyUnicode_FromString(key_str));
             if (!key) {
                 return nullptr;
             }
-            auto value_obj = Py_OWN(value_function());
-            if (!value_obj) {
+
+            int contains = 0;
+            if(py_config) {
+                contains = PyDict_Contains(py_config, *key);
+                if (contains == -1) {
+                    return nullptr;
+                }
+            }
+            PyTypes::ObjectSharedPtr config_value;
+            if (contains) {
+                config_value = Py_BORROW(PyDict_GetItemWithError(py_config, *key));
+            }
+            else {
+                config_value = Py_OWN(default_fn());
+            }
+            if(!config_value) {
                 return nullptr;
             }
-            if (!PySafeDict_SetDefault(*config_obj, key_obj, value_obj)) {
+
+            if(PyDict_SetItem(*config_obj, *key, *config_value)) {
                 return nullptr;
             }
         }
@@ -332,8 +339,7 @@ namespace db0::python
     {
         // extract optional prefix name
         const char *prefix_name = nullptr;
-        if (!PyArg_ParseTuple(args, "|s", &prefix_name)) {
-            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+        if (!PyArg_ParseTuple(args, "|s:commit", &prefix_name)) {
             return NULL;
         }
         
@@ -381,8 +387,7 @@ namespace db0::python
     {
         // extract optional prefix name
         const char *prefix_name = nullptr;
-        if (!PyArg_ParseTuple(args, "|s", &prefix_name)) {
-            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+        if (!PyArg_ParseTuple(args, "|s:close", &prefix_name)) {
             return NULL;
         }
         
@@ -509,7 +514,7 @@ namespace db0::python
         const char *prefix_name = nullptr;
         int  finalized = 0;
         const char * const kwlist[] = {"prefix", "finalized", NULL};
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|sp", const_cast<char**>(kwlist), &prefix_name, &finalized)) {
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|sp:get_state_num", const_cast<char**>(kwlist), &prefix_name, &finalized)) {
             return nullptr;
         }
 
@@ -558,15 +563,16 @@ namespace db0::python
         return runSafe(tryDescribeObject, self, args);
     }
     
-    PyObject *tryRenameField(PyObject *args)
+    PyObject *tryRenameField(PyObject *args, PyObject *kwargs)
     {
         // extract 3 required arguments: class, from name, to name
         PyTypeObject *py_type;        
         const char *from_name = nullptr;
         const char *to_name = nullptr;
-        if (!PyArg_ParseTuple(args, "Oss", &py_type, &from_name, &to_name)) {
-            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
-            return NULL;
+
+        const char * const kwlist[] = {"class_obj", "from_name", "to_name", nullptr};
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "Oss:rename_field", const_cast<char**>(kwlist), &py_type, &from_name, &to_name)) {
+            return nullptr;
         }
 
         // check if py type
@@ -575,14 +581,14 @@ namespace db0::python
             return nullptr;
         }
 
-        renameField(py_type, from_name, to_name);
+        renameMemoClassField(py_type, from_name, to_name);
         Py_RETURN_NONE;       
     }
     
-    PyObject *renameField(PyObject *, PyObject *args) 
+    PyObject *renameField(PyObject *, PyObject *args, PyObject *kwargs) 
     {
         PY_API_FUNC        
-        return runSafe(tryRenameField, args);
+        return runSafe(tryRenameField, args, kwargs);
     }
 
     PyObject *TryPyAPI_isSingleton(PyObject *py_object)
@@ -753,8 +759,10 @@ namespace db0::python
         // extract filter callable and query objects
         PyObject *py_filter = nullptr;
         PyObject *py_query = nullptr;
-        if (!PyArg_ParseTuple(args, "OO", &py_filter, &py_query)) {
-            THROWF(db0::InputException) << "Invalid argument type";
+
+        const char * const kwlist[] = {"prefix", "finalized", nullptr};
+        if(!PyArg_ParseTupleAndKeywords(args, kwargs, "OO:filter", const_cast<char**>(kwlist), &py_filter, &py_query)) {
+            return nullptr;
         }
 
         // py_filter must be a python callable

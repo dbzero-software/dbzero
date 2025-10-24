@@ -59,7 +59,7 @@ static PyMethodDef dbzero_methods[] =
     {"begin_atomic", (PyCFunction)&py::PyAPI_beginAtomic, METH_FASTCALL, "Opens a new atomic operation's context"},
     {"begin_locked", (PyCFunction)&py::PyAPI_beginLocked, METH_FASTCALL, "Enter a new locked section"},
     {"describe", &py::describeObject, METH_VARARGS, "Get dbzero object's description"},
-    {"rename_field", &py::renameField, METH_VARARGS, "Get snapshot of dbzero state"},
+    {"rename_field", (PyCFunction)&py::renameField, METH_VARARGS | METH_KEYWORDS, "Get snapshot of dbzero state"},
     {"is_singleton", &py::PyAPI_isSingleton, METH_VARARGS, "Check if a specific instance is a dbzero singleton"},
     {"getrefcount", &py::PyAPI_getRefCount, METH_VARARGS, "Get dbzero ref counts"},
     {"no", (PyCFunction)&py::negTagSet, METH_FASTCALL, "Tag negation function"},

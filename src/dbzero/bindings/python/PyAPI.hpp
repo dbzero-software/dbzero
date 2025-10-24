@@ -101,7 +101,7 @@ namespace db0::python
     */
     PyObject *describeObject(PyObject *self, PyObject *args);
     
-    PyObject *renameField(PyObject *self, PyObject *args);
+    PyObject *renameField(PyObject *self, PyObject *args, PyObject *kwargs);
 
     PyObject *PyAPI_isSingleton(PyObject *self, PyObject *args);
 
