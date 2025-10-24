@@ -136,13 +136,13 @@ def test_autocommit_config(db0_fixture):
     assert cfg['autocommit_interval'] == 250
 
     db0.close()
-    db0.init(DB0_DIR, config={'autocommit': False, 'autocommit_interval': 1000})
+    db0.init(DB0_DIR, autocommit=False, autocommit_interval=1000)
     cfg = db0.get_config()
     assert cfg['autocommit'] == False
     assert cfg['autocommit_interval'] == 1000
 
     db0.close()
-    db0.init(DB0_DIR, config={'autocommit': False})
+    db0.init(DB0_DIR, autocommit=False)
     cfg = db0.get_config()
     assert cfg['autocommit'] == False
     assert cfg['autocommit_interval'] == 250

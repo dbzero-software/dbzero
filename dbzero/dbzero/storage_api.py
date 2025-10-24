@@ -18,7 +18,7 @@ def get_prefixes() -> Iterator[PrefixMetaData]:
     Discovering and opening all available prefixes:
 
     >>> # First, initialize the dbzero environment
-    >>> dbzero.init(path="/path/to/my/data")
+    >>> dbzero.init(dbzero_root="/path/to/my/data")
     >>> 
     >>> # Discover all available prefixes
     >>> all_prefixes = dbzero.get_prefixes()
