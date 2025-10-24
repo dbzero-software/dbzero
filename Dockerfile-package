@@ -36,10 +36,10 @@ WORKDIR /dbzero/
 # Build and install
 RUN python3 scripts/generate_meson.py ./src/dbzero/ core
 RUN python3 scripts/generate_meson_tests.py tests/
+RUN python3 scripts/generate_meson_dbzero.py dbzero/
 RUN rm .gitignore
 RUN git config --global user.email "you@example.com"
 RUN git config --global user.name "Your Name"
 RUN git add . && git commit -m "Update meson files"
 
-RUN ./build.sh -r
 RUN python3 -m build --wheel

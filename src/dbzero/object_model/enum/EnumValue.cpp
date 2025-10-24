@@ -3,6 +3,7 @@
 #include <dbzero/object_model/enum/EnumFactory.hpp>
 #include <dbzero/object_model/enum/Enum.hpp>
 #include <dbzero/workspace/Snapshot.hpp>
+#include <dbzero/core/utils/hashes.hpp>
 
 namespace db0::object_model
 
@@ -148,7 +149,7 @@ namespace db0::object_model
     }
     
     std::int64_t EnumValue::getPermHash() const {
-        return std::hash<std::string>{}(m_str_repr);
+        return murmurhash64A(m_str_repr.c_str(), m_str_repr.size());
     }
     
     void EnumValue::serialize(std::vector<std::byte> &buffer) const

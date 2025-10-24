@@ -8,6 +8,7 @@
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/object_model/class/ClassFactory.hpp>
 #include <dbzero/object_model/class/Class.hpp>
+#include <dbzero/core/utils/hashes.hpp>
 
 namespace db0::python
 
@@ -18,13 +19,13 @@ namespace db0::python
     template <> std::int64_t getPyHashImpl<TypeId::STRING>(db0::swine_ptr<Fixture> &, PyObject *key)
     {
         auto unicode_value = PyUnicode_AsUTF8(key);
-        return std::hash<std::string>{}(unicode_value);
+        return murmurhash64A(unicode_value, std::strlen(unicode_value));
     }
 
     template <> std::int64_t getPyHashImpl<TypeId::BYTES>(db0::swine_ptr<Fixture> &, PyObject *key)
     {
         auto bytes_value = PyBytes_AsString(key);
-        return std::hash<std::string>{}(bytes_value);
+        return murmurhash64A(bytes_value, std::strlen(bytes_value));
     }
     
     template <> std::int64_t getPyHashImpl<TypeId::TUPLE>(db0::swine_ptr<Fixture> &fixture, PyObject *key)
