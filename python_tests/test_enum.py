@@ -358,3 +358,11 @@ def test_enum_value_repr_lookup_in_python_collection(db0_fixture):
     # look up by enum value repr
     assert Colors.values()[0] not in set()
     assert Colors.values()[0] not in {}
+
+
+# FIXME: https://github.com/dbzero-software/dbzero/issues/457
+# def test_enum_value_repr_after_init(db0_fixture):
+#     Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])    
+#     db0.close()
+#     db0.init(DB0_DIR)
+#     _ = Colors.RED
