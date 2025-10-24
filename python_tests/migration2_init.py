@@ -1,5 +1,4 @@
 from dbzero import db0
-from dbzero.connection import Connection
 import os
 import datetime
 
@@ -34,13 +33,13 @@ class MigrationTestClass():
         
 def start():
     # Configure the dbzero connection without connecting yet
-    Connection.setup(os.path.join(os.getcwd(), "app-data"), read_write=True, **config, client_app="migration-test")
-    Connection.assure_initialized()
+    db0.init(os.path.join(os.getcwd(), "app-data"), config=config)
+    db0.open(config["prefix"])
     root = Root([])
     for _ in range(10):
         root.value.append(MigrationTestClass())
     
-    Connection.close()
+    db0.close()
     
     
 if __name__ == "__main__":

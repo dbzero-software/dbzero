@@ -1,5 +1,4 @@
 from dbzero import db0
-from dbzero.connection import Connection
 import os
 
 ORG_NAME = "division-by-zero"
@@ -44,14 +43,14 @@ class MySingleton:
     
 def start():
     # Configure the dbzero connection without connecting yet
-    Connection.setup(os.path.join(os.getcwd(), "app-data"), read_write=True, **config, client_app="migration-test")
-    Connection.assure_initialized()    
+    db0.init(os.path.join(os.getcwd(), "app-data"), config=config)
+    db0.open(config["prefix"])
     obj = MySingleton(123)
     print(f"int param: {obj.int_param}")
     print(f"str param: {obj.str_param}")    
     print(list(obj.items))
     print(dict(obj.str_items))
-    Connection.close()
+    db0.close()
     
     
 if __name__ == "__main__":

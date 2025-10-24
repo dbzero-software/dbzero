@@ -222,6 +222,7 @@ class Snapshot:
         QueryObject
             An iterable query object.
         """
+        ...
 
     def deserialize(self, data: bytes, /) -> Any:
         """Reconstruct a dbzero object from serialized bytes, withing the snapshot context.
@@ -236,6 +237,7 @@ class Snapshot:
         Any
             A dbzero object that was encoded in the data bytes.
         """
+        ...
 
     def close(self) -> None:
         """Close dbzero snapshot."""
@@ -249,3 +251,4 @@ class Snapshot:
         int
             State number of a snapshot.
         """
+        ...

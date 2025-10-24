@@ -83,7 +83,7 @@ namespace db0::python
     bool isExistingObject(db0::swine_ptr<Fixture> &fixture, ObjectId object_id, 
         PyTypeObject *py_expected_type = nullptr);
     
-    PyObject *renameField(PyTypeObject *py_type, const char *from_name, const char *to_name);
+    void renameMemoClassField(PyTypeObject *py_type, const char *from_name, const char *to_name);
     
     /**
      * Runs a function, catch exeptions and translate into Python errors
