@@ -35,7 +35,7 @@ class MigrationTestClass():
     
 def start():
     # Configure the dbzero connection without connecting yet
-    db0.init(os.path.join(os.getcwd(), "app-data"), config=config)
+    db0.init(os.path.join(os.getcwd(), "app-data"), **config)
     db0.open(config["prefix"])
     root = Root()
     print(f"Root has: {len(root.value)} items")

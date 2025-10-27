@@ -35,7 +35,7 @@ def __main__():
     parser.add_argument('--uuid', default=None, type=str, help="UUID of the object to be shown")
     args = parser.parse_args()
     
-    db0.init(path=args.path)
+    db0.init(dbzero_root=args.path)
     try:
         for prefix in db0.get_prefixes():
             # open prefix to make it the default one

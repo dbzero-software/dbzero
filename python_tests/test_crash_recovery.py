@@ -20,7 +20,7 @@ def test_recover_after_crash_during_commit(db0_fixture):
     
     # start a child process that will change the singleton
     def generator_process(op_size, op_count, crash_after):
-        db0.init(DB0_DIR, config = {"autocommit": False})
+        db0.init(DB0_DIR, autocommit=False)
         db0.open(px_name, "rw")
         root = MemoTestSingleton()
         next_id = len(root.value)    

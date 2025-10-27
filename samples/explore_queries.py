@@ -72,7 +72,7 @@ def __main__():
         print(f"Query args: {query_args}")
     
     try:
-        db0.init(path=args.path)
+        db0.init(dbzero_root=args.path)
         db0.init_fast_query(prefix="fq_cache")
         # open fq_cache as the initially default prefix
         db0.open("fq_cache")

@@ -23,7 +23,7 @@ class MySingleton:
     
 def start():
     # Configure the dbzero connection without connecting yet
-    db0.init(os.path.join(os.getcwd(), "app-data"), config=config)
+    db0.init(os.path.join(os.getcwd(), "app-data") **config)
     db0.open(config["prefix"])
     obj = MySingleton(123)    
     db0.close()

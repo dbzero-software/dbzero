@@ -242,6 +242,8 @@ def test_load_set_of_objects(db0_fixture):
     assert loaded == [{"value": "a"}, {"value": "b"}]
 
 class TestObject:
+    __test__ = False
+
     def __init__(self, value, other_value):
         self.value = value
         self.other_value = other_value
@@ -260,6 +262,8 @@ def test_load_python_object(db0_fixture):
 
 @db0.memo
 class TestObjectNoLoad:
+    __test__ = False
+
     def __init__(self, value, other_value):
         self.value = value
         self.other_value = other_value

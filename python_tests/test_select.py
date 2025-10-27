@@ -157,12 +157,16 @@ def test_select_new_miltiple_prefixes(db0_fixture, memo_tags):
 
 @db0.memo(prefix="some/test/prefix")
 class TestClassWithPrefix:
+    __test__ = False
+
     def __init__(self, value):
         self.value = value        
 
 
 @db0.memo(prefix="/some/test/prefix/x")
 class TestClassWithPrefixStartingWithSlash:
+    __test__ = False
+
     def __init__(self, value):
         self.value = value
 

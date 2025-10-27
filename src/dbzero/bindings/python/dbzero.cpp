@@ -31,7 +31,7 @@ namespace py = db0::python;
     
 static PyMethodDef dbzero_methods[] = 
 {
-    {"init", (PyCFunction)&py::PyAPI_init, METH_VARARGS | METH_KEYWORDS, "Initialize dbzero CE workspace at a specific root path"},
+    {"_init", (PyCFunction)&py::PyAPI_init, METH_VARARGS | METH_KEYWORDS, "Initialize dbzero workspace at a specific root path"},
     {"open", (PyCFunction)&py::PyAPI_open, METH_VARARGS | METH_KEYWORDS, "Open or create a prefix for read or read/write"},
     {"close", &py::PyAPI_close, METH_VARARGS, ""},
     {"drop", &py::PyAPI_drop, METH_VARARGS, "Drop prefix (if exists)"},

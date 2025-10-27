@@ -51,10 +51,11 @@ def db0_slab_size(request):
         shutil.rmtree(DB0_DIR)
     # create empty directory
     os.mkdir(DB0_DIR)
-    db0.init(DB0_DIR, config = {
-        "autocommit": request.param.get("autocommit", True),
-        "autocommit_interval": request.param.get("autocommit_interval", 250),
-        })
+    db0.init(
+        DB0_DIR,
+        autocommit=request.param.get("autocommit", True),
+        autocommit_interval=request.param.get("autocommit_interval", 250),
+    )
     db0.open("my-test-prefix", slab_size=request.param["slab_size"])
     yield db0     
     gc.collect()
@@ -72,7 +73,7 @@ def db0_autocommit_fixture(request):
         shutil.rmtree(DB0_DIR)
     # create empty directory
     os.mkdir(DB0_DIR)
-    db0.init(DB0_DIR, config = {"autocommit": True, "autocommit_interval": request.param})
+    db0.init(DB0_DIR, autocommit=True, autocommit_interval=request.param)
     db0.open("my-test-prefix")
     yield db0    
     gc.collect()
@@ -91,7 +92,7 @@ def db0_no_autocommit():
     # create empty directory
     os.mkdir(DB0_DIR)
     # disable autocommit on all prefixes
-    db0.init(DB0_DIR, config = {"autocommit": False})
+    db0.init(DB0_DIR, autocommit=False)
     db0.open("my-test-prefix")
     yield db0    
     db0.close()    
@@ -160,7 +161,7 @@ def db0_metaio_fixture():
         shutil.rmtree(DB0_DIR)
     # create empty directory
     os.mkdir(DB0_DIR)
-    db0.init(DB0_DIR, config = {"autocommit": False})
+    db0.init(DB0_DIR, autocommit=False)
     db0.open("my-test-prefix", meta_io_step_size=16)
     yield db0
     gc.collect()
