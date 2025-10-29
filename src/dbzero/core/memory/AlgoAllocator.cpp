@@ -13,11 +13,11 @@ namespace db0
     {
     }
     
-    std::optional<Address> AlgoAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num, 
+    std::optional<Address> AlgoAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num,
         bool aligned, unsigned char)
     {
         assert(slot_num == 0);
-        assert(!aligned && "AlgoAllocator: aligned allocation not supported");    
+        assert(!aligned && "AlgoAllocator: aligned allocation not supported");
         assert(size == m_alloc_size && "AlgoAllocator: invalid alloc size requested");
         return m_address_pool_f(m_next_i++);
     }
@@ -63,7 +63,7 @@ namespace db0
     void AlgoAllocator::reset() {
         m_next_i = 0;
     }
-
+    
     Address AlgoAllocator::getRootAddress() const {
         return m_address_pool_f(0);
     }

@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 import dbzero as db0
 from datetime import datetime
 
@@ -220,3 +221,13 @@ class MemoTask:
         self.child_tasks = []
         self.requirements = requirements        
         self.max_retry = None
+
+
+RANDOM_BYTES = b'DB0'*100000
+
+@db0.memo(no_default_tags=True)
+@dataclass
+class MemoBlob:
+    def __init__(self, size_bytes: int):
+        assert size_bytes <= len(RANDOM_BYTES)
+        self.data = RANDOM_BYTES[:size_bytes]

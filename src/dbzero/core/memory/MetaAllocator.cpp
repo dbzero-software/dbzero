@@ -753,7 +753,7 @@ namespace db0
     
     void MetaAllocator::formatPrefix(std::shared_ptr<Prefix> prefix, std::size_t page_size, std::size_t slab_size)
     {
-        // create the meta-header and the address 0x0
+        // create the meta-header at the address 0x0
         OneShotAllocator one_shot(Address::fromOffset(0), o_meta_header::sizeOf());
         Memspace memspace(Memspace::tag_from_reference(), prefix, one_shot);
         v_object<o_meta_header> meta_header(memspace, page_size, slab_size);
