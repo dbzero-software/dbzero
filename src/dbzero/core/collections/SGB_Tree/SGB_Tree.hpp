@@ -581,7 +581,7 @@ namespace db0
      * @tparam HeaderT optional fixed-size header to be associated with each node / block (default is none / null), helpful when implementing extensions
     */
     template <typename ItemT, typename ItemCompT = std::less<ItemT>, typename ItemEqualT = std::equal_to<ItemT>,
-        typename CapacityT = std::uint16_t, typename AddressT = std::uint32_t, typename HeaderT = o_null, typename TreeHeaderT = o_null>
+        typename CapacityT = std::uint16_t, typename AddressT = std::uint64_t, typename HeaderT = o_null, typename TreeHeaderT = o_null>
     class SGB_Tree: public SGB_TreeBase<sgb_types<ItemT, ItemCompT, ItemEqualT, CapacityT, AddressT, HeaderT, TreeHeaderT> >
     {
         using super_t = SGB_TreeBase<sgb_types<ItemT, ItemCompT, ItemEqualT, CapacityT, AddressT, HeaderT, TreeHeaderT> >;        
