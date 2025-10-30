@@ -17,15 +17,9 @@ namespace db0
     
 {
 
-DB0_PACKED_BEGIN
-
     template <typename T, std::uint32_t SLOT_NUM = 0, unsigned char REALM_ID = 0>
     class v_object;
 
-    struct DB0_PACKED_ATTR vso_null_t
-    {
-    };
-    
     class vtypeless
     {
     protected :        
@@ -121,6 +115,10 @@ DB0_PACKED_BEGIN
 
         inline Memspace *getMemspacePtr() const {
             return m_memspace_ptr;
+        }
+        
+        inline bool isNoCache() const {
+            return m_access_mode[AccessOptions::no_cache];
         }
 
         /**
@@ -296,6 +294,8 @@ DB0_PACKED_BEGIN
         static self_t makeNewUnique(Memspace &memspace, std::uint16_t &instance_id, std::size_t size, 
             FlagSet<AccessOptions> access_mode = {})
         {
+            // FIXME: log
+            std::cout << "makeNewUnique with flags: " << access_mode << std::endl;
             // read not allowed for instance creation
             assert(!access_mode[AccessOptions::read]);
             auto unique_address = memspace.allocUnique(size, SLOT_NUM, REALM_ID);
@@ -397,7 +397,5 @@ DB0_PACKED_BEGIN
             return m_memspace_ptr->getAllocator().getAllocSize(m_address, REALM_ID);
         }
     };
-
-DB0_PACKED_END
 
 }

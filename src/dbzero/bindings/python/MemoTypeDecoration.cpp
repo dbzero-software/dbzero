@@ -4,8 +4,6 @@
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/workspace/PrefixName.hpp>
 
-DEFINE_ENUM_VALUES(db0::python::MemoOptions, "NO_DEFAULT_TAGS", "NO_CACHE")
-
 namespace db0::python
 
 {

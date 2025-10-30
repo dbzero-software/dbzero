@@ -214,7 +214,7 @@ namespace db0
         return result;
     }
     
-    std::uint64_t ResourceLock::getAddressOf(const void *ptr) const 
+    std::uint64_t ResourceLock::getAddressOf(const void *ptr) const
     {
         assert(ptr >= m_data.data() && ptr < m_data.data() + m_data.size());
         return m_address + static_cast<const std::byte*>(ptr) - m_data.data();

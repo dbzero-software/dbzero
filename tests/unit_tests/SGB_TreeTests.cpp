@@ -316,24 +316,24 @@ namespace tests
         SGB_TreeT::WindowT window;
         cut.lower_equal_window(7, window);
         ASSERT_TRUE(window[1].first);
-        ASSERT_EQ(*window[1].first, 6);
+        ASSERT_EQ(*window[1].first, 6u);
 
         ASSERT_TRUE(window[0].first);
-        ASSERT_EQ(*window[0].first, 3);
+        ASSERT_EQ(*window[0].first, 3u);
 
         ASSERT_TRUE(window[2].first);
-        ASSERT_EQ(*window[2].first, 9);
+        ASSERT_EQ(*window[2].first, 9u);
 
         cut.lower_equal_window(0, window);
         ASSERT_TRUE(window[1].first);
-        ASSERT_EQ(*window[1].first, 0);
+        ASSERT_EQ(*window[1].first, 0u);
 
         ASSERT_FALSE(window[0].first);
         
         ASSERT_TRUE(window[2].first);
-        ASSERT_EQ(*window[2].first, 3);
+        ASSERT_EQ(*window[2].first, 3u);
     }
-
+    
     TEST_F( SGB_TreeTests , testSGBTreeFindLowerEqualFromTwoNodes )
     {
         using SGB_TreeT = db0::SGB_Tree<SGB_KeyT<std::uint64_t> >;

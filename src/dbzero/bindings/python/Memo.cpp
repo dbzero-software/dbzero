@@ -210,7 +210,7 @@ namespace db0::python
                 PyErr_Restore(ptype, pvalue, ptraceback);
                 return -1;
             }
-                        
+            
             // invoke post-init on associated dbzero object
             auto &object = self->modifyExt();
             db0::FixtureLock fixture(object.getFixture());            
@@ -219,10 +219,12 @@ namespace db0::python
             // need to call modifyExt again after postInit because the instance has just been created
             // and potentially needs to be included in the AtomicContext
             self->modifyExt();
-            fixture->getLangCache().add(object.getAddress(), self);
-            
-            // finally, unless opted-out, assign the type tag(s) of the entire type hierarchy
             const Class *class_ptr = &object.getType();
+            if (!class_ptr || !class_ptr->isNoCache()) {
+                fixture->getLangCache().add(object.getAddress(), self);
+            }
+            
+            // finally, unless opted-out, assign the type tag(s) of the entire type hierarchy            
             if (class_ptr && class_ptr->assignDefaultTags()) {
                 auto &tag_index = fixture->get<TagIndex>();
                 while (class_ptr) {
@@ -242,9 +244,12 @@ namespace db0::python
         if (memo_obj->ext().isSingleton()) {
             db0::FixtureLock lock(memo_obj->ext().getFixture());
             memo_obj->modifyExt().unSingleton(lock);
-            // the acutal destroy will be performed by the GC0 once removed from the LangCache
-            auto &lang_cache = memo_obj->ext().getFixture()->getLangCache();
-            lang_cache.erase(memo_obj->ext().getAddress());
+            if (!memo_obj->ext().isNoCache()) {
+                // the actual destroy will be performed by the GC0 once removed from the LangCache
+                auto &lang_cache = memo_obj->ext().getFixture()->getLangCache();
+                lang_cache.erase(memo_obj->ext().getAddress());
+            }
+
             return;
         }
         
@@ -258,11 +263,14 @@ namespace db0::python
         
         // create a null placeholder in place of the original instance to mark as deleted
         auto &lang_cache = memo_obj->ext().getFixture()->getLangCache();
+        bool no_cache = memo_obj->ext().isNoCache();
         auto obj_addr = memo_obj->ext().getUniqueAddress();
         db0::FixtureLock lock(memo_obj->ext().getFixture());
         memo_obj->modifyExt().dropInstance(lock);
         // remove instance from the lang cache
-        lang_cache.erase(obj_addr);
+        if (!no_cache) {
+            lang_cache.erase(obj_addr);
+        }        
     }
     
     PyObject *tryMemoObject_getattro(MemoObject *memo_obj, PyObject *attr)
@@ -491,7 +499,7 @@ namespace db0::python
         PyToolkit::getTypeManager().addMemoType(*new_type, type_id, std::move(type_info));
         // register new type with the module where the original type was located
         PySafeModule_AddObject(*py_module, type_name.c_str(), new_type);
-                
+        
         // add class fields class member to access memo type information
         auto py_class_fields = Py_OWN(PyClassFields_create(*new_type));
         if (PySafeDict_SetItemString((*new_type)->tp_dict, "__fields__", py_class_fields) < 0) {

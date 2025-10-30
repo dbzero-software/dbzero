@@ -111,7 +111,12 @@ namespace db0
                 m_res_buf.push_back(res_lock);
                 res_lock->m_recycle_it = std::prev(m_res_buf.end());
                 res_lock->setRecycled(true);
-			}
+                // FIXME: log
+                std::cout << "++Resource lock cached, current size = " << m_current_size << std::endl;
+			} else {
+                // FIXME: log
+                std::cout << "!!Resource lock not cached" << std::endl;
+            }
 		}
         // NOTE: flush-callback will be repeated if unable to handle the previous time
         if (m_flush_callback && (flushed || !m_last_flush_callback_result.first)) {

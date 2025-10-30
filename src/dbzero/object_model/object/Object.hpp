@@ -269,7 +269,7 @@ DB0_PACKED_END
         
         void addExtRef() const;
         void removeExtRef() const;
-
+        
         inline std::uint32_t getExtRefs() const {
             return m_ext_refs;
         }

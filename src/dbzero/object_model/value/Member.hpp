@@ -20,23 +20,24 @@
 namespace db0::object_model
 
 {
-    
+
     using TypeId = db0::bindings::TypeId;
     using PyToolkit = db0::python::PyToolkit;
     using PyObjectPtr = PyToolkit::ObjectPtr;
+    using AccessFlags = db0::FlagSet<db0::AccessOptions>;
     
     template <TypeId type_id, typename LangToolkit> Value createMember(db0::swine_ptr<Fixture> &fixture,
-        typename LangToolkit::ObjectPtr obj_ptr, StorageClass);
-
-    // register TypeId specialized functions
+        typename LangToolkit::ObjectPtr obj_ptr, StorageClass, AccessFlags);
+    
+    // Register TypeId specialized functions
     template <typename LangToolkit> void registerCreateMemberFunctions(
-        std::vector<Value (*)(db0::swine_ptr<Fixture> &, typename LangToolkit::ObjectPtr, StorageClass)> &functions);
+        std::vector<Value (*)(db0::swine_ptr<Fixture> &, typename LangToolkit::ObjectPtr, StorageClass, AccessFlags)> &functions);
     
     template <typename LangToolkit> Value createMember(db0::swine_ptr<Fixture> &fixture,
-        TypeId type_id, StorageClass storage_class, typename LangToolkit::ObjectPtr obj_ptr)
+        TypeId type_id, StorageClass storage_class, typename LangToolkit::ObjectPtr obj_ptr, AccessFlags access_mode)
     {   
         // create member function pointer
-        using CreateMemberFunc = Value (*)(db0::swine_ptr<Fixture> &, typename LangToolkit::ObjectPtr, StorageClass);
+        using CreateMemberFunc = Value (*)(db0::swine_ptr<Fixture> &, typename LangToolkit::ObjectPtr, StorageClass, AccessFlags);
         static std::vector<CreateMemberFunc> create_member_functions;
         if (create_member_functions.empty()) {
             registerCreateMemberFunctions<LangToolkit>(create_member_functions);
@@ -47,7 +48,7 @@ namespace db0::object_model
         if (!func_ptr) {
             THROWF(db0::InternalException) << "Value of TypeID: " << (int)type_id << " cannot be converted to a member" << THROWF_END;
         }
-        return func_ptr(fixture, obj_ptr, storage_class);
+        return func_ptr(fixture, obj_ptr, storage_class, access_mode);
     }
     
     template <typename LangToolkit> typename LangToolkit::ObjectSharedPtr unloadMember(

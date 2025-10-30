@@ -153,6 +153,7 @@ namespace db0::object_model
                 if (!checkAccessType(*fixture, AccessType::READ_WRITE)) {
                     return {};
                 }
+
                 // create new Class instance
                 bool is_singleton = LangToolkit::isSingleton(lang_type);
                 ClassFlags flags { is_singleton ? ClassOptions::SINGLETON : 0 };
@@ -179,6 +180,9 @@ namespace db0::object_model
                 m_class_ptr_index.insert(class_ptr);
                 // registering type in the by-pointer cache (for accessing by-ClassPtr)                
                 type = this->getType(class_ptr, type, lang_type);
+                if (lang_type) {       
+                    type->setRuntimeFlags(LangToolkit::getMemoFlags(lang_type));
+                }
             }
             
             it_cached = m_type_cache.insert({lang_type, type}).first;
@@ -216,6 +220,8 @@ namespace db0::object_model
         }
         if (lang_type && !it_cached->second.m_lang_type) {
             it_cached->second.m_lang_type = lang_type;
+            it_cached->second.m_class->setInitVars(LangToolkit::getInitVars(lang_type));
+            it_cached->second.m_class->setRuntimeFlags(LangToolkit::getMemoFlags(lang_type));
         }
         return it_cached->second.m_class;
     }
@@ -278,8 +284,9 @@ namespace db0::object_model
                 lang_type = tryFindLangType(*type);
             }
             // initialize the language model
-            if (lang_type) {                
+            if (lang_type) {
                 type->setInitVars(LangToolkit::getInitVars(lang_type));
+                type->setRuntimeFlags(LangToolkit::getMemoFlags(lang_type));
             }
             // register the mapping to language specific type object
             it_cached = m_ptr_cache.insert({ptr, ClassItem { type, lang_type }}).first;
@@ -287,8 +294,9 @@ namespace db0::object_model
         }
         // register the lang type mapping if missing
         if (lang_type && !it_cached->second.m_lang_type) {
-            it_cached->second.m_lang_type = lang_type;            
+            it_cached->second.m_lang_type = lang_type;        
             it_cached->second.m_class->setInitVars(LangToolkit::getInitVars(lang_type));
+            it_cached->second.m_class->setRuntimeFlags(LangToolkit::getMemoFlags(lang_type));
         }
         return it_cached->second;
     }

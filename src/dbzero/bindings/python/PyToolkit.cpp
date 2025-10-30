@@ -128,7 +128,7 @@ namespace db0::python
         const ClassFactory &class_factory, TypeObjectPtr lang_type_ptr, std::uint16_t instance_id)
     {
         // try unloading from cache first
-        auto &lang_cache = fixture->getLangCache();        
+        auto &lang_cache = fixture->getLangCache();
         auto obj_ptr = tryUnloadObjectFromCache(lang_cache, address, nullptr);
         
         if (obj_ptr.get()) {
@@ -173,7 +173,9 @@ namespace db0::python
         memo_ptr->unload(fixture, std::move(stem), type, Object::with_type_hint{});
         // NOTE: Py_OWN only possible with a proper object
         obj_ptr = Py_OWN((PyObject*)memo_ptr);
-        lang_cache.add(address, obj_ptr.get());
+        if (!memo_ptr->ext().isNoCache()) {
+            lang_cache.add(address, obj_ptr.get());
+        }
         return obj_ptr;
     }
     
@@ -205,7 +207,9 @@ namespace db0::python
         memo_ptr->unload(fixture, address, type, Object::with_type_hint{});
         // NOTE: Py_OWN only possible with a proper object
         obj_ptr = Py_OWN((PyObject*)memo_ptr);
-        lang_cache.add(address, obj_ptr.get());
+        if (!memo_ptr->ext().isNoCache()) {
+            lang_cache.add(address, obj_ptr.get());
+        }        
         return obj_ptr;
     }
     
@@ -530,6 +534,15 @@ namespace db0::python
         }
     }    
     
+    FlagSet<MemoOptions> PyToolkit::getMemoFlags(TypeObjectPtr py_type)
+    {
+        if (isMemoType(py_type)) {
+            return MemoTypeDecoration::get(py_type).getFlags();
+        } else {
+            return {};
+        }
+    }
+
     const char *PyToolkit::getPrefixName(TypeObjectPtr memo_type)
     {
         assert(isMemoType(memo_type));

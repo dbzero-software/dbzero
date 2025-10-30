@@ -12,6 +12,7 @@ namespace db0
 {
     
     using StorageClass = db0::object_model::StorageClass;
+    using AccessFlags = FlagSet<AccessOptions>;
     
     template <typename T> void addToGC0(Fixture &fixture, void *vptr) {
         fixture.getGC0().add<T>(vptr);
@@ -203,6 +204,9 @@ namespace db0
             new ((void*)this) T();
         }
         
+        // Get access flags to propagate to members (e.g. no_cache)
+        AccessFlags getMemberFlags() const;
+
     protected:
         friend class db0::GC0;
 
@@ -214,9 +218,9 @@ namespace db0
                this->modify().m_header.m_instance_id = instance_id;
             } else {
                has_fixture<BaseT>::init(fixture, std::forward<Args>(args)...);
-            }           
+            }
         }
-        
+         
         // member should be overridden for derived types which need pre-commit
         using PreCommitFunction = void (*)(void *, bool revert);
         static PreCommitFunction getPreCommitFunction() {

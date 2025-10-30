@@ -20,11 +20,10 @@ namespace db0::object_model
 
 {
 
-DB0_PACKED_BEGIN
-
     using Fixture = db0::Fixture;
     class TupleIterator;
     
+DB0_PACKED_BEGIN    
     class DB0_PACKED_ATTR o_tuple: public o_base<o_tuple, 0, false>
     {
     protected:
@@ -62,6 +61,7 @@ DB0_PACKED_BEGIN
             return m_header.hasRefs();
         }
     };
+DB0_PACKED_END
     
     class Tuple: public db0::ObjectBase<Tuple, v_object<o_tuple>, StorageClass::DB0_TUPLE>
     {
@@ -103,7 +103,5 @@ DB0_PACKED_BEGIN
         
         std::shared_ptr<TupleIterator> getIterator(ObjectPtr lang_tuple) const;    
     };
-    
-DB0_PACKED_END
 
 }

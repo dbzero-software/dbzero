@@ -18,6 +18,10 @@ namespace db0::object_model
     GC0_Define(Object)
     ObjectInitializerManager Object::m_init_manager;
 
+    FlagSet<AccessOptions> getAccessOptions(const Class &type) {
+        return type.isNoCache() ? FlagSet<AccessOptions> { AccessOptions::no_cache } : FlagSet<AccessOptions> {};
+    }
+
     bool isEqual(const KV_Index *kv_ptr_1, const KV_Index *kv_ptr_2)
     {
         if (!kv_ptr_1) {
@@ -121,13 +125,12 @@ namespace db0::object_model
         // prepare for initialization
         m_init_manager.addInitializer(*this, std::move(type_initializer));
     }
-    
+
     Object::Object(db0::swine_ptr<Fixture> &fixture, std::shared_ptr<Class> type,
-        std::pair<std::uint32_t, std::uint32_t> ref_counts, const PosVT::Data &pos_vt_data, unsigned int pos_vt_offset)
-        // FIXME: log
+        std::pair<std::uint32_t, std::uint32_t> ref_counts, const PosVT::Data &pos_vt_data, unsigned int pos_vt_offset)        
         : super_t(fixture, type->getClassRef(), ref_counts,
             safeCast<std::uint8_t>(type->getNumBases() + 1, "Too many base classes"), pos_vt_data, pos_vt_offset, nullptr, nullptr,
-            FlagSet<AccessOptions> { AccessOptions::no_cache })
+            getAccessOptions(*type))
         , m_type(type)
     {
     }
@@ -213,7 +216,8 @@ namespace db0::object_model
             assert(m_type);
             super_t::init(*fixture, m_type->getClassRef(), initializer.getRefCounts(),
                 safeCast<std::uint8_t>(m_type->getNumBases() + 1, "Too many base classes"), 
-                pos_vt_data, pos_vt_offset, index_vt_data.first, index_vt_data.second
+                pos_vt_data, pos_vt_offset, index_vt_data.first, index_vt_data.second,
+                getAccessOptions(*m_type)
             );
             
             // reference associated class
@@ -313,10 +317,11 @@ namespace db0::object_model
                 // remove any existing lo-fi initialization
                 auto loc = member_id.get(2).getIndexAndOffset();
                 initializer.remove(loc, lofi_store<2>::mask(loc.second));
-            }                        
+            }
             // register a regular member with the initializer
-            initializer.set(member_id.get(0).getIndexAndOffset(), storage_class, 
-                createMember<LangToolkit>(fixture, type_id, storage_class, obj_ptr)
+            // NOTE: a new member receives the no-cache flag if set
+            initializer.set(member_id.get(0).getIndexAndOffset(), storage_class,
+                createMember<LangToolkit>(fixture, type_id, storage_class, obj_ptr, getMemberFlags())
             );
         } else {
             if (member_id.hasFidelity(0)) {
@@ -327,7 +332,9 @@ namespace db0::object_model
             // For now only fidelity == 2 is supported (lo-fi storage)
             assert(storage_fidelity == 2);
             auto loc = member_id.get(storage_fidelity).getIndexAndOffset();
-            auto value = lofi_store<2>::create(loc.second, createMember<LangToolkit>(fixture, type_id, storage_class, obj_ptr).m_store);
+            // no access flags for lo-fi members
+            auto value = lofi_store<2>::create(loc.second, 
+                createMember<LangToolkit>(fixture, type_id, storage_class, obj_ptr, {}).m_store);
             // register a lo-fi member with the initializer (using mask)
             initializer.set(loc, storage_class, value, lofi_store<2>::mask(loc.second));
         }
@@ -780,10 +787,11 @@ namespace db0::object_model
             member_id = m_type->addField(field_name, storage_fidelity);
             field_id = member_id.get(storage_fidelity);
         }
-
+        
         assert(field_id && member_id);
+        // NOTE: a new member inherits the parent's no-cache flag
         // FIXME: value should be destroyed on exception
-        auto value = createMember<LangToolkit>(*fixture, type_id, storage_class, lang_value);        
+        auto value = createMember<LangToolkit>(*fixture, type_id, storage_class, lang_value, getMemberFlags());
         // make sure object address is not null
         assert(!(storage_class == StorageClass::OBJECT_REF && value.cast<std::uint64_t>() == 0));
                 
@@ -1608,6 +1616,10 @@ namespace db0::object_model
     {
         assert(m_ext_refs > 0);
         --m_ext_refs;
+    }
+    
+    bool Object::isNoCache() const {
+        return getType().isNoCache();
     }
 
 }
