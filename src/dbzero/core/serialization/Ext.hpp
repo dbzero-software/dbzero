@@ -65,7 +65,7 @@ DB0_PACKED_BEGIN
     template <
         typename T,
         typename super_t,
-        std::uint16_t VER=0, bool STORE_VER=false
+        std::uint16_t VER=0, bool STORE_VER=true
     >
     class DB0_PACKED_ATTR o_ext : public super_t{
         using this_type = o_ext<T, super_t, VER, STORE_VER>;
@@ -245,7 +245,7 @@ DB0_PACKED_BEGIN
         }
 
         inline std::size_t sizeOf() const {
-            return T::safeSizeOf(this);
+            return T::safeSizeOf(reinterpret_cast<const std::byte*>(this));
         }
 
         /**
