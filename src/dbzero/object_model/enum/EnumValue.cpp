@@ -3,7 +3,7 @@
 #include <dbzero/object_model/enum/EnumFactory.hpp>
 #include <dbzero/object_model/enum/Enum.hpp>
 #include <dbzero/workspace/Snapshot.hpp>
-#include <dbzero/core/utils/hashes.hpp>
+#include <dbzero/core/utils/hash_func.hpp>
 
 namespace db0::object_model
 

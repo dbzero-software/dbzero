@@ -70,7 +70,9 @@ namespace tests
         auto base_addr = Address::fromOffset(0);
         db0::BitSpace<0x8000>::create(memspace().getPrefixPtr(), base_addr, default_page_size);
         db0::BitSpace<0x8000> bitspace(memspace().getPrefixPtr(), base_addr, default_page_size);
-        db0::SGB_LookupTree<std::uint64_t> cut(bitspace, default_page_size, AccessType::READ_WRITE, {}, {}, {}, sort_threshold);
+        db0::SGB_LookupTree<SGB_KeyT<std::uint64_t> > cut(
+            bitspace, default_page_size, AccessType::READ_WRITE, {}, {}, {}, sort_threshold
+        );
         // insert 1000 random elements
         for (int i = 0; i < 1000; ++i) {
             cut.insert(rand() % 10000);
@@ -89,16 +91,16 @@ namespace tests
         for (int i = 0; i < sort_threshold + 1; ++i) {
             cut.lower_equal_bound(value);
         }
-
+        
         // make sure the 1st node was sorted
-        std::uint32_t last_value = 0;
+        std::uint64_t last_value = 0;
         auto step_  = first_node->step();
         for (auto it = first_node->cbegin(); it != first_node->cend(); it += step_) {
-            ASSERT_TRUE(*it >= last_value);
+            ASSERT_TRUE(static_cast<std::uint64_t>(*it) >= last_value);
             last_value = *it;
         }
     }
-
+    
     TEST_F( SGB_LookupTreeTest , testSGBLookupTreeCanLookupInSortedNodes )
     {
         srand(212319451u);
@@ -106,7 +108,9 @@ namespace tests
         auto base_addr = Address::fromOffset(0);
         db0::BitSpace<0x8000>::create(memspace().getPrefixPtr(), base_addr, default_page_size);
         db0::BitSpace<0x8000> bitspace(memspace().getPrefixPtr(), base_addr, default_page_size);
-        db0::SGB_LookupTree<std::uint64_t> cut(bitspace, default_page_size, AccessType::READ_WRITE, {}, {}, {}, sort_threshold);
+        db0::SGB_LookupTree<SGB_KeyT<std::uint64_t> > cut(
+            bitspace, default_page_size, AccessType::READ_WRITE, {}, {}, {}, sort_threshold
+        );
         // insert 1000 random elements
         for (int i = 0; i < 1000; ++i) {
             cut.insert(rand() % 10000);
@@ -134,7 +138,9 @@ namespace tests
         auto base_addr = Address::fromOffset(0);
         db0::BitSpace<0x8000>::create(memspace().getPrefixPtr(), base_addr, default_page_size);
         db0::BitSpace<0x8000> bitspace(memspace().getPrefixPtr(), base_addr, default_page_size);
-        db0::SGB_LookupTree<std::uint64_t> cut(bitspace, default_page_size, AccessType::READ_WRITE, {}, {}, {}, sort_threshold);
+        db0::SGB_LookupTree<SGB_KeyT<std::uint64_t> > cut(
+            bitspace, default_page_size, AccessType::READ_WRITE, {}, {}, {}, sort_threshold
+        );
         // insert 1000 random elements
         for (int i = 0; i < 1000; ++i) {
             cut.insert(rand() % 10000);
@@ -167,7 +173,9 @@ namespace tests
         auto base_addr = Address::fromOffset(0);
         db0::BitSpace<0x8000>::create(memspace(page_size).getPrefixPtr(), base_addr, page_size);
         BitSpace<0x8000> bitspace(memspace(page_size).getPrefixPtr(), base_addr, page_size);
-        db0::SGB_LookupTree<std::uint64_t> cut(bitspace, page_size, AccessType::READ_WRITE, {}, {}, {}, sort_threshold);
+        db0::SGB_LookupTree<SGB_KeyT<std::uint64_t> > cut(
+            bitspace, page_size, AccessType::READ_WRITE, {}, {}, {}, sort_threshold
+        );
 
         srand(9376412u);
         std::vector<std::uint64_t> values;
@@ -228,9 +236,9 @@ namespace tests
         auto base_addr = Address::fromOffset(0);
         db0::BitSpace<0x8000>::create(memspace().getPrefixPtr(), base_addr, default_page_size);
         db0::BitSpace<0x8000> bitspace(memspace().getPrefixPtr(), base_addr, default_page_size);
-        SGB_LookupTree<std::uint64_t> cut(bitspace, default_page_size, AccessType::READ_WRITE);
+        SGB_LookupTree<SGB_KeyT<std::uint64_t> > cut(bitspace, default_page_size, AccessType::READ_WRITE);
         cut.insert(1);
         ASSERT_TRUE(cut.cbegin_nodes()->is_sorted());
     }
-
+    
 }

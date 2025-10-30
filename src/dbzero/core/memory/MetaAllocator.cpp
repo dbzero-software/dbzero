@@ -557,7 +557,8 @@ namespace db0
                 auto slab_id = item.m_cap_item.m_slab_id;
                 if (item.m_final_remaining_capacity != item.m_cap_item.m_remaining_capacity) {
                     auto it = m_capacity_items.find_equal(item.m_cap_item);
-                    // register under a modified key
+                    assert(!it.isEnd());
+                    // register under a modified key                    
                     m_capacity_items.erase(it);
                     m_capacity_items.emplace(
                         item.m_final_remaining_capacity, item.m_final_lost_capacity, slab_id

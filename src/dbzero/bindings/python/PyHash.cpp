@@ -8,7 +8,7 @@
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/object_model/class/ClassFactory.hpp>
 #include <dbzero/object_model/class/Class.hpp>
-#include <dbzero/core/utils/hashes.hpp>
+#include <dbzero/core/utils/hash_func.hpp>
 
 namespace db0::python
 

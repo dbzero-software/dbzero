@@ -3,6 +3,7 @@
 #include <functional>
 #include "sgb_tree_node.hpp"
 #include "sgb_types.hpp"
+#include "SGB_Key.hpp"
 
 namespace db0
 
@@ -65,9 +66,9 @@ namespace db0
                 : parent_t(it.first, it.second)
             {
             }
-
-            inline operator bool() const {
-                return this->first != nullptr;
+            
+            inline bool isEnd() const {
+                return this->first == nullptr;
             }
             
             inline unsigned int getIndex() const {
@@ -133,15 +134,14 @@ namespace db0
             if (super_t::empty()) {
                 return this->emplace_to_empty(std::forward<Args>(args)...);
             }
-
-            super_t::modify().m_sgb_size++;
-            // assume key is the first element in the args pack
-            // finding an existing node which can hold the new item
-            auto node = super_t::lower_equal_bound(std::get<0>(std::make_tuple(args...)));
+            
+            ++super_t::modify().m_sgb_size;
+            // NOTE: assume getKey exists to extract key from construction args
+            auto node = super_t::lower_equal_bound(ItemT::getKey(std::forward<Args>(args)...));
             if (node == super_t::end()) {
                 node = super_t::begin();
             }
-
+            
             if (node->isFull()) {
                 // erase the max element and create the new node
                 auto max_item_ptr = node->find_max(m_heap_comp);
@@ -173,7 +173,7 @@ namespace db0
             if (!node.modify().erase(std::forward<Args>(args)..., m_heap_comp)) {
                 return { false, NodeT() };
             }
-            super_t::modify().m_sgb_size--;
+            --super_t::modify().m_sgb_size;
             if (node->empty()) {
                 // delete the entire node
                 super_t::erase(node);

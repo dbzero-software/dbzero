@@ -174,7 +174,7 @@ namespace db0
     DI_Item DiffIndex::findUpper(PageNumT page_num, StateNumT state_num) const
     {
         auto it = super_t::findLower(page_num, state_num);
-        if (it) {
+        if (!it.isEnd()) {
             auto item = it.second->header().uncompress(*it.get());
             if (item.m_page_num == page_num && item.findUpper(state_num)) {
                 return item;
