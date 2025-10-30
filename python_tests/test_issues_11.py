@@ -11,7 +11,7 @@ import random
 def test_wide_lock_badaddr_issue(db0_slab_size):
     db0.set_cache_size(8 << 30)
     all_blobs = db0.list()
-    append_count = 300289
+    append_count = 500000
     # append large blobs to force wide locks
     for count in range(append_count):
         all_blobs.append(MemoBlob(24 << 10))
@@ -20,6 +20,22 @@ def test_wide_lock_badaddr_issue(db0_slab_size):
             db0.commit()
             print(f"Appended {count} blobs")
     
-    # faulty operation
-    all_blobs.append(MemoBlob(24 << 10))
             
+@pytest.mark.stress_test
+@pytest.mark.parametrize("db0_slab_size", [{"slab_size": 64 << 20, "autocommit": False}], indirect=True)
+def test_wide_lock_badaddr_issue2(db0_slab_size):
+    """
+    Issue: test segfaults with low cache size (on close)
+    Resolution:
+    """
+    db0.set_cache_size(128 << 20)
+    all_blobs = db0.list()
+    append_count = 200000
+    # append large blobs to force wide locks
+    for count in range(append_count):
+        all_blobs.append(MemoBlob(24 << 10))
+        if count % 10000 == 0:
+            print("Commit...")
+            db0.commit()
+            print(f"Appended {count} blobs")
+            print(f"Prefix size: {db0.get_storage_stats()['prefix_size']}")

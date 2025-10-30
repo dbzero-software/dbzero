@@ -3,6 +3,7 @@
 #include <dbzero/core/dram/DRAMSpace.hpp>
 #include <dbzero/core/dram/DRAM_Allocator.hpp>
 #include <dbzero/core/collections/SGB_Tree/SGB_Tree.hpp>
+#include <dbzero/core/collections/SGB_Tree/SGB_Key.hpp>
 #include <chrono>
 #include <unordered_set>
 
@@ -65,8 +66,8 @@ namespace tests
 
     TEST_F( DRAMSpaceTest, testDRAMSpaceCanHostSGBTree )
     {
-        auto cut = DRAMSpace::create(m_page_size);        
-        db0::SGB_Tree<std::uint64_t> sgb_tree(cut, m_page_size);
+        auto cut = DRAMSpace::create(m_page_size);
+        db0::SGB_Tree<SGB_KeyT<> > sgb_tree(cut, m_page_size);
         // let's insert 100 items
         for (std::uint64_t i = 0; 100 < 3; ++i) {
             sgb_tree.insert(i);
@@ -84,7 +85,7 @@ namespace tests
         const std::size_t large_page_size = 16 * 1024;
         auto cut = DRAMSpace::create(large_page_size);
         // Using std::uint32_t as capacity type to handle large page size
-        using SGB_TreeT = db0::SGB_Tree<std::uint64_t, std::less<std::uint64_t>, std::equal_to<std::uint64_t>, std::uint32_t>;
+        using SGB_TreeT = db0::SGB_Tree<SGB_KeyT<>, std::less<std::uint64_t>, std::equal_to<std::uint64_t>, std::uint32_t>;
         SGB_TreeT sgb_tree(cut, large_page_size);
 
         srand(814142564u);

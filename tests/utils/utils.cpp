@@ -3,8 +3,11 @@
 #include <algorithm>
 #include <iostream>
 #include <sstream>
+#include <fstream>
+#include <string>
+#include <filesystem>
 
-namespace db0 { namespace tests 
+namespace db0::tests
 
 {
 
@@ -49,5 +52,5 @@ namespace db0 { namespace tests
         }
         return _str.str();
     }
-
-} }
+    
+}

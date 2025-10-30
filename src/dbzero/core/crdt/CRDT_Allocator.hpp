@@ -9,7 +9,6 @@
 namespace db0
 
 {
-DB0_PACKED_BEGIN
 
     namespace crdt 
     
@@ -66,6 +65,7 @@ DB0_PACKED_BEGIN
         // higher values allow eliminating "bind spots" in the allocator, but may incur storage & performance overhead
         static constexpr std::uint32_t ALIGNED_INDEX_THRESHOLD = 4;
 
+DB0_PACKED_BEGIN
         struct DB0_PACKED_ATTR FillMap
         {            
             // the low 1 - 56 bits are used to encode unit allocations
@@ -139,13 +139,16 @@ DB0_PACKED_BEGIN
                 return m_data & (crdt::HAS_STRIPE_BIT | crdt::LOST_STRIPE_BIT);
             }
         };
+DB0_PACKED_END
 
-        struct Stripe;
-        struct Blank;
+        struct DB0_PACKED_ATTR Stripe;
+        struct DB0_PACKED_ATTR Blank;
 
+DB0_PACKED_BEGIN
         // 16-byte allocation record
         struct DB0_PACKED_ATTR Alloc
         {
+            // primary key
             std::uint32_t m_address = 0;
             std::uint32_t m_stride = 0;
             FillMap m_fill_map;
@@ -153,6 +156,15 @@ DB0_PACKED_BEGIN
             Alloc() = default;
             Alloc(std::uint32_t address, std::uint32_t stride, std::uint32_t size, bool has_stripe);
             
+            static inline std::uint32_t getKey(const Alloc &alloc) {
+                return alloc.m_address;
+            }
+            
+            // Extract key from construction args
+            static inline std::uint32_t getKey(std::uint32_t address, std::uint32_t, std::uint32_t, bool) {
+                return address;                
+            }
+
             struct CompT
             {
                 inline bool operator()(const Alloc &lhs, const Alloc &rhs) const {
@@ -273,14 +285,27 @@ DB0_PACKED_BEGIN
             // Get total capacity
             std::uint32_t capacity() const;
         };
-        
-        struct Blank
+DB0_PACKED_END
+
+DB0_PACKED_BEGIN
+        struct DB0_PACKED_ATTR Blank
         {
+            // primary key
             std::uint32_t m_size;
+            // secondary key
             std::uint32_t m_address;
 
             Blank() = default;
             Blank(std::uint32_t size, std::uint32_t address);
+
+            static inline Blank getKey(const Blank &blank) {
+                return blank;
+            }
+
+            // Extract key from construction args
+            static inline Blank getKey(std::uint32_t size, std::uint32_t address) {
+                return { size, address };
+            }
 
             // Get first aligned address within the blank (must satisfy aligned size > 0)
             std::uint32_t getAlignedAddress(std::uint32_t mask, std::uint32_t page_size) const;
@@ -334,13 +359,26 @@ DB0_PACKED_BEGIN
                 }
             };
         };
-        
-        struct Stripe
+DB0_PACKED_END
+
+DB0_PACKED_BEGIN
+        struct DB0_PACKED_ATTR Stripe
         {
+            // primary key
             std::uint32_t m_stride;
+            // secondary key
             std::uint32_t m_address;
 
             Stripe(std::uint32_t stride, std::uint32_t address);
+
+            static inline Stripe getKey(const Stripe &stripe) {
+                return stripe;
+            }
+            
+            // Extract key from construction args
+            static inline Stripe getKey(std::uint32_t stride, std::uint32_t address) {
+                return { stride, address };
+            }
 
             // Note that the Stripe comparison used both fields: size & address
             // but also by-size only comparison and equality check are allowed
@@ -380,7 +418,8 @@ DB0_PACKED_BEGIN
                 }
             };
         };
-        
+DB0_PACKED_END
+
         using AllocSetT = db0::SGB_Tree<Alloc, Alloc::CompT, Alloc::EqualT, std::uint16_t, Address>;
         using BlankSetT = db0::SGB_Tree<Blank, Blank::CompT, Blank::EqualT, std::uint16_t, Address>;
         using AlignedBlankSetT = db0::SGB_Tree<Blank, Blank::AlignedCompT, Blank::EqualT, std::uint16_t, Address>;
@@ -581,7 +620,7 @@ DB0_PACKED_BEGIN
         // note that for aligned blanks the size will represent the aligned size
         auto blank_ptr = index.upper_equal_bound(Blank(min_size, 0));
         // no blank of sufficient size (or aligned size) exists
-        if (!blank_ptr) {
+        if (blank_ptr.isEnd()) {
             return std::nullopt;
         }
         
@@ -640,7 +679,6 @@ DB0_PACKED_BEGIN
         return blank.m_address;
     }
 
-DB0_PACKED_END
 }
 
 namespace std 

@@ -3,6 +3,7 @@
 #include <iostream>
 #include <utils/TestWorkspace.hpp>
 #include <dbzero/core/collections/SGB_Tree/SGB_Tree.hpp>
+#include <dbzero/core/collections/SGB_Tree/SGB_Key.hpp>
 #include <dbzero/core/memory/BitSpace.hpp>
 
 using namespace std;
@@ -45,7 +46,7 @@ namespace tests
 
     TEST_F( SGB_TreeTests , testSGBTreeCanCreateRootNodeOnTheSamePageAsHeadNode )
     {
-        db0::SGB_Tree<std::uint64_t> cut(m_bitspace, page_size);
+        db0::SGB_Tree<SGB_KeyT<std::uint64_t> > cut(m_bitspace, page_size);
         cut.insert(0);
         // make sure there was only a single node created
         ASSERT_EQ(m_bitspace.span(), 1);
@@ -53,7 +54,7 @@ namespace tests
 
     TEST_F( SGB_TreeTests , testSGBTreeCanFitMultipleItemsInASingleAllocatedBlock )
     {
-        db0::SGB_Tree<std::uint64_t> cut(m_bitspace, page_size);
+        db0::SGB_Tree<SGB_KeyT<std::uint64_t> > cut(m_bitspace, page_size);
         // let's insert 10 items
         for (std::uint64_t i = 0; i < 10; ++i) {
             cut.insert(i);
@@ -64,7 +65,7 @@ namespace tests
 
     TEST_F( SGB_TreeTests , testSGBTreeCanBeIterated )
     {
-        db0::SGB_Tree<std::uint64_t> cut(m_bitspace, page_size);
+        db0::SGB_Tree<SGB_KeyT<std::uint64_t> > cut(m_bitspace, page_size);
         // let's insert 10 items
         for (std::uint64_t i = 0; i < 10; ++i) {
             cut.insert(i);
@@ -80,7 +81,7 @@ namespace tests
     {
         // validate pre-condition
         ASSERT_EQ(m_bitspace.span(), 0);
-        db0::SGB_Tree<std::uint64_t> cut(m_bitspace, page_size);
+        db0::SGB_Tree<SGB_KeyT<std::uint64_t> > cut(m_bitspace, page_size);
         // let's insert 800 items to make sure te utilized capacity is more than one page size
         for (std::uint64_t i = 0; i < 800; ++i) {
             cut.insert(i);
@@ -91,7 +92,7 @@ namespace tests
 
     TEST_F( SGB_TreeTests , testSGBTreeCanSortRadomlyInsertedItems )
     {
-        db0::SGB_Tree<std::uint64_t> cut(m_bitspace, page_size);
+        db0::SGB_Tree<SGB_KeyT<std::uint64_t> > cut(m_bitspace, page_size);
         std::vector<std::uint64_t> items_to_add = { 5, 6, 1, 2, 0, 4, 3, 7, 8 };
         for (auto item : items_to_add) {
             cut.insert(item);
@@ -105,7 +106,7 @@ namespace tests
 
     TEST_F( SGB_TreeTests , testSGBTreeCanProperlyBalanceBlocks )
     {
-        db0::SGB_Tree<std::uint64_t> cut(m_bitspace, page_size);
+        db0::SGB_Tree<SGB_KeyT<std::uint64_t> > cut(m_bitspace, page_size);
 
         // insert items until the 1st block is full
         unsigned int item = 1000;
@@ -129,7 +130,7 @@ namespace tests
 
     TEST_F( SGB_TreeTests , testSGBTreeCanDeleteItems )
     {
-        db0::SGB_Tree<std::uint64_t> cut(m_bitspace, page_size);
+        db0::SGB_Tree<SGB_KeyT<std::uint64_t> > cut(m_bitspace, page_size);
         std::set<int> items;
         
         // fill 10 pages with elements
@@ -162,47 +163,47 @@ namespace tests
 
     TEST_F( SGB_TreeTests , testSGBTreeCanFindLowerEqualBound )
     {
-        db0::SGB_Tree<std::uint64_t> cut(m_bitspace, page_size);
+        db0::SGB_Tree<SGB_KeyT<std::uint64_t> > cut(m_bitspace, page_size);
         for (std::uint64_t i = 0; i < 10; ++i) {
             cut.insert(i * 3);
         }
         
         auto result_1 = cut.lower_equal_bound(7);
         ASSERT_TRUE(result_1.first);
-        ASSERT_EQ(*result_1.first, 6);
+        ASSERT_EQ(*result_1.first, 6u);
 
         auto result_2 = cut.lower_equal_bound(6);
         ASSERT_TRUE(result_2.first);
-        ASSERT_EQ(*result_2.first, 6);
+        ASSERT_EQ(*result_2.first, 6u);
 
         auto result_3 = cut.lower_equal_bound(17);
         ASSERT_TRUE(result_3.first);
-        ASSERT_EQ(*result_3.first, 15);
+        ASSERT_EQ(*result_3.first, 15u);
     }
 
     TEST_F( SGB_TreeTests , testSGBTreeCanFindUpperEqualBound )
     {
-        db0::SGB_Tree<std::uint64_t> cut(m_bitspace, page_size);        
+        db0::SGB_Tree<SGB_KeyT<std::uint64_t> > cut(m_bitspace, page_size);
         for (std::uint64_t i = 0; i < 10; ++i) {
             cut.insert(i * 3);
         }
         
         auto result_1 = cut.upper_equal_bound(7);
         ASSERT_TRUE(result_1.first);
-        ASSERT_EQ(*result_1.first, 9);
+        ASSERT_EQ(*result_1.first, 9u);
 
         auto result_2 = cut.upper_equal_bound(6);
         ASSERT_TRUE(result_2.first);
-        ASSERT_EQ(*result_2.first, 6);
+        ASSERT_EQ(*result_2.first, 6u);
 
         auto result_3 = cut.upper_equal_bound(17);
         ASSERT_TRUE(result_3.first);
-        ASSERT_EQ(*result_3.first, 18);
+        ASSERT_EQ(*result_3.first, 18u);
     }
 
     TEST_F( SGB_TreeTests , testSGBTreeCanEraseItemsByIteratorPair )
     {
-        db0::SGB_Tree<std::uint64_t> cut(m_bitspace, page_size);        
+        db0::SGB_Tree<SGB_KeyT<std::uint64_t> > cut(m_bitspace, page_size);
         for (std::uint64_t i = 0; i < 10; ++i) {
             cut.insert(i * 3);
         }
@@ -232,6 +233,7 @@ namespace tests
 
     struct ComplexItem
     {
+        // primary key
         std::uint32_t m_key;
         float m_value;
 
@@ -239,6 +241,15 @@ namespace tests
             : m_key(key)
             , m_value(value)
         {
+        }
+
+        static std::uint32_t getKey(const ComplexItem &item) {
+            return item.m_key;
+        }
+
+        // Extracts key from construction args
+        static std::uint32_t getKey(std::uint32_t key, float) {
+            return key;
         }
 
         struct CompT {
@@ -296,12 +307,13 @@ namespace tests
 
     TEST_F( SGB_TreeTests , testSGBTreeCanFindLowerEqualWindow )
     {
-        db0::SGB_Tree<std::uint64_t> cut(m_bitspace, page_size);
+        using SGB_TreeT = db0::SGB_Tree<SGB_KeyT<std::uint64_t> >;
+        SGB_TreeT cut(m_bitspace, page_size);
         for (std::uint64_t i = 0; i < 50; ++i) {
             cut.insert(i * 3);
         }
         
-        db0::SGB_Tree<std::uint64_t>::WindowT window;
+        SGB_TreeT::WindowT window;
         cut.lower_equal_window(7, window);
         ASSERT_TRUE(window[1].first);
         ASSERT_EQ(*window[1].first, 6);
@@ -324,7 +336,9 @@ namespace tests
 
     TEST_F( SGB_TreeTests , testSGBTreeFindLowerEqualFromTwoNodes )
     {
-        db0::SGB_Tree<std::uint64_t> cut(m_bitspace, page_size);
+        using SGB_TreeT = db0::SGB_Tree<SGB_KeyT<std::uint64_t> >;
+
+        SGB_TreeT cut(m_bitspace, page_size);            
         std::uint64_t value = 0;
         // add elements until the 2nd node is created
         while (m_bitspace.span() < 2) {
@@ -335,7 +349,7 @@ namespace tests
         // Identify min / max from nodes
         auto last_node = --cut.cend_nodes();
         auto max_item = last_node->find_max({});
-        db0::SGB_Tree<std::uint64_t>::WindowT window;
+        SGB_TreeT::WindowT window;
         cut.lower_equal_window(*max_item + 10, window);
         ASSERT_TRUE(window[1].first);
         ASSERT_EQ(*window[1].first, *max_item);
@@ -359,7 +373,7 @@ namespace tests
 
     TEST_F( SGB_TreeTests , testSGBTreeCanMultipleIdenticalKeys )
     {
-        db0::SGB_Tree<std::uint64_t> cut(m_bitspace, page_size);
+        db0::SGB_Tree<SGB_KeyT<std::uint64_t> > cut(m_bitspace, page_size);
         unsigned int size = 0;
         for (std::uint64_t i = 0; i < 50; ++i) {
             cut.insert(i * 3);
@@ -384,7 +398,7 @@ namespace tests
     
     TEST_F( SGB_TreeTests , testSGBTreeCanBeIteratedUnsorted )
     {
-        db0::SGB_Tree<std::uint64_t> cut(m_bitspace, page_size);        
+        db0::SGB_Tree<SGB_KeyT<std::uint64_t> > cut(m_bitspace, page_size);
         for (std::uint64_t i = 0; i < 200; ++i) {
             cut.insert(i * 3);
         }
@@ -400,7 +414,7 @@ namespace tests
 
     TEST_F( SGB_TreeTests , testSGBTreeCanRetrieveUpperSlice )
     {
-        db0::SGB_Tree<std::uint64_t> cut(m_bitspace, page_size);        
+        db0::SGB_Tree<SGB_KeyT<std::uint64_t> > cut(m_bitspace, page_size);
         for (std::uint64_t i = 0; i < 200; ++i) {
             cut.insert(i * 3);
         }
@@ -427,7 +441,7 @@ namespace tests
 
     TEST_F( SGB_TreeTests , testSGBTreeNodesCanBeRebalanced )
     {
-        using NodeT = typename db0::SGB_Tree<std::uint64_t>::NodeT;
+        using NodeT = typename db0::SGB_Tree<SGB_KeyT<std::uint64_t>>::NodeT;
         NodeT node_1(m_bitspace, 0, page_size);
         std::vector<std::uint64_t> values_1 { 5, 6, 7, 3, 4, 8, 9, 1, 2 };
         for (auto value : values_1) {
@@ -453,7 +467,7 @@ namespace tests
     {
         // this test checks how much of additional storage is required, on average
         // to store a single element when elements are added in random order
-        db0::SGB_Tree<std::uint64_t> cut(m_bitspace, page_size);
+        db0::SGB_Tree<SGB_KeyT<std::uint64_t> > cut(m_bitspace, page_size);
         srand(123622u);
         // NOTE: change to 1M for testing at limits
         for (int i = 0; i < 100000; ++i) {
@@ -472,16 +486,18 @@ namespace tests
 
     TEST_F( SGB_TreeTests , testSGBTreeCanLowerEqualWindowLookupTest )
     {
+        using SGB_TreeT = db0::SGB_Tree<SGB_KeyT<std::uint64_t> >;
+
         srand(893752u);
-        db0::SGB_Tree<std::uint64_t> cut(m_bitspace, page_size);
+        SGB_TreeT cut(m_bitspace, page_size);
         std::vector<std::uint64_t> values;
         for (std::uint64_t i = 0; i < 100; ++i) {
             auto value = rand() % 1000;
             cut.insert(value);
             values.push_back(value);
         }
-        
-        db0::SGB_Tree<std::uint64_t>::WindowT window;
+
+        SGB_TreeT::WindowT window;
         std::sort(values.begin(), values.end());
         
         for (int i = 0;i < 100;++i) {
@@ -534,7 +550,10 @@ namespace tests
         auto base_addr = Address::fromOffset(0);
         db0::BitSpace<0x8000> bitspace(memspace.getPrefixPtr(), base_addr, large_page_size);
         // Note: CapacityT need to be upgraded to 32 bits to support large page sizes
-        db0::SGB_Tree<std::uint64_t, std::less<std::uint64_t>, std::equal_to<std::uint64_t>, std::uint32_t> cut(bitspace, large_page_size);
+        db0::SGB_Tree<SGB_KeyT<std::uint64_t>, std::less<std::uint64_t>, std::equal_to<std::uint64_t>, std::uint32_t> cut(
+            bitspace, large_page_size
+        );
+
         // let's insert 10 items
         for (std::uint64_t i = 0; i < 10; ++i) {
             cut.insert(i);
@@ -550,7 +569,8 @@ namespace tests
 
     TEST_F( SGB_TreeTests , testSGBTreeWorksWithNonNodeHeaders )
     {    
-        db0::SGB_Tree<std::uint64_t, std::less<std::uint64_t>, std::equal_to<std::uint64_t>, std::uint16_t, std::uint32_t, o_test_header>
+        db0::SGB_Tree<SGB_KeyT<std::uint64_t>, std::less<std::uint64_t>, std::equal_to<std::uint64_t>, 
+            std::uint16_t, std::uint32_t, o_test_header>
         cut(m_bitspace, page_size);
         // let's insert 10 items
         for (std::uint64_t i = 0; i < 1000; ++i) {
@@ -578,14 +598,16 @@ namespace tests
             ASSERT_EQ(*it, index);
         }
     }
-
+    
     TEST_F( SGB_TreeTests , testLowerEqualBoundFailingCase )
     {
-        db0::SGB_Tree<std::uint64_t, std::less<std::uint64_t>, std::equal_to<std::uint64_t>, std::uint16_t, std::uint32_t, o_test_header>
+        db0::SGB_Tree<SGB_KeyT<std::uint64_t>, std::less<std::uint64_t>, std::equal_to<std::uint64_t>, 
+            std::uint16_t, std::uint32_t, o_test_header>
+        
         cut(m_bitspace, page_size);
-        ASSERT_FALSE(cut.lower_equal_bound(0));
+        ASSERT_TRUE(cut.lower_equal_bound(0).isEnd());
         cut.insert(0);
-        ASSERT_TRUE(cut.lower_equal_bound(0));
+        ASSERT_FALSE(cut.lower_equal_bound(0).isEnd());
     }
-
+    
 }

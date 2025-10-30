@@ -23,7 +23,7 @@ namespace db0
         {
             auto hint = &m_hints[0];
             for (auto &alloc : m_cache) {
-                if (alloc && alloc.first->m_stride == size) {
+                if (!alloc.isEnd() && alloc.first->m_stride == size) {
                     // the const_cast is safe because we store mutated items
                     auto result = const_cast<Alloc*>(alloc.first)->tryAllocUnit(addr_bound, hint->first, hint->second);
                     if (!result || alloc.first->isFull()) {
@@ -42,7 +42,7 @@ namespace db0
             auto hint = &m_hints[0];
             auto new_hint = new_alloc.first->getHint();
             for (auto &alloc : m_cache) {
-                if (!alloc) {
+                if (alloc.isEnd()) {
                     alloc = new_alloc;
                     *hint =  new_hint;
                     return;
@@ -522,7 +522,7 @@ namespace db0
                     assert(!redZone());
                     // merge with the neighboring blank if such exists
                     std::optional<Blank> b1;
-                    if (alloc_window[2]) {
+                    if (!alloc_window[2].isEnd()) {
                         // right neighbor exists
                         auto &right = *alloc_window[2].first;
                         auto b1_size = right.m_address - alloc.m_address - old_size;
@@ -616,7 +616,7 @@ namespace db0
         
         // we need to remove the alloc entry since it's empty
         std::optional<Blank> b0, b1;
-        if (alloc_window[0]) {
+        if (!alloc_window[0].isEnd()) {
             // left neighbor exists
             auto &left = *alloc_window[0].first;
             auto b0_size = alloc.m_address - left.m_address - left.size();
@@ -629,7 +629,7 @@ namespace db0
             }
         }
 
-        if (alloc_window[2]) {
+        if (!alloc_window[2].isEnd()) {
             // right neighbor exists
             auto &right = *alloc_window[2].first;
             auto b1_size = right.m_address - alloc.m_address - alloc.size();
@@ -677,7 +677,7 @@ namespace db0
     std::size_t CRDT_Allocator::getAllocSize(std::uint64_t address) const
     {
         auto alloc = m_allocs.lower_equal_bound(address);
-        if (!alloc) {
+        if (alloc.isEnd()) {
             THROWF(db0::BadAddressException) << "Invalid address: " << address;            
         }
         return alloc.first->getAllocSize(address);
@@ -686,7 +686,7 @@ namespace db0
     bool CRDT_Allocator::isAllocated(std::uint64_t address, std::size_t *size_of_result) const
     {
         auto alloc = m_allocs.lower_equal_bound(address);
-        if (!alloc) {
+        if (alloc.isEnd()) {
             return false;
         }
         return alloc.first->isAllocated(address, size_of_result);
@@ -761,7 +761,7 @@ namespace db0
         // max_addr must be updated before any updates to allocator's metadata
         m_max_addr = std::max(m_max_addr, blank->m_address + min_size);
         // NOTE: has_stripe flag is set here
-        auto alloc = m_allocs.emplace(blank->m_address, stride, count, true);
+        auto alloc = m_allocs.emplace((std::uint32_t)blank->m_address, stride, count, true);
         auto result = alloc.first->allocUnit();
         assert(alloc.first->endAddr() <= m_max_addr);
         assert(!redZone());
@@ -830,7 +830,7 @@ namespace db0
         last_stripe_units = 0;
         auto stripe_ptr = m_stripes.lower_equal_bound(size);
         assert(stripe_ptr.validate());
-        if (!stripe_ptr || stripe_ptr.first->m_stride != size) {
+        if (stripe_ptr.isEnd() || stripe_ptr.first->m_stride != size) {
             return std::nullopt;
         }
         
