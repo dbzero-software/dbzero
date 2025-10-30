@@ -60,7 +60,7 @@ namespace db0::python
 
         return list_obj_copy;
     }
-
+    
     PyObject *PyAPI_ListObject_multiply(ListObject *list_obj, PyObject *elem)
     {
         PY_API_FUNC
@@ -68,11 +68,11 @@ namespace db0::python
     }
     
     shared_py_object<ListObject*> tryMake_DB0ListInternal(db0::swine_ptr<Fixture> &fixture,
-        PyObject *const *args, Py_ssize_t nargs)
+        PyObject *const *args, Py_ssize_t nargs, AccessFlags access_mode)
     {
         auto py_list = Py_OWN(ListObject_new(&ListObjectType, NULL, NULL));
         db0::FixtureLock lock(fixture);
-        auto &list = py_list->makeNew(*lock);
+        auto &list = py_list->makeNew(*lock, access_mode);
         if (nargs == 1) {
             if (!tryObjectT_extend<ListObject>(py_list.get(), args, nargs)) {                
                 return nullptr;
@@ -350,8 +350,10 @@ namespace db0::python
         return Py_TYPE(object) == &ListObjectType;
     }
     
-    shared_py_object<ListObject*> tryMake_DB0List(db0::swine_ptr<Fixture> &fixture, PyObject *const *args, Py_ssize_t nargs) {
-        return tryMake_DB0ListInternal(fixture, args, nargs);
+    shared_py_object<ListObject*> tryMake_DB0List(db0::swine_ptr<Fixture> &fixture, PyObject *const *args,
+        Py_ssize_t nargs, AccessFlags access_mode)
+    {
+        return tryMake_DB0ListInternal(fixture, args, nargs, access_mode);
     }
     
     PyObject *PyAPI_makeList(PyObject *self, PyObject *const *args, Py_ssize_t nargs)

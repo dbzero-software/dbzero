@@ -12,9 +12,10 @@ namespace db0::object_model
     GC0_Define(List)
 
     template <typename LangToolkit> o_typed_item createListItem(db0::swine_ptr<Fixture> &fixture,
-        db0::bindings::TypeId type_id, typename LangToolkit::ObjectPtr lang_value, StorageClass storage_class)
-    {        
-        return { storage_class, createMember<LangToolkit>(fixture, type_id, storage_class, lang_value) };
+        db0::bindings::TypeId type_id, typename LangToolkit::ObjectPtr lang_value, 
+        StorageClass storage_class, FlagSet<AccessOptions> access_mode)
+    {
+        return { storage_class, createMember<LangToolkit>(fixture, type_id, storage_class, lang_value, access_mode) };
     }
     
     List::List(db0::swine_ptr<Fixture> &fixture)
@@ -59,7 +60,7 @@ namespace db0::object_model
         }
         
         v_bvector::push_back(
-            createListItem<LangToolkit>(*fixture, type_id, *lang_value, storage_class)
+            createListItem<LangToolkit>(*fixture, type_id, *lang_value, storage_class, getMemberFlags())
         );
         restoreIterators();
     }
@@ -88,7 +89,7 @@ namespace db0::object_model
         restoreIterators();
         return member;
     }
-
+    
     void List::setItem(FixtureLock &fixture, std::size_t i, ObjectPtr lang_value)
     {
         if (i >= size()) {
@@ -107,10 +108,10 @@ namespace db0::object_model
         }
         
         auto [storage_class_value, value] = (*this)[i];
-        v_bvector::setItem(i, createListItem<LangToolkit>(*fixture, type_id, lang_value, storage_class));
+        v_bvector::setItem(i, createListItem<LangToolkit>(*fixture, type_id, lang_value, storage_class, getMemberFlags()));
         unrefMember<LangToolkit>(*fixture, storage_class_value, value);
     }
-        
+    
     List * List::copy(void *at_ptr, db0::swine_ptr<Fixture> &fixture) const {
         return new (at_ptr) List(fixture, *this);
     }
