@@ -20,7 +20,9 @@ namespace db0::python
     enum MemoOptions: std::uint16_t
     {
         // instances of this type opted out of auto-assigned type tags
-        NO_DEFAULT_TAGS = 0x0001
+        NO_DEFAULT_TAGS = 0x0001,
+        // instances of this type opted out of caching
+        NO_CACHE = 0x0002
     };
 
     using MemoFlags = db0::FlagSet<MemoOptions>;
@@ -120,4 +122,4 @@ namespace db0::python
     
 }
 
-DECLARE_ENUM_VALUES(db0::python::MemoOptions, 1)
+DECLARE_ENUM_VALUES(db0::python::MemoOptions, 2)

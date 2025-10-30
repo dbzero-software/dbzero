@@ -124,8 +124,10 @@ namespace db0::object_model
     
     Object::Object(db0::swine_ptr<Fixture> &fixture, std::shared_ptr<Class> type,
         std::pair<std::uint32_t, std::uint32_t> ref_counts, const PosVT::Data &pos_vt_data, unsigned int pos_vt_offset)
+        // FIXME: log
         : super_t(fixture, type->getClassRef(), ref_counts,
-            safeCast<std::uint8_t>(type->getNumBases() + 1, "Too many base classes"), pos_vt_data, pos_vt_offset)
+            safeCast<std::uint8_t>(type->getNumBases() + 1, "Too many base classes"), pos_vt_data, pos_vt_offset, nullptr, nullptr,
+            FlagSet<AccessOptions> { AccessOptions::no_cache })
         , m_type(type)
     {
     }

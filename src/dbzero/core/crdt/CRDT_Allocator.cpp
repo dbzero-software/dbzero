@@ -508,7 +508,7 @@ namespace db0
             }
             
             // NOTE: modify invalidates the entire window, therefore dedicated "modify" version is used
-            assert(alloc_window[1]);
+            assert(!alloc_window[1].isEnd());
             // the additional check is to avoid unnecessary modifications
             if (alloc_window[1].first->canReclaimSpace(min_size)) {
                 auto &alloc = *m_allocs.modify(alloc_window);
@@ -565,8 +565,8 @@ namespace db0
         if (!m_allocs.lower_equal_window(address, alloc_window)) {
             THROWF(db0::BadAddressException) << "Invalid address: " << address;            
         }
-
-        assert(alloc_window[1]);
+        
+        assert(!alloc_window[1].isEnd());
         const auto alloc = *alloc_window[1].first;
         m_alloc_delta -= alloc.m_stride;
         // modify the central item (i.e. alloc_window[1])

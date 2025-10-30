@@ -42,7 +42,7 @@ namespace db0
         using self_t = ObjectBase<T, BaseT, _CLS, Unique>;
         using LangToolkit = db0::object_model::LangConfig::LangToolkit;
         using ObjectPtr = LangToolkit::ObjectPtr;
-
+        
         // Constructs a "null" placeholder instance
         ObjectBase() = default;
         
@@ -63,7 +63,7 @@ namespace db0
             initNew(fixture, std::forward<Args>(args)...);
         }
         
-        // Open an existing instance
+        // Fetch an existing instance
         struct tag_from_address {};
         ObjectBase(tag_from_address, db0::swine_ptr<Fixture> &fixture, Address address)
             : has_fixture<BaseT>(typename has_fixture<BaseT>::tag_from_address(), fixture, address)        

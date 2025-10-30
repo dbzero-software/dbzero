@@ -521,6 +521,15 @@ namespace db0::python
         }
     }
     
+    bool PyToolkit::isNoCache(TypeObjectPtr py_type)
+    {
+        if (isMemoType(py_type)) {
+            return MemoTypeDecoration::get(py_type).getFlags()[MemoOptions::NO_CACHE];
+        } else {
+            return false;
+        }
+    }    
+    
     const char *PyToolkit::getPrefixName(TypeObjectPtr memo_type)
     {
         assert(isMemoType(memo_type));
