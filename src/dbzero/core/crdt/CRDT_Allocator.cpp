@@ -565,7 +565,6 @@ namespace db0
         if (!m_allocs.lower_equal_window(address, alloc_window)) {
             THROWF(db0::BadAddressException) << "Invalid address: " << address;            
         }
-        
         assert(!alloc_window[1].isEnd());
         const auto alloc = *alloc_window[1].first;
         m_alloc_delta -= alloc.m_stride;
