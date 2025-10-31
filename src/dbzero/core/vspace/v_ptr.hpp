@@ -279,7 +279,7 @@ namespace db0
         {
             // read not allowed for instance creation
             assert(!access_mode[AccessOptions::read]);
-            auto address = memspace.alloc(size, SLOT_NUM, REALM_ID);
+            auto address = memspace.alloc(size, SLOT_NUM, REALM_ID, getLocality(access_mode));
             // lock for create & write
             // NOTE: must extract physical address for mapRange
             auto mem_lock = memspace.getPrefix().mapRange(address, size, access_mode | AccessOptions::write);
@@ -298,7 +298,7 @@ namespace db0
         {
             // read not allowed for instance creation
             assert(!access_mode[AccessOptions::read]);
-            auto unique_address = memspace.allocUnique(size, SLOT_NUM, REALM_ID);
+            auto unique_address = memspace.allocUnique(size, SLOT_NUM, REALM_ID, getLocality(access_mode));
             instance_id = unique_address.getInstanceId();
             // lock for create & write
             // NOTE: must extract physical address for mapRange
@@ -342,6 +342,11 @@ namespace db0
         
     private:
         
+        static inline unsigned char getLocality(FlagSet<AccessOptions> access_mode) {
+            // NOTE: use locality = 1 for no_cache allocations, 0 otherwise (undefined)
+            return access_mode[AccessOptions::no_cache] ? 1 : 0;
+        }
+
         void assureInitialized() const
         {
             assert(m_memspace_ptr);
