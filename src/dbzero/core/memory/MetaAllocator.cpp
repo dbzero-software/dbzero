@@ -187,12 +187,12 @@ namespace db0
          * Retrieves the active slab or returns nullptr if no active slab available
         */
         FindResult tryGetActiveSlab(unsigned char locality) {
-            assert(locality < ActiveSlab::size());
+            assert(locality < m_active_slab.size());
             return m_active_slab[locality];
         }
         
         void resetActiveSlab(unsigned char locality) {
-            assert(locality < ActiveSlab::size());
+            assert(locality < m_active_slab.size());
             m_active_slab[locality] = {};
         }
 
