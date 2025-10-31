@@ -798,5 +798,9 @@ namespace db0::object_model
         assert(index < m_unique_keys.size());
         return m_unique_keys[index];
     }
-
+    
+    void Class::setRuntimeFlags(FlagSet<MemoOptions> memo_options) {
+        m_no_cache = memo_options[MemoOptions::NO_CACHE];
+    }
+    
 }

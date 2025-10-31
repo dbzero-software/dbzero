@@ -54,7 +54,6 @@ namespace db0::object_model
     using VFidelityVector = db0::v_bvector<std::pair<std::uint8_t, unsigned int> >;
     
 DB0_PACKED_BEGIN
-
     struct DB0_PACKED_ATTR o_class: public db0::o_fixed<o_class>
     {        
         // common object header
@@ -81,8 +80,7 @@ DB0_PACKED_BEGIN
             const VFieldMatrix &, const VFidelityVector &, const Schema &, const char *type_id, const char *prefix_name, ClassFlags,
             std::uint32_t base_class_ref, std::uint32_t num_bases
         );
-    };
-    
+    };    
 DB0_PACKED_END
 
     // address <-> class_ref conversion functions
@@ -104,11 +102,6 @@ DB0_PACKED_END
     public:
         static constexpr std::uint32_t SLOT_NUM = Fixture::TYPE_SLOT_NUM;
         static constexpr unsigned int PRIMARY_FIDELITY = 2;
-        
-        // e.g. PyObject*
-        using LangToolkit = db0::python::PyToolkit;
-        using ObjectPtr = typename LangToolkit::ObjectPtr;
-        using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
         
         struct Member
         {
@@ -252,7 +245,14 @@ DB0_PACKED_END
         
         // Get specific slot's fidelity (or 0 if not assigned)
         unsigned int getFidelity(std::uint32_t index) const;
+        
+        // Set / update only the runtime flags from the memo type decoration
+        void setRuntimeFlags(FlagSet<MemoOptions>);
 
+        inline bool isNoCache() const {
+            return m_no_cache;
+        }
+        
     protected:
         friend class ClassFactory;        
         friend ClassPtr;
@@ -305,6 +305,8 @@ DB0_PACKED_END
         std::unordered_set<std::string> m_init_vars;
         const std::uint32_t m_uid = 0;
         mutable MemberCacheT m_member_cache;
+        // runtime flags
+        bool m_no_cache = false;
         
         // A function to retrieve the total number of instances of the schema
         std::function<unsigned int()> getTotalFunc() const;

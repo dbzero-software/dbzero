@@ -68,8 +68,8 @@ DB0_PACKED_END
         /**
          * New, empty instance of the data structure
          */
-        v_bvector(Memspace &mem)
-            : super_t(mem, mem.getPageSize())
+        v_bvector(Memspace &mem, AccessFlags access_mode = {})
+            : super_t(mem, mem.getPageSize(), access_mode)
             , m_db_shift(data_container::shift(mem.getPageSize()))
             , m_db_mask(data_container::mask(mem.getPageSize()))
             , m_pb_shift(ptr_container::shift(mem.getPageSize()))
@@ -77,17 +77,17 @@ DB0_PACKED_END
         {                 
         }
 
-        v_bvector(mptr ptr)
-            : super_t(ptr)
+        v_bvector(mptr ptr, AccessFlags access_mode = {})
+            : super_t(ptr, access_mode)
             , m_db_shift(data_container::shift((*this)->m_page_size))
             , m_db_mask(data_container::mask((*this)->m_page_size))
             , m_pb_shift(ptr_container::shift((*this)->m_page_size))
-            , m_pb_mask(ptr_container::mask((*this)->m_page_size))            
+            , m_pb_mask(ptr_container::mask((*this)->m_page_size))
         {
         }
-        
-        v_bvector(db0::tag_verified, mptr ptr, std::size_t size_of = 0)
-            : super_t(db0::tag_verified(), ptr, size_of)
+
+        v_bvector(db0::tag_verified, mptr ptr, std::size_t size_of = 0, AccessFlags access_mode = {})
+            : super_t(db0::tag_verified(), ptr, size_of, access_mode)
             , m_db_shift(data_container::shift((*this)->m_page_size))
             , m_db_mask(data_container::mask((*this)->m_page_size))
             , m_pb_shift(ptr_container::shift((*this)->m_page_size))
@@ -117,12 +117,10 @@ DB0_PACKED_END
             this->m_last_block = nullptr;
             super_t::operator=(std::move(other));
         }
-
-        /**
-         * Construct populated with values from a specific sequence
-         */
-        template <class SequenceT> v_bvector(Memspace &mem, const SequenceT &in)
-            : v_bvector(mem)
+        
+        // Construct populated with values from a specific sequence
+        template <class SequenceT> v_bvector(Memspace &mem, const SequenceT &in, AccessFlags access_mode = {})
+            : v_bvector(mem, access_mode)
         {
             for (const auto &item: in) {
                 push_back(item);
@@ -130,18 +128,18 @@ DB0_PACKED_END
         }
 
         template <class SequenceT>
-        void init(Memspace &mem, const SequenceT &in)
+        void init(Memspace &mem, const SequenceT &in, AccessFlags access_mode = {})
         {
-            super_t::init(mem);
+            super_t::init(mem, access_mode);
             for (const auto &item: in) {
                 push_back(item);
             }            
         }
         
-        std::uint16_t initUnique(Memspace &mem)
+        std::uint16_t initUnique(Memspace &mem, AccessFlags access_mode = {})
         {
             auto page_size = mem.getPageSize();
-            auto result = super_t::initUnique(mem, page_size);
+            auto result = super_t::initUnique(mem, page_size, access_mode);
             this->m_db_shift = data_container::shift(mem.getPageSize());
             this->m_db_mask = data_container::mask(mem.getPageSize());
             this->m_pb_shift = ptr_container::shift(mem.getPageSize());
@@ -149,9 +147,10 @@ DB0_PACKED_END
             return result;
         }
 
-        template <class SequenceT> std::uint16_t initUnique(Memspace &mem, const SequenceT &in)
+        template <class SequenceT> 
+        std::uint16_t initUnique(Memspace &mem, const SequenceT &in, AccessFlags access_mode = {})
         {
-            auto result = this->initUnique(mem);
+            auto result = this->initUnique(mem, access_mode);
             for (const auto &item: in) {
                 push_back(item);
             }

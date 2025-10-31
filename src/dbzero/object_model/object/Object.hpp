@@ -26,11 +26,10 @@ namespace db0::object_model
 
 {
 
-DB0_PACKED_BEGIN
-
     class Class;
     using Fixture = db0::Fixture;
-    
+
+DB0_PACKED_BEGIN
     class DB0_PACKED_ATTR o_object: public db0::o_base<o_object, 0, false>
     {
     protected:
@@ -77,8 +76,9 @@ DB0_PACKED_BEGIN
         void incRef(bool is_tag);
         bool hasRefs() const;
         bool hasAnyRefs() const;
-    };
-    
+    };    
+DB0_PACKED_END
+
     struct FieldLayout
     {
         std::vector<StorageClass> m_pos_vt_fields;
@@ -269,7 +269,7 @@ DB0_PACKED_BEGIN
         
         void addExtRef() const;
         void removeExtRef() const;
-
+        
         inline std::uint32_t getExtRefs() const {
             return m_ext_refs;
         }
@@ -384,8 +384,6 @@ DB0_PACKED_BEGIN
             std::unordered_set<std::string> &) const;
     };
     
-DB0_PACKED_END
-
 }
 
 DECLARE_ENUM_VALUES(db0::object_model::ObjectOptions, 2)

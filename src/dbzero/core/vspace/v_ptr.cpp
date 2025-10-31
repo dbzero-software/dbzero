@@ -33,10 +33,6 @@ namespace db0
         assert(m_mem_lock.m_buffer);
     }
     
-    FlagSet<AccessOptions> vtypeless::getAccessMode() const {
-        return m_access_mode;
-    }
-    
     vtypeless &vtypeless::operator=(const vtypeless &other)
     {
         m_address = other.m_address;

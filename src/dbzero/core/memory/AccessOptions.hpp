@@ -9,15 +9,17 @@ namespace db0
     
     enum class AccessOptions : std::uint16_t
     {
-        read        = 0x0001,
-        write       = 0x0002,
+        read           = 0x0001,
+        write          = 0x0002,
         // flag indicating the newly created resource
-        create      = 0x0004,
-        no_cache    = 0x0008,
+        create         = 0x0004,
+        no_cache       = 0x0008,
         // resource which should be kept in-memory
-        no_flush    = 0x0010,
+        no_flush       = 0x0010,
         // disable copy-on-write (e.g. when accessed as read-only)
-        no_cow      = 0x0020
+        no_cow         = 0x0020,
+        // flag to excempt resource from dirty cache tracking (relevant for BoundaryLock)
+        no_dirty_cache = 0x0040
     };
     
     /**
@@ -31,10 +33,8 @@ namespace db0
     static constexpr std::uint16_t RESOURCE_DIRTY               = 0x0100;
     // Flag indicating if the lock has been registered with cache recycler
     static constexpr std::uint16_t RESOURCE_RECYCLED            = 0x0200;
-    // a flag indicating that the resource should not be cached
-    static constexpr std::uint16_t RESOURCE_NO_CACHE            = 0x0400;
     // prevent resource from being overwritten (e.g. prevent upgrade to a higher transaction number in PrefixImpl)
-    static constexpr std::uint16_t RESOURCE_FREEZE              = 0x0800;
+    static constexpr std::uint16_t RESOURCE_FREEZE              = 0x0400;
         
     enum class AccessType: unsigned int
     {
@@ -43,6 +43,8 @@ namespace db0
     };
     
     AccessType parseAccessType(const std::string &access_type);
+    
+    using AccessFlags = FlagSet<AccessOptions>;
     
 }
 

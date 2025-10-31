@@ -10,11 +10,10 @@ namespace db0
 
 {
 
-DB0_PACKED_BEGIN
-    
     class Fixture;
-    
+
     /// Common object header
+DB0_PACKED_BEGIN
     struct DB0_PACKED_ATTR o_object_header: public o_fixed<o_object_header>
     {
         using RefCounterT = o_ref_counter<std::uint32_t, 6>;
@@ -40,7 +39,9 @@ DB0_PACKED_BEGIN
         // check if any references exist (including auto-assigned type tags)
         bool hasRefs() const;
     };
-    
+DB0_PACKED_END
+
+DB0_PACKED_BEGIN
     // Unique header for objects with unique instance id
     struct DB0_PACKED_ATTR o_unique_header: public o_fixed_ext<o_unique_header, o_object_header>
     {
@@ -58,7 +59,6 @@ DB0_PACKED_BEGIN
         {
         }
     };
-    
 DB0_PACKED_END
-
+    
 }

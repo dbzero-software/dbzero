@@ -47,7 +47,7 @@ def test_base_lock_usage_does_not_exceed_limits(db0_fixture):
         assert usage_2 - usage_1 < cache_size * 1.5
 
 
-def test_lang_cache_can_reach_capacity(db0_fixture):    
+def test_lang_cache_can_reach_capacity(db0_fixture):
     buf = db0.list()
     # python instances are added to lang cache until it reaches capacity
     initial_capacity = db0.get_lang_cache_stats()["capacity"]    

@@ -39,10 +39,10 @@ namespace db0::object_model
         
         // as null placeholder
         List() = default;
-        List(db0::swine_ptr<Fixture> &);
+        List(db0::swine_ptr<Fixture> &, AccessFlags = {});
         List(db0::swine_ptr<Fixture> &, const List &);
         List(tag_no_gc, db0::swine_ptr<Fixture> &, const List &);
-        List(db0::swine_ptr<Fixture> &, Address);
+        List(db0::swine_ptr<Fixture> &, Address, AccessFlags = {});
         ~List();
         
         void append(FixtureLock &, ObjectSharedPtr lang_value);

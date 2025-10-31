@@ -6,24 +6,26 @@ namespace db0
 {
     
     std::optional<UniqueAddress> Allocator::tryAllocUnique(
-        std::size_t size, std::uint32_t slot_num, bool aligned, unsigned char realm_id) 
+        std::size_t, std::uint32_t, bool, unsigned char, unsigned char)
     {
         THROWF(InternalException) 
             << "Allocator: unique allocation not supported by: " << typeid(*this).name() << THROWF_END;
     }
     
-    Address Allocator::alloc(std::size_t size, std::uint32_t slot_num, bool aligned, unsigned char realm_id)
+    Address Allocator::alloc(std::size_t size, std::uint32_t slot_num, bool aligned, 
+        unsigned char realm_id, unsigned char locality)
     {
-        auto result = tryAlloc(size, slot_num, aligned, realm_id);
+        auto result = tryAlloc(size, slot_num, aligned, realm_id, locality);
         if (!result) {
             THROWF(InternalException) << "Allocator: out of memory" << THROWF_END;
         }
         return *result;
     }
     
-    UniqueAddress Allocator::allocUnique(std::size_t size, std::uint32_t slot_num, bool aligned, unsigned char realm_id)
+    UniqueAddress Allocator::allocUnique(std::size_t size, std::uint32_t slot_num, bool aligned, 
+        unsigned char realm_id, unsigned char locality)
     {
-        auto result = tryAllocUnique(size, slot_num, aligned, realm_id);        
+        auto result = tryAllocUnique(size, slot_num, aligned, realm_id, locality);
         if (!result) {
             THROWF(InternalException) << "Allocator: out of memory" << THROWF_END;
         }

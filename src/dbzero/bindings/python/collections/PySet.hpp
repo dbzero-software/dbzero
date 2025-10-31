@@ -8,6 +8,7 @@ namespace db0::python
 {
     
     using SetObject = PyWrapper<db0::object_model::Set>;
+    using AccessFlags = db0::AccessFlags;
     
     SetObject *SetObject_new(PyTypeObject *type, PyObject *, PyObject *);
     shared_py_object<SetObject*> SetDefaultObject_new();
@@ -40,8 +41,9 @@ namespace db0::python
     PyObject *PyAPI_SetObject_difference_in_place(SetObject *self, PyObject * ob);
     PyObject *PyAPI_SetObject_update(SetObject *self, PyObject * ob);
     PyObject *PyAPI_SetObject_intersection_in_place(SetObject *self, PyObject * ob);
-
-    shared_py_object<SetObject*> tryMake_DB0Set(db0::swine_ptr<Fixture> &, PyObject *const *args, Py_ssize_t nargs);
+    
+    shared_py_object<SetObject*> tryMake_DB0Set(db0::swine_ptr<Fixture> &, PyObject *const *args,
+        Py_ssize_t nargs, AccessFlags);
     SetObject *PyAPI_makeSet(PyObject *, PyObject *const *args, Py_ssize_t nargs);
     
     bool SetObject_Check(PyObject *);

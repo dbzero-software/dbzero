@@ -210,7 +210,7 @@ namespace db0::python
                 PyErr_Restore(ptype, pvalue, ptraceback);
                 return -1;
             }
-                        
+            
             // invoke post-init on associated dbzero object
             auto &object = self->modifyExt();
             db0::FixtureLock fixture(object.getFixture());            
@@ -219,10 +219,12 @@ namespace db0::python
             // need to call modifyExt again after postInit because the instance has just been created
             // and potentially needs to be included in the AtomicContext
             self->modifyExt();
-            fixture->getLangCache().add(object.getAddress(), self);
-            
-            // finally, unless opted-out, assign the type tag(s) of the entire type hierarchy
             const Class *class_ptr = &object.getType();
+            if (!class_ptr || !class_ptr->isNoCache()) {
+                fixture->getLangCache().add(object.getAddress(), self);
+            }
+            
+            // finally, unless opted-out, assign the type tag(s) of the entire type hierarchy            
             if (class_ptr && class_ptr->assignDefaultTags()) {
                 auto &tag_index = fixture->get<TagIndex>();
                 while (class_ptr) {
@@ -242,9 +244,12 @@ namespace db0::python
         if (memo_obj->ext().isSingleton()) {
             db0::FixtureLock lock(memo_obj->ext().getFixture());
             memo_obj->modifyExt().unSingleton(lock);
-            // the acutal destroy will be performed by the GC0 once removed from the LangCache
-            auto &lang_cache = memo_obj->ext().getFixture()->getLangCache();
-            lang_cache.erase(memo_obj->ext().getAddress());
+            if (!memo_obj->ext().isNoCache()) {
+                // the actual destroy will be performed by the GC0 once removed from the LangCache
+                auto &lang_cache = memo_obj->ext().getFixture()->getLangCache();
+                lang_cache.erase(memo_obj->ext().getAddress());
+            }
+
             return;
         }
         
@@ -258,11 +263,14 @@ namespace db0::python
         
         // create a null placeholder in place of the original instance to mark as deleted
         auto &lang_cache = memo_obj->ext().getFixture()->getLangCache();
+        bool no_cache = memo_obj->ext().isNoCache();
         auto obj_addr = memo_obj->ext().getUniqueAddress();
         db0::FixtureLock lock(memo_obj->ext().getFixture());
         memo_obj->modifyExt().dropInstance(lock);
         // remove instance from the lang cache
-        lang_cache.erase(obj_addr);
+        if (!no_cache) {
+            lang_cache.erase(obj_addr);
+        }        
     }
     
     PyObject *tryMemoObject_getattro(MemoObject *memo_obj, PyObject *attr)
@@ -449,7 +457,7 @@ namespace db0::python
     
     PyObject *wrapPyType(PyTypeObject *base_class, bool is_singleton, bool no_default_tags, const char *prefix_name,
         const char *type_id, const char *file_name, std::vector<std::string> &&init_vars, PyObject *py_dyn_prefix_callable,
-        std::vector<Migration> &&migrations)
+        std::vector<Migration> &&migrations, bool no_cache)
     {
         auto py_class = Py_BORROW(base_class);
         auto py_module = Py_OWN(findModule(*Py_OWN(PyObject_GetAttrString((PyObject*)*py_class, "__module__"))));
@@ -473,6 +481,9 @@ namespace db0::python
         
         auto &type_manager = PyToolkit::getTypeManager();
         MemoFlags type_flags = no_default_tags ? MemoFlags { MemoOptions::NO_DEFAULT_TAGS } : MemoFlags();
+        if (no_cache) {
+            type_flags.set(MemoOptions::NO_CACHE);
+        }
         auto type_info = MemoTypeDecoration(
             py_module,
             prefix_name,
@@ -488,7 +499,7 @@ namespace db0::python
         PyToolkit::getTypeManager().addMemoType(*new_type, type_id, std::move(type_info));
         // register new type with the module where the original type was located
         PySafeModule_AddObject(*py_module, type_name.c_str(), new_type);
-                
+        
         // add class fields class member to access memo type information
         auto py_class_fields = Py_OWN(PyClassFields_create(*new_type));
         if (PySafeDict_SetItemString((*new_type)->tp_dict, "__fields__", py_class_fields) < 0) {
@@ -511,18 +522,19 @@ namespace db0::python
         PyObject *py_dyn_prefix = nullptr;
         // migrations are only processed for singleton types
         PyObject *py_migrations = nullptr;
+        PyObject *py_no_cache = nullptr;
         
         static const char *kwlist[] = { "input", "singleton", "no_default_tags", "prefix", "id", "py_file", "py_init_vars", 
-            "py_dyn_prefix", "py_migrations", NULL };
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OOOOOOOO", const_cast<char**>(kwlist), &class_obj, &py_singleton,
-            &py_no_default_tags, &py_prefix_name, &py_type_id, &py_file_name, &py_init_vars, &py_dyn_prefix, &py_migrations))
-        {
-            PyErr_SetString(PyExc_TypeError, "Invalid input arguments");
+            "py_dyn_prefix", "py_migrations", "no_cache", NULL };
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OOOOOOOOO", const_cast<char**>(kwlist), &class_obj, &py_singleton,
+            &py_no_default_tags, &py_prefix_name, &py_type_id, &py_file_name, &py_init_vars, &py_dyn_prefix, &py_migrations, &py_no_cache))
+        {            
             return NULL;
         }
         
         bool is_singleton = py_singleton && PyObject_IsTrue(py_singleton);
         bool no_default_tags = py_no_default_tags && PyObject_IsTrue(py_no_default_tags);
+        bool no_cache = py_no_cache && PyObject_IsTrue(py_no_cache);
         const char *prefix_name = (py_prefix_name && py_prefix_name != Py_None) ? PyUnicode_AsUTF8(py_prefix_name) : nullptr;
         const char *type_id = py_type_id ? PyUnicode_AsUTF8(py_type_id) : nullptr;        
         const char *file_name = (py_file_name && py_file_name != Py_None) ? PyUnicode_AsUTF8(py_file_name) : nullptr;
@@ -557,7 +569,7 @@ namespace db0::python
         
         auto migrations = extractMigrations(py_migrations);
         return wrapPyType(castToType(class_obj), is_singleton, no_default_tags, prefix_name, type_id, file_name, 
-            std::move(init_vars), py_dyn_prefix, std::move(migrations)
+            std::move(init_vars), py_dyn_prefix, std::move(migrations), no_cache
         );
     }
     
