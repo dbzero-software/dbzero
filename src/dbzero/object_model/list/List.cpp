@@ -18,13 +18,13 @@ namespace db0::object_model
         return { storage_class, createMember<LangToolkit>(fixture, type_id, storage_class, lang_value, access_mode) };
     }
     
-    List::List(db0::swine_ptr<Fixture> &fixture)
-        : super_t(fixture)
+    List::List(db0::swine_ptr<Fixture> &fixture, AccessFlags access_mode)
+        : super_t(fixture, access_mode)
     {
     }
     
-    List::List(db0::swine_ptr<Fixture> &fixture, Address address)
-        : super_t(super_t::tag_from_address(), fixture, address)
+    List::List(db0::swine_ptr<Fixture> &fixture, Address address, AccessFlags access_mode)
+        : super_t(super_t::tag_from_address(), fixture, address, access_mode)
     {
     }
 
@@ -32,7 +32,7 @@ namespace db0::object_model
         : super_t(fixture, list)
     {
     }
-
+    
     List::List(tag_no_gc, db0::swine_ptr<Fixture> &fixture, const List &list)
         : super_t(tag_no_gc(), fixture, list)
     {

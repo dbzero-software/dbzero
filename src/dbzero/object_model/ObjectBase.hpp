@@ -11,8 +11,7 @@ namespace db0
 
 {
     
-    using StorageClass = db0::object_model::StorageClass;
-    using AccessFlags = FlagSet<AccessOptions>;
+    using StorageClass = db0::object_model::StorageClass;    
     
     template <typename T> void addToGC0(Fixture &fixture, void *vptr) {
         fixture.getGC0().add<T>(vptr);
@@ -66,8 +65,8 @@ namespace db0
         
         // Fetch an existing instance
         struct tag_from_address {};
-        ObjectBase(tag_from_address, db0::swine_ptr<Fixture> &fixture, Address address)
-            : has_fixture<BaseT>(typename has_fixture<BaseT>::tag_from_address(), fixture, address)        
+        ObjectBase(tag_from_address, db0::swine_ptr<Fixture> &fixture, Address address, AccessFlags access_mode = {})
+            : has_fixture<BaseT>(typename has_fixture<BaseT>::tag_from_address(), fixture, address, 0, access_mode)
         {
             m_gc_registered = tryAddToGC0<T>(*fixture, this);
         }
@@ -205,7 +204,9 @@ namespace db0
         }
         
         // Get access flags to propagate to members (e.g. no_cache)
-        AccessFlags getMemberFlags() const;
+        AccessFlags getMemberFlags() const {
+            return this->v_this.getAccessMode() & AccessOptions::no_cache;
+        }
 
     protected:
         friend class db0::GC0;

@@ -20,11 +20,11 @@
 namespace db0::object_model
 
 {
-
+    
     using TypeId = db0::bindings::TypeId;
     using PyToolkit = db0::python::PyToolkit;
     using PyObjectPtr = PyToolkit::ObjectPtr;
-    using AccessFlags = db0::FlagSet<db0::AccessOptions>;
+    using AccessFlags = db0::AccessFlags;
     
     template <TypeId type_id, typename LangToolkit> Value createMember(db0::swine_ptr<Fixture> &fixture,
         typename LangToolkit::ObjectPtr obj_ptr, StorageClass, AccessFlags);

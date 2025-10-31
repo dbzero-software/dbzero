@@ -325,7 +325,7 @@ namespace db0::object_model
     }
     
     template <> void registerCreateMemberFunctions<PyToolkit>(
-        std::vector<Value (*)(db0::swine_ptr<Fixture> &, PyObjectPtr, StorageClass)> &functions)
+        std::vector<Value (*)(db0::swine_ptr<Fixture> &, PyObjectPtr, StorageClass, AccessFlags)> &functions)
     {
         functions.resize(static_cast<int>(TypeId::COUNT));
         std::fill(functions.begin(), functions.end(), nullptr);

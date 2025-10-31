@@ -578,7 +578,7 @@ namespace tests
         }
 
         // store values in headers
-        int index = 0;
+        unsigned int index = 0;
         for (auto node = cut.cbegin_nodes(); node != cut.cend_nodes(); ++node, ++index) {            
             node.modify().header().first = 123 * index;
             node.modify().header().second = 456 * index;

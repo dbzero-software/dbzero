@@ -23,11 +23,11 @@ namespace db0
         void setSlot(std::uint32_t slot_num, std::shared_ptr<SlabAllocator> slot_allocator);
         
         std::optional<Address> tryAlloc(std::size_t size, std::uint32_t slot_num = 0, 
-            bool aligned = false, unsigned char realm_id = 0) override;
+            bool aligned = false, unsigned char realm_id = 0, unsigned char locality = 0) override;
         
         // Unique allocations are not supported because of the limited slot's address space
         std::optional<UniqueAddress> tryAllocUnique(std::size_t size, std::uint32_t slot_num = 0, 
-            bool aligned = false, unsigned char realm_id = 0) override;
+            bool aligned = false, unsigned char realm_id = 0, unsigned char locality = 0) override;
         
         void free(Address) override;
 

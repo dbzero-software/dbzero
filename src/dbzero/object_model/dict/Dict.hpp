@@ -21,8 +21,6 @@ namespace db0::object_model
 
 {
 
-DB0_PACKED_BEGIN
-
     using Fixture = db0::Fixture;
     using PairItem_Address = ValueT_Address<o_pair_item>;
     // a MorphingBIndex derived collection type
@@ -30,7 +28,8 @@ DB0_PACKED_BEGIN
     using DictIndex = CollectionIndex<o_pair_item, PairItem_Address>;
     using dict_item = db0::key_value<std::uint64_t, TypedIndexAddr<PairItem_Address, DictIndex> >;
     class DictIterator;
-    
+
+DB0_PACKED_BEGIN    
     struct DB0_PACKED_ATTR o_dict: public db0::o_fixed<o_dict>
     {
         // common object header
@@ -43,6 +42,7 @@ DB0_PACKED_BEGIN
             return m_header.hasRefs();
         }
     };
+DB0_PACKED_END    
     
     class Dict: public db0::ObjectBase<Dict, db0::v_object<o_dict>, StorageClass::DB0_DICT>
     {
@@ -59,10 +59,10 @@ DB0_PACKED_BEGIN
         // as null placeholder
         Dict() = default;
         
-        explicit Dict(db0::swine_ptr<Fixture> &);
+        explicit Dict(db0::swine_ptr<Fixture> &, AccessFlags = {});
         explicit Dict(db0::swine_ptr<Fixture> &fixture, const Dict &);
         explicit Dict(tag_no_gc, db0::swine_ptr<Fixture> &fixture, const Dict &);
-        Dict(db0::swine_ptr<Fixture> &, Address);
+        Dict(db0::swine_ptr<Fixture> &, Address, AccessFlags = {});
         ~Dict();
         
         void operator=(Dict &&);
@@ -108,6 +108,4 @@ DB0_PACKED_BEGIN
         void restoreIterators();
     };
     
-DB0_PACKED_END
-
 }

@@ -101,7 +101,7 @@ namespace db0
         , m_slab_size(slab_size)
     {
     }
-    
+        
     class SlabManager
     {
     public:    
@@ -149,22 +149,58 @@ namespace db0
             }
         };
         
+        // NOTE: only localities 0 and 1 are currently supported
+        struct ActiveSlab: public std::array<FindResult, 2>
+        {
+            bool contains(std::uint32_t slab_id) const {
+                return ((*this)[0] == slab_id || (*this)[1] == slab_id);
+            }
+
+            bool contains(const FindResult &slab) const {
+                return ((*this)[0] == slab || (*this)[1] == slab);
+            }
+            
+            FindResult find(std::uint32_t slab_id) const
+            {
+                if ((*this)[0] == slab_id) {
+                    return (*this)[0];
+                } else if ((*this)[1] == slab_id) {
+                    return (*this)[1];
+                }
+                return {};
+            }
+
+            void erase(const FindResult &slab)
+            {
+                if ((*this)[0] == slab) {
+                    (*this)[0] = {};
+                } else if ((*this)[1] == slab) {
+                    (*this)[1] = {};
+                } else {
+                    assert(false);
+                    THROWF(db0::InternalException) << "Slab not found in active slabs." << THROWF_END;
+                }
+            }
+        };
+
         /**
          * Retrieves the active slab or returns nullptr if no active slab available
         */
-        FindResult tryGetActiveSlab() {
-            return m_active_slab;
+        FindResult tryGetActiveSlab(unsigned char locality) {
+            assert(locality < ActiveSlab::size());
+            return m_active_slab[locality];
         }
-
-        void resetActiveSlab() {
-            m_active_slab = {};
+        
+        void resetActiveSlab(unsigned char locality) {
+            assert(locality < ActiveSlab::size());
+            m_active_slab[locality] = {};
         }
 
         /**
          * Retrieve the 1st slab to allocate a block of at least min_capacity
          * this is only a 'hint' and if the allocation is not possible, the next slab should be attempted         
         */
-        FindResult findFirst(std::size_t min_capacity)
+        FindResult findFirst(std::size_t min_capacity, unsigned char locality)
         {
             // visit slabs starting from the largest available capacity
             auto it = m_capacity_items.cbegin();
@@ -173,25 +209,23 @@ namespace db0
                     // no existing slab has sufficient capacity
                     return {};                
                 }
-                
-                if (m_active_slab == it->m_slab_id) {
+
+                if (m_active_slab.contains(it->m_slab_id)) {
                     // do not include active slab in find operation
                     ++it;
                     continue;
                 }
                 auto slab = openSlab(m_slab_address_func(it->m_slab_id));
-                if (!m_active_slab) {
+                if (!m_active_slab[locality]) {
                     // make the slab active
-                    m_active_slab = slab;
+                    m_active_slab[locality] = slab;
                 }
                 return slab;
             }
         }
         
-        /**
-         * Continue after findFirst
-        */
-        FindResult findNext(FindResult last_result, std::size_t min_capacity) 
+        // Continue after findFirst        
+        FindResult findNext(FindResult last_result, std::size_t min_capacity, unsigned char locality)
         {
             for (;;) {
                 // this is to find the next item in order
@@ -201,14 +235,14 @@ namespace db0
                     return {};
                 }
 
-                if (m_active_slab == it.first->m_slab_id) {
+                if (m_active_slab.contains(it.first->m_slab_id)) {
                     // do not include active slab in find operation                    
                     continue;
                 }
                 auto slab = openSlab(m_slab_address_func(it.first->m_slab_id));
-                if (!m_active_slab) {
+                if (!m_active_slab[locality]) {
                     // make the slab active
-                    m_active_slab = slab;
+                    m_active_slab[locality] = slab;
                 }
                 return slab;
             }
@@ -241,10 +275,8 @@ namespace db0
             return { slab, slab_id };
         }
         
-        /**
-         * Create a new, registered slab instance
-        */
-        FindResult addNewSlab()
+        // Create a new, registered slab instance        
+        FindResult addNewSlab(unsigned char locality)
         {
             auto [slab, slab_id] = createNewSlab();
             auto address = m_slab_address_func(slab_id);
@@ -275,8 +307,8 @@ namespace db0
             }
 
             // make the newly added slab active
-            m_active_slab = { slab, cap_item };
-            return m_active_slab;
+            m_active_slab[locality] = { slab, cap_item };
+            return m_active_slab[locality];
         }
         
         std::uint32_t getRemainingCapacity(std::uint32_t slab_id) const
@@ -312,8 +344,8 @@ namespace db0
         FindResult tryFind(std::uint32_t slab_id) const
         {
             if (slab_id < nextSlabId()) {
-                if (m_active_slab == slab_id) {
-                    return m_active_slab;
+                if (m_active_slab.contains(slab_id)) {
+                    return m_active_slab.find(slab_id);
                 }
                 // look up with the cache first
                 auto address = m_slab_address_func(slab_id);
@@ -533,7 +565,8 @@ namespace db0
         // slab cache by address
         mutable std::unordered_map<std::uint64_t, std::shared_ptr<CacheItem> > m_slabs;
         mutable std::vector<std::shared_ptr<SlabAllocator> > m_reserved_slabs;
-        mutable FindResult m_active_slab;
+        // active slabs for each supported locality (0 or 1)
+        mutable ActiveSlab m_active_slab;
         // address by allocation ID (from the algo-allocator)
         std::function<Address(unsigned int)> m_slab_address_func;
         std::function<std::uint32_t(Address)> m_slab_id_func;
@@ -648,8 +681,8 @@ namespace db0
                 });
             }
             // unregister if active
-            if (m_active_slab == slab) {
-                m_active_slab = {};
+            if (m_active_slab.contains(slab)) {
+                m_active_slab.erase(slab);
             }
             // unregister from slab defs
             if (!m_slab_defs.erase_equal(slab.m_cap_item.m_slab_id).first) {
@@ -789,31 +822,31 @@ namespace db0
     }
     
     std::optional<Address> MetaAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num, 
-        bool aligned, unsigned char realm_id)
+        bool aligned, unsigned char realm_id, unsigned char locality)
     {
         std::uint16_t instance_id;
-        return tryAllocImpl(size, slot_num, aligned, false, instance_id, realm_id);
+        return tryAllocImpl(size, slot_num, aligned, false, instance_id, realm_id, locality);
     }
     
     std::optional<UniqueAddress> MetaAllocator::tryAllocUnique(std::size_t size, std::uint32_t slot_num,
-        bool aligned, unsigned char realm_id)
+        bool aligned, unsigned char realm_id, unsigned char locality)
     {
         std::uint16_t instance_id;
-        auto addr = tryAllocImpl(size, slot_num, aligned, true, instance_id, realm_id);
+        auto addr = tryAllocImpl(size, slot_num, aligned, true, instance_id, realm_id, locality);
         if (addr) {
             return UniqueAddress(*addr, instance_id);
         }
         return {};
     }
     
-    std::optional<Address> MetaAllocator::tryAllocImpl(std::size_t size, std::uint32_t slot_num,
-        bool aligned, bool unique, std::uint16_t &instance_id, unsigned char realm_id)
+    std::optional<Address> MetaAllocator::tryAllocImpl(std::size_t size, std::uint32_t slot_num, bool aligned, bool unique,
+        std::uint16_t &instance_id, unsigned char realm_id, unsigned char locality)
     {
         assert(slot_num == 0);
         assert(size > 0);
         // try allocating from the active slab first
         auto &realm = m_realms[realm_id];
-        auto slab = realm.tryGetActiveSlab();
+        auto slab = realm.tryGetActiveSlab(locality);
         bool is_first = true;
         bool is_new = false;
         for (;;) {
@@ -822,7 +855,7 @@ namespace db0
                     auto addr = slab.m_slab->tryAlloc(size, 0, aligned);
                     if (!addr) {
                         // NOTE: since the last allocation failed, don't use this slab as "active"
-                        realm.resetActiveSlab();
+                        realm.resetActiveSlab(locality);
                         break;
                     }
                     
@@ -843,13 +876,13 @@ namespace db0
                 }
             }
             if (is_first) {
-                slab = realm.findFirst(size);
+                slab = realm.findFirst(size, locality);
                 is_first = false;
             } else {
-                slab = realm.findNext(slab, size);
+                slab = realm.findNext(slab, size, locality);
             }
             if (!slab.m_slab) {
-                slab = realm.addNewSlab();
+                slab = realm.addNewSlab(locality);
                 is_new = true;
             }
         }
@@ -938,10 +971,6 @@ namespace db0
         return slab.m_slab->isAllocated(address, size_of_result);
     }
     
-    std::uint32_t MetaAllocator::getSlabId(Address address) const {
-        return m_slab_id_function(address);
-    }
-
     unsigned int MetaAllocator::getSlabCount() const
     {
         unsigned int total_slab_count = 0;
@@ -1162,6 +1191,10 @@ namespace db0
 
     void MetaAllocator::Realm::cancelAtomic() {
         m_slab_manager->cancelAtomic();
+    }
+    
+    std::uint32_t MetaAllocator::getSlabId(Address address) const {
+        return m_slab_id_function(address);
     }
 
 }

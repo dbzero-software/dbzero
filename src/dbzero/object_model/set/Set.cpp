@@ -16,15 +16,17 @@ namespace db0::object_model
     GC0_Define(Set)
     
     template <typename LangToolkit> o_typed_item createTypedItem(db0::swine_ptr<Fixture> &fixture,
-        db0::bindings::TypeId type_id, typename LangToolkit::ObjectPtr lang_value, StorageClass storage_class)
+        db0::bindings::TypeId type_id, typename LangToolkit::ObjectPtr lang_value, StorageClass storage_class, AccessFlags access_mode)
     {
-        return { storage_class, createMember<LangToolkit>(fixture, type_id, storage_class, lang_value) };
+        return { storage_class, createMember<LangToolkit>(fixture, type_id, storage_class, lang_value, access_mode) };
     }
     
     template <typename LangToolkit> set_item createSetItem(db0::swine_ptr<Fixture> &fixture, std::uint64_t key, 
-        db0::bindings::TypeId type_id, typename LangToolkit::ObjectPtr lang_value, StorageClass storage_class)
+        db0::bindings::TypeId type_id, typename LangToolkit::ObjectPtr lang_value, StorageClass storage_class, AccessFlags access_mode)
     {        
-        auto item = createTypedItem<LangToolkit>(fixture, type_id, lang_value, storage_class);
+        auto item = createTypedItem<LangToolkit>(
+            fixture, type_id, lang_value, storage_class, access_mode
+        );
         SetIndex bindex(*fixture, item);
         return { key, bindex };
     }
@@ -111,7 +113,9 @@ namespace db0::object_model
         bool is_modified = false;
         if (iter == m_index.end()) {
             ++modify().m_size;
-            auto set_it = createSetItem<LangToolkit>(fixture, key, type_id, lang_value, storage_class);
+            auto set_it = createSetItem<LangToolkit>(
+                fixture, key, type_id, lang_value, storage_class, getMemberFlags()
+            );
             m_index.insert(set_it);
             is_modified = true;
         } else {
@@ -120,7 +124,9 @@ namespace db0::object_model
                 ++modify().m_size;
                 auto [key, address] = *iter;
                 auto bindex = address.getIndex(*fixture);
-                auto item = createTypedItem<LangToolkit>(fixture, type_id, lang_value, storage_class);
+                auto item = createTypedItem<LangToolkit>(
+                    fixture, type_id, lang_value, storage_class, getMemberFlags()
+                );
                 bindex.insert(item);
                 if (bindex.getAddress() != address.m_index_address) {
                     // auto new_typed_index = TypedIndex<TypedItem_Address, SetIndex>(new_address, bindex.getIndexType());

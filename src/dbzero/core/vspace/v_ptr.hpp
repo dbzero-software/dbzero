@@ -80,7 +80,9 @@ namespace db0
             assertFlags();
         }
         
-        FlagSet<AccessOptions> getAccessMode() const;
+        inline FlagSet<AccessOptions> getAccessMode() const {
+            return m_access_mode;
+        }
         
         vtypeless &operator=(const vtypeless &other);
         void operator=(vtypeless &&);
@@ -294,8 +296,6 @@ namespace db0
         static self_t makeNewUnique(Memspace &memspace, std::uint16_t &instance_id, std::size_t size, 
             FlagSet<AccessOptions> access_mode = {})
         {
-            // FIXME: log
-            std::cout << "makeNewUnique with flags: " << access_mode << std::endl;
             // read not allowed for instance creation
             assert(!access_mode[AccessOptions::read]);
             auto unique_address = memspace.allocUnique(size, SLOT_NUM, REALM_ID);

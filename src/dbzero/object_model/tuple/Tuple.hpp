@@ -21,6 +21,7 @@ namespace db0::object_model
 {
 
     using Fixture = db0::Fixture;
+    using AccessFlags = db0::AccessFlags;
     class TupleIterator;
     
 DB0_PACKED_BEGIN    
@@ -77,11 +78,11 @@ DB0_PACKED_END
         // as null placeholder
         Tuple() = default;
         struct tag_new_tuple {};
-        explicit Tuple(db0::swine_ptr<Fixture> &, tag_new_tuple, std::size_t size);
+        explicit Tuple(db0::swine_ptr<Fixture> &, tag_new_tuple, std::size_t size, AccessFlags = {});
         explicit Tuple(tag_no_gc, db0::swine_ptr<Fixture> &, const Tuple &);
-        explicit Tuple(db0::swine_ptr<Fixture> &, Address address);
+        explicit Tuple(db0::swine_ptr<Fixture> &, Address address, AccessFlags = {});
         ~Tuple();
-
+        
         ObjectSharedPtr getItem(std::size_t i) const;
         void setItem(FixtureLock &, std::size_t i, ObjectSharedPtr lang_value);
         

@@ -344,7 +344,7 @@ namespace db0::python
     }
     
     shared_py_object<SetObject*> tryMake_DB0Set(
-        db0::swine_ptr<Fixture> &fixture, PyObject *const *args, Py_ssize_t nargs)
+        db0::swine_ptr<Fixture> &fixture, PyObject *const *args, Py_ssize_t nargs, AccessFlags access_mode)
     {
         // make actual dbzero instance, use default fixture
         auto py_set = SetDefaultObject_new();
@@ -375,7 +375,7 @@ namespace db0::python
     SetObject *tryMake_Set(PyObject *, PyObject *const *args, Py_ssize_t nargs)
     {
         auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture();
-        return tryMake_DB0Set(fixture, args, nargs).steal();
+        return tryMake_DB0Set(fixture, args, nargs, {}).steal();
     }
     
     SetObject *PyAPI_makeSet(PyObject *obj, PyObject *const *args, Py_ssize_t nargs)

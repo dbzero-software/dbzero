@@ -83,7 +83,7 @@ namespace db0::python
         return py_list;
     }
     
-    ListObject *tryMake_ListInternal(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
+    ListObject *tryMake_ListInternal(PyObject *self, PyObject *const *args, Py_ssize_t nargs, AccessFlags access_mode)
     {
         if (nargs != 1 && nargs != 0) {
             PyErr_SetString(PyExc_TypeError, "list() takes exactly one or zero argument");
@@ -91,7 +91,7 @@ namespace db0::python
         }
 
         auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture();
-        return tryMake_DB0ListInternal(fixture, args, nargs).steal();
+        return tryMake_DB0ListInternal(fixture, args, nargs, access_mode).steal();
     }
     
     PyObject *tryListObject_GetItemSlice(ListObject *py_src_list, PyObject *elem)
@@ -359,7 +359,7 @@ namespace db0::python
     PyObject *PyAPI_makeList(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
         PY_API_FUNC
-        return runSafe(tryMake_ListInternal, self, args, nargs);
+        return runSafe(tryMake_ListInternal, self, args, nargs, AccessFlags{});
     }
     
     PyObject *tryLoadList(ListObject *list, PyObject *kwargs, std::unordered_set<const void*> *load_stack_ptr)

@@ -199,10 +199,10 @@ DB0_PACKED_END
         using SlabTreeT = SGB_Tree<SlabDef, SlabDef::CompT, SlabDef::EqualT>;
         
         std::optional<Address> tryAlloc(std::size_t size, std::uint32_t slot_num = 0,
-            bool aligned = false, unsigned char realm_id = 0) override;
+            bool aligned = false, unsigned char realm_id = 0, unsigned char locality = 0) override;
         
         std::optional<UniqueAddress> tryAllocUnique(std::size_t size, std::uint32_t slot_num = 0,
-            bool aligned = false, unsigned char realm_id = 0) override;
+            bool aligned = false, unsigned char realm_id = 0, unsigned char locality = 0) override;
         
         void free(Address) override;
 
@@ -232,12 +232,7 @@ DB0_PACKED_END
 
         static std::function<std::uint32_t(Address)> getSlabIdFunction(std::size_t offset, std::size_t page_size,
             std::size_t slab_size);
-        
-        /**
-         * Calculate slab ID for the given address
-        */
-        std::uint32_t getSlabId(Address) const;
-        
+                
         unsigned int getSlabCount() const;
         
         /**
@@ -278,6 +273,10 @@ DB0_PACKED_END
         void beginAtomic();
         void endAtomic();
         void cancelAtomic();
+                
+    protected:
+        // Calculate slab ID for the given address
+        std::uint32_t getSlabId(Address) const;
         
     private:        
         std::shared_ptr<Prefix> m_prefix;
@@ -363,10 +362,10 @@ DB0_PACKED_END
         void deferredFree(Address);
         
         // NOTE: instance ID will only be populated when unique = true
-        std::optional<Address> tryAllocImpl(std::size_t size, std::uint32_t slot_num,
-                bool aligned, bool unique, std::uint16_t &instance_id, unsigned char realm_id);        
+        std::optional<Address> tryAllocImpl(std::size_t size, std::uint32_t slot_num, bool aligned, bool unique, 
+            std::uint16_t &instance_id, unsigned char realm_id, unsigned char locality);
     };
-       
+    
 }
 
 namespace std 

@@ -40,8 +40,8 @@ namespace db0::object_model
         return { storage_class, createMember<LangToolkit>(fixture, type_id, storage_class, lang_value, access_mode) };
     }
     
-    Tuple::Tuple(db0::swine_ptr<Fixture> &fixture, tag_new_tuple, std::size_t size)
-        : super_t(fixture, size)
+    Tuple::Tuple(db0::swine_ptr<Fixture> &fixture, tag_new_tuple, std::size_t size, AccessFlags access_mode)
+        : super_t(fixture, size, access_mode)
     {
     }
 
@@ -54,8 +54,8 @@ namespace db0::object_model
         }
     }
     
-    Tuple::Tuple(db0::swine_ptr<Fixture> &fixture, Address address)
-        : super_t(super_t::tag_from_address(), fixture, address)
+    Tuple::Tuple(db0::swine_ptr<Fixture> &fixture, Address address, AccessFlags access_mode)
+        : super_t(super_t::tag_from_address(), fixture, address, access_mode)
     {
     }
     

@@ -10,7 +10,7 @@ namespace db0::python
 {
     
     using ListObject = PyWrapper<db0::object_model::List>;
-    using AccessFlags = FlagSet<db0::AccessOptions>;
+    using AccessFlags = db0::AccessFlags;
     
     ListObject *ListObject_new(PyTypeObject *type, PyObject *, PyObject *);
     shared_py_object<ListObject*> ListDefaultObject_new();

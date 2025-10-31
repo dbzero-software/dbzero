@@ -319,9 +319,10 @@ namespace db0::object_model
                 initializer.remove(loc, lofi_store<2>::mask(loc.second));
             }
             // register a regular member with the initializer
-            // NOTE: a new member receives the no-cache flag if set
+            // NOTE: a new member receives the no-cache flag if set (at the type level)
+            auto member_flags = type.isNoCache() ? AccessFlags { AccessOptions::no_cache } : AccessFlags();
             initializer.set(member_id.get(0).getIndexAndOffset(), storage_class,
-                createMember<LangToolkit>(fixture, type_id, storage_class, obj_ptr, getMemberFlags())
+                createMember<LangToolkit>(fixture, type_id, storage_class, obj_ptr, member_flags)
             );
         } else {
             if (member_id.hasFidelity(0)) {
@@ -1607,7 +1608,7 @@ namespace db0::object_model
             m_touched = true;
         }
     }
-
+    
     void Object::addExtRef() const {
         ++m_ext_refs;
     }
@@ -1618,8 +1619,4 @@ namespace db0::object_model
         --m_ext_refs;
     }
     
-    bool Object::isNoCache() const {
-        return getType().isNoCache();
-    }
-
 }

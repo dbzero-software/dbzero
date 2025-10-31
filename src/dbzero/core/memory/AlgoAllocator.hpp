@@ -17,8 +17,8 @@ namespace db0
 
         AlgoAllocator(AddressPoolF f, ReverseAddressPoolF rf, std::size_t alloc_size);
 
-        std::optional<Address> tryAlloc(std::size_t size, std::uint32_t slot_num = 0, 
-            bool aligned = false, unsigned char realm_id = 0) override;
+        std::optional<Address> tryAlloc(std::size_t size, std::uint32_t slot_num = 0,
+            bool aligned = false, unsigned char realm_id = 0, unsigned char locality = 0) override;
         
         void free(Address) override;
 

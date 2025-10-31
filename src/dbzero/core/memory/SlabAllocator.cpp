@@ -64,7 +64,7 @@ namespace db0
     }
     
     std::optional<Address> SlabAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num,
-        bool aligned, unsigned char)
+        bool aligned, unsigned char, unsigned char)
     {
         assert(slot_num == 0);
         assert(size > 0);

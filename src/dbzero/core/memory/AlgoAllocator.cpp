@@ -14,7 +14,7 @@ namespace db0
     }
     
     std::optional<Address> AlgoAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num,
-        bool aligned, unsigned char)
+        bool aligned, unsigned char, unsigned char)
     {
         assert(slot_num == 0);
         assert(!aligned && "AlgoAllocator: aligned allocation not supported");
