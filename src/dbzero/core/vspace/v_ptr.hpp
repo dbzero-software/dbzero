@@ -68,6 +68,7 @@ namespace db0
             FlagSet<AccessOptions>);
 
         vtypeless(const vtypeless& other);
+        vtypeless(vtypeless&&);
         
         /**
          * @param access_mode additional flags / modes to use

@@ -253,6 +253,11 @@ DB0_PACKED_END
             return m_no_cache;
         }
         
+        // Get instance flags to be applied to objects of this class
+        inline AccessFlags getInstanceFlags() const {
+            return m_no_cache ? AccessFlags { AccessOptions::no_cache } : AccessFlags {};
+        }
+        
     protected:
         friend class ClassFactory;        
         friend ClassPtr;

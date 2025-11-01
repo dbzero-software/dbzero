@@ -52,27 +52,29 @@ namespace db0::object_model
     }
     
     template <typename LangToolkit> typename LangToolkit::ObjectSharedPtr unloadMember(
-        db0::swine_ptr<Fixture> &fixture, o_typed_item typed_item, unsigned int offset = 0)
+        db0::swine_ptr<Fixture> &fixture, o_typed_item typed_item, unsigned int offset = 0, AccessFlags access_mode = {})
     {
-        return unloadMember<LangToolkit>(fixture, typed_item.m_storage_class, typed_item.m_value, offset);
+        return unloadMember<LangToolkit>(
+            fixture, typed_item.m_storage_class, typed_item.m_value, offset, access_mode
+        );
     }
     
     template <StorageClass storage_class, typename LangToolkit> typename LangToolkit::ObjectSharedPtr unloadMember(
-        db0::swine_ptr<Fixture> &fixture, Value value, unsigned int offset = 0);
+        db0::swine_ptr<Fixture> &fixture, Value value, unsigned int offset = 0, AccessFlags access_mode = {});
     
     // register StorageClass specializations
     template <typename LangToolkit> void registerUnloadMemberFunctions(
-        std::vector<typename LangToolkit::ObjectSharedPtr (*)(db0::swine_ptr<Fixture> &, Value, unsigned int)> &functions);
+        std::vector<typename LangToolkit::ObjectSharedPtr (*)(db0::swine_ptr<Fixture> &, Value, unsigned int, AccessFlags)> &functions);
     
     /**
      * @param name optional name (for error reporting only)
      * @param offset optional offset for lo-fi members (default = 0)
     */
     template <typename LangToolkit> typename LangToolkit::ObjectSharedPtr unloadMember(
-        db0::swine_ptr<Fixture> &fixture, StorageClass storage_class, Value value, unsigned int offset = 0)
+        db0::swine_ptr<Fixture> &fixture, StorageClass storage_class, Value value, unsigned int offset = 0, AccessFlags access_mode = {})
     {
         // create member function pointer
-        using UnloadMemberFunc = typename LangToolkit::ObjectSharedPtr (*)(db0::swine_ptr<Fixture> &, Value, unsigned int);
+        using UnloadMemberFunc = typename LangToolkit::ObjectSharedPtr (*)(db0::swine_ptr<Fixture> &, Value, unsigned int, AccessFlags);
         static std::vector<UnloadMemberFunc> unload_member_functions;
         if (unload_member_functions.empty()) {
             registerUnloadMemberFunctions<LangToolkit>(unload_member_functions);
@@ -80,7 +82,7 @@ namespace db0::object_model
 
         assert(static_cast<int>(storage_class) < unload_member_functions.size());
         assert(unload_member_functions[static_cast<int>(storage_class)]);
-        return unload_member_functions[static_cast<int>(storage_class)](fixture, value, offset);
+        return unload_member_functions[static_cast<int>(storage_class)](fixture, value, offset, access_mode);
     }
     
     // unreference a member (decref / destroy where applicable)

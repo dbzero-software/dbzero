@@ -1,8 +1,9 @@
 from random import random
 import pytest
 import dbzero as db0
-from .memo_test_types import MemoTestClass, TriColor, MemoAnyAttrs
+from .memo_test_types import MemoTestClass
 from dataclasses import dataclass
+from .conftest import DB0_DIR
 import random
 import string
 import gc
@@ -61,4 +62,32 @@ def test_excluding_no_cache_instances_from_dbzero_cache(db0_fixture):
     final_cache_size = db0.get_cache_stats()["size"]
     # make sure cache utilization is low
     assert abs(final_cache_size - initial_cache_size) < (300 << 10)
+
+
+def test_fetching_no_cache_objects(db0_fixture):
+    px_name = db0.get_current_prefix().name
+    buf = db0.list()
+    uuid_list = []
+    for _ in range(100):
+        obj = MemoNoCacheClass()
+        buf.append(obj)
+        uuid_list.append(db0.uuid(obj))
+
+    db0.close()
+    db0.init(DB0_DIR)
+    db0.open(px_name, "r")
     
+    # now fetch objects by uuid
+    initial_cache_size = db0.get_cache_stats()["size"]
+    print(db0.get_cache_stats())
+    total_len = 0
+    for id in uuid_list:
+        # NOTE: must fetch with type, otherwise no_cache flag may not be honored
+        obj = db0.fetch(MemoNoCacheClass, id)
+        # this forces data retrieval
+        total_len += len(obj.data)
+    
+    final_cache_size = db0.get_cache_stats()["size"]
+    print(db0.get_cache_stats())
+    # make sure cache utilization is low
+    assert abs(final_cache_size - initial_cache_size) < (300 << 10)

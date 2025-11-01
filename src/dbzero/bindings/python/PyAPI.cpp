@@ -144,7 +144,7 @@ namespace db0::python
             return NULL;
         }
 
-        PY_API_FUNC        
+        PY_API_FUNC
         return runSafe(tryFetch, py_id, reinterpret_cast<PyTypeObject*>(py_type), prefix_name).steal();
     }
     

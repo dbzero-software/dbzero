@@ -72,7 +72,7 @@ namespace db0::object_model
         }
         auto [storage_class, value] = (*this)[i];
         auto fixture = this->getFixture();
-        return unloadMember<LangToolkit>(fixture, storage_class, value);
+        return unloadMember<LangToolkit>(fixture, storage_class, value, 0, this->getMemberFlags());
     }
 
     List::ObjectSharedPtr List::pop(FixtureLock &fixture, std::size_t i)
@@ -84,7 +84,7 @@ namespace db0::object_model
             THROWF(db0::InputException) << "Index out of range: " << i;
         }
         auto [storage_class, value] = (*this)[i];
-        auto member = unloadMember<LangToolkit>(*fixture, storage_class, value);
+        auto member = unloadMember<LangToolkit>(*fixture, storage_class, value, 0, this->getMemberFlags());
         this->swapAndPop(fixture, {i});
         restoreIterators();
         return member;
@@ -122,8 +122,8 @@ namespace db0::object_model
         auto fixture = this->getFixture();
         for (auto &elem: (*this)) {
             auto [elem_storage_class, elem_value] = elem;
-            if (unloadMember<LangToolkit>(fixture, elem_storage_class, elem_value) == lang_value) {
-                count += 1;
+            if (unloadMember<LangToolkit>(fixture, elem_storage_class, elem_value, 0, this->getMemberFlags()) == lang_value) {
+                ++count;
             }
         }
         return count;
@@ -135,7 +135,7 @@ namespace db0::object_model
         auto fixture = this->getFixture();
         for (auto &elem: (*this)) {
             auto [elem_storage_class, elem_value] = elem;
-            if (unloadMember<LangToolkit>(fixture, elem_storage_class, elem_value) == lang_value) {
+            if (unloadMember<LangToolkit>(fixture, elem_storage_class, elem_value, 0, this->getMemberFlags()) == lang_value) {
                 return index;
             }
             ++index;
@@ -143,7 +143,7 @@ namespace db0::object_model
         THROWF(db0::InputException) << "Item is not in a list ";
         return -1;
     }
-
+    
     bool List::operator==(const List &list) const
     {
         if (size() != list.size()) {

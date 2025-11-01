@@ -18,16 +18,16 @@ namespace db0::object_model
     {
     }
     
-    Index::Index(db0::swine_ptr<Fixture> &fixture)
-        : super_t(fixture, IndexType::RangeTree, IndexDataType::Auto)
+    Index::Index(db0::swine_ptr<Fixture> &fixture, AccessFlags access_mode)
+        : super_t(fixture, IndexType::RangeTree, IndexDataType::Auto, access_mode)
         , m_builder(*this)
         // NOTE: register the mutation handler for supporting "locked" sections
         , m_mutation_log(fixture->addMutationHandler())
     {
     }
-
-    Index::Index(db0::swine_ptr<Fixture> &fixture, Address address)
-        : super_t(super_t::tag_from_address(), fixture, address)
+    
+    Index::Index(db0::swine_ptr<Fixture> &fixture, Address address, AccessFlags access_mode)
+        : super_t(super_t::tag_from_address(), fixture, address, access_mode)
         , m_builder(*this)
         , m_mutation_log(fixture->addMutationHandler())
     {        
