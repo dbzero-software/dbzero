@@ -67,7 +67,7 @@ static PyMethodDef dbzero_methods[] =
     {"serialize", (PyCFunction)&py::PyAPI_serialize, METH_FASTCALL, "Serialize dbzero serializable instance"},
     {"deserialize", (PyCFunction)&py::PyAPI_deserialize, METH_FASTCALL, "Serialize dbzero serializable instance"},    
     {"is_enum_value", (PyCFunction)&py::PyAPI_isEnumValue, METH_FASTCALL, "Check if parameter represents a dbzero enum value"},
-    {"split_by", (PyCFunction)&py::PyAPI_splitBy, METH_VARARGS | METH_KEYWORDS, "Split query iterator by a given criteria"},
+    {"split_by", (PyCFunction)&py::PyAPI_splitBy, METH_VARARGS | METH_KEYWORDS, "Split query iterator by a given criteria"},    
     {"filter", (PyCFunction)&py::filter, METH_VARARGS | METH_KEYWORDS, "Filter with a Python callable"},
     {"set_prefix", (PyCFunction)&py::PyAPI_setPrefix, METH_VARARGS | METH_KEYWORDS, "Allows dynamically specifying object's prefix during initialization"},
     {"get_slab_metrics", (PyCFunction)&py::getSlabMetrics, METH_NOARGS, "Retrieve slab metrics of the current prefix"},

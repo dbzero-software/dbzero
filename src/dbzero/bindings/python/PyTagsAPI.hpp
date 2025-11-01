@@ -43,7 +43,7 @@ namespace db0::python
         const char *prefix_name = nullptr);
     
     PyObject *PyAPI_splitBy(PyObject *, PyObject *args, PyObject *kwargs);
-        
+    
     PyObject *PyAPI_selectModCandidates(PyObject *, PyObject *args, PyObject *kwargs);
 
     PyObject *PyAPI_splitBySnapshots(PyObject *, PyObject *const *args, Py_ssize_t nargs);

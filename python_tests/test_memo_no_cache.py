@@ -18,8 +18,10 @@ def rand_string(max_len):
 @dataclass
 class MemoNoCacheClass:
     data: str
-    
+    value: int = 0
+        
     def __init__(self):
+        self.value = random.randint(0, 1000000)
         self.data = rand_string(12 << 10)
     
         
@@ -106,7 +108,7 @@ def test_find_no_cache_objects(db0_fixture):
     initial_cache_size = db0.get_cache_stats()["size"]
     total_len = 0
     for obj in db0.find(MemoNoCacheClass):
-        # this forces data retrieval
+        # this forces data retrieval (but not caching)
         total_len += len(obj.data)
     
     assert total_len > 0

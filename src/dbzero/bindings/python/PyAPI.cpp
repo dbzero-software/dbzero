@@ -75,7 +75,7 @@ namespace db0::python
         PY_API_FUNC
         return runSafe(tryGetCacheStats);
     }
-
+    
     PyObject *tryGetLangCacheStats()
     {
         auto lang_cache = PyToolkit::getPyWorkspace().getWorkspace().getLangCache();

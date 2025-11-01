@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <random>
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/core/collections/full_text/FT_Iterator.hpp>
 #include <dbzero/core/collections/full_text/SortedIterator.hpp>
@@ -41,7 +42,7 @@ namespace db0::object_model
         
         // Construct iterator with additional filters
         ObjectIterator(const ObjectIterable &, const std::vector<FilterFunc> & = {});
-                
+        
         virtual ~ObjectIterator() = default;
 
         /**
@@ -57,6 +58,10 @@ namespace db0::object_model
         const std::vector<ObjectPtr> &getDecorators() const {
             return m_decoration.m_decorators;
         }
+
+        // Try to skip specified number of items
+        // @return number of actually skipped items
+        std::size_t skip(std::size_t count);
 
     protected:
         friend class ObjectIterable;        
@@ -81,7 +86,7 @@ namespace db0::object_model
         };
         
         Decoration m_decoration;
-        Slice m_slice;
+        Slice m_slice;        
         
         // Unload object by address (must be from this iterator) skipping instance ID validation        
         virtual ObjectSharedPtr unload(Address) const;

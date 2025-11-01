@@ -68,7 +68,7 @@ namespace db0::object_model
     List::ObjectSharedPtr List::getItem(std::size_t i) const
     {
         if (i >= size()) {
-            THROWF(db0::InputException) << "Index out of range: " << i;
+            THROWF(db0::IndexException) << "Index out of range: " << i;
         }
         auto [storage_class, value] = (*this)[i];
         auto fixture = this->getFixture();
@@ -81,7 +81,7 @@ namespace db0::object_model
             THROWF(db0::InputException) << "Cannot pop from empty container ";
         }
         if (i >= size()) {
-            THROWF(db0::InputException) << "Index out of range: " << i;
+            THROWF(db0::IndexException) << "Index out of range: " << i;
         }
         auto [storage_class, value] = (*this)[i];
         auto member = unloadMember<LangToolkit>(*fixture, storage_class, value, 0, this->getMemberFlags());
@@ -93,7 +93,7 @@ namespace db0::object_model
     void List::setItem(FixtureLock &fixture, std::size_t i, ObjectPtr lang_value)
     {
         if (i >= size()) {
-            THROWF(db0::InputException) << "Index out of range: " << i;
+            THROWF(db0::IndexException) << "Index out of range: " << i;
         }
 
         // recognize type ID from language specific object
