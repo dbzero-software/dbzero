@@ -81,9 +81,9 @@ namespace db0::object_model
     {
         // unload as typed if class is known
         if (m_type) {
-            return LangToolkit::unloadObject(fixture, address, m_type, m_lang_type.get());
+            return LangToolkit::unloadObject(fixture, address, m_type, m_lang_type.get(), m_access_mode);
         } else {
-            return LangToolkit::unloadObject(fixture, address, m_class_factory, m_lang_type.get());
+            return LangToolkit::unloadObject(fixture, address, m_class_factory, m_lang_type.get(), 0, m_access_mode);
         }
     }
     

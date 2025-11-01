@@ -4,6 +4,7 @@
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/object_model/tags/TagIndex.hpp>
 #include <dbzero/object_model/class/ClassFactory.hpp>
+#include <dbzero/object_model/class/Class.hpp>
 #include <dbzero/core/collections/full_text/FT_Serialization.hpp>
 #include <dbzero/core/collections/range_tree/RT_Serialization.hpp>
 
@@ -39,7 +40,8 @@ namespace db0::object_model
         , m_query_observers(std::move(query_observers))
         , m_filters(filters)        
         , m_type(type)
-        , m_lang_type(lang_type) 
+        , m_lang_type(lang_type)
+        , m_access_mode(getAccessMode(type))
     {
     }
     
@@ -53,6 +55,7 @@ namespace db0::object_model
         , m_filters(filters)
         , m_type(type)
         , m_lang_type(lang_type)    
+        , m_access_mode(getAccessMode(type))
     {
     }
     
@@ -66,13 +69,15 @@ namespace db0::object_model
         , m_filters(filters)
         , m_type(type)
         , m_lang_type(lang_type)    
+        , m_access_mode(getAccessMode(type))
     {
     }
 
     ObjectIterable::ObjectIterable(db0::swine_ptr<Fixture> fixture, const ClassFactory &class_factory,
-        std::unique_ptr<QueryIterator> &&ft_query_iterator, std::unique_ptr<SortedIterator> &&sorted_iterator, 
+        std::unique_ptr<QueryIterator> &&ft_query_iterator, std::unique_ptr<SortedIterator> &&sorted_iterator,
         std::shared_ptr<IteratorFactory> factory, std::vector<std::unique_ptr<QueryObserver> > &&query_observers,
-        std::vector<FilterFunc> &&filters, std::shared_ptr<Class> type, TypeObjectPtr lang_type, const SliceDef &slice_def)
+        std::vector<FilterFunc> &&filters, std::shared_ptr<Class> type, TypeObjectPtr lang_type, 
+        const SliceDef &slice_def, AccessFlags access_mode)
         : m_fixture(fixture)
         , m_class_factory(class_factory)
         , m_query_iterator(std::move(ft_query_iterator))
@@ -83,6 +88,7 @@ namespace db0::object_model
         , m_type(type)
         , m_lang_type(lang_type)
         , m_slice_def(slice_def)
+        , m_access_mode(access_mode)
     {
     }
 
@@ -94,6 +100,7 @@ namespace db0::object_model
         , m_type(other.m_type)
         , m_lang_type(other.m_lang_type)
         , m_slice_def(other.m_slice_def)
+        , m_access_mode(other.m_access_mode)
     {
         m_filters.insert(m_filters.end(), filters.begin(), filters.end());
         
@@ -115,6 +122,7 @@ namespace db0::object_model
         , m_type(other.m_type)
         , m_lang_type(other.m_lang_type)
         , m_slice_def(other.m_slice_def.combineWith(slice_def))
+        , m_access_mode(other.m_access_mode)
     {
         std::unique_ptr<QueryIterator> query_iterator;
         std::unique_ptr<SortedIterator> sorted_iterator;
@@ -138,6 +146,7 @@ namespace db0::object_model
         , m_type(other.m_type)
         , m_lang_type(other.m_lang_type)
         , m_slice_def(other.m_slice_def)
+        , m_access_mode(other.m_access_mode)
     {
         m_filters.insert(m_filters.end(), filters.begin(), filters.end());
     }
@@ -153,6 +162,7 @@ namespace db0::object_model
         , m_type(other.m_type)
         , m_lang_type(other.m_lang_type)
         , m_slice_def(other.m_slice_def)
+        , m_access_mode(other.m_access_mode)
     {
         m_filters.insert(m_filters.end(), filters.begin(), filters.end());
     }
@@ -292,7 +302,7 @@ namespace db0::object_model
         
         auto &class_factory = fixture_->get<ClassFactory>();
         return std::unique_ptr<ObjectIterable>(new ObjectIterable(fixture_, class_factory, std::move(query_iterator),
-            std::move(sorted_iterator), factory, {}, {}, nullptr, nullptr, is_sliced ? SliceDef{start, stop, step} : SliceDef{}));
+            std::move(sorted_iterator), factory, {}, {}, nullptr, nullptr, is_sliced ? SliceDef{start, stop, step} : SliceDef{}, {}));
     }
     
     double ObjectIterable::compareTo(const ObjectIterable &other) const
@@ -417,6 +427,14 @@ namespace db0::object_model
             }        
         }
         return true;
+    }
+
+    AccessFlags ObjectIterable::getAccessMode(std::shared_ptr<Class> type) const
+    {
+        if (type) {
+            return type->isNoCache() ? AccessFlags { AccessOptions::no_cache } : AccessFlags {};            
+        }
+        return {};
     }
 
 }
