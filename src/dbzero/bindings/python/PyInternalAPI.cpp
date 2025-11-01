@@ -170,27 +170,32 @@ namespace db0::python
         using ClassFactory = db0::object_model::ClassFactory;
         using Class = db0::object_model::Class;
         
-        // validate pre-storage class first
+        // Validate pre-storage class first
         if (py_expected_type && !checkObjectIdType(object_id, py_expected_type)) {
             THROWF(db0::InputException) << "Object ID type mismatch";            
         }
         
         auto storage_class = object_id.m_storage_class;
         auto addr = object_id.m_address;
-        if (storage_class == db0::object_model::StorageClass::OBJECT_REF) {            
+        if (storage_class == db0::object_model::StorageClass::OBJECT_REF) {
             auto &class_factory = db0::object_model::getClassFactory(*fixture);
-            auto result = PyToolkit::unloadObject(fixture, addr, class_factory, nullptr, addr.getInstanceId());
-            auto &memo = reinterpret_cast<MemoObject*>(result.get())->ext();
-            
             // validate type if requested (no validation for MemoBase)
-            if (py_expected_type && !PyToolkit::getTypeManager().isMemoBase(py_expected_type)) {                
+            if (py_expected_type && !PyToolkit::getTypeManager().isMemoBase(py_expected_type)) {
                 // in other cases the type must match the actual object type
-                auto expected_class = class_factory.getExistingType(py_expected_type);                
+                auto expected_class = class_factory.getExistingType(py_expected_type);
+                // honor class-specific access flags (e.g. type-level no_cache)
+                auto result = PyToolkit::unloadObject(fixture, addr, class_factory, nullptr, addr.getInstanceId(),
+                    expected_class->getInstanceFlags()
+                );
+                auto &memo = reinterpret_cast<MemoObject*>(result.get())->ext();
                 if (memo.getType() != *expected_class) {
                     THROWF(db0::InputException) << "Object type mismatch";
                 }
+                return result;
+            } else {
+                // unload without type validation
+                return PyToolkit::unloadObject(fixture, addr, class_factory, nullptr, addr.getInstanceId());
             }
-            return result;
         } else if (storage_class == db0::object_model::StorageClass::DB0_CLASS) {
             auto &class_factory = db0::object_model::getClassFactory(*fixture);
             auto class_ptr = class_factory.getTypeByAddr(addr).m_class;

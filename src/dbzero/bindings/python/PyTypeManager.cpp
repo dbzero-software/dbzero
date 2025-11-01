@@ -108,7 +108,7 @@ namespace db0::python
             }        
             m_py_bad_prefix_error.steal();        
             m_py_class_not_found_error.steal();        
-            m_py_reference_error.steal();
+            m_py_reference_error.steal();            
         }
     }
 
@@ -487,7 +487,7 @@ namespace db0::python
     PyTypeManager::ObjectPtr PyTypeManager::getReferenceError() const {
         return m_py_reference_error.get();
     }
-
+    
     std::shared_ptr<const db0::object_model::Class> PyTypeManager::extractConstClass(ObjectPtr py_class) const
     {
         if (!PyClassObject_Check(py_class)) {

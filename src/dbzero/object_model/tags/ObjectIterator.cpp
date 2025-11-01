@@ -21,14 +21,14 @@ namespace db0::object_model
         , m_slice(m_iterator_ptr, slice_def)
     {
     }
-    
+
     ObjectIterator::ObjectIterator(db0::swine_ptr<Fixture> fixture, std::unique_ptr<SortedIterator> &&sorted_iterator,
         std::shared_ptr<Class> type, TypeObjectPtr lang_type, std::vector<std::unique_ptr<QueryObserver> > &&query_observers, 
         const std::vector<FilterFunc> &filters, const SliceDef &slice_def)
         : ObjectIterable(fixture, std::move(sorted_iterator), type, lang_type, {}, filters)
         , m_iterator_ptr(m_sorted_iterator.get())
         , m_decoration(std::move(query_observers))
-        , m_slice(m_iterator_ptr, slice_def)
+        , m_slice(m_iterator_ptr, slice_def)        
     {
     }
     
@@ -36,7 +36,7 @@ namespace db0::object_model
         : ObjectIterable(other, filters)
         , m_iterator_ptr(getIteratorPtr())
         , m_decoration(std::move(m_query_observers))
-        , m_slice(m_iterator_ptr, m_slice_def)
+        , m_slice(m_iterator_ptr, m_slice_def)    
     {
     }
     
@@ -50,7 +50,7 @@ namespace db0::object_model
     {
         for (;;) {
             if (!m_slice.isEnd()) {
-                // collect decorators if any exist
+                // Collect decorators if any exist
                 if (!m_decoration.empty()) {
                     auto it = m_decoration.m_query_observers.begin();
                     for (auto &decor: m_decoration.m_decorators) {
@@ -77,13 +77,23 @@ namespace db0::object_model
         }
     }
     
+    std::size_t ObjectIterator::skip(std::size_t count)
+    {
+        std::size_t skipped = 0;
+        while (skipped < count && !m_slice.isEnd()) {
+            m_slice.next();
+            ++skipped;
+        }
+        return skipped;
+    }
+
     ObjectIterator::ObjectSharedPtr ObjectIterator::unload(db0::swine_ptr<Fixture> &fixture, Address address) const
     {
         // unload as typed if class is known
         if (m_type) {
-            return LangToolkit::unloadObject(fixture, address, m_type, m_lang_type.get());
+            return LangToolkit::unloadObject(fixture, address, m_type, m_lang_type.get(), m_access_mode);
         } else {
-            return LangToolkit::unloadObject(fixture, address, m_class_factory, m_lang_type.get());
+            return LangToolkit::unloadObject(fixture, address, m_class_factory, m_lang_type.get(), 0, m_access_mode);
         }
     }
     

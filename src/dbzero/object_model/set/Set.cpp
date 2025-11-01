@@ -30,9 +30,9 @@ namespace db0::object_model
         SetIndex bindex(*fixture, item);
         return { key, bindex };
     }
-    
-    Set::Set(db0::swine_ptr<Fixture> &fixture)
-        : super_t(fixture)
+
+    Set::Set(db0::swine_ptr<Fixture> &fixture, AccessFlags access_mode)
+        : super_t(fixture, access_mode)
         , m_index(*fixture)
     {
         modify().m_index_ptr = m_index.getAddress();
@@ -51,9 +51,9 @@ namespace db0::object_model
         }
         modify().m_size = set.size();
     }
-
-    Set::Set(db0::swine_ptr<Fixture> &fixture, Address address)
-        : super_t(super_t::tag_from_address(), fixture, address)
+    
+    Set::Set(db0::swine_ptr<Fixture> &fixture, Address address, AccessFlags access_mode)
+        : super_t(super_t::tag_from_address(), fixture, address, access_mode)
         , m_index(myPtr((*this)->m_index_ptr))
     {
     }
@@ -81,7 +81,7 @@ namespace db0::object_model
             auto it = bindex.beginJoin(1);
             while (!it.is_end()) {
                 auto [storage_class, value] = (*it);
-                auto member = unloadMember<LangToolkit>(fixture, storage_class, value);
+                auto member = unloadMember<LangToolkit>(fixture, storage_class, value, 0, getMemberFlags());
                 append(fixture, key, member.get());
                 ++it;
             }
@@ -155,7 +155,7 @@ namespace db0::object_model
         auto fixture = this->getFixture();        
         while (!it.is_end()) {
             auto [storage_class, value] = *it;
-            auto member = unloadMember<LangToolkit>(fixture, storage_class, value);
+            auto member = unloadMember<LangToolkit>(fixture, storage_class, value, 0, getMemberFlags());
             if (LangToolkit::compare(key_value, member.get())) {
                 if (bindex.size() == 1) {
                     m_index.erase(iter);
@@ -186,7 +186,7 @@ namespace db0::object_model
         auto it = bindex.beginJoin(1);        
         while (!it.is_end()) {
             auto [storage_class, value] = *it;
-            auto member = unloadMember<LangToolkit>(fixture, storage_class, value);
+            auto member = unloadMember<LangToolkit>(fixture, storage_class, value, 0, getMemberFlags());
             if (LangToolkit::compare(key_value, member.get())) {
                 return member;
             }
@@ -214,7 +214,7 @@ namespace db0::object_model
         auto it = bindex.beginJoin(1);
         auto [storage_class, value] = *it;
         auto fixture = this->getFixture();
-        auto member = unloadMember<LangToolkit>(fixture, storage_class, value);
+        auto member = unloadMember<LangToolkit>(fixture, storage_class, value, 0, getMemberFlags());
         if (bindex.size() == 1) {
             m_index.erase(iter);
             bindex.destroy();
@@ -239,7 +239,7 @@ namespace db0::object_model
         auto it = bindex.beginJoin(1);        
         while (!it.is_end()) {
             auto [storage_class, value] = *it;
-            auto member = unloadMember<LangToolkit>(fixture, storage_class, value);
+            auto member = unloadMember<LangToolkit>(fixture, storage_class, value, 0, getMemberFlags());
             if (LangToolkit::compare(key_value, member.get())) {
                 return true;
             }

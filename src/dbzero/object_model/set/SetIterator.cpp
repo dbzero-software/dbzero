@@ -33,7 +33,7 @@ namespace db0::object_model
         auto item = *m_join_iterator;
         auto [storage_class, value] = item;
 
-        auto member = unloadMember<LangToolkit>(fixture, storage_class, value);
+        auto member = unloadMember<LangToolkit>(fixture, storage_class, value, 0, m_member_flags);
         ++m_join_iterator;
         if (m_join_iterator.is_end()) {
             ++m_iterator;

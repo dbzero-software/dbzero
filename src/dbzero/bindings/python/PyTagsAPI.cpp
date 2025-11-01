@@ -58,19 +58,8 @@ namespace db0::python
         return { std::move(result.first), std::move(query_observers) };
     }
     
-    PyObject *trySplitBy(PyObject *args, PyObject *kwargs)
+    PyObject *trySplitBy(PyObject *py_tags, PyObject *py_query, bool exclusive)
     {
-        // extract 2 object arguments
-        PyObject *py_tags = nullptr;
-        PyObject *py_query = nullptr;
-        int exclusive = true;
-        // tags, query, exclusive (bool)
-        static const char *kwlist[] = {"tags", "query", "exclusive", NULL};
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|p", const_cast<char**>(kwlist), &py_tags, &py_query, &exclusive)) {
-            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
-            return NULL;
-        }
-        
         if (!PyObjectIterable_Check(py_query)) {
             THROWF(db0::InputException) << "Invalid argument type";
         }
@@ -84,9 +73,19 @@ namespace db0::python
     
     PyObject *PyAPI_splitBy(PyObject *, PyObject *args, PyObject *kwargs)
     {
+        // extract 2 object arguments
+        PyObject *py_tags = nullptr;
+        PyObject *py_query = nullptr;
+        int exclusive = true;
+        // tags, query, exclusive (bool)
+        static const char *kwlist[] = {"tags", "query", "exclusive", NULL};
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|p", const_cast<char**>(kwlist), &py_tags, &py_query, &exclusive)) {            
+            return NULL;
+        }
+        
         PY_API_FUNC
-        return runSafe(trySplitBy, args, kwargs);
-    }
+        return runSafe(trySplitBy, py_tags, py_query, exclusive);
+    } 
     
     PyObject *trySelectModCandidates(const ObjectIterable &iterable, StateNumType from_state,
         std::optional<StateNumType> to_state)

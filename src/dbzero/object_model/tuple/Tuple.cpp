@@ -72,7 +72,7 @@ namespace db0::object_model
         }
         auto [storage_class, value] = getData()->items()[i];
         auto fixture = this->getFixture();
-        return unloadMember<LangToolkit>(fixture, storage_class, value);
+        return unloadMember<LangToolkit>(fixture, storage_class, value, 0, this->getMemberFlags());
     }
     
     void Tuple::setItem(FixtureLock &fixture, std::size_t i, ObjectSharedPtr lang_value)
@@ -103,7 +103,7 @@ namespace db0::object_model
         auto fixture = this->getFixture();
         for (auto &elem: this->const_ref().items()) {
             auto [elem_storage_class, elem_value] = elem;
-            if (unloadMember<LangToolkit>(fixture, elem_storage_class, elem_value) == lang_value) {
+            if (unloadMember<LangToolkit>(fixture, elem_storage_class, elem_value, 0, this->getMemberFlags()) == lang_value) {
                 count += 1;
             }
         }
@@ -116,7 +116,7 @@ namespace db0::object_model
         auto fixture = this->getFixture();
         for (auto &elem: this->const_ref().items()){
             auto [elem_storage_class, elem_value] = elem;
-            if (unloadMember<LangToolkit>(fixture, elem_storage_class, elem_value) == lang_value) {
+            if (unloadMember<LangToolkit>(fixture, elem_storage_class, elem_value, 0, this->getMemberFlags()) == lang_value) {
                 return index;
             }
             index += 1;

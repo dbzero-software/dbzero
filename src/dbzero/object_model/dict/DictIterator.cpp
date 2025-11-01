@@ -13,7 +13,7 @@ namespace db0::object_model
     DictIterator::DictIterator(
         Dict::const_iterator iterator, const Dict * ptr, ObjectPtr lang_dict, IteratorType type)
         : BaseIterator<DictIterator, Dict>(iterator, ptr, lang_dict)
-        , m_type(type) 
+        , m_type(type)        
     {
         setJoinIterator();
     }
@@ -51,8 +51,8 @@ namespace db0::object_model
         
         iterNext();
         return {
-            unloadMember<LangToolkit>(fixture, key),
-            unloadMember<LangToolkit>(fixture, value)
+            unloadMember<LangToolkit>(fixture, key, 0, m_member_flags),
+            unloadMember<LangToolkit>(fixture, value, 0, m_member_flags)
         };
     }
     
@@ -61,15 +61,15 @@ namespace db0::object_model
         auto value = (*m_join_iterator).m_second;        
         iterNext();
         auto fixture = m_collection->getFixture();
-        return unloadMember<LangToolkit>(fixture, value);        
+        return unloadMember<LangToolkit>(fixture, value, 0, m_member_flags);
     }
 
-    DictIterator::ObjectSharedPtr DictIterator::nextKey() 
+    DictIterator::ObjectSharedPtr DictIterator::nextKey()
     {
         auto key = (*m_join_iterator).m_first;
         iterNext();
         auto fixture = m_collection->getFixture();
-        return unloadMember<LangToolkit>(fixture, key);        
+        return unloadMember<LangToolkit>(fixture, key, 0, m_member_flags);
     }
     
     DictIterator::ObjectSharedPtr DictIterator::next()

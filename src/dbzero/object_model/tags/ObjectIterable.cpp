@@ -4,6 +4,7 @@
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/object_model/tags/TagIndex.hpp>
 #include <dbzero/object_model/class/ClassFactory.hpp>
+#include <dbzero/object_model/class/Class.hpp>
 #include <dbzero/core/collections/full_text/FT_Serialization.hpp>
 #include <dbzero/core/collections/range_tree/RT_Serialization.hpp>
 
@@ -29,7 +30,7 @@ namespace db0::object_model
         }
         return std::move(query_iterator);
     }
-    
+        
     ObjectIterable::ObjectIterable(db0::swine_ptr<Fixture> fixture, std::unique_ptr<QueryIterator> &&ft_query_iterator,
         std::shared_ptr<Class> type, TypeObjectPtr lang_type, std::vector<std::unique_ptr<QueryObserver> > &&query_observers,
         const std::vector<FilterFunc> &filters)
@@ -39,7 +40,8 @@ namespace db0::object_model
         , m_query_observers(std::move(query_observers))
         , m_filters(filters)        
         , m_type(type)
-        , m_lang_type(lang_type) 
+        , m_lang_type(lang_type)
+        , m_access_mode(getAccessMode(type))
     {
     }
     
@@ -53,6 +55,7 @@ namespace db0::object_model
         , m_filters(filters)
         , m_type(type)
         , m_lang_type(lang_type)    
+        , m_access_mode(getAccessMode(type))
     {
     }
     
@@ -66,13 +69,15 @@ namespace db0::object_model
         , m_filters(filters)
         , m_type(type)
         , m_lang_type(lang_type)    
+        , m_access_mode(getAccessMode(type))
     {
     }
 
     ObjectIterable::ObjectIterable(db0::swine_ptr<Fixture> fixture, const ClassFactory &class_factory,
-        std::unique_ptr<QueryIterator> &&ft_query_iterator, std::unique_ptr<SortedIterator> &&sorted_iterator, 
+        std::unique_ptr<QueryIterator> &&ft_query_iterator, std::unique_ptr<SortedIterator> &&sorted_iterator,
         std::shared_ptr<IteratorFactory> factory, std::vector<std::unique_ptr<QueryObserver> > &&query_observers,
-        std::vector<FilterFunc> &&filters, std::shared_ptr<Class> type, TypeObjectPtr lang_type, const SliceDef &slice_def)
+        std::vector<FilterFunc> &&filters, std::shared_ptr<Class> type, TypeObjectPtr lang_type, 
+        const SliceDef &slice_def, AccessFlags access_mode)
         : m_fixture(fixture)
         , m_class_factory(class_factory)
         , m_query_iterator(std::move(ft_query_iterator))
@@ -83,6 +88,7 @@ namespace db0::object_model
         , m_type(type)
         , m_lang_type(lang_type)
         , m_slice_def(slice_def)
+        , m_access_mode(access_mode)
     {
     }
 
@@ -94,6 +100,7 @@ namespace db0::object_model
         , m_type(other.m_type)
         , m_lang_type(other.m_lang_type)
         , m_slice_def(other.m_slice_def)
+        , m_access_mode(other.m_access_mode)
     {
         m_filters.insert(m_filters.end(), filters.begin(), filters.end());
         
@@ -115,6 +122,7 @@ namespace db0::object_model
         , m_type(other.m_type)
         , m_lang_type(other.m_lang_type)
         , m_slice_def(other.m_slice_def.combineWith(slice_def))
+        , m_access_mode(other.m_access_mode)
     {
         std::unique_ptr<QueryIterator> query_iterator;
         std::unique_ptr<SortedIterator> sorted_iterator;
@@ -125,8 +133,8 @@ namespace db0::object_model
             m_sorted_iterator = other.m_sorted_iterator->beginSorted();
         }
     }
-
-    ObjectIterable::ObjectIterable(const ObjectIterable &other, std::unique_ptr<SortedIterator> &&sorted_iterator, 
+    
+    ObjectIterable::ObjectIterable(const ObjectIterable &other, std::unique_ptr<SortedIterator> &&sorted_iterator,
         std::vector<std::unique_ptr<QueryObserver> > &&query_observers, const std::vector<FilterFunc> &filters)
         : m_fixture(other.m_fixture)
         , m_class_factory(other.m_class_factory)
@@ -138,6 +146,7 @@ namespace db0::object_model
         , m_type(other.m_type)
         , m_lang_type(other.m_lang_type)
         , m_slice_def(other.m_slice_def)
+        , m_access_mode(other.m_access_mode)
     {
         m_filters.insert(m_filters.end(), filters.begin(), filters.end());
     }
@@ -153,6 +162,7 @@ namespace db0::object_model
         , m_type(other.m_type)
         , m_lang_type(other.m_lang_type)
         , m_slice_def(other.m_slice_def)
+        , m_access_mode(other.m_access_mode)
     {
         m_filters.insert(m_filters.end(), filters.begin(), filters.end());
     }
@@ -292,7 +302,7 @@ namespace db0::object_model
         
         auto &class_factory = fixture_->get<ClassFactory>();
         return std::unique_ptr<ObjectIterable>(new ObjectIterable(fixture_, class_factory, std::move(query_iterator),
-            std::move(sorted_iterator), factory, {}, {}, nullptr, nullptr, is_sliced ? SliceDef{start, stop, step} : SliceDef{}));
+            std::move(sorted_iterator), factory, {}, {}, nullptr, nullptr, is_sliced ? SliceDef{start, stop, step} : SliceDef{}, {}));
     }
     
     double ObjectIterable::compareTo(const ObjectIterable &other) const
@@ -419,4 +429,54 @@ namespace db0::object_model
         return true;
     }
 
+    AccessFlags ObjectIterable::getAccessMode(std::shared_ptr<Class> type) const
+    {
+        if (type) {
+            return type->isNoCache() ? AccessFlags { AccessOptions::no_cache } : AccessFlags {};            
+        }
+        return {};
+    }
+    
+    void getItemsByIndices(const ObjectIterable &iterable, const std::vector<std::uint64_t> &indices,
+        std::function<void(unsigned int ord, ObjectIterable::ObjectSharedPtr)> callback)
+    {
+        std::vector<std::pair<std::uint64_t, unsigned int> > sorted_indices;
+        sorted_indices.reserve(indices.size());
+        for (unsigned int ord = 0; ord < indices.size(); ++ord) {
+            sorted_indices.emplace_back(indices[ord], ord);
+        }
+        std::sort(sorted_indices.begin(), sorted_indices.end(),
+            [](const auto &lhs, const auto &rhs) {
+                return lhs.first < rhs.first;
+            });
+        
+        // access items in sorted order, populating the callback
+        auto iter = iterable.iter();
+        std::uint64_t current_index = 0;
+        ObjectIterable::ObjectSharedPtr last_item;
+        for (const auto &[index, ord] : sorted_indices) {
+            if (current_index > index) {
+                // duplicate item
+                assert(last_item.get());
+                callback(ord, last_item);
+                continue;
+            }
+            
+            if (current_index < index) {
+                auto to_skip = index - current_index;
+                if (iter->skip(to_skip) < to_skip) {
+                    THROWF(db0::IndexException) << "Index " << index << " out of range";
+                }
+                current_index = index;
+            }
+
+            last_item = iter->next();
+            if (!last_item) {
+                THROWF(db0::IndexException) << "Index " << index << " out of range";
+            }
+            ++current_index;
+            callback(ord, last_item);
+        }
+    }
+    
 }

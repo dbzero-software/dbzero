@@ -120,7 +120,7 @@ namespace db0::object_model
             auto it_join = bindex.beginJoin(1);
             while (!it_join.is_end()) {
                 auto [storage_class, value] = (*it_join).m_first;
-                auto member = unloadMember<LangToolkit>(*fixture, storage_class, value);
+                auto member = unloadMember<LangToolkit>(*fixture, storage_class, value, 0, member_flags);
                 if (LangToolkit::compare(key, member.get())) {
                     bindex.erase(*it_join);
                     unrefMember<LangToolkit>(*fixture, storage_class, value);
@@ -150,10 +150,14 @@ namespace db0::object_model
             auto it = bindex.beginJoin(1);
             while (!it.is_end()) {
                 auto [storage_class, value] = (*it).m_first;
-                auto member = unloadMember<LangToolkit>(fixture, storage_class, value);                
+                auto member = unloadMember<LangToolkit>(
+                    fixture, storage_class, value, 0, this->getMemberFlags()
+                );
                 if (LangToolkit::compare(key_value, member.get())) {
                     auto [storage_class, value] = (*it).m_second;
-                    return unloadMember<LangToolkit>(fixture, storage_class, value);
+                    return unloadMember<LangToolkit>(
+                        fixture, storage_class, value, 0, this->getMemberFlags()
+                    );
                 }
                 ++it;
             }
@@ -171,7 +175,7 @@ namespace db0::object_model
             auto it = bindex.beginJoin(1);
             while (!it.is_end()) {
                 auto [storage_class, value] = (*it).m_first;
-                auto member = unloadMember<LangToolkit>(fixture, storage_class, value);                
+                auto member = unloadMember<LangToolkit>(fixture, storage_class, value, 0, this->getMemberFlags());
                 if (LangToolkit::compare(key_value, member.get())) {
                     // a matching key was found
                     return true;
@@ -200,7 +204,7 @@ namespace db0::object_model
         auto [storage_class, value] = (*it).m_second;
         auto fixture = this->getFixture();        
         
-        auto member = unloadMember<LangToolkit>(fixture, storage_class, value);
+        auto member = unloadMember<LangToolkit>(fixture, storage_class, value, 0, this->getMemberFlags());
 
         unrefMember<LangToolkit>(fixture, key_storage_class, key_value);
         unrefMember<LangToolkit>(fixture, storage_class, value);

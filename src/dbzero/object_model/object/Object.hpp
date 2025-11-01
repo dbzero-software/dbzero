@@ -127,13 +127,14 @@ DB0_PACKED_END
         // Unload from address with a known type (possibly a base type)
         // NOTE: unload works faster if type_hint is the exact object's type
         struct with_type_hint {};
-        Object(db0::swine_ptr<Fixture> &, Address, std::shared_ptr<Class> type_hint, with_type_hint);
-
+        Object(db0::swine_ptr<Fixture> &, Address, std::shared_ptr<Class> type_hint, 
+            with_type_hint, AccessFlags = {});
+        
         // Unload from stem with a known type (possibly a base type)
         // NOTE: unload works faster if type_hint is the exact object's type
         Object(db0::swine_ptr<Fixture> &, ObjectStem &&, std::shared_ptr<Class> type_hint, with_type_hint);
         
-        Object(db0::swine_ptr<Fixture> &, Address);
+        Object(db0::swine_ptr<Fixture> &, Address, AccessFlags = {});
         Object(db0::swine_ptr<Fixture> &, std::shared_ptr<Class>, std::pair<std::uint32_t, std::uint32_t> ref_counts, 
             const PosVT::Data &, unsigned int pos_vt_offset);
         Object(db0::swine_ptr<Fixture> &, ObjectStem &&, std::shared_ptr<Class>);
@@ -147,8 +148,10 @@ DB0_PACKED_END
         void dropInstance(FixtureLock &);
         
         // Unload the object stem, to retrieve its type
-        static ObjectStem tryUnloadStem(db0::swine_ptr<Fixture> &, Address, std::uint16_t instance_id = 0);
-        static ObjectStem unloadStem(db0::swine_ptr<Fixture> &, Address, std::uint16_t instance_id = 0);
+        static ObjectStem tryUnloadStem(db0::swine_ptr<Fixture> &, Address, 
+            std::uint16_t instance_id = 0, AccessFlags = {});
+        static ObjectStem unloadStem(db0::swine_ptr<Fixture> &, Address, 
+            std::uint16_t instance_id = 0, AccessFlags = {});
         
         // Called to finalize adding members
         void endInit();

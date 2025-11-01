@@ -1,6 +1,9 @@
 #pragma once
 
 #include <memory>
+#include <vector>
+#include <optional>
+#include <functional>
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/core/collections/full_text/FT_Iterator.hpp>
 #include <dbzero/core/collections/full_text/SortedIterator.hpp>
@@ -64,7 +67,7 @@ namespace db0::object_model
         
         // Construct sliced
         ObjectIterable(const ObjectIterable &, const SliceDef &);
-         
+                
         // Construct sorted
         ObjectIterable(const ObjectIterable &, std::unique_ptr<SortedIterator> &&, std::vector<std::unique_ptr<QueryObserver> > && = {},
             const std::vector<FilterFunc> & = {});
@@ -138,18 +141,27 @@ namespace db0::object_model
         std::vector<FilterFunc> m_filters;
         std::shared_ptr<Class> m_type = nullptr;
         TypeObjectSharedPtr m_lang_type = nullptr;
-        const SliceDef m_slice_def = {};
+        const SliceDef m_slice_def = {};        
         mutable ObjectSharedPtr m_lang_context;
+        // object access mode (e.g. no_cache)
+        const AccessFlags m_access_mode;
         
         // iter constructor
         ObjectIterable(db0::swine_ptr<Fixture>, const ClassFactory &, std::unique_ptr<QueryIterator> &&,
             std::unique_ptr<SortedIterator> &&, std::shared_ptr<IteratorFactory>, std::vector<std::unique_ptr<QueryObserver> > &&,
-            std::vector<FilterFunc> &&filters, std::shared_ptr<Class>, TypeObjectPtr lang_type, const SliceDef & = {});
+            std::vector<FilterFunc> &&filters, std::shared_ptr<Class>, TypeObjectPtr lang_type, const SliceDef & = {}, 
+            AccessFlags access_mode = {});
         
         // get the base iterator, possibly initialized from the factory
         const BaseIterator &getBaseIterator(std::unique_ptr<BaseIterator> &) const;        
         // retrieve pointer to the already initialized iterator
         BaseIterator *getIteratorPtr() const;
+        
+        AccessFlags getAccessMode(std::shared_ptr<Class>) const;
     };
+    
+    // Retrieve items by specific indices from the iterable
+    void getItemsByIndices(const ObjectIterable &, const std::vector<std::uint64_t> &,
+        std::function<void(unsigned int ord, ObjectIterable::ObjectSharedPtr)>);
     
 }

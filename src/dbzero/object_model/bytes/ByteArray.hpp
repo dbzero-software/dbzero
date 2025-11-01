@@ -29,9 +29,9 @@ namespace db0::object_model
         
         // as null placeholder
         ByteArray() = default;
-        ByteArray(db0::swine_ptr<Fixture> &, std::byte *, std::size_t);
+        ByteArray(db0::swine_ptr<Fixture> &, std::byte *, std::size_t, AccessFlags = {});
         ByteArray(tag_no_gc, db0::swine_ptr<Fixture> &, const ByteArray &);
-        ByteArray(db0::swine_ptr<Fixture> &, Address);
+        ByteArray(db0::swine_ptr<Fixture> &, Address, AccessFlags = {});
         ~ByteArray();
         
         ObjectSharedPtr getItem(std::size_t i) const;

@@ -134,21 +134,21 @@ namespace db0::object_model
         , m_type(type)
     {
     }
-    
-    Object::Object(db0::swine_ptr<Fixture> &fixture, Address address)
-        : super_t(super_t::tag_from_address(), fixture, address)        
+
+    Object::Object(db0::swine_ptr<Fixture> &fixture, Address address, AccessFlags access_mode)
+        : super_t(super_t::tag_from_address(), fixture, address, access_mode)
     {
     }
     
     Object::Object(db0::swine_ptr<Fixture> &fixture, ObjectStem &&stem, std::shared_ptr<Class> type)
         : super_t(super_t::tag_from_stem(), fixture, std::move(stem))
-        , m_type(type)        
+        , m_type(type)
     {
         assert(hasValidClassRef());
     }
     
-    Object::Object(db0::swine_ptr<Fixture> &fixture, Address address, std::shared_ptr<Class> type_hint, with_type_hint)
-        : Object(fixture, address)
+    Object::Object(db0::swine_ptr<Fixture> &fixture, Address address, std::shared_ptr<Class> type_hint, with_type_hint, AccessFlags access_mode)
+        : Object(fixture, address, access_mode)
     {
         assert(*fixture == *type_hint->getFixture());
         setTypeWithHint(type_hint);
@@ -158,7 +158,7 @@ namespace db0::object_model
         : Object(fixture, std::move(stem), getTypeWithHint(*fixture, stem->getClassRef(), type_hint))
     {
     }
-
+    
     Object::~Object()
     {   
         // unregister needs to be called before destruction of members
@@ -178,14 +178,15 @@ namespace db0::object_model
         new ((void*)this) Object(unique_addr, ext_refs);
     }
     
-    Object::ObjectStem Object::tryUnloadStem(db0::swine_ptr<Fixture> &fixture, Address address, std::uint16_t instance_id)
+    Object::ObjectStem Object::tryUnloadStem(db0::swine_ptr<Fixture> &fixture, Address address,
+        std::uint16_t instance_id, AccessFlags access_mode)
     {
         std::size_t size_of;
         if (!fixture->isAddressValid(address, REALM_ID, &size_of)) {
             return {};
         }
         // Unload from a verified address
-        ObjectVType stem(db0::tag_verified(), fixture->myPtr(address), size_of);
+        ObjectVType stem(db0::tag_verified(), fixture->myPtr(address), size_of, access_mode);
         if (instance_id && stem->m_header.m_instance_id != instance_id) {
             // instance ID validation failed
             return {};
@@ -193,9 +194,10 @@ namespace db0::object_model
         return stem;
     }
     
-    Object::ObjectStem Object::unloadStem(db0::swine_ptr<Fixture> &fixture, Address address, std::uint16_t instance_id)
+    Object::ObjectStem Object::unloadStem(db0::swine_ptr<Fixture> &fixture, Address address, 
+        std::uint16_t instance_id, AccessFlags access_mode)
     {
-        auto result = tryUnloadStem(fixture, address, instance_id);
+        auto result = tryUnloadStem(fixture, address, instance_id, access_mode);
         if (!result) {
             THROWF(db0::InputException) << "Invalid UUID or object has been deleted";
         }
@@ -916,7 +918,7 @@ namespace db0::object_model
             assert(member.first != StorageClass::DELETED && member.first != StorageClass::UNDEFINED);        
             // NOTE: offset is required for lo-fi members
             return unloadMember<LangToolkit>(
-                fixture, member.first, member.second, field_id.maybeOffset()
+                fixture, member.first, member.second, field_id.maybeOffset(), this->getMemberFlags()
             );
         }
         
@@ -939,7 +941,7 @@ namespace db0::object_model
             
             // NOTE: offset is required for lo-fi members
             return unloadMember<LangToolkit>(
-                fixture, member.first, member.second, field_id.getOffset()
+                fixture, member.first, member.second, field_id.getOffset(), this->getMemberFlags()
             );
         }
 
@@ -1391,11 +1393,13 @@ namespace db0::object_model
         auto fixture = this->getFixture();
         forAll([&](const std::string &name, const XValue &xvalue, unsigned int offset) -> bool {
             // all references convert to UUID
-            auto py_member = unloadMember<LangToolkit>(fixture, xvalue.m_type, xvalue.m_value, offset);
+            auto py_member = unloadMember<LangToolkit>(
+                fixture, xvalue.m_type, xvalue.m_value, offset, this->getMemberFlags()
+            );
             return f(name, py_member);
         });
     }
-
+    
     bool Object::forAll(XValue xvalue, std::function<bool(const std::string &, const XValue &, unsigned int offset)> f) const
     {
         assert(xvalue.m_type == StorageClass::PACK_2);
