@@ -65,10 +65,10 @@ def memo(cls: Optional[type] = None, **kwargs) -> type:
     >>> print(settings2.theme)  # "light"
     """
     def getfile(cls_):
-        # inspect.getfile() can raise TypeError if cls_ is a built-in class (e.g. defined in a notebook).
+        # inspect.getfile() can raise TypeError, OSError if cls_ is a built-in class (e.g. defined in a notebook).
         try:
             return inspect.getfile(cls_)
-        except TypeError:
+        except (TypeError, OSError):
             return None
         
     def dyn_prefix(from_type):
