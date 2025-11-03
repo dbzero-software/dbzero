@@ -729,7 +729,7 @@ namespace db0
             m_cleanup_pending = false;
             throw;
         }
-        
+        m_cleanup_pending = false;
         return true;
     }
     
