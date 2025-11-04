@@ -12,6 +12,7 @@
 #include <dbzero/core/serialization/packed_int.hpp>
 #include <dbzero/core/vspace/v_object.hpp>
 #include "o_object.hpp"
+#include "o_immutable_object.hpp"
 
 namespace db0
 
@@ -26,6 +27,8 @@ namespace db0::object_model
 {
 
     class Class;
+    class Object;
+    class ObjectImmutableImpl;
     using Fixture = db0::Fixture;
     
     enum class ObjectOptions: std::uint8_t
@@ -47,12 +50,12 @@ namespace db0::object_model
     // NOTE: Object instances are created within the implementation specific realm_id (e.g. =1 for o_object)
     template <typename T> using ObjectVType = db0::v_object<T, 0, T::REALM_ID>;
     
-    template <typename T>
-    class ObjectImplBase: public db0::ObjectBase<Object, ObjectVType<T>, StorageClass::OBJECT_REF>
+    template <typename T, typename ImplT>
+    class ObjectImplBase: public db0::ObjectBase<ImplT, ObjectVType<T>, StorageClass::OBJECT_REF>
     {
     public:
         static constexpr unsigned char REALM_ID = T::REALM_ID;
-        using super_t = db0::ObjectBase<Object, ObjectVType<T>, StorageClass::OBJECT_REF>;
+        using super_t = db0::ObjectBase<ImplT, ObjectVType<T>, StorageClass::OBJECT_REF>;
         using LangToolkit = LangConfig::LangToolkit;
         using ObjectPtr = typename LangToolkit::ObjectPtr;
         using TypeObjectPtr = typename LangToolkit::TypeObjectPtr;
@@ -63,8 +66,8 @@ namespace db0::object_model
         
         // Construct as null / dropped object
         ObjectImplBase(UniqueAddress, unsigned int ext_refs);
-        ObjectImplBase(const ObjectImplBase<T> &) = delete;
-        ObjectImplBase(ObjectImplBase<T> &&) = delete;
+        ObjectImplBase(const ObjectImplBase<T, ImplT> &) = delete;
+        ObjectImplBase(ObjectImplBase<T, ImplT> &&) = delete;
 
         /**
          * Construct new Object (uninitialized, without corresponding dbzero instance yet)          
@@ -104,12 +107,7 @@ namespace db0::object_model
         
         // Called to finalize adding members
         void endInit();
-        
-        // Assign language specific value as a field (to already initialized or uninitialized instance)
-        // NOTE: if lang_value is nullptr then the member is removed
-        void set(FixtureLock &, const char *field_name, ObjectPtr lang_value);
-        void remove(FixtureLock &, const char *field_name);
-        
+                
         // Assign field of an uninitialized instance (assumed as a non-mutating operation)
         // NOTE: if lang_value is nullptr then the member is removed
         void setPreInit(const char *field_name, ObjectPtr lang_value) const;
@@ -171,7 +169,7 @@ namespace db0::object_model
         // Binary (shallow) compare 2 objects or 2 versions of the same memo object (e.g. from different snapshots)
         // NOTE: ref-counts are not compared (only user-assigned members)
         // @return true if objects are identical
-        bool equalTo(const ObjectImplBase<T> &) const;
+        bool equalTo(const ObjectImplBase<T, ImplT> &) const;
         
         /**
          * Move unreferenced object to a different prefix without changing the instance
@@ -271,14 +269,7 @@ namespace db0::object_model
             return m_type ? static_cast<ObjectInitializer*>(nullptr) : &m_init_manager.getInitializer(*this);
         }
         
-        /**
-         * If the KV_Index does not exist yet, create it and add the first value
-         * otherwise return instance of an existing KV_Index
-        */
-        KV_Index *addKV_First(const XValue &);
-
-        KV_Index *tryGetKV_Index() const;
-        
+        void dropMembers(db0::swine_ptr<Fixture> &, Class &) const;
         void dropMembers(Class &) const;
         void dropTags(Class &) const;
         
@@ -295,8 +286,7 @@ namespace db0::object_model
         static std::shared_ptr<Class> getTypeWithHint(const Fixture &, std::uint32_t class_ref, std::shared_ptr<Class> type_hint);
         
         bool hasValidClassRef() const;
-        bool hasKV_Index() const;
-        
+                
         // try retrieving member as XValue
         std::optional<XValue> tryGetX(const char *field_name) const;
         void _touch();
@@ -305,8 +295,6 @@ namespace db0::object_model
         void setPosVT(FixtureLock &, FieldID, unsigned int pos, unsigned int fidelity, StorageClass, Value);
         void setIndexVT(FixtureLock &, FieldID, unsigned int index_vt_pos, unsigned int fidelity,
             StorageClass, Value);        
-        // Set or update member in kv-index
-        void setKVIndexValue(FixtureLock &, FieldID, unsigned int fidelity, StorageClass, Value);
         
         // Set with a specific location (pos_vt, index_vt, kv-index)
         void setWithLoc(FixtureLock &, FieldID, const void *, unsigned int pos, unsigned int fidelity, 
@@ -316,16 +304,16 @@ namespace db0::object_model
         // NOTE: storage_class to be assigned can either be DELETED or UNDEFINED
         void unrefPosVT(FixtureLock &, FieldID, unsigned int pos, StorageClass, unsigned int fidelity);
         void unrefIndexVT(FixtureLock &, FieldID, unsigned int index_vt_pos, StorageClass, unsigned int fidelity);
-        void unrefKVIndexValue(FixtureLock &, FieldID, StorageClass, unsigned int fidelity);
         
-        void unrefWithLoc(FixtureLock &, FieldID, const void *, unsigned int pos, StorageClass, 
+        void unrefWithLoc(FixtureLock &, FieldID, const void *, unsigned int pos, StorageClass,
+            unsigned int fidelity);
+        bool tryUnrefWithLoc(FixtureLock &, FieldID, const void *, unsigned int pos, StorageClass,
             unsigned int fidelity);
         
         // Add a new value
         void addToPosVT(FixtureLock &, FieldID, unsigned int pos, unsigned int fidelity, StorageClass, Value);
         void addToIndexVT(FixtureLock &, FieldID, unsigned int index_vt_pos, unsigned int fidelity, StorageClass, Value);
-        void addToKVIndex(FixtureLock &, FieldID, unsigned int fidelity, StorageClass, Value);
-        
+                
         void addWithLoc(FixtureLock &, FieldID, const void *, unsigned int pos, unsigned int fidelity,
             StorageClass, Value);
         
@@ -336,7 +324,8 @@ namespace db0::object_model
             std::unordered_set<std::string> &) const;
     };
     
-    extern template class ObjectImplBase<o_object>;
+    extern template class ObjectImplBase<o_object, Object>;
+    extern template class ObjectImplBase<o_immutable_object, ObjectImmutableImpl>;
 
 }
 

@@ -9,6 +9,8 @@
 #include <dbzero/core/memory/AccessOptions.hpp>
 #include "Migration.hpp"
 #include "MemoTypeDecoration.hpp"
+#include <dbzero/object_model/object/Object.hpp>
+#include <dbzero/object_model/object/ObjectImmutableImpl.hpp>
 
 namespace db0::object_model
 
@@ -24,27 +26,21 @@ namespace db0::python
     
     using AccessType = db0::AccessType;
     using MemoObject = PyWrapper<db0::object_model::Object>;
-        
+    using MemoImmutableObject = PyWrapper<db0::object_model::ObjectImmutableImpl>;
+    
     PyObject *PyAPI_wrapPyClass(PyObject *self, PyObject *, PyObject *kwargs);
-    MemoObject *PyAPI_MemoObject_new(PyTypeObject *type, PyObject * = nullptr, PyObject * = nullptr);
     // create a memo object stub
     MemoObject* MemoObjectStub_new(PyTypeObject *type);
-    PyObject *MemoObject_alloc(PyTypeObject *type, Py_ssize_t nitems);
     
     void MemoObject_del(MemoObject* self);
     void MemoObject_drop(MemoObject* self);
-    int PyAPI_MemoObject_init(MemoObject* self, PyObject* args, PyObject* kwds);
-    PyObject *PyAPI_MemoObject_getattro(MemoObject *self, PyObject *attr);
-    int PyAPI_MemoObject_setattro(MemoObject *self, PyObject *attr, PyObject *value);
-    Py_hash_t PyAPI_MemoHash(MemoObject *);
     
     // check if memo type has been marked as singleton
     bool PyMemoType_IsSingleton(PyTypeObject *type);
     
     PyObject *MemoObject_GetFieldLayout(MemoObject *);
     
-    PyObject *MemoObject_DescribeObject(MemoObject *);
-    PyObject *PyAPI_MemoObject_str(MemoObject *);
+    PyObject *MemoObject_DescribeObject(MemoObject *);    
     
     void MemoType_get_info(PyTypeObject *type, PyObject *dict);
     void MemoType_close(PyTypeObject *type);
@@ -65,8 +61,9 @@ namespace db0::python
     // NOTE: ref-counts are not compared (only user-assigned members)
     // @return true if objects are identical
     PyObject *tryCompareMemo(MemoObject *, MemoObject *);
-
+    
     PyObject *PyAPI_getSchema(PyObject *, PyObject *const *args, Py_ssize_t nargs);
-    PyObject* executeLoadFunction(PyObject * load_method, PyObject *kwargs, PyObject *py_exclude,
-                                std::unordered_set<const void*> *load_stack_ptr);
+    PyObject* executeLoadFunction(PyObject *load_method, PyObject *kwargs, PyObject *py_exclude,
+        std::unordered_set<const void*> *load_stack_ptr);
+    
 }

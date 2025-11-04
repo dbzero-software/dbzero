@@ -88,7 +88,7 @@ namespace db0::python
         }
     }
     
-    std::uint64_t MemoTypeDecoration::getFixtureUUID(std::optional<AccessType> access_type)
+    std::uint64_t MemoTypeDecoration::getFixtureUUID(std::optional<AccessType> access_type) const
     {
         if (!!m_prefix_name && !m_fixture_uuid) {
             if (!access_type) {

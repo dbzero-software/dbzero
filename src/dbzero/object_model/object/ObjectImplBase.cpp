@@ -15,27 +15,14 @@ namespace db0::object_model
 
 {
 
-    template class ObjectImplBase<o_object>;
+    template class ObjectImplBase<o_object, Object>;
+    template class ObjectImplBase<o_immutable_object, ObjectImmutableImpl>;
     
-    template <typename T>
-    ObjectInitializerManager ObjectImplBase<T>::m_init_manager;
+    template <typename T, typename ImplT>
+    ObjectInitializerManager ObjectImplBase<T, ImplT>::m_init_manager;
 
     FlagSet<AccessOptions> getAccessOptions(const Class &type) {
         return type.isNoCache() ? FlagSet<AccessOptions> { AccessOptions::no_cache } : FlagSet<AccessOptions> {};
-    }
-
-    bool isEqual(const KV_Index *kv_ptr_1, const KV_Index *kv_ptr_2)
-    {
-        if (!kv_ptr_1) {
-            return !kv_ptr_2;
-        }
-
-        if (!kv_ptr_2) {
-            return false;
-        }
-
-        // item-wise comparison
-        return *kv_ptr_1 == *kv_ptr_2;
     }
     
     template <typename IntT> IntT safeCast(unsigned int value, const char *err_msg)
@@ -46,30 +33,30 @@ namespace db0::object_model
         return static_cast<std::uint8_t>(value);
     }
     
-    template <typename T>
-    ObjectImplBase<T>::ObjectImplBase(UniqueAddress addr, unsigned int ext_refs)
+    template <typename T, typename ImplT>
+    ObjectImplBase<T, ImplT>::ObjectImplBase(UniqueAddress addr, unsigned int ext_refs)
         : m_flags { ObjectOptions::DROPPED }
         , m_ext_refs(ext_refs)
         , m_unique_address(addr)        
     {
     }
 
-    template <typename T>
-    ObjectImplBase<T>::ObjectImplBase(std::shared_ptr<Class> db0_class)    
+    template <typename T, typename ImplT>
+    ObjectImplBase<T, ImplT>::ObjectImplBase(std::shared_ptr<Class> db0_class)    
     {
         // prepare for initialization
         m_init_manager.addInitializer(*this, db0_class);
     }
 
-    template <typename T>
-    ObjectImplBase<T>::ObjectImplBase(TypeInitializer &&type_initializer)
+    template <typename T, typename ImplT>
+    ObjectImplBase<T, ImplT>::ObjectImplBase(TypeInitializer &&type_initializer)
     {
         // prepare for initialization
         m_init_manager.addInitializer(*this, std::move(type_initializer));
     }
 
-    template <typename T>
-    ObjectImplBase<T>::ObjectImplBase(db0::swine_ptr<Fixture> &fixture, std::shared_ptr<Class> type,
+    template <typename T, typename ImplT>
+    ObjectImplBase<T, ImplT>::ObjectImplBase(db0::swine_ptr<Fixture> &fixture, std::shared_ptr<Class> type,
         std::pair<std::uint32_t, std::uint32_t> ref_counts, const PosVT::Data &pos_vt_data, unsigned int pos_vt_offset)        
         : super_t(fixture, type->getClassRef(), ref_counts,
             safeCast<std::uint8_t>(type->getNumBases() + 1, "Too many base classes"), pos_vt_data, pos_vt_offset, nullptr, nullptr,
@@ -78,37 +65,37 @@ namespace db0::object_model
     {
     }
 
-    template <typename T>
-    ObjectImplBase<T>::ObjectImplBase(db0::swine_ptr<Fixture> &fixture, Address address, AccessFlags access_mode)
+    template <typename T, typename ImplT>
+    ObjectImplBase<T, ImplT>::ObjectImplBase(db0::swine_ptr<Fixture> &fixture, Address address, AccessFlags access_mode)
         : super_t(typename super_t::tag_from_address(), fixture, address, access_mode)
     {
     }
 
-    template <typename T>
-    ObjectImplBase<T>::ObjectImplBase(db0::swine_ptr<Fixture> &fixture, ObjectStem &&stem, std::shared_ptr<Class> type)
+    template <typename T, typename ImplT>
+    ObjectImplBase<T, ImplT>::ObjectImplBase(db0::swine_ptr<Fixture> &fixture, ObjectStem &&stem, std::shared_ptr<Class> type)
         : super_t(typename super_t::tag_from_stem(), fixture, std::move(stem))
         , m_type(type)
     {
         assert(hasValidClassRef());
     }
 
-    template <typename T>
-    ObjectImplBase<T>::ObjectImplBase(db0::swine_ptr<Fixture> &fixture, Address address, std::shared_ptr<Class> type_hint, 
+    template <typename T, typename ImplT>
+    ObjectImplBase<T, ImplT>::ObjectImplBase(db0::swine_ptr<Fixture> &fixture, Address address, std::shared_ptr<Class> type_hint,
         with_type_hint, AccessFlags access_mode)
-        : ObjectImplBase<T>(fixture, address, access_mode)
-    {
+        : ObjectImplBase<T, ImplT>(fixture, address, access_mode)
+    {   
         assert(*fixture == *type_hint->getFixture());
         setTypeWithHint(type_hint);
     }
 
-    template <typename T>
-    ObjectImplBase<T>::ObjectImplBase(db0::swine_ptr<Fixture> &fixture, ObjectStem &&stem, std::shared_ptr<Class> type_hint, with_type_hint)
-        : ObjectImplBase<T>(fixture, std::move(stem), getTypeWithHint(*fixture, stem->getClassRef(), type_hint))
+    template <typename T, typename ImplT>
+    ObjectImplBase<T, ImplT>::ObjectImplBase(db0::swine_ptr<Fixture> &fixture, ObjectStem &&stem, std::shared_ptr<Class> type_hint, with_type_hint)
+        : ObjectImplBase<T, ImplT>(fixture, std::move(stem), getTypeWithHint(*fixture, stem->getClassRef(), type_hint))
     {
     }
 
-    template <typename T>
-    ObjectImplBase<T>::~ObjectImplBase()
+    template <typename T, typename ImplT>
+    ObjectImplBase<T, ImplT>::~ObjectImplBase()
     {
         // unregister needs to be called before destruction of members
         this->unregister();
@@ -118,18 +105,18 @@ namespace db0::object_model
         }
     }
 
-    template <typename T>
-    void ObjectImplBase<T>::dropInstance(FixtureLock &)
+    template <typename T, typename ImplT>
+    void ObjectImplBase<T, ImplT>::dropInstance(FixtureLock &)
     {
         auto unique_addr = this->getUniqueAddress();
         auto ext_refs = this->getExtRefs();
-        this->~ObjectImplBase<T>();
+        this->~ObjectImplBase<T, ImplT>();
         // construct a null placeholder
         new ((void*)this) Object(unique_addr, ext_refs);
     }
 
-    template <typename T>
-    typename ObjectImplBase<T>::ObjectStem ObjectImplBase<T>::tryUnloadStem(db0::swine_ptr<Fixture> &fixture, 
+    template <typename T, typename ImplT>
+    typename ObjectImplBase<T, ImplT>::ObjectStem ObjectImplBase<T, ImplT>::tryUnloadStem(db0::swine_ptr<Fixture> &fixture,
         Address address, std::uint16_t instance_id, AccessFlags access_mode)
     {
         std::size_t size_of;
@@ -145,8 +132,8 @@ namespace db0::object_model
         return stem;
     }
     
-    template <typename T>
-    typename ObjectImplBase<T>::ObjectStem ObjectImplBase<T>::unloadStem(db0::swine_ptr<Fixture> &fixture, 
+    template <typename T, typename ImplT>
+    typename ObjectImplBase<T, ImplT>::ObjectStem ObjectImplBase<T, ImplT>::unloadStem(db0::swine_ptr<Fixture> &fixture,
         Address address, std::uint16_t instance_id, AccessFlags access_mode)
     {
         auto result = tryUnloadStem(fixture, address, instance_id, access_mode);
@@ -156,8 +143,8 @@ namespace db0::object_model
         return result;
     }
 
-    template <typename T>
-    void ObjectImplBase<T>::postInit(FixtureLock &fixture)
+    template <typename T, typename ImplT>
+    void ObjectImplBase<T, ImplT>::postInit(FixtureLock &fixture)
     {
         if (!this->hasInstance()) {
             auto &initializer = m_init_manager.getInitializer(*this);
@@ -190,9 +177,9 @@ namespace db0::object_model
         assert(hasInstance());
     }
     
-    template <typename T>
+    template <typename T, typename ImplT>
     std::pair<db0::bindings::TypeId, StorageClass>
-    ObjectImplBase<T>::recognizeType(Fixture &fixture, ObjectPtr lang_value) const
+    ObjectImplBase<T, ImplT>::recognizeType(Fixture &fixture, ObjectPtr lang_value) const
     {
         auto type_id = LangToolkit::getTypeManager().getTypeId(lang_value);
         // NOTE: allow storage as PACK_2
@@ -216,8 +203,8 @@ namespace db0::object_model
         return { type_id, storage_class };
     }
     
-    template <typename T>
-    void ObjectImplBase<T>::removePreInit(const char *field_name) const
+    template <typename T, typename ImplT>
+    void ObjectImplBase<T, ImplT>::removePreInit(const char *field_name) const
     {
         auto &initializer = m_init_manager.getInitializer(*this);
         auto &type = initializer.getClass();
@@ -247,8 +234,8 @@ namespace db0::object_model
         }
     }
     
-    template <typename T>
-    void ObjectImplBase<T>::setPreInit(const char *field_name, ObjectPtr obj_ptr) const
+    template <typename T, typename ImplT>
+    void ObjectImplBase<T, ImplT>::setPreInit(const char *field_name, ObjectPtr obj_ptr) const
     {
         assert(!hasInstance());
         if (!LangToolkit::isValid(obj_ptr)) {
@@ -300,42 +287,8 @@ namespace db0::object_model
         }
     }
     
-    template <typename T>
-    void ObjectImplBase<T>::remove(FixtureLock &fixture, const char *field_name)
-    {
-        assert(hasInstance());
-        if (this->span() > 1) {
-            // NOTE: large objects i.e. with span > 1 must always be marked with a silent mutation flag
-            // this is because the actual change may be missed if performed on a different-then the 1st DP
-            _touch();
-        }
-        
-        assert(m_type);
-        // Find an already existing field index
-        auto [member_id, is_init_var] = m_type->findField(field_name);
-        if (!member_id) {
-            THROWF(db0::InputException) << "Attribute not found: " << field_name;
-        }
-        
-        unsigned int pos = 0;
-        auto [field_info, loc_ptr] = tryGetMemberSlot(member_id, pos);
-        if (!field_info.first) {
-            THROWF(db0::InputException) << "Attribute not found: " << field_name;
-        }
-        
-        // NOTE: unreference as DELETED
-        unrefWithLoc(fixture, field_info.first, loc_ptr, pos, StorageClass::DELETED, 
-            field_info.second);
-        
-        // the KV-index erase operation must be registered as the potential silent mutation
-        // but the operation can be avoided if the object is already marked as modified
-        if (!loc_ptr && !super_t::isModified()) {
-            this->_touch();
-        }
-    }
-
-    template <typename T>
-    void ObjectImplBase<T>::unrefPosVT(FixtureLock &fixture, FieldID field_id, unsigned int pos, 
+    template <typename T, typename ImplT>
+    void ObjectImplBase<T, ImplT>::unrefPosVT(FixtureLock &fixture, FieldID field_id, unsigned int pos, 
         StorageClass storage_class, unsigned int fidelity)
     {
         auto &pos_vt = this->modify().pos_vt();
@@ -366,8 +319,8 @@ namespace db0::object_model
         }
     }
 
-    template <typename T>
-    void ObjectImplBase<T>::unrefIndexVT(FixtureLock &fixture, FieldID field_id, unsigned int index_vt_pos,
+    template <typename T, typename ImplT>
+    void ObjectImplBase<T, ImplT>::unrefIndexVT(FixtureLock &fixture, FieldID field_id, unsigned int index_vt_pos,
         StorageClass storage_class, unsigned int fidelity)
     {
         auto &index_vt = this->modify().index_vt();
@@ -395,83 +348,30 @@ namespace db0::object_model
             m_type->removeFromSchema(field_id, fidelity, old_type_id);
         }
     }
-
-    template <typename T>
-    void ObjectImplBase<T>::unrefKVIndexValue(FixtureLock &fixture, FieldID field_id, 
+    
+    template <typename T, typename ImplT>
+    void ObjectImplBase<T, ImplT>::unrefWithLoc(FixtureLock &fixture, FieldID field_id, const void *loc_ptr, unsigned int pos,
         StorageClass storage_class, unsigned int fidelity)
     {
-        auto kv_index_ptr = tryGetKV_Index();
-        if (!kv_index_ptr) {
-            THROWF(db0::InputException) << "Attribute not found";
-        }
-        XValue xvalue(field_id.getIndex());
-        if (!kv_index_ptr->findOne(xvalue)) {        
-            THROWF(db0::InputException) << "Attribute not found";
-        }
-        
-        if (fidelity == 0) {
-            unrefMember(*fixture, xvalue);
-            if (storage_class == StorageClass::DELETED) {
-                // mark as deleted in kv-index
-                xvalue.m_type = StorageClass::DELETED;
-                kv_index_ptr->updateExisting(xvalue);
-                // in case of the IttyIndex updating an element changes the address
-                // which needs to be updated in the object
-                if (kv_index_ptr->getIndexType() == bindex::type::itty) {
-                    this->modify().m_kv_address = kv_index_ptr->getAddress();
-                }
-            } else {
-                auto old_addr = kv_index_ptr->getAddress();
-                kv_index_ptr->erase(xvalue);
-                auto new_addr = kv_index_ptr->getAddress();
-                if (new_addr != old_addr) {
-                    // type or address of the kv-index has changed which needs to be reflected
-                    this->modify().m_kv_address = new_addr;
-                    this->modify().m_kv_type = kv_index_ptr->getIndexType();
-                }
-            }
-            m_type->removeFromSchema(field_id, fidelity, getSchemaTypeId(xvalue.m_type));
-        } else {
-            assert(fidelity == 2);
-            auto value = xvalue.m_value;
-            auto offset = field_id.getOffset();
-            if (storage_class != StorageClass::DELETED && !lofi_store<2>::fromValue(value).isSet(offset)) {
-                // value is already unset
-                return;
-            }
-            auto old_type_id = getSchemaTypeId(xvalue.m_type, lofi_store<2>::fromValue(value).get(offset));
-            if (storage_class == StorageClass::DELETED) {
-                lofi_store<2>::fromValue(value).set(offset, Value::DELETED);
-            } else {
-                lofi_store<2>::fromValue(value).reset(offset);
-            }            
-            xvalue.m_value = value;
-            kv_index_ptr->updateExisting(xvalue);
-            // in case of the IttyIndex updating an element changes the address
-            // which needs to be updated in the object
-            if (kv_index_ptr->getIndexType() == bindex::type::itty) {
-                this->modify().m_kv_address = kv_index_ptr->getAddress();                    
-            }
-
-            m_type->removeFromSchema(field_id, fidelity, old_type_id);
-        }
+        ImplT::unrefWithLoc(fixture, field_id, loc_ptr, pos, storage_class, fidelity);
     }
     
-    template <typename T>
-    void ObjectImplBase<T>::unrefWithLoc(FixtureLock &fixture, FieldID field_id, const void *loc_ptr, unsigned int pos,
+    template <typename T, typename ImplT>
+    bool ObjectImplBase<T, ImplT>::tryUnrefWithLoc(FixtureLock &fixture, FieldID field_id, const void *loc_ptr, unsigned int pos,
         StorageClass storage_class, unsigned int fidelity)
     {
-        if (loc_ptr == &(*this)->pos_vt()) {
+        if (loc_ptr == &(*this)->pos_vt()) {            
             unrefPosVT(fixture, field_id, pos, storage_class, fidelity);
+            return true;
         } else if (loc_ptr == &(*this)->index_vt()) {
             unrefIndexVT(fixture, field_id, pos, storage_class, fidelity);
-        } else {
-            unrefKVIndexValue(fixture, field_id, storage_class, fidelity);
+            return true;
         }
+        return false; 
     }
     
-    template <typename T>
-    void ObjectImplBase<T>::setPosVT(FixtureLock &fixture, FieldID field_id, unsigned int pos, unsigned int fidelity,
+    template <typename T, typename ImplT>
+    void ObjectImplBase<T, ImplT>::setPosVT(FixtureLock &fixture, FieldID field_id, unsigned int pos, unsigned int fidelity,
         StorageClass storage_class, Value value)
     {     
         auto &pos_vt = this->modify().pos_vt();
@@ -492,8 +392,8 @@ namespace db0::object_model
         }
     }
 
-    template <typename T>
-    void ObjectImplBase<T>::addToPosVT(FixtureLock &fixture, FieldID field_id, unsigned int pos, unsigned int fidelity,
+    template <typename T, typename ImplT>
+    void ObjectImplBase<T, ImplT>::addToPosVT(FixtureLock &fixture, FieldID field_id, unsigned int pos, unsigned int fidelity,
         StorageClass storage_class, Value value)
     {
         auto &pos_vt = this->modify().pos_vt();
@@ -509,9 +409,9 @@ namespace db0::object_model
             m_type->addToSchema(field_id, fidelity, getSchemaTypeId(storage_class, value));
         }
     }
-    
-    template <typename T>
-    void ObjectImplBase<T>::setIndexVT(FixtureLock &fixture, FieldID field_id, unsigned int index_vt_pos,
+
+    template <typename T, typename ImplT>
+    void ObjectImplBase<T, ImplT>::setIndexVT(FixtureLock &fixture, FieldID field_id, unsigned int index_vt_pos,
         unsigned int fidelity, StorageClass storage_class, Value value)
     {
         auto &index_vt = this->modify().index_vt();
@@ -531,8 +431,8 @@ namespace db0::object_model
         }
     }
 
-    template <typename T>
-    void ObjectImplBase<T>::addToIndexVT(FixtureLock &fixture, FieldID field_id, unsigned int index_vt_pos,
+    template <typename T, typename ImplT>
+    void ObjectImplBase<T, ImplT>::addToIndexVT(FixtureLock &fixture, FieldID field_id, unsigned int index_vt_pos,
         unsigned int fidelity, StorageClass storage_class, Value value)
     {
         auto &index_vt = this->modify().index_vt();
@@ -546,95 +446,9 @@ namespace db0::object_model
             m_type->addToSchema(field_id, fidelity, getSchemaTypeId(storage_class, value));
         }
     }
-
-    template <typename T>
-    void ObjectImplBase<T>::setKVIndexValue(FixtureLock &fixture, FieldID field_id, unsigned int fidelity,
-        StorageClass storage_class, Value value)
-    {
-        assert(m_type);
-        XValue xvalue(field_id.getIndex(), storage_class, value);
-        // encode for lo-fi storage if needed
-        if (fidelity != 0) {
-            xvalue.m_value = lofi_store<2>::create(field_id.getOffset(), value.m_store);
-        }
-
-        auto kv_index_ptr = addKV_First(xvalue);
-        if (kv_index_ptr) {
-            // try updating an existing element first
-            XValue old_value;
-            if (kv_index_ptr->updateExisting(xvalue, &old_value)) {
-                if (fidelity == 0) {
-                    unrefMember(*fixture, old_value);
-                    m_type->updateSchema(field_id, fidelity, getSchemaTypeId(old_value.m_type), 
-                        getSchemaTypeId(storage_class)
-                    );
-                } else {
-                    auto kv_value = old_value.m_value;
-                    auto offset = field_id.getOffset();
-                    auto old_type_id = getSchemaTypeId(old_value.m_type, lofi_store<2>::fromValue(kv_value).get(offset));                    
-                    lofi_store<2>::fromValue(kv_value).set(offset, value.m_store);
-                    xvalue.m_value = kv_value;
-                    kv_index_ptr->updateExisting(xvalue);
-                    auto new_type_id = getSchemaTypeId(storage_class, value);
-                    m_type->updateSchema(field_id, fidelity, old_type_id, new_type_id);
-                }
-                // in case of the IttyIndex updating an element changes the address
-                // which needs to be updated in the object
-                if (kv_index_ptr->getIndexType() == bindex::type::itty) {
-                    this->modify().m_kv_address = kv_index_ptr->getAddress();
-                }
-            } else {
-                if (kv_index_ptr->insert(xvalue)) {
-                    // type or address of the kv-index has changed which needs to be reflected                    
-                    this->modify().m_kv_address = kv_index_ptr->getAddress();
-                    this->modify().m_kv_type = kv_index_ptr->getIndexType();
-                }
-                
-                m_type->addToSchema(field_id, fidelity, getSchemaTypeId(storage_class, value));
-            }
-        } else {
-            m_type->addToSchema(field_id, fidelity, getSchemaTypeId(storage_class, value));
-        }
-    }
-
-    template <typename T>
-    void ObjectImplBase<T>::addToKVIndex(FixtureLock &fixture, FieldID field_id, unsigned int fidelity,
-        StorageClass storage_class, Value value)
-    {
-        assert(m_type);
-        XValue xvalue(field_id.getIndex(), storage_class, value);
-        // encode for lo-fi storage if needed
-        if (fidelity != 0) {
-            xvalue.m_value = lofi_store<2>::create(field_id.getOffset(), value.m_store);
-        }
-        auto kv_index_ptr = addKV_First(xvalue);
-        if (kv_index_ptr) {
-            // NOTE: for fidelity > 0 the element might already exist
-            XValue old_value;
-            if (fidelity > 0 && kv_index_ptr->updateExisting(xvalue, &old_value)) {
-                auto kv_value = old_value.m_value;
-                lofi_store<2>::fromValue(kv_value).set(field_id.getOffset(), value.m_store);
-                xvalue.m_value = kv_value;
-                kv_index_ptr->updateExisting(xvalue);
-                // in case of the IttyIndex updating an element changes the address
-                // which needs to be updated in the object
-                if (kv_index_ptr->getIndexType() == bindex::type::itty) {
-                    this->modify().m_kv_address = kv_index_ptr->getAddress();
-                }
-            } else {
-                if (kv_index_ptr->insert(xvalue)) {
-                    // type or address of the kv-index has changed which needs to be reflected                    
-                    this->modify().m_kv_address = kv_index_ptr->getAddress();
-                    this->modify().m_kv_type = kv_index_ptr->getIndexType();
-                }                                
-            }
-        }
-               
-        m_type->addToSchema(field_id, fidelity, getSchemaTypeId(storage_class, value));
-    }
     
-    template <typename T> std::pair<FieldInfo, const void *>
-    ObjectImplBase<T>::tryGetMemberSlot(const MemberID &member_id, unsigned int &pos) const
+    template <typename T, typename ImplT> std::pair<FieldInfo, const void *>
+    ObjectImplBase<T, ImplT>::tryGetMemberSlot(const MemberID &member_id, unsigned int &pos) const
     {
         for (auto &field_info: member_id) {
             auto [index, offset] = field_info.first.getIndexAndOffset();
@@ -672,8 +486,8 @@ namespace db0::object_model
         return { {}, nullptr };  
     }
     
-    template <typename T>
-    std::pair<const void*, unsigned int> ObjectImplBase<T>::tryGetLoc(FieldID field_id) const
+    template <typename T, typename ImplT>
+    std::pair<const void*, unsigned int> ObjectImplBase<T, ImplT>::tryGetLoc(FieldID field_id) const
     {
         auto index = field_id.getIndex();
         unsigned int pos = 0;
@@ -689,8 +503,8 @@ namespace db0::object_model
         return { nullptr, 0 };
     }
     
-    template <typename T>
-    void ObjectImplBase<T>::setWithLoc(FixtureLock &fixture, FieldID field_id, const void *loc_ptr, unsigned int pos,
+    template <typename T, typename ImplT>
+    void ObjectImplBase<T, ImplT>::setWithLoc(FixtureLock &fixture, FieldID field_id, const void *loc_ptr, unsigned int pos,
         unsigned int fidelity, StorageClass storage_class, Value value)
     {
         if (loc_ptr == &(*this)->pos_vt()) {
@@ -708,8 +522,8 @@ namespace db0::object_model
         setKVIndexValue(fixture, field_id, fidelity, storage_class, value);
     }
     
-    template <typename T>
-    void ObjectImplBase<T>::addWithLoc(FixtureLock &fixture, FieldID field_id, const void *loc_ptr, unsigned int pos,
+    template <typename T, typename ImplT>
+    void ObjectImplBase<T, ImplT>::addWithLoc(FixtureLock &fixture, FieldID field_id, const void *loc_ptr, unsigned int pos,
         unsigned int fidelity, StorageClass storage_class, Value value)
     {
         if (loc_ptr == &(*this)->pos_vt()) {
@@ -725,80 +539,9 @@ namespace db0::object_model
         assert(!loc_ptr);
         addToKVIndex(fixture, field_id, fidelity, storage_class, value);
     }
-    
-    template <typename T>
-    void ObjectImplBase<T>::set(FixtureLock &fixture, const char *field_name, ObjectPtr lang_value)
-    {        
-        assert(hasInstance());
-        // attribute delete operation
-        if (!PyToolkit::isValid(lang_value)) {
-            remove(fixture, field_name);
-            return;
-        }
 
-        auto [type_id, storage_class] = recognizeType(**fixture, lang_value);
-        
-        if (this->span() > 1) {
-            // NOTE: large objects i.e. with span > 1 must always be marked with a silent mutation flag
-            // this is because the actual change may be missed if performed on a different-then the 1st DP
-            _touch();
-        }
-        
-        assert(m_type);
-        // find already existing field index
-        auto [member_id, is_init_var] = m_type->findField(field_name);
-        auto storage_fidelity = getStorageFidelity(storage_class);
-        // get field ID matching the required storage fidelity
-        FieldID field_id;
-        FieldInfo old_field_info;
-        unsigned int old_pos = 0;
-        const void *old_loc_ptr = nullptr;
-        if (member_id) {
-            std::tie(old_field_info, old_loc_ptr) = tryGetMemberSlot(member_id, old_pos);
-        }
-        
-        if (!member_id || !(field_id = member_id.tryGet(storage_fidelity))) {
-            // try mutating the class first
-            member_id = m_type->addField(field_name, storage_fidelity);
-            field_id = member_id.get(storage_fidelity);
-        }
-        
-        assert(field_id && member_id);
-        // NOTE: a new member inherits the parent's no-cache flag
-        // FIXME: value should be destroyed on exception
-        auto value = createMember<LangToolkit>(
-            *fixture, type_id, storage_class, lang_value, this->getMemberFlags()
-        );
-        // make sure object address is not null
-        assert(!(storage_class == StorageClass::OBJECT_REF && value.cast<std::uint64_t>() == 0));
-                
-        if (field_id == old_field_info.first) {
-            // Set / update value at the existing location
-            setWithLoc(fixture, field_id, old_loc_ptr, old_pos, storage_fidelity, storage_class, value);
-        } else {
-            // must reset / unreference the old value (stored elsewhere)
-            if (old_field_info.first) {
-                unrefWithLoc(fixture, old_field_info.first, old_loc_ptr, old_pos, StorageClass::UNDEFINED, 
-                    old_field_info.second);
-            }
-            
-            const void *loc_ptr = nullptr;
-            unsigned int pos = 0;
-            // NOTE: slot may already exist (pos-vt or index-vt) either for regular or lo-fi storage
-            std::tie(loc_ptr, pos) = tryGetLoc(field_id);            
-            // Either use existing slot or create a new (kv-index)
-            addWithLoc(fixture, field_id, loc_ptr, pos, storage_fidelity, storage_class, value);
-        }
-        
-        // the KV-index insert operation must be registered as the potential silent mutation
-        // but the operation can be avoided if the object is already marked as modified
-        if (!super_t::isModified()) {
-            this->_touch();
-        }        
-    }
-    
-    template <typename T>
-    std::pair<MemberID, bool> ObjectImplBase<T>::findField(const char *name) const
+    template <typename T, typename ImplT>
+    std::pair<MemberID, bool> ObjectImplBase<T, ImplT>::findField(const char *name) const
     {
         if (isDropped()) {
             // defunct objects should not be accessed
@@ -815,11 +558,11 @@ namespace db0::object_model
         assert(class_ptr);
         return class_ptr->findField(name);
     }
-    
-    template <typename T>
-    FieldID ObjectImplBase<T>::tryGetMember(const char *field_name, std::pair<StorageClass, Value> &member,
+
+    template <typename T, typename ImplT>
+    FieldID ObjectImplBase<T, ImplT>::tryGetMember(const char *field_name, std::pair<StorageClass, Value> &member,
         bool &is_init_var) const
-    {   
+    {
         MemberID member_id;
         std::tie(member_id, is_init_var) = this->findField(field_name);        
         bool exists, deleted = false;
@@ -851,8 +594,8 @@ namespace db0::object_model
         return {};
     }
     
-    template <typename T>
-    std::optional<XValue> ObjectImplBase<T>::tryGetX(const char *field_name) const
+    template <typename T, typename ImplT>
+    std::optional<XValue> ObjectImplBase<T, ImplT>::tryGetX(const char *field_name) const
     {
         auto [member_id, is_init_var] = this->findField(field_name);
         bool exists, deleted = false;
@@ -883,8 +626,8 @@ namespace db0::object_model
         return std::nullopt;
     }
 
-    template <typename T>
-    typename ObjectImplBase<T>::ObjectSharedPtr ObjectImplBase<T>::tryGet(const char *field_name) const
+    template <typename T, typename ImplT>
+    typename ObjectImplBase<T, ImplT>::ObjectSharedPtr ObjectImplBase<T, ImplT>::tryGet(const char *field_name) const
     {
         std::pair<StorageClass, Value> member;
         bool is_init_var = false;
@@ -903,8 +646,8 @@ namespace db0::object_model
         return nullptr;
     }
     
-    template <typename T>
-    typename ObjectImplBase<T>::ObjectSharedPtr ObjectImplBase<T>::tryGetAs(
+    template <typename T, typename ImplT>
+    typename ObjectImplBase<T, ImplT>::ObjectSharedPtr ObjectImplBase<T, ImplT>::tryGetAs(
         const char *field_name, TypeObjectPtr lang_type) const
     {
         std::pair<StorageClass, Value> member;
@@ -928,8 +671,8 @@ namespace db0::object_model
         return nullptr;
     }
     
-    template <typename T>
-    typename ObjectImplBase<T>::ObjectSharedPtr ObjectImplBase<T>::get(const char *field_name) const
+    template <typename T, typename ImplT>
+    typename ObjectImplBase<T, ImplT>::ObjectSharedPtr ObjectImplBase<T, ImplT>::get(const char *field_name) const
     {
         auto obj = tryGet(field_name);
         if (!obj) {
@@ -941,8 +684,8 @@ namespace db0::object_model
         return obj;
     }
 
-    template <typename T>
-    bool ObjectImplBase<T>::slotExists(Value value, unsigned int fidelity, unsigned int at) const
+    template <typename T, typename ImplT>
+    bool ObjectImplBase<T, ImplT>::slotExists(Value value, unsigned int fidelity, unsigned int at) const
     {
         assert(fidelity != 0 && "Operation only available for lo-fi values");
         // lo-fi value
@@ -950,8 +693,8 @@ namespace db0::object_model
         return lofi_store<2>::fromValue(value).isSet(at);
     }
 
-    template <typename T>
-    std::pair<bool, bool> ObjectImplBase<T>::hasValueAt(Value value, unsigned int fidelity, unsigned int at) const
+    template <typename T, typename ImplT>
+    std::pair<bool, bool> ObjectImplBase<T, ImplT>::hasValueAt(Value value, unsigned int fidelity, unsigned int at) const
     {
         assert(fidelity != 0 && "Operation only available for lo-fi values");
         // lo-fi value
@@ -966,8 +709,8 @@ namespace db0::object_model
         }
     }
 
-    template <typename T>
-    std::pair<bool, bool> ObjectImplBase<T>::tryGetMemberAt(std::pair<FieldID, unsigned int> field_info,
+    template <typename T, typename ImplT>
+    std::pair<bool, bool> ObjectImplBase<T, ImplT>::tryGetMemberAt(std::pair<FieldID, unsigned int> field_info,
         std::pair<StorageClass, Value> &result) const
     {
         if (!field_info.first) {
@@ -1038,7 +781,7 @@ namespace db0::object_model
         return { false, false };
     }
 
-    template <typename T>
+    template <typename T, typename ImplT>
     db0::swine_ptr<Fixture> ObjectImplBase<T>::tryGetFixture() const
     {
         if (!this->hasInstance()) {
@@ -1051,8 +794,8 @@ namespace db0::object_model
         return super_t::tryGetFixture();
     }
 
-    template <typename T>
-    db0::swine_ptr<Fixture> ObjectImplBase<T>::getFixture() const
+    template <typename T, typename ImplT>
+    db0::swine_ptr<Fixture> ObjectImplBase<T, ImplT>::getFixture() const
     {
         auto fixture = this->tryGetFixture();
         if (!fixture) {
@@ -1060,22 +803,22 @@ namespace db0::object_model
         }
         return fixture;
     }
-    
-    template <typename T>
-    Memspace &ObjectImplBase<T>::getMemspace() const {
+
+    template <typename T, typename ImplT>
+    Memspace &ObjectImplBase<T, ImplT>::getMemspace() const {
         return *getFixture();
     }
 
-    template <typename T>
-    void ObjectImplBase<T>::setType(std::shared_ptr<Class> type)
+    template <typename T, typename ImplT>
+    void ObjectImplBase<T, ImplT>::setType(std::shared_ptr<Class> type)
     {
         assert(!m_type);
         m_type = type;
         assert(hasValidClassRef());
     }
 
-    template <typename T>
-    void ObjectImplBase<T>::setTypeWithHint(std::shared_ptr<Class> type_hint)
+    template <typename T, typename ImplT>
+    void ObjectImplBase<T, ImplT>::setTypeWithHint(std::shared_ptr<Class> type_hint)
     {
         assert(!m_type);
         assert(type_hint);
@@ -1087,13 +830,13 @@ namespace db0::object_model
         }
     }
 
-    template <typename T>
-    bool ObjectImplBase<T>::isSingleton() const {
+    template <typename T, typename ImplT>
+    bool ObjectImplBase<T, ImplT>::isSingleton() const {
         return getType().isSingleton();
     }
 
-    template <typename T>
-    void ObjectImplBase<T>::dropTags(Class &type) const
+    template <typename T, typename ImplT>
+    void ObjectImplBase<T, ImplT>::dropTags(Class &type) const
     {
         // only drop if any type tags are assigned
         if ((*this)->m_header.m_ref_counter.getFirst() > 0) {
@@ -1111,11 +854,17 @@ namespace db0::object_model
         }
     }
 
-    template <typename T>
-    void ObjectImplBase<T>::dropMembers(Class &class_ref) const
+    template <typename T, typename ImplT>
+    void ObjectImplBase<T, ImplT>::dropMembers(Class &class_ref) const
     {
         auto fixture = this->getFixture();
-        assert(fixture);        
+        assert(fixture);
+        ImplT::dropMembers(*fixture, class_ref);
+    }
+    
+    template <typename T, typename ImplT>
+    void ObjectImplBase<T, ImplT>::dropMembers(db0::swine_ptr<Fixture> &fixture, Class &class_ref) const
+    {
         // drop pos-vt members first
         {
             auto &types = (*this)->pos_vt().types();
@@ -1143,23 +892,10 @@ namespace db0::object_model
                 class_ref.removeFromSchema(xvalue);
             }
         }
-        // finally drop kv-index members
-        auto kv_index_ptr = tryGetKV_Index();
-        if (kv_index_ptr) {
-            auto it = kv_index_ptr->beginJoin(1);
-            for (;!it.is_end(); ++it) {
-                if ((*it).m_type == StorageClass::DELETED || (*it).m_type == StorageClass::UNDEFINED) {
-                    // skip undefined or deleted members
-                    continue;
-                }
-                unrefMember(fixture, *it);
-                class_ref.removeFromSchema(*it);
-            }
-        }
     }
 
-    template <typename T>
-    void ObjectImplBase<T>::unSingleton(FixtureLock &)
+    template <typename T, typename ImplT>
+    void ObjectImplBase<T, ImplT>::unSingleton(FixtureLock &)
     {
         auto &type = getType();
         // drop reference from the class
@@ -1170,8 +906,8 @@ namespace db0::object_model
         }
     }
 
-    template <typename T>
-    void ObjectImplBase<T>::destroy() const
+    template <typename T, typename ImplT>
+    void ObjectImplBase<T, ImplT>::destroy() const
     {
         if (this->hasInstance()) {
             // associated class type (may require unloading)
@@ -1189,8 +925,8 @@ namespace db0::object_model
         super_t::destroy();
     }
 
-    template <typename T>
-    FieldLayout ObjectImplBase<T>::getFieldLayout() const
+    template <typename T, typename ImplT>
+    FieldLayout ObjectImplBase<T, ImplT>::getFieldLayout() const
     {
         FieldLayout layout;
         // collect pos-vt information                
@@ -1215,54 +951,13 @@ namespace db0::object_model
         return layout;
     }
     
-    template <typename T>
-    KV_Index *ObjectImplBase<T>::addKV_First(const XValue &value)
-    {
-        if (!m_kv_index) {
-            if ((*this)->m_kv_address) {
-                m_kv_index = std::make_unique<KV_Index>(
-                    std::make_pair(&getMemspace(), (*this)->m_kv_address), (*this)->m_kv_type
-                );
-            } else {
-                // create new kv-index intiialized with the first value
-                m_kv_index = std::make_unique<KV_Index>(getMemspace(), value);
-                this->modify().m_kv_address = m_kv_index->getAddress();
-                this->modify().m_kv_type = m_kv_index->getIndexType();
-                // return nullptr to indicate that the value has been inserted
-                return nullptr;
-            }
-        }
-        // return reference without inserting
-        return m_kv_index.get();
-    }
-
-    template <typename T>
-    bool ObjectImplBase<T>::hasKV_Index() const {
-        return m_kv_index || (*this)->m_kv_address;
-    }
-
-    template <typename T>
-    KV_Index *ObjectImplBase<T>::tryGetKV_Index() const
-    {
-        // if KV index address has changed, update the cached instance
-        if (!m_kv_index || m_kv_index->getAddress() != (*this)->m_kv_address) {
-            if ((*this)->m_kv_address) {
-                m_kv_index = std::make_unique<KV_Index>(
-                    std::make_pair(&getMemspace(), (*this)->m_kv_address), (*this)->m_kv_type
-                );
-            }
-        }
-    
-        return m_kv_index.get();
-    }
-    
-    template <typename T>
-    Class &ObjectImplBase<T>::getType() {
+    template <typename T, typename ImplT>
+    Class &ObjectImplBase<T, ImplT>::getType() {
         return m_type ? *m_type : m_init_manager.getInitializer(*this).getClass();
     }
 
-    template <typename T>
-    void ObjectImplBase<T>::getMembersFrom(const Class &this_type, unsigned int index, StorageClass storage_class, 
+    template <typename T, typename ImplT>
+    void ObjectImplBase<T, ImplT>::getMembersFrom(const Class &this_type, unsigned int index, StorageClass storage_class,
         Value value, std::unordered_set<std::string> &result) const
     {
         if (storage_class == StorageClass::DELETED || storage_class == StorageClass::UNDEFINED) {
@@ -1280,8 +975,8 @@ namespace db0::object_model
         }
     }
     
-    template <typename T>
-    std::unordered_set<std::string> ObjectImplBase<T>::getMembers() const
+    template <typename T, typename ImplT>
+    std::unordered_set<std::string> ObjectImplBase<T, ImplT>::getMembers() const
     {
         std::unordered_set<std::string> result;
         // Visit pos-vt members first
@@ -1317,8 +1012,8 @@ namespace db0::object_model
         return result;
     }
     
-    template <typename T>
-    void ObjectImplBase<T>::forAll(std::function<bool(const std::string &, const XValue &, unsigned int)> f) const
+    template <typename T, typename ImplT>
+    void ObjectImplBase<T, ImplT>::forAll(std::function<bool(const std::string &, const XValue &, unsigned int)> f) const
     {
         // Visit pos-vt members first
         auto &obj_type = this->getType();
@@ -1389,9 +1084,9 @@ namespace db0::object_model
             }
         }
     }
-    
-    template <typename T>
-    void ObjectImplBase<T>::forAll(std::function<bool(const std::string &, ObjectSharedPtr)> f) const
+
+    template <typename T, typename ImplT>
+    void ObjectImplBase<T, ImplT>::forAll(std::function<bool(const std::string &, ObjectSharedPtr)> f) const
     {
         auto fixture = this->getFixture();
         forAll([&](const std::string &name, const XValue &xvalue, unsigned int offset) -> bool {
@@ -1403,8 +1098,8 @@ namespace db0::object_model
         });
     }
 
-    template <typename T>
-    bool ObjectImplBase<T>::forAll(XValue xvalue, 
+    template <typename T, typename ImplT>
+    bool ObjectImplBase<T, ImplT>::forAll(XValue xvalue, 
         std::function<bool(const std::string &, const XValue &, unsigned int offset)> f) const
     {
         assert(xvalue.m_type == StorageClass::PACK_2);
@@ -1422,8 +1117,8 @@ namespace db0::object_model
         return true;
     }
 
-    template <typename T>
-    void ObjectImplBase<T>::incRef(bool is_tag)
+    template <typename T, typename ImplT>
+    void ObjectImplBase<T, ImplT>::incRef(bool is_tag)
     {
         if (this->hasInstance()) {
             super_t::incRef(is_tag);
@@ -1433,8 +1128,8 @@ namespace db0::object_model
         }
     }
 
-    template <typename T>
-    bool ObjectImplBase<T>::decRef(bool is_tag)
+    template <typename T, typename ImplT>
+    bool ObjectImplBase<T, ImplT>::decRef(bool is_tag)
     {
         // this operation is a potentially silent mutation
         _touch();
@@ -1442,25 +1137,25 @@ namespace db0::object_model
         return !hasRefs();
     }
 
-    template <typename T>
-    bool ObjectImplBase<T>::hasRefs() const
+    template <typename T, typename ImplT>
+    bool ObjectImplBase<T, ImplT>::hasRefs() const
     {
         assert(hasInstance());
         return (*this)->hasRefs();
     }
     
-    template <typename T>
-    bool ObjectImplBase<T>::hasAnyRefs() const {
+    template <typename T, typename ImplT>
+    bool ObjectImplBase<T, ImplT>::hasAnyRefs() const {
         return (*this)->hasAnyRefs();
     }
 
-    template <typename T>
-    bool ObjectImplBase<T>::hasTagRefs() const {
+    template <typename T, typename ImplT>
+    bool ObjectImplBase<T, ImplT>::hasTagRefs() const {
         return this->hasInstance() && (*this)->m_header.m_ref_counter.getFirst() > 0;
     }
 
-    template <typename T>
-    bool ObjectImplBase<T>::equalTo(const ObjectImplBase<T> &other) const
+    template <typename T, typename ImplT>
+    bool ObjectImplBase<T, ImplT>::equalTo(const ObjectImplBase<T, ImplT> &other) const
     {
         if (!this->hasInstance() || !other.hasInstance()) {
             THROWF(db0::InputException) << "Object not initialized";
@@ -1511,13 +1206,13 @@ namespace db0::object_model
         return result;
     }
 
-    template <typename T>
-    void ObjectImplBase<T>::moveTo(db0::swine_ptr<Fixture> &) {
+    template <typename T, typename ImplT>
+    void ObjectImplBase<T, ImplT>::moveTo(db0::swine_ptr<Fixture> &) {
         throw std::runtime_error("Not implemented");
     }
 
-    template <typename T>
-    void ObjectImplBase<T>::setFixture(db0::swine_ptr<Fixture> &new_fixture)
+    template <typename T, typename ImplT>
+    void ObjectImplBase<T, ImplT>::setFixture(db0::swine_ptr<Fixture> &new_fixture)
     {        
         if (this->hasInstance()) {
             THROWF(db0::InputException) << "set_prefix failed: object already initialized";
@@ -1530,8 +1225,8 @@ namespace db0::object_model
         }
     }
 
-    template <typename T>
-    void ObjectImplBase<T>::detach() const
+    template <typename T, typename ImplT>
+    void ObjectImplBase<T, ImplT>::detach() const
     {
         m_type->detach();        
         // invalidate since detach is not supported by the MorphingBIndex
@@ -1539,8 +1234,8 @@ namespace db0::object_model
         super_t::detach();
     }
     
-    template <typename T>
-    void ObjectImplBase<T>::commit() const
+    template <typename T, typename ImplT>
+    void ObjectImplBase<T, ImplT>::commit() const
     {
         m_type->commit();
         if (m_kv_index) {
@@ -1551,25 +1246,25 @@ namespace db0::object_model
         m_touched = false;
     }
 
-    template <typename T>
-    void ObjectImplBase<T>::unrefMember(db0::swine_ptr<Fixture> &fixture, StorageClass type, Value value) const {
+    template <typename T, typename ImplT>
+    void ObjectImplBase<T, ImplT>::unrefMember(db0::swine_ptr<Fixture> &fixture, StorageClass type, Value value) const {
         db0::object_model::unrefMember<LangToolkit>(fixture, type, value);
     }
 
-    template <typename T>
-    void ObjectImplBase<T>::unrefMember(db0::swine_ptr<Fixture> &fixture, XValue value) const {
+    template <typename T, typename ImplT>
+    void ObjectImplBase<T, ImplT>::unrefMember(db0::swine_ptr<Fixture> &fixture, XValue value) const {
         db0::object_model::unrefMember<LangToolkit>(fixture, value.m_type, value.m_value);
     }
 
-    template <typename T>    
-    std::shared_ptr<Class> ObjectImplBase<T>::unloadType() const
+    template <typename T, typename ImplT>
+    std::shared_ptr<Class> ObjectImplBase<T, ImplT>::unloadType() const
     {
         auto fixture = this->getFixture();
         return getClassFactory(*fixture).getTypeByClassRef((*this)->getClassRef()).m_class;
     }
 
-    template <typename T>
-    Address ObjectImplBase<T>::getAddress() const
+    template <typename T, typename ImplT>
+    Address ObjectImplBase<T, ImplT>::getAddress() const
     {
         assert(!isDefunct());
         if (!this->hasInstance()) {            
@@ -1577,9 +1272,9 @@ namespace db0::object_model
         }
         return super_t::getAddress();
     }
-    
-    template <typename T>
-    UniqueAddress ObjectImplBase<T>::getUniqueAddress() const
+
+    template <typename T, typename ImplT>
+    UniqueAddress ObjectImplBase<T, ImplT>::getUniqueAddress() const
     {
         if (this->hasInstance()) {
             return super_t::getUniqueAddress();
@@ -1590,8 +1285,8 @@ namespace db0::object_model
         }
     }
     
-    template <typename T>
-    bool ObjectImplBase<T>::hasValidClassRef() const
+    template <typename T, typename ImplT>
+    bool ObjectImplBase<T, ImplT>::hasValidClassRef() const
     {
         if (this->hasInstance() && m_type) {
             return (*this)->getClassRef() == m_type->getClassRef();
@@ -1599,8 +1294,8 @@ namespace db0::object_model
         return true;
     }
 
-    template <typename T>
-    std::shared_ptr<Class> ObjectImplBase<T>::getTypeWithHint(const Fixture &fixture, std::uint32_t class_ref, 
+    template <typename T, typename ImplT>
+    std::shared_ptr<Class> ObjectImplBase<T, ImplT>::getTypeWithHint(const Fixture &fixture, std::uint32_t class_ref, 
         std::shared_ptr<Class> type_hint)
     {
         assert(type_hint);
@@ -1610,13 +1305,13 @@ namespace db0::object_model
         return getClassFactory(fixture).getTypeByClassRef(class_ref).m_class;
     }
     
-    template <typename T>
-    void ObjectImplBase<T>::setDefunct() const {
+    template <typename T, typename ImplT>
+    void ObjectImplBase<T, ImplT>::setDefunct() const {
         m_flags.set(ObjectOptions::DEFUNCT);
     }
 
-    template <typename T>
-    void ObjectImplBase<T>::touch()
+    template <typename T, typename ImplT>
+    void ObjectImplBase<T, ImplT>::touch()
     {
         if (this->hasInstance() && !isDefunct()) {
             // NOTE: for already modified and small objects we may skip "touch"
@@ -1628,8 +1323,8 @@ namespace db0::object_model
         }
     }
 
-    template <typename T>
-    void ObjectImplBase<T>::_touch()
+    template <typename T, typename ImplT>
+    void ObjectImplBase<T, ImplT>::_touch()
     {
         if (!m_touched) {
             // mark the 1st byte of the object as modified (forced-diff)
@@ -1639,13 +1334,13 @@ namespace db0::object_model
         }
     }
 
-    template <typename T>
-    void ObjectImplBase<T>::addExtRef() const {
+    template <typename T, typename ImplT>
+    void ObjectImplBase<T, ImplT>::addExtRef() const {
         ++m_ext_refs;
     }
 
-    template <typename T>
-    void ObjectImplBase<T>::removeExtRef() const
+    template <typename T, typename ImplT>
+    void ObjectImplBase<T, ImplT>::removeExtRef() const
     {
         assert(m_ext_refs > 0);
         --m_ext_refs;
