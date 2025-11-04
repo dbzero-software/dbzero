@@ -132,17 +132,15 @@ namespace db0::object_model
         db0::swine_ptr<Fixture> getFixture() const;
 
         Memspace &getMemspace() const;
-                
-        /**
-         * Get description of the field layout
-        */
+        
+        // Get description of the field layout
         FieldLayout getFieldLayout() const;
         
         // Convert singleton into a regular instance
         void unSingleton(FixtureLock &);
 
         void destroy() const;
-                
+        
         bool isSingleton() const;
         
         // execute the function for all members (until false is returned from the input lambda)
@@ -251,15 +249,23 @@ namespace db0::object_model
         // similar to hasValueAt but assume deleted slot as present
         bool slotExists(Value value, unsigned int fidelity, unsigned int at) const;
         
+        void getFieldLayoutImpl(FieldLayout &) const;
+        void getMembersImpl(std::unordered_set<std::string> &) const;
+        
         // Try retrieving member either from values (initialized) or from the initialization buffer (not initialized yet)
         // @return member exists, member deleted flags
+        bool tryFindMemberAt(std::pair<FieldID, unsigned int>, std::pair<StorageClass, Value> &,
+            std::pair<bool, bool> &find_result) const;
         std::pair<bool, bool> tryGetMemberAt(std::pair<FieldID, unsigned int>, 
             std::pair<StorageClass, Value> &) const;
         FieldID tryGetMember(const char *field_name, std::pair<StorageClass, Value> &, bool &is_init_var) const;
-        
+                
         // Try resolving field ID of an existing (or deleted) member and also its storage location
         // @param pos the member's position in the containing collection
         // @return FieldID + containing collection (e.g. pos_vt())
+        bool tryFindMemberSlot(const std::pair<FieldID, unsigned int> &field_info, unsigned int &pos,
+            std::pair<FieldInfo, const void *> &result) const;
+        
         std::pair<FieldInfo, const void *> tryGetMemberSlot(const MemberID &, unsigned int &pos) const;
         
         // Try locating a field ID associated slot
@@ -286,19 +292,10 @@ namespace db0::object_model
         static std::shared_ptr<Class> getTypeWithHint(const Fixture &, std::uint32_t class_ref, std::shared_ptr<Class> type_hint);
         
         bool hasValidClassRef() const;
-                
+        
         // try retrieving member as XValue
         std::optional<XValue> tryGetX(const char *field_name) const;
         void _touch();
-        
-        // Set or update member in a pos_vt
-        void setPosVT(FixtureLock &, FieldID, unsigned int pos, unsigned int fidelity, StorageClass, Value);
-        void setIndexVT(FixtureLock &, FieldID, unsigned int index_vt_pos, unsigned int fidelity,
-            StorageClass, Value);        
-        
-        // Set with a specific location (pos_vt, index_vt, kv-index)
-        void setWithLoc(FixtureLock &, FieldID, const void *, unsigned int pos, unsigned int fidelity, 
-            StorageClass, Value);
         
         // Unreference value
         // NOTE: storage_class to be assigned can either be DELETED or UNDEFINED
@@ -310,13 +307,7 @@ namespace db0::object_model
         bool tryUnrefWithLoc(FixtureLock &, FieldID, const void *, unsigned int pos, StorageClass,
             unsigned int fidelity);
         
-        // Add a new value
-        void addToPosVT(FixtureLock &, FieldID, unsigned int pos, unsigned int fidelity, StorageClass, Value);
-        void addToIndexVT(FixtureLock &, FieldID, unsigned int index_vt_pos, unsigned int fidelity, StorageClass, Value);
-                
-        void addWithLoc(FixtureLock &, FieldID, const void *, unsigned int pos, unsigned int fidelity,
-            StorageClass, Value);
-        
+        bool forAllImpl(std::function<bool(const std::string &, const XValue &, unsigned int offset)>) const;
         // lo-fi member specialized implementation
         bool forAll(XValue, std::function<bool(const std::string &, const XValue &, unsigned int offset)>) const;
         

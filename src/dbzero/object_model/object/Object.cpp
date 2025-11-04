@@ -22,6 +22,68 @@ namespace db0::object_model
         return *kv_ptr_1 == *kv_ptr_2;
     }
     
+    void Object::getFieldLayoutImpl(FieldLayout &layout) const
+    {
+        super_t::getFieldLayoutImpl(layout);
+        // collect kv-index information
+        auto kv_index_ptr = tryGetKV_Index();
+        if (kv_index_ptr) {
+            auto it = kv_index_ptr->beginJoin(1);
+            for (;!it.is_end(); ++it) {
+                layout.m_kv_index_fields.emplace_back((*it).getIndex(), (*it).m_type);
+            }
+        }
+    }
+    
+    void Object::getMembersImpl(std::unordered_set<std::string> &result) const
+    {
+        super_t::getMembersImpl(result);
+        // Finally, visit kv-index members
+        auto kv_index_ptr = tryGetKV_Index();
+        if (kv_index_ptr) {
+            auto &obj_type = this->getType();
+            auto it = kv_index_ptr->beginJoin(1);
+            for (;!it.is_end(); ++it) {
+                auto index = (*it).getIndex();
+                getMembersFrom(obj_type, index, (*it).m_type, (*it).m_value, result);
+            }
+        }        
+    }
+    
+    bool Object::tryFindMemberAt(std::pair<FieldID, unsigned int> field_info, std::pair<StorageClass, Value> &result,
+        std::pair<bool, bool> &find_result) const
+    {
+        if (!super_t::tryFindMemberAt(field_info, result, find_result)) {
+            auto kv_index_ptr = tryGetKV_Index();
+            if (kv_index_ptr) {
+                auto loc = field_info.first.getIndexAndOffset();
+                XValue xvalue(loc.first);
+                if (kv_index_ptr->findOne(xvalue)) {
+                    assert(xvalue.getIndex() == loc.first);
+                    if (xvalue.m_type == StorageClass::DELETED) {
+                        // report as deleted
+                        find_result = { false, true };
+                        return true;
+                    }
+
+                    // member fetched from the kv_index
+                    result.first = xvalue.m_type;
+                    result.second = xvalue.m_value;
+
+                    if (field_info.second == 0) {
+                        find_result = { result.first != StorageClass::UNDEFINED, false };
+                        return true;
+                    } else {
+                        find_result = hasValueAt(result.second, field_info.second, loc.second);
+                        return true;
+                    }
+                }
+            }
+        }
+                
+        return false;
+    }
+
     void Object::set(FixtureLock &fixture, const char *field_name, ObjectPtr lang_value)
     {        
         assert(hasInstance());
@@ -49,7 +111,7 @@ namespace db0::object_model
         unsigned int old_pos = 0;
         const void *old_loc_ptr = nullptr;
         if (member_id) {
-            std::tie(old_field_info, old_loc_ptr) = tryGetMemberSlot(member_id, old_pos);
+            std::tie(old_field_info, old_loc_ptr) = super_t::tryGetMemberSlot(member_id, old_pos);
         }
         
         if (!member_id || !(field_id = member_id.tryGet(storage_fidelity))) {
@@ -334,4 +396,162 @@ namespace db0::object_model
         }
     }
     
+    bool Object::tryFindMemberSlot(const std::pair<FieldID, unsigned int> &field_info, unsigned int &pos,
+        std::pair<FieldInfo, const void *> &result) const
+    {
+        if (!super_t::tryFindMemberSlot(field_info, pos, result)) {
+            // kv-index lookup
+            auto kv_index_ptr = tryGetKV_Index();
+            if (kv_index_ptr) {
+                auto [index, offset] = field_info.first.getIndexAndOffset();
+                XValue value(index);
+                if (kv_index_ptr->findOne(value)) {
+                    if (field_info.second == 0 || slotExists(value.m_value, field_info.second, offset)) {
+                        result = { field_info, nullptr };
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    void Object::setPosVT(FixtureLock &fixture, FieldID field_id, unsigned int pos, unsigned int fidelity,
+        StorageClass storage_class, Value value)
+    {     
+        auto &pos_vt = this->modify().pos_vt();
+        auto pos_value = pos_vt.values()[pos];
+        if (fidelity == 0) {
+            auto old_storage_class = pos_vt.types()[pos];
+            unrefMember(*fixture, old_storage_class, pos_value);
+            // update attribute stored in the positional value-table
+            pos_vt.set(pos, storage_class, value);
+            m_type->updateSchema(field_id, fidelity, getSchemaTypeId(old_storage_class), getSchemaTypeId(storage_class));
+        } else {
+            auto offset = field_id.getOffset();
+            auto old_type_id = getSchemaTypeId(storage_class, lofi_store<2>::fromValue(pos_value).get(offset));
+            lofi_store<2>::fromValue(pos_value).set(offset, value.m_store);
+            pos_vt.set(pos, storage_class, pos_value);
+            auto new_type_id = getSchemaTypeId(storage_class, value);
+            m_type->updateSchema(field_id, fidelity, old_type_id, new_type_id);
+        }
+    }
+    
+    void Object::setIndexVT(FixtureLock &fixture, FieldID field_id, unsigned int index_vt_pos,
+        unsigned int fidelity, StorageClass storage_class, Value value)
+    {
+        auto &index_vt = this->modify().index_vt();
+        if (fidelity == 0) {
+            auto old_storage_class = index_vt.xvalues()[index_vt_pos].m_type;
+            unrefMember(*fixture, index_vt.xvalues()[index_vt_pos]);
+            index_vt.set(index_vt_pos, storage_class, value);
+            m_type->updateSchema(field_id, fidelity, getSchemaTypeId(old_storage_class), getSchemaTypeId(storage_class));
+        } else {
+            auto index_vt_value = index_vt.xvalues()[index_vt_pos].m_value;
+            auto offset = field_id.getOffset();
+            auto old_type_id = getSchemaTypeId(storage_class, lofi_store<2>::fromValue(index_vt_value).get(offset));
+            lofi_store<2>::fromValue(index_vt_value).set(offset, value.m_store);
+            index_vt.set(index_vt_pos, storage_class, index_vt_value);
+            auto new_type_id = getSchemaTypeId(storage_class, value);
+            m_type->updateSchema(field_id, fidelity, old_type_id, new_type_id);
+        }
+    }
+
+    void Object::setWithLoc(FixtureLock &fixture, FieldID field_id, const void *loc_ptr, unsigned int pos,
+        unsigned int fidelity, StorageClass storage_class, Value value)
+    {
+        if (loc_ptr == &(*this)->pos_vt()) {
+            setPosVT(fixture, field_id, pos, fidelity, storage_class, value);
+            return;
+        }
+        
+        if (loc_ptr == &(*this)->index_vt()) {
+            setIndexVT(fixture, field_id, pos, fidelity, storage_class, value);
+            return;
+        }
+        
+        // must be in the kv-index
+        assert(!loc_ptr);
+        setKVIndexValue(fixture, field_id, fidelity, storage_class, value);
+    }
+
+    void Object::addToPosVT(FixtureLock &fixture, FieldID field_id, unsigned int pos, unsigned int fidelity,
+        StorageClass storage_class, Value value)
+    {
+        auto &pos_vt = this->modify().pos_vt();
+        auto pos_value = pos_vt.values()[pos];
+        if (fidelity == 0) {
+            // update attribute stored in the positional value-table
+            pos_vt.set(pos, storage_class, value);
+            m_type->addToSchema(field_id, fidelity, getSchemaTypeId(storage_class));
+        } else {
+            unsigned int offset = field_id.getOffset();
+            lofi_store<2>::fromValue(pos_value).set(offset, value.m_store);
+            pos_vt.set(pos, storage_class, pos_value);
+            m_type->addToSchema(field_id, fidelity, getSchemaTypeId(storage_class, value));
+        }
+    }
+
+    void Object::addToIndexVT(FixtureLock &fixture, FieldID field_id, unsigned int index_vt_pos,
+        unsigned int fidelity, StorageClass storage_class, Value value)
+    {
+        auto &index_vt = this->modify().index_vt();
+        if (fidelity == 0) {
+            index_vt.set(index_vt_pos, storage_class, value);
+            m_type->addToSchema(field_id, fidelity, getSchemaTypeId(storage_class));
+        } else {
+            auto index_vt_value = index_vt.xvalues()[index_vt_pos].m_value;
+            lofi_store<2>::fromValue(index_vt_value).set(field_id.getOffset(), value.m_store);
+            index_vt.set(index_vt_pos, storage_class, index_vt_value);
+            m_type->addToSchema(field_id, fidelity, getSchemaTypeId(storage_class, value));
+        }
+    }
+
+    void Object::addWithLoc(FixtureLock &fixture, FieldID field_id, const void *loc_ptr, unsigned int pos,
+        unsigned int fidelity, StorageClass storage_class, Value value)
+    {
+        if (loc_ptr == &(*this)->pos_vt()) {
+            addToPosVT(fixture, field_id, pos, fidelity, storage_class, value);
+            return;
+        }
+
+        if (loc_ptr == &(*this)->index_vt()) {
+            addToIndexVT(fixture, field_id, pos, fidelity, storage_class, value);
+            return;
+        }
+
+        assert(!loc_ptr);
+        addToKVIndex(fixture, field_id, fidelity, storage_class, value);
+    }
+    
+    bool Object::forAllImpl(std::function<bool(const std::string &, const XValue &, unsigned int)> f) const
+    {
+        if (super_t::forAllImpl(f)) { 
+            // Finally, visit kv-index members
+            auto kv_index_ptr = tryGetKV_Index();
+            if (kv_index_ptr) {
+                auto &obj_type = this->getType();
+                auto it = kv_index_ptr->beginJoin(1);
+                for (;!it.is_end(); ++it) {
+                    if ((*it).m_type == StorageClass::DELETED || (*it).m_type == StorageClass::UNDEFINED) {
+                        // skip deleted or undefined members
+                        continue;
+                    }
+                    if ((*it).m_type == StorageClass::PACK_2) {
+                        // iterate individual lo-fi members
+                        if (!forAll(*it, f)) {
+                            return false;
+                        }
+                    } else {
+                        if (!f(obj_type.getMember(FieldID::fromIndex((*it).getIndex())).m_name, *it, 0)) {
+                            return false;
+                        }
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
 }

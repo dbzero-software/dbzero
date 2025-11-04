@@ -5,6 +5,8 @@
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/object_model/class.hpp>
 #include <dbzero/object_model/value.hpp>
+#include <dbzero/object_model/object/Object.hpp>
+#include <dbzero/object_model/object/ObjectImmutableImpl.hpp>
 #include <dbzero/object_model/list/List.hpp>
 #include <dbzero/object_model/tags/TagIndex.hpp>
 #include <dbzero/core/utils/uuid.hpp>
@@ -353,7 +355,8 @@ namespace db0::object_model
     void ObjectImplBase<T, ImplT>::unrefWithLoc(FixtureLock &fixture, FieldID field_id, const void *loc_ptr, unsigned int pos,
         StorageClass storage_class, unsigned int fidelity)
     {
-        ImplT::unrefWithLoc(fixture, field_id, loc_ptr, pos, storage_class, fidelity);
+        // call the actual implementation
+        static_cast<ImplT*>(this)->tryUnrefWithLoc(fixture, field_id, loc_ptr, pos, storage_class, fidelity);
     }
     
     template <typename T, typename ImplT>
@@ -367,123 +370,50 @@ namespace db0::object_model
             unrefIndexVT(fixture, field_id, pos, storage_class, fidelity);
             return true;
         }
-        return false; 
+        return false;
     }
     
     template <typename T, typename ImplT>
-    void ObjectImplBase<T, ImplT>::setPosVT(FixtureLock &fixture, FieldID field_id, unsigned int pos, unsigned int fidelity,
-        StorageClass storage_class, Value value)
-    {     
-        auto &pos_vt = this->modify().pos_vt();
-        auto pos_value = pos_vt.values()[pos];
-        if (fidelity == 0) {
-            auto old_storage_class = pos_vt.types()[pos];
-            unrefMember(*fixture, old_storage_class, pos_value);
-            // update attribute stored in the positional value-table
-            pos_vt.set(pos, storage_class, value);
-            m_type->updateSchema(field_id, fidelity, getSchemaTypeId(old_storage_class), getSchemaTypeId(storage_class));
-        } else {
-            auto offset = field_id.getOffset();
-            auto old_type_id = getSchemaTypeId(storage_class, lofi_store<2>::fromValue(pos_value).get(offset));
-            lofi_store<2>::fromValue(pos_value).set(offset, value.m_store);
-            pos_vt.set(pos, storage_class, pos_value);
-            auto new_type_id = getSchemaTypeId(storage_class, value);
-            m_type->updateSchema(field_id, fidelity, old_type_id, new_type_id);
-        }
-    }
-
-    template <typename T, typename ImplT>
-    void ObjectImplBase<T, ImplT>::addToPosVT(FixtureLock &fixture, FieldID field_id, unsigned int pos, unsigned int fidelity,
-        StorageClass storage_class, Value value)
+    bool ObjectImplBase<T, ImplT>::tryFindMemberSlot(const std::pair<FieldID, unsigned int> &field_info, unsigned int &pos, 
+        std::pair<FieldInfo, const void *> &result) const
     {
-        auto &pos_vt = this->modify().pos_vt();
-        auto pos_value = pos_vt.values()[pos];
-        if (fidelity == 0) {
-            // update attribute stored in the positional value-table
-            pos_vt.set(pos, storage_class, value);
-            m_type->addToSchema(field_id, fidelity, getSchemaTypeId(storage_class));
-        } else {
-            unsigned int offset = field_id.getOffset();
-            lofi_store<2>::fromValue(pos_value).set(offset, value.m_store);
-            pos_vt.set(pos, storage_class, pos_value);
-            m_type->addToSchema(field_id, fidelity, getSchemaTypeId(storage_class, value));
+        auto [index, offset] = field_info.first.getIndexAndOffset();
+        // pos-vt lookup
+        if ((*this)->pos_vt().find(index, pos)) {
+            if (field_info.second == 0 || slotExists((*this)->pos_vt().values()[pos], field_info.second, offset)) {                    
+                result = { field_info, &(*this)->pos_vt() };
+                return true;
+            } else {
+                return false;
+            }
         }
-    }
-
-    template <typename T, typename ImplT>
-    void ObjectImplBase<T, ImplT>::setIndexVT(FixtureLock &fixture, FieldID field_id, unsigned int index_vt_pos,
-        unsigned int fidelity, StorageClass storage_class, Value value)
-    {
-        auto &index_vt = this->modify().index_vt();
-        if (fidelity == 0) {
-            auto old_storage_class = index_vt.xvalues()[index_vt_pos].m_type;
-            unrefMember(*fixture, index_vt.xvalues()[index_vt_pos]);
-            index_vt.set(index_vt_pos, storage_class, value);
-            m_type->updateSchema(field_id, fidelity, getSchemaTypeId(old_storage_class), getSchemaTypeId(storage_class));
-        } else {
-            auto index_vt_value = index_vt.xvalues()[index_vt_pos].m_value;
-            auto offset = field_id.getOffset();
-            auto old_type_id = getSchemaTypeId(storage_class, lofi_store<2>::fromValue(index_vt_value).get(offset));
-            lofi_store<2>::fromValue(index_vt_value).set(offset, value.m_store);
-            index_vt.set(index_vt_pos, storage_class, index_vt_value);
-            auto new_type_id = getSchemaTypeId(storage_class, value);
-            m_type->updateSchema(field_id, fidelity, old_type_id, new_type_id);
+        
+        // index-vt lookup
+        if ((*this)->index_vt().find(index, pos)) {
+            if (field_info.second == 0 || slotExists((*this)->index_vt().xvalues()[pos].m_value, field_info.second, offset)) {
+                result = { field_info, &(*this)->index_vt() };
+                return true;
+            } else {
+                return false;
+            }
         }
-    }
-
-    template <typename T, typename ImplT>
-    void ObjectImplBase<T, ImplT>::addToIndexVT(FixtureLock &fixture, FieldID field_id, unsigned int index_vt_pos,
-        unsigned int fidelity, StorageClass storage_class, Value value)
-    {
-        auto &index_vt = this->modify().index_vt();
-        if (fidelity == 0) {
-            index_vt.set(index_vt_pos, storage_class, value);
-            m_type->addToSchema(field_id, fidelity, getSchemaTypeId(storage_class));
-        } else {
-            auto index_vt_value = index_vt.xvalues()[index_vt_pos].m_value;
-            lofi_store<2>::fromValue(index_vt_value).set(field_id.getOffset(), value.m_store);
-            index_vt.set(index_vt_pos, storage_class, index_vt_value);
-            m_type->addToSchema(field_id, fidelity, getSchemaTypeId(storage_class, value));
-        }
+        // not found but the lookup may be continued in the kv-index
+        return true;
     }
     
     template <typename T, typename ImplT> std::pair<FieldInfo, const void *>
     ObjectImplBase<T, ImplT>::tryGetMemberSlot(const MemberID &member_id, unsigned int &pos) const
     {
+        std::pair<FieldInfo, const void *> result = { {}, nullptr };
         for (auto &field_info: member_id) {
-            auto [index, offset] = field_info.first.getIndexAndOffset();
-            // pos-vt lookup
-            if ((*this)->pos_vt().find(index, pos)) {
-                if (field_info.second == 0 || slotExists((*this)->pos_vt().values()[pos], field_info.second, offset)) {                    
-                    return { field_info, &(*this)->pos_vt() };
-                } else {
-                    continue;             
-                }
-            }
-            
-            // index-vt lookup
-            if ((*this)->index_vt().find(index, pos)) {
-                if (field_info.second == 0 || slotExists((*this)->index_vt().xvalues()[pos].m_value, field_info.second, offset)) {
-                    return { field_info, &(*this)->index_vt() };
-                } else {
-                    continue;
-                }
-            }
-            
-            // kv-index lookup
-            auto kv_index_ptr = tryGetKV_Index();
-            if (kv_index_ptr) {
-                XValue value(index);
-                if (kv_index_ptr->findOne(value)) {
-                    if (field_info.second == 0 || slotExists(value.m_value, field_info.second, offset)) {
-                        return { field_info, nullptr };
-                    }
-                }
+            // call the actual implementation
+            if (static_cast<const ImplT*>(this)->tryFindMemberSlot(field_info, pos, result)) {
+                break;
             }
         }
         
         // not found or deleted
-        return { {}, nullptr };  
+        return result;
     }
     
     template <typename T, typename ImplT>
@@ -503,43 +433,6 @@ namespace db0::object_model
         return { nullptr, 0 };
     }
     
-    template <typename T, typename ImplT>
-    void ObjectImplBase<T, ImplT>::setWithLoc(FixtureLock &fixture, FieldID field_id, const void *loc_ptr, unsigned int pos,
-        unsigned int fidelity, StorageClass storage_class, Value value)
-    {
-        if (loc_ptr == &(*this)->pos_vt()) {
-            setPosVT(fixture, field_id, pos, fidelity, storage_class, value);
-            return;
-        }
-        
-        if (loc_ptr == &(*this)->index_vt()) {
-            setIndexVT(fixture, field_id, pos, fidelity, storage_class, value);
-            return;
-        }
-        
-        // must be in the kv-index
-        assert(!loc_ptr);
-        setKVIndexValue(fixture, field_id, fidelity, storage_class, value);
-    }
-    
-    template <typename T, typename ImplT>
-    void ObjectImplBase<T, ImplT>::addWithLoc(FixtureLock &fixture, FieldID field_id, const void *loc_ptr, unsigned int pos,
-        unsigned int fidelity, StorageClass storage_class, Value value)
-    {
-        if (loc_ptr == &(*this)->pos_vt()) {
-            addToPosVT(fixture, field_id, pos, fidelity, storage_class, value);
-            return;
-        }
-
-        if (loc_ptr == &(*this)->index_vt()) {
-            addToIndexVT(fixture, field_id, pos, fidelity, storage_class, value);
-            return;
-        }
-
-        assert(!loc_ptr);
-        addToKVIndex(fixture, field_id, fidelity, storage_class, value);
-    }
-
     template <typename T, typename ImplT>
     std::pair<MemberID, bool> ObjectImplBase<T, ImplT>::findField(const char *name) const
     {
@@ -708,13 +601,14 @@ namespace db0::object_model
             return { false, false };
         }
     }
-
+    
     template <typename T, typename ImplT>
-    std::pair<bool, bool> ObjectImplBase<T, ImplT>::tryGetMemberAt(std::pair<FieldID, unsigned int> field_info,
-        std::pair<StorageClass, Value> &result) const
+    bool ObjectImplBase<T, ImplT>::tryFindMemberAt(std::pair<FieldID, unsigned int> field_info,
+        std::pair<StorageClass, Value> &result, std::pair<bool, bool> &find_result) const
     {
         if (!field_info.first) {
-            return { false, false };
+            find_result = { false, false };
+            return true;
         }
 
         auto loc = field_info.first.getIndexAndOffset();
@@ -722,9 +616,11 @@ namespace db0::object_model
             // try retrieving from initializer
             auto initializer_ptr = m_init_manager.findInitializer(*this);
             if (!initializer_ptr) {
-                return { false, false };
+                find_result = { false, false };
+                return true;
             }
-            return { initializer_ptr->tryGetAt(loc, result), false };
+            find_result = { initializer_ptr->tryGetAt(loc, result), false };
+            return true;
         }
         
         // retrieve from positionally encoded values
@@ -732,57 +628,50 @@ namespace db0::object_model
             // NOTE: removed field slots might be marked as DELETED            
             if (result.first == StorageClass::DELETED) {
                 // report as deleted
-                return { false, true };
+                find_result = { false, true };
+                return true;
             }
             
             if (field_info.second == 0) {
-                return { result.first != StorageClass::UNDEFINED, false };
+                find_result = { result.first != StorageClass::UNDEFINED, false };                
             } else {
-                return hasValueAt(result.second, field_info.second, loc.second);
+                find_result = hasValueAt(result.second, field_info.second, loc.second);                
             }
+            return true;
         }
         
         if ((*this)->index_vt().find(loc.first, result)) {
             if (result.first == StorageClass::DELETED) {
                 // report as deleted
-                return { false, true };
+                find_result = { false, true };
+                return true;
             }
             
             if (field_info.second == 0) {
-                return { result.first != StorageClass::UNDEFINED, false };
+                find_result = { result.first != StorageClass::UNDEFINED, false };
             } else {
-                return hasValueAt(result.second, field_info.second, loc.second);
+                find_result = hasValueAt(result.second, field_info.second, loc.second);
             }
+            return true;
         }
         
-        auto kv_index_ptr = tryGetKV_Index();
-        if (kv_index_ptr) {
-            XValue xvalue(loc.first);
-            if (kv_index_ptr->findOne(xvalue)) {
-                assert(xvalue.getIndex() == loc.first);
-                if (xvalue.m_type == StorageClass::DELETED) {
-                    // report as deleted
-                    return { false, true };
-                }
-
-                // member fetched from the kv_index
-                result.first = xvalue.m_type;
-                result.second = xvalue.m_value;
-
-                if (field_info.second == 0) {
-                    return { result.first != StorageClass::UNDEFINED, false };
-                } else {
-                    return hasValueAt(result.second, field_info.second, loc.second);
-                }
-            }
-        }
-        
-        // Does not exist, not explicitly removed
-        return { false, false };
+        return false;
     }
 
     template <typename T, typename ImplT>
-    db0::swine_ptr<Fixture> ObjectImplBase<T>::tryGetFixture() const
+    std::pair<bool, bool> ObjectImplBase<T, ImplT>::tryGetMemberAt(std::pair<FieldID, unsigned int> field_info,
+        std::pair<StorageClass, Value> &result) const
+    {
+        std::pair<bool, bool> find_result;
+        if (static_cast<const ImplT*>(this)->tryFindMemberAt(field_info, result, find_result)) {
+            return find_result;
+        }
+        // Does not exist, not explicitly removed
+        return { false, false };    
+    }
+    
+    template <typename T, typename ImplT>
+    db0::swine_ptr<Fixture> ObjectImplBase<T, ImplT>::tryGetFixture() const
     {
         if (!this->hasInstance()) {
             if (isDropped()) {
@@ -859,7 +748,8 @@ namespace db0::object_model
     {
         auto fixture = this->getFixture();
         assert(fixture);
-        ImplT::dropMembers(*fixture, class_ref);
+        // call the actual implementation
+        static_cast<const ImplT*>(this)->dropMembers(fixture, class_ref);
     }
     
     template <typename T, typename ImplT>
@@ -924,11 +814,19 @@ namespace db0::object_model
         }
         super_t::destroy();
     }
-
+    
     template <typename T, typename ImplT>
     FieldLayout ObjectImplBase<T, ImplT>::getFieldLayout() const
     {
         FieldLayout layout;
+        // call the actual implementation
+        static_cast<const ImplT*>(this)->getFieldLayoutImpl(layout);
+        return layout;
+    }
+    
+    template <typename T, typename ImplT>
+    void ObjectImplBase<T, ImplT>::getFieldLayoutImpl(FieldLayout &layout) const
+    {        
         // collect pos-vt information                
         for (auto type: (*this)->pos_vt().types()) {
             layout.m_pos_vt_fields.push_back(type);
@@ -938,17 +836,6 @@ namespace db0::object_model
         for (auto &xvalue: (*this)->index_vt().xvalues()) {
             layout.m_index_vt_fields.emplace_back(xvalue.getIndex(), xvalue.m_type);
         }
-
-        // collect kv-index information
-        auto kv_index_ptr = tryGetKV_Index();
-        if (kv_index_ptr) {
-            auto it = kv_index_ptr->beginJoin(1);
-            for (;!it.is_end(); ++it) {
-                layout.m_kv_index_fields.emplace_back((*it).getIndex(), (*it).m_type);
-            }
-        }
-
-        return layout;
     }
     
     template <typename T, typename ImplT>
@@ -974,11 +861,19 @@ namespace db0::object_model
             result.insert(this_type.getMember(FieldID::fromIndex(index)).m_name);
         }
     }
-    
+
     template <typename T, typename ImplT>
     std::unordered_set<std::string> ObjectImplBase<T, ImplT>::getMembers() const
     {
         std::unordered_set<std::string> result;
+        // call the actual implementation
+        static_cast<const ImplT*>(this)->getMembersImpl(result);
+        return result;
+    }
+    
+    template <typename T, typename ImplT>
+    void ObjectImplBase<T, ImplT>::getMembersImpl(std::unordered_set<std::string> &result) const
+    {
         // Visit pos-vt members first
         auto &obj_type = this->getType();
         {
@@ -998,22 +893,18 @@ namespace db0::object_model
                 auto index = xvalue.getIndex();
                 getMembersFrom(obj_type, index, xvalue.m_type, xvalue.m_value, result);
             }
-        }
-        
-        // Finally, visit kv-index members
-        auto kv_index_ptr = tryGetKV_Index();
-        if (kv_index_ptr) {
-            auto it = kv_index_ptr->beginJoin(1);
-            for (;!it.is_end(); ++it) {
-                auto index = (*it).getIndex();
-                getMembersFrom(obj_type, index, (*it).m_type, (*it).m_value, result);
-            }
-        }
-        return result;
+        }        
     }
-    
+
     template <typename T, typename ImplT>
     void ObjectImplBase<T, ImplT>::forAll(std::function<bool(const std::string &, const XValue &, unsigned int)> f) const
+    {
+        // call the actual implementation
+        static_cast<const ImplT*>(this)->forAllImpl(f);
+    }   
+    
+    template <typename T, typename ImplT>
+    bool ObjectImplBase<T, ImplT>::forAllImpl(std::function<bool(const std::string &, const XValue &, unsigned int)> f) const
     {
         // Visit pos-vt members first
         auto &obj_type = this->getType();
@@ -1030,11 +921,11 @@ namespace db0::object_model
                 if (*type == StorageClass::PACK_2) {
                     // iterate individual lo-fi members
                     if (!forAll({index, *type, *value}, f)) {
-                        return;
+                        return false;
                     }
                 } else {
                     if (!f(obj_type.getMember(FieldID::fromIndex(index)).m_name, { index, *type, *value }, 0)) {
-                        return;
+                        return false;
                     }
                 }
             }
@@ -1051,38 +942,19 @@ namespace db0::object_model
                 if (xvalue.m_type == StorageClass::PACK_2) {
                     // iterate individual lo-fi members
                     if (!forAll(xvalue, f)) {
-                        return;
+                        return false;
                     }
                 } else {
                     // regular member
                     if (!f(obj_type.getMember(FieldID::fromIndex(xvalue.getIndex())).m_name, xvalue, 0)) {
-                        return;
+                        return false;
                     }
                 }
             }
         }
         
-        // Finally, visit kv-index members
-        auto kv_index_ptr = tryGetKV_Index();
-        if (kv_index_ptr) {
-            auto it = kv_index_ptr->beginJoin(1);
-            for (;!it.is_end(); ++it) {
-                if ((*it).m_type == StorageClass::DELETED || (*it).m_type == StorageClass::UNDEFINED) {
-                    // skip deleted or undefined members
-                    continue;
-                }
-                if ((*it).m_type == StorageClass::PACK_2) {
-                    // iterate individual lo-fi members
-                    if (!forAll(*it, f)) {
-                        return;
-                    }
-                } else {
-                    if (!f(obj_type.getMember(FieldID::fromIndex((*it).getIndex())).m_name, *it, 0)) {
-                        return;
-                    }
-                }
-            }
-        }
+        // Continue with kv-index members if any
+        return true;
     }
 
     template <typename T, typename ImplT>
@@ -1154,6 +1026,7 @@ namespace db0::object_model
         return this->hasInstance() && (*this)->m_header.m_ref_counter.getFirst() > 0;
     }
 
+    /* FIXME: implement
     template <typename T, typename ImplT>
     bool ObjectImplBase<T, ImplT>::equalTo(const ObjectImplBase<T, ImplT> &other) const
     {
@@ -1205,6 +1078,7 @@ namespace db0::object_model
         });
         return result;
     }
+    */
 
     template <typename T, typename ImplT>
     void ObjectImplBase<T, ImplT>::moveTo(db0::swine_ptr<Fixture> &) {
@@ -1345,5 +1219,5 @@ namespace db0::object_model
         assert(m_ext_refs > 0);
         --m_ext_refs;
     }
-    
+       
 }

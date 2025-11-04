@@ -671,7 +671,7 @@ namespace db0::python
     
     PyObject *MemoObject_GetFieldLayout(MemoObject *self)
     {        
-        auto field_layout = self->ext().getFieldLayout();        
+        auto field_layout = self->ext().getFieldLayout();
         auto &pos_vt = field_layout.m_pos_vt_fields;
         auto &index_vt = field_layout.m_index_vt_fields;
         
