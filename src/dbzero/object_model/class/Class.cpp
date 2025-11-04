@@ -289,16 +289,7 @@ namespace db0::object_model
     bool Class::isExistingSingleton() const {
         return isSingleton() && (*this)->m_singleton_address.isValid();
     }
-    
-    void Class::setSingletonAddress(Object &object)
-    {
-        assert(!(*this)->m_singleton_address.isValid());
-        assert(isSingleton());
-        // increment reference count in order to prevent singleton object from being destroyed
-        object.incRef(false);
-        modify().m_singleton_address = object.getUniqueAddress();
-    }
-    
+        
     void Class::onMemberIDUpdated(const MemberID &member_id) const
     {        
         if (member_id.hasFidelity(PRIMARY_FIDELITY) && member_id.size() > 1) {

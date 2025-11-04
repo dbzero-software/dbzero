@@ -63,15 +63,15 @@ namespace db0::object_model
         
         // Construct as null / dropped object
         ObjectImplBase(UniqueAddress, unsigned int ext_refs);
-        ObjectImplBase(const Object &) = delete;
-        ObjectImplBase(Object &&) = delete;
+        ObjectImplBase(const ObjectImplBase<T> &) = delete;
+        ObjectImplBase(ObjectImplBase<T> &&) = delete;
 
         /**
          * Construct new Object (uninitialized, without corresponding dbzero instance yet)          
         */
         ObjectImplBase(std::shared_ptr<Class>);
         ObjectImplBase(TypeInitializer &&);
-
+        
         // Unload from address with a known type (possibly a base type)
         // NOTE: unload works faster if type_hint is the exact object's type
         struct with_type_hint {};
@@ -171,7 +171,7 @@ namespace db0::object_model
         // Binary (shallow) compare 2 objects or 2 versions of the same memo object (e.g. from different snapshots)
         // NOTE: ref-counts are not compared (only user-assigned members)
         // @return true if objects are identical
-        bool equalTo(const Object &) const;
+        bool equalTo(const ObjectImplBase<T> &) const;
         
         /**
          * Move unreferenced object to a different prefix without changing the instance

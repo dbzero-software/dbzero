@@ -5,48 +5,7 @@
 namespace db0::object_model
 
 {
-
-    ObjectInitializer::ObjectInitializer(ObjectInitializerManager &manager, std::uint32_t loc, 
-        Object &object, std::shared_ptr<Class> db0_class)
-        : m_manager(manager)
-        , m_loc(loc)
-        , m_closed(false)
-        , m_object_ptr(&object)
-        , m_class(db0_class)
-        // NOTE: limit the dim-2 size to improve performance
-        , m_has_value(lofi_store<2>::size())
-    {        
-    }
-    
-    ObjectInitializer::ObjectInitializer(ObjectInitializerManager &manager, std::uint32_t loc, Object &object,
-        TypeInitializer &&type_initializer)
-        : m_manager(manager)
-        , m_loc(loc)
-        , m_closed(false)
-        , m_object_ptr(&object)
-        // NOTE: limit the dim-2 size to improve performance
-        , m_has_value(lofi_store<2>::size())
-        , m_type_initializer(std::move(type_initializer))
-    {        
-    }
-    
-    void ObjectInitializer::init(Object &object, std::shared_ptr<Class> db0_class)
-    {
-        assert(m_closed);        
-        m_closed = false;
-        m_object_ptr = &object;
-        m_class = db0_class;
-    }
-    
-    void ObjectInitializer::init(Object &object, TypeInitializer &&type_initializer)
-    {
-        assert(m_closed);
-        assert(!m_class);
-        m_closed = false;
-        m_object_ptr = &object;
-        m_type_initializer = std::move(type_initializer);
-    }
-
+        
     void ObjectInitializer::close() {
         m_manager.closeAt(m_loc);
     }
@@ -223,43 +182,6 @@ namespace db0::object_model
         return true;
     }
     
-    std::shared_ptr<Class> ObjectInitializerManager::tryCloseInitializer(const Object &object)
-    {        
-        for (auto i = 0u; i < m_active_count; ++i) {
-            if (m_initializers[i]->operator==(object)) {
-                auto result = m_initializers[i]->getClassPtr();
-                closeAt(i);
-                return result;
-            }
-        }
-        return nullptr;
-    }
-    
-    std::shared_ptr<Class> ObjectInitializerManager::closeInitializer(const Object &object)
-    {
-        auto result = tryCloseInitializer(object);
-        if (result) {
-            return result;
-        }
-        THROWF(db0::InternalException) << "Initializer not found" << THROWF_END;
-    }
-    
-    ObjectInitializer *ObjectInitializerManager::findInitializer(const Object &object) const
-    {
-        for (auto i = 0u; i < m_active_count; ++i) {
-            if (m_initializers[i]->operator==(object)) {
-                // move to front to allow faster lookup the next time
-                if (i != 0) {
-                    std::swap(m_initializers[i], m_initializers[0]);
-                    *(m_initializers[i]) = i;
-                    *(m_initializers[0]) = 0;
-                }
-                return m_initializers[0].get();
-            }
-        }
-        return nullptr;   
-    }
-    
     void ObjectInitializerManager::closeAt(std::uint32_t loc)
     {
         auto result = m_initializers[loc]->getClassPtr();
@@ -270,5 +192,5 @@ namespace db0::object_model
         *(m_initializers[m_active_count - 1]) = m_active_count - 1;
         --m_active_count;        
     }
-
+    
 }
