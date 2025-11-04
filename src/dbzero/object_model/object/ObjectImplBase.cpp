@@ -158,6 +158,7 @@ namespace db0::object_model
             // construct the dbzero instance & assign to self
             m_type = initializer.getClassPtr();
             assert(m_type);
+            
             super_t::init(*fixture, m_type->getClassRef(), initializer.getRefCounts(),
                 safeCast<std::uint8_t>(m_type->getNumBases() + 1, "Too many base classes"), 
                 pos_vt_data, pos_vt_offset, index_vt_data.first, index_vt_data.second,
@@ -176,7 +177,7 @@ namespace db0::object_model
             initializer.close();            
         }
         
-        assert(hasInstance());
+        assert(this->hasInstance());
     }
     
     template <typename T, typename ImplT>
@@ -239,7 +240,7 @@ namespace db0::object_model
     template <typename T, typename ImplT>
     void ObjectImplBase<T, ImplT>::setPreInit(const char *field_name, ObjectPtr obj_ptr) const
     {
-        assert(!hasInstance());
+        assert(!this->hasInstance());
         if (!LangToolkit::isValid(obj_ptr)) {
             removePreInit(field_name);
             return;
@@ -382,38 +383,38 @@ namespace db0::object_model
         if ((*this)->pos_vt().find(index, pos)) {
             if (field_info.second == 0 || slotExists((*this)->pos_vt().values()[pos], field_info.second, offset)) {                    
                 result = { field_info, &(*this)->pos_vt() };
-                return true;
-            } else {
-                return false;
             }
+            return true;
         }
         
         // index-vt lookup
         if ((*this)->index_vt().find(index, pos)) {
             if (field_info.second == 0 || slotExists((*this)->index_vt().xvalues()[pos].m_value, field_info.second, offset)) {
                 result = { field_info, &(*this)->index_vt() };
-                return true;
-            } else {
-                return false;
             }
+            return true;
+        
         }
         // not found but the lookup may be continued in the kv-index
-        return true;
+        return false;
     }
     
     template <typename T, typename ImplT> std::pair<FieldInfo, const void *>
     ObjectImplBase<T, ImplT>::tryGetMemberSlot(const MemberID &member_id, unsigned int &pos) const
     {
-        std::pair<FieldInfo, const void *> result = { {}, nullptr };
+        std::pair<FieldInfo, const void *> result;
         for (auto &field_info: member_id) {
             // call the actual implementation
             if (static_cast<const ImplT*>(this)->tryFindMemberSlot(field_info, pos, result)) {
-                break;
+                // otherwise continue since member might've been deleted and reassigned to a different slot
+                if (result.first.first) {
+                    return result;
+                }
             }
         }
         
         // not found or deleted
-        return result;
+        return { {}, nullptr };
     }
     
     template <typename T, typename ImplT>
@@ -711,7 +712,7 @@ namespace db0::object_model
     {
         assert(!m_type);
         assert(type_hint);
-        assert(hasInstance());
+        assert(this->hasInstance());
         if (type_hint->getClassRef() == (*this)->getClassRef()) {
             m_type = type_hint;
         } else {
@@ -1012,7 +1013,7 @@ namespace db0::object_model
     template <typename T, typename ImplT>
     bool ObjectImplBase<T, ImplT>::hasRefs() const
     {
-        assert(hasInstance());
+        assert(this->hasInstance());
         return (*this)->hasRefs();
     }
     
@@ -1026,9 +1027,8 @@ namespace db0::object_model
         return this->hasInstance() && (*this)->m_header.m_ref_counter.getFirst() > 0;
     }
 
-    /* FIXME: implement
     template <typename T, typename ImplT>
-    bool ObjectImplBase<T, ImplT>::equalTo(const ObjectImplBase<T, ImplT> &other) const
+    bool ObjectImplBase<T, ImplT>::tryEqualToImpl(const ObjectImplBase<T, ImplT> &other, bool &result) const
     {
         if (!this->hasInstance() || !other.hasInstance()) {
             THROWF(db0::InputException) << "Object not initialized";
@@ -1042,7 +1042,8 @@ namespace db0::object_model
 
         if ((*this)->getClassRef() != other->getClassRef()) {
             // different types
-            return false;
+            result = false;
+            return true;
         }
 
         if (this->getFixture()->getUUID() == other.getFixture()->getUUID() 
@@ -1050,19 +1051,28 @@ namespace db0::object_model
         {
             // comparing 2 versions of the same object (fastest)
             if (!((*this)->pos_vt() == other->pos_vt())) {
-                return false;
-            }
-            if (!((*this)->index_vt() == other->index_vt())) {
-                return false;
-            }
-            if (!hasKV_Index() && !other.hasKV_Index()) {
+                result = false;
                 return true;
             }
-            return isEqual(this->tryGetKV_Index(), other.tryGetKV_Index());
+            if (!((*this)->index_vt() == other->index_vt())) {
+                result = false;
+                return true;
+            }
+        }
+        // unable to determine
+        return false;
+    }
+    
+    template <typename T, typename ImplT>
+    bool ObjectImplBase<T, ImplT>::equalTo(const ObjectImplBase<T, ImplT> &other) const
+    {
+        bool result;
+        if (static_cast<const ImplT*>(this)->tryEqualToImpl(other, result)) {
+            return result;
         }
         
         // field-wise compare otherwise (slower)
-        bool result = true;
+        result = true;
         this->forAll([&](const std::string &name, const XValue &xvalue, unsigned int offset) -> bool {
             auto maybe_other_value = other.tryGetX(name.c_str());
             if (!maybe_other_value) {
@@ -1077,9 +1087,8 @@ namespace db0::object_model
             return true;
         });
         return result;
-    }
-    */
-
+    }    
+    
     template <typename T, typename ImplT>
     void ObjectImplBase<T, ImplT>::moveTo(db0::swine_ptr<Fixture> &) {
         throw std::runtime_error("Not implemented");

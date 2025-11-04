@@ -50,37 +50,60 @@ namespace db0::object_model
         }        
     }
     
+    bool Object::tryEqualToImpl(const ObjectImplBase<o_object, Object> &other, bool &result) const
+    {
+        if (super_t::tryEqualToImpl(other, result)) {
+            return true;
+        }
+
+        if (this->getFixture()->getUUID() == other.getFixture()->getUUID() 
+            && this->getUniqueAddress() == other.getUniqueAddress()) 
+        {
+            auto &other_obj = static_cast<const Object&>(other);
+            if (!hasKV_Index() && !other_obj.hasKV_Index()) {
+                result = true;
+                return true;
+            }
+            result = isEqual(this->tryGetKV_Index(), other_obj.tryGetKV_Index());
+            return true;
+        }
+        
+        return false;
+    }
+    
     bool Object::tryFindMemberAt(std::pair<FieldID, unsigned int> field_info, std::pair<StorageClass, Value> &result,
         std::pair<bool, bool> &find_result) const
     {
-        if (!super_t::tryFindMemberAt(field_info, result, find_result)) {
-            auto kv_index_ptr = tryGetKV_Index();
-            if (kv_index_ptr) {
-                auto loc = field_info.first.getIndexAndOffset();
-                XValue xvalue(loc.first);
-                if (kv_index_ptr->findOne(xvalue)) {
-                    assert(xvalue.getIndex() == loc.first);
-                    if (xvalue.m_type == StorageClass::DELETED) {
-                        // report as deleted
-                        find_result = { false, true };
-                        return true;
-                    }
+        if (super_t::tryFindMemberAt(field_info, result, find_result)) {
+            return true;
+        }
 
-                    // member fetched from the kv_index
-                    result.first = xvalue.m_type;
-                    result.second = xvalue.m_value;
+        auto kv_index_ptr = tryGetKV_Index();
+        if (kv_index_ptr) {
+            auto loc = field_info.first.getIndexAndOffset();
+            XValue xvalue(loc.first);
+            if (kv_index_ptr->findOne(xvalue)) {
+                assert(xvalue.getIndex() == loc.first);
+                if (xvalue.m_type == StorageClass::DELETED) {
+                    // report as deleted
+                    find_result = { false, true };
+                    return true;
+                }
 
-                    if (field_info.second == 0) {
-                        find_result = { result.first != StorageClass::UNDEFINED, false };
-                        return true;
-                    } else {
-                        find_result = hasValueAt(result.second, field_info.second, loc.second);
-                        return true;
-                    }
+                // member fetched from the kv_index
+                result.first = xvalue.m_type;
+                result.second = xvalue.m_value;
+
+                if (field_info.second == 0) {
+                    find_result = { result.first != StorageClass::UNDEFINED, false };
+                    return true;
+                } else {
+                    find_result = hasValueAt(result.second, field_info.second, loc.second);
+                    return true;
                 }
             }
         }
-                
+        
         return false;
     }
 
@@ -111,7 +134,7 @@ namespace db0::object_model
         unsigned int old_pos = 0;
         const void *old_loc_ptr = nullptr;
         if (member_id) {
-            std::tie(old_field_info, old_loc_ptr) = super_t::tryGetMemberSlot(member_id, old_pos);
+            std::tie(old_field_info, old_loc_ptr) = tryGetMemberSlot(member_id, old_pos);
         }
         
         if (!member_id || !(field_id = member_id.tryGet(storage_fidelity))) {
@@ -128,7 +151,7 @@ namespace db0::object_model
         );
         // make sure object address is not null
         assert(!(storage_class == StorageClass::OBJECT_REF && value.cast<std::uint64_t>() == 0));
-                
+        
         if (field_id == old_field_info.first) {
             // Set / update value at the existing location
             setWithLoc(fixture, field_id, old_loc_ptr, old_pos, storage_fidelity, storage_class, value);
@@ -341,9 +364,10 @@ namespace db0::object_model
     bool Object::tryUnrefWithLoc(FixtureLock &fixture, FieldID field_id, const void *loc_ptr, unsigned int pos,
         StorageClass storage_class, unsigned int fidelity)
     {
-        if (!super_t::tryUnrefWithLoc(fixture, field_id, loc_ptr, pos, storage_class, fidelity)) {
-            unrefKVIndexValue(fixture, field_id, storage_class, fidelity);
+        if (super_t::tryUnrefWithLoc(fixture, field_id, loc_ptr, pos, storage_class, fidelity)) {
+            return true;
         }
+        unrefKVIndexValue(fixture, field_id, storage_class, fidelity);
         return true;
     }
     
@@ -399,21 +423,24 @@ namespace db0::object_model
     bool Object::tryFindMemberSlot(const std::pair<FieldID, unsigned int> &field_info, unsigned int &pos,
         std::pair<FieldInfo, const void *> &result) const
     {
-        if (!super_t::tryFindMemberSlot(field_info, pos, result)) {
-            // kv-index lookup
-            auto kv_index_ptr = tryGetKV_Index();
-            if (kv_index_ptr) {
-                auto [index, offset] = field_info.first.getIndexAndOffset();
-                XValue value(index);
-                if (kv_index_ptr->findOne(value)) {
-                    if (field_info.second == 0 || slotExists(value.m_value, field_info.second, offset)) {
-                        result = { field_info, nullptr };
-                        return true;
-                    }
+        if (super_t::tryFindMemberSlot(field_info, pos, result)) {
+            return true;
+        }
+
+        // kv-index lookup
+        auto kv_index_ptr = tryGetKV_Index();
+        if (kv_index_ptr) {
+            auto [index, offset] = field_info.first.getIndexAndOffset();
+            XValue value(index);
+            if (kv_index_ptr->findOne(value)) {
+                if (field_info.second == 0 || slotExists(value.m_value, field_info.second, offset)) {
+                    result = { field_info, nullptr };
                 }
+                return true;                
             }
         }
 
+        // not found or deleted
         return false;
     }
 

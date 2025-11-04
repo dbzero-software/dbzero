@@ -107,7 +107,7 @@ namespace db0::object_model
         
         // Called to finalize adding members
         void endInit();
-                
+           
         // Assign field of an uninitialized instance (assumed as a non-mutating operation)
         // NOTE: if lang_value is nullptr then the member is removed
         void setPreInit(const char *field_name, ObjectPtr lang_value) const;
@@ -251,6 +251,7 @@ namespace db0::object_model
         
         void getFieldLayoutImpl(FieldLayout &) const;
         void getMembersImpl(std::unordered_set<std::string> &) const;
+        bool tryEqualToImpl(const ObjectImplBase<T, ImplT> &, bool &result) const;
         
         // Try retrieving member either from values (initialized) or from the initialization buffer (not initialized yet)
         // @return member exists, member deleted flags
@@ -289,7 +290,8 @@ namespace db0::object_model
         std::shared_ptr<Class> unloadType() const;
         
         // Retrieve a type by class-ref with a possible match (type_hint)
-        static std::shared_ptr<Class> getTypeWithHint(const Fixture &, std::uint32_t class_ref, std::shared_ptr<Class> type_hint);
+        static std::shared_ptr<Class> getTypeWithHint(const Fixture &, std::uint32_t class_ref, 
+            std::shared_ptr<Class> type_hint);
         
         bool hasValidClassRef() const;
         

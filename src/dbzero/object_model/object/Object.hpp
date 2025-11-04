@@ -34,6 +34,7 @@ namespace db0::object_model
         
         void getFieldLayoutImpl(FieldLayout &layout) const;
         void getMembersImpl(std::unordered_set<std::string> &) const;
+        bool tryEqualToImpl(const ObjectImplBase<o_object, Object> &, bool &result) const;
         
         // Set or update member in a pos_vt
         void setPosVT(FixtureLock &, FieldID, unsigned int pos, unsigned int fidelity, StorageClass, Value);
