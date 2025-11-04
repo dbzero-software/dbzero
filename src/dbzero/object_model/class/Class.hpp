@@ -30,13 +30,14 @@ namespace db0
         SINGLETON = 0x0001,
         // instances of this type opted out of auto-assigned type tags
         NO_DEFAULT_TAGS = 0x0002,
+        IMMUTABLE = 0x0004
     };
 
     using ClassFlags = db0::FlagSet<ClassOptions>;
 
 }
 
-DECLARE_ENUM_VALUES(db0::ClassOptions, 2)
+DECLARE_ENUM_VALUES(db0::ClassOptions, 3)
 
 namespace db0::object_model
 
@@ -82,7 +83,7 @@ DB0_PACKED_BEGIN
         );
     };    
 DB0_PACKED_END
-
+    
     // address <-> class_ref conversion functions
     // @param type_slot_addr_range the address of the types-specific slot
     std::uint32_t classRef(const Class &, std::pair<std::uint64_t, std::uint64_t> type_slot_addr_range);

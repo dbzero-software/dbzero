@@ -3,28 +3,22 @@
 #include <dbzero/core/compiler_attributes.hpp>
 #include <dbzero/object_model/object_header.hpp>
 #include "ValueTable.hpp"
-#include "ObjectInitializer.hpp"
 #include <dbzero/core/vspace/v_object.hpp>
-#include "KV_Index.hpp"
 
 namespace db0::object_model
 
 {
 
 DB0_PACKED_BEGIN
-    class DB0_PACKED_ATTR o_object: public db0::o_base<o_object, 0, false>
+    class DB0_PACKED_ATTR o_immutable_object: public db0::o_base<o_immutable_object, 0, false>
     {
     protected:
-        using super_t = db0::o_base<o_object, 0, false>;
+        using super_t = db0::o_base<o_immutable_object, 0, false>;
 
     public:
         static constexpr unsigned char REALM_ID = 1;
         // common object header
         o_unique_header m_header;        
-        // optional address of the key-value store (to store extension fields)
-        KV_Address m_kv_address;
-        // kv-index type must be stored separately from the address
-        bindex::type m_kv_type;
         // number of auto-assigned type tags
         std::uint8_t m_num_type_tags = 0;
         
@@ -39,7 +33,7 @@ DB0_PACKED_BEGIN
         IndexVT &index_vt();
 
         // ref_counts - the initial reference counts (tags / objects) inherited from the initializer
-        o_object(std::uint32_t class_ref, std::pair<std::uint32_t, std::uint32_t> ref_counts, std::uint8_t num_type_tags, 
+        o_immutable_object(std::uint32_t class_ref, std::pair<std::uint32_t, std::uint32_t> ref_counts, std::uint8_t num_type_tags, 
             const PosVT::Data &pos_vt_data, unsigned int pos_vt_offset, const XValue *index_vt_begin = nullptr, 
             const XValue *index_vt_end = nullptr);
         
@@ -53,12 +47,12 @@ DB0_PACKED_BEGIN
                 (PosVT::type())
                 (packed_int32::type())            
                 (IndexVT::type());
-        }     
+        }
         
         void incRef(bool is_tag);
         bool hasRefs() const;
         bool hasAnyRefs() const;
-    };    
+    };
 DB0_PACKED_END
     
 }

@@ -196,6 +196,8 @@ namespace db0::python
         // check if a memo type is marked with no_default_tags flag
         static bool isNoDefaultTags(TypeObjectPtr);
         static bool isNoCache(TypeObjectPtr);
+        // type marked as immutable
+        static bool isImmutable(TypeObjectPtr);
         static FlagSet<MemoOptions> getMemoFlags(TypeObjectPtr);
         
         inline static void incRef(ObjectPtr py_object) {

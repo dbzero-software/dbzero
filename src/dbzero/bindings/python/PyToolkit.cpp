@@ -555,8 +555,17 @@ namespace db0::python
         } else {
             return false;
         }
-    }    
+    }
     
+    bool PyToolkit::isImmutable(TypeObjectPtr py_type)
+    {
+        if (isMemoType(py_type)) {
+            return MemoTypeDecoration::get(py_type).getFlags()[MemoOptions::IMMUTABLE];
+        } else {
+            return false;
+        }
+    }
+
     FlagSet<MemoOptions> PyToolkit::getMemoFlags(TypeObjectPtr py_type)
     {
         if (isMemoType(py_type)) {
