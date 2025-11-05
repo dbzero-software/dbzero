@@ -94,6 +94,8 @@ namespace db0::python
         */
         const Object &extractObject(ObjectPtr memo_ptr) const;
         Object &extractMutableObject(ObjectPtr memo_ptr) const;
+        ObjectImmutableImpl &extractImmutableObject(ObjectPtr memo_ptr) const;
+        
         const Object *tryExtractObject(ObjectPtr memo_ptr) const;
         Object *tryExtractMutableObject(ObjectPtr memo_ptr) const;
         const List &extractList(ObjectPtr list_ptr) const;

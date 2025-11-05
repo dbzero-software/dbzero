@@ -171,8 +171,9 @@ namespace db0::python
         static bool isIterable(ObjectPtr py_object);
         static bool isSequence(ObjectPtr py_object);
         static bool isType(ObjectPtr py_object);
-        static bool isMemoType(TypeObjectPtr py_type);
-        static bool isMemoObject(ObjectPtr py_object);
+        // either memo or immutable type
+        static bool isAnyMemoType(TypeObjectPtr py_type);
+        static bool isAnyMemoObject(ObjectPtr py_object);
         static bool isEnumValue(ObjectPtr py_object);
         static bool isFieldDef(ObjectPtr py_object);
         static bool isClassObject(ObjectPtr py_object);

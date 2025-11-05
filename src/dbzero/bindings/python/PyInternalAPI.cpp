@@ -238,7 +238,8 @@ namespace db0::python
 
     PyObject *fetchSingletonObject(db0::Snapshot &snapshot, PyTypeObject *py_type, const char *prefix_name)
     {
-        if (!PyMemoType_Check(py_type)) {
+        // NOTE: singletons only supported for MemoObject types
+        if (!PyMemoType_Check<MemoObject>(py_type)) {
             THROWF(db0::InternalException) << "Memo type expected for: " << py_type->tp_name << THROWF_END;
         }
         
@@ -257,7 +258,8 @@ namespace db0::python
     
     bool isExistingSingleton(db0::Snapshot &snapshot, PyTypeObject *py_type, const char *prefix_name)
     {
-        if (!PyMemoType_Check(py_type)) {
+        // NOTE: singletons only supported for MemoObject types
+        if (!PyMemoType_Check<MemoObject>(py_type)) {
             return false;
         }
         
@@ -276,14 +278,13 @@ namespace db0::python
         }
         return isExistingSingleton(fixture, py_type);
     }
-    
-    
+        
     void renameMemoClassField(PyTypeObject *py_type, const char *from_name, const char *to_name)
     {        
         using ClassFactory = db0::object_model::ClassFactory;
         auto fixture_uuid = MemoTypeDecoration::get(py_type).getFixtureUUID();
 
-        assert(PyMemoType_Check(py_type));
+        assert(PyAnyMemoType_Check(py_type));
         assert(from_name);
         assert(to_name);
         
@@ -293,9 +294,8 @@ namespace db0::python
         auto type = class_factory.getExistingType(py_type);
         type->renameField(from_name, to_name);
     }
-
     
-#ifndef NDEBUG    
+#ifndef NDEBUG
     
     PyObject *writeBytes(PyObject *self, PyObject *args)
     {

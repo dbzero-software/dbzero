@@ -97,12 +97,12 @@ namespace db0::python
     };
     
     PyObjectTagManager *tryMakeObjectTagManager(PyObject *, PyObject *const *args, Py_ssize_t nargs)
-    {        
-        // all arguments must be Memo objects        
+    {
+        // all arguments must be Memo objects
         for (Py_ssize_t i = 0; i < nargs; ++i) {
-            if (!PyMemo_Check(args[i])) {
-                THROWF(db0::InputException) << "All arguments must be memo objects";
-            }            
+            if (!PyAnyMemo_Check(args[i])) {
+                THROWF(db0::InputException) << "All arguments must be dbzero memo objects";
+            }
         }
         
         auto tags_obj = Py_OWN(PyObjectTagManager_new(&PyObjectTagManagerType, NULL, NULL));        

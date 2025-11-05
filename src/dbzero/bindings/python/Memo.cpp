@@ -197,7 +197,8 @@ namespace db0::python
         return PyType_GenericAlloc(self, nitems);
     }
     
-    void MemoObject_del(MemoObject* memo_obj)
+    template <typename MemoImplT>
+    void MemoObject_del(MemoImplT *memo_obj)
     {
         PY_API_FUNC
         // destroy associated db0 Object instance
@@ -205,8 +206,9 @@ namespace db0::python
         Py_TYPE(memo_obj)->tp_free((PyObject*)memo_obj);
     }
     
-    int PyAPI_MemoObject_init(MemoObject* self, PyObject* args, PyObject* kwds)
-    {        
+    template <typename MemoImplT>
+    int PyAPI_MemoObject_init(MemoImplT *self, PyObject* args, PyObject* kwds)
+    {
         using Class = db0::object_model::Class;
         using TagIndex = db0::object_model::TagIndex;
 
@@ -329,7 +331,12 @@ namespace db0::python
         return runSafe(tryMemoObject_getattro, self, attr);
     }
     
-    int PyAPI_MemoObject_setattro(MemoObject *self, PyObject *attr, PyObject *value)
+    template <typename MemoImplT>
+    int PyAPI_MemoObject_setattro(MemoImplT *self, PyObject *attr, PyObject *value);
+
+    // regular memo object specialization
+    template <>
+    int PyAPI_MemoObject_setattro<MemoObject>(MemoObject *self, PyObject *attr, PyObject *value)
     {
         PY_API_FUNC
         // assign value to a dbzero attribute
@@ -357,7 +364,38 @@ namespace db0::python
         
         return 0;
     }
-    
+
+    // immutable memo object specialization
+    template <>
+    int PyAPI_MemoObject_setattro<MemoImmutableObject>(MemoImmutableObject *self, PyObject *attr, PyObject *value)
+    {
+        PY_API_FUNC
+        // assign value to a dbzero attribute
+        try {
+            // must materialize the object before setting as an attribute
+            if (value && !db0::object_model::isMaterialized(value)) {
+                db0::FixtureLock lock(self->ext().getFixture());
+                db0::object_model::materialize(lock, value);
+            }
+            
+            if (self->ext().hasInstance()) {
+                PyErr_SetString(PyExc_AttributeError, "Cannot modify an immutable memo object");
+                return -1;
+            } else {
+                // considered as a non-mutating operation
+                self->ext().setPreInit(PyUnicode_AsUTF8(attr), value);
+            }
+        } catch (const std::exception &e) {
+            PyErr_SetString(PyExc_AttributeError, e.what());
+            return -1;
+        } catch (...) {            
+            PyErr_SetString(PyExc_AttributeError, "Unknown exception");
+            return -1;
+        }      
+        
+        return 0;
+    }
+
     bool isSame(MemoObject *lhs, MemoObject *rhs) {
         return lhs->ext() == rhs->ext();
     }
@@ -432,22 +470,23 @@ namespace db0::python
     // Regular memo slots
     static PyType_Slot MemoObject_common_slots[] = {
         {Py_tp_new, (void *)PyAPI_MemoObject_new<MemoObject>},
-        {Py_tp_dealloc, (void *)MemoObject_del},
-        {Py_tp_init, (void *)PyAPI_MemoObject_init},
+        {Py_tp_dealloc, (void *)MemoObject_del<MemoObject>},
+        {Py_tp_init, (void *)PyAPI_MemoObject_init<MemoObject>},
         {Py_tp_getattro, (void *)PyAPI_MemoObject_getattro},
-        {Py_tp_setattro, (void *)PyAPI_MemoObject_setattro},
+        {Py_tp_setattro, (void *)PyAPI_MemoObject_setattro<MemoObject>},
         {Py_tp_richcompare, (void *)PyAPI_MemoObject_rq},
         {Py_tp_hash, (void *)PyAPI_MemoHash},        
         {0, 0}
     };
-
+    
     // Immutable memo slots
     static PyType_Slot MemoImmutableObject_common_slots[] = {
         {Py_tp_new, (void *)PyAPI_MemoObject_new<MemoImmutableObject>},
-        {Py_tp_dealloc, (void *)MemoObject_del},
-        {Py_tp_init, (void *)PyAPI_MemoObject_init},
+        {Py_tp_dealloc, (void *)MemoObject_del<MemoImmutableObject>},
+        {Py_tp_init, (void *)PyAPI_MemoObject_init<MemoImmutableObject>},
         {Py_tp_getattro, (void *)PyAPI_MemoObject_getattro},
-        {Py_tp_setattro, (void *)PyAPI_MemoObject_setattro},
+        // set available only on pre-initialized objects
+        {Py_tp_setattro, (void *)PyAPI_MemoObject_setattro<MemoImmutableObject>},
         {Py_tp_richcompare, (void *)PyAPI_MemoObject_rq},
         {Py_tp_hash, (void *)PyAPI_MemoHash},        
         {0, 0}
@@ -939,6 +978,13 @@ namespace db0::python
 
         PY_API_FUNC
         return runSafe(tryGetSchema, reinterpret_cast<PyTypeObject*>(args[0]));
+    }
+
+    bool PyMemoType_Check(PyTypeObject *type)
+    {
+        assert(type);
+        return type->tp_dealloc == reinterpret_cast<destructor>(MemoObject_del<MemoObject>) ||
+               type->tp_dealloc == reinterpret_cast<destructor>(MemoObject_del<MemoImmutableObject>);
     }
 
 }

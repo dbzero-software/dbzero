@@ -8,16 +8,10 @@ namespace db0::python
 
 {
 
-    bool PyMemo_Check(PyObject *obj)
+    bool PyAnyMemo_Check(PyObject *obj)
     {
         auto py_type = Py_TYPE(obj);
-        return py_type && PyMemoType_Check(py_type);
-    }
-    
-    bool PyMemoType_Check(PyTypeObject *type)
-    {
-        assert(type);
-        return type->tp_dealloc == reinterpret_cast<destructor>(MemoObject_del);
+        return py_type && PyAnyMemoType_Check(py_type);
     }
     
     MemoTypeDecoration::MemoTypeDecoration(MemoTypeDecoration &&other)
@@ -145,7 +139,7 @@ namespace db0::python
     
     MemoTypeDecoration &MemoTypeDecoration::get(PyTypeObject *type)
     {
-        assert(PyMemoType_Check(type) && "Invalid type (expected memo type)");
+        assert(PyAnyMemoType_Check(type) && "Invalid type (expected memo type)");
         return PyToolkit::getTypeManager().getMemoTypeDecoration(type);
     }
     

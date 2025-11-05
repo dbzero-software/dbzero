@@ -8,21 +8,32 @@ namespace db0::python
 
 {
     
+    template <typename MemoImplT>
     struct PyWeakProxy
     {
         PyObject_HEAD
         PyObject* m_py_object;
         
         // get the underlying memo object
-        MemoObject *get() const;
+        MemoImplT *get() const;
     };
     
     extern PyTypeObject PyWeakProxyType;
+    // a weak proxy to immutable memo object
+    extern PyTypeObject PyWeakProxyImmutableType;
     
-    void PyAPI_PyWeakProxy_del(PyWeakProxy *self);
+    bool PyAnyWeakProxy_Check(PyObject *);
+    
+    template <typename MemoImplT>
     bool PyWeakProxy_Check(PyObject *obj);
 
     PyObject *tryWeakProxy(PyObject *);
     PyObject *tryExpired(PyObject *);
+
+    extern template struct PyWeakProxy<MemoObject>;
+    extern template struct PyWeakProxy<MemoImmutableObject>;
+
+    extern template bool PyWeakProxy_Check<MemoObject>(PyObject *);
+    extern template bool PyWeakProxy_Check<MemoImmutableObject>(PyObject *);
     
 }

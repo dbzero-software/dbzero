@@ -69,7 +69,7 @@ namespace db0::python
         if (result == "__main__") {
             // for Memo types we can determine the actual module name from the file name
             // (if stored with the type decoration)
-            if (PyMemoType_Check(py_type)) {
+            if (PyAnyMemoType_Check(py_type)) {
                 // file name may not be available in the type decoration
                 auto file_name = MemoTypeDecoration::get(py_type).tryGetFileName();
                 if (file_name) {
@@ -472,8 +472,8 @@ namespace db0::python
         return PyType_Check(py_object);
     }
 
-    bool PyToolkit::isMemoObject(ObjectPtr py_object) {
-        return PyMemo_Check(py_object);
+    bool PyToolkit::isAnyMemoObject(ObjectPtr py_object) {
+        return PyAnyMemo_Check(py_object);
     }
 
     PyToolkit::ObjectPtr PyToolkit::getUUID(ObjectPtr py_object) {
@@ -532,7 +532,7 @@ namespace db0::python
     
     std::uint64_t PyToolkit::getFixtureUUID(TypeObjectPtr py_type)
     {
-        if (isMemoType(py_type)) {
+        if (isAnyMemoType(py_type)) {
             return MemoTypeDecoration::get(py_type).getFixtureUUID(AccessType::READ_ONLY);
         } else {
             return 0;
@@ -541,7 +541,7 @@ namespace db0::python
     
     bool PyToolkit::isNoDefaultTags(TypeObjectPtr py_type)
     {
-        if (isMemoType(py_type)) {
+        if (isAnyMemoType(py_type)) {
             return MemoTypeDecoration::get(py_type).getFlags()[MemoOptions::NO_DEFAULT_TAGS];
         } else {
             return false;
@@ -550,7 +550,7 @@ namespace db0::python
     
     bool PyToolkit::isNoCache(TypeObjectPtr py_type)
     {
-        if (isMemoType(py_type)) {
+        if (isAnyMemoType(py_type)) {
             return MemoTypeDecoration::get(py_type).getFlags()[MemoOptions::NO_CACHE];
         } else {
             return false;
@@ -559,7 +559,7 @@ namespace db0::python
     
     bool PyToolkit::isImmutable(TypeObjectPtr py_type)
     {
-        if (isMemoType(py_type)) {
+        if (isAnyMemoType(py_type)) {
             return MemoTypeDecoration::get(py_type).getFlags()[MemoOptions::IMMUTABLE];
         } else {
             return false;
@@ -568,7 +568,7 @@ namespace db0::python
 
     FlagSet<MemoOptions> PyToolkit::getMemoFlags(TypeObjectPtr py_type)
     {
-        if (isMemoType(py_type)) {
+        if (isAnyMemoType(py_type)) {
             return MemoTypeDecoration::get(py_type).getFlags();
         } else {
             return {};
@@ -583,18 +583,18 @@ namespace db0::python
     
     const char *PyToolkit::getMemoTypeID(TypeObjectPtr memo_type)
     {
-        assert(isMemoType(memo_type));
+        assert(isAnyMemoType(memo_type));
         return MemoTypeDecoration::get(memo_type).tryGetTypeId();        
     }
     
     const std::vector<std::string> &PyToolkit::getInitVars(TypeObjectPtr memo_type)
     {
-        assert(isMemoType(memo_type));
+        assert(isAnyMemoType(memo_type));
         return MemoTypeDecoration::get(memo_type).getInitVars();
     }
     
-    bool PyToolkit::isMemoType(TypeObjectPtr py_type) {
-        return PyMemoType_Check(py_type);
+    bool PyToolkit::isAnyMemoType(TypeObjectPtr py_type) {
+        return PyAnyMemoType_Check(py_type);
     }
     
     void PyToolkit::setError(ObjectPtr err_obj, std::uint64_t err_value) {

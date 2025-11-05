@@ -119,10 +119,13 @@ namespace db0::python
         }
 
         // check if a memo class first
-        if (PyMemoType_Check(py_type)) {
+        if (PyMemoType_Check<MemoObject>(py_type)) {
             return TypeId::MEMO_OBJECT;
         }
-
+        if (PyMemoType_Check<MemoImmutableObject>(py_type)) {
+            return TypeId::MEMO_IMMUTABLE_OBJECT;
+        }
+        
         // check with the static types next
         auto it = m_id_map.find(reinterpret_cast<PyObject*>(py_type));
         if (it == m_id_map.end()) {
@@ -188,7 +191,7 @@ namespace db0::python
     
     const db0::object_model::Object &PyTypeManager::extractObject(ObjectPtr memo_ptr) const
     {
-        if (PyMemo_Check(memo_ptr)) {
+        if (PyMemo_Check<MemoObject>(memo_ptr)) {
             return reinterpret_cast<const MemoObject*>(memo_ptr)->ext();
         } else if (PyWeakProxy_Check(memo_ptr)) {
             return reinterpret_cast<const MemoObject*>(reinterpret_cast<const PyWeakProxy*>(memo_ptr)->get())->ext();

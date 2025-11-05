@@ -209,9 +209,6 @@ namespace db0::object_model
         // FieldID, is_init_var, fidelity
         std::pair<MemberID, bool> findField(const char *name) const;
         
-        // Check if the 2 memo objects are of the same type
-        bool sameType(const Object &) const;
-
         // the member called to indicate the object mutation
         void touch();
         
