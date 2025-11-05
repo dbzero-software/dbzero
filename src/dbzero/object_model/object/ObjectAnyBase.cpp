@@ -86,10 +86,10 @@ namespace db0::object_model
             super_t::incRef(is_tag);
         } else {
             // incRef with the initializer
-            super_t::m_init_manager.getInitializer(*this).incRef(is_tag);
+            m_init_manager.getInitializer(*this).incRef(is_tag);
         }
     }
-
+    
     template <typename T, typename ImplT>
     bool ObjectAnyBase<T, ImplT>::decRef(bool is_tag)
     {
