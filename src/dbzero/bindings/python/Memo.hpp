@@ -82,5 +82,15 @@ namespace db0::python
     extern template bool PyMemo_Check<MemoImmutableObject>(PyObject *);
     extern template bool PyMemoType_Check<MemoObject>(PyTypeObject *);
     extern template bool PyMemoType_Check<MemoImmutableObject>(PyTypeObject *);
+    extern template PyObject *MemoObject_DescribeObject<MemoObject>(MemoObject *);
+    extern template PyObject *MemoObject_DescribeObject<MemoImmutableObject>(MemoImmutableObject *);
+    extern template PyObject *MemoObject_set_prefix<MemoObject>(MemoObject *, const char *);
+    extern template PyObject *MemoObject_set_prefix<MemoImmutableObject>(MemoImmutableObject *, const char *);
+    extern template PyObject *tryGetAttrAs<MemoObject>(MemoObject *, PyObject *, PyTypeObject *);
+    extern template PyObject *tryGetAttrAs<MemoImmutableObject>(MemoImmutableObject *, PyObject *, PyTypeObject *);
+    extern template PyObject *tryLoadMemo<MemoObject>(MemoObject *, PyObject*, PyObject*,
+        std::unordered_set<const void*> *);
+    extern template PyObject *tryLoadMemo<MemoImmutableObject>(MemoImmutableObject *, PyObject*, PyObject*,
+        std::unordered_set<const void*> *);
     
 }

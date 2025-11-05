@@ -1,16 +1,10 @@
 #pragma once
 
+#include "ObjectAnyBase.hpp"
 #include <dbzero/object_model/LangConfig.hpp>
-#include <dbzero/object_model/ObjectBase.hpp>
 #include <dbzero/object_model/class/MemberID.hpp>
 #include <dbzero/workspace/GC0.hpp>
 #include <dbzero/core/compiler_attributes.hpp>
-#include "ValueTable.hpp"
-#include "ObjectInitializer.hpp"
-#include <dbzero/object_model/value/StorageClass.hpp>
-#include <dbzero/core/serialization/Types.hpp>
-#include <dbzero/core/serialization/packed_int.hpp>
-#include <dbzero/core/vspace/v_object.hpp>
 #include "o_object.hpp"
 #include "o_immutable_object.hpp"
 
@@ -31,31 +25,18 @@ namespace db0::object_model
     class ObjectImmutableImpl;
     using Fixture = db0::Fixture;
     
-    enum class ObjectOptions: std::uint8_t
-    {
-        // the dbzero instance has been deleted
-        DROPPED = 0x01,
-        // object is defunct - e.g. due to exception on __init__
-        DEFUNCT = 0x02
-    };
-    
     struct FieldLayout
     {
         std::vector<StorageClass> m_pos_vt_fields;
         std::vector<std::pair<unsigned int, StorageClass> > m_index_vt_fields;
         std::vector<std::pair<unsigned int, StorageClass> > m_kv_index_fields;        
     };
-
-    using ObjectFlags = db0::FlagSet<ObjectOptions>;
-    // NOTE: Object instances are created within the implementation specific realm_id (e.g. =1 for o_object)
-    template <typename T> using ObjectVType = db0::v_object<T, 0, T::REALM_ID>;
     
     template <typename T, typename ImplT>
-    class ObjectImplBase: public db0::ObjectBase<ImplT, ObjectVType<T>, StorageClass::OBJECT_REF>
+    class ObjectImplBase: public ObjectAnyBase<T, ImplT>
     {
     public:
-        static constexpr unsigned char REALM_ID = T::REALM_ID;
-        using super_t = db0::ObjectBase<ImplT, ObjectVType<T>, StorageClass::OBJECT_REF>;
+        using super_t = ObjectAnyBase<T, ImplT>;
         using LangToolkit = LangConfig::LangToolkit;
         using ObjectPtr = typename LangToolkit::ObjectPtr;
         using TypeObjectPtr = typename LangToolkit::TypeObjectPtr;
@@ -116,23 +97,7 @@ namespace db0::object_model
         ObjectSharedPtr tryGet(const char *field_name) const;
         ObjectSharedPtr tryGetAs(const char *field_name, TypeObjectPtr) const;
         ObjectSharedPtr get(const char *field_name) const;
-        
-        inline std::shared_ptr<Class> getClassPtr() const {
-            return m_type ? m_type : m_init_manager.getInitializer(*this).getClassPtr();
-        }
-        
-        inline const Class &getType() const {
-            return m_type ? *m_type : m_init_manager.getInitializer(*this).getClass();
-        }
-        
-        Class &getType();
-        
-        db0::swine_ptr<Fixture> tryGetFixture() const;
-
-        db0::swine_ptr<Fixture> getFixture() const;
-
-        Memspace &getMemspace() const;
-        
+                
         // Get description of the field layout
         FieldLayout getFieldLayout() const;
         
@@ -144,21 +109,7 @@ namespace db0::object_model
         
         // get dbzero member / member names assigned to this object
         std::unordered_set<std::string> getMembers() const;
-        
-        /**
-         * The overloaded incRef implementation is provided to also handle non-fully initialized objects
-        */
-        void incRef(bool is_tag);
-        bool hasRefs() const;
-        // check for any refs (including auto-assigned type tags)
-        bool hasAnyRefs() const;
-        
-        // check if any references from tags exist (i.e. are any tags assigned)
-        bool hasTagRefs() const;
-        
-        // @return true if reference count was decremented to zero
-        bool decRef(bool is_tag);
-        
+                
         // Binary (shallow) compare 2 objects or 2 versions of the same memo object (e.g. from different snapshots)
         // NOTE: ref-counts are not compared (only user-assigned members)
         // @return true if objects are identical
@@ -170,68 +121,15 @@ namespace db0::object_model
          */
         void moveTo(db0::swine_ptr<Fixture> &);
         
-        /**
-         * Change fixture of the uninitialized object
-         * Object must not have any members yet either
-         */
-        void setFixture(db0::swine_ptr<Fixture> &);
-        
         void detach() const;
-
         void commit() const;
-        
-        Address getAddress() const;
-        UniqueAddress getUniqueAddress() const;
-
-        // NOTE: the operation is marked const because the dbzero state is not affected
-        void setDefunct() const;
-
-        inline bool isDropped() const {
-            return m_flags.test(ObjectOptions::DROPPED);
-        }
-
-        inline bool isDefunct() const {
-            return m_flags.test(ObjectOptions::DEFUNCT);
-        }
-        
-        // is dropped or defunct
-        inline bool isDead() const {
-            return m_flags.any(
-                static_cast<std::uint8_t>(ObjectOptions::DROPPED) | static_cast<std::uint8_t>(ObjectOptions::DEFUNCT)
-            );
-        }
         
         // FieldID, is_init_var, fidelity
         std::pair<MemberID, bool> findField(const char *name) const;
         
-        // the member called to indicate the object mutation
-        void touch();
-        
-        void addExtRef() const;
-        void removeExtRef() const;
-        
-        inline std::uint32_t getExtRefs() const {
-            return m_ext_refs;
-        }
-
-    protected:
-        // Class will only be assigned after initialization
-        std::shared_ptr<Class> m_type;
+    protected:        
         // local kv-index instance cache (created at first use)
         mutable std::unique_ptr<KV_Index> m_kv_index;
-        static ObjectInitializerManager m_init_manager;
-        mutable ObjectFlags m_flags;
-        // reference counter for inner references from language objects
-        // NOTE: inner references are held by internal dbzero buffers (e.g. TagIndex)
-        // see also PyEXT_INCREF / PyEXT_DECREF
-        mutable std::uint32_t m_ext_refs = 0;
-        // A flag indicating that object's silent mutation has already been reflected
-        // with the underlying MemLock / ResourceLock
-        // NOTE: by silent mutation we mean a mutation that does not change data (e.g. +refcount(+-1) + (refcount-1))
-        mutable bool m_touched = false;
-        // NOTE: member assigned only to dropped objects (see replaceWithNull)
-        // so that we can retrieve the address of the dropped instance after it has been destroyed
-        const UniqueAddress m_unique_address;
         
         void setType(std::shared_ptr<Class>);
         // adjusts to actual type if the type hint is a base class
@@ -265,7 +163,7 @@ namespace db0::object_model
         std::pair<const void*, unsigned int> tryGetLoc(FieldID) const;
         
         inline ObjectInitializer *tryGetInitializer() const {
-            return m_type ? static_cast<ObjectInitializer*>(nullptr) : &m_init_manager.getInitializer(*this);
+            return this->m_type ? static_cast<ObjectInitializer*>(nullptr) : &super_t::m_init_manager.getInitializer(*this);
         }
         
         void dropMembers(db0::swine_ptr<Fixture> &, Class &) const;
@@ -288,8 +186,7 @@ namespace db0::object_model
         bool hasValidClassRef() const;
         
         // try retrieving member as XValue
-        std::optional<XValue> tryGetX(const char *field_name) const;
-        void _touch();
+        std::optional<XValue> tryGetX(const char *field_name) const;        
         
         // Unreference value
         // NOTE: storage_class to be assigned can either be DELETED or UNDEFINED
@@ -311,7 +208,5 @@ namespace db0::object_model
     
     extern template class ObjectImplBase<o_object, Object>;
     extern template class ObjectImplBase<o_immutable_object, ObjectImmutableImpl>;
-
+    
 }
-
-DECLARE_ENUM_VALUES(db0::object_model::ObjectOptions, 2)

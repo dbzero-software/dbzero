@@ -188,6 +188,24 @@ namespace db0::python
         
         return *type_id;
     }
+
+    const PyTypeManager::ObjectAnyImpl &PyTypeManager::extractCommonObject(ObjectPtr obj_ptr) const
+    {
+        if (PyAnyMemo_Check(obj_ptr)) {
+            return reinterpret_cast<const MemoAnyObject*>(obj_ptr)->ext();
+        } else if (PyWeakProxy_Check(obj_ptr)) {
+            return reinterpret_cast<const PyWeakProxy*>(obj_ptr)->get()->ext();
+        }
+        THROWF(db0::InputException) << "Expected a memo object" << THROWF_END;            
+    }
+
+    PyTypeManager::ObjectAnyImpl &PyTypeManager::extractMutableCommonObject(ObjectPtr obj_ptr) const
+    {
+        if (!PyAnyMemo_Check(obj_ptr)) {
+            THROWF(db0::InputException) << "Expected a memo object" << THROWF_END;
+        }
+        return reinterpret_cast<MemoAnyObject*>(obj_ptr)->modifyExt();
+    }
     
     /* FIXME: implement
 

@@ -997,4 +997,33 @@ namespace db0::python
                type->tp_dealloc == reinterpret_cast<destructor>(MemoObject_del<MemoImmutableObject>);
     }
 
+    template <typename MemoImplT>
+    bool PyMemo_Check(PyObject *obj)
+    {
+        assert(obj);
+        return obj->ob_type->tp_dealloc == reinterpret_cast<destructor>(MemoObject_del<MemoImplT>);        
+    }
+    
+    template <typename MemoImplT>
+    bool PyMemoType_Check(PyTypeObject *type)
+    {
+        assert(type);
+        return type->tp_dealloc == reinterpret_cast<destructor>(MemoObject_del<MemoImplT>);
+    }
+    
+    template bool PyMemo_Check<MemoObject>(PyObject *);
+    template bool PyMemo_Check<MemoImmutableObject>(PyObject *);
+    template bool PyMemoType_Check<MemoObject>(PyTypeObject *);
+    template bool PyMemoType_Check<MemoImmutableObject>(PyTypeObject *);
+    template PyObject *MemoObject_DescribeObject<MemoObject>(MemoObject *);
+    template PyObject *MemoObject_DescribeObject<MemoImmutableObject>(MemoImmutableObject *);
+    template PyObject *MemoObject_set_prefix<MemoObject>(MemoObject *, const char *);
+    template PyObject *MemoObject_set_prefix<MemoImmutableObject>(MemoImmutableObject *, const char *);
+    template PyObject *tryGetAttrAs<MemoObject>(MemoObject *, PyObject *, PyTypeObject *);
+    template PyObject *tryGetAttrAs<MemoImmutableObject>(MemoImmutableObject *, PyObject *, PyTypeObject *);
+    template PyObject *tryLoadMemo<MemoObject>(MemoObject *, PyObject*, PyObject*,
+        std::unordered_set<const void*> *);
+    template PyObject *tryLoadMemo<MemoImmutableObject>(MemoImmutableObject *, PyObject*, PyObject*,
+        std::unordered_set<const void*> *);
+    
 }

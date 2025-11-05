@@ -27,7 +27,7 @@ DB0_PACKED_BEGIN
         
         static std::size_t measure();
         static std::size_t measure(std::pair<std::uint32_t, std::uint32_t>);
-        
+                
         static std::size_t sizeOf();
         
         template <typename BufT> static std::size_t safeSizeOf(BufT buf) {
@@ -39,7 +39,7 @@ DB0_PACKED_BEGIN
         bool hasAnyRefs() const;
     };
 DB0_PACKED_END
-
+    
 DB0_PACKED_BEGIN
     class DB0_PACKED_ATTR o_object: public db0::o_ext<o_object, o_object_base, 0, false>
     {
@@ -79,7 +79,7 @@ DB0_PACKED_BEGIN
                 (PosVT::type())
                 (packed_int32::type())            
                 (IndexVT::type());
-        }     
+        }
         
         void incRef(bool is_tag);
         bool hasRefs() const;
