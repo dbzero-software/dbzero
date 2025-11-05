@@ -413,7 +413,7 @@ namespace db0::python
         
         if (PyType_Check(py_object)) {
             // only memo or enum types can be scoped
-            if (PyMemoType_Check(reinterpret_cast<PyTypeObject*>(py_object))) {
+            if (PyAnyMemoType_Check(reinterpret_cast<PyTypeObject*>(py_object))) {
                 PyTypeObject *py_type = reinterpret_cast<PyTypeObject*>(py_object);
                 auto prefix_name = MemoTypeDecoration::get(py_type).tryGetPrefixName();
                 if (prefix_name) {
@@ -548,13 +548,15 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "Invalid argument type");
             return NULL;
         }
-
-        if (!PyMemo_Check(py_object)) {
+        
+        if (PyMemo_Check<MemoObject>(py_object)) {
+            return MemoObject_DescribeObject(reinterpret_cast<MemoObject*>(py_object));
+        } else if (PyMemo_Check<MemoImmutableObject>(py_object)) {
+            return MemoObject_DescribeObject(reinterpret_cast<MemoImmutableObject*>(py_object));
+        } else {
             PyErr_SetString(PyExc_TypeError, "Invalid argument type");
             return NULL;
-        }
-
-        return MemoObject_DescribeObject(reinterpret_cast<MemoObject*>(py_object));
+        }        
     }
     
     PyObject *describeObject(PyObject *self, PyObject *args) 
@@ -593,7 +595,7 @@ namespace db0::python
 
     PyObject *TryPyAPI_isSingleton(PyObject *py_object)
     {
-
+        assert((PyMemo_Check<MemoObject>(py_object)));
         return PyBool_fromBool(reinterpret_cast<MemoObject*>(py_object)->ext().isSingleton());
     }
 
@@ -605,14 +607,17 @@ namespace db0::python
             return NULL;
         }
 
-        if (!PyMemo_Check(py_object)) {
+        if (PyMemo_Check<MemoObject>(py_object)) {
+            return runSafe(TryPyAPI_isSingleton, py_object);
+        } else if (PyMemo_Check<MemoImmutableObject>(py_object)) {
+            // immutable memos are never singletons
+            PY_RETURN_FALSE;
+        } else {        
             PyErr_SetString(PyExc_TypeError, "Invalid argument type");
             return NULL;
-        }
-
-        return runSafe(TryPyAPI_isSingleton, py_object);
+        }        
     }
-
+    
     PyObject *PyAPI_getRefCount(PyObject *, PyObject *args)
     {
         PY_API_FUNC        

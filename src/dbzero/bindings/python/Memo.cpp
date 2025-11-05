@@ -396,7 +396,8 @@ namespace db0::python
         return 0;
     }
 
-    bool isSame(MemoObject *lhs, MemoObject *rhs) {
+    template <typename MemoImplT>
+    bool isSame(MemoImplT *lhs, MemoImplT *rhs) {
         return lhs->ext() == rhs->ext();
     }
     
@@ -689,7 +690,7 @@ namespace db0::python
     
     PyObject *tryPyMemoCheck(PyObject *py_obj)
     {
-        if (PyMemo_Check(py_obj) || (PyType_Check(py_obj) && PyMemoType_Check(reinterpret_cast<PyTypeObject*>(py_obj)))) {
+        if (PyAnyMemo_Check(py_obj) || (PyType_Check(py_obj) && PyAnyMemoType_Check(reinterpret_cast<PyTypeObject*>(py_obj)))) {
             Py_RETURN_TRUE;
         }
         Py_RETURN_FALSE;
@@ -709,7 +710,8 @@ namespace db0::python
         return type->tp_new == reinterpret_cast<newfunc>(PyAPI_MemoObject_new_singleton);
     }
     
-    PyObject *MemoObject_GetFieldLayout(MemoObject *self)
+    template <typename MemoImplT>
+    PyObject *MemoObject_GetFieldLayout(MemoImplT *self)
     {        
         auto field_layout = self->ext().getFieldLayout();
         auto &pos_vt = field_layout.m_pos_vt_fields;
@@ -749,8 +751,9 @@ namespace db0::python
         return py_result.steal();
     }
     
-    PyObject *MemoObject_DescribeObject(MemoObject *self)
-    {        
+    template <typename MemoImplT>
+    PyObject *MemoObject_DescribeObject(MemoImplT *self)
+    {
         auto py_field_layout = Py_OWN(MemoObject_GetFieldLayout(self));
         auto py_result = Py_OWN(PyDict_New());
         PySafeDict_SetItemString(*py_result, "field_layout", py_field_layout);
@@ -759,7 +762,7 @@ namespace db0::python
         PySafeDict_SetItemString(*py_result, "size_of", Py_OWN(PyLong_FromLong(self->ext()->sizeOf())));
         return py_result.steal();
     }
-            
+    
     void MemoType_get_info(PyTypeObject *type, PyObject *dict)
     {                      
         auto &decor = MemoTypeDecoration::get(type);
@@ -936,7 +939,7 @@ namespace db0::python
     {
         using SchemaTypeId = db0::object_model::SchemaTypeId;
         
-        if (!PyMemoType_Check(py_type)) {
+        if (!PyAnyMemoType_Check(py_type)) {
             PyErr_SetString(PyExc_TypeError, "Expected a memo type");
             return nullptr;
         }
@@ -946,7 +949,7 @@ namespace db0::python
         auto &class_factory = fixture->get<db0::object_model::ClassFactory>();
         // find py type associated dbzero class with the ClassFactory
         auto type = class_factory.getExistingType(py_type);
-
+        
         auto py_schema = Py_OWN(PyDict_New());
         auto &type_manager = PyToolkit::getTypeManager();
         type->getSchema([&](const std::string &key, SchemaTypeId primary_type, const std::vector<SchemaTypeId> &all_types) {

@@ -71,6 +71,21 @@ namespace db0::object_model
         return false;
     }
     
+    void Object::unSingleton(FixtureLock &)
+    {
+        auto &type = getType();
+        // drop reference from the class
+        if (type.isSingleton()) {
+            // clear singleton address
+            type.unlinkSingleton();
+            this->modify().m_header.decRef(false);
+        }
+    }
+
+    bool Object::isSingleton() const {
+        return getType().isSingleton();
+    }
+
     bool Object::tryFindMemberAt(std::pair<FieldID, unsigned int> field_info, std::pair<StorageClass, Value> &result,
         std::pair<bool, bool> &find_result) const
     {

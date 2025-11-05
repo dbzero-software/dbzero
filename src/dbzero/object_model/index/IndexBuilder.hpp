@@ -1,7 +1,7 @@
 #pragma once
 
 #include <dbzero/object_model/LangConfig.hpp>
-#include <dbzero/object_model/object/Object.hpp>
+#include <dbzero/object_model/object/ObjectAnyImpl.hpp>
 
 namespace db0::object_model
 
@@ -13,13 +13,13 @@ namespace db0::object_model
     template <typename KeyT> class IndexBuilder: public RangeTree<KeyT, UniqueAddress>::Builder
     {
     public:
+        using super_t = typename RangeTree<KeyT, UniqueAddress>::Builder;
         using RangeTreeT = RangeTree<KeyT, UniqueAddress>;
         using LangToolkit = typename LangConfig::LangToolkit;
         using ObjectPtr = typename LangToolkit::ObjectPtr;
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
         using ObjectSharedExtPtr = typename LangToolkit::ObjectSharedExtPtr;
-        using super_t = typename RangeTree<KeyT, UniqueAddress>::Builder;
-        
+                
         IndexBuilder();
         IndexBuilder(std::unordered_set<UniqueAddress> &&remove_null_values,
             std::unordered_set<UniqueAddress> &&add_null_values,
@@ -47,8 +47,7 @@ namespace db0::object_model
         // NOTE: cache must hold "shared" language reference to prevent object drop (index owns its objects)
         mutable std::unordered_map<UniqueAddress, ObjectSharedPtr> m_object_cache;
 
-        // add to cache and return object's address
-        template <typename MemoImplT> 
+        // add to cache and return object's address        
         UniqueAddress addToCache(ObjectPtr);
     };
     
@@ -88,24 +87,23 @@ namespace db0::object_model
         std::function<void(UniqueAddress)> add_callback = [&](UniqueAddress address) {
             auto it = m_object_cache.find(address);
             assert(it != m_object_cache.end());
-            m_type_manager.extractMutableObject(it->second.get()).incRef(false);
+            m_type_manager.extractMutableCommonObject(it->second.get()).incRef(false);
         };
         
         std::function<void(UniqueAddress)> erase_callback = [&](UniqueAddress address) {
             auto it = m_object_cache.find(address);
             assert(it != m_object_cache.end());
-            m_type_manager.extractMutableObject(it->second.get()).decRef(false);
+            m_type_manager.extractMutableCommonObject(it->second.get()).decRef(false);
         };
         
         super_t::flush(index, &add_callback, &erase_callback);
         m_object_cache.clear();
     }
     
-    template <typename KeyT> 
-    template <typename MemoImplT>
+    template <typename KeyT>     
     UniqueAddress IndexBuilder<KeyT>::addToCache(ObjectPtr obj_ptr)
     {
-        auto obj_addr = m_type_manager.extractObject<MemoImplT>(obj_ptr).getUniqueAddress();
+        auto obj_addr = m_type_manager.extractCommonObject(obj_ptr).getUniqueAddress();
         if (m_object_cache.find(obj_addr) == m_object_cache.end()) {
             m_object_cache.emplace(obj_addr, obj_ptr);
         }

@@ -98,9 +98,9 @@ namespace db0
         
         assert(dp_lock);
         bool is_volatile = access_mode[AccessOptions::no_flush];
-        // Try upgrading the unused lock to the write state
-        // this is to avoid CoW in a writer process
-        if (access_mode[AccessOptions::write] && read_state_num != state_num) {
+            // Try upgrading the unused lock to the write state
+            // this is to avoid CoW in a writer process
+            if (access_mode[AccessOptions::write] && read_state_num != state_num) {
             // unused lock condition (i.e. might only be used by the CacheRecycler)
             // note that dirty locks cannot be upgraded (otherwise data would be lost)            
             if (dp_lock->allowReuse() && dp_lock.use_count() == (dp_lock->isRecycled() ? 1 : 0) + 1) {

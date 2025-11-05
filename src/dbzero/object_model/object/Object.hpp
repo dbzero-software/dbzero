@@ -21,6 +21,10 @@ namespace db0::object_model
         {
         }
         
+        // Convert singleton into a regular instance
+        void unSingleton(FixtureLock &);
+        bool isSingleton() const;
+
         // Assign language specific value as a field (to already initialized or uninitialized instance)
         // NOTE: if lang_value is nullptr then the member is removed
         void set(FixtureLock &, const char *field_name, ObjectPtr lang_value);

@@ -3,7 +3,7 @@
 #include <unordered_map>
 #include <dbzero/core/memory/Memspace.hpp>
 #include <dbzero/core/collections/full_text/FT_BaseIndex.hpp>
-#include <dbzero/object_model/object/ObjectCommonImpl.hpp>
+#include <dbzero/object_model/object/ObjectAnyImpl.hpp>
 #include <dbzero/core/collections/pools/StringPools.hpp>
 #include <dbzero/core/collections/full_text/FT_Iterator.hpp>
 #include <dbzero/core/collections/full_text/TagProduct.hpp>
@@ -16,7 +16,7 @@ namespace db0::object_model
 
 {
     
-    using ObjectCommonImpl = db0::object_model::ObjectCommonImpl;
+    using ObjectAnyImpl = db0::object_model::ObjectAnyImpl;
     using RC_LimitedStringPool = db0::pools::RC_LimitedStringPool;
     using LongTagT = db0::LongTagT;
     class EnumFactory;
@@ -38,7 +38,7 @@ DB0_PACKED_END
     {
     public:
         using super_t = db0::v_object<o_tag_index>;
-        using LangToolkit = typename ObjectCommonImpl::LangToolkit;
+        using LangToolkit = typename ObjectAnyImpl::LangToolkit;
         using ObjectPtr = typename LangToolkit::ObjectPtr;
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
         using ObjectSharedExtPtr = typename LangToolkit::ObjectSharedExtPtr;

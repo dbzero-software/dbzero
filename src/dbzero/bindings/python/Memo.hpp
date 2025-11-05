@@ -11,7 +11,7 @@
 #include "MemoTypeDecoration.hpp"
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/object_model/object/ObjectImmutableImpl.hpp>
-#include <dbzero/object_model/object/ObjectCommonImpl.hpp>
+#include <dbzero/object_model/object/ObjectAnyImpl.hpp>
 
 namespace db0::object_model
 
@@ -28,7 +28,7 @@ namespace db0::python
     using AccessType = db0::AccessType;
     using MemoObject = PyWrapper<db0::object_model::Object>;
     using MemoImmutableObject = PyWrapper<db0::object_model::ObjectImmutableImpl>;
-    using MemoCommonObject = PyWrapper<db0::object_model::ObjectCommonImpl>;
+    using MemoAnyObject = PyWrapper<db0::object_model::ObjectAnyImpl>;
     
     PyObject *PyAPI_wrapPyClass(PyObject *self, PyObject *, PyObject *kwargs);
     // create a memo object stub
@@ -40,9 +40,8 @@ namespace db0::python
     // check if memo type has been marked as singleton
     bool PyMemoType_IsSingleton(PyTypeObject *type);
     
-    PyObject *MemoObject_GetFieldLayout(MemoObject *);
-    
-    PyObject *MemoObject_DescribeObject(MemoObject *);    
+    template <typename MemoImplT>
+    PyObject *MemoObject_DescribeObject(MemoImplT *);
     
     void MemoType_get_info(PyTypeObject *type, PyObject *dict);
     void MemoType_close(PyTypeObject *type);

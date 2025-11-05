@@ -723,11 +723,6 @@ namespace db0::object_model
     }
 
     template <typename T, typename ImplT>
-    bool ObjectImplBase<T, ImplT>::isSingleton() const {
-        return getType().isSingleton();
-    }
-
-    template <typename T, typename ImplT>
     void ObjectImplBase<T, ImplT>::dropTags(Class &type) const
     {
         // only drop if any type tags are assigned
@@ -786,19 +781,7 @@ namespace db0::object_model
             }
         }
     }
-
-    template <typename T, typename ImplT>
-    void ObjectImplBase<T, ImplT>::unSingleton(FixtureLock &)
-    {
-        auto &type = getType();
-        // drop reference from the class
-        if (type.isSingleton()) {
-            // clear singleton address
-            type.unlinkSingleton();
-            this->modify().m_header.decRef(false);
-        }
-    }
-
+    
     template <typename T, typename ImplT>
     void ObjectImplBase<T, ImplT>::destroy() const
     {

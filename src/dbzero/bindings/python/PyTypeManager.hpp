@@ -15,7 +15,7 @@ namespace db0::object_model {
 
     class Object;
     class ObjectImmutableImpl;
-    class ObjectCommonImpl;
+    class ObjectAnyImpl;
     class Class;
     class List;
     class Set;
@@ -60,7 +60,7 @@ namespace db0::python
         using MemoImmutableObject = db0::python::MemoImmutableObject;
         using Object = db0::object_model::Object;
         using ObjectImmutableImpl = db0::object_model::ObjectImmutableImpl;
-        using ObjectCommonImpl = db0::object_model::ObjectCommonImpl;
+        using ObjectAnyImpl = db0::object_model::ObjectAnyImpl;
         using List = db0::object_model::List;
         using Set = db0::object_model::Set;
         using Tuple = db0::object_model::Tuple;
@@ -102,8 +102,10 @@ namespace db0::python
         const typename MemoImplT::ExtT &extractObject(ObjectPtr memo_ptr) const;
         
         // Extracts reference to common object part from a memo instance
-        const ObjectCommonImpl &extractCommonObject(ObjectPtr) const;
-        Object &extractMutableObject(ObjectPtr memo_ptr) const;        
+        const ObjectAnyImpl &extractCommonObject(ObjectPtr) const;
+        ObjectAnyImpl &extractMutableCommonObject(ObjectPtr) const;
+
+        Object &extractMutableObject(ObjectPtr memo_ptr) const;
         const Object *tryExtractObject(ObjectPtr memo_ptr) const;
         Object *tryExtractMutableObject(ObjectPtr memo_ptr) const;
 
