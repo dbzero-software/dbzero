@@ -20,11 +20,11 @@ namespace db0::object_model
 
 {
 
-DB0_PACKED_BEGIN
-
     using Fixture = db0::Fixture;
+    using AccessFlags = db0::AccessFlags;
     class TupleIterator;
     
+DB0_PACKED_BEGIN    
     class DB0_PACKED_ATTR o_tuple: public o_base<o_tuple, 0, false>
     {
     protected:
@@ -62,6 +62,7 @@ DB0_PACKED_BEGIN
             return m_header.hasRefs();
         }
     };
+DB0_PACKED_END
     
     class Tuple: public db0::ObjectBase<Tuple, v_object<o_tuple>, StorageClass::DB0_TUPLE>
     {
@@ -77,11 +78,11 @@ DB0_PACKED_BEGIN
         // as null placeholder
         Tuple() = default;
         struct tag_new_tuple {};
-        explicit Tuple(db0::swine_ptr<Fixture> &, tag_new_tuple, std::size_t size);
+        explicit Tuple(db0::swine_ptr<Fixture> &, tag_new_tuple, std::size_t size, AccessFlags = {});
         explicit Tuple(tag_no_gc, db0::swine_ptr<Fixture> &, const Tuple &);
-        explicit Tuple(db0::swine_ptr<Fixture> &, Address address);
+        explicit Tuple(db0::swine_ptr<Fixture> &, Address address, AccessFlags = {});
         ~Tuple();
-
+        
         ObjectSharedPtr getItem(std::size_t i) const;
         void setItem(FixtureLock &, std::size_t i, ObjectSharedPtr lang_value);
         
@@ -103,7 +104,5 @@ DB0_PACKED_BEGIN
         
         std::shared_ptr<TupleIterator> getIterator(ObjectPtr lang_tuple) const;    
     };
-    
-DB0_PACKED_END
 
 }

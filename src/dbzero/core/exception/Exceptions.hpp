@@ -92,6 +92,14 @@ namespace db0
 
         ClassNotFoundException();
     };
+
+    class IndexException: public CriticalException
+    {
+    public:
+        static constexpr int exception_id = EXCEPTION_ID_PREFIX::BASIC | 0x0e;
+
+        IndexException();
+    };
     
     class AccessTypeException: public CriticalException
     {

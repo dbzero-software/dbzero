@@ -15,6 +15,21 @@ namespace tests
 
     using namespace db0;
 
+    // a proxy class to expose protected members for testing
+    class MetaAllocatorProxy: public MetaAllocator
+    {
+    public:
+        template <typename... Args>
+        MetaAllocatorProxy(Args&&... args)
+            : MetaAllocator(std::forward<Args>(args)...)
+        {
+        }
+
+        std::uint32_t getSlabId(Address address) const {
+            return MetaAllocator::getSlabId(address);
+        }
+    };
+
     class MetaAllocatorTests: public testing::Test
     {
     public:
@@ -128,7 +143,7 @@ namespace tests
         
         {
             // first assign from a new slab
-            MetaAllocator cut(m_prefix);
+            MetaAllocatorProxy cut(m_prefix);
             std::vector<std::size_t> alloc_sizes = { 100, 200, 300, 400, 500, 600, 700, 800, 900 };                
             for (auto alloc_size: alloc_sizes) {
                 auto ptr = cut.alloc(alloc_size);
@@ -137,7 +152,7 @@ namespace tests
         }
         
         // open again and try to allocate
-        MetaAllocator cut(m_prefix);
+        MetaAllocatorProxy cut(m_prefix);
         auto ptr = cut.alloc(100);
         // the allocation should be in the same slab
         ASSERT_EQ(cut.getSlabId(ptr), 0);
@@ -157,7 +172,7 @@ namespace tests
         }
 
         // open again and try to allocate
-        MetaAllocator cut(m_prefix);
+        MetaAllocatorProxy cut(m_prefix);
         auto ptr = cut.alloc(100);
         // the allocation should be from the other slab since the 1st is full
         ASSERT_TRUE(cut.getSlabId(ptr) > 0);
@@ -169,7 +184,7 @@ namespace tests
         SlabRecycler recycler;
         {
             // make allocations until the 2 slabs are occupied
-            MetaAllocator cut(m_prefix, &recycler);
+            MetaAllocatorProxy cut(m_prefix, &recycler);
             std::size_t total_allocated = 0;
             std::vector<unsigned int> slab_ids;
             while (cut.getSlabCount() < 2) {
@@ -210,7 +225,7 @@ namespace tests
         std::vector<unsigned int> slab_ids;
         {
             // make allocations until the 2 slabs are occupied
-            MetaAllocator cut(m_prefix, &recycler);
+            MetaAllocatorProxy cut(m_prefix, &recycler);
             while (cut.getSlabCount() < 2) {
                 auto ptr = cut.alloc(100);
                 auto slab_id = cut.getSlabId(ptr);
@@ -291,7 +306,7 @@ namespace tests
         auto count = 10000;
         {
             // deferred free is disabled
-            MetaAllocator cut(m_prefix, &recycler, false);
+            MetaAllocatorProxy cut(m_prefix, &recycler, false);
             // make random allocations
             for (int i = 0; i < count; ++i) {
                 auto alloc_size = rand() % 1000 + 1;
@@ -371,6 +386,23 @@ namespace tests
         SlabRecycler recycler;
         MetaAllocator cut(m_prefix, &recycler);
         ASSERT_EQ(cut.alloc(8), cut.getFirstAddress());
+    }
+    
+    TEST_F( MetaAllocatorTests , testMetaAllocatorLocalityAwareAllocation )
+    {        
+        MetaAllocator::formatPrefix(m_prefix, PAGE_SIZE, SMALL_SLAB_SIZE);
+        SlabRecycler recycler;
+        MetaAllocatorProxy cut(m_prefix, &recycler);
+        // locality = 0 (default)
+        auto addr_0 = cut.alloc(8, 0, false, 0);
+        auto addr_1 = cut.alloc(8, 0, false, 0, 0);
+        // locality = 1
+        auto addr_2 = cut.alloc(8, 0, false, 0, 1);
+
+        // same slab
+        ASSERT_EQ(cut.getSlabId(addr_0), cut.getSlabId(addr_1));
+        // different slabs
+        ASSERT_NE(cut.getSlabId(addr_0), cut.getSlabId(addr_2));
     }
 
 }

@@ -9,6 +9,7 @@ namespace db0::python
     
     using DictObject = PyWrapper<db0::object_model::Dict>;
     using DictIteratorObject = PySharedWrapper<db0::object_model::DictIterator, false>;
+    using AccessFlags = db0::AccessFlags;
 
     DictObject *DictObject_new(PyTypeObject *type, PyObject *, PyObject *);
     shared_py_object<DictObject*> DictDefaultObject_new();
@@ -28,8 +29,11 @@ namespace db0::python
     PyObject *PyAPI_DictObject_items(DictObject *dict_obj);
     void PyAPI_DictObject_del(DictObject* dict_obj);
     extern PyTypeObject DictObjectType;
-        
-    shared_py_object<DictObject*> tryMake_DB0Dict(db0::swine_ptr<Fixture> &, PyObject *args, PyObject *kwargs);
+    
+    shared_py_object<DictObject*> tryMake_DB0Dict(db0::swine_ptr<Fixture> &, PyObject *args,
+        PyObject *kwargs, AccessFlags
+    );
+    
     DictObject *PyAPI_makeDict(PyObject *, PyObject*, PyObject*);
     bool DictObject_Check(PyObject *);
         

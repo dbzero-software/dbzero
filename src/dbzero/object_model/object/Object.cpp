@@ -18,6 +18,10 @@ namespace db0::object_model
     GC0_Define(Object)
     ObjectInitializerManager Object::m_init_manager;
 
+    FlagSet<AccessOptions> getAccessOptions(const Class &type) {
+        return type.isNoCache() ? FlagSet<AccessOptions> { AccessOptions::no_cache } : FlagSet<AccessOptions> {};
+    }
+
     bool isEqual(const KV_Index *kv_ptr_1, const KV_Index *kv_ptr_2)
     {
         if (!kv_ptr_1) {
@@ -121,29 +125,30 @@ namespace db0::object_model
         // prepare for initialization
         m_init_manager.addInitializer(*this, std::move(type_initializer));
     }
-    
+
     Object::Object(db0::swine_ptr<Fixture> &fixture, std::shared_ptr<Class> type,
-        std::pair<std::uint32_t, std::uint32_t> ref_counts, const PosVT::Data &pos_vt_data, unsigned int pos_vt_offset)
+        std::pair<std::uint32_t, std::uint32_t> ref_counts, const PosVT::Data &pos_vt_data, unsigned int pos_vt_offset)        
         : super_t(fixture, type->getClassRef(), ref_counts,
-            safeCast<std::uint8_t>(type->getNumBases() + 1, "Too many base classes"), pos_vt_data, pos_vt_offset)
+            safeCast<std::uint8_t>(type->getNumBases() + 1, "Too many base classes"), pos_vt_data, pos_vt_offset, nullptr, nullptr,
+            getAccessOptions(*type))
         , m_type(type)
     {
     }
-    
-    Object::Object(db0::swine_ptr<Fixture> &fixture, Address address)
-        : super_t(super_t::tag_from_address(), fixture, address)        
+
+    Object::Object(db0::swine_ptr<Fixture> &fixture, Address address, AccessFlags access_mode)
+        : super_t(super_t::tag_from_address(), fixture, address, access_mode)
     {
     }
     
     Object::Object(db0::swine_ptr<Fixture> &fixture, ObjectStem &&stem, std::shared_ptr<Class> type)
         : super_t(super_t::tag_from_stem(), fixture, std::move(stem))
-        , m_type(type)        
+        , m_type(type)
     {
         assert(hasValidClassRef());
     }
     
-    Object::Object(db0::swine_ptr<Fixture> &fixture, Address address, std::shared_ptr<Class> type_hint, with_type_hint)
-        : Object(fixture, address)
+    Object::Object(db0::swine_ptr<Fixture> &fixture, Address address, std::shared_ptr<Class> type_hint, with_type_hint, AccessFlags access_mode)
+        : Object(fixture, address, access_mode)
     {
         assert(*fixture == *type_hint->getFixture());
         setTypeWithHint(type_hint);
@@ -153,7 +158,7 @@ namespace db0::object_model
         : Object(fixture, std::move(stem), getTypeWithHint(*fixture, stem->getClassRef(), type_hint))
     {
     }
-
+    
     Object::~Object()
     {   
         // unregister needs to be called before destruction of members
@@ -173,14 +178,15 @@ namespace db0::object_model
         new ((void*)this) Object(unique_addr, ext_refs);
     }
     
-    Object::ObjectStem Object::tryUnloadStem(db0::swine_ptr<Fixture> &fixture, Address address, std::uint16_t instance_id)
+    Object::ObjectStem Object::tryUnloadStem(db0::swine_ptr<Fixture> &fixture, Address address,
+        std::uint16_t instance_id, AccessFlags access_mode)
     {
         std::size_t size_of;
         if (!fixture->isAddressValid(address, REALM_ID, &size_of)) {
             return {};
         }
         // Unload from a verified address
-        ObjectVType stem(db0::tag_verified(), fixture->myPtr(address), size_of);
+        ObjectVType stem(db0::tag_verified(), fixture->myPtr(address), size_of, access_mode);
         if (instance_id && stem->m_header.m_instance_id != instance_id) {
             // instance ID validation failed
             return {};
@@ -188,9 +194,10 @@ namespace db0::object_model
         return stem;
     }
     
-    Object::ObjectStem Object::unloadStem(db0::swine_ptr<Fixture> &fixture, Address address, std::uint16_t instance_id)
+    Object::ObjectStem Object::unloadStem(db0::swine_ptr<Fixture> &fixture, Address address, 
+        std::uint16_t instance_id, AccessFlags access_mode)
     {
-        auto result = tryUnloadStem(fixture, address, instance_id);
+        auto result = tryUnloadStem(fixture, address, instance_id, access_mode);
         if (!result) {
             THROWF(db0::InputException) << "Invalid UUID or object has been deleted";
         }
@@ -211,7 +218,8 @@ namespace db0::object_model
             assert(m_type);
             super_t::init(*fixture, m_type->getClassRef(), initializer.getRefCounts(),
                 safeCast<std::uint8_t>(m_type->getNumBases() + 1, "Too many base classes"), 
-                pos_vt_data, pos_vt_offset, index_vt_data.first, index_vt_data.second
+                pos_vt_data, pos_vt_offset, index_vt_data.first, index_vt_data.second,
+                getAccessOptions(*m_type)
             );
             
             // reference associated class
@@ -311,10 +319,12 @@ namespace db0::object_model
                 // remove any existing lo-fi initialization
                 auto loc = member_id.get(2).getIndexAndOffset();
                 initializer.remove(loc, lofi_store<2>::mask(loc.second));
-            }                        
+            }
             // register a regular member with the initializer
-            initializer.set(member_id.get(0).getIndexAndOffset(), storage_class, 
-                createMember<LangToolkit>(fixture, type_id, storage_class, obj_ptr)
+            // NOTE: a new member receives the no-cache flag if set (at the type level)
+            auto member_flags = type.isNoCache() ? AccessFlags { AccessOptions::no_cache } : AccessFlags();
+            initializer.set(member_id.get(0).getIndexAndOffset(), storage_class,
+                createMember<LangToolkit>(fixture, type_id, storage_class, obj_ptr, member_flags)
             );
         } else {
             if (member_id.hasFidelity(0)) {
@@ -325,7 +335,9 @@ namespace db0::object_model
             // For now only fidelity == 2 is supported (lo-fi storage)
             assert(storage_fidelity == 2);
             auto loc = member_id.get(storage_fidelity).getIndexAndOffset();
-            auto value = lofi_store<2>::create(loc.second, createMember<LangToolkit>(fixture, type_id, storage_class, obj_ptr).m_store);
+            // no access flags for lo-fi members
+            auto value = lofi_store<2>::create(loc.second, 
+                createMember<LangToolkit>(fixture, type_id, storage_class, obj_ptr, {}).m_store);
             // register a lo-fi member with the initializer (using mask)
             initializer.set(loc, storage_class, value, lofi_store<2>::mask(loc.second));
         }
@@ -778,10 +790,11 @@ namespace db0::object_model
             member_id = m_type->addField(field_name, storage_fidelity);
             field_id = member_id.get(storage_fidelity);
         }
-
+        
         assert(field_id && member_id);
+        // NOTE: a new member inherits the parent's no-cache flag
         // FIXME: value should be destroyed on exception
-        auto value = createMember<LangToolkit>(*fixture, type_id, storage_class, lang_value);        
+        auto value = createMember<LangToolkit>(*fixture, type_id, storage_class, lang_value, getMemberFlags());
         // make sure object address is not null
         assert(!(storage_class == StorageClass::OBJECT_REF && value.cast<std::uint64_t>() == 0));
                 
@@ -905,7 +918,7 @@ namespace db0::object_model
             assert(member.first != StorageClass::DELETED && member.first != StorageClass::UNDEFINED);        
             // NOTE: offset is required for lo-fi members
             return unloadMember<LangToolkit>(
-                fixture, member.first, member.second, field_id.maybeOffset()
+                fixture, member.first, member.second, field_id.maybeOffset(), this->getMemberFlags()
             );
         }
         
@@ -928,7 +941,7 @@ namespace db0::object_model
             
             // NOTE: offset is required for lo-fi members
             return unloadMember<LangToolkit>(
-                fixture, member.first, member.second, field_id.getOffset()
+                fixture, member.first, member.second, field_id.getOffset(), this->getMemberFlags()
             );
         }
 
@@ -1380,11 +1393,13 @@ namespace db0::object_model
         auto fixture = this->getFixture();
         forAll([&](const std::string &name, const XValue &xvalue, unsigned int offset) -> bool {
             // all references convert to UUID
-            auto py_member = unloadMember<LangToolkit>(fixture, xvalue.m_type, xvalue.m_value, offset);
+            auto py_member = unloadMember<LangToolkit>(
+                fixture, xvalue.m_type, xvalue.m_value, offset, this->getMemberFlags()
+            );
             return f(name, py_member);
         });
     }
-
+    
     bool Object::forAll(XValue xvalue, std::function<bool(const std::string &, const XValue &, unsigned int offset)> f) const
     {
         assert(xvalue.m_type == StorageClass::PACK_2);
@@ -1597,7 +1612,7 @@ namespace db0::object_model
             m_touched = true;
         }
     }
-
+    
     void Object::addExtRef() const {
         ++m_ext_refs;
     }
@@ -1607,5 +1622,5 @@ namespace db0::object_model
         assert(m_ext_refs > 0);
         --m_ext_refs;
     }
-
+    
 }

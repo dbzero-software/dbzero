@@ -16,7 +16,7 @@ namespace db0::object_model
     GC0_Define(Dict)
     
     template <typename LangToolkit> o_typed_item createTypedItem(db0::swine_ptr<Fixture> &fixture,
-        typename LangToolkit::ObjectPtr lang_value)
+        typename LangToolkit::ObjectPtr lang_value, AccessFlags access_mode)
     {
         auto type_id = LangToolkit::getTypeManager().getTypeId(lang_value);
         // NOTE: packed storage not supported for dict keys/values
@@ -30,30 +30,31 @@ namespace db0::object_model
 
         return {
             storage_class, 
-            createMember<LangToolkit>(fixture, type_id, storage_class, lang_value)
+            createMember<LangToolkit>(fixture, type_id, storage_class, lang_value, access_mode)
         };
     }
     
     template <typename LangToolkit> dict_item createDictItem(db0::swine_ptr<Fixture> &fixture, std::uint64_t hash,
-        o_typed_item key, o_typed_item value)
+        o_typed_item key, o_typed_item value, AccessFlags)
     {
-        DictIndex bindex(*fixture, o_pair_item(key, value) );
+        // FIXME: currently unable to pass access flags since MorphingBIndex doesn't support it
+        DictIndex bindex(*fixture, o_pair_item(key, value));
         return { hash, bindex };
     }
     
-    Dict::Dict(db0::swine_ptr<Fixture> &fixture)
-        : super_t(fixture)
+    Dict::Dict(db0::swine_ptr<Fixture> &fixture, AccessFlags access_mode)
+        : super_t(fixture, access_mode)
         , m_index(*fixture)
     {
         modify().m_index_ptr = m_index.getAddress();
     }
     
-    Dict::Dict(db0::swine_ptr<Fixture> &fixture, Address address)
-        : super_t(super_t::tag_from_address(), fixture, address)
+    Dict::Dict(db0::swine_ptr<Fixture> &fixture, Address address, AccessFlags access_mode)
+        : super_t(super_t::tag_from_address(), fixture, address, access_mode)
         , m_index(myPtr((*this)->m_index_ptr))
     {
     }
-
+    
     Dict::Dict(db0::swine_ptr<Fixture> &fixture, const Dict &dict)
         : super_t(fixture)
         , m_index(*fixture)
@@ -97,18 +98,21 @@ namespace db0::object_model
     void Dict::setItem(FixtureLock &fixture, std::uint64_t key_hash, ObjectPtr key, ObjectPtr value)
     {
         using TypeId = db0::bindings::TypeId;
-        if(value == nullptr){
+        if (value == nullptr) {
             // remove the item if value is nullptr (for e.g when del is called)
             pop(key_hash, key);
             restoreIterators();
             return;
         }
-        auto key_item = createTypedItem<LangToolkit>(*fixture, key);
-        auto value_item = createTypedItem<LangToolkit>(*fixture, value);
+        auto member_flags = getMemberFlags();
+        auto key_item = createTypedItem<LangToolkit>(*fixture, key, member_flags);
+        auto value_item = createTypedItem<LangToolkit>(*fixture, value, member_flags);
 
         auto it = m_index.find(key_hash);
         if (it == m_index.end()) {
-            m_index.insert(createDictItem<LangToolkit>(*fixture, key_hash, key_item, value_item));
+            m_index.insert(
+                createDictItem<LangToolkit>(*fixture, key_hash, key_item, value_item, member_flags)
+            );
             ++modify().m_size;
         } else {
             auto address = (*it).value;
@@ -116,7 +120,7 @@ namespace db0::object_model
             auto it_join = bindex.beginJoin(1);
             while (!it_join.is_end()) {
                 auto [storage_class, value] = (*it_join).m_first;
-                auto member = unloadMember<LangToolkit>(*fixture, storage_class, value);
+                auto member = unloadMember<LangToolkit>(*fixture, storage_class, value, 0, member_flags);
                 if (LangToolkit::compare(key, member.get())) {
                     bindex.erase(*it_join);
                     unrefMember<LangToolkit>(*fixture, storage_class, value);
@@ -146,10 +150,14 @@ namespace db0::object_model
             auto it = bindex.beginJoin(1);
             while (!it.is_end()) {
                 auto [storage_class, value] = (*it).m_first;
-                auto member = unloadMember<LangToolkit>(fixture, storage_class, value);                
+                auto member = unloadMember<LangToolkit>(
+                    fixture, storage_class, value, 0, this->getMemberFlags()
+                );
                 if (LangToolkit::compare(key_value, member.get())) {
                     auto [storage_class, value] = (*it).m_second;
-                    return unloadMember<LangToolkit>(fixture, storage_class, value);
+                    return unloadMember<LangToolkit>(
+                        fixture, storage_class, value, 0, this->getMemberFlags()
+                    );
                 }
                 ++it;
             }
@@ -167,7 +175,7 @@ namespace db0::object_model
             auto it = bindex.beginJoin(1);
             while (!it.is_end()) {
                 auto [storage_class, value] = (*it).m_first;
-                auto member = unloadMember<LangToolkit>(fixture, storage_class, value);                
+                auto member = unloadMember<LangToolkit>(fixture, storage_class, value, 0, this->getMemberFlags());
                 if (LangToolkit::compare(key_value, member.get())) {
                     // a matching key was found
                     return true;
@@ -196,7 +204,7 @@ namespace db0::object_model
         auto [storage_class, value] = (*it).m_second;
         auto fixture = this->getFixture();        
         
-        auto member = unloadMember<LangToolkit>(fixture, storage_class, value);
+        auto member = unloadMember<LangToolkit>(fixture, storage_class, value, 0, this->getMemberFlags());
 
         unrefMember<LangToolkit>(fixture, key_storage_class, key_value);
         unrefMember<LangToolkit>(fixture, storage_class, value);

@@ -20,8 +20,8 @@
 namespace db0
 
 {
-DB0_PACKED_BEGIN
     
+DB0_PACKED_BEGIN
     struct DB0_PACKED_ATTR o_prefix_config: public o_fixed<o_prefix_config>
     {
         // magic number for the .db0 file        
@@ -43,6 +43,7 @@ DB0_PACKED_BEGIN
 
         o_prefix_config(std::uint32_t block_size, std::uint32_t page_size, std::uint32_t dram_page_size);
     };
+DB0_PACKED_END
 
     /**
      * Block-device based storage implementation
@@ -194,6 +195,5 @@ DB0_PACKED_BEGIN
         void _read(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer,
             FlagSet<AccessOptions> = { AccessOptions::read, AccessOptions::write }, unsigned int *chain_len = nullptr) const;
     };
-    
-DB0_PACKED_END
+
 }

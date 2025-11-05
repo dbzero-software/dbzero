@@ -8,19 +8,19 @@ namespace db0::object_model
 
     GC0_Define(ByteArray)
     
-    ByteArray::ByteArray(db0::swine_ptr<Fixture> &fixture, std::byte *bytes, std::size_t size)
-        : super_t(fixture)
+    ByteArray::ByteArray(db0::swine_ptr<Fixture> &fixture, std::byte *bytes, std::size_t size, AccessFlags access_mode)
+        : super_t(fixture, access_mode)
     {
         for (auto *bytes_ptr = bytes, *end = bytes + size; bytes_ptr != end; ++bytes_ptr) {            
             v_bvector::push_back(*bytes_ptr);
         }
     }
     
-    ByteArray::ByteArray(db0::swine_ptr<Fixture> &fixture, Address address)
-        : super_t(super_t::tag_from_address(), fixture, address)
+    ByteArray::ByteArray(db0::swine_ptr<Fixture> &fixture, Address address, AccessFlags access_mode)
+        : super_t(super_t::tag_from_address(), fixture, address, access_mode)
     {
     }
-        
+    
     ByteArray::ByteArray(tag_no_gc, db0::swine_ptr<Fixture> &fixture, const ByteArray &byte_array)
         : super_t(tag_no_gc(), fixture, byte_array)
     {
@@ -38,9 +38,11 @@ namespace db0::object_model
             THROWF(db0::InputException) << "Index out of range: " << i;
         }
         auto fixture = this->getFixture();
-        return unloadMember<LangToolkit>(fixture, StorageClass::INT64, (long)(*this)[i]);
+        return unloadMember<LangToolkit>(
+            fixture, StorageClass::INT64, (long)(*this)[i], 0, this->getMemberFlags()
+        );
     }
-
+    
     std::byte ByteArray::getByte(std::size_t i) const {
         return (*this)[i];        
     }

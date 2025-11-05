@@ -47,23 +47,23 @@ namespace db0
     };
     
     std::optional<Address> SlotAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num, 
-        bool aligned, unsigned char realm_id)
+        bool aligned, unsigned char realm_id, unsigned char locality)
     {
         if (!slot_num) {
-            return m_allocator_ptr->tryAlloc(size, 0, aligned, realm_id);
+            return m_allocator_ptr->tryAlloc(size, 0, aligned, realm_id, locality);
         }
         
-        return select(slot_num).tryAlloc(size, 0, aligned, realm_id);
+        return select(slot_num).tryAlloc(size, 0, aligned, realm_id, locality);
     }
     
     std::optional<UniqueAddress> SlotAllocator::tryAllocUnique(std::size_t size, std::uint32_t slot_num, 
-        bool aligned, unsigned char realm_id)
+        bool aligned, unsigned char realm_id, unsigned char locality)
     {
         if (!slot_num) {
-            return m_allocator_ptr->tryAllocUnique(size, 0, aligned, realm_id);
+            return m_allocator_ptr->tryAllocUnique(size, 0, aligned, realm_id, locality);
         }
         
-        return select(slot_num).tryAllocUnique(size, 0, aligned, realm_id);
+        return select(slot_num).tryAllocUnique(size, 0, aligned, realm_id, locality);
     }
     
     void SlotAllocator::free(Address address) {

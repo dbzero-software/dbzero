@@ -34,13 +34,14 @@ namespace db0::object_model
     }
     
     template <typename LangToolkit> o_typed_item createTupleItem(db0::swine_ptr<Fixture> &fixture,
-        db0::bindings::TypeId type_id, typename LangToolkit::ObjectPtr lang_value, StorageClass storage_class)
+        db0::bindings::TypeId type_id, typename LangToolkit::ObjectPtr lang_value, 
+        StorageClass storage_class, FlagSet<AccessOptions> access_mode)
     {
-        return { storage_class, createMember<LangToolkit>(fixture, type_id, storage_class, lang_value) };
+        return { storage_class, createMember<LangToolkit>(fixture, type_id, storage_class, lang_value, access_mode) };
     }
     
-    Tuple::Tuple(db0::swine_ptr<Fixture> &fixture, tag_new_tuple, std::size_t size)
-        : super_t(fixture, size)
+    Tuple::Tuple(db0::swine_ptr<Fixture> &fixture, tag_new_tuple, std::size_t size, AccessFlags access_mode)
+        : super_t(fixture, size, access_mode)
     {
     }
 
@@ -53,8 +54,8 @@ namespace db0::object_model
         }
     }
     
-    Tuple::Tuple(db0::swine_ptr<Fixture> &fixture, Address address)
-        : super_t(super_t::tag_from_address(), fixture, address)
+    Tuple::Tuple(db0::swine_ptr<Fixture> &fixture, Address address, AccessFlags access_mode)
+        : super_t(super_t::tag_from_address(), fixture, address, access_mode)
     {
     }
     
@@ -71,7 +72,7 @@ namespace db0::object_model
         }
         auto [storage_class, value] = getData()->items()[i];
         auto fixture = this->getFixture();
-        return unloadMember<LangToolkit>(fixture, storage_class, value);
+        return unloadMember<LangToolkit>(fixture, storage_class, value, 0, this->getMemberFlags());
     }
     
     void Tuple::setItem(FixtureLock &fixture, std::size_t i, ObjectSharedPtr lang_value)
@@ -91,7 +92,9 @@ namespace db0::object_model
             storage_class = db0::getStorageClass(pre_storage_class);
         }
         
-        modify().items()[i] = createTupleItem<LangToolkit>(*fixture, type_id, *lang_value, storage_class);
+        modify().items()[i] = createTupleItem<LangToolkit>(
+            *fixture, type_id, *lang_value, storage_class, getMemberFlags()
+        );
     }
     
     std::size_t Tuple::count(ObjectPtr lang_value) const
@@ -100,20 +103,20 @@ namespace db0::object_model
         auto fixture = this->getFixture();
         for (auto &elem: this->const_ref().items()) {
             auto [elem_storage_class, elem_value] = elem;
-            if (unloadMember<LangToolkit>(fixture, elem_storage_class, elem_value) == lang_value) {
+            if (unloadMember<LangToolkit>(fixture, elem_storage_class, elem_value, 0, this->getMemberFlags()) == lang_value) {
                 count += 1;
             }
         }
         return count;
     }
-
+    
     std::size_t Tuple::index(ObjectPtr lang_value) const
     {
         std::size_t index = 0;
         auto fixture = this->getFixture();
         for (auto &elem: this->const_ref().items()){
             auto [elem_storage_class, elem_value] = elem;
-            if (unloadMember<LangToolkit>(fixture, elem_storage_class, elem_value) == lang_value) {
+            if (unloadMember<LangToolkit>(fixture, elem_storage_class, elem_value, 0, this->getMemberFlags()) == lang_value) {
                 return index;
             }
             index += 1;

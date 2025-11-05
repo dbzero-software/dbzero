@@ -10,6 +10,7 @@ namespace db0::python
 {
     
     using ListObject = PyWrapper<db0::object_model::List>;
+    using AccessFlags = db0::AccessFlags;
     
     ListObject *ListObject_new(PyTypeObject *type, PyObject *, PyObject *);
     shared_py_object<ListObject*> ListDefaultObject_new();
@@ -25,7 +26,7 @@ namespace db0::python
     extern PyTypeObject ListObjectType;
     
     // construct from a Python list (or empty)
-    shared_py_object<ListObject*> tryMake_DB0List(db0::swine_ptr<Fixture> &, PyObject *const *args, Py_ssize_t nargs);
+    shared_py_object<ListObject*> tryMake_DB0List(db0::swine_ptr<Fixture> &, PyObject *const *args, Py_ssize_t nargs, AccessFlags);
     PyObject *PyAPI_makeList(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
     
     bool ListObject_Check(PyObject *);

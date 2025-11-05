@@ -12,18 +12,19 @@ namespace db0::object_model
     GC0_Define(List)
 
     template <typename LangToolkit> o_typed_item createListItem(db0::swine_ptr<Fixture> &fixture,
-        db0::bindings::TypeId type_id, typename LangToolkit::ObjectPtr lang_value, StorageClass storage_class)
-    {        
-        return { storage_class, createMember<LangToolkit>(fixture, type_id, storage_class, lang_value) };
+        db0::bindings::TypeId type_id, typename LangToolkit::ObjectPtr lang_value, 
+        StorageClass storage_class, FlagSet<AccessOptions> access_mode)
+    {
+        return { storage_class, createMember<LangToolkit>(fixture, type_id, storage_class, lang_value, access_mode) };
     }
     
-    List::List(db0::swine_ptr<Fixture> &fixture)
-        : super_t(fixture)
+    List::List(db0::swine_ptr<Fixture> &fixture, AccessFlags access_mode)
+        : super_t(fixture, access_mode)
     {
     }
     
-    List::List(db0::swine_ptr<Fixture> &fixture, Address address)
-        : super_t(super_t::tag_from_address(), fixture, address)
+    List::List(db0::swine_ptr<Fixture> &fixture, Address address, AccessFlags access_mode)
+        : super_t(super_t::tag_from_address(), fixture, address, access_mode)
     {
     }
 
@@ -31,7 +32,7 @@ namespace db0::object_model
         : super_t(fixture, list)
     {
     }
-
+    
     List::List(tag_no_gc, db0::swine_ptr<Fixture> &fixture, const List &list)
         : super_t(tag_no_gc(), fixture, list)
     {
@@ -59,7 +60,7 @@ namespace db0::object_model
         }
         
         v_bvector::push_back(
-            createListItem<LangToolkit>(*fixture, type_id, *lang_value, storage_class)
+            createListItem<LangToolkit>(*fixture, type_id, *lang_value, storage_class, getMemberFlags())
         );
         restoreIterators();
     }
@@ -67,11 +68,11 @@ namespace db0::object_model
     List::ObjectSharedPtr List::getItem(std::size_t i) const
     {
         if (i >= size()) {
-            THROWF(db0::InputException) << "Index out of range: " << i;
+            THROWF(db0::IndexException) << "Index out of range: " << i;
         }
         auto [storage_class, value] = (*this)[i];
         auto fixture = this->getFixture();
-        return unloadMember<LangToolkit>(fixture, storage_class, value);
+        return unloadMember<LangToolkit>(fixture, storage_class, value, 0, this->getMemberFlags());
     }
 
     List::ObjectSharedPtr List::pop(FixtureLock &fixture, std::size_t i)
@@ -80,19 +81,19 @@ namespace db0::object_model
             THROWF(db0::InputException) << "Cannot pop from empty container ";
         }
         if (i >= size()) {
-            THROWF(db0::InputException) << "Index out of range: " << i;
+            THROWF(db0::IndexException) << "Index out of range: " << i;
         }
         auto [storage_class, value] = (*this)[i];
-        auto member = unloadMember<LangToolkit>(*fixture, storage_class, value);
+        auto member = unloadMember<LangToolkit>(*fixture, storage_class, value, 0, this->getMemberFlags());
         this->swapAndPop(fixture, {i});
         restoreIterators();
         return member;
     }
-
+    
     void List::setItem(FixtureLock &fixture, std::size_t i, ObjectPtr lang_value)
     {
         if (i >= size()) {
-            THROWF(db0::InputException) << "Index out of range: " << i;
+            THROWF(db0::IndexException) << "Index out of range: " << i;
         }
 
         // recognize type ID from language specific object
@@ -107,10 +108,10 @@ namespace db0::object_model
         }
         
         auto [storage_class_value, value] = (*this)[i];
-        v_bvector::setItem(i, createListItem<LangToolkit>(*fixture, type_id, lang_value, storage_class));
+        v_bvector::setItem(i, createListItem<LangToolkit>(*fixture, type_id, lang_value, storage_class, getMemberFlags()));
         unrefMember<LangToolkit>(*fixture, storage_class_value, value);
     }
-        
+    
     List * List::copy(void *at_ptr, db0::swine_ptr<Fixture> &fixture) const {
         return new (at_ptr) List(fixture, *this);
     }
@@ -121,8 +122,8 @@ namespace db0::object_model
         auto fixture = this->getFixture();
         for (auto &elem: (*this)) {
             auto [elem_storage_class, elem_value] = elem;
-            if (unloadMember<LangToolkit>(fixture, elem_storage_class, elem_value) == lang_value) {
-                count += 1;
+            if (unloadMember<LangToolkit>(fixture, elem_storage_class, elem_value, 0, this->getMemberFlags()) == lang_value) {
+                ++count;
             }
         }
         return count;
@@ -134,7 +135,7 @@ namespace db0::object_model
         auto fixture = this->getFixture();
         for (auto &elem: (*this)) {
             auto [elem_storage_class, elem_value] = elem;
-            if (unloadMember<LangToolkit>(fixture, elem_storage_class, elem_value) == lang_value) {
+            if (unloadMember<LangToolkit>(fixture, elem_storage_class, elem_value, 0, this->getMemberFlags()) == lang_value) {
                 return index;
             }
             ++index;
@@ -142,7 +143,7 @@ namespace db0::object_model
         THROWF(db0::InputException) << "Item is not in a list ";
         return -1;
     }
-
+    
     bool List::operator==(const List &list) const
     {
         if (size() != list.size()) {

@@ -32,8 +32,8 @@ namespace db0
         // Open an existing instance
         // NOTE: we use tag_verified to avoid registering unverified instance with GC0
         struct tag_from_address {};
-        has_fixture(tag_from_address, db0::swine_ptr<Fixture> &fixture, Address address, std::size_t size_of = 0)
-            : BaseT(db0::tag_verified(), mptr(*fixture, address), size_of)
+        has_fixture(tag_from_address, db0::swine_ptr<Fixture> &fixture, Address address, std::size_t size_of = 0, AccessFlags access_mode = {})
+            : BaseT(db0::tag_verified(), mptr(*fixture, address), size_of, access_mode)
         {
             // take weak ref of the Fixture
             fixture.take_weak();

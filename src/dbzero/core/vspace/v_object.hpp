@@ -54,7 +54,7 @@ namespace db0
         v_object(Memspace &memspace, Tuple&& t, int_seq<std::size_t, I...>)
             : v_this(ptr_t::makeNew(
                 memspace,
-                c_type::measure(std::get<I>(std::forward<Tuple>(t))...),                
+                c_type::measure(std::get<I>(std::forward<Tuple>(t))...),
                 std::get<N>(std::forward<Tuple>(t)) )
             )
         {
@@ -71,6 +71,33 @@ namespace db0
             c_type::__new(reinterpret_cast<std::byte*>(&v_this.modify()), std::get<I>(std::forward<Tuple>(t))...);
         }
         
+        template<typename Tuple, std::size_t...I, std::size_t N=std::tuple_size<Tuple>::value-1>
+        void init(Memspace &memspace, Tuple&& t, int_seq<std::size_t, I...>)
+        {
+            v_this = ptr_t::makeNew(
+                memspace, 
+                c_type::measure(std::get<I>(std::forward<Tuple>(t))...),
+                // access options (the last argument)
+                std::get<N>(std::forward<Tuple>(t)) 
+            );
+            c_type::__new(reinterpret_cast<std::byte*>(&v_this.modify()), std::get<I>(std::forward<Tuple>(t))...);
+        }
+
+        template<typename Tuple, std::size_t...I, std::size_t N=std::tuple_size<Tuple>::value-1>        
+        std::uint16_t initUnique(Memspace &memspace, Tuple&& t, int_seq<std::size_t, I...>)
+        {
+            std::uint16_t instance_id;
+            v_this = ptr_t::makeNewUnique(
+                memspace, 
+                instance_id, 
+                c_type::measure(std::get<I>(std::forward<Tuple>(t))...),
+                // access options (the last argument)
+                std::get<N>(std::forward<Tuple>(t)) 
+            );
+            c_type::__new(reinterpret_cast<std::byte*>(&v_this.modify()), std::get<I>(std::forward<Tuple>(t))...);
+            return instance_id;
+        }
+
     public:
         /**
          * Allocating constructor with flags
@@ -90,37 +117,37 @@ namespace db0
             : v_object(memspace, tag_prelocked(), std::forward_as_tuple(std::forward<Args>(args)...), make_int_seq_t<std::size_t, sizeof...(args)-1>())
         {
         }
-
-        /**
-         * Standard allocating constructor
-         */
+        
+        // Standard allocating constructor
         template<typename... Args, last_type_is_not_t<FlagSet<AccessOptions>, Args...>* = nullptr, last_type_is_not_t<MappedAddress, Args...>* = nullptr>
         v_object(Memspace &memspace, Args&&... args)
             : v_object(memspace, std::forward<Args>(args)..., FlagSet<AccessOptions> {})
         {
         }
         
-        /**
-         * Create a new dbzero instance in the given memory space
-        */       
-        template <typename... Args>
-        void init(Memspace &memspace, Args&&... args)
-        {
-            v_this = ptr_t::makeNew(memspace, c_type::measure(std::forward<Args>(args)...));            
-            c_type::__new(reinterpret_cast<std::byte*>(&v_this.modify()), std::forward<Args>(args)...);
-        }
-        
-        // Create new instance assigned unique address
-        // @return instance id
-        template <typename... Args>
-        std::uint16_t initUnique(Memspace &memspace, Args&&... args)
-        {
-            std::uint16_t instance_id;
-            v_this = ptr_t::makeNewUnique(memspace, instance_id, c_type::measure(std::forward<Args>(args)...));
-            c_type::__new(reinterpret_cast<std::byte*>(&v_this.modify()), std::forward<Args>(args)...);
-            return instance_id;
+        // Create a new dbzero instance in the given memory space
+        template<typename... Args, last_type_is_t<FlagSet<AccessOptions>, Args...>* = nullptr>
+        void init(Memspace &memspace, Args&&... args) {
+            init(memspace, std::forward_as_tuple(std::forward<Args>(args)...), make_int_seq_t<std::size_t, sizeof...(args)-1>());
         }
 
+        template<typename... Args, last_type_is_not_t<FlagSet<AccessOptions>, Args...>* = nullptr>
+        void init(Memspace &memspace, Args&&... args) {
+            init(memspace, std::forward<Args>(args)..., FlagSet<AccessOptions> {});
+        }
+
+        // Create new instance assigned unique address
+        // @return instance id
+        template<typename... Args, last_type_is_t<FlagSet<AccessOptions>, Args...>* = nullptr>
+        std::uint16_t initUnique(Memspace &memspace, Args&&... args) {
+            return initUnique(memspace, std::forward_as_tuple(std::forward<Args>(args)...), make_int_seq_t<std::size_t, sizeof...(args)-1>());
+        }
+        
+        template<typename... Args, last_type_is_not_t<FlagSet<AccessOptions>, Args...>* = nullptr>
+        std::uint16_t initUnique(Memspace &memspace, Args&&... args) {
+            return initUnique(memspace, std::forward<Args>(args)..., FlagSet<AccessOptions> {});        
+        }
+        
         // Construct from v-pointer
         v_object(ptr_t &&ptr)
             : v_this(std::move(ptr))
@@ -273,6 +300,10 @@ namespace db0
         // i.e. was already access for read/write
         bool isModified() const {
             return v_this.isModified();
+        }
+        
+        bool isNoCache() const {
+            return v_this.isNoCache();
         }
         
     protected:

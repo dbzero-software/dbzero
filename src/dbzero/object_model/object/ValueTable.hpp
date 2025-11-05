@@ -13,7 +13,6 @@ namespace db0::object_model
 {
 
 DB0_PACKED_BEGIN
-
     /**
      * Positionally-encoded value table
     */
@@ -86,10 +85,12 @@ DB0_PACKED_BEGIN
 
         bool operator==(const PosVT &other) const;
     };
-    
+DB0_PACKED_END
+
     /**
      * Indexed value table
     */
+DB0_PACKED_BEGIN
     class DB0_PACKED_ATTR IndexVT: public o_base<IndexVT, 0, false>
     {
     protected:

@@ -15,7 +15,7 @@ namespace db0::object_model
         auto [storage_class, value] = *m_iterator;
         ++m_iterator;
         auto fixture = m_collection->getFixture();
-        return unloadMember<LangToolkit>(fixture, storage_class, value);
+        return unloadMember<LangToolkit>(fixture, storage_class, value, 0, m_member_flags);
     }
     
     bool TupleIterator::is_end() const {

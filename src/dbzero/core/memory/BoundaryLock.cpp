@@ -8,8 +8,8 @@ namespace db0
     
     BoundaryLock::BoundaryLock(StorageContext context, std::uint64_t address, std::shared_ptr<DP_Lock> lhs, std::size_t lhs_size,
         std::shared_ptr<DP_Lock> rhs, std::size_t rhs_size, FlagSet<AccessOptions> access_mode)
-        // important to use no_cache for BoundaryLock (this is to allow release/creation of a new boundary lock without collisions)
-        : ResourceLock(context, address, lhs_size + rhs_size, access_mode | AccessOptions::no_cache)
+        // important to use no_dirty_cache for BoundaryLock (this is to allow release/creation of a new boundary lock without collisions)
+        : ResourceLock(context, address, lhs_size + rhs_size, access_mode | AccessOptions::no_dirty_cache)
         , m_lhs(lhs)
         , m_lhs_size(lhs_size)
         , m_rhs(rhs)
@@ -28,8 +28,8 @@ namespace db0
         std::shared_ptr<DP_Lock> lhs, std::size_t lhs_size,
         std::shared_ptr<DP_Lock> rhs, std::size_t rhs_size, 
         FlagSet<AccessOptions> access_mode)
-        // important to use no_cache for BoundaryLock (this is to allow release/creation of a new boundary lock without collisions)
-        : ResourceLock(context, address, lhs_size + rhs_size, access_mode | AccessOptions::no_cache)
+        // important to use no_dirty_cache for BoundaryLock (this is to allow release/creation of a new boundary lock without collisions)
+        : ResourceLock(context, address, lhs_size + rhs_size, access_mode | AccessOptions::no_dirty_cache)
         , m_lhs(lhs)
         , m_lhs_size(lhs_size)
         , m_rhs(rhs)

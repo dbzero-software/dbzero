@@ -44,8 +44,10 @@ namespace db0
         }
         
         // Memspace::alloc implements the auto-align logic
-        Address alloc(std::size_t size, std::uint32_t slot_num = 0, unsigned char realm_id = 0);
-        UniqueAddress allocUnique(std::size_t size, std::uint32_t slot_num = 0, unsigned char realm_id = 0);
+        Address alloc(std::size_t size, std::uint32_t slot_num = 0, unsigned char realm_id = 0, 
+            unsigned char locality = 0);
+        UniqueAddress allocUnique(std::size_t size, std::uint32_t slot_num = 0, unsigned char realm_id = 0, 
+            unsigned char locality = 0);
         
         void free(Address);
 

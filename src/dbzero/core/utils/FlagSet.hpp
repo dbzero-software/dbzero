@@ -13,8 +13,6 @@ namespace db0
 
 {
 
-DB0_PACKED_BEGIN
-
     template <typename enum_t> class FlagSetLimits
     {
     public:
@@ -31,7 +29,8 @@ DB0_PACKED_BEGIN
             THROWF(db0::InternalException) << "Missing DECLARE_ENUM_FLAGS directive. Internal error." << THROWF_END;            
         }
     };
-    
+
+DB0_PACKED_BEGIN
     template<typename EnumT> class DB0_PACKED_ATTR FlagSet
     {
     public:
@@ -135,9 +134,9 @@ DB0_PACKED_BEGIN
         }
         
         FlagSet operator&(EnumT flag) const {
-            return FlagSet(m_flags & flag);
+            return FlagSet(m_flags & static_cast<store_t>(flag));
         }
-
+        
         FlagSet operator&(const FlagSet &other) const {
             return FlagSet(m_flags & other.m_flags);
         }
@@ -198,6 +197,7 @@ DB0_PACKED_BEGIN
     private:
         store_t m_flags = 0;
     };
+DB0_PACKED_END
 
 }
 
@@ -240,8 +240,6 @@ namespace std { std::ostream &operator<<(std::ostream &os, EnumTypeName option) 
             flag <<= 1; \
         } \
         THROWF(db0::InputException) << "Unrecognized flag: " << str_input << THROWF_END; } }
-
-DB0_PACKED_END
 
 namespace std 
 

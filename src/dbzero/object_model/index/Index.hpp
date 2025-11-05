@@ -37,11 +37,11 @@ namespace db0::object_model
         
         // null instance constructor
         Index();
-        Index(db0::swine_ptr<Fixture> &);
-        Index(db0::swine_ptr<Fixture> &, Address);
+        Index(db0::swine_ptr<Fixture> &, AccessFlags = {});
+        Index(db0::swine_ptr<Fixture> &, Address, AccessFlags = {});
         Index(const Index &) = delete;
         ~Index();
-                
+        
         std::size_t size() const;
         void add(ObjectPtr key, ObjectPtr value);
         void remove(ObjectPtr key, ObjectPtr value);

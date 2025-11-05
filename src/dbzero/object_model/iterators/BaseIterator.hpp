@@ -27,6 +27,7 @@ namespace db0::object_model
             : m_iterator(iterator)
             , m_collection(ptr)
             , m_lang_collection_shared_ptr(lang_collection_ptr)
+            , m_member_flags(ptr->getMemberFlags())
         {
         }
         
@@ -47,6 +48,8 @@ namespace db0::object_model
         const CollectionT *m_collection;
         // reference to persist collections' related language specific object
         ObjectSharedPtr m_lang_collection_shared_ptr;
+        // member access flags (e.g. no_cache)
+        const AccessFlags m_member_flags;
     };
 
 }

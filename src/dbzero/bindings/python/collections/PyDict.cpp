@@ -357,11 +357,12 @@ namespace db0::python
         return runSafe(tryDictObject_update, dict_object, args, kwargs);
     }
     
-    shared_py_object<DictObject*> tryMake_DB0Dict(db0::swine_ptr<Fixture> &fixture, PyObject *args, PyObject *kwargs)
+    shared_py_object<DictObject*> tryMake_DB0Dict(db0::swine_ptr<Fixture> &fixture, PyObject *args,
+        PyObject *kwargs, AccessFlags access_mode)
     {        
         auto py_dict = DictDefaultObject_new();
-        db0::FixtureLock lock(fixture);        
-        auto &dict = py_dict->makeNew(*lock);
+        db0::FixtureLock lock(fixture);
+        auto &dict = py_dict->makeNew(*lock, access_mode);
         
         // if args
         if (!tryDictObject_update(py_dict.get(), args, kwargs)) {            
@@ -373,16 +374,16 @@ namespace db0::python
         return py_dict;
     }
 
-    shared_py_object<DictObject*> tryMake_DB0DictInternal(PyObject *args, PyObject *kwargs)
+    shared_py_object<DictObject*> tryMake_DB0DictInternal(PyObject *args, PyObject *kwargs, AccessFlags access_mode)
     {
         auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture();
-        return tryMake_DB0Dict(fixture, args, kwargs);        
+        return tryMake_DB0Dict(fixture, args, kwargs, access_mode);
     }
     
     DictObject *PyAPI_makeDict(PyObject *, PyObject* args, PyObject* kwargs)
     {
-        PY_API_FUNC        
-        return runSafe(tryMake_DB0DictInternal, args, kwargs).steal();
+        PY_API_FUNC
+        return runSafe(tryMake_DB0DictInternal, args, kwargs, AccessFlags {}).steal();
     }
     
     PyObject *tryDictObject_clear(DictObject *dict_obj)

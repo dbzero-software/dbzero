@@ -57,7 +57,7 @@ namespace tests
         realms.emplace_back(m_bitspace, page_size);
         realms.emplace_back(m_bitspace, page_size);
         auto data = db0::tests::getCPData();
-        for (const auto &item: data) {            
+        for (const auto &item: data) {
             // process line
             unsigned int op_code = std::get<0>(item);
             unsigned int realm_id = std::get<1>(item);

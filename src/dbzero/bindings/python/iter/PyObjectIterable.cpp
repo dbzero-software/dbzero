@@ -3,6 +3,7 @@
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/bindings/python/PyInternalAPI.hpp>
 #include <dbzero/bindings/python/PyTagsAPI.hpp>
+#include <dbzero/bindings/python/PyToolkit.hpp>
 #include <dbzero/core/utils/base32.hpp>
 
 namespace db0::python
@@ -127,33 +128,66 @@ namespace db0::python
         }    
     }
     
-    PyObject *tryPyObjectIterable_GetItemSlice(PyObjectIterable *py_iterable, PyObject *py_slice)
+    std::vector<std::uint64_t> unpackTuple(PyObject *py_tuple)
+    {
+        if (!PyTuple_Check(py_tuple)) {
+            THROWF(db0::InputException) << "Expected a tuple of indexes";
+        }
+        Py_ssize_t num_items = PyTuple_Size(py_tuple);
+        std::vector<std::uint64_t> result;
+        result.reserve(num_items);
+        for (Py_ssize_t i = 0; i < num_items; ++i) {
+            PyObject *py_item = PyTuple_GetItem(py_tuple, i);
+            if (!PyLong_Check(py_item)) {
+                THROWF(db0::InputException) << "Expected integer indexes in the tuple";
+            }            
+            result.push_back(PyLong_AsUnsignedLongLong(py_item));
+        }
+        return result;
+    }
+    
+    PyObject *tryPyObjectIterable_GetItemSlice(PyObjectIterable *py_iterable, PyObject *py_key)
     {        
         using SliceDef = db0::object_model::SliceDef;
-        Py_ssize_t start, stop, step;    
-        auto size_func = [&](std::optional<std::size_t> &size) {
-            if (!size) {
-                size = py_iterable->ext().getSize();
-            }
-            return *size;
-        };
-        
-        PySlice_GetUnboundIndices(py_slice, size_func, start, stop, step);
-        std::size_t _stop = (stop == PY_SSIZE_T_MAX) ? SliceDef::MAX_STOP() : (std::size_t)stop;        
-        auto slice_def = SliceDef { (std::size_t)start, _stop, (int)step };
-        // the default slice just returns itself
-        if (slice_def.isDefault()) {
-            Py_INCREF(py_iterable);
-            return py_iterable;
-        }
+        using ObjectSharedPtr = PyToolkit::ObjectSharedPtr;
 
-        if (py_iterable->ext().isSliced()) {
-            THROWF(db0::InputException) << "Cannot slice an already sliced iterable (Operation not supported)";
-        }
-        
-        auto py_result = PyObjectIterableDefault_new();
-        py_result->makeNew(py_iterable->ext(), slice_def);
-        return py_result.steal();
+        if (PyTuple_Check(py_key)) {
+            // itemgetter's key (item indexes)
+            auto indices = unpackTuple(py_key);
+            auto py_result = Py_OWN(PyTuple_New(indices.size()));
+            db0::object_model::getItemsByIndices(py_iterable->ext(), indices,
+                [&](unsigned int ord, ObjectSharedPtr obj_ptr) {
+                    PySafeTuple_SetItem(*py_result, ord, obj_ptr);
+                });
+            return py_result.steal();
+        } else if (PySlice_Check(py_key)) {
+            Py_ssize_t start, stop, step;
+            auto size_func = [&](std::optional<std::size_t> &size) {
+                if (!size) {
+                    size = py_iterable->ext().getSize();
+                }
+                return *size;
+            };
+            
+            PySlice_GetUnboundIndices(py_key, size_func, start, stop, step);
+            std::size_t _stop = (stop == PY_SSIZE_T_MAX) ? SliceDef::MAX_STOP() : (std::size_t)stop;        
+            auto slice_def = SliceDef { (std::size_t)start, _stop, (int)step };
+            // the default slice just returns itself
+            if (slice_def.isDefault()) {
+                Py_INCREF(py_iterable);
+                return py_iterable;
+            }
+            
+            if (py_iterable->ext().isSliced()) {
+                THROWF(db0::InputException) << "Cannot slice an already sliced iterable (Operation not supported)";
+            }
+
+            auto py_result = PyObjectIterableDefault_new();
+            py_result->makeNew(py_iterable->ext(), slice_def);
+            return py_result.steal();
+        } 
+        THROWF(db0::InputException)
+            << "Invalid subscript type for ObjectIterable: " << Py_TYPE(py_key)->tp_name << THROWF_END;
     }
     
     PyObject *PyAPI_PyObjectIterable_GetItemSlice(PyObjectIterable *py_iterable, PyObject *py_elem)
@@ -180,7 +214,7 @@ namespace db0::python
     static PyMethodDef PyObjectIterable_methods[] = 
     {
         {"compare", (PyCFunction)PyAPI_PyObjectIterable_compare, METH_FASTCALL, "Compare two iterables"},
-        {"signature", (PyCFunction)PyAPI_PyObjectIterable_signature, METH_NOARGS, "Get the signature of the query"},
+        {"signature", (PyCFunction)PyAPI_PyObjectIterable_signature, METH_NOARGS, "Get the signature of the query"},        
         {NULL}
     };
     

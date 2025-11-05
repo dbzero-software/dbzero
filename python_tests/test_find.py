@@ -4,6 +4,7 @@ from .memo_test_types import MemoTestClass, MemoDataPxClass, MemoTestSingleton, 
 from .conftest import DB0_DIR, DATA_PX
 import itertools
 from datetime import datetime
+import operator
 
 
 @db0.memo()
@@ -354,4 +355,24 @@ def test_find_with_scope_defined(db0_fixture):
     # use scoped find to find instances from different prefixes
     assert [x.value for x in db0.find(MemoScopedClass, "tag1", prefix = px_name)] == [123]
     assert [x.value for x in db0.find(MemoScopedClass, "tag1", prefix = other_px_name)] == [456]
-                                
+
+
+def test_find_extract_multiple_indices(db0_no_autocommit, memo_tags):
+    # pick elements by specific indexes
+    result = db0.find("tag1")[3, 6, 7]
+    assert type(result) is tuple
+    assert len(result) == 3
+
+
+def test_find_extract_duplicate_indices(db0_no_autocommit, memo_tags):
+    # pick elements by specific indexes
+    result = db0.find("tag1")[3, 6, 7, 3, 6]    
+    assert result[0] is result[3]
+    assert result[1] is result[4]
+    
+    
+def test_find_extract_invalid_indices(db0_no_autocommit, memo_tags):
+    query = db0.find("tag1")
+    assert len(query) == 10
+    with pytest.raises(IndexError):
+        _ = db0.find("tag1")[3, 6, 7, 3, 10]

@@ -225,7 +225,7 @@ namespace db0::python
     }
     
     shared_py_object<TupleObject*> tryMake_DB0Tuple(db0::swine_ptr<Fixture> &fixture, PyObject *const *args,
-        Py_ssize_t nargs)
+        Py_ssize_t nargs, AccessFlags access_mode)
     {
         using Tuple = db0::object_model::Tuple;
 
@@ -238,7 +238,7 @@ namespace db0::python
         auto py_tuple = TupleDefaultObject_new();
         db0::FixtureLock lock(fixture);
         if (nargs == 0) {
-            auto &tuple = py_tuple->makeNew(*lock, Tuple::tag_new_tuple(), 0);
+            auto &tuple = py_tuple->makeNew(*lock, Tuple::tag_new_tuple(), 0, access_mode);
             fixture->getLangCache().add(tuple.getAddress(), py_tuple.get()); 
             return py_tuple;
         }
@@ -259,12 +259,12 @@ namespace db0::python
             if (PyErr_Occurred()) {
                 return nullptr; // Error from PyIter_Next
             }
-            auto &tuple = py_tuple->makeNew(*lock, Tuple::tag_new_tuple(), values.size());
+            auto &tuple = py_tuple->makeNew(*lock, Tuple::tag_new_tuple(), values.size(), access_mode);
             for (std::size_t index = 0; index != values.size(); ++index) {
                 tuple.setItem(lock, index, values[index]);
             }
         } else {
-            auto &tuple = py_tuple->makeNew(*lock, Tuple::tag_new_tuple(), length);
+            auto &tuple = py_tuple->makeNew(*lock, Tuple::tag_new_tuple(), length, access_mode);
             int index = 0;
             Py_FOR(item, iterator) {
                 tuple.setItem(lock, index++, item);                
@@ -279,16 +279,17 @@ namespace db0::python
         return py_tuple;
     }
     
-    shared_py_object<TupleObject*> tryMake_DB0TupleInternal(PyObject *const *args, Py_ssize_t nargs)
+    shared_py_object<TupleObject*> tryMake_DB0TupleInternal(PyObject *const *args, 
+        Py_ssize_t nargs, AccessFlags access_mode)
     {
         auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture();
-        return tryMake_DB0Tuple(fixture, args, nargs);
+        return tryMake_DB0Tuple(fixture, args, nargs, access_mode);
     }
-
+    
     PyObject *PyAPI_makeTuple(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
-        PY_API_FUNC        
-        return runSafe(tryMake_DB0TupleInternal, args, nargs).steal();
+        PY_API_FUNC
+        return runSafe(tryMake_DB0TupleInternal, args, nargs, AccessFlags{}).steal();
     }
     
     bool TupleObject_Check(PyObject *object) {

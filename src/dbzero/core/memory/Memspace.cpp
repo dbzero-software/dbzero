@@ -136,15 +136,15 @@ namespace db0
         m_prefix->cancelAtomic();
     }
     
-    Address Memspace::alloc(std::size_t size, std::uint32_t slot_num, unsigned char realm_id) {
+    Address Memspace::alloc(std::size_t size, std::uint32_t slot_num, unsigned char realm_id, unsigned char locality) {
         // align if the alloc size > page size
-        return getAllocatorForUpdate().alloc(size, slot_num, size > m_page_size, realm_id);
+        return getAllocatorForUpdate().alloc(size, slot_num, size > m_page_size, realm_id, locality);
     }
     
-    UniqueAddress Memspace::allocUnique(std::size_t size, std::uint32_t slot_num, unsigned char realm_id) {
-        return getAllocatorForUpdate().allocUnique(size, slot_num, size > m_page_size, realm_id);
+    UniqueAddress Memspace::allocUnique(std::size_t size, std::uint32_t slot_num, unsigned char realm_id, unsigned char locality) {
+        return getAllocatorForUpdate().allocUnique(size, slot_num, size > m_page_size, realm_id, locality);
     }
-
+    
     void Memspace::free(Address address) {
         getAllocatorForUpdate().free(address);
     }

@@ -22,14 +22,13 @@ namespace db0::object_model
 
 {
 
-DB0_PACKED_BEGIN
-
     using Fixture = db0::Fixture;
     using TypedItem_Address = ValueT_Address<o_typed_item>;
     using SetIndex = CollectionIndex<o_typed_item, TypedItem_Address>;
     using set_item = db0::key_value<std::uint64_t, TypedIndexAddr<TypedItem_Address, SetIndex>>;
     class SetIterator;
     
+DB0_PACKED_BEGIN
     struct DB0_PACKED_ATTR o_set: public db0::o_fixed<o_set>
     {
         // common object header
@@ -42,6 +41,7 @@ DB0_PACKED_BEGIN
             return m_header.hasRefs();
         }
     };
+DB0_PACKED_END    
     
     class Set: public db0::ObjectBase<Set, db0::v_object<o_set>, StorageClass::DB0_SET>
     {
@@ -56,11 +56,11 @@ DB0_PACKED_BEGIN
         
         // as null placeholder
         Set() = default;
-        explicit Set(db0::swine_ptr<Fixture> &);
+        explicit Set(db0::swine_ptr<Fixture> &, AccessFlags = {});
         explicit Set(tag_no_gc, db0::swine_ptr<Fixture> &, const Set &);
-        explicit Set(db0::swine_ptr<Fixture> &, Address);
+        explicit Set(db0::swine_ptr<Fixture> &, Address, AccessFlags = {});
         ~Set();
-
+        
         void operator=(Set &&);
         
         void append(FixtureLock &, std::size_t key, ObjectSharedPtr lang_value);
@@ -103,6 +103,4 @@ DB0_PACKED_BEGIN
         void restoreIterators();
     };
     
-DB0_PACKED_END
-
 }

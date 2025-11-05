@@ -17,15 +17,9 @@ namespace db0
     
 {
 
-DB0_PACKED_BEGIN
-
     template <typename T, std::uint32_t SLOT_NUM = 0, unsigned char REALM_ID = 0>
     class v_object;
 
-    struct DB0_PACKED_ATTR vso_null_t
-    {
-    };
-    
     class vtypeless
     {
     protected :        
@@ -74,6 +68,7 @@ DB0_PACKED_BEGIN
             FlagSet<AccessOptions>);
 
         vtypeless(const vtypeless& other);
+        vtypeless(vtypeless&&);
         
         /**
          * @param access_mode additional flags / modes to use
@@ -86,7 +81,9 @@ DB0_PACKED_BEGIN
             assertFlags();
         }
         
-        FlagSet<AccessOptions> getAccessMode() const;
+        inline FlagSet<AccessOptions> getAccessMode() const {
+            return m_access_mode;
+        }
         
         vtypeless &operator=(const vtypeless &other);
         void operator=(vtypeless &&);
@@ -121,6 +118,10 @@ DB0_PACKED_BEGIN
 
         inline Memspace *getMemspacePtr() const {
             return m_memspace_ptr;
+        }
+        
+        inline bool isNoCache() const {
+            return m_access_mode[AccessOptions::no_cache];
         }
 
         /**
@@ -279,7 +280,7 @@ DB0_PACKED_BEGIN
         {
             // read not allowed for instance creation
             assert(!access_mode[AccessOptions::read]);
-            auto address = memspace.alloc(size, SLOT_NUM, REALM_ID);
+            auto address = memspace.alloc(size, SLOT_NUM, REALM_ID, getLocality(access_mode));
             // lock for create & write
             // NOTE: must extract physical address for mapRange
             auto mem_lock = memspace.getPrefix().mapRange(address, size, access_mode | AccessOptions::write);
@@ -298,7 +299,7 @@ DB0_PACKED_BEGIN
         {
             // read not allowed for instance creation
             assert(!access_mode[AccessOptions::read]);
-            auto unique_address = memspace.allocUnique(size, SLOT_NUM, REALM_ID);
+            auto unique_address = memspace.allocUnique(size, SLOT_NUM, REALM_ID, getLocality(access_mode));
             instance_id = unique_address.getInstanceId();
             // lock for create & write
             // NOTE: must extract physical address for mapRange
@@ -342,6 +343,11 @@ DB0_PACKED_BEGIN
         
     private:
         
+        static inline unsigned char getLocality(FlagSet<AccessOptions> access_mode) {
+            // NOTE: use locality = 1 for no_cache allocations, 0 otherwise (undefined)
+            return access_mode[AccessOptions::no_cache] ? 1 : 0;
+        }
+
         void assureInitialized() const
         {
             assert(m_memspace_ptr);
@@ -397,7 +403,5 @@ DB0_PACKED_BEGIN
             return m_memspace_ptr->getAllocator().getAllocSize(m_address, REALM_ID);
         }
     };
-
-DB0_PACKED_END
 
 }

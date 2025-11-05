@@ -117,6 +117,9 @@ namespace db0::python
         } catch (const db0::ClassNotFoundException &e) {
             PyErr_SetString(PyToolkit::getTypeManager().getClassNotFoundError(), e.what());
             return returnError();
+        } catch (const db0::IndexException &e) {
+            PyErr_SetString(PyExc_IndexError, e.what());
+            return returnError();
         } 
         #if ENABLE_DEBUG_EXCEPTIONS
             catch (const db0::AbstractException &e) {

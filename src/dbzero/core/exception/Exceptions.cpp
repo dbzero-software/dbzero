@@ -58,5 +58,10 @@ namespace db0
         : CriticalException(exception_id)
     {        
     }
+    
+    IndexException::IndexException()
+        : CriticalException(exception_id)
+    {        
+    }
 
 }

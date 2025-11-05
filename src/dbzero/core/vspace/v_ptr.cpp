@@ -12,13 +12,19 @@ namespace db0
         assertFlags();
         assert(!(m_resource_flags.load() & RESOURCE_LOCK));
     }
-    
+
     vtypeless::vtypeless(const vtypeless &other)
         : m_memspace_ptr(other.m_memspace_ptr)
     {
         *this = other;
     }
     
+    vtypeless::vtypeless(vtypeless &&other)
+        : m_memspace_ptr(other.m_memspace_ptr)
+    {
+        *this = std::move(other);
+    }
+
     vtypeless::vtypeless(Memspace &memspace, Address address, MemLock &&mem_lock, std::uint16_t resource_flags,
         FlagSet<AccessOptions> access_mode)
         : m_address(address)
@@ -31,10 +37,6 @@ namespace db0
         assertFlags();
         // resource must be available
         assert(m_mem_lock.m_buffer);
-    }
-    
-    FlagSet<AccessOptions> vtypeless::getAccessMode() const {
-        return m_access_mode;
     }
     
     vtypeless &vtypeless::operator=(const vtypeless &other)

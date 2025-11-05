@@ -23,9 +23,6 @@ namespace db0
         FlagSet<AccessOptions> access_mode, std::shared_ptr<ResourceLock> cow_lock)
         : m_context(storage_context)
         , m_address(address)
-        , m_resource_flags(
-            (access_mode[AccessOptions::no_cache] ? db0::RESOURCE_NO_CACHE : 0) 
-        )
         , m_access_mode(access_mode)
         , m_data(size, static_cast<std::byte>(0))
         , m_cow_lock(cow_lock)
@@ -43,8 +40,7 @@ namespace db0
         , m_address(lock->m_address)
         // copy-on-write, the recycled flag must be erased
         , m_resource_flags(
-            (lock->m_resource_flags & ~(db0::RESOURCE_RECYCLED | db0::RESOURCE_DIRTY)) |
-            (access_mode[AccessOptions::no_cache] ? db0::RESOURCE_NO_CACHE : 0) 
+            (lock->m_resource_flags & ~(db0::RESOURCE_RECYCLED | db0::RESOURCE_DIRTY))            
         )
         , m_access_mode(access_mode)
         , m_data(lock->m_data)
@@ -83,7 +79,7 @@ namespace db0
     }
     
     bool ResourceLock::isCached() const {
-        return !(m_resource_flags & db0::RESOURCE_NO_CACHE);
+        return !m_access_mode[AccessOptions::no_cache];
     }
     
     bool ResourceLock::resetDirtyFlag()
@@ -110,8 +106,8 @@ namespace db0
     {
         if (m_access_mode[AccessOptions::no_flush]) {
             m_access_mode.set(AccessOptions::no_flush, false);
-            // if dirty, we need to register with the dirty cache
-            if (isDirty() && !m_access_mode[AccessOptions::no_cache]) {
+            // if dirty, we need to register with the dirty cache (unless exliclity marked no_dirty_cache)
+            if (isDirty() && !m_access_mode[AccessOptions::no_dirty_cache]) {
                 m_context.m_cache_ref.get().append(shared_from_this());
             }
         }
@@ -130,8 +126,8 @@ namespace db0
     {
         if (atomicCheckAndSetFlags(m_resource_flags, db0::RESOURCE_DIRTY)) {
             // register lock with the dirty cache
-            // NOTE: locks marked no_cache (e.g. BoundaryLock) or no_flush (atomic locks) are not registered with the dirty cache        
-            if (!m_access_mode[AccessOptions::no_cache] && !m_access_mode[AccessOptions::no_flush]) {
+            // NOTE: locks marked no_dirty_cache (e.g. BoundaryLock) or no_flush (atomic locks) are not registered with the dirty cache
+            if (!m_access_mode[AccessOptions::no_dirty_cache] && !m_access_mode[AccessOptions::no_flush]) {
                 // register with the dirty cache
                 m_context.m_cache_ref.get().append(shared_from_this());
             }
@@ -214,7 +210,7 @@ namespace db0
         return result;
     }
     
-    std::uint64_t ResourceLock::getAddressOf(const void *ptr) const 
+    std::uint64_t ResourceLock::getAddressOf(const void *ptr) const
     {
         assert(ptr >= m_data.data() && ptr < m_data.data() + m_data.size());
         return m_address + static_cast<const std::byte*>(ptr) - m_data.data();
