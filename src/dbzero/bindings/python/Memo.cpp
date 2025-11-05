@@ -307,7 +307,8 @@ namespace db0::python
         }        
     }
     
-    PyObject *tryMemoObject_getattro(MemoObject *memo_obj, PyObject *attr)
+    template <typename MemoImplT>
+    PyObject *tryMemoObject_getattro(MemoImplT *memo_obj, PyObject *attr)
     {
         // The method resolution order for Memo types is following:
         // 1. User type members (class members such as methods)
@@ -325,10 +326,11 @@ namespace db0::python
         return _PyObject_GenericGetAttrWithDict(reinterpret_cast<PyObject*>(memo_obj), attr, NULL, 0);        
     }
     
-    PyObject *PyAPI_MemoObject_getattro(MemoObject *self, PyObject *attr)
+    template <typename MemoImplT>
+    PyObject *PyAPI_MemoObject_getattro(MemoImplT *self, PyObject *attr)
     {
         PY_API_FUNC
-        return runSafe(tryMemoObject_getattro, self, attr);
+        return runSafe(tryMemoObject_getattro<MemoImplT>, self, attr);
     }
     
     template <typename MemoImplT>
@@ -474,7 +476,7 @@ namespace db0::python
         {Py_tp_new, (void *)PyAPI_MemoObject_new<MemoObject>},
         {Py_tp_dealloc, (void *)MemoObject_del<MemoObject>},
         {Py_tp_init, (void *)PyAPI_MemoObject_init<MemoObject>},
-        {Py_tp_getattro, (void *)PyAPI_MemoObject_getattro},
+        {Py_tp_getattro, (void *)PyAPI_MemoObject_getattro<MemoObject>},
         {Py_tp_setattro, (void *)PyAPI_MemoObject_setattro<MemoObject>},
         {Py_tp_richcompare, (void *)PyAPI_MemoObject_rq<MemoObject>},
         {Py_tp_hash, (void *)PyAPI_MemoHash},        
@@ -486,14 +488,14 @@ namespace db0::python
         {Py_tp_new, (void *)PyAPI_MemoObject_new<MemoImmutableObject>},
         {Py_tp_dealloc, (void *)MemoObject_del<MemoImmutableObject>},
         {Py_tp_init, (void *)PyAPI_MemoObject_init<MemoImmutableObject>},
-        {Py_tp_getattro, (void *)PyAPI_MemoObject_getattro},
+        {Py_tp_getattro, (void *)PyAPI_MemoObject_getattro<MemoImmutableObject>},
         // set available only on pre-initialized objects
         {Py_tp_setattro, (void *)PyAPI_MemoObject_setattro<MemoImmutableObject>},
         {Py_tp_richcompare, (void *)PyAPI_MemoObject_rq<MemoImmutableObject>},
         {Py_tp_hash, (void *)PyAPI_MemoHash},        
         {0, 0}
     };
-
+    
     template <typename MemoImplT>
     PyType_Slot* getCommonSlots();
 
@@ -774,18 +776,20 @@ namespace db0::python
         MemoTypeDecoration::get(type).close();
     }
     
-    PyObject *MemoObject_set_prefix(MemoObject *py_obj, const char *prefix_name)
+    template <typename MemoImplT>
+    PyObject *MemoObject_set_prefix(MemoImplT *py_obj, const char *prefix_name)
     {
         if (prefix_name) {
-            // can use "ext" since setFixtue is a non-mutating operation
-            auto &obj = const_cast<db0::object_model::Object&>(py_obj->ext());
+            using ObjectT = typename MemoImplT::ExtT;
+            // can use "ext" since setFixture is a non-mutating operation
+            auto &obj = const_cast<ObjectT&>(py_obj->ext());
             auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(prefix_name, AccessType::READ_WRITE);            
             obj.setFixture(fixture);
             return PyUnicode_FromString(prefix_name);
         }
         Py_RETURN_NONE;
     }
-    
+        
     PyObject *tryGetAttributes(PyTypeObject *type)
     {
         auto &decor = MemoTypeDecoration::get(type);
@@ -813,7 +817,8 @@ namespace db0::python
         }
     }
     
-    PyObject *tryGetAttrAs(MemoObject *memo_obj, PyObject *attr, PyTypeObject *py_type)
+    template <typename MemoImplT>
+    PyObject *tryGetAttrAs(MemoImplT *memo_obj, PyObject *attr, PyTypeObject *py_type)
     {
         memo_obj->ext().getFixture()->refreshIfUpdated();
         auto member = memo_obj->ext().tryGetAs(PyUnicode_AsUTF8(attr), py_type);
@@ -883,7 +888,8 @@ namespace db0::python
             return tryLoad(*result, kwargs, nullptr, load_stack_ptr);
     }
     
-    PyObject *tryLoadMemo(MemoObject *memo_obj, PyObject *kwargs, PyObject *py_exclude,
+    template <typename MemoImplT>
+    PyObject *tryLoadMemo(MemoImplT *memo_obj, PyObject *kwargs, PyObject *py_exclude,
         std::unordered_set<const void*> *load_stack_ptr)
     {
         auto load_method = Py_OWN(tryMemoObject_getattro(memo_obj, *Py_OWN(PyUnicode_FromString("__load__"))));

@@ -732,30 +732,27 @@ namespace db0::python
             return tryLoadEnumValue(reinterpret_cast<PyEnumValue*>(py_obj));
         } else if (type_id == TypeId::MEMO_OBJECT) {
             return tryLoadMemo(reinterpret_cast<MemoObject*>(py_obj), kwargs, py_exclude, load_stack_ptr);
+        } else if (type_id == TypeId::MEMO_IMMUTABLE_OBJECT) {
+            return tryLoadMemo(reinterpret_cast<MemoImmutableObject*>(py_obj), kwargs, py_exclude, load_stack_ptr);
         } else {
             THROWF(db0::InputException) << "__load__ not implemented for type: " 
                 << Py_TYPE(py_obj)->tp_name << THROWF_END;
         }
     }
     
-    PyObject *getMaterializedMemoObject(PyObject *py_obj)
+    template <typename MemoImplT>
+    PyObject *getMaterializedMemoObject(MemoImplT *memo_obj)
     {
-        if (!PyMemo_Check(py_obj)) {
-            // simply return self if not a memo object
-            Py_INCREF(py_obj);
-            return py_obj;
-        }
-        auto memo_obj = reinterpret_cast<MemoObject*>(py_obj);
         if (memo_obj->ext().hasInstance()) {
-            Py_INCREF(py_obj);
-            return py_obj;
+            Py_INCREF(memo_obj);
+            return memo_obj;
         }
         
         db0::FixtureLock lock(memo_obj->ext().getFixture());
         // materialize by calling postInit
         memo_obj->modifyExt().postInit(lock);
-        Py_INCREF(py_obj);
-        return py_obj;
+        Py_INCREF(memo_obj);
+        return memo_obj;
     }
     
     shared_py_object<PyObject*> tryUnloadObjectFromCache(LangCacheView &lang_cache, Address address,
@@ -768,10 +765,10 @@ namespace db0::python
         }
         
         if (expected_type) {
-            if (!PyMemo_Check(obj_ptr.get())) {
+            if (!PyAnyMemo_Check(obj_ptr.get())) {
                 THROWF(db0::InputException) << "Invalid object type: " << PyToolkit::getTypeName(obj_ptr.get()) << " (Memo expected)";
             }
-            auto &memo = reinterpret_cast<MemoObject*>(obj_ptr.get())->ext();
+            auto &memo = reinterpret_cast<MemoAnyObject*>(obj_ptr.get())->ext();
             // validate type
             if (memo.getType() != *expected_type) {
                 THROWF(db0::InputException) << "Memo type mismatch";
@@ -893,14 +890,14 @@ namespace db0::python
     {
         for (Py_ssize_t i = 0; i < nargs; ++i) {
             auto py_obj = args[i];
-            if (!PyMemo_Check(py_obj)) {
+            if (!PyAnyMemo_Check(py_obj)) {
                 THROWF(db0::InputException) << "Invalid object type: " << Py_TYPE(py_obj)->tp_name << " (Memo expected)";
             }
-            auto &memo = reinterpret_cast<MemoObject*>(py_obj)->modifyExt();
+            auto &memo = reinterpret_cast<MemoAnyObject*>(py_obj)->modifyExt();
             if (memo.hasInstance()) {
                 db0::FixtureLock lock(memo.getFixture());
                 memo.touch();
-            }            
+            }
         }
         
         Py_RETURN_NONE;
