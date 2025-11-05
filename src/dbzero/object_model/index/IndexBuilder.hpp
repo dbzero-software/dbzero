@@ -48,6 +48,7 @@ namespace db0::object_model
         mutable std::unordered_map<UniqueAddress, ObjectSharedPtr> m_object_cache;
 
         // add to cache and return object's address
+        template <typename MemoImplT> 
         UniqueAddress addToCache(ObjectPtr);
     };
     
@@ -100,13 +101,15 @@ namespace db0::object_model
         m_object_cache.clear();
     }
     
-    template <typename KeyT> UniqueAddress IndexBuilder<KeyT>::addToCache(ObjectPtr obj_ptr)
+    template <typename KeyT> 
+    template <typename MemoImplT>
+    UniqueAddress IndexBuilder<KeyT>::addToCache(ObjectPtr obj_ptr)
     {
-        auto obj_addr = m_type_manager.extractObject(obj_ptr).getUniqueAddress();
+        auto obj_addr = m_type_manager.extractObject<MemoImplT>(obj_ptr).getUniqueAddress();
         if (m_object_cache.find(obj_addr) == m_object_cache.end()) {
             m_object_cache.emplace(obj_addr, obj_ptr);
         }
         return obj_addr;
     }
-
+    
 }

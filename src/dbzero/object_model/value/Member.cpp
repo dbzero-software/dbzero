@@ -284,7 +284,8 @@ namespace db0::object_model
         PyObjectPtr obj_ptr, StorageClass storage_class, AccessFlags)
     {
         // NOTE: memo object can be extracted from the weak proxy
-        const auto &obj = PyToolkit::getTypeManager().extractObject(obj_ptr);
+        using MemoObject = PyToolkit::TypeManager::MemoObject;
+        const auto &obj = PyToolkit::getTypeManager().extractObject<MemoObject>(obj_ptr);
         if (storage_class == StorageClass::OBJECT_LONG_WEAK_REF) {
             LongWeakRef weak_ref(fixture, obj);
             return weak_ref.getAddress();

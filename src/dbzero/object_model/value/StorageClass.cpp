@@ -172,6 +172,7 @@ namespace db0
 
     using LangToolkit = db0::object_model::LangConfig::LangToolkit;
 
+    /* FIXME:
     db0::object_model::StorageClass getStorageClass(db0::object_model::PreStorageClass pre_storage_class,
         db0::swine_ptr<db0::Fixture> &fixture, ObjectPtr lang_value)
     {
@@ -195,5 +196,6 @@ namespace db0
         }
         return StorageClass::OBJECT_WEAK_REF;
     }
+    */
         
 }

@@ -243,9 +243,9 @@ DB0_PACKED_BEGIN
             result += true_size_of<T>() - true_size_of<super_t>();
             return result;
         }
-
+        
         inline std::size_t sizeOf() const {
-            return T::safeSizeOf(this);
+            return T::safeSizeOf(reinterpret_cast<const std::byte*>(this));
         }
 
         /**

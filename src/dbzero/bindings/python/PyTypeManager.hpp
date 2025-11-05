@@ -14,6 +14,8 @@
 namespace db0::object_model {
 
     class Object;
+    class ObjectImmutableImpl;
+    class ObjectCommonImpl;
     class Class;
     class List;
     class Set;
@@ -40,7 +42,9 @@ namespace db0::python
 {
     
     class MemoTypeDecoration;
-
+    using MemoObject = PyWrapper<db0::object_model::Object>;
+    using MemoImmutableObject = PyWrapper<db0::object_model::ObjectImmutableImpl>;
+    
     /**
      * The class dedicated to recognition of Python types
      */
@@ -52,7 +56,11 @@ namespace db0::python
         using ObjectSharedPtr = typename PyTypes::ObjectSharedPtr;
         using TypeObjectPtr = typename PyTypes::TypeObjectPtr;
         using TypeObjectSharedPtr = typename PyTypes::TypeObjectSharedPtr;
+        using MemoObject = db0::python::MemoObject;
+        using MemoImmutableObject = db0::python::MemoImmutableObject;
         using Object = db0::object_model::Object;
+        using ObjectImmutableImpl = db0::object_model::ObjectImmutableImpl;
+        using ObjectCommonImpl = db0::object_model::ObjectCommonImpl;
         using List = db0::object_model::List;
         using Set = db0::object_model::Set;
         using Tuple = db0::object_model::Tuple;
@@ -82,22 +90,23 @@ namespace db0::python
         TypeId getTypeId(TypeObjectPtr py_type) const;
         std::optional<PyTypeManager::TypeId> tryGetTypeId(TypeObjectPtr ptr) const;
         std::string getLangTypeName(TypeObjectPtr) const;
-
+        
         // Retrieve a Python type object by TypeId (note that a dbzero extension type may be returned)
         // to return a native type use getTypeObject(asNative(TypeId))
         ObjectSharedPtr getTypeObject(TypeId) const;
         // If the mapping is not found, returns Py_None
         ObjectSharedPtr tryGetTypeObject(TypeId) const;
         
-        /**
-         * Extracts reference to DB0 object from a memo object
-        */
-        const Object &extractObject(ObjectPtr memo_ptr) const;
-        Object &extractMutableObject(ObjectPtr memo_ptr) const;
-        ObjectImmutableImpl &extractImmutableObject(ObjectPtr memo_ptr) const;
+        // Extracts reference to Object or ObjectImmutableImpl from a memo instance
+        template <typename MemoImplT>
+        const typename MemoImplT::ExtT &extractObject(ObjectPtr memo_ptr) const;
         
+        // Extracts reference to common object part from a memo instance
+        const ObjectCommonImpl &extractCommonObject(ObjectPtr) const;
+        Object &extractMutableObject(ObjectPtr memo_ptr) const;        
         const Object *tryExtractObject(ObjectPtr memo_ptr) const;
         Object *tryExtractMutableObject(ObjectPtr memo_ptr) const;
+
         const List &extractList(ObjectPtr list_ptr) const;
         List &extractMutableList(ObjectPtr list_ptr) const;
         const Set &extractSet(ObjectPtr set_ptr) const;
@@ -218,4 +227,10 @@ namespace db0::python
         m_simple_py_type_ids.insert(py_type_id);
     }
     
+    extern template const db0::object_model::Object &
+    PyTypeManager::extractObject<MemoObject>(ObjectPtr) const;
+
+    extern template const db0::object_model::ObjectImmutableImpl &
+    PyTypeManager::extractObject<MemoImmutableObject>(ObjectPtr) const;
+
 }

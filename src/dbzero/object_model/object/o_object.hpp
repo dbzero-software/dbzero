@@ -12,15 +12,41 @@ namespace db0::object_model
 {
 
 DB0_PACKED_BEGIN
-    class DB0_PACKED_ATTR o_object: public db0::o_base<o_object, 0, false>
+    class DB0_PACKED_ATTR o_object_base: public db0::o_base<o_object_base, 0, false>
     {
     protected:
-        using super_t = db0::o_base<o_object, 0, false>;
+        using super_t = db0::o_base<o_object_base, 0, false>;
 
     public:
         static constexpr unsigned char REALM_ID = 1;
         // common object header
-        o_unique_header m_header;        
+        o_unique_header m_header;
+
+        // ref_counts - the initial reference counts (tags / objects) inherited from the initializer
+        o_object_base(std::pair<std::uint32_t, std::uint32_t> ref_counts);
+        
+        static std::size_t measure();
+        static std::size_t measure(std::pair<std::uint32_t, std::uint32_t>);
+        
+        static std::size_t sizeOf();
+        
+        template <typename BufT> static std::size_t safeSizeOf(BufT buf) {
+            return super_t::sizeOfMembers(buf);
+        }
+
+        void incRef(bool is_tag);
+        bool hasRefs() const;
+        bool hasAnyRefs() const;
+    };
+DB0_PACKED_END
+
+DB0_PACKED_BEGIN
+    class DB0_PACKED_ATTR o_object: public db0::o_ext<o_object, o_object_base, 0, false>
+    {
+    protected:
+        using super_t = db0::o_ext<o_object, o_object_base, 0, false>;
+
+    public:
         // optional address of the key-value store (to store extension fields)
         KV_Address m_kv_address;
         // kv-index type must be stored separately from the address
@@ -30,7 +56,7 @@ DB0_PACKED_BEGIN
         
         PosVT &pos_vt();
         const PosVT &pos_vt() const;
-
+        
         const packed_int32 &classRef() const;
         std::uint32_t getClassRef() const;
         

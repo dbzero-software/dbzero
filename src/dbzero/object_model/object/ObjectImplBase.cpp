@@ -180,6 +180,7 @@ namespace db0::object_model
         assert(this->hasInstance());
     }
     
+    /* FIXME:
     template <typename T, typename ImplT>
     std::pair<db0::bindings::TypeId, StorageClass>
     ObjectImplBase<T, ImplT>::recognizeType(Fixture &fixture, ObjectPtr lang_value) const
@@ -205,6 +206,7 @@ namespace db0::object_model
         
         return { type_id, storage_class };
     }
+    */
     
     template <typename T, typename ImplT>
     void ObjectImplBase<T, ImplT>::removePreInit(const char *field_name) const

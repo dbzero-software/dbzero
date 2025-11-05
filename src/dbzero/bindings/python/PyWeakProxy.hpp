@@ -27,12 +27,13 @@ namespace db0::python
     template <typename MemoImplT>
     bool PyWeakProxy_Check(PyObject *obj);
 
+    template <typename MemoImplT>
     PyObject *tryWeakProxy(PyObject *);
     PyObject *tryExpired(PyObject *);
 
     extern template struct PyWeakProxy<MemoObject>;
     extern template struct PyWeakProxy<MemoImmutableObject>;
-
+    
     extern template bool PyWeakProxy_Check<MemoObject>(PyObject *);
     extern template bool PyWeakProxy_Check<MemoImmutableObject>(PyObject *);
     

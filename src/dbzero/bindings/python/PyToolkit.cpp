@@ -100,15 +100,15 @@ namespace db0::python
     bool PyToolkit::isExistingObject(db0::swine_ptr<Fixture> &fixture, Address address, std::uint16_t instance_id)
     {
         // try unloading from cache first
-        auto &lang_cache = fixture->getLangCache();        
+        auto &lang_cache = fixture->getLangCache();
         auto obj_ptr = tryUnloadObjectFromCache(lang_cache, address, nullptr);
         
         if (obj_ptr.get()) {
             // only validate instance ID if provided
-            auto &memo = reinterpret_cast<MemoObject*>(obj_ptr.get())->ext();
+            auto &memo = reinterpret_cast<MemoCommonObject*>(obj_ptr.get())->ext();
             if (instance_id) {
                 // NOTE: we first must check if this is really a memo object
-                if (!isMemoObject(obj_ptr.get())) {
+                if (!isAnyMemoObject(obj_ptr.get())) {
                     return false;
                 }
                 
@@ -136,11 +136,10 @@ namespace db0::python
             // only validate instance ID if provided
             if (instance_id) {
                 // NOTE: we first must check if this is really a memo object
-                if (!isMemoObject(obj_ptr.get())) {
+                if (!isAnyMemoObject(obj_ptr.get())) {
                     return {};
                 }
-
-                if (reinterpret_cast<MemoObject*>(obj_ptr.get())->ext().getInstanceId() != instance_id) {
+                if (reinterpret_cast<MemoCommonObject*>(obj_ptr.get())->ext().getInstanceId() != instance_id) {                
                     return {};
                 }
             }
@@ -517,8 +516,8 @@ namespace db0::python
             return getFixtureUUID(reinterpret_cast<TypeObjectPtr>(py_object));
         } else if (PyEnumValue_Check(py_object)) {
             return reinterpret_cast<PyEnumValue*>(py_object)->ext().m_fixture.safe_lock()->getUUID();
-        } else if (PyMemo_Check(py_object)) {
-            return reinterpret_cast<MemoObject*>(py_object)->ext().getFixture()->getUUID();
+        } else if (PyAnyMemo_Check(py_object)) {
+            return reinterpret_cast<MemoCommonObject*>(py_object)->ext().getFixture()->getUUID();
         } else if (PyObjectIterable_Check(py_object)) {
             return reinterpret_cast<PyObjectIterable*>(py_object)->ext().getFixture()->getUUID();
         } else if (PyObjectIterator_Check(py_object)) {
@@ -577,7 +576,7 @@ namespace db0::python
 
     const char *PyToolkit::getPrefixName(TypeObjectPtr memo_type)
     {
-        assert(isMemoType(memo_type));
+        assert(isAnyMemoType(memo_type));
         return MemoTypeDecoration::get(memo_type).tryGetPrefixName();
     }
     
@@ -685,14 +684,14 @@ namespace db0::python
     
     PyToolkit::TypeObjectPtr PyToolkit::getBaseMemoType(TypeObjectPtr py_memo_type)
     {
-        assert(isMemoType(py_memo_type));
+        assert(isAnyMemoType(py_memo_type));
         // first base type is python base. From there we can get the actual base type
         auto base_py_type = getBaseType(py_memo_type);
         if (!base_py_type) {
             return nullptr;
         }
         auto memo_base_type = getBaseType(base_py_type);
-        if (memo_base_type && isMemoType(memo_base_type)) {
+        if (memo_base_type && isAnyMemoType(memo_base_type)) {
             return memo_base_type;
         }
         return nullptr;
@@ -738,8 +737,8 @@ namespace db0::python
     
     bool PyToolkit::hasTagRefs(ObjectPtr obj_ptr)
     {
-        assert(PyMemo_Check(obj_ptr));
-        return reinterpret_cast<MemoObject*>(obj_ptr)->ext().hasTagRefs();
+        assert(PyAnyMemo_Check(obj_ptr));
+        return reinterpret_cast<MemoCommonObject*>(obj_ptr)->ext().hasTagRefs();
     }
     
     std::unique_ptr<GIL_Lock> PyToolkit::ensureLocked()

@@ -400,7 +400,8 @@ namespace db0::python
         return lhs->ext() == rhs->ext();
     }
     
-    PyObject *PyAPI_MemoObject_rq(MemoObject *memo_obj, PyObject *other, int op)
+    template <typename MemoImplT>
+    PyObject *PyAPI_MemoObject_rq(MemoImplT *memo_obj, PyObject *other, int op)
     {
         PY_API_FUNC
         PyObject * obj_memo = reinterpret_cast<PyObject*>(memo_obj);
@@ -408,14 +409,14 @@ namespace db0::python
         if (obj_memo->ob_type->tp_base->tp_richcompare != PyType_Type.tp_richcompare) {
             // if the base class richcompare is the same as the memo richcompare don't call the base class richcompare
             // to avoid infinite recursion
-            if (obj_memo->ob_type->tp_base->tp_richcompare != (richcmpfunc)PyAPI_MemoObject_rq) {
+            if (obj_memo->ob_type->tp_base->tp_richcompare != (richcmpfunc)PyAPI_MemoObject_rq<MemoImplT>) {
                 return obj_memo->ob_type->tp_base->tp_richcompare(reinterpret_cast<PyObject*>(memo_obj), other, op);
             }
         }
         
         bool eq_result = false;
-        if (PyMemo_Check(other)) {
-            eq_result = isSame(memo_obj, reinterpret_cast<MemoObject*>(other));
+        if (PyMemo_Check<MemoImplT>(other)) {
+            eq_result = isSame(memo_obj, reinterpret_cast<MemoImplT*>(other));
         }
 
         switch (op)
@@ -474,7 +475,7 @@ namespace db0::python
         {Py_tp_init, (void *)PyAPI_MemoObject_init<MemoObject>},
         {Py_tp_getattro, (void *)PyAPI_MemoObject_getattro},
         {Py_tp_setattro, (void *)PyAPI_MemoObject_setattro<MemoObject>},
-        {Py_tp_richcompare, (void *)PyAPI_MemoObject_rq},
+        {Py_tp_richcompare, (void *)PyAPI_MemoObject_rq<MemoObject>},
         {Py_tp_hash, (void *)PyAPI_MemoHash},        
         {0, 0}
     };
@@ -487,7 +488,7 @@ namespace db0::python
         {Py_tp_getattro, (void *)PyAPI_MemoObject_getattro},
         // set available only on pre-initialized objects
         {Py_tp_setattro, (void *)PyAPI_MemoObject_setattro<MemoImmutableObject>},
-        {Py_tp_richcompare, (void *)PyAPI_MemoObject_rq},
+        {Py_tp_richcompare, (void *)PyAPI_MemoObject_rq<MemoImmutableObject>},
         {Py_tp_hash, (void *)PyAPI_MemoHash},        
         {0, 0}
     };
@@ -979,8 +980,8 @@ namespace db0::python
         PY_API_FUNC
         return runSafe(tryGetSchema, reinterpret_cast<PyTypeObject*>(args[0]));
     }
-
-    bool PyMemoType_Check(PyTypeObject *type)
+    
+    bool PyAnyMemoType_Check(PyTypeObject *type)
     {
         assert(type);
         return type->tp_dealloc == reinterpret_cast<destructor>(MemoObject_del<MemoObject>) ||

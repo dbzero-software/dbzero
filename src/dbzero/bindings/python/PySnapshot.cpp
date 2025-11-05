@@ -238,7 +238,8 @@ namespace db0::python
         return runSafe(tryPySnapshot_close, self, args);
     }
     
-    PyObject *tryGetSnapshotOf(MemoObject *memo)
+    template <typename MemoImplT>
+    PyObject *tryGetSnapshotOf(MemoImplT *memo)
     {
         auto fixture = memo->ext().getFixture();
         auto workspace_view = fixture->getWorkspace().shared_from_this();
@@ -255,11 +256,14 @@ namespace db0::python
         }
         
         PyObject *py_arg = args[0];
-        if (!PyMemo_Check(py_arg)) {
+        if (PyMemo_Check<MemoObject>(py_arg)) {
+            return runSafe(tryGetSnapshotOf<MemoObject>, reinterpret_cast<MemoObject*>(py_arg));
+        } else if (PyMemo_Check<MemoImmutableObject>(py_arg)) {
+            return runSafe(tryGetSnapshotOf<MemoImmutableObject>, reinterpret_cast<MemoImmutableObject*>(py_arg));
+        } else {
             PyErr_SetString(PyExc_TypeError, "Invalid argument type (must be a memo object)");
             return NULL;
-        }
-        return runSafe(tryGetSnapshotOf, reinterpret_cast<MemoObject*>(py_arg));
+        }        
     }
     
     static PySequenceMethods PySnapshot_sq = {

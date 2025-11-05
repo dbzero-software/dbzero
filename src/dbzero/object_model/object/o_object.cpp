@@ -8,11 +8,16 @@
 namespace db0::object_model
 
 {
+
+    o_object_base::o_object_base(std::pair<std::uint32_t, std::uint32_t> ref_counts)
+        : m_header(ref_counts)                
+    {
+    }
     
     o_object::o_object(std::uint32_t class_ref, std::pair<std::uint32_t, std::uint32_t> ref_counts,
         std::uint8_t num_type_tags, const PosVT::Data &pos_vt_data, unsigned int pos_vt_offset, 
         const XValue *index_vt_begin, const XValue *index_vt_end)
-        : m_header(ref_counts)        
+        : super_t(ref_counts)
         , m_num_type_tags(num_type_tags)
     {
         arrangeMembers()
