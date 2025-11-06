@@ -11,7 +11,7 @@ namespace db0::python
         // increment reference count for memo objects
         reinterpret_cast<const MemoImplT*>(py_object)->ext().addExtRef();        
     }
-
+    
     template <typename MemoImplT>
     void decExtRef(PyObject *py_object) {
         // decrement reference count for memo objects
@@ -26,18 +26,18 @@ namespace db0::python
 
     void incExtRef(PyObject *py_object)
     {
-        if (PyMemo_Check<MemoObject*>(py_object)) {
+        if (PyMemo_Check<MemoObject>(py_object)) {
             incExtRefImpl<MemoObject>(py_object);
-        } else if (PyMemo_Check<MemoImmutableObject*>(py_object)) {
+        } else if (PyMemo_Check<MemoImmutableObject>(py_object)) {
             incExtRefImpl<MemoImmutableObject>(py_object);
         }
     }
     
     void decExtRef(PyObject *py_object)
     {
-        if (PyMemo_Check<MemoObject*>(py_object)) {
+        if (PyMemo_Check<MemoObject>(py_object)) {
             decExtRef<MemoObject>(py_object);
-        } else if (PyMemo_Check<MemoImmutableObject*>(py_object)) {
+        } else if (PyMemo_Check<MemoImmutableObject>(py_object)) {
             decExtRef<MemoImmutableObject>(py_object);
         }
     }

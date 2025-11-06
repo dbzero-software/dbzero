@@ -127,6 +127,10 @@ namespace db0::object_model
         // FieldID, is_init_var, fidelity
         std::pair<MemberID, bool> findField(const char *name) const;
         
+        // NOTE: hasRefs is NOT available in ObjectAnyBase bacause
+        // of the use of num_type_tags property
+        bool hasRefs() const;
+        
     protected:        
         // local kv-index instance cache (created at first use)
         mutable std::unique_ptr<KV_Index> m_kv_index;

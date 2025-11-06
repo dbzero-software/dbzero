@@ -1,6 +1,7 @@
 #include "StorageClass.hpp"
 #include <dbzero/core/exception/Exceptions.hpp>
 #include <dbzero/object_model/object/Object.hpp>
+#include <dbzero/object_model/object/ObjectAnyImpl.hpp>
 
 namespace db0::object_model
 
@@ -172,12 +173,11 @@ namespace db0
 
     using LangToolkit = db0::object_model::LangConfig::LangToolkit;
 
-    /* FIXME:
     db0::object_model::StorageClass getStorageClass(db0::object_model::PreStorageClass pre_storage_class,
         db0::swine_ptr<db0::Fixture> &fixture, ObjectPtr lang_value)
     {
         assert(pre_storage_class == PreStorageClass::OBJECT_WEAK_REF);
-        const auto &obj = LangToolkit::getTypeManager().extractObject(lang_value);
+        const auto &obj = LangToolkit::getTypeManager().extractAnyObject(lang_value);
         if (*obj.getFixture() != *fixture.get()) {
             // must use long weak-ref instead, since referenced object is from a foreign prefix
             return StorageClass::OBJECT_LONG_WEAK_REF;
@@ -189,13 +189,12 @@ namespace db0
         const db0::Fixture &fixture, ObjectPtr lang_value)
     {
         assert(pre_storage_class == PreStorageClass::OBJECT_WEAK_REF);
-        const auto &obj = LangToolkit::getTypeManager().extractObject(lang_value);
+        const auto &obj = LangToolkit::getTypeManager().extractAnyObject(lang_value);
         if (*obj.getFixture() != fixture) {
             // must use long weak-ref instead, since referenced object is from a foreign prefix
             return StorageClass::OBJECT_LONG_WEAK_REF;
         }
         return StorageClass::OBJECT_WEAK_REF;
-    }
-    */
-        
+    }    
+       
 }

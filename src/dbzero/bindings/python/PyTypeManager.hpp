@@ -100,14 +100,17 @@ namespace db0::python
         // Extracts reference to Object or ObjectImmutableImpl from a memo instance
         template <typename MemoImplT>
         const typename MemoImplT::ExtT &extractObject(ObjectPtr memo_ptr) const;
+        template <typename MemoImplT>
+        typename MemoImplT::ExtT &extractMutableObject(ObjectPtr memo_ptr) const;
+        
+        template <typename MemoImplT>
+        typename MemoImplT::ExtT *tryExtractMutableObject(ObjectPtr memo_ptr) const;
         
         // Extracts reference to common object part from a memo instance
-        const ObjectAnyImpl &extractCommonObject(ObjectPtr) const;
-        ObjectAnyImpl &extractMutableCommonObject(ObjectPtr) const;
-
-        Object &extractMutableObject(ObjectPtr memo_ptr) const;
-        const Object *tryExtractObject(ObjectPtr memo_ptr) const;
-        Object *tryExtractMutableObject(ObjectPtr memo_ptr) const;
+        const ObjectAnyImpl &extractAnyObject(ObjectPtr) const;
+        ObjectAnyImpl &extractMutableAnyObject(ObjectPtr) const;
+        
+        const ObjectAnyImpl *tryExtractObject(ObjectPtr memo_ptr) const;        
 
         const List &extractList(ObjectPtr list_ptr) const;
         List &extractMutableList(ObjectPtr list_ptr) const;
@@ -234,5 +237,14 @@ namespace db0::python
 
     extern template const db0::object_model::ObjectImmutableImpl &
     PyTypeManager::extractObject<MemoImmutableObject>(ObjectPtr) const;
+
+    extern template db0::object_model::Object &
+    PyTypeManager::extractMutableObject<MemoObject>(ObjectPtr) const;
+
+    extern template db0::object_model::ObjectImmutableImpl *
+    PyTypeManager::tryExtractMutableObject<MemoImmutableObject>(ObjectPtr) const;
+
+    extern template db0::object_model::Object *
+    PyTypeManager::tryExtractMutableObject<MemoObject>(ObjectPtr) const;
 
 }

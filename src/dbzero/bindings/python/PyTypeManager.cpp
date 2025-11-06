@@ -189,7 +189,7 @@ namespace db0::python
         return *type_id;
     }
 
-    const PyTypeManager::ObjectAnyImpl &PyTypeManager::extractCommonObject(ObjectPtr obj_ptr) const
+    const PyTypeManager::ObjectAnyImpl &PyTypeManager::extractAnyObject(ObjectPtr obj_ptr) const
     {
         if (PyAnyMemo_Check(obj_ptr)) {
             return reinterpret_cast<const MemoAnyObject*>(obj_ptr)->ext();
@@ -199,7 +199,7 @@ namespace db0::python
         THROWF(db0::InputException) << "Expected a memo object" << THROWF_END;            
     }
 
-    PyTypeManager::ObjectAnyImpl &PyTypeManager::extractMutableCommonObject(ObjectPtr obj_ptr) const
+    PyTypeManager::ObjectAnyImpl &PyTypeManager::extractMutableAnyObject(ObjectPtr obj_ptr) const
     {
         if (!PyAnyMemo_Check(obj_ptr)) {
             THROWF(db0::InputException) << "Expected a memo object" << THROWF_END;
@@ -220,7 +220,9 @@ namespace db0::python
             }
             THROWF(db0::InputException) << "Expected a memo object" << THROWF_END;
         }
-
+    */
+    
+    /*
     const db0::object_model::Object &PyTypeManager::extractObject(ObjectPtr memo_ptr) const
     {
         if (PyMemo_Check<MemoObject>(memo_ptr)) {
@@ -232,30 +234,21 @@ namespace db0::python
     }
     */
     
-    db0::object_model::Object &PyTypeManager::extractMutableObject(ObjectPtr memo_ptr) const
+    const PyTypeManager::ObjectAnyImpl *PyTypeManager::tryExtractObject(ObjectPtr memo_ptr) const
     {
-        if (!PyMemo_Check<MemoObject>(memo_ptr)) {
-            THROWF(db0::InputException) << "Expected a memo object" << THROWF_END;
-        }
-        return reinterpret_cast<MemoObject*>(memo_ptr)->modifyExt();
-    }
-
-    /* FIXME:
-    const db0::object_model::Object *PyTypeManager::tryExtractObject(ObjectPtr memo_ptr) const
-    {
-        if (!PyMemo_Check(memo_ptr)) {
+        if (!PyAnyMemo_Check(memo_ptr)) {
             return nullptr;
         }
-        return &reinterpret_cast<const MemoObject*>(memo_ptr)->ext();
-    }
-    */
-
-    db0::object_model::Object *PyTypeManager::tryExtractMutableObject(ObjectPtr memo_ptr) const
+        return &reinterpret_cast<const MemoAnyObject*>(memo_ptr)->ext();
+    }    
+    
+    template <typename MemoImplT>
+    typename MemoImplT::ExtT *PyTypeManager::tryExtractMutableObject(ObjectPtr memo_ptr) const
     {
-        if (!PyMemo_Check<MemoObject>(memo_ptr)) {
+        if (!PyMemo_Check<MemoImplT>(memo_ptr)) {
             return nullptr;
         }
-        return &reinterpret_cast<MemoObject*>(memo_ptr)->modifyExt();
+        return &reinterpret_cast<MemoImplT*>(memo_ptr)->modifyExt();
     }
     
     const db0::object_model::List &PyTypeManager::extractList(ObjectPtr list_ptr) const

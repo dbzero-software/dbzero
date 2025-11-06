@@ -13,7 +13,15 @@ namespace db0::object_model
         : m_header(ref_counts)                
     {
     }
+
+    void o_object_base::incRef(bool is_tag) {
+        m_header.incRef(is_tag);
+    }
     
+    bool o_object_base::hasAnyRefs() const {
+        return m_header.hasRefs();
+    }
+
     o_object::o_object(std::uint32_t class_ref, std::pair<std::uint32_t, std::uint32_t> ref_counts,
         std::uint8_t num_type_tags, const PosVT::Data &pos_vt_data, unsigned int pos_vt_offset, 
         const XValue *index_vt_begin, const XValue *index_vt_end)
@@ -60,10 +68,6 @@ namespace db0::object_model
         return getDynAfter(classRef(), IndexVT::type());
     }
     
-    void o_object::incRef(bool is_tag) {
-        m_header.incRef(is_tag);
-    }
-    
     bool o_object::hasRefs() const
     {
         // NOTE: type tags are not counted as "proper" references
@@ -73,8 +77,4 @@ namespace db0::object_model
         return m_header.m_ref_counter.getSecond() > 0;
     }
     
-    bool o_object::hasAnyRefs() const {
-        return m_header.hasRefs();
-    }
-
 }

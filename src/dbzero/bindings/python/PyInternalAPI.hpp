@@ -234,6 +234,9 @@ namespace db0::python
 #endif    
 
     PyObject *tryAssign(PyObject *targets, PyObject *key_values);
-
+    
+    extern template PyObject *getMaterializedMemoObject(MemoObject *);
+    extern template PyObject *getMaterializedMemoObject(MemoImmutableObject *);
+    
 }
 

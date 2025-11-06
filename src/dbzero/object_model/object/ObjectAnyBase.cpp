@@ -91,19 +91,11 @@ namespace db0::object_model
     }
     
     template <typename T, typename ImplT>
-    bool ObjectAnyBase<T, ImplT>::decRef(bool is_tag)
+    void ObjectAnyBase<T, ImplT>::decRef(bool is_tag)
     {
         // this operation is a potentially silent mutation
         _touch();
-        super_t::decRef(is_tag);
-        return !hasRefs();
-    }
-
-    template <typename T, typename ImplT>
-    bool ObjectAnyBase<T, ImplT>::hasRefs() const
-    {
-        assert(this->hasInstance());
-        return (*this)->hasRefs();
+        super_t::decRef(is_tag);        
     }
     
     template <typename T, typename ImplT>

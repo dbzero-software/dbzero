@@ -902,5 +902,8 @@ namespace db0::python
         
         Py_RETURN_NONE;
     }
-        
+    
+    template PyObject *getMaterializedMemoObject(MemoObject *);
+    template PyObject *getMaterializedMemoObject(MemoImmutableObject *);
+    
 }

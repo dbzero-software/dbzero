@@ -25,17 +25,13 @@ DB0_PACKED_BEGIN
         // ref_counts - the initial reference counts (tags / objects) inherited from the initializer
         o_object_base(std::pair<std::uint32_t, std::uint32_t> ref_counts);
         
-        static std::size_t measure();
         static std::size_t measure(std::pair<std::uint32_t, std::uint32_t>);
-                
-        static std::size_t sizeOf();
         
         template <typename BufT> static std::size_t safeSizeOf(BufT buf) {
             return super_t::sizeOfMembers(buf);
         }
-
+        
         void incRef(bool is_tag);
-        bool hasRefs() const;
         bool hasAnyRefs() const;
     };
 DB0_PACKED_END
@@ -81,10 +77,8 @@ DB0_PACKED_BEGIN
                 (IndexVT::type());
         }
         
-        void incRef(bool is_tag);
-        bool hasRefs() const;
-        bool hasAnyRefs() const;
-    };    
+        bool hasRefs() const;        
+    };
 DB0_PACKED_END
     
 }

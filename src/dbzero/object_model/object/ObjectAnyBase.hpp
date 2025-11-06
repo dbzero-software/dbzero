@@ -81,16 +81,14 @@ namespace db0::object_model
          * The overloaded incRef implementation is provided to also handle non-fully initialized objects
         */
         void incRef(bool is_tag);
-        bool hasRefs() const;
+        void decRef(bool is_tag);
+        
         // check for any refs (including auto-assigned type tags)
         bool hasAnyRefs() const;
         
         // check if any references from tags exist (i.e. are any tags assigned)
         bool hasTagRefs() const;
-        
-        // @return true if reference count was decremented to zero
-        bool decRef(bool is_tag);
-        
+                
         Address getAddress() const;
         UniqueAddress getUniqueAddress() const;
 

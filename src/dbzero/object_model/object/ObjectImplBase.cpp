@@ -1058,6 +1058,13 @@ namespace db0::object_model
         return getClassFactory(fixture).getTypeByClassRef(class_ref).m_class;
     }
     
+    template <typename T, typename ImplT>
+    bool ObjectImplBase<T, ImplT>::hasRefs() const
+    {
+        assert(this->hasInstance());
+        return (*this)->hasRefs();
+    }
+    
     template class ObjectImplBase<o_object, Object>;
     template class ObjectImplBase<o_immutable_object, ObjectImmutableImpl>;    
     

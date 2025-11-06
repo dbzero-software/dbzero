@@ -379,7 +379,7 @@ namespace db0::object_model
         // NOTE: some object might've been dropped in the meantime, need to be reverted from batch operations        
         for (const auto &item: m_object_cache) {
             auto obj_ptr = item.second.get();
-            auto &memo = type_manager.extractCommonObject(obj_ptr);
+            auto &memo = type_manager.extractAnyObject(obj_ptr);
             if (memo.isDead()) {
                 revert(obj_ptr);
             }
@@ -392,7 +392,7 @@ namespace db0::object_model
                 auto it = m_object_cache.find(obj_addr);
                 assert(it != m_object_cache.end());
                 // NOTE: inc-ref as tag
-                type_manager.extractMutableObject(it->second.get()).incRef(true);
+                type_manager.extractMutableAnyObject(it->second.get()).incRef(true);
             };
             
             // add_index_callback adds reference to tags (string pool tokens)
@@ -407,9 +407,9 @@ namespace db0::object_model
                 // object may not exist if tags are removed post-deletion
                 auto obj_ptr = it->second.get();
                 if (it != m_object_cache.end()) {
-                    auto &memo = type_manager.extractMutableObject(obj_ptr);
                     // NOTE: we check for acutal language references (excluding LangCache + TagIndex)
-                    if (memo.decRef(true) && !LangToolkit::hasAnyLangRefs(obj_ptr, 2)) {
+                    if (LangToolkit::decRefMemo(true, obj_ptr) && !LangToolkit::hasAnyLangRefs(obj_ptr, 2)) {
+                        auto &memo = type_manager.extractAnyObject(obj_ptr);
                         // if object is pending deletion, remove all type tags as well
                         // we might skip this operation and leave it to Object's dropTags function
                         // but it will be more efficient to do it here
@@ -455,7 +455,7 @@ namespace db0::object_model
                 assert(m_active_pre_cache.empty());
                 for (const auto &item: m_object_cache) {
                     auto obj_ptr = item.second.get();
-                    auto &memo = type_manager.extractCommonObject(obj_ptr);
+                    auto &memo = type_manager.extractAnyObject(obj_ptr);
                     // NOTE: dropped instances should've already been reverted by now
                     // NOTE: we check for acutal language references (excluding LangCache + TagIndex)
                     if (!memo.isDropped() && !memo.hasAnyRefs() && !LangToolkit::hasAnyLangRefs(obj_ptr, 2)) {
@@ -480,7 +480,7 @@ namespace db0::object_model
     void TagIndex::buildActiveValues() const
     {
         for (auto &item: m_active_cache) {
-            auto &memo = LangToolkit::getTypeManager().extractCommonObject(item.first);
+            auto &memo = LangToolkit::getTypeManager().extractAnyObject(item.first);
             // NOTE: defunct objects have to be ignored since they don't have a valid address
             // NOTE: defunct objects, since no valid unique address is assigned will be auto-reverted on flush
             if (!memo.isDefunct()) {
@@ -559,7 +559,7 @@ namespace db0::object_model
         
         // Memo instance is directly fed into the FT_FixedKeyIterator
         if (type_id == TypeId::MEMO_OBJECT) {
-            auto addr = LangToolkit::getTypeManager().extractCommonObject(arg).getUniqueAddress();
+            auto addr = LangToolkit::getTypeManager().extractAnyObject(arg).getUniqueAddress();
             factory.add(std::make_unique<FT_FixedKeyIterator<UniqueAddress> >(&addr, &addr + 1));
             return true;
         }
@@ -807,7 +807,7 @@ namespace db0::object_model
     std::optional<TagIndex::ShortTagT> TagIndex::tryAddShortTagFromMemo(ObjectPtr py_arg) const
     {
         assert(LangToolkit::isAnyMemoObject(py_arg));
-        auto &py_obj = LangToolkit::getTypeManager().extractCommonObject(py_arg);
+        auto &py_obj = LangToolkit::getTypeManager().extractAnyObject(py_arg);
         if (py_obj.getFixtureUUID() != m_fixture_uuid) {
             // must be added as long tag
             return std::nullopt;
@@ -1103,7 +1103,7 @@ namespace db0::object_model
     LongTagT TagIndex::getLongTagFromMemo(ObjectPtr py_arg) const
     {
         assert(LangToolkit::isAnyMemoObject(py_arg));
-        auto &py_obj = LangToolkit::getTypeManager().extractCommonObject(py_arg);
+        auto &py_obj = LangToolkit::getTypeManager().extractAnyObject(py_arg);
         return { py_obj.getFixtureUUID(), py_obj.getAddress().getOffset() };
     }
     
@@ -1113,7 +1113,7 @@ namespace db0::object_model
     
     void TagIndex::revert(ObjectPtr memo_ptr) const
     {
-        auto &memo = LangToolkit::getTypeManager().extractCommonObject(memo_ptr);
+        auto &memo = LangToolkit::getTypeManager().extractAnyObject(memo_ptr);
         auto addr = memo.getUniqueAddress();
         if (m_batch_op_short) {
             m_batch_op_short->revert(addr);

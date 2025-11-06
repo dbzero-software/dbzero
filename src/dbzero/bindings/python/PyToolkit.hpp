@@ -248,6 +248,10 @@ namespace db0::python
         // Acquire the interpreter's GIL lock
         // NOTE: returns nullptr if Python not initialized / defunct
         static std::unique_ptr<GIL_Lock> ensureLocked();
+        
+        // decRef operation for memo objects
+        // @return true if reference count was decremented to zero (!hasRefs)
+        static bool decRefMemo(bool is_tag, ObjectPtr py_object);
 
     private:
         static PyWorkspace m_py_workspace;
