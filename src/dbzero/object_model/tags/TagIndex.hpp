@@ -3,7 +3,7 @@
 #include <unordered_map>
 #include <dbzero/core/memory/Memspace.hpp>
 #include <dbzero/core/collections/full_text/FT_BaseIndex.hpp>
-#include <dbzero/object_model/object/Object.hpp>
+#include <dbzero/object_model/object/ObjectAnyImpl.hpp>
 #include <dbzero/core/collections/pools/StringPools.hpp>
 #include <dbzero/core/collections/full_text/FT_Iterator.hpp>
 #include <dbzero/core/collections/full_text/TagProduct.hpp>
@@ -15,21 +15,21 @@
 namespace db0::object_model
 
 {
-
-DB0_PACKED_BEGIN
     
-    using Object = db0::object_model::Object;
+    using ObjectAnyImpl = db0::object_model::ObjectAnyImpl;
     using RC_LimitedStringPool = db0::pools::RC_LimitedStringPool;
     using LongTagT = db0::LongTagT;
     class EnumFactory;
-    
+
+DB0_PACKED_BEGIN    
     struct DB0_PACKED_ATTR o_tag_index: public o_fixed<o_tag_index>
     {
         Address m_base_index_short_ptr = {};
         Address m_base_index_long_ptr = {};
         std::array<std::uint64_t, 4> m_reserved = { 0, 0, 0, 0 };
     };
-    
+DB0_PACKED_END
+
     /**
      * A class to represent a full-text (tag) index and the corresponding batch-update buffer
      * typically the TagIndex instance is associated with the Class object
@@ -38,7 +38,7 @@ DB0_PACKED_BEGIN
     {
     public:
         using super_t = db0::v_object<o_tag_index>;
-        using LangToolkit = typename Object::LangToolkit;
+        using LangToolkit = typename ObjectAnyImpl::LangToolkit;
         using ObjectPtr = typename LangToolkit::ObjectPtr;
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
         using ObjectSharedExtPtr = typename LangToolkit::ObjectSharedExtPtr;
@@ -166,7 +166,7 @@ DB0_PACKED_BEGIN
         
         db0::FT_BaseIndex<ShortTagT>::BatchOperationBuilder &getBatchOperationShort(ObjectPtr,
             ActiveValueT &result, bool is_type) const;
-        
+                
         db0::FT_BaseIndex<LongTagT>::BatchOperationBuilder &getBatchOperationLong(ObjectPtr,
             ActiveValueT &result) const;
         
@@ -250,14 +250,14 @@ DB0_PACKED_BEGIN
         }
         return batch_op;
     }
-
+    
     template <typename BaseIndexT, typename BatchOperationT>
     BatchOperationT &TagIndex::getBatchOperation(ObjectPtr memo_ptr, BaseIndexT &base_index, 
         BatchOperationT &batch_op, ActiveValueT &result) const
-    {        
+    {
         // prepare the active value only if it's not yet initialized
         if (!result.first.isValid() && !result.second) {
-            auto &memo = LangToolkit::getTypeManager().extractObject(memo_ptr);            
+            auto &memo = LangToolkit::getTypeManager().extractAnyObject(memo_ptr);
             // NOTE: that memo object may not have address before fully initialized (before postInit)
             if (memo.hasInstance()) {
                 auto object_addr = memo.getUniqueAddress();
@@ -331,6 +331,4 @@ DB0_PACKED_BEGIN
     // Check if the object is pending update in the TagIndex withih a specific fixture
     bool isObjectPendingUpdate(db0::swine_ptr<Fixture> &fixture, UniqueAddress);
     
-DB0_PACKED_END
-
 }

@@ -164,23 +164,7 @@ namespace db0::object_model
             m_batch_op_types.empty() && 
             "TagIndex::flush() or close() must be called before destruction");
     }
-    
-    FT_BaseIndex<TagIndex::ShortTagT>::BatchOperationBuilder &
-    TagIndex::getBatchOperationShort(ObjectPtr memo_ptr, ActiveValueT &result, bool is_type) const
-    {
-        if (is_type) {                    
-            return getBatchOperation(memo_ptr, m_base_index_short, m_batch_op_types, result);
-        } else {
-            return getBatchOperation(memo_ptr, m_base_index_short, m_batch_op_short, result);
-        }
-    }
-
-    db0::FT_BaseIndex<LongTagT>::BatchOperationBuilder &
-    TagIndex::getBatchOperationLong(ObjectPtr memo_ptr, ActiveValueT &result) const
-    {
-        return getBatchOperation(memo_ptr, m_base_index_long, m_batch_op_long, result);
-    }
-    
+        
     void TagIndex::addTags(ObjectPtr memo_ptr, ObjectPtr const *args, std::size_t nargs)
     {       
         using TypeId = db0::bindings::TypeId;
@@ -242,6 +226,26 @@ namespace db0::object_model
         }
     }
     
+    FT_BaseIndex<TagIndex::ShortTagT>::BatchOperationBuilder &
+    TagIndex::getBatchOperationShort(ObjectPtr memo_ptr, ActiveValueT &result, bool is_type) const
+    {
+        if (is_type) {
+            return getBatchOperation(
+                memo_ptr, m_base_index_short, m_batch_op_types, result
+            );
+        } else {
+            return getBatchOperation(
+                memo_ptr, m_base_index_short, m_batch_op_short, result
+            );
+        }
+    }
+
+    db0::FT_BaseIndex<LongTagT>::BatchOperationBuilder &
+    TagIndex::getBatchOperationLong(ObjectPtr memo_ptr, ActiveValueT &result) const
+    {
+        return getBatchOperation(memo_ptr, m_base_index_long, m_batch_op_long, result);
+    }
+    
     void TagIndex::addTag(ObjectPtr memo_ptr, Address tag_addr, bool is_type) {
         addTag(memo_ptr, tag_addr.getOffset(), is_type);
     }
@@ -252,7 +256,7 @@ namespace db0::object_model
         auto &batch_operation = getBatchOperationShort(memo_ptr, active_key, is_type);
         batch_operation->addTags(active_key, TagPtrSequence(&tag, &tag + 1));        
         m_mutation_log->onDirty();
-    }
+    }    
     
     void TagIndex::addTag(ObjectPtr memo_ptr, LongTagT tag)
     {
@@ -268,7 +272,7 @@ namespace db0::object_model
         batch_operation->removeTag({ obj_addr, nullptr }, tag_addr.getOffset());
         m_mutation_log->onDirty();
     }
-
+    
     void TagIndex::removeTags(ObjectPtr memo_ptr, ObjectPtr const *args, std::size_t nargs)
     {
         if (nargs == 0) {
@@ -373,7 +377,7 @@ namespace db0::object_model
         // NOTE: some object might've been dropped in the meantime, need to be reverted from batch operations        
         for (const auto &item: m_object_cache) {
             auto obj_ptr = item.second.get();
-            auto &memo = type_manager.extractObject(obj_ptr);
+            auto &memo = type_manager.extractAnyObject(obj_ptr);
             if (memo.isDead()) {
                 revert(obj_ptr);
             }
@@ -386,7 +390,7 @@ namespace db0::object_model
                 auto it = m_object_cache.find(obj_addr);
                 assert(it != m_object_cache.end());
                 // NOTE: inc-ref as tag
-                type_manager.extractMutableObject(it->second.get()).incRef(true);
+                type_manager.extractMutableAnyObject(it->second.get()).incRef(true);
             };
             
             // add_index_callback adds reference to tags (string pool tokens)
@@ -401,9 +405,9 @@ namespace db0::object_model
                 // object may not exist if tags are removed post-deletion
                 auto obj_ptr = it->second.get();
                 if (it != m_object_cache.end()) {
-                    auto &memo = type_manager.extractMutableObject(obj_ptr);
                     // NOTE: we check for acutal language references (excluding LangCache + TagIndex)
-                    if (memo.decRef(true) && !LangToolkit::hasAnyLangRefs(obj_ptr, 2)) {
+                    if (LangToolkit::decRefMemo(true, obj_ptr) && !LangToolkit::hasAnyLangRefs(obj_ptr, 2)) {
+                        auto &memo = type_manager.extractAnyObject(obj_ptr);
                         // if object is pending deletion, remove all type tags as well
                         // we might skip this operation and leave it to Object's dropTags function
                         // but it will be more efficient to do it here
@@ -449,7 +453,7 @@ namespace db0::object_model
                 assert(m_active_pre_cache.empty());
                 for (const auto &item: m_object_cache) {
                     auto obj_ptr = item.second.get();
-                    auto &memo = type_manager.extractObject(obj_ptr);
+                    auto &memo = type_manager.extractAnyObject(obj_ptr);
                     // NOTE: dropped instances should've already been reverted by now
                     // NOTE: we check for acutal language references (excluding LangCache + TagIndex)
                     if (!memo.isDropped() && !memo.hasAnyRefs() && !LangToolkit::hasAnyLangRefs(obj_ptr, 2)) {
@@ -474,7 +478,7 @@ namespace db0::object_model
     void TagIndex::buildActiveValues() const
     {
         for (auto &item: m_active_cache) {
-            auto &memo = LangToolkit::getTypeManager().extractObject(item.first);
+            auto &memo = LangToolkit::getTypeManager().extractAnyObject(item.first);
             // NOTE: defunct objects have to be ignored since they don't have a valid address
             // NOTE: defunct objects, since no valid unique address is assigned will be auto-reverted on flush
             if (!memo.isDefunct()) {
@@ -553,7 +557,7 @@ namespace db0::object_model
         
         // Memo instance is directly fed into the FT_FixedKeyIterator
         if (type_id == TypeId::MEMO_OBJECT) {
-            auto addr = LangToolkit::getTypeManager().extractObject(arg).getUniqueAddress();
+            auto addr = LangToolkit::getTypeManager().extractAnyObject(arg).getUniqueAddress();
             factory.add(std::make_unique<FT_FixedKeyIterator<UniqueAddress> >(&addr, &addr + 1));
             return true;
         }
@@ -797,11 +801,11 @@ namespace db0::object_model
         assert(LangToolkit::isString(py_arg));
         return LangToolkit::addTagFromString(py_arg, m_string_pool, inc_ref);
     }
-
+    
     std::optional<TagIndex::ShortTagT> TagIndex::tryAddShortTagFromMemo(ObjectPtr py_arg) const
     {
-        assert(LangToolkit::isMemoObject(py_arg));
-        auto &py_obj = LangToolkit::getTypeManager().extractObject(py_arg);
+        assert(LangToolkit::isAnyMemoObject(py_arg));
+        auto &py_obj = LangToolkit::getTypeManager().extractAnyObject(py_arg);
         if (py_obj.getFixtureUUID() != m_fixture_uuid) {
             // must be added as long tag
             return std::nullopt;
@@ -1045,7 +1049,7 @@ namespace db0::object_model
             // Python Memo type
             if (LangToolkit::isType(args[args_offset])) {
                 lang_type = type_manager.getTypeObject(args[args_offset++]);
-                if (LangToolkit::isMemoType(lang_type)) {
+                if (LangToolkit::isAnyMemoType(lang_type)) {
                     // MemoBase type does not correspond to any find criteria
                     // but we may use its corresponding lang type
                     if (!type_manager.isMemoBase(lang_type)) {
@@ -1096,8 +1100,8 @@ namespace db0::object_model
     
     LongTagT TagIndex::getLongTagFromMemo(ObjectPtr py_arg) const
     {
-        assert(LangToolkit::isMemoObject(py_arg));
-        auto &py_obj = LangToolkit::getTypeManager().extractObject(py_arg);
+        assert(LangToolkit::isAnyMemoObject(py_arg));
+        auto &py_obj = LangToolkit::getTypeManager().extractAnyObject(py_arg);
         return { py_obj.getFixtureUUID(), py_obj.getAddress().getOffset() };
     }
     
@@ -1107,7 +1111,7 @@ namespace db0::object_model
     
     void TagIndex::revert(ObjectPtr memo_ptr) const
     {
-        auto &memo = LangToolkit::getTypeManager().extractObject(memo_ptr);
+        auto &memo = LangToolkit::getTypeManager().extractAnyObject(memo_ptr);
         auto addr = memo.getUniqueAddress();
         if (m_batch_op_short) {
             m_batch_op_short->revert(addr);

@@ -4,30 +4,52 @@
 
 namespace db0::python
 
-{
+{   
+
+    template <typename MemoImplT>
+    void incExtRefImpl(PyObject *py_object) {
+        // increment reference count for memo objects
+        reinterpret_cast<const MemoImplT*>(py_object)->ext().addExtRef();        
+    }
+    
+    template <typename MemoImplT>
+    void decExtRef(PyObject *py_object) {
+        // decrement reference count for memo objects
+        reinterpret_cast<const MemoImplT*>(py_object)->ext().removeExtRef();        
+    }
+
+    template <typename MemoImplT>
+    unsigned int getExtRefcount(PyObject *py_object, unsigned int default_count) {
+        // return reference count for memo objects
+        return reinterpret_cast<const MemoImplT*>(py_object)->ext().getExtRefs();
+    }
 
     void incExtRef(PyObject *py_object)
-    {        
-        if (PyMemo_Check(py_object)) {
-            // increment reference count for memo objects
-            reinterpret_cast<const MemoObject*>(py_object)->ext().addExtRef();
+    {
+        if (PyMemo_Check<MemoObject>(py_object)) {
+            incExtRefImpl<MemoObject>(py_object);
+        } else if (PyMemo_Check<MemoImmutableObject>(py_object)) {
+            incExtRefImpl<MemoImmutableObject>(py_object);
         }
     }
     
     void decExtRef(PyObject *py_object)
-    {        
-        if (PyMemo_Check(py_object)) {
-            // decrement reference count for memo objects
-            reinterpret_cast<const MemoObject*>(py_object)->ext().removeExtRef();
-        }        
+    {
+        if (PyMemo_Check<MemoObject>(py_object)) {
+            decExtRef<MemoObject>(py_object);
+        } else if (PyMemo_Check<MemoImmutableObject>(py_object)) {
+            decExtRef<MemoImmutableObject>(py_object);
+        }
     }
     
     unsigned int getExtRefcount(PyObject *py_object, unsigned int default_count)
-    {        
-        if (PyMemo_Check(py_object)) {
-            // return reference count for memo objects
-            return reinterpret_cast<const MemoObject*>(py_object)->ext().getExtRefs();
+    {   
+        if (PyMemo_Check<MemoObject>(py_object)) {
+            return getExtRefcount<MemoObject>(py_object, default_count);
+        } else if (PyMemo_Check<MemoImmutableObject>(py_object)) {
+            return getExtRefcount<MemoImmutableObject>(py_object, default_count);
         }
+        
         // for non-memo objects, return the default count
         return default_count;
     }

@@ -198,7 +198,8 @@ namespace db0::python
     PyObject *tryLoad(PyObject *, PyObject*, PyObject *py_exlude = nullptr, 
         std::unordered_set<const void*> *load_stack_ptr = nullptr);
     
-    PyObject *getMaterializedMemoObject(PyObject *py_obj);
+    template <typename MemoImplT>
+    PyObject *getMaterializedMemoObject(MemoImplT *py_obj);
     
     // Retrieve prefix (its Fixture objects) from the optional argument "prefix"
     db0::swine_ptr<Fixture> getOptionalPrefixFromArg(db0::Snapshot &workspace, const char *prefix_name);
@@ -233,6 +234,9 @@ namespace db0::python
 #endif    
 
     PyObject *tryAssign(PyObject *targets, PyObject *key_values);
-
+    
+    extern template PyObject *getMaterializedMemoObject(MemoObject *);
+    extern template PyObject *getMaterializedMemoObject(MemoImmutableObject *);
+    
 }
 

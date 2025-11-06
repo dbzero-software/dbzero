@@ -30,13 +30,14 @@ namespace db0
         SINGLETON = 0x0001,
         // instances of this type opted out of auto-assigned type tags
         NO_DEFAULT_TAGS = 0x0002,
+        IMMUTABLE = 0x0004
     };
 
     using ClassFlags = db0::FlagSet<ClassOptions>;
 
 }
 
-DECLARE_ENUM_VALUES(db0::ClassOptions, 2)
+DECLARE_ENUM_VALUES(db0::ClassOptions, 3)
 
 namespace db0::object_model
 
@@ -47,6 +48,8 @@ namespace db0::object_model
     using Fixture = db0::Fixture;
     using ClassFlags = db0::ClassFlags;    
     class Object;
+    class ObjectImmutableImpl;
+    class ObjectAnyImpl;
     class Class;    
     struct ObjectId;
 
@@ -82,7 +85,7 @@ DB0_PACKED_BEGIN
         );
     };    
 DB0_PACKED_END
-
+    
     // address <-> class_ref conversion functions
     // @param type_slot_addr_range the address of the types-specific slot
     std::uint32_t classRef(const Class &, std::pair<std::uint64_t, std::uint64_t> type_slot_addr_range);
@@ -168,8 +171,8 @@ DB0_PACKED_END
         
         // Construct singleton's ObjectId without unloading it
         ObjectId getSingletonObjectId() const;
-
-        void setSingletonAddress(Object &);
+        
+        template <typename T> void setSingletonAddress(T &);
 
         Address getSingletonAddress() const;
         
@@ -257,22 +260,24 @@ DB0_PACKED_END
         inline AccessFlags getInstanceFlags() const {
             return m_no_cache ? AccessFlags { AccessOptions::no_cache } : AccessFlags {};
         }
-        
+                
     protected:
         friend class ClassFactory;        
         friend ClassPtr;
         friend class Object;
+        friend class ObjectImmutableImpl;
+        friend class ObjectAnyImpl;
         friend super_t;
         
+        void unlinkSingleton();         
+
         // dbzero class instances should only be created by the ClassFactory
         // construct a new dbzero class
         // NOTE: module name may not be available in some contexts (e.g. classes defined in notebooks)
         Class(db0::swine_ptr<Fixture> &, const std::string &name, std::optional<std::string> module_name,
             const char *type_id, const char *prefix_name, const std::vector<std::string> &init_vars, ClassFlags, 
             std::shared_ptr<Class> base_class);
-        
-        void unlinkSingleton();
-        
+            
         // Get unique class identifier within its fixture
         std::uint32_t fetchUID() const;
         
@@ -336,4 +341,14 @@ DB0_PACKED_END
     
     std::optional<std::string> getNameVariant(const Class &, int variant_id);
     
+    template <typename T>
+    void Class::setSingletonAddress(T &object)
+    {
+        assert(!(*this)->m_singleton_address.isValid());
+        assert(isSingleton());
+        // increment reference count in order to prevent singleton object from being destroyed
+        object.incRef(false);
+        modify().m_singleton_address = object.getUniqueAddress();
+    }
+
 }

@@ -71,6 +71,6 @@ class ShoppingCart:
 def test_shopping_cart_secret_issue(db0_fixture):
     cart_1 = ShoppingCart(as_temp=True)
     assert cart_1.secret is not None
-    cart_2 = ShoppingCart(as_temp=False)    
+    cart_2 = ShoppingCart(as_temp=False)
     assert cart_2.secret is None
     

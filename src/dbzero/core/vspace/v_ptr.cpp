@@ -40,10 +40,11 @@ namespace db0
     }
     
     vtypeless &vtypeless::operator=(const vtypeless &other)
-    {
+    {        
         m_address = other.m_address;
         m_memspace_ptr = other.m_memspace_ptr;
         m_access_mode = other.m_access_mode;
+        m_cached_size = other.m_cached_size;
 
         // try locking for copy
         for (;;) {
@@ -63,10 +64,11 @@ namespace db0
     }
     
     void vtypeless::operator=(vtypeless &&other)
-    {        
+    {                
         m_address = other.m_address;
         m_memspace_ptr = other.m_memspace_ptr;
         m_access_mode = other.m_access_mode;
+        m_cached_size = other.m_cached_size;
 
         // try locking for copy
         for (;;) {

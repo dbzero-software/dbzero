@@ -70,18 +70,19 @@ namespace db0::python
         return Py_TYPE(py_object) == &PyTagType;
     }
 
+    template <typename MemoImplT>
     PyObject *tryMemoAsTag(PyObject *py_obj)
     {
-        assert(PyMemo_Check(py_obj));
-        auto &memo_obj = reinterpret_cast<MemoObject*>(py_obj)->ext();        
+        assert(PyMemo_Check<MemoImplT>(py_obj));
+        auto &memo_obj = reinterpret_cast<MemoImplT*>(py_obj)->ext();        
         PyTag *py_tag = PyTagDefault_new();
         py_tag->makeNew(memo_obj.getFixture()->getUUID(), memo_obj.getAddress(), py_obj);
         return py_tag;
     }
-
+    
     PyObject *tryMemoTypeAsTag(PyTypeObject *py_type)
     {
-        assert(PyMemoType_Check(py_type));
+        assert(PyAnyMemoType_Check(py_type));
         PyTag *py_tag = PyTagDefault_new();
         py_tag->makeNew(py_type, db0::object_model::TagDef::type_as_tag());
         return py_tag;
@@ -103,18 +104,20 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "as_tag: Expected 1 argument");
             return NULL;
         }
-        if (PyMemo_Check(args[0])) {
-            return runSafe(tryMemoAsTag, args[0]);
+        if (PyMemo_Check<MemoObject>(args[0])) {
+            return runSafe(tryMemoAsTag<MemoObject>, args[0]);
+        } else if (PyMemo_Check<MemoImmutableObject>(args[0])) {
+            return runSafe(tryMemoAsTag<MemoImmutableObject>, args[0]);
         } else if (PyType_Check(args[0])) {
             auto *py_type = reinterpret_cast<PyTypeObject*>(args[0]);
-            if (PyMemoType_Check(py_type)) {
+            if (PyAnyMemoType_Check(py_type)) {
                 return runSafe(tryMemoTypeAsTag, py_type);
             }
         } else if (MemoExpiredRef_Check(args[0])) {
             return runSafe(tryMemoExpiredRefAsTag, args[0]);
-        } 
+        }
         PyErr_SetString(PyExc_TypeError, "as_tag: Expected a memo object");
         return NULL;        
     }
-
+    
 }

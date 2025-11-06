@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <atomic>
+#include <optional>
 #include <dbzero/core/memory/Allocator.hpp>
 #include <dbzero/core/memory/Memspace.hpp>
 #include <dbzero/core/memory/mptr.hpp>
@@ -50,7 +51,9 @@ namespace db0
         mutable std::atomic<std::uint16_t> m_resource_flags = 0;
         // initial access flags (e.g. read / write / create)
         FlagSet<AccessOptions> m_access_mode;
-        
+        // NOTE: cached size may speed-up updates but also is relevant for existing vptr's reinterpret casts
+        mutable std::optional<std::uint32_t> m_cached_size;
+
         /**
          * Memory mapped range corresponding to this object
         */
@@ -210,6 +213,7 @@ namespace db0
             m_memspace_ptr->free(m_address);
             this->m_address = {};
             this->m_resource_flags = 0;
+            this->m_cached_size.reset();
         }
         
         ContainerT &modify()
@@ -364,7 +368,7 @@ namespace db0
             }
             assert(m_mem_lock.m_buffer);
         }
-
+        
         // version with known size-of (pre-retrieved from the allocator)
         // we made it as a separate implementation for potential performance gains
         void assureInitialized(std::size_t size_of) const
@@ -384,11 +388,9 @@ namespace db0
             assert(m_mem_lock.m_buffer);
         }
         
-        /**
-         * Resolve the instance size
-         */
-        std::size_t getSize() const
-        {            
+        // Resolve the instance size
+        std::uint32_t fetchSize() const
+        {
             assert(m_memspace_ptr);
             if constexpr(metaprog::has_constant_size<ContainerT>::value) {
                 // fixed size type
@@ -401,6 +403,15 @@ namespace db0
             
             // retrieve from allocator (slowest)
             return m_memspace_ptr->getAllocator().getAllocSize(m_address, REALM_ID);
+        }
+        
+        // Get from cache or fetch size
+        std::uint32_t getSize() const
+        {
+            if (!m_cached_size) {
+                m_cached_size = fetchSize();
+            }
+            return *m_cached_size;            
         }
     };
 

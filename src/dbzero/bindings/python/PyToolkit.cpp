@@ -69,7 +69,7 @@ namespace db0::python
         if (result == "__main__") {
             // for Memo types we can determine the actual module name from the file name
             // (if stored with the type decoration)
-            if (PyMemoType_Check(py_type)) {
+            if (PyAnyMemoType_Check(py_type)) {
                 // file name may not be available in the type decoration
                 auto file_name = MemoTypeDecoration::get(py_type).tryGetFileName();
                 if (file_name) {
@@ -100,15 +100,15 @@ namespace db0::python
     bool PyToolkit::isExistingObject(db0::swine_ptr<Fixture> &fixture, Address address, std::uint16_t instance_id)
     {
         // try unloading from cache first
-        auto &lang_cache = fixture->getLangCache();        
+        auto &lang_cache = fixture->getLangCache();
         auto obj_ptr = tryUnloadObjectFromCache(lang_cache, address, nullptr);
         
         if (obj_ptr.get()) {
             // only validate instance ID if provided
-            auto &memo = reinterpret_cast<MemoObject*>(obj_ptr.get())->ext();
+            auto &memo = reinterpret_cast<MemoAnyObject*>(obj_ptr.get())->ext();
             if (instance_id) {
                 // NOTE: we first must check if this is really a memo object
-                if (!isMemoObject(obj_ptr.get())) {
+                if (!isAnyMemoObject(obj_ptr.get())) {
                     return false;
                 }
                 
@@ -136,11 +136,10 @@ namespace db0::python
             // only validate instance ID if provided
             if (instance_id) {
                 // NOTE: we first must check if this is really a memo object
-                if (!isMemoObject(obj_ptr.get())) {
+                if (!isAnyMemoObject(obj_ptr.get())) {
                     return {};
                 }
-
-                if (reinterpret_cast<MemoObject*>(obj_ptr.get())->ext().getInstanceId() != instance_id) {
+                if (reinterpret_cast<MemoAnyObject*>(obj_ptr.get())->ext().getInstanceId() != instance_id) {                
                     return {};
                 }
             }
@@ -472,10 +471,18 @@ namespace db0::python
         return PyType_Check(py_object);
     }
 
-    bool PyToolkit::isMemoObject(ObjectPtr py_object) {
-        return PyMemo_Check(py_object);
+    bool PyToolkit::isAnyMemoObject(ObjectPtr py_object) {
+        return PyAnyMemo_Check(py_object);
     }
 
+    bool PyToolkit::isMemoObject(ObjectPtr py_object) {
+        return PyMemo_Check<MemoObject>(py_object);
+    }
+
+    bool PyToolkit::isMemoImmutableObject(ObjectPtr py_object) {
+        return PyMemo_Check<MemoImmutableObject>(py_object);
+    }
+    
     PyToolkit::ObjectPtr PyToolkit::getUUID(ObjectPtr py_object) {
         return db0::python::tryGetUUID(py_object);
     }
@@ -517,8 +524,8 @@ namespace db0::python
             return getFixtureUUID(reinterpret_cast<TypeObjectPtr>(py_object));
         } else if (PyEnumValue_Check(py_object)) {
             return reinterpret_cast<PyEnumValue*>(py_object)->ext().m_fixture.safe_lock()->getUUID();
-        } else if (PyMemo_Check(py_object)) {
-            return reinterpret_cast<MemoObject*>(py_object)->ext().getFixture()->getUUID();
+        } else if (PyAnyMemo_Check(py_object)) {
+            return reinterpret_cast<MemoAnyObject*>(py_object)->ext().getFixture()->getUUID();
         } else if (PyObjectIterable_Check(py_object)) {
             return reinterpret_cast<PyObjectIterable*>(py_object)->ext().getFixture()->getUUID();
         } else if (PyObjectIterator_Check(py_object)) {
@@ -532,7 +539,7 @@ namespace db0::python
     
     std::uint64_t PyToolkit::getFixtureUUID(TypeObjectPtr py_type)
     {
-        if (isMemoType(py_type)) {
+        if (isAnyMemoType(py_type)) {
             return MemoTypeDecoration::get(py_type).getFixtureUUID(AccessType::READ_ONLY);
         } else {
             return 0;
@@ -541,7 +548,7 @@ namespace db0::python
     
     bool PyToolkit::isNoDefaultTags(TypeObjectPtr py_type)
     {
-        if (isMemoType(py_type)) {
+        if (isAnyMemoType(py_type)) {
             return MemoTypeDecoration::get(py_type).getFlags()[MemoOptions::NO_DEFAULT_TAGS];
         } else {
             return false;
@@ -550,16 +557,25 @@ namespace db0::python
     
     bool PyToolkit::isNoCache(TypeObjectPtr py_type)
     {
-        if (isMemoType(py_type)) {
+        if (isAnyMemoType(py_type)) {
             return MemoTypeDecoration::get(py_type).getFlags()[MemoOptions::NO_CACHE];
         } else {
             return false;
         }
-    }    
+    }
     
+    bool PyToolkit::isImmutable(TypeObjectPtr py_type)
+    {
+        if (isAnyMemoType(py_type)) {
+            return MemoTypeDecoration::get(py_type).getFlags()[MemoOptions::IMMUTABLE];
+        } else {
+            return false;
+        }
+    }
+
     FlagSet<MemoOptions> PyToolkit::getMemoFlags(TypeObjectPtr py_type)
     {
-        if (isMemoType(py_type)) {
+        if (isAnyMemoType(py_type)) {
             return MemoTypeDecoration::get(py_type).getFlags();
         } else {
             return {};
@@ -568,24 +584,24 @@ namespace db0::python
 
     const char *PyToolkit::getPrefixName(TypeObjectPtr memo_type)
     {
-        assert(isMemoType(memo_type));
+        assert(isAnyMemoType(memo_type));
         return MemoTypeDecoration::get(memo_type).tryGetPrefixName();
     }
     
     const char *PyToolkit::getMemoTypeID(TypeObjectPtr memo_type)
     {
-        assert(isMemoType(memo_type));
+        assert(isAnyMemoType(memo_type));
         return MemoTypeDecoration::get(memo_type).tryGetTypeId();        
     }
     
     const std::vector<std::string> &PyToolkit::getInitVars(TypeObjectPtr memo_type)
     {
-        assert(isMemoType(memo_type));
+        assert(isAnyMemoType(memo_type));
         return MemoTypeDecoration::get(memo_type).getInitVars();
     }
     
-    bool PyToolkit::isMemoType(TypeObjectPtr py_type) {
-        return PyMemoType_Check(py_type);
+    bool PyToolkit::isAnyMemoType(TypeObjectPtr py_type) {
+        return PyAnyMemoType_Check(py_type);
     }
     
     void PyToolkit::setError(ObjectPtr err_obj, std::uint64_t err_value) {
@@ -676,14 +692,14 @@ namespace db0::python
     
     PyToolkit::TypeObjectPtr PyToolkit::getBaseMemoType(TypeObjectPtr py_memo_type)
     {
-        assert(isMemoType(py_memo_type));
+        assert(isAnyMemoType(py_memo_type));
         // first base type is python base. From there we can get the actual base type
         auto base_py_type = getBaseType(py_memo_type);
         if (!base_py_type) {
             return nullptr;
         }
         auto memo_base_type = getBaseType(base_py_type);
-        if (memo_base_type && isMemoType(memo_base_type)) {
+        if (memo_base_type && isAnyMemoType(memo_base_type)) {
             return memo_base_type;
         }
         return nullptr;
@@ -729,8 +745,8 @@ namespace db0::python
     
     bool PyToolkit::hasTagRefs(ObjectPtr obj_ptr)
     {
-        assert(PyMemo_Check(obj_ptr));
-        return reinterpret_cast<MemoObject*>(obj_ptr)->ext().hasTagRefs();
+        assert(PyAnyMemo_Check(obj_ptr));
+        return reinterpret_cast<MemoAnyObject*>(obj_ptr)->ext().hasTagRefs();
     }
     
     std::unique_ptr<GIL_Lock> PyToolkit::ensureLocked()
@@ -745,4 +761,24 @@ namespace db0::python
         return py_object != nullptr;
     }
     
+    template <typename MemoImplT>
+    bool decRefMemoImpl(bool is_tag, MemoImplT *memo_obj)
+    {
+        auto &memo = memo_obj->modifyExt();        
+        memo.decRef(is_tag);
+        return !memo.hasRefs();
+    }
+
+    bool PyToolkit::decRefMemo(bool is_tag, ObjectPtr py_object)
+    {
+        if (PyMemo_Check<MemoObject>(py_object)) {
+            return decRefMemoImpl<MemoObject>(is_tag, reinterpret_cast<MemoObject*>(py_object));
+        } else if (PyMemo_Check<MemoImmutableObject>(py_object)) {
+            return decRefMemoImpl<MemoImmutableObject>(is_tag, reinterpret_cast<MemoImmutableObject*>(py_object));
+        } else {
+            assert(false);
+            THROWF(db0::InputException) << "Invalid memo object type for decRefMemo" << THROWF_END;
+        }
+    }
+
 }

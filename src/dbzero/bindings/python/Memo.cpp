@@ -31,6 +31,7 @@ namespace db0::python
 {
 
     using ObjectSharedPtr = PyTypes::ObjectSharedPtr;
+    using TypeObjectSharedPtr = PyTypes::TypeObjectSharedPtr;
     
     // @return type name / full type name (tp_name)
     std::pair<std::string, std::string> getMemoTypeName(shared_py_object<PyTypeObject*> py_class)
@@ -42,9 +43,9 @@ namespace db0::python
         return { type_name, full_type_name };
     }
     
-    MemoObject *tryMemoObject_new(PyTypeObject *py_type, PyObject *, PyObject *)
-    {
-        auto &decor = MemoTypeDecoration::get(py_type);
+    template <typename MemoImplT>
+    MemoImplT *tryMemoObject_new(const MemoTypeDecoration &decor, PyTypeObject *py_type, PyObject *, PyObject *)
+    {        
         // NOTE: read-only fixture access is sufficient here since objects are lazy-initialized
         // i.e. the actual dbzero instance is created on postInit
         // this is also important for dynamically scoped clases (where read/write access may not be possible on default fixture)
@@ -53,11 +54,11 @@ namespace db0::python
         auto &class_factory = fixture->get<db0::object_model::ClassFactory>();
         // find py type associated dbzero class with the ClassFactory
         auto type = class_factory.tryGetOrCreateType(py_type);
-        MemoObject *memo_obj = reinterpret_cast<MemoObject*>(py_type->tp_alloc(py_type, 0));
+        MemoImplT *memo_obj = reinterpret_cast<MemoImplT*>(py_type->tp_alloc(py_type, 0));
         
-        // if type cannot be retrieved due to access mode then deferr this operation (fallback)
+        // if type cannot be retrieved due to access mode then defer this operation (fallback)
         if (type) {
-            // prepare a new DB0 instance of a known db0 class
+            // prepare a new dbzero instance of a known db0 class
             memo_obj->makeNew(type);
         } else {
             auto type_initializer = [py_type](db0::swine_ptr<Fixture> &fixture) {
@@ -71,10 +72,41 @@ namespace db0::python
         return memo_obj;
     }
     
-    MemoObject *PyAPI_MemoObject_new(PyTypeObject *py_type, PyObject *args, PyObject *kwargs)
+    Py_hash_t PyAPI_MemoHash(MemoObject *self)
     {
         PY_API_FUNC
-        return reinterpret_cast<MemoObject*>(runSafe(tryMemoObject_new, py_type, args, kwargs));
+        auto fixture = self->ext().getFixture();
+        return runSafe(getPyHashImpl<TypeId::MEMO_OBJECT>, fixture, self);
+    }
+    
+    template <typename MemoImplT>
+    PyObject *tryMemoObject_str(MemoImplT *self)
+    {
+        std::stringstream str;
+        auto &memo = self->ext();
+        str << "<" << Py_TYPE(self)->tp_name;
+        if (memo.hasInstance()) {
+            str << " instance uuid=" << PyUnicode_AsUTF8(*Py_OWN(tryGetUUID(self)));
+        } else {
+            str << " (uninitialized)";
+        }
+        str << ">";
+        return PyUnicode_FromString(str.str().c_str());
+    }
+
+    template <typename MemoImplT>
+    PyObject *PyAPI_MemoObject_str(MemoImplT *self)
+    {
+        PY_API_FUNC
+        return runSafe(tryMemoObject_str<MemoImplT>, self);
+    }
+
+    template <typename MemoImplT>
+    PyObject *PyAPI_MemoObject_new(PyTypeObject *py_type, PyObject *args, PyObject *kwargs)
+    {
+        const auto &decor = MemoTypeDecoration::get(py_type);
+        PY_API_FUNC
+        return runSafe(tryMemoObject_new<MemoImplT>, decor, py_type, args, kwargs);
     }
     
     void tryGetScope(PyTypeObject *py_type, PyObject *args, PyObject *kwargs,
@@ -165,7 +197,8 @@ namespace db0::python
         return PyType_GenericAlloc(self, nitems);
     }
     
-    void MemoObject_del(MemoObject* memo_obj)
+    template <typename MemoImplT>
+    void MemoObject_del(MemoImplT *memo_obj)
     {
         PY_API_FUNC
         // destroy associated db0 Object instance
@@ -173,8 +206,9 @@ namespace db0::python
         Py_TYPE(memo_obj)->tp_free((PyObject*)memo_obj);
     }
     
-    int PyAPI_MemoObject_init(MemoObject* self, PyObject* args, PyObject* kwds)
-    {        
+    template <typename MemoImplT>
+    int PyAPI_MemoObject_init(MemoImplT *self, PyObject* args, PyObject* kwds)
+    {
         using Class = db0::object_model::Class;
         using TagIndex = db0::object_model::TagIndex;
 
@@ -273,7 +307,8 @@ namespace db0::python
         }        
     }
     
-    PyObject *tryMemoObject_getattro(MemoObject *memo_obj, PyObject *attr)
+    template <typename MemoImplT>
+    PyObject *tryMemoObject_getattro(MemoImplT *memo_obj, PyObject *attr)
     {
         // The method resolution order for Memo types is following:
         // 1. User type members (class members such as methods)
@@ -291,13 +326,19 @@ namespace db0::python
         return _PyObject_GenericGetAttrWithDict(reinterpret_cast<PyObject*>(memo_obj), attr, NULL, 0);        
     }
     
-    PyObject *PyAPI_MemoObject_getattro(MemoObject *self, PyObject *attr)
+    template <typename MemoImplT>
+    PyObject *PyAPI_MemoObject_getattro(MemoImplT *self, PyObject *attr)
     {
         PY_API_FUNC
-        return runSafe(tryMemoObject_getattro, self, attr);
+        return runSafe(tryMemoObject_getattro<MemoImplT>, self, attr);
     }
     
-    int PyAPI_MemoObject_setattro(MemoObject *self, PyObject *attr, PyObject *value)
+    template <typename MemoImplT>
+    int PyAPI_MemoObject_setattro(MemoImplT *self, PyObject *attr, PyObject *value);
+
+    // regular memo object specialization
+    template <>
+    int PyAPI_MemoObject_setattro<MemoObject>(MemoObject *self, PyObject *attr, PyObject *value)
     {
         PY_API_FUNC
         // assign value to a dbzero attribute
@@ -325,12 +366,45 @@ namespace db0::python
         
         return 0;
     }
-    
-    bool isSame(MemoObject *lhs, MemoObject *rhs) {
+
+    // immutable memo object specialization
+    template <>
+    int PyAPI_MemoObject_setattro<MemoImmutableObject>(MemoImmutableObject *self, PyObject *attr, PyObject *value)
+    {
+        PY_API_FUNC
+        // assign value to a dbzero attribute
+        try {
+            // must materialize the object before setting as an attribute
+            if (value && !db0::object_model::isMaterialized(value)) {
+                db0::FixtureLock lock(self->ext().getFixture());
+                db0::object_model::materialize(lock, value);
+            }
+            
+            if (self->ext().hasInstance()) {
+                PyErr_SetString(PyExc_AttributeError, "Cannot modify an immutable memo object");
+                return -1;
+            } else {
+                // considered as a non-mutating operation
+                self->ext().setPreInit(PyUnicode_AsUTF8(attr), value);
+            }
+        } catch (const std::exception &e) {
+            PyErr_SetString(PyExc_AttributeError, e.what());
+            return -1;
+        } catch (...) {            
+            PyErr_SetString(PyExc_AttributeError, "Unknown exception");
+            return -1;
+        }      
+        
+        return 0;
+    }
+
+    template <typename MemoImplT>
+    bool isSame(MemoImplT *lhs, MemoImplT *rhs) {
         return lhs->ext() == rhs->ext();
     }
     
-    PyObject *PyAPI_MemoObject_rq(MemoObject *memo_obj, PyObject *other, int op)
+    template <typename MemoImplT>
+    PyObject *PyAPI_MemoObject_rq(MemoImplT *memo_obj, PyObject *other, int op)
     {
         PY_API_FUNC
         PyObject * obj_memo = reinterpret_cast<PyObject*>(memo_obj);
@@ -338,14 +412,14 @@ namespace db0::python
         if (obj_memo->ob_type->tp_base->tp_richcompare != PyType_Type.tp_richcompare) {
             // if the base class richcompare is the same as the memo richcompare don't call the base class richcompare
             // to avoid infinite recursion
-            if (obj_memo->ob_type->tp_base->tp_richcompare != (richcmpfunc)PyAPI_MemoObject_rq) {
+            if (obj_memo->ob_type->tp_base->tp_richcompare != (richcmpfunc)PyAPI_MemoObject_rq<MemoImplT>) {
                 return obj_memo->ob_type->tp_base->tp_richcompare(reinterpret_cast<PyObject*>(memo_obj), other, op);
             }
         }
         
         bool eq_result = false;
-        if (PyMemo_Check(other)) {
-            eq_result = isSame(memo_obj, reinterpret_cast<MemoObject*>(other));
+        if (PyMemo_Check<MemoImplT>(other)) {
+            eq_result = isSame(memo_obj, reinterpret_cast<MemoImplT*>(other));
         }
 
         switch (op)
@@ -397,40 +471,66 @@ namespace db0::python
         return new_dict.steal();
     }
     
-    static PyType_Slot MemoType_common_slots[] = {
-        {Py_tp_new, (void *)PyAPI_MemoObject_new},        
-        {Py_tp_dealloc, (void *)MemoObject_del},
-        {Py_tp_init, (void *)PyAPI_MemoObject_init},
-        {Py_tp_getattro, (void *)PyAPI_MemoObject_getattro},
-        {Py_tp_setattro, (void *)PyAPI_MemoObject_setattro},
-        {Py_tp_richcompare, (void *)PyAPI_MemoObject_rq},
+    // Regular memo slots
+    static PyType_Slot MemoObject_common_slots[] = {
+        {Py_tp_new, (void *)PyAPI_MemoObject_new<MemoObject>},
+        {Py_tp_dealloc, (void *)MemoObject_del<MemoObject>},
+        {Py_tp_init, (void *)PyAPI_MemoObject_init<MemoObject>},
+        {Py_tp_getattro, (void *)PyAPI_MemoObject_getattro<MemoObject>},
+        {Py_tp_setattro, (void *)PyAPI_MemoObject_setattro<MemoObject>},
+        {Py_tp_richcompare, (void *)PyAPI_MemoObject_rq<MemoObject>},
         {Py_tp_hash, (void *)PyAPI_MemoHash},        
         {0, 0}
     };
     
+    // Immutable memo slots
+    static PyType_Slot MemoImmutableObject_common_slots[] = {
+        {Py_tp_new, (void *)PyAPI_MemoObject_new<MemoImmutableObject>},
+        {Py_tp_dealloc, (void *)MemoObject_del<MemoImmutableObject>},
+        {Py_tp_init, (void *)PyAPI_MemoObject_init<MemoImmutableObject>},
+        {Py_tp_getattro, (void *)PyAPI_MemoObject_getattro<MemoImmutableObject>},
+        // set available only on pre-initialized objects
+        {Py_tp_setattro, (void *)PyAPI_MemoObject_setattro<MemoImmutableObject>},
+        {Py_tp_richcompare, (void *)PyAPI_MemoObject_rq<MemoImmutableObject>},
+        {Py_tp_hash, (void *)PyAPI_MemoHash},        
+        {0, 0}
+    };
+    
+    template <typename MemoImplT>
+    PyType_Slot* getCommonSlots();
+
+    template <> PyType_Slot *getCommonSlots<MemoObject>() {
+        return MemoObject_common_slots;
+    }
+
+    template <> PyType_Slot *getCommonSlots<MemoImmutableObject>() {
+        return MemoImmutableObject_common_slots;
+    }
+    
+    template <typename MemoImplT>
     PyTypeObject *PyMemoType_FromSpec(PyTypeObject *base_class, const char *tp_name, bool is_singleton)
     {
         // fill-in type specific slots first
         std::vector<PyType_Slot> slots;
         // fill-in common slots first
-        for (auto &slot : MemoType_common_slots) {
-            if (!slot.slot && !slot.pfunc) {
-                break;
-            }
-            slots.push_back(slot);
+        auto slot_ptr = getCommonSlots<MemoImplT>();
+        while (slot_ptr->slot || slot_ptr->pfunc) {
+            slots.push_back(*slot_ptr);
+            ++slot_ptr;
         }
         
         if (is_singleton) {
+            // NOTE: singletons are not supported for immutable memo objects
             slots.push_back({Py_tp_new, (void *)PyAPI_MemoObject_new_singleton});
         } else {
-            slots.push_back({Py_tp_new, (void *)PyAPI_MemoObject_new});
+            slots.push_back({Py_tp_new, (void *)PyAPI_MemoObject_new<MemoImplT>});
         }
-
+        
         slots.push_back({0, 0});
 
         auto type_spec = PyType_Spec {
             .name = tp_name,
-            .basicsize = MemoObject::sizeOf(),            
+            .basicsize = MemoImplT::sizeOf(),            
             .flags = (Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE) & ~(Py_TPFLAGS_HAVE_GC | Py_TPFLAGS_MANAGED_DICT),
             .slots = slots.data()
         };
@@ -443,13 +543,13 @@ namespace db0::python
         
         // replace default __str__ and __repr__ implementations
         if (base_class->tp_str == PyType_Type.tp_str) {
-            (*tp_result)->tp_str = reinterpret_cast<reprfunc>(PyAPI_MemoObject_str);
-            base_class->tp_str = reinterpret_cast<reprfunc>(PyAPI_MemoObject_str);
+            (*tp_result)->tp_str = reinterpret_cast<reprfunc>(PyAPI_MemoObject_str<MemoImplT>);
+            base_class->tp_str = reinterpret_cast<reprfunc>(PyAPI_MemoObject_str<MemoImplT>);
         }
-
+        
         if (base_class->tp_repr == PyType_Type.tp_repr) {
-            (*tp_result)->tp_repr = reinterpret_cast<reprfunc>(PyAPI_MemoObject_str);
-            base_class->tp_repr = reinterpret_cast<reprfunc>(PyAPI_MemoObject_str);
+            (*tp_result)->tp_repr = reinterpret_cast<reprfunc>(PyAPI_MemoObject_str<MemoImplT>);
+            base_class->tp_repr = reinterpret_cast<reprfunc>(PyAPI_MemoObject_str<MemoImplT>);
         }
 
         return tp_result.steal();
@@ -457,7 +557,7 @@ namespace db0::python
     
     PyObject *wrapPyType(PyTypeObject *base_class, bool is_singleton, bool no_default_tags, const char *prefix_name,
         const char *type_id, const char *file_name, std::vector<std::string> &&init_vars, PyObject *py_dyn_prefix_callable,
-        std::vector<Migration> &&migrations, bool no_cache)
+        std::vector<Migration> &&migrations, bool no_cache, bool immutable)
     {
         auto py_class = Py_BORROW(base_class);
         auto py_module = Py_OWN(findModule(*Py_OWN(PyObject_GetAttrString((PyObject*)*py_class, "__module__"))));
@@ -468,13 +568,19 @@ namespace db0::python
         if ((*py_class)->tp_dict == nullptr) {
             THROWF(db0::InternalException) << "Type has no tp_dict: " << (*py_class)->tp_name;
         }
-
+        
         if ((*py_class)->tp_itemsize != 0) {
             THROWF(db0::InternalException) << "Variable-length types not supported: " << (*py_class)->tp_name;
         }
         
         auto [type_name, full_type_name] = getMemoTypeName(py_class);
-        auto new_type = Py_OWN(PyMemoType_FromSpec(base_class, full_type_name.c_str(), is_singleton));
+        TypeObjectSharedPtr new_type = nullptr;
+        // NOTE: MemoObject and MemoImmutableObject have different implementations
+        if (immutable) {
+            new_type = Py_OWN(PyMemoType_FromSpec<MemoImmutableObject>(base_class, full_type_name.c_str(), is_singleton));
+        } else {
+            new_type = Py_OWN(PyMemoType_FromSpec<MemoObject>(base_class, full_type_name.c_str(), is_singleton));
+        }
         if (!new_type) {
             return nullptr;
         }
@@ -483,6 +589,9 @@ namespace db0::python
         MemoFlags type_flags = no_default_tags ? MemoFlags { MemoOptions::NO_DEFAULT_TAGS } : MemoFlags();
         if (no_cache) {
             type_flags.set(MemoOptions::NO_CACHE);
+        }
+        if (immutable) {
+            type_flags.set(MemoOptions::IMMUTABLE);
         }
         auto type_info = MemoTypeDecoration(
             py_module,
@@ -523,11 +632,12 @@ namespace db0::python
         // migrations are only processed for singleton types
         PyObject *py_migrations = nullptr;
         PyObject *py_no_cache = nullptr;
+        PyObject *py_immutable = nullptr;
         
         static const char *kwlist[] = { "input", "singleton", "no_default_tags", "prefix", "id", "py_file", "py_init_vars", 
-            "py_dyn_prefix", "py_migrations", "no_cache", NULL };
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OOOOOOOOO", const_cast<char**>(kwlist), &class_obj, &py_singleton,
-            &py_no_default_tags, &py_prefix_name, &py_type_id, &py_file_name, &py_init_vars, &py_dyn_prefix, &py_migrations, &py_no_cache))
+            "py_dyn_prefix", "py_migrations", "no_cache", "immutable", NULL };
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OOOOOOOOOO", const_cast<char**>(kwlist), &class_obj, &py_singleton,
+            &py_no_default_tags, &py_prefix_name, &py_type_id, &py_file_name, &py_init_vars, &py_dyn_prefix, &py_migrations, &py_no_cache, &py_immutable))
         {            
             return NULL;
         }
@@ -535,6 +645,7 @@ namespace db0::python
         bool is_singleton = py_singleton && PyObject_IsTrue(py_singleton);
         bool no_default_tags = py_no_default_tags && PyObject_IsTrue(py_no_default_tags);
         bool no_cache = py_no_cache && PyObject_IsTrue(py_no_cache);
+        bool immutable = py_immutable && PyObject_IsTrue(py_immutable);
         const char *prefix_name = (py_prefix_name && py_prefix_name != Py_None) ? PyUnicode_AsUTF8(py_prefix_name) : nullptr;
         const char *type_id = py_type_id ? PyUnicode_AsUTF8(py_type_id) : nullptr;        
         const char *file_name = (py_file_name && py_file_name != Py_None) ? PyUnicode_AsUTF8(py_file_name) : nullptr;
@@ -569,7 +680,7 @@ namespace db0::python
         
         auto migrations = extractMigrations(py_migrations);
         return wrapPyType(castToType(class_obj), is_singleton, no_default_tags, prefix_name, type_id, file_name, 
-            std::move(init_vars), py_dyn_prefix, std::move(migrations), no_cache
+            std::move(init_vars), py_dyn_prefix, std::move(migrations), no_cache, immutable
         );
     }
     
@@ -581,7 +692,7 @@ namespace db0::python
     
     PyObject *tryPyMemoCheck(PyObject *py_obj)
     {
-        if (PyMemo_Check(py_obj) || (PyType_Check(py_obj) && PyMemoType_Check(reinterpret_cast<PyTypeObject*>(py_obj)))) {
+        if (PyAnyMemo_Check(py_obj) || (PyType_Check(py_obj) && PyAnyMemoType_Check(reinterpret_cast<PyTypeObject*>(py_obj)))) {
             Py_RETURN_TRUE;
         }
         Py_RETURN_FALSE;
@@ -601,9 +712,10 @@ namespace db0::python
         return type->tp_new == reinterpret_cast<newfunc>(PyAPI_MemoObject_new_singleton);
     }
     
-    PyObject *MemoObject_GetFieldLayout(MemoObject *self)
+    template <typename MemoImplT>
+    PyObject *MemoObject_GetFieldLayout(MemoImplT *self)
     {        
-        auto field_layout = self->ext().getFieldLayout();        
+        auto field_layout = self->ext().getFieldLayout();
         auto &pos_vt = field_layout.m_pos_vt_fields;
         auto &index_vt = field_layout.m_index_vt_fields;
         
@@ -641,8 +753,9 @@ namespace db0::python
         return py_result.steal();
     }
     
-    PyObject *MemoObject_DescribeObject(MemoObject *self)
-    {        
+    template <typename MemoImplT>
+    PyObject *MemoObject_DescribeObject(MemoImplT *self)
+    {
         auto py_field_layout = Py_OWN(MemoObject_GetFieldLayout(self));
         auto py_result = Py_OWN(PyDict_New());
         PySafeDict_SetItemString(*py_result, "field_layout", py_field_layout);
@@ -650,26 +763,6 @@ namespace db0::python
         PySafeDict_SetItemString(*py_result, "type", Py_OWN(PyUnicode_FromString(self->ext().getType().getName().c_str())));
         PySafeDict_SetItemString(*py_result, "size_of", Py_OWN(PyLong_FromLong(self->ext()->sizeOf())));
         return py_result.steal();
-    }
-    
-    PyObject *tryMemoObject_str(MemoObject *self)
-    {
-        std::stringstream str;
-        auto &memo = self->ext();
-        str << "<" << Py_TYPE(self)->tp_name;
-        if (memo.hasInstance()) {
-            str << " instance uuid=" << PyUnicode_AsUTF8(*Py_OWN(tryGetUUID(self)));
-        } else {
-            str << " (uninitialized)";
-        }
-        str << ">";
-        return PyUnicode_FromString(str.str().c_str());
-    }
-    
-    PyObject *PyAPI_MemoObject_str(MemoObject *self)
-    {
-        PY_API_FUNC
-        return runSafe(tryMemoObject_str, self);
     }
     
     void MemoType_get_info(PyTypeObject *type, PyObject *dict)
@@ -683,18 +776,20 @@ namespace db0::python
         MemoTypeDecoration::get(type).close();
     }
     
-    PyObject *MemoObject_set_prefix(MemoObject *py_obj, const char *prefix_name)
+    template <typename MemoImplT>
+    PyObject *MemoObject_set_prefix(MemoImplT *py_obj, const char *prefix_name)
     {
         if (prefix_name) {
-            // can use "ext" since setFixtue is a non-mutating operation
-            auto &obj = const_cast<db0::object_model::Object&>(py_obj->ext());
+            using ObjectT = typename MemoImplT::ExtT;
+            // can use "ext" since setFixture is a non-mutating operation
+            auto &obj = const_cast<ObjectT&>(py_obj->ext());
             auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(prefix_name, AccessType::READ_WRITE);            
             obj.setFixture(fixture);
             return PyUnicode_FromString(prefix_name);
         }
         Py_RETURN_NONE;
     }
-    
+        
     PyObject *tryGetAttributes(PyTypeObject *type)
     {
         auto &decor = MemoTypeDecoration::get(type);
@@ -722,7 +817,8 @@ namespace db0::python
         }
     }
     
-    PyObject *tryGetAttrAs(MemoObject *memo_obj, PyObject *attr, PyTypeObject *py_type)
+    template <typename MemoImplT>
+    PyObject *tryGetAttrAs(MemoImplT *memo_obj, PyObject *attr, PyTypeObject *py_type)
     {
         memo_obj->ext().getFixture()->refreshIfUpdated();
         auto member = memo_obj->ext().tryGetAs(PyUnicode_AsUTF8(attr), py_type);
@@ -792,7 +888,8 @@ namespace db0::python
             return tryLoad(*result, kwargs, nullptr, load_stack_ptr);
     }
     
-    PyObject *tryLoadMemo(MemoObject *memo_obj, PyObject *kwargs, PyObject *py_exclude,
+    template <typename MemoImplT>
+    PyObject *tryLoadMemo(MemoImplT *memo_obj, PyObject *kwargs, PyObject *py_exclude,
         std::unordered_set<const void*> *load_stack_ptr)
     {
         auto load_method = Py_OWN(tryMemoObject_getattro(memo_obj, *Py_OWN(PyUnicode_FromString("__load__"))));
@@ -843,19 +940,12 @@ namespace db0::python
         }
         Py_RETURN_FALSE;
     }
-    
-    Py_hash_t PyAPI_MemoHash(MemoObject *self)
-    {
-        PY_API_FUNC
-        auto fixture = self->ext().getFixture();
-        return runSafe(getPyHashImpl<TypeId::MEMO_OBJECT>, fixture, self);
-    }
-    
+        
     PyObject *tryGetSchema(PyTypeObject *py_type)
     {
         using SchemaTypeId = db0::object_model::SchemaTypeId;
         
-        if (!PyMemoType_Check(py_type)) {
+        if (!PyAnyMemoType_Check(py_type)) {
             PyErr_SetString(PyExc_TypeError, "Expected a memo type");
             return nullptr;
         }
@@ -865,7 +955,7 @@ namespace db0::python
         auto &class_factory = fixture->get<db0::object_model::ClassFactory>();
         // find py type associated dbzero class with the ClassFactory
         auto type = class_factory.getExistingType(py_type);
-
+        
         auto py_schema = Py_OWN(PyDict_New());
         auto &type_manager = PyToolkit::getTypeManager();
         type->getSchema([&](const std::string &key, SchemaTypeId primary_type, const std::vector<SchemaTypeId> &all_types) {
@@ -899,5 +989,41 @@ namespace db0::python
         PY_API_FUNC
         return runSafe(tryGetSchema, reinterpret_cast<PyTypeObject*>(args[0]));
     }
+    
+    bool PyAnyMemoType_Check(PyTypeObject *type)
+    {
+        assert(type);
+        return type->tp_dealloc == reinterpret_cast<destructor>(MemoObject_del<MemoObject>) ||
+               type->tp_dealloc == reinterpret_cast<destructor>(MemoObject_del<MemoImmutableObject>);
+    }
 
+    template <typename MemoImplT>
+    bool PyMemo_Check(PyObject *obj)
+    {
+        assert(obj);
+        return obj->ob_type->tp_dealloc == reinterpret_cast<destructor>(MemoObject_del<MemoImplT>);        
+    }
+    
+    template <typename MemoImplT>
+    bool PyMemoType_Check(PyTypeObject *type)
+    {
+        assert(type);
+        return type->tp_dealloc == reinterpret_cast<destructor>(MemoObject_del<MemoImplT>);
+    }
+    
+    template bool PyMemo_Check<MemoObject>(PyObject *);
+    template bool PyMemo_Check<MemoImmutableObject>(PyObject *);
+    template bool PyMemoType_Check<MemoObject>(PyTypeObject *);
+    template bool PyMemoType_Check<MemoImmutableObject>(PyTypeObject *);
+    template PyObject *MemoObject_DescribeObject<MemoObject>(MemoObject *);
+    template PyObject *MemoObject_DescribeObject<MemoImmutableObject>(MemoImmutableObject *);
+    template PyObject *MemoObject_set_prefix<MemoObject>(MemoObject *, const char *);
+    template PyObject *MemoObject_set_prefix<MemoImmutableObject>(MemoImmutableObject *, const char *);
+    template PyObject *tryGetAttrAs<MemoObject>(MemoObject *, PyObject *, PyTypeObject *);
+    template PyObject *tryGetAttrAs<MemoImmutableObject>(MemoImmutableObject *, PyObject *, PyTypeObject *);
+    template PyObject *tryLoadMemo<MemoObject>(MemoObject *, PyObject*, PyObject*,
+        std::unordered_set<const void*> *);
+    template PyObject *tryLoadMemo<MemoImmutableObject>(MemoImmutableObject *, PyObject*, PyObject*,
+        std::unordered_set<const void*> *);
+    
 }

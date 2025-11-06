@@ -171,8 +171,11 @@ namespace db0::python
         static bool isIterable(ObjectPtr py_object);
         static bool isSequence(ObjectPtr py_object);
         static bool isType(ObjectPtr py_object);
-        static bool isMemoType(TypeObjectPtr py_type);
+        // either memo or immutable type
+        static bool isAnyMemoType(TypeObjectPtr py_type);
+        static bool isAnyMemoObject(ObjectPtr py_object);
         static bool isMemoObject(ObjectPtr py_object);
+        static bool isMemoImmutableObject(ObjectPtr py_object);
         static bool isEnumValue(ObjectPtr py_object);
         static bool isFieldDef(ObjectPtr py_object);
         static bool isClassObject(ObjectPtr py_object);
@@ -196,6 +199,8 @@ namespace db0::python
         // check if a memo type is marked with no_default_tags flag
         static bool isNoDefaultTags(TypeObjectPtr);
         static bool isNoCache(TypeObjectPtr);
+        // type marked as immutable
+        static bool isImmutable(TypeObjectPtr);
         static FlagSet<MemoOptions> getMemoFlags(TypeObjectPtr);
         
         inline static void incRef(ObjectPtr py_object) {
@@ -245,6 +250,10 @@ namespace db0::python
         // Acquire the interpreter's GIL lock
         // NOTE: returns nullptr if Python not initialized / defunct
         static std::unique_ptr<GIL_Lock> ensureLocked();
+        
+        // decRef operation for memo objects
+        // @return true if reference count was decremented to zero (!hasRefs)
+        static bool decRefMemo(bool is_tag, ObjectPtr py_object);
 
     private:
         static PyWorkspace m_py_workspace;

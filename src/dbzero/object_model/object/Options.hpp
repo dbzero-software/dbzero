@@ -12,11 +12,12 @@ namespace db0::object_model
         // instances of this type opted out of auto-assigned type tags
         NO_DEFAULT_TAGS = 0x0001,
         // instances of this type opted out of caching
-        NO_CACHE = 0x0002
+        NO_CACHE = 0x0002,
+        IMMUTABLE = 0x0004
     };
     
     using MemoFlags = db0::FlagSet<MemoOptions>;
 
 }
 
-DECLARE_ENUM_VALUES(db0::object_model::MemoOptions, 2)
+DECLARE_ENUM_VALUES(db0::object_model::MemoOptions, 3)

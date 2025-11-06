@@ -7,21 +7,19 @@
 namespace db0::python
 
 {
-    
+        
     struct PyWeakProxy
     {
         PyObject_HEAD
         PyObject* m_py_object;
         
-        // get the underlying memo object
-        MemoObject *get() const;
+        // get the underlying memo object (as MemoAnyObject)
+        MemoAnyObject *get() const;
     };
     
     extern PyTypeObject PyWeakProxyType;
-    
-    void PyAPI_PyWeakProxy_del(PyWeakProxy *self);
-    bool PyWeakProxy_Check(PyObject *obj);
-
+            
+    bool PyWeakProxy_Check(PyObject *obj);    
     PyObject *tryWeakProxy(PyObject *);
     PyObject *tryExpired(PyObject *);
     

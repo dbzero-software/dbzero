@@ -11,14 +11,14 @@ namespace db0::object_model
     ClassFields::ClassFields(TypeObjectPtr lang_type)
         : m_lang_type(lang_type)
     {
-        if (!LangToolkit::isMemoType(lang_type)) {
+        if (!LangToolkit::isAnyMemoType(lang_type)) {
             THROWF(db0::InputException) << "Expected Memo type object";
         }
     }
     
     void ClassFields::init(TypeObjectPtr lang_type)
     {
-        if (!LangToolkit::isMemoType(lang_type)) {
+        if (!LangToolkit::isAnyMemoType(lang_type)) {
             THROWF(db0::InputException) << "Expected Memo type object";
         }
         m_lang_type = lang_type;
