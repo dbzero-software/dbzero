@@ -213,6 +213,7 @@ namespace db0
             m_memspace_ptr->free(m_address);
             this->m_address = {};
             this->m_resource_flags = 0;
+            this->m_cached_size.reset();
         }
         
         ContainerT &modify()
@@ -403,14 +404,14 @@ namespace db0
             // retrieve from allocator (slowest)
             return m_memspace_ptr->getAllocator().getAllocSize(m_address, REALM_ID);
         }
-
+        
         // Get from cache or fetch size
         std::uint32_t getSize() const
         {
             if (!m_cached_size) {
                 m_cached_size = fetchSize();
             }
-            return *m_cached_size;
+            return *m_cached_size;            
         }
     };
 

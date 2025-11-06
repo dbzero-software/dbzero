@@ -44,9 +44,9 @@ namespace db0::python
     
     unsigned int getExtRefcount(PyObject *py_object, unsigned int default_count)
     {   
-        if (PyMemo_Check<MemoObject*>(py_object)) {
+        if (PyMemo_Check<MemoObject>(py_object)) {
             return getExtRefcount<MemoObject>(py_object, default_count);
-        } else if (PyMemo_Check<MemoImmutableObject*>(py_object)) {
+        } else if (PyMemo_Check<MemoImmutableObject>(py_object)) {
             return getExtRefcount<MemoImmutableObject>(py_object, default_count);
         }
         

@@ -22,6 +22,10 @@ namespace db0::object_model
         return m_header.hasRefs();
     }
 
+    std::size_t o_object_base::measure() {
+        return super_t::measureMembers();
+    }
+    
     o_object::o_object(std::uint32_t class_ref, std::pair<std::uint32_t, std::uint32_t> ref_counts,
         std::uint8_t num_type_tags, const PosVT::Data &pos_vt_data, unsigned int pos_vt_offset, 
         const XValue *index_vt_begin, const XValue *index_vt_end)
@@ -35,15 +39,15 @@ namespace db0::object_model
     }
     
     std::size_t o_object::measure(std::uint32_t class_ref, std::pair<std::uint32_t, std::uint32_t>, std::uint8_t,
-        const PosVT::Data &pos_vt_data, unsigned int pos_vt_offset, 
+        const PosVT::Data &pos_vt_data, unsigned int pos_vt_offset,
         const XValue *index_vt_begin, const XValue *index_vt_end)
     {
-        return super_t::measureMembers()
+        return super_t::measureBase()
             (PosVT::type(), pos_vt_data, pos_vt_offset)
             (packed_int32::type(), class_ref)
             (IndexVT::type(), index_vt_begin, index_vt_end);
     }
-
+    
     const PosVT &o_object::pos_vt() const {
         return getDynFirst(PosVT::type());
     }

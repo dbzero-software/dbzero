@@ -12,6 +12,9 @@
 #include <dbzero/object_model/value/long_weak_ref.hpp>
 // FIXME: remove Python dependency
 #include <dbzero/bindings/python/PySafeAPI.hpp>
+#include <dbzero/object_model/object/Object.hpp>
+#include <dbzero/object_model/object/ObjectAnyImpl.hpp>
+#include <dbzero/object_model/object/ObjectImmutableImpl.hpp>
 
 namespace db0::object_model
 
@@ -753,15 +756,28 @@ namespace db0::object_model
         return !object_ptr || object_ptr->hasInstance();
     }
     
-    /* FIXME: implement dispatching
     template <typename MemoImplT>
-    void materialize(FixtureLock &fixture, PyObjectPtr obj_ptr)
+    void materializeImpl(FixtureLock &fixture, PyObjectPtr obj_ptr)
     {
         auto object_ptr = PyToolkit::getTypeManager().tryExtractMutableObject<MemoImplT>(obj_ptr);
         if (object_ptr && !object_ptr->hasInstance()) {            
             object_ptr->postInit(fixture);
         }
     }
-    */
+    
+    void materialize(FixtureLock &fixture, PyObjectPtr obj_ptr)
+    {
+        using MemoObject = PyToolkit::TypeManager::MemoObject;
+        using MemoImmutableObject = PyToolkit::TypeManager::MemoImmutableObject;
+
+        if (PyToolkit::isMemoObject(obj_ptr)) {
+            materializeImpl<MemoObject>(fixture, obj_ptr);
+        } else if (PyToolkit::isMemoImmutableObject(obj_ptr)) {
+            materializeImpl<MemoImmutableObject>(fixture, obj_ptr);            
+        } else {
+            assert(false && "Unsupported memo object type");
+            THROWF(db0::InputException) << "Unable to materialize non-memo object" << THROWF_END;
+        }
+    }
     
 }

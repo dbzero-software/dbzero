@@ -171,7 +171,6 @@ namespace db0::object_model
         assert(this->hasInstance());
     }
     
-    /* FIXME:
     template <typename T, typename ImplT>
     std::pair<db0::bindings::TypeId, StorageClass>
     ObjectImplBase<T, ImplT>::recognizeType(Fixture &fixture, ObjectPtr lang_value) const
@@ -181,7 +180,7 @@ namespace db0::object_model
         auto pre_storage_class = TypeUtils::m_storage_class_mapper.getPreStorageClass(type_id, true);
         if (type_id == TypeId::MEMO_OBJECT) {
             // object reference must be from the same fixture
-            auto &obj = LangToolkit::getTypeManager().extractObject(lang_value);
+            auto &obj = LangToolkit::getTypeManager().extractAnyObject(lang_value);
             if (fixture.getUUID() != obj.getFixture()->getUUID()) {
                 THROWF(db0::InputException) << "Referencing objects from foreign prefixes is not allowed. Use db0.weak_proxy instead";
             }
@@ -196,8 +195,7 @@ namespace db0::object_model
         }
         
         return { type_id, storage_class };
-    }
-    */
+    }    
     
     template <typename T, typename ImplT>
     void ObjectImplBase<T, ImplT>::removePreInit(const char *field_name) const

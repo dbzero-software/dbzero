@@ -47,17 +47,15 @@ namespace db0::object_model
         return new (at_ptr) ObjectTagManager(memo_ptr, nargs);    
     }
     
-    /* FIXME: 
     ObjectTagManager::ObjectInfo::ObjectInfo(ObjectPtr memo_ptr)
         : m_lang_ptr(memo_ptr)
-        , m_object_ptr(&ObjectTagManager::LangToolkit::getTypeManager().extractObject(memo_ptr))
+        , m_object_ptr(&ObjectTagManager::LangToolkit::getTypeManager().extractAnyObject(memo_ptr))
         , m_tag_index_ptr(&m_object_ptr->getFixture()->get<TagIndex>())
         , m_type(m_object_ptr->getClassPtr())
         , m_access_mode(m_object_ptr->getFixture()->getAccessType())
         , m_has_tags(LangToolkit::hasTagRefs(memo_ptr))
     {
-    }
-    */
+    }    
     
     void ObjectTagManager::ObjectInfo::add(ObjectPtr const *args, Py_ssize_t nargs)
     {

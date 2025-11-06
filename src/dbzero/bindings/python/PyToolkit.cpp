@@ -475,6 +475,14 @@ namespace db0::python
         return PyAnyMemo_Check(py_object);
     }
 
+    bool PyToolkit::isMemoObject(ObjectPtr py_object) {
+        return PyMemo_Check<MemoObject>(py_object);
+    }
+
+    bool PyToolkit::isMemoImmutableObject(ObjectPtr py_object) {
+        return PyMemo_Check<MemoImmutableObject>(py_object);
+    }
+    
     PyToolkit::ObjectPtr PyToolkit::getUUID(ObjectPtr py_object) {
         return db0::python::tryGetUUID(py_object);
     }
@@ -753,4 +761,24 @@ namespace db0::python
         return py_object != nullptr;
     }
     
+    template <typename MemoImplT>
+    bool decRefMemoImpl(bool is_tag, MemoImplT *memo_obj)
+    {
+        auto &memo = memo_obj->modifyExt();        
+        memo.decRef(is_tag);
+        return !memo.hasRefs();
+    }
+
+    bool PyToolkit::decRefMemo(bool is_tag, ObjectPtr py_object)
+    {
+        if (PyMemo_Check<MemoObject>(py_object)) {
+            return decRefMemoImpl<MemoObject>(is_tag, reinterpret_cast<MemoObject*>(py_object));
+        } else if (PyMemo_Check<MemoImmutableObject>(py_object)) {
+            return decRefMemoImpl<MemoImmutableObject>(is_tag, reinterpret_cast<MemoImmutableObject*>(py_object));
+        } else {
+            assert(false);
+            THROWF(db0::InputException) << "Invalid memo object type for decRefMemo" << THROWF_END;
+        }
+    }
+
 }

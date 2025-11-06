@@ -207,32 +207,25 @@ namespace db0::python
         return reinterpret_cast<MemoAnyObject*>(obj_ptr)->modifyExt();
     }
     
-    /* FIXME: implement
-
-        template <typename MemoImplT>
-        const typename MemoImplT::ExtT &extractObject(ObjectPtr memo_ptr) const
-        {
-            if (PyMemo_Check<MemoImplT>(memo_ptr)) {
-                return reinterpret_cast<const MemoImplT*>(memo_ptr)->ext();
-            } else if (PyWeakProxy_Check<MemoImplT>(memo_ptr)) {
-                return reinterpret_cast<const MemoImplT*>(
-                    reinterpret_cast<const PyWeakProxy<MemoImplT>*>(memo_ptr)->get())->ext();
-            }
+    template <typename MemoImplT> typename MemoImplT::ExtT &
+    PyTypeManager::extractMutableObject(ObjectPtr obj_ptr) const
+    {
+        if (!PyMemo_Check<MemoImplT>(obj_ptr)) {
             THROWF(db0::InputException) << "Expected a memo object" << THROWF_END;
         }
-    */
-    
-    /*
-    const db0::object_model::Object &PyTypeManager::extractObject(ObjectPtr memo_ptr) const
+        return reinterpret_cast<MemoImplT*>(obj_ptr)->modifyExt();
+    }
+
+    template <typename MemoImplT> const typename MemoImplT::ExtT &
+    PyTypeManager::extractObject(ObjectPtr memo_ptr) const
     {
-        if (PyMemo_Check<MemoObject>(memo_ptr)) {
-            return reinterpret_cast<const MemoObject*>(memo_ptr)->ext();
+        if (PyMemo_Check<MemoImplT>(memo_ptr)) {
+            return reinterpret_cast<const MemoImplT*>(memo_ptr)->ext();
         } else if (PyWeakProxy_Check(memo_ptr)) {
-            return reinterpret_cast<const MemoObject*>(reinterpret_cast<const PyWeakProxy*>(memo_ptr)->get())->ext();
+            return reinterpret_cast<const MemoImplT*>(reinterpret_cast<const PyWeakProxy*>(memo_ptr)->get())->ext();
         }
         THROWF(db0::InputException) << "Expected a memo object" << THROWF_END;            
-    }
-    */
+    }    
     
     const PyTypeManager::ObjectAnyImpl *PyTypeManager::tryExtractObject(ObjectPtr memo_ptr) const
     {
@@ -682,5 +675,23 @@ namespace db0::python
                 THROWF(db0::InputException) << "Invalid value code: " << val_code << THROWF_END;
         }
     }
-    
+
+    template db0::object_model::Object &
+    PyTypeManager::extractMutableObject<MemoObject>(ObjectPtr) const;
+
+    template db0::object_model::ObjectImmutableImpl &
+    PyTypeManager::extractMutableObject<MemoImmutableObject>(ObjectPtr) const;
+
+    template const db0::object_model::Object &
+    PyTypeManager::extractObject<MemoObject>(ObjectPtr) const;
+
+    template const db0::object_model::ObjectImmutableImpl &
+    PyTypeManager::extractObject<MemoImmutableObject>(ObjectPtr) const;
+ 
+    template db0::object_model::ObjectImmutableImpl *
+    PyTypeManager::tryExtractMutableObject<MemoImmutableObject>(ObjectPtr) const;
+
+    template db0::object_model::Object *
+    PyTypeManager::tryExtractMutableObject<MemoObject>(ObjectPtr) const;
+
 }

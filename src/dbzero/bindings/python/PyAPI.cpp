@@ -1366,7 +1366,6 @@ namespace db0::python
         return runSafe(tryGetConfig);
     }
 
-    /* FIXME:
     PyObject *PyAPI_compare(PyObject *, PyObject *args, PyObject *kwargs)
     {
         PyObject *py_first = nullptr;
@@ -1377,15 +1376,15 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "Invalid argument type");
             return NULL;
         }
-
-        if (!PyMemo_Check(py_first) || !PyMemo_Check(py_second)) {
+        
+        // FIXME: implement for MemoImmutableObject as well
+        if (!PyMemo_Check<MemoObject>(py_first) || !PyMemo_Check<MemoObject>(py_second)) {
             PyErr_SetString(PyExc_TypeError, "Invalid argument type");
             return NULL;
         }
         return runSafe(tryCompareMemo, reinterpret_cast<MemoObject*>(py_first), 
             reinterpret_cast<MemoObject*>(py_second));
-    }
-    */
+    }    
     
 #ifndef NDEBUG
     PyObject *PyAPI_startDebugLogs(PyObject *self, PyObject *)

@@ -236,7 +236,7 @@ DB0_PACKED_BEGIN
 
         // measures space requirement of the base overlaid type
         // plus size of all fixed size members of derived type
-        template <typename... Args> static size_t measureBase(Args&& ...args) 
+        template <typename... Args> static Meter measureBase(Args&& ...args) 
         {
             std::size_t result = super_t::measure(std::forward<Args>(args)...);
             // adjust for fixed size members in derived class

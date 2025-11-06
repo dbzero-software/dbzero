@@ -1,15 +1,15 @@
 #pragma once
 
-#include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/object_model/tags/TagIndex.hpp>
 #include <dbzero/core/memory/AccessOptions.hpp>
 #include <dbzero/workspace/WeakFixtureVector.hpp>
+#include <dbzero/object_model/object/ObjectAnyImpl.hpp>
 
 namespace db0::object_model
 
 {
-
-    using Object = db0::object_model::Object;
+    
+    using ObjectAnyImpl = db0::object_model::ObjectAnyImpl;
     using Class = db0::object_model::Class;
     using RC_LimitedStringPool = db0::pools::RC_LimitedStringPool;
 
@@ -20,7 +20,7 @@ namespace db0::object_model
     class ObjectTagManager
     {
     public:
-        using LangToolkit = typename Object::LangToolkit;
+        using LangToolkit = typename ObjectAnyImpl::LangToolkit;
         using ObjectPtr = typename LangToolkit::ObjectPtr;
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
 
@@ -43,7 +43,7 @@ namespace db0::object_model
         struct ObjectInfo
         {
             ObjectSharedPtr m_lang_ptr;
-            const Object *m_object_ptr = nullptr;
+            const ObjectAnyImpl *m_object_ptr = nullptr;
             TagIndex *m_tag_index_ptr = nullptr;
             std::shared_ptr<Class> m_type;
             AccessType m_access_mode;

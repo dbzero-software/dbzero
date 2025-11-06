@@ -25,6 +25,7 @@ DB0_PACKED_BEGIN
         // ref_counts - the initial reference counts (tags / objects) inherited from the initializer
         o_object_base(std::pair<std::uint32_t, std::uint32_t> ref_counts);
         
+        static std::size_t measure();
         static std::size_t measure(std::pair<std::uint32_t, std::uint32_t>);
         
         template <typename BufT> static std::size_t safeSizeOf(BufT buf) {
