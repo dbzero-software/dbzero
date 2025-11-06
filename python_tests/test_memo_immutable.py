@@ -16,3 +16,8 @@ def test_create_memo_immutable(db0_fixture):
     _ = MemoImmutableClass1(data="immutable data", value=42)
 
 
+def test_tag_and_find_immutable_instance(db0_fixture):
+    obj_1 = MemoImmutableClass1(data="immutable data", value=42)
+    db0.tags(obj_1).add("tag1", "tag2")
+    assert list(db0.find("tag1")) == [obj_1]
+    
