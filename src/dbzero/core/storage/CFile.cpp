@@ -215,8 +215,13 @@ namespace db0
             flush(lock);
         }
         if (address != m_file_pos) {
+            // static counter of random read operations
+
             setFilePos(address, lock);
             ++m_rand_read_ops;
+            if (m_rand_read_ops > 3) {
+                throw std::runtime_error("Too many random read operations");
+            }
         }
         assert(m_file_pos == (std::uint64_t)ftell(m_file));
         if (fread(buffer, size, 1, m_file) != 1) {

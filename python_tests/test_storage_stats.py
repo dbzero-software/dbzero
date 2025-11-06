@@ -69,12 +69,12 @@ def test_io_operation_stability(db0_large_lang_cache_no_autocommit):
             number = (i*iterations + j)%indexes_count
             index_container = indexes.indexes[number]
             now = datetime.now()
-            new_value = Value(index_number=number, date=now, value=list_value)
+            new_value = Value(index_number=number, date=now, value=BYTES)
             index_container.index.add(now, new_value)
         
         # calculate objects per second
         stop = datetime.now()
-        seconds = (stop - start).miliseconds / 1000.0
+        seconds = (stop - start).seconds
         print(f" Objects per second: {iterations / seconds}")
 
         # commit changes
