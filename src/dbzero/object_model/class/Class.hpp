@@ -48,6 +48,8 @@ namespace db0::object_model
     using Fixture = db0::Fixture;
     using ClassFlags = db0::ClassFlags;    
     class Object;
+    class ObjectImmutableImpl;
+    class ObjectAnyImpl;
     class Class;    
     struct ObjectId;
 
@@ -258,15 +260,17 @@ DB0_PACKED_END
         inline AccessFlags getInstanceFlags() const {
             return m_no_cache ? AccessFlags { AccessOptions::no_cache } : AccessFlags {};
         }
-        
-        void unlinkSingleton();
-        
+                
     protected:
         friend class ClassFactory;        
         friend ClassPtr;
         friend class Object;
+        friend class ObjectImmutableImpl;
+        friend class ObjectAnyImpl;
         friend super_t;
         
+        void unlinkSingleton();         
+
         // dbzero class instances should only be created by the ClassFactory
         // construct a new dbzero class
         // NOTE: module name may not be available in some contexts (e.g. classes defined in notebooks)

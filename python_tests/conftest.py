@@ -168,3 +168,20 @@ def db0_metaio_fixture():
     db0.close()
     if os.path.exists(DB0_DIR):
         shutil.rmtree(DB0_DIR)
+
+
+@pytest.fixture()
+def db0_large_lang_cache_no_autocommit():
+    """
+    DB0 scope for testing large language cache (no autocommit)
+    """    
+    if os.path.exists(DB0_DIR):
+        shutil.rmtree(DB0_DIR)
+    # create empty directory
+    os.mkdir(DB0_DIR)
+    db0.init(DB0_DIR, autocommit=False, lang_cache_size=16 << 20, cache_size= 16 << 30)
+    db0.open("my-test-prefix")
+    yield db0    
+    db0.close()    
+    if os.path.exists(DB0_DIR):
+        shutil.rmtree(DB0_DIR)
