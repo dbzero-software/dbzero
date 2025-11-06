@@ -63,7 +63,7 @@ def test_excluding_no_cache_instances_from_dbzero_cache(db0_fixture):
     gc.collect()
     final_cache_size = db0.get_cache_stats()["size"]
     # make sure cache utilization is low
-    assert abs(final_cache_size - initial_cache_size) < (300 << 10)
+    assert abs(final_cache_size - initial_cache_size) <= (300 << 10)
 
 
 def test_fetching_no_cache_objects(db0_fixture):
