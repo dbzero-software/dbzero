@@ -90,7 +90,7 @@ namespace db0
         mutable std::map<PageKeyT, std::weak_ptr<ResourceLockT>, CompT> m_cache;        
         using CacheIterator = typename decltype(m_cache)::iterator;
 
-        CacheIterator find(std::uint64_t page_num, StateNumType state_num) const;
+        CacheIterator findImpl(std::uint64_t page_num, StateNumType state_num) const;
 
         // Erase ALL locks with a given page number where state < state_num
         // irrespective of their use count, this is required for handling inconsistent locks problem
@@ -146,7 +146,7 @@ namespace db0
     bool PageMap<ResourceLockT>::exists(StateNumType state_num, std::uint64_t page_num) const
     {
         std::shared_lock<std::shared_mutex> _lock(m_rw_mutex);
-        return find(page_num, state_num) != m_cache.end();
+        return findImpl(page_num, state_num) != m_cache.end();
     }
     
     template <typename ResourceLockT>
@@ -155,7 +155,7 @@ namespace db0
     {
         // needs to be unique locked due to potential m_cache::erase operation
         std::unique_lock<std::shared_mutex> lock(m_rw_mutex);
-        auto it = find(page_num, state_num);
+        auto it = findImpl(page_num, state_num);
         if (it == m_cache.end()) {
             return nullptr;
         }
@@ -164,7 +164,7 @@ namespace db0
     }
     
     template <typename ResourceLockT>
-    typename PageMap<ResourceLockT>::CacheIterator PageMap<ResourceLockT>::find(
+    typename PageMap<ResourceLockT>::CacheIterator PageMap<ResourceLockT>::findImpl(
         std::uint64_t page_num, StateNumType state_num) const
     {
         if (m_cache.empty()) {
@@ -209,7 +209,7 @@ namespace db0
     {
         std::unique_lock<std::shared_mutex> lock(m_rw_mutex);
         auto page_num = res_lock->getAddress() >> m_shift;
-        auto it = find(page_num, state_num);
+        auto it = findImpl(page_num, state_num);
         assert(it != m_cache.end());
         assert(it->second.lock() == res_lock);
         m_cache.erase(it);        
@@ -220,8 +220,8 @@ namespace db0
         std::unique_lock<std::shared_mutex> lock(m_rw_mutex);
         m_cache.clear();
     }
-
-    template <typename ResourceLockT> bool PageMap<ResourceLockT>::empty() const 
+    
+    template <typename ResourceLockT> bool PageMap<ResourceLockT>::empty() const
     {
         std::shared_lock<std::shared_mutex> lock(m_rw_mutex);
         return m_cache.empty();

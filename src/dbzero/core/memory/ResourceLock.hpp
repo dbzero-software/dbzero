@@ -109,7 +109,11 @@ namespace db0
         inline bool isRecycled() const {
             return m_resource_flags & db0::RESOURCE_RECYCLED;
         }
-        
+
+        inline bool isCached() const {
+            return !m_access_mode[AccessOptions::no_cache];
+        }
+                
         // Mark lock as dirty without range specification
         void setDirty();
 
@@ -121,7 +125,7 @@ namespace db0
         // Sets the RESOURCE_FREEZE flag
         void freeze();
 
-        bool isCached() const;
+        
 
 #ifndef NDEBUG
         bool isVolatile() const;

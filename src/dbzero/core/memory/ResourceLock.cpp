@@ -77,11 +77,7 @@ namespace db0
             atomicResetFlags(m_resource_flags, RESOURCE_RECYCLED);
         }
     }
-    
-    bool ResourceLock::isCached() const {
-        return !m_access_mode[AccessOptions::no_cache];
-    }
-    
+        
     bool ResourceLock::resetDirtyFlag()
     {
         using MutexT = ResourceDirtyMutexT;

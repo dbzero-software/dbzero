@@ -7,12 +7,28 @@ namespace db0
 
 {
     
+    std::size_t getCapacity(std::size_t total_capacity, int priority)
+    {
+        auto result = total_capacity;
+        auto low_result = total_capacity >> 3; // 12.5% for low priority
+        if (priority == 0) {
+            result -= low_result;
+        } else {
+            result = low_result;
+        }
+        return result;
+    }
+
+    std::size_t getMaxSize(std::size_t capacity) {
+        return (capacity > 0) ? ((capacity - 1) / MIN_PAGE_SIZE + 1) : 0;
+    }
+    
     CacheRecycler::CacheRecycler(std::size_t capacity, const std::atomic<std::size_t> &dirty_meter,
         std::optional<std::size_t> flush_size,
         std::function<void(std::size_t limit)> flush_dirty,
         std::function<bool(bool threshold_reached)> flush_callback)
-        : m_res_buf((capacity > 0)?((capacity - 1) / MIN_PAGE_SIZE + 1):0)
-        , m_capacity(capacity)
+        : m_capacity { db0::getCapacity(capacity, 0), db0::getCapacity(capacity, 1) }
+        , m_res_bufs { getMaxSize(m_capacity[0]), getMaxSize(m_capacity[1]) }
         , m_dirty_meter(dirty_meter)
         // assign default flush size
         , m_flush_size(flush_size.value_or(DEFAULT_FLUSH_SIZE))
@@ -21,46 +37,61 @@ namespace db0
     {
     }
 
-    void CacheRecycler::adjustSize(std::unique_lock<std::mutex> &, std::size_t requested_release_size)
+    std::size_t CacheRecycler::adjustSize(std::unique_lock<std::mutex> &, list_t &res_buf,
+        std::size_t requested_release_size)
     {                  
         // calculate size to be released from the dirty locks
         // so that they occupy <50% of the cache
         // NOTE: this has to be done before actual size adjustment
-        if (m_flush_dirty && m_dirty_meter > ((m_current_size - requested_release_size) >> 1)) {
-            std::int64_t limit = m_dirty_meter - ((m_current_size - requested_release_size) >> 1);
+        if (m_flush_dirty && m_dirty_meter > ((getCurrentSize() - requested_release_size) >> 1)) {
+            std::int64_t limit = m_dirty_meter - ((getCurrentSize() - requested_release_size) >> 1);
             // request flushing (and releasing) specific volume of dirty locks
             m_flush_dirty(limit);
         }
         
         std::size_t released_size = 0;
         // try flushing 'requested_release_size' number of excess elements
-        auto it = m_res_buf.begin(), end = m_res_buf.end();
+        auto it = res_buf.begin(), end = res_buf.end();
         while (it != end && released_size < requested_release_size) {
             // only release locks with no active external references (other than the CacheRecycler itself)
             // NOTE: dirty locks are relased by m_flush_dirty callback
             if ((*it).use_count() == 1 && !(*it)->isDirty()) {
                 released_size += (*it)->usedMem();
-                it = m_res_buf.erase(it);
+                it = res_buf.erase(it);
             } else {
                 ++it;
             }
         }
         
-        // update current size
-        m_current_size -= released_size;
+        return released_size;
     }
     
-    void CacheRecycler::updateSize(std::unique_lock<std::mutex> &lock, std::size_t expected_size)
-    {        
+    void CacheRecycler::adjustSize(std::unique_lock<std::mutex> &lock, std::size_t release_size)
+    {
+        // release from low-priority cache first
+        auto released_size = adjustSize(lock, m_res_bufs[1], release_size);
+        // update current size
+        m_current_size[1] -= released_size;
+        release_size -= released_size;
+        if (release_size > 0) {
+            released_size = adjustSize(lock, m_res_bufs[0], release_size);
+            m_current_size[0] -= released_size;
+        }
+    }
+
+    void CacheRecycler::updateSize(std::unique_lock<std::mutex> &lock, int priority, std::size_t expected_size)
+    {
+        assert(priority == 0 || priority == 1); 
         // we make 2 iterations because dependent locks (i.e. owned by the boundary lock)
         // will be released only during the second pass
         for (int i = 0; i < 2; ++i) {
-            if (m_current_size <= expected_size) {
+            if (m_current_size[priority] <= expected_size) {
                 break;
             }
 
             // release excess locks plus flush size
-            adjustSize(lock, m_current_size - expected_size);
+            auto released_size = adjustSize(lock, m_res_bufs[priority], m_current_size[priority] - expected_size);
+            m_current_size[priority] -= released_size;
         }
     }
     
@@ -78,38 +109,41 @@ namespace db0
 		if (res_lock) {
 			// access existing resource
 			std::unique_lock<std::mutex> lock(m_mutex);
+            int priority = res_lock->isCached() ? 0 : 1;
 			if (res_lock->isRecycled()) {
 				// resource already in cache, just bring to back (lowest priority for removal)
-                m_res_buf.splice(m_res_buf.end(), res_lock->m_recycle_it);
-			} else if (res_lock->isCached()) {
+                m_res_bufs[priority].splice(m_res_bufs[priority].end(), res_lock->m_recycle_it);
+			} else {
                 // add new resource (if to be cached)
                 auto lock_size = res_lock->usedMem();
-                if (lock_size > m_capacity) {
+                auto &res_buf = m_res_bufs[priority];
+                auto capacity = m_capacity[priority];
+                if (lock_size > capacity) {
                     // Cache size is too small to keep this resource
                     // (or is uninitialized)
                     return;
                 }
-                m_current_size += lock_size;
-                if (m_current_size > m_capacity) {
+                m_current_size[priority] += lock_size;
+                if (m_current_size[priority] > capacity) {
                     // try reducing cache utilization to capacity minus flush size
-                    auto flush_size = std::min(m_capacity >> 1, m_flush_size);
-                    updateSize(lock, m_capacity - flush_size);
+                    auto flush_size = std::min(capacity >> 1, m_flush_size);
+                    updateSize(lock, priority, capacity - flush_size);
                     flushed = true;
-                    flush_result = m_current_size <= (m_capacity - flush_size);
+                    flush_result = m_current_size[priority] <= (capacity - flush_size);
                 }
                 // resize is a costly operation but cannot be avoided if the number of locked
                 // resources exceeds the assumed limit
                 // note that this operation does not change the configured cache capacity
-                if (m_res_buf.size() == m_res_buf.max_size()) {
+                if (res_buf.size() == res_buf.max_size()) {
                     // After resize, all iterators to cached elements will be invalidated!!
-                    m_res_buf.resize(m_res_buf.size() * 2);
+                    res_buf.resize(res_buf.size() * 2);
                     // Update self-iterators in all cached locks
-                    for (auto it = m_res_buf.begin(), end = m_res_buf.end(); it != end; ++it) {
+                    for (auto it = res_buf.begin(), end = res_buf.end(); it != end; ++it) {
                         (*it)->m_recycle_it = it;
                     }                    
                 }
-                m_res_buf.push_back(res_lock);
-                res_lock->m_recycle_it = std::prev(m_res_buf.end());
+                res_buf.push_back(res_lock);
+                res_lock->m_recycle_it = std::prev(res_buf.end());
                 res_lock->setRecycled(true);
 			}
 		}
@@ -124,27 +158,35 @@ namespace db0
     {
         std::unique_lock<std::mutex> lock(m_mutex);
         // try releasing all locks
-        updateSize(lock, 0);
+        updateSize(lock, 0, 0);
+        updateSize(lock, 1, 0);
 	}
     
     void CacheRecycler::resize(std::size_t new_size)
+    {
+        resize(db0::getCapacity(new_size, 0), 0);
+        resize(db0::getCapacity(new_size, 1), 1);
+    }
+    
+    void CacheRecycler::resize(std::size_t new_size, int priority)
     {        
         std::unique_lock<std::mutex> lock(m_mutex);
-        if (new_size == m_capacity) {
+        if (new_size == m_capacity[priority]) {
             return;
         }
         
-        m_capacity = new_size;
+        m_capacity[priority] = new_size;
         // try releasing excess locks
-        updateSize(lock, m_capacity);
+        updateSize(lock, priority, m_capacity[priority]);
+        auto &res_buf = m_res_bufs[priority];
         // new capacity of the fixed list should allow storing existing locks
-        auto new_max_size = std::max((m_capacity - 1) / MIN_PAGE_SIZE + 1, m_res_buf.size());                
-        if (new_max_size != m_res_buf.max_size()) {
+        auto new_max_size = std::max((m_capacity[priority] - 1) / MIN_PAGE_SIZE + 1, res_buf.size());
+        if (new_max_size != res_buf.max_size()) {
             // After resize, all iterators to cached elements will be invalidated!!
-            m_res_buf.resize(new_max_size);
-
+            res_buf.resize(new_max_size);
+            
             // Update self-iterators in all cached locks
-            for (auto it = m_res_buf.begin(), end = m_res_buf.end(); it != end; ++it) {
+            for (auto it = res_buf.begin(), end = res_buf.end(); it != end; ++it) {
                 (*it)->m_recycle_it = it;
             }
         }
@@ -154,25 +196,31 @@ namespace db0
     {
         if (res.isRecycled()) {
             res.setRecycled(false);
-            m_current_size -= res.size();
-            m_res_buf.erase(res.m_recycle_it);
+            int priority = res.isCached() ? 0 : 1;
+            m_current_size[priority] -= res.size();
+            m_res_bufs[priority].erase(res.m_recycle_it);
         }
     }
     
 	std::size_t CacheRecycler::size() const {
-        return m_current_size;
+        return getCurrentSize();
     }
 
-	std::size_t CacheRecycler::getCapacity() const {
-        return m_capacity;
-    }
-    
     void CacheRecycler::forEach(std::function<void(std::shared_ptr<ResourceLock>)> f) const
     {
         std::unique_lock<std::mutex> lock(m_mutex);
-        for (const auto &p: m_res_buf) {
+        for (const auto &p: m_res_bufs[0]) {
             f(p);
         }
+        for (const auto &p: m_res_bufs[1]) {
+            f(p);
+        }
+    }
+    
+    std::size_t CacheRecycler::getCapacity() const
+    {
+        std::unique_lock<std::mutex> lock(m_mutex);
+        return m_capacity[0] + m_capacity[1];
     }
 
 }

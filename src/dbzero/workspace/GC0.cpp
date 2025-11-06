@@ -135,6 +135,7 @@ namespace db0
     void GC0::commit()
     {
         // Important ! Collect instance addresses first because push_back can trigger "remove" calls
+        /* FIXME: log
         std::vector<TypedAddress> addresses;
         std::unique_lock<std::mutex> lock(m_mutex);
         for (auto &vptr_item : m_vptr_map) {
@@ -154,6 +155,7 @@ namespace db0
             super_t::push_back(toTypedAddress(addr_pair));
         }
         m_scheduled_for_deletion.clear();
+        */
         super_t::commit();
     }
     
