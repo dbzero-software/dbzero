@@ -3,10 +3,9 @@
 namespace db0::object_model
 
 {
+        
+    ObjectInitializerManager InitManager::instance;
 
-    template <typename T, typename ImplT>
-    ObjectInitializerManager ObjectAnyBase<T, ImplT>::m_init_manager;
-    
     template <typename T, typename ImplT>
     ObjectAnyBase<T, ImplT>::ObjectAnyBase(UniqueAddress addr, unsigned int ext_refs)
         : m_flags { ObjectOptions::DROPPED }
@@ -23,7 +22,7 @@ namespace db0::object_model
                 return {};
             }
             // retrieve from the initializer
-            return m_init_manager.getInitializer(*this).tryGetFixture();
+            return InitManager::instance.getInitializer(*this).tryGetFixture();
         }
         return super_t::tryGetFixture();
     }
@@ -50,7 +49,7 @@ namespace db0::object_model
             THROWF(db0::InputException) << "set_prefix failed: object already initialized";
         }
         
-        if (!m_init_manager.getInitializer(*this).trySetFixture(new_fixture)) {
+        if (!InitManager::instance.getInitializer(*this).trySetFixture(new_fixture)) {
             // signal problem with PyErr_BadPrefix
             auto fixture = this->getFixture();
             LangToolkit::setError(LangToolkit::getTypeManager().getBadPrefixError(), fixture->getUUID());
@@ -86,7 +85,7 @@ namespace db0::object_model
             super_t::incRef(is_tag);
         } else {
             // incRef with the initializer
-            m_init_manager.getInitializer(*this).incRef(is_tag);
+            InitManager::instance.getInitializer(*this).incRef(is_tag);
         }
     }
     
@@ -148,10 +147,10 @@ namespace db0::object_model
     void ObjectAnyBase<T, ImplT>::setDefunct() const {
         m_flags.set(ObjectOptions::DEFUNCT);
     }
-
+    
     template <typename T, typename ImplT>
     Class &ObjectAnyBase<T, ImplT>::getType() {
-        return this->m_type ? *this->m_type : m_init_manager.getInitializer(*this).getClass();
+        return this->m_type ? *this->m_type : InitManager::instance.getInitializer(*this).getClass();
     }
 
     template class ObjectAnyBase<o_object_base, ObjectAnyImpl>;

@@ -42,6 +42,13 @@ namespace db0::object_model
     // NOTE: Object instances are created within the implementation specific realm_id (e.g. =1 for o_object)
     template <typename T> using ObjectVType = db0::v_object<T, 0, T::REALM_ID>;
     
+    // Common init manager for all specializations
+    class InitManager
+    {
+    public:
+        static ObjectInitializerManager instance;
+    };
+    
     template <typename T, typename ImplT>
     class ObjectAnyBase: public db0::ObjectBase<ImplT, ObjectVType<T>, StorageClass::OBJECT_REF>
     {
@@ -62,11 +69,11 @@ namespace db0::object_model
         Memspace &getMemspace() const;
 
         inline std::shared_ptr<Class> getClassPtr() const {
-            return this->m_type ? this->m_type : m_init_manager.getInitializer(*this).getClassPtr();
+            return this->m_type ? this->m_type : InitManager::instance.getInitializer(*this).getClassPtr();
         }
         
         inline const Class &getType() const {
-            return this->m_type ? *this->m_type : m_init_manager.getInitializer(*this).getClass();
+            return this->m_type ? *this->m_type : InitManager::instance.getInitializer(*this).getClass();
         }
         
         Class &getType();
@@ -120,8 +127,7 @@ namespace db0::object_model
             return m_ext_refs;
         }
         
-    protected:
-        static ObjectInitializerManager m_init_manager;
+    protected:        
         // Class will only be assigned after initialization
         std::shared_ptr<Class> m_type;
         mutable ObjectFlags m_flags;

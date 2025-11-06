@@ -37,14 +37,14 @@ namespace db0::object_model
     ObjectImplBase<T, ImplT>::ObjectImplBase(std::shared_ptr<Class> db0_class)    
     {
         // prepare for initialization
-        super_t::m_init_manager.addInitializer(*this, db0_class);
+        InitManager::instance.addInitializer(*this, db0_class);
     }
     
     template <typename T, typename ImplT>
     ObjectImplBase<T, ImplT>::ObjectImplBase(TypeInitializer &&type_initializer)
     {
         // prepare for initialization
-        super_t::m_init_manager.addInitializer(*this, std::move(type_initializer));
+        InitManager::instance.addInitializer(*this, std::move(type_initializer));
     }
 
     template <typename T, typename ImplT>
@@ -93,7 +93,7 @@ namespace db0::object_model
         this->unregister();
         if (!this->hasInstance()) {
             // release initializer if it exists, object not created
-            super_t::m_init_manager.tryCloseInitializer(*this);
+            InitManager::instance.tryCloseInitializer(*this);
         }
     }
 
@@ -139,7 +139,7 @@ namespace db0::object_model
     void ObjectImplBase<T, ImplT>::postInit(FixtureLock &fixture)
     {
         if (!this->hasInstance()) {
-            auto &initializer = super_t::m_init_manager.getInitializer(*this);
+            auto &initializer = InitManager::instance.getInitializer(*this);
             PosVT::Data pos_vt_data;
             unsigned int pos_vt_offset = 0;
             auto index_vt_data = initializer.getData(pos_vt_data, pos_vt_offset);
@@ -200,7 +200,7 @@ namespace db0::object_model
     template <typename T, typename ImplT>
     void ObjectImplBase<T, ImplT>::removePreInit(const char *field_name) const
     {
-        auto &initializer = super_t::m_init_manager.getInitializer(*this);
+        auto &initializer = InitManager::instance.getInitializer(*this);
         auto &type = initializer.getClass();
         
         // Find an already existing field index
@@ -237,7 +237,7 @@ namespace db0::object_model
             return;
         }
 
-        auto &initializer = super_t::m_init_manager.getInitializer(*this);
+        auto &initializer = InitManager::instance.getInitializer(*this);
         auto fixture = initializer.getFixture();
         auto &type = initializer.getClass();
         auto [type_id, storage_class] = recognizeType(*fixture, obj_ptr);
@@ -437,7 +437,7 @@ namespace db0::object_model
         auto class_ptr = this->m_type.get();
         if (!class_ptr) {
             // retrieve class from the initializer
-            class_ptr = &super_t::m_init_manager.getInitializer(*this).getClass();
+            class_ptr = &InitManager::instance.getInitializer(*this).getClass();
         }
 
         assert(class_ptr);
@@ -606,7 +606,7 @@ namespace db0::object_model
         auto loc = field_info.first.getIndexAndOffset();
         if (!this->hasInstance()) {
             // try retrieving from initializer
-            auto initializer_ptr = super_t::m_init_manager.findInitializer(*this);
+            auto initializer_ptr = InitManager::instance.findInitializer(*this);
             if (!initializer_ptr) {
                 find_result = { false, false };
                 return true;

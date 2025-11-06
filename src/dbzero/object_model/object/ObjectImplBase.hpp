@@ -167,7 +167,7 @@ namespace db0::object_model
         std::pair<const void*, unsigned int> tryGetLoc(FieldID) const;
         
         inline ObjectInitializer *tryGetInitializer() const {
-            return this->m_type ? static_cast<ObjectInitializer*>(nullptr) : &super_t::m_init_manager.getInitializer(*this);
+            return this->m_type ? static_cast<ObjectInitializer*>(nullptr) : &InitManager::instance.getInitializer(*this);
         }
         
         void dropMembers(db0::swine_ptr<Fixture> &, Class &) const;
