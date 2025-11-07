@@ -33,7 +33,7 @@ namespace db0
         // Copy constructor
         struct tag_copy {};
         intrusive_node(tag_copy, Memspace &memspace, Memspace &other_memspace, const ptr_t &other)
-            : super(memspace, memspace, other_memspace, *other.get())
+            : super(memspace, memspace, other_memspace, *other.getData())
         {
         }
 

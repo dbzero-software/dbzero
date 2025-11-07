@@ -82,7 +82,7 @@ DB0_PACKED_END
         void detach() const;
 
         // drop underlying dbzero representation
-        void destroy() const;
+        void destroy();
         
         const_iterator begin() const;
         const_iterator end() const;

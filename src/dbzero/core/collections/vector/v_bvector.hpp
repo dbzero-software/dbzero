@@ -260,7 +260,7 @@ DB0_PACKED_END
             }
         }
 
-        void destroy() const
+        void destroy()
         {
             destroyAllBlocks();
             m_pb_cache.clear();

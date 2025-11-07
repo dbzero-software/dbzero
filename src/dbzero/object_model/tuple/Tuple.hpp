@@ -95,7 +95,7 @@ DB0_PACKED_END
         void operator=(Tuple &&);
         bool operator!=(const Tuple &) const;
         
-        void destroy() const;
+        void destroy();
 
         const o_typed_item *begin() const;
         const o_typed_item *end() const;

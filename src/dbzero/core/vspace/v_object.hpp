@@ -67,7 +67,7 @@ namespace db0
         template<typename Tuple, std::size_t...I, std::size_t N=std::tuple_size<Tuple>::value-1>
         v_object(Memspace &memspace, tag_prelocked, Tuple&& t, int_seq<std::size_t, I...>)            
         {
-            intiNew(memspace, std::move(std::get<N>(std::forward<Tuple>(t))));
+            initNew(memspace, std::move(std::get<N>(std::forward<Tuple>(t))));
             // placement new syntax
             ContainerT::__new(reinterpret_cast<std::byte*>(&this->modify()), std::get<I>(std::forward<Tuple>(t))...);
         }

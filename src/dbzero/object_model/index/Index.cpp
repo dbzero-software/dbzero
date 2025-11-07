@@ -577,7 +577,7 @@ namespace db0::object_model
         super_t::detach();
     }
     
-    void Index::destroy() const
+    void Index::destroy()
     {
         m_mutation_log = nullptr;
         // discard any pending changes

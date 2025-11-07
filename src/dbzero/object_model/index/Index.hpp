@@ -73,7 +73,7 @@ namespace db0::object_model
 
         void detach() const;
 
-        void destroy() const;
+        void destroy();
 
         // remove any cached updates / revert
         void rollback();
@@ -225,7 +225,7 @@ namespace db0::object_model
             this->modify().m_index_addr = new_range_tree.getAddress();            
         }
         
-        template <typename T> const typename db0::RangeTree<T, UniqueAddress> &getExistingRangeTree() const
+        template <typename T> typename db0::RangeTree<T, UniqueAddress> &getExistingRangeTree() const
         {
             assert(hasRangeTree());
             return const_cast<Index*>(this)->getRangeTree<T>();
