@@ -413,7 +413,7 @@ namespace db0::python
         
         if (PyType_Check(py_object)) {
             // only memo or enum types can be scoped
-            if (PyMemoType_Check(reinterpret_cast<PyTypeObject*>(py_object))) {
+            if (PyAnyMemoType_Check(reinterpret_cast<PyTypeObject*>(py_object))) {
                 PyTypeObject *py_type = reinterpret_cast<PyTypeObject*>(py_object);
                 auto prefix_name = MemoTypeDecoration::get(py_type).tryGetPrefixName();
                 if (prefix_name) {
@@ -548,13 +548,15 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "Invalid argument type");
             return NULL;
         }
-
-        if (!PyMemo_Check(py_object)) {
+        
+        if (PyMemo_Check<MemoObject>(py_object)) {
+            return MemoObject_DescribeObject(reinterpret_cast<MemoObject*>(py_object));
+        } else if (PyMemo_Check<MemoImmutableObject>(py_object)) {
+            return MemoObject_DescribeObject(reinterpret_cast<MemoImmutableObject*>(py_object));
+        } else {
             PyErr_SetString(PyExc_TypeError, "Invalid argument type");
             return NULL;
-        }
-
-        return MemoObject_DescribeObject(reinterpret_cast<MemoObject*>(py_object));
+        }        
     }
     
     PyObject *describeObject(PyObject *self, PyObject *args) 
@@ -593,7 +595,7 @@ namespace db0::python
 
     PyObject *TryPyAPI_isSingleton(PyObject *py_object)
     {
-
+        assert((PyMemo_Check<MemoObject>(py_object)));
         return PyBool_fromBool(reinterpret_cast<MemoObject*>(py_object)->ext().isSingleton());
     }
 
@@ -605,14 +607,17 @@ namespace db0::python
             return NULL;
         }
 
-        if (!PyMemo_Check(py_object)) {
+        if (PyMemo_Check<MemoObject>(py_object)) {
+            return runSafe(TryPyAPI_isSingleton, py_object);
+        } else if (PyMemo_Check<MemoImmutableObject>(py_object)) {
+            // immutable memos are never singletons
+            Py_RETURN_FALSE;
+        } else {        
             PyErr_SetString(PyExc_TypeError, "Invalid argument type");
             return NULL;
-        }
-
-        return runSafe(TryPyAPI_isSingleton, py_object);
+        }        
     }
-
+    
     PyObject *PyAPI_getRefCount(PyObject *, PyObject *args)
     {
         PY_API_FUNC        
@@ -818,11 +823,11 @@ namespace db0::python
             Py_RETURN_NONE;
         }
         
-        if (PyMemo_Check(py_object)) {
+        if (PyAnyMemo_Check(py_object)) {
             // this operation is handled differently for singletons (as dyn_prefix)
             // check from type, not instance
             if (PyMemoType_IsSingleton(Py_TYPE(py_object))) {
-                if (reinterpret_cast<MemoObject*>(py_object)->ext().hasInstance()) {
+                if (reinterpret_cast<MemoAnyObject*>(py_object)->ext().hasInstance()) {
                     PyErr_SetString(PyExc_TypeError, "Unable to change scope of an existing singleton instance");
                     return NULL;
                 }
@@ -831,7 +836,15 @@ namespace db0::python
                 }
                 Py_RETURN_NONE;
             } else {
-                return runSafe(MemoObject_set_prefix, reinterpret_cast<MemoObject*>(py_object), prefix_name);
+                if (PyMemo_Check<MemoObject>(py_object)) {
+                    return runSafe(MemoObject_set_prefix<MemoObject>, 
+                        reinterpret_cast<MemoObject*>(py_object), prefix_name
+                    );
+                } else {
+                    return runSafe(MemoObject_set_prefix<MemoImmutableObject>, 
+                        reinterpret_cast<MemoImmutableObject*>(py_object), prefix_name
+                    );
+                }                
             }            
         }
         
@@ -944,13 +957,13 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "Invalid argument type");
             return NULL;
         }
-
-        if (!PyMemoType_Check(py_type)) {
+        
+        if (PyAnyMemoType_Check(py_type)) {
+            return runSafe(tryGetAttributes, py_type);
+        } else {
             PyErr_SetString(PyExc_TypeError, "Invalid argument type");
             return NULL;
-        }
-
-        return runSafe(tryGetAttributes, py_type);
+        }        
     }
     
     PyObject *PyAPI_getAttrAs(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
@@ -961,8 +974,8 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "getattr_as requires exactly 2 arguments");
             return NULL;
         }
-
-        if (!PyMemo_Check(args[0])) {
+        
+        if (!PyAnyMemo_Check(args[0])) {
             // fall back to regular getattr if not a memo object
             return PyObject_GetAttr(args[0], args[1]);
         }
@@ -973,7 +986,11 @@ namespace db0::python
         }
 
         PyTypeObject *py_type = reinterpret_cast<PyTypeObject*>(args[2]);
-        return runSafe(tryGetAttrAs, reinterpret_cast<MemoObject*>(args[0]), args[1], py_type);
+        if (PyMemo_Check<MemoObject>(args[0])) {
+            return runSafe(tryGetAttrAs<MemoObject>, reinterpret_cast<MemoObject*>(args[0]), args[1], py_type);
+        } else {
+            return runSafe(tryGetAttrAs<MemoImmutableObject>, reinterpret_cast<MemoImmutableObject*>(args[0]), args[1], py_type);
+        }
     }
     
     PyObject *PyAPI_getAddress(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
@@ -1044,7 +1061,7 @@ namespace db0::python
                 PyErr_SetString(PyExc_TypeError, "Invalid argument type. Exclude shoud be a sequence");
                 return NULL;
             }
-            if (!PyMemo_Check(py_object)) {
+            if (!PyAnyMemo_Check(py_object)) {
                 PyErr_SetString(PyExc_TypeError, "Exclude is only supported for memo objects");
                 return NULL;
             }
@@ -1078,10 +1095,25 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "materialized requires exactly 1 argument");
             return NULL;
         }
+        auto py_obj = args[0];
+        if (!PyAnyMemo_Check(py_obj)) {
+            // simply return self if not a memo object
+            Py_INCREF(py_obj);
+            return py_obj;
+        }
+        
         PY_API_FUNC
-        return runSafe(getMaterializedMemoObject, args[0]);
+        if (PyMemo_Check<MemoObject>(py_obj)) {
+            return runSafe(getMaterializedMemoObject<MemoObject>, 
+                reinterpret_cast<MemoObject*>(py_obj)
+            );
+        } else {
+            return runSafe(getMaterializedMemoObject<MemoImmutableObject>, 
+                reinterpret_cast<MemoImmutableObject*>(py_obj)
+            );
+        }
     }
-
+    
     PyObject *tryWait(const char *prefix, long state, long timeout)
     {
         std::unique_lock<std::recursive_mutex> api_lock;
@@ -1344,14 +1376,15 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "Invalid argument type");
             return NULL;
         }
-
-        if (!PyMemo_Check(py_first) || !PyMemo_Check(py_second)) {
+        
+        // FIXME: implement for MemoImmutableObject as well
+        if (!PyMemo_Check<MemoObject>(py_first) || !PyMemo_Check<MemoObject>(py_second)) {
             PyErr_SetString(PyExc_TypeError, "Invalid argument type");
             return NULL;
         }
         return runSafe(tryCompareMemo, reinterpret_cast<MemoObject*>(py_first), 
             reinterpret_cast<MemoObject*>(py_second));
-    }
+    }    
     
 #ifndef NDEBUG
     PyObject *PyAPI_startDebugLogs(PyObject *self, PyObject *)
@@ -1413,7 +1446,7 @@ namespace db0::python
     PyObject *PyAPI_touch(PyObject *, PyObject *const *args, Py_ssize_t nargs)
     {
         for (Py_ssize_t i = 0; i < nargs; ++i) {
-            if (!PyMemo_Check(args[i])) {
+            if (!PyAnyMemo_Check(args[i])) {
                 PyErr_SetString(PyExc_TypeError, "Invalid argument type");
                 return NULL;
             }

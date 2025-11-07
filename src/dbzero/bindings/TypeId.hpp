@@ -53,8 +53,9 @@ namespace db0::bindings
         MEMO_EXPIRED_REF = 117,
         // Python type decorated as memo
         MEMO_TYPE = 118,
+        MEMO_IMMUTABLE_OBJECT = 119,
         // COUNT determines size of the type operator arrays
-        COUNT = 119,
+        COUNT = 120,
         // unrecognized type
         UNKNOWN = std::numeric_limits<std::uint16_t>::max()
     };

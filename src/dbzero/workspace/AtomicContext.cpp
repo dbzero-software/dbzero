@@ -22,10 +22,12 @@ namespace db0
     }
 
     // MEMO_OBJECT specialization
-    template <> void detachObject<TypeId::MEMO_OBJECT, PyToolkit>(PyObjectPtr obj_ptr) {
-        detachExisting(PyToolkit::getTypeManager().extractObject(obj_ptr));
+    template <> void detachObject<TypeId::MEMO_OBJECT, PyToolkit>(PyObjectPtr obj_ptr) 
+    {
+        using MemoObject = PyToolkit::TypeManager::MemoObject;
+        detachExisting(PyToolkit::getTypeManager().extractObject<MemoObject>(obj_ptr));
     }
-
+    
     // DB0_LIST specialization
     template <> void detachObject<TypeId::DB0_LIST, PyToolkit>(PyObjectPtr obj_ptr) {
         detachExisting(PyToolkit::getTypeManager().extractList(obj_ptr));

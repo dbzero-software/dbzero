@@ -191,7 +191,7 @@ namespace db0::object_model
             if (!m_index) {
                 if ((*this)->m_index_addr.isValid()) {
                     // pull existing range tree
-                    m_index = db0::make_shared_void<RangeTreeT>(this->myPtr((*this)->m_index_addr));                    
+                    m_index = db0::make_shared_void<RangeTreeT>(this->myPtr((*this)->m_index_addr));
                 } else {
                     // create a new range tree instance
                     m_index = db0::make_shared_void<RangeTreeT>(this->getMemspace());

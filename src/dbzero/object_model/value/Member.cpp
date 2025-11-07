@@ -12,6 +12,9 @@
 #include <dbzero/object_model/value/long_weak_ref.hpp>
 // FIXME: remove Python dependency
 #include <dbzero/bindings/python/PySafeAPI.hpp>
+#include <dbzero/object_model/object/Object.hpp>
+#include <dbzero/object_model/object/ObjectAnyImpl.hpp>
+#include <dbzero/object_model/object/ObjectImmutableImpl.hpp>
 
 namespace db0::object_model
 
@@ -53,11 +56,12 @@ namespace db0::object_model
         return db0::v_object<db0::o_string>(*fixture, PyUnicode_AsUTF8(obj_ptr), access_mode).getAddress();
     }
     
-    // OBJECT specialization
+    // OBJECT specialization (mutable)
     template <> Value createMember<TypeId::MEMO_OBJECT, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
         PyObjectPtr obj_ptr, StorageClass, AccessFlags)
     {
-        auto &obj = PyToolkit::getTypeManager().extractMutableObject(obj_ptr);
+        using MemoObject = PyToolkit::TypeManager::MemoObject;
+        auto &obj = PyToolkit::getTypeManager().extractMutableObject<MemoObject>(obj_ptr);
         assert(obj.hasInstance());
         assureSameFixture(fixture, obj);
         obj.modify().incRef(false);
@@ -284,7 +288,8 @@ namespace db0::object_model
         PyObjectPtr obj_ptr, StorageClass storage_class, AccessFlags)
     {
         // NOTE: memo object can be extracted from the weak proxy
-        const auto &obj = PyToolkit::getTypeManager().extractObject(obj_ptr);
+        using MemoObject = PyToolkit::TypeManager::MemoObject;
+        const auto &obj = PyToolkit::getTypeManager().extractObject<MemoObject>(obj_ptr);
         if (storage_class == StorageClass::OBJECT_LONG_WEAK_REF) {
             LongWeakRef weak_ref(fixture, obj);
             return weak_ref.getAddress();
@@ -646,7 +651,8 @@ namespace db0::object_model
             // decref cached instance via language specific wrapper type
             auto lang_wrapper = LangToolkit::template getWrapperTypeOf<T>(obj_ptr.get());
             auto &object = lang_wrapper->modifyExt();
-            if (object.decRef(false)) {
+            object.decRef(false);
+            if (!object.hasRefs()) {
                 // NOTE: we'll drop the object immediately on condition it has no language references
                 if (!LangToolkit::hasLangRefs(*obj_ptr)) {
                     auto unique_addr = object.getUniqueAddress();                    
@@ -750,12 +756,28 @@ namespace db0::object_model
         return !object_ptr || object_ptr->hasInstance();
     }
     
-    void materialize(FixtureLock &fixture, PyObjectPtr obj_ptr)
+    template <typename MemoImplT>
+    void materializeImpl(FixtureLock &fixture, PyObjectPtr obj_ptr)
     {
-        auto object_ptr = PyToolkit::getTypeManager().tryExtractMutableObject(obj_ptr);
+        auto object_ptr = PyToolkit::getTypeManager().tryExtractMutableObject<MemoImplT>(obj_ptr);
         if (object_ptr && !object_ptr->hasInstance()) {            
             object_ptr->postInit(fixture);
         }
     }
+    
+    void materialize(FixtureLock &fixture, PyObjectPtr obj_ptr)
+    {
+        using MemoObject = PyToolkit::TypeManager::MemoObject;
+        using MemoImmutableObject = PyToolkit::TypeManager::MemoImmutableObject;
 
+        if (PyToolkit::isMemoObject(obj_ptr)) {
+            materializeImpl<MemoObject>(fixture, obj_ptr);
+        } else if (PyToolkit::isMemoImmutableObject(obj_ptr)) {
+            materializeImpl<MemoImmutableObject>(fixture, obj_ptr);            
+        } else {
+            assert(false && "Unsupported memo object type");
+            THROWF(db0::InputException) << "Unable to materialize non-memo object" << THROWF_END;
+        }
+    }
+    
 }

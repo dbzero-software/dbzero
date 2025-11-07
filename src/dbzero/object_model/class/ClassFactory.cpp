@@ -158,6 +158,7 @@ namespace db0::object_model
                 bool is_singleton = LangToolkit::isSingleton(lang_type);
                 ClassFlags flags { is_singleton ? ClassOptions::SINGLETON : 0 };
                 flags.set(ClassOptions::NO_DEFAULT_TAGS, LangToolkit::isNoDefaultTags(lang_type));
+                flags.set(ClassOptions::IMMUTABLE, LangToolkit::isImmutable(lang_type));
                 auto memo_base = LangToolkit::getBaseMemoType(lang_type);
                 std::shared_ptr<Class> base_class;                
                 if (memo_base) {

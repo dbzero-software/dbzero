@@ -238,7 +238,8 @@ namespace db0::python
 
     PyObject *fetchSingletonObject(db0::Snapshot &snapshot, PyTypeObject *py_type, const char *prefix_name)
     {
-        if (!PyMemoType_Check(py_type)) {
+        // NOTE: singletons only supported for MemoObject types
+        if (!PyMemoType_Check<MemoObject>(py_type)) {
             THROWF(db0::InternalException) << "Memo type expected for: " << py_type->tp_name << THROWF_END;
         }
         
@@ -257,7 +258,8 @@ namespace db0::python
     
     bool isExistingSingleton(db0::Snapshot &snapshot, PyTypeObject *py_type, const char *prefix_name)
     {
-        if (!PyMemoType_Check(py_type)) {
+        // NOTE: singletons only supported for MemoObject types
+        if (!PyMemoType_Check<MemoObject>(py_type)) {
             return false;
         }
         
@@ -276,14 +278,13 @@ namespace db0::python
         }
         return isExistingSingleton(fixture, py_type);
     }
-    
-    
+        
     void renameMemoClassField(PyTypeObject *py_type, const char *from_name, const char *to_name)
     {        
         using ClassFactory = db0::object_model::ClassFactory;
         auto fixture_uuid = MemoTypeDecoration::get(py_type).getFixtureUUID();
 
-        assert(PyMemoType_Check(py_type));
+        assert(PyAnyMemoType_Check(py_type));
         assert(from_name);
         assert(to_name);
         
@@ -293,9 +294,8 @@ namespace db0::python
         auto type = class_factory.getExistingType(py_type);
         type->renameField(from_name, to_name);
     }
-
     
-#ifndef NDEBUG    
+#ifndef NDEBUG
     
     PyObject *writeBytes(PyObject *self, PyObject *args)
     {
@@ -433,26 +433,35 @@ namespace db0::python
         }
         return result;
     }
+
+    template <typename MemoImplT>
+    PyObject *tryMemoGetRefCount(PyObject *py_object)
+    {
+        assert(PyMemo_Check<MemoImplT>(py_object));
+        auto &memo = reinterpret_cast<MemoImplT*>(py_object)->ext();
+        auto fixture = memo.getFixture();
+        // NOTE: there might be tag-removal operations buffered for the requested instance
+        // in case of a read/write mode conditionally trigger flush in such case
+        if (db0::object_model::isObjectPendingUpdate(fixture, memo.getUniqueAddress())) {
+            FixtureLock lock(fixture);
+            // flush pending updates
+            lock->flush();                
+        }
+        return PyLong_FromLong(getTotal(memo.getRefCounts(), -memo->m_num_type_tags));
+    }
     
     PyObject *tryGetRefCount(PyObject *py_object)
     {
-        if (PyMemo_Check(py_object)) {
-            auto &memo = reinterpret_cast<MemoObject*>(py_object)->ext();
-            auto fixture = memo.getFixture();
-            // NOTE: there might be tag-removal operations buffered for the requested instance
-            // in case of a read/write mode conditionally trigger flush in such case
-            if (db0::object_model::isObjectPendingUpdate(fixture, memo.getUniqueAddress())) {
-                FixtureLock lock(fixture);
-                // flush pending updates
-                lock->flush();                
-            }
-            return PyLong_FromLong(getTotal(memo.getRefCounts(), -memo->m_num_type_tags));
+        if (PyMemo_Check<MemoObject>(py_object)) {
+            return tryMemoGetRefCount<MemoObject>(py_object);
+        } else if (PyMemo_Check<MemoImmutableObject>(py_object)) {
+            return tryMemoGetRefCount<MemoImmutableObject>(py_object);
         } else if (PyClassObject_Check(py_object)) {
             auto ref_counts = reinterpret_cast<ClassObject*>(py_object)->ext().getRefCounts();
             return PyLong_FromLong(getTotal(ref_counts, 0));
         } else if (PyType_Check(py_object)) {
             auto py_type = PyToolkit::getTypeManager().getTypeObject(py_object);
-            if (PyToolkit::isMemoType(py_type)) {
+            if (PyToolkit::isAnyMemoType(py_type)) {
                 auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
                 // sum over all prefixes
                 std::uint64_t ref_counts = 0;
@@ -615,8 +624,10 @@ namespace db0::python
     
     PyObject *tryGetAddress(PyObject *py_obj)
     {
-        if (PyMemo_Check(py_obj)) {
-            return PyLong_FromUnsignedLongLong(reinterpret_cast<MemoObject*>(py_obj)->ext().getAddress().getValue());
+        if (PyAnyMemo_Check(py_obj)) {
+            return PyLong_FromUnsignedLongLong(
+                reinterpret_cast<MemoAnyObject*>(py_obj)->ext().getAddress().getValue()
+            );
         }
         
         // FIXME: implement for other dbzero types
@@ -626,8 +637,8 @@ namespace db0::python
     
     PyTypeObject *tryGetType(PyObject *py_obj)
     {
-        if (PyMemo_Check(py_obj)) {
-            auto &memo = reinterpret_cast<MemoObject*>(py_obj)->ext();
+        if (PyAnyMemo_Check(py_obj)) {
+            auto &memo = reinterpret_cast<MemoAnyObject*>(py_obj)->ext();
             auto fixture = memo.getFixture();
             auto &class_factory = fixture->get<db0::object_model::ClassFactory>();
             if (!class_factory.hasLangType(memo.getType())) {
@@ -646,9 +657,9 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "Invalid argument type");
             return NULL;
         }
-
+        
         PyTypeObject *py_type = reinterpret_cast<PyTypeObject*>(py_object);
-        if (!PyMemoType_Check(py_type)) {
+        if (!PyAnyMemoType_Check(py_type)) {
             PyErr_SetString(PyExc_TypeError, "Invalid argument type");
             return nullptr;
         }
@@ -664,18 +675,18 @@ namespace db0::python
     
     PyObject *tryGetMemoClass(PyObject *py_obj)
     {
-        if (!PyMemo_Check(py_obj)) {
+        if (!PyAnyMemo_Check(py_obj)) {
             PyErr_SetString(PyExc_TypeError, "Invalid argument type");
             return nullptr;
         }
-        auto &memo_obj = reinterpret_cast<MemoObject*>(py_obj)->ext();
+        auto &memo_obj = reinterpret_cast<MemoAnyObject*>(py_obj)->ext();
         if (!memo_obj.hasInstance()) {
             PyErr_SetString(PyExc_RuntimeError, "Memo object has no instance");
             return nullptr;
         }
         return tryGetTypeInfo(memo_obj.getType());
     }
-
+    
     PyObject *tryLoad(PyObject *py_obj, PyObject* kwargs, PyObject *py_exclude,
         std::unordered_set<const void*> *load_stack_ptr)
     {
@@ -721,30 +732,27 @@ namespace db0::python
             return tryLoadEnumValue(reinterpret_cast<PyEnumValue*>(py_obj));
         } else if (type_id == TypeId::MEMO_OBJECT) {
             return tryLoadMemo(reinterpret_cast<MemoObject*>(py_obj), kwargs, py_exclude, load_stack_ptr);
+        } else if (type_id == TypeId::MEMO_IMMUTABLE_OBJECT) {
+            return tryLoadMemo(reinterpret_cast<MemoImmutableObject*>(py_obj), kwargs, py_exclude, load_stack_ptr);
         } else {
             THROWF(db0::InputException) << "__load__ not implemented for type: " 
                 << Py_TYPE(py_obj)->tp_name << THROWF_END;
         }
     }
     
-    PyObject *getMaterializedMemoObject(PyObject *py_obj)
+    template <typename MemoImplT>
+    PyObject *getMaterializedMemoObject(MemoImplT *memo_obj)
     {
-        if (!PyMemo_Check(py_obj)) {
-            // simply return self if not a memo object
-            Py_INCREF(py_obj);
-            return py_obj;
-        }
-        auto memo_obj = reinterpret_cast<MemoObject*>(py_obj);
         if (memo_obj->ext().hasInstance()) {
-            Py_INCREF(py_obj);
-            return py_obj;
+            Py_INCREF(memo_obj);
+            return memo_obj;
         }
         
         db0::FixtureLock lock(memo_obj->ext().getFixture());
         // materialize by calling postInit
         memo_obj->modifyExt().postInit(lock);
-        Py_INCREF(py_obj);
-        return py_obj;
+        Py_INCREF(memo_obj);
+        return memo_obj;
     }
     
     shared_py_object<PyObject*> tryUnloadObjectFromCache(LangCacheView &lang_cache, Address address,
@@ -757,10 +765,10 @@ namespace db0::python
         }
         
         if (expected_type) {
-            if (!PyMemo_Check(obj_ptr.get())) {
+            if (!PyAnyMemo_Check(obj_ptr.get())) {
                 THROWF(db0::InputException) << "Invalid object type: " << PyToolkit::getTypeName(obj_ptr.get()) << " (Memo expected)";
             }
-            auto &memo = reinterpret_cast<MemoObject*>(obj_ptr.get())->ext();
+            auto &memo = reinterpret_cast<MemoAnyObject*>(obj_ptr.get())->ext();
             // validate type
             if (memo.getType() != *expected_type) {
                 THROWF(db0::InputException) << "Memo type mismatch";
@@ -882,17 +890,20 @@ namespace db0::python
     {
         for (Py_ssize_t i = 0; i < nargs; ++i) {
             auto py_obj = args[i];
-            if (!PyMemo_Check(py_obj)) {
+            if (!PyAnyMemo_Check(py_obj)) {
                 THROWF(db0::InputException) << "Invalid object type: " << Py_TYPE(py_obj)->tp_name << " (Memo expected)";
             }
-            auto &memo = reinterpret_cast<MemoObject*>(py_obj)->modifyExt();
+            auto &memo = reinterpret_cast<MemoAnyObject*>(py_obj)->modifyExt();
             if (memo.hasInstance()) {
                 db0::FixtureLock lock(memo.getFixture());
                 memo.touch();
-            }            
+            }
         }
         
         Py_RETURN_NONE;
     }
-        
+    
+    template PyObject *getMaterializedMemoObject(MemoObject *);
+    template PyObject *getMaterializedMemoObject(MemoImmutableObject *);
+    
 }
