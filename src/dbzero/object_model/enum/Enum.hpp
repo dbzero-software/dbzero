@@ -2,6 +2,7 @@
 
 #include "EnumValue.hpp"
 #include "EnumDef.hpp"
+#include <dbzero/core/serialization/FixedVersioned.hpp>
 #include <dbzero/object_model/object_header.hpp>
 #include <dbzero/core/collections/b_index/v_bindex.hpp>
 #include <dbzero/core/collections/vector/v_bvector.hpp>
@@ -21,7 +22,7 @@ DB0_PACKED_BEGIN
     using namespace db0::pools;
     using LP_String = db0::LP_String;
 
-    struct DB0_PACKED_ATTR o_enum: public o_fixed<o_enum>
+    struct DB0_PACKED_ATTR o_enum: public o_fixed_versioned<o_enum>
     {
         db0::o_object_header m_header;
         // enum type name

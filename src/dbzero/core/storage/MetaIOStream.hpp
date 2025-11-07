@@ -22,10 +22,10 @@ DB0_PACKED_BEGIN
     };
     
     // The single log item, possibly associated with multiple managed streams
-    class DB0_PACKED_ATTR o_meta_log: public o_base<o_meta_log, 0, false>
+    class DB0_PACKED_ATTR o_meta_log: public o_base<o_meta_log, 0, true>
     {
     protected:
-        friend class o_base<o_meta_log, 0, false>;
+        friend class o_base<o_meta_log, 0, true>;
 
         o_meta_log(StateNumType state_num, const std::vector<o_meta_item> &);
 
@@ -39,10 +39,8 @@ DB0_PACKED_BEGIN
 
         template <typename T> static std::size_t safeSizeOf(T buf)
         {
-            auto _buf = buf;
-            buf += o_simple<StateNumType>::__const_ref(buf).sizeOf();
-            buf += o_list<o_meta_item>::safeSizeOf(buf);
-            return buf - _buf;
+            return sizeOfMembers(buf)
+                (o_list<o_meta_item>::type());
         }
     };
     

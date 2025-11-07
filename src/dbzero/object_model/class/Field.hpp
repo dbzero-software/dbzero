@@ -2,6 +2,7 @@
 
 #include <dbzero/core/vspace/db0_ptr.hpp>
 #include <dbzero/core/serialization/Types.hpp>
+#include <dbzero/core/serialization/FixedVersioned.hpp>
 #include <dbzero/core/serialization/string.hpp>
 #include <dbzero/core/collections/b_index/v_bindex.hpp>
 #include <dbzero/core/collections/pools/StringPools.hpp>
@@ -22,7 +23,7 @@ namespace db0::object_model
 
 DB0_PACKED_BEGIN
     
-    struct DB0_PACKED_ATTR o_field: public db0::o_fixed<o_field>
+    struct DB0_PACKED_ATTR o_field: public db0::o_fixed_versioned<o_field>
     {
         LP_String m_name;
         

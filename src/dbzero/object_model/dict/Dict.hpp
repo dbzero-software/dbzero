@@ -1,5 +1,6 @@
 #pragma once
 
+#include <dbzero/core/serialization/FixedVersioned.hpp>
 #include <dbzero/bindings/python/PyToolkit.hpp>
 #include <dbzero/core/collections/b_index/v_bindex.hpp>
 #include <dbzero/object_model/value/StorageClass.hpp>
@@ -30,7 +31,7 @@ namespace db0::object_model
     class DictIterator;
 
 DB0_PACKED_BEGIN    
-    struct DB0_PACKED_ATTR o_dict: public db0::o_fixed<o_dict>
+    struct DB0_PACKED_ATTR o_dict: public db0::o_fixed_versioned<o_dict>
     {
         // common object header
         o_unique_header m_header;

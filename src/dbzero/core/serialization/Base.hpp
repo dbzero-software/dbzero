@@ -33,6 +33,9 @@ DB0_PACKED_BEGIN
         std::uint16_t objVer() const {
             return 0;
         }
+        template <class buf_t> static std::uint16_t objVer(buf_t at) {
+            return 0;
+        }
     };
 
     template <std::uint16_t VER>
@@ -51,6 +54,9 @@ DB0_PACKED_BEGIN
         }
         std::uint16_t objVer() const {
             return storedVersion;
+        }
+        template <class buf_t> static std::uint16_t objVer(buf_t at) {
+            return reinterpret_cast<const version_base*>((const std::byte*)(at))->objVer();
         }
     };
 
@@ -135,9 +141,7 @@ DB0_PACKED_BEGIN
         }
 
         template <class buf_t> static Foundation::SafeSize<buf_t> sizeOfMembers(buf_t at) {
-            return Foundation::sizeOfMembers<T>(
-                    baseSize(), at, reinterpret_cast<const ver_type*>((const std::byte*)(at))->objVer()
-            );
+            return Foundation::sizeOfMembers<T>(baseSize(), at, getObjVer(at));
         }
 
         Foundation::SafeSize<const std::byte*> sizeOfMembers() const
@@ -258,11 +262,18 @@ DB0_PACKED_BEGIN
             return ver_type::implVer();
         }
 
+        template <class buf_t> static std::uint16_t getObjVer(buf_t at) {
+            return ver_type::objVer(at);
+        }
+
         std::uint16_t getObjVer() const {
             return ver_type::objVer();
         }
 
         static inline T &__ref(void *buf) {
+#ifndef NDEBUG
+            reinterpret_cast<T*>(buf)->assertImplVersion();
+#endif
             return *reinterpret_cast<T*>(buf);
         }
 

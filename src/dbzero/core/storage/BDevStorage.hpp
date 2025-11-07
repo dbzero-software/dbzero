@@ -1,5 +1,6 @@
 #pragma once
 
+#include <dbzero/core/serialization/FixedVersioned.hpp>
 #include "SparseIndex.hpp"
 #include "SparsePair.hpp"
 #include "CFile.hpp"
@@ -22,7 +23,7 @@ namespace db0
 {
     
 DB0_PACKED_BEGIN
-    struct DB0_PACKED_ATTR o_prefix_config: public o_fixed<o_prefix_config>
+    struct DB0_PACKED_ATTR o_prefix_config: public o_fixed_versioned<o_prefix_config>
     {
         // magic number for the .db0 file        
         static constexpr std::uint64_t DB0_MAGIC = 0x0DB0DB0DB0DB0DB0;

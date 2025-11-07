@@ -1,5 +1,6 @@
 #pragma once
 
+#include <dbzero/core/serialization/FixedVersioned.hpp>
 #include <dbzero/core/dram/DRAMSpace.hpp>
 #include <dbzero/core/collections/SGB_Tree/SGB_CompressedLookupTree.hpp>
 #include <dbzero/core/collections/rle/RLE_Sequence.hpp>
@@ -125,7 +126,7 @@ DB0_PACKED_BEGIN
         };
 
         // tree-level header type
-        struct DB0_PACKED_ATTR o_sparse_index_header: o_fixed<o_sparse_index_header>
+        struct DB0_PACKED_ATTR o_sparse_index_header: o_fixed_versioned<o_sparse_index_header>
         {
             PageNumT m_next_page_num = 0;
             StateNumT m_max_state_num = 0;

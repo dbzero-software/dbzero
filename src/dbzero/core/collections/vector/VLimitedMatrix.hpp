@@ -2,6 +2,7 @@
 
 #include "v_bvector.hpp"
 #include "v_sorted_vector.hpp"
+#include <dbzero/core/serialization/FixedVersioned.hpp>
 #include <dbzero/core/memory/Address.hpp>
 #include <dbzero/core/vspace/v_object.hpp>
 #include <dbzero/core/memory/Memspace.hpp>
@@ -14,7 +15,7 @@ namespace db0
     
     template <typename PtrT>
 DB0_PACKED_BEGIN
-    struct DB0_PACKED_ATTR o_limited_matrix: public o_fixed<o_limited_matrix<PtrT> >
+    struct DB0_PACKED_ATTR o_limited_matrix: public o_fixed_versioned<o_limited_matrix<PtrT> >
     {
         // Points to v_bvector representing the entire Dimension 1
         PtrT m_dim1_ptr = {};

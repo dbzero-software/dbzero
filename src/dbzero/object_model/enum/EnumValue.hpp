@@ -29,11 +29,11 @@ namespace db0::object_model
     
 DB0_PACKED_BEGIN
 
-    class DB0_PACKED_ATTR o_enum_value_repr: public db0::o_base<o_enum_value_repr, 0, false>
+    class DB0_PACKED_ATTR o_enum_value_repr: public db0::o_base<o_enum_value_repr, 0, true>
     {
     protected:
         using self = o_enum_value_repr;
-        using super_t = db0::o_base<o_enum_value_repr, 0, false>;
+        using super_t = db0::o_base<o_enum_value_repr, 0, true>;
         friend super_t;
 
         o_enum_value_repr(const EnumDef &, const char *str_repr, const char *prefix_name = nullptr);
@@ -127,10 +127,10 @@ DB0_PACKED_END
     
 DB0_PACKED_BEGIN
 
-    class DB0_PACKED_ATTR o_enum_value: public db0::o_base<o_enum_value, 0, false>
+    class DB0_PACKED_ATTR o_enum_value: public db0::o_base<o_enum_value, 0, true>
     {
     protected:
-        using super_t = db0::o_base<o_enum_value, 0, false>;
+        using super_t = db0::o_base<o_enum_value, 0, true>;
         friend super_t;
 
         o_enum_value(std::uint64_t fixture_uuid, std::uint32_t enum_uid, LP_String value, 

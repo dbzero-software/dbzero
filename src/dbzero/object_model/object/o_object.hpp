@@ -12,10 +12,10 @@ namespace db0::object_model
 {
 
 DB0_PACKED_BEGIN
-    class DB0_PACKED_ATTR o_object_base: public db0::o_base<o_object_base, 0, false>
+    class DB0_PACKED_ATTR o_object_base: public db0::o_base<o_object_base, 0, true>
     {
     protected:
-        using super_t = db0::o_base<o_object_base, 0, false>;
+        using super_t = db0::o_base<o_object_base, 0, true>;
 
     public:
         static constexpr unsigned char REALM_ID = 1;

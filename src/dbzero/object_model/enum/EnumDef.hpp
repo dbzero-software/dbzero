@@ -46,11 +46,11 @@ DB0_PACKED_BEGIN
         void serialize(std::vector<std::byte> &buffer) const;
     };
     
-    class DB0_PACKED_ATTR o_enum_def: public db0::o_base<o_enum_def, 0, false>
+    class DB0_PACKED_ATTR o_enum_def: public db0::o_base<o_enum_def, 0, true>
     {
     protected:
         using self = o_enum_def;
-        using super_t = db0::o_base<o_enum_def, 0, false>;
+        using super_t = db0::o_base<o_enum_def, 0, true>;
         using o_string = db0::o_string;
         friend super_t;
 

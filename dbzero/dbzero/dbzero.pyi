@@ -11,48 +11,6 @@ from .interfaces import (
 
 # Core workspace management functions
 
-def init(path: str, config: Optional[Dict[str, Any]] = None, lock_flags: Optional[Dict[str, Any]] = None) -> None:
-    """Initialize the dbzero environment in a specified directory and apply global configurations.
-
-    This function sets up the underlying state management engine.
-    It must be called once per process before interacting with any data.
-    If you need to switch to a different working directory, you should first call 
-    dbzero.close() and then dbzero.init() again with the new path.
-
-    Parameters
-    ----------
-    path : str
-        The path to the data files directory. If the directory doesn't exist, 
-        it will be created.
-    config : dict, optional
-        Dictionary to override default configuration settings:
-
-        * autocommit (bool, default True) to enable automatic commits
-        * autocommit_interval (int, default 250) for commit interval in milliseconds  
-        * cache_size (int, default 2 GiB) for main object cache size in bytes
-        * lang_cache_size (int, optional) for language model data cache size
-    lock_flags : dict, optional
-        Dictionary with configuration of locking behavior when opening the prefix in read-write mode.
-
-        * blocking (bool, default False) to wait when trying to acquire the lock
-        * timeout (int) to set maximum waiting time in seconds when blocking wait is enabled
-        * force_unlock (bool, default False) to force unlocking of existing lock
-
-
-    Examples
-    --------
-    Basic initialization:
-    
-    >>> import dbzero
-    >>> dbzero.init("/tmp/my-app-db")
-
-    With custom configuration:
-    
-    >>> config = {"autocommit": False, "cache_size": 1 << 30}
-    >>> dbzero.init("/tmp/my-app-db", config=config)
-    """
-    ...
-
 def open(prefix_name: str, open_mode: str = "rw", **kwargs: Any) -> None:
     """Open a data prefix and set it as the current working context.
 
@@ -951,7 +909,7 @@ def find(*query_criteria: Union[Tag, List[Tag], Tuple[Tag], QueryObject, TagSet]
         * List of tags (OR): Objects with at least one of the specified tags
         * Tuple of tags (AND): Objects with all of the specified tags
         * Query: Result of another query
-        * TagSet: Logical set operation.
+        * TagSet: Set logical operation.
     prefix : str, optional
         Optional data prefix to run the query on.
         If omitted, the prefix to run the query is resolved from query criteria.

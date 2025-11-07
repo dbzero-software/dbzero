@@ -2,6 +2,7 @@
 
 #include "FieldID.hpp"
 #include <dbzero/core/serialization/Types.hpp>
+#include <dbzero/core/serialization/FixedVersioned.hpp>
 #include <dbzero/core/collections/vector/v_sorted_vector.hpp>
 #include <dbzero/core/collections/vector/VLimitedMatrix.hpp>
 #include <dbzero/core/vspace/db0_ptr.hpp>
@@ -59,7 +60,7 @@ DB0_PACKED_BEGIN
     db0::bindings::TypeId getTypeId(SchemaTypeId);
     std::string getTypeName(SchemaTypeId);
     
-    struct DB0_PACKED_ATTR o_type_item: public db0::o_fixed<o_type_item>
+    struct DB0_PACKED_ATTR o_type_item: public db0::o_fixed_versioned<o_type_item>
     {        
         using FieldLoc = std::pair<std::uint32_t, std::uint32_t>;
         SchemaTypeId m_type_id = SchemaTypeId::UNDEFINED;
@@ -85,7 +86,7 @@ DB0_PACKED_BEGIN
         o_type_item &operator=(std::tuple<FieldLoc, SchemaTypeId, int>);
     };
     
-    struct DB0_PACKED_ATTR o_schema: public db0::o_fixed<o_schema>
+    struct DB0_PACKED_ATTR o_schema: public db0::o_fixed_versioned<o_schema>
     {        
         using TypeVector = db0::v_sorted_vector<o_type_item>;
         using total_func = std::function<std::uint32_t()>;

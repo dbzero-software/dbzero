@@ -38,7 +38,7 @@ namespace tests
         data.m_types = std::vector<StorageClass> { StorageClass::INT64, StorageClass::POOLED_STRING };
         data.m_values = std::vector<Value> { Value(0), Value(0) };
 
-        ASSERT_EQ ( 44u, o_object::measure(0, {0, 0}, 0, data, 0) );
+        ASSERT_EQ ( 52u, o_object::measure(0, {0, 0}, 0, data, 0) );
     }
     
     TEST_F( ObjectTest , testObjectInitializerCanBeFoundIfAdded )

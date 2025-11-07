@@ -25,10 +25,10 @@ namespace db0::object_model
     class TupleIterator;
     
 DB0_PACKED_BEGIN    
-    class DB0_PACKED_ATTR o_tuple: public o_base<o_tuple, 0, false>
+    class DB0_PACKED_ATTR o_tuple: public o_base<o_tuple, 0, true>
     {
     protected:
-        using super_t = o_base<o_tuple, 0, false>;
+        using super_t = o_base<o_tuple, 0, true>;
         friend super_t;
 
         o_tuple(std::size_t size);

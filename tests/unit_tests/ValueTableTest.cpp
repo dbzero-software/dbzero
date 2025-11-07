@@ -49,7 +49,7 @@ namespace tests
         data.m_types = std::vector<StorageClass> { StorageClass::INT64, StorageClass::POOLED_STRING };
         data.m_values = std::vector<Value> { Value(0), Value(0) };
 
-        ASSERT_EQ ( 20u, PosVT::measure(data, 0) );
+        ASSERT_EQ ( 22u, PosVT::measure(data, 0) );
     }
     
     TEST_F( ValueTableTest , testMicroArrayCanBeCreatedWithValues )
@@ -114,11 +114,11 @@ namespace tests
         using PosVTObject = v_object<PosVT>;
         PosVTObject cut(*fixture, data, 0);
         auto size_of = cut->sizeOf();
-        ASSERT_EQ(20u, size_of);
-        ASSERT_EQ(0, (char*)&cut->types() - (char*)cut.getData());
+        ASSERT_EQ(22u, size_of);
+        ASSERT_EQ(2, (char*)&cut->types() - (char*)cut.getData());
         auto offset_values = (char*)&cut->values() - (char*)cut.getData();
         ASSERT_EQ((char*)&cut->values(), (char*)cut->values().begin());
-        ASSERT_EQ(4u, offset_values);
+        ASSERT_EQ(6u, offset_values);
         ASSERT_EQ(2u, cut->size());
         
         workspace.close();

@@ -97,7 +97,7 @@ DB0_PACKED_BEGIN
         typename std::enable_if<B, std::pair<std::size_t, unsigned int> >::type getSizeAndOffset() const 
         {
             std::pair<std::size_t, unsigned int> result;
-            const std::byte *buf = (const std::byte*)this;
+            const std::byte *buf = this->beginOfDynamicArea();
             result.first = packed_int32::read(buf);
             result.second = packed_int32::read(buf);
             return result;
@@ -119,19 +119,19 @@ DB0_PACKED_BEGIN
         static std::size_t measure(const T *begin = nullptr, const T *end = nullptr, unsigned int offset = 0) {
             return measure(end - begin, offset);
         }
-        
-        std::size_t sizeOf() const;
 
         template <typename BufT> static std::size_t safeSizeOf(BufT buf)
         {
-            auto start = buf;
-            auto size = packed_int32::__const_ref(buf).value();
-            buf += packed_int32::safeSizeOf(buf);
+            std::size_t size;
             if constexpr (has_offset) {
-                buf += packed_int32::safeSizeOf(buf);
+                size = super_t::sizeOfMembers(buf)
+                    (packed_int32::type())
+                    (packed_int32::type());
+            } else {
+                size = super_t::sizeOfMembers(buf)
+                    (packed_int32::type());
             }
-            buf += size * sizeof(T);
-            return buf - start;
+            return size + super_t::__const_ref(buf).size() * sizeof(T);
         }
         
         inline T *begin()
@@ -219,17 +219,6 @@ DB0_PACKED_BEGIN
         return measure(size, offset);
     }
 
-    template <typename T, bool has_offset> 
-    std::size_t o_micro_array<T, has_offset>::sizeOf() const
-    { 
-        auto result = packed_size().sizeOf();
-        if constexpr (has_offset) {
-            result += packed_offset().sizeOf();
-        }
-        result += packed_size().value() * sizeof(T);
-        return result;
-    }
-    
     template <typename T, bool has_offset> 
     std::size_t o_micro_array<T, has_offset>::size() const {
         return packed_size().value();

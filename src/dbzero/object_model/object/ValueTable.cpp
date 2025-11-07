@@ -29,13 +29,6 @@ namespace db0::object_model
     const o_unbound_array<Value> &PosVT::values() const {
         return getDynAfter(types(), o_unbound_array<Value>::type());
     }
-    
-    std::size_t PosVT::sizeOf() const
-    {
-        return sizeOfMembers()
-            (TypesArrayT::type())
-            (o_unbound_array<Value>::measure(this->size()));
-    }
 
     std::size_t PosVT::size() const {
         return types().size();

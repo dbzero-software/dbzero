@@ -65,7 +65,7 @@ DB0_PACKED_BEGIN
     template <
         typename T,
         typename super_t,
-        std::uint16_t VER=0, bool STORE_VER=false
+        std::uint16_t VER=0, bool STORE_VER=true
     >
     class DB0_PACKED_ATTR o_ext : public super_t{
         using this_type = o_ext<T, super_t, VER, STORE_VER>;
@@ -236,7 +236,7 @@ DB0_PACKED_BEGIN
 
         // measures space requirement of the base overlaid type
         // plus size of all fixed size members of derived type
-        template <typename... Args> static Meter measureBase(Args&& ...args) 
+        template <typename... Args> static std::size_t measureBase(Args&& ...args) 
         {
             std::size_t result = super_t::measure(std::forward<Args>(args)...);
             // adjust for fixed size members in derived class
