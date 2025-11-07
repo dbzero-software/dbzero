@@ -224,12 +224,12 @@ namespace db0
             }
         }
         
-        // Continue after findFirst        
+        // Continue after findFirst
         FindResult findNext(FindResult last_result, std::size_t min_capacity, unsigned char locality)
         {
             for (;;) {
-                // this is to find the next item in order
-                last_result.m_cap_item.m_slab_id++;
+                // this is to find the next item in order (from the same realm)
+                last_result.m_cap_item.m_slab_id += NUM_REALMS;
                 auto it = m_capacity_items.upper_equal_bound(last_result.m_cap_item);
                 if (!it.first || it.first->m_remaining_capacity < min_capacity) {
                     return {};
