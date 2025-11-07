@@ -75,11 +75,11 @@ namespace db0
         }
 
         inline operator ptr_t&() {
-            return this->v_this;
+            return *this;
         }
         
         inline operator const ptr_t&() const {
-            return this->v_this;
+            return *this;
         }
     };
     

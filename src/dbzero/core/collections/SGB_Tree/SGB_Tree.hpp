@@ -20,7 +20,7 @@ namespace db0
         using CompT = typename TypesT::CompT;
         using AddressT = typename TypesT::AddressT;
         using NodeT = typename TypesT::NodeT;
-        using NodePtrT = typename NodeT::ptr_t;
+        using NodePtrT = NodeT;
         using node_iterator = typename TypesT::o_sgb_node_t::iterator;
         using node_const_iterator = typename TypesT::o_sgb_node_t::const_iterator;
         using sg_tree_const_iterator = typename super_t::const_iterator;

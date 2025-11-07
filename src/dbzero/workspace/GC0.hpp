@@ -4,7 +4,7 @@
 #include <unordered_map>
 #include <mutex>
 #include <optional>
-#include <dbzero/core/vspace/v_ptr.hpp>
+#include <dbzero/core/vspace/v_object.hpp>
 #include <dbzero/core/collections/vector/v_bvector.hpp>
 #include <dbzero/object_model/value/TypedAddress.hpp>
 #include <dbzero/object_model/value/StorageClass.hpp>
@@ -61,9 +61,9 @@ namespace db0
     static GCOps_ID m_gc_ops_id;
 
 #define GC0_Define(T) GCOps_ID T::m_gc_ops_id;
-
+    
     /**
-     * GC0 keeps track of all "live" v_ptr instances.
+     * GC0 keeps track of all "live" v_object instances.
      * and drops associated dbzero instances once they are no longer referenced from Python
      * GC0 has also a persistence layer to keep track of unreferenced instances as long as
      * the corresponding Python objects are still alive.

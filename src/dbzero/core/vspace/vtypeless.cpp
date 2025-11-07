@@ -93,7 +93,7 @@ namespace db0
         return m_mem_lock.m_buffer != nullptr;
     }
     
-    void vtypeless::detach()
+    void vtypeless::detach() const
     {
         // detaching clears the reasource available for read flag
         while (ResourceDetachMutexT::__ref(m_resource_flags).get()) {
@@ -107,7 +107,7 @@ namespace db0
         }        
     }
     
-    void vtypeless::commit()
+    void vtypeless::commit() const
     {
         // commit clears the reasource available for write flag
         // it might still be available for read

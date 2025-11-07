@@ -6,7 +6,7 @@
 #include <dbzero/core/memory/PrefixCache.hpp>
 #include <dbzero/core/exception/Exceptions.hpp>
 #include <dbzero/core/storage/Storage0.hpp>
-#include <dbzero/core/vspace/v_ptr.hpp>
+#include <dbzero/core/vspace/v_object.hpp>
 #include <dbzero/core/utils/FlagSet.hpp>
 #include <dbzero/core/memory/AccessOptions.hpp>
 #include <dbzero/core/utils/ProcessTimer.hpp>

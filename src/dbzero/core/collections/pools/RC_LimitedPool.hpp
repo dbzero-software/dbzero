@@ -193,14 +193,14 @@ DB0_PACKED_END
     void RC_LimitedPool<T, CompT, AddressT>::commit() const
     {
         m_pool_map.commit();
-        db0::v_object<o_rc_limited_pool>::commit();
+        db0::vtypeless::commit();
     }
 
     template <typename T, typename CompT, typename AddressT>
     void RC_LimitedPool<T, CompT, AddressT>::detach() const
     {        
         m_pool_map.detach();
-        db0::v_object<o_rc_limited_pool>::detach();
+        db0::vtypeless::detach();
     }
     
     template <typename T, typename CompT, typename AddressT>

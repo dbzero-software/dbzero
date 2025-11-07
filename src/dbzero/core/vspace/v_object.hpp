@@ -1,6 +1,6 @@
 #pragma once
 
-#include "vtypeless.hpp"
+#include "v_ptr.hpp"
 #include <dbzero/core/metaprog/int_seq.hpp>
 #include <dbzero/core/metaprog/last_type_is.hpp>
 
@@ -9,33 +9,40 @@ namespace db0
 {
 
     struct tag_verified {};
-
+    
     /**
      * Base class for vspace-mapped objects
      * @tparam T container object type
      */
     template <typename T, std::uint32_t SLOT_NUM, unsigned char REALM_ID>
-    class v_object: public v_typeless
+    class v_object: public v_ptr<T, SLOT_NUM, REALM_ID>
     {
     public:
         using ContainerT = T;
+        // for compatiblility with intrusive containers (e.g. v_sgtree)
+        using ptr_t = v_ptr<ContainerT, SLOT_NUM, REALM_ID>;
 
         v_object() = default;
         
+        v_object(const ptr_t &ptr)
+            : ptr_t(ptr)
+        {
+        }        
+        
         v_object(mptr ptr, FlagSet<AccessOptions> access_mode = {})
-            : vtypeless(ptr, access_mode)
+            : ptr_t(ptr, access_mode)
         {
         }
         
         // Construct a verified instance - i.e. backed by a valid db0 address with a known size
         v_object(db0::tag_verified, mptr ptr, std::size_t size_of = 0, FlagSet<AccessOptions> access_mode = {})
-            : vtypeless(ptr, access_mode)
+            : ptr_t(ptr, access_mode)
         {
-            this->safeConstRef(size_of);
+            ptr_t::safeConstRef(size_of);
         }
         
         v_object(const v_object &other)
-            : vtypeless(other)
+            : ptr_t(other)
         {
         }
         
@@ -143,7 +150,7 @@ namespace db0
         }
         
         v_object(v_object &&other)
-            : vtypeless(std::move(other))
+            : ptr_t(std::move(other))
         {            
         }
         
@@ -153,67 +160,10 @@ namespace db0
             v_object new_object(memspace, std::forward<Args>(args)...);
             return new_object.getAddress();
         }
-                
-        // Readonly data access operator
-        inline const ContainerT *operator->() const {
-            return this->getData();
-        }
-
-        const ContainerT *getData() const
-        {
-            assureInitialized();            
-            return reinterpret_cast<const ContainerT*>(m_mem_lock.m_buffer);
-        }
-
+        
         // Reference data container for read
         inline const ContainerT &const_ref() const {
             return *this->getData();
-        }
-
-        // Reference data container for update
-        ContainerT &modify()
-        {
-            assert(m_memspace_ptr);
-            // access resource for read-write
-            while (!ResourceReadWriteMutexT::__ref(m_resource_flags).get()) {
-                ResourceReadWriteMutexT::WriteOnlyLock lock(m_resource_flags);
-                if (lock.isLocked()) {
-                    // release the MemLock first to avoid or reduce CoWs
-                    // otherwise mapRange might need to manage multiple lock versions
-                    m_mem_lock.release();
-                    // lock for +write
-                    // note that lock is getting updated, possibly copy-on-write is being performed
-                    // NOTE: must extract physical address for mapRange                    
-                    m_mem_lock = m_memspace_ptr->getPrefix().mapRange(
-                        m_address.getOffset(), this->getSize(), m_access_mode | AccessOptions::write | AccessOptions::read);
-                    // by calling MemLock::modify we mark the object's associated range as modified
-                    m_mem_lock.modify();
-                    lock.commit_set();
-                    break;
-                }
-            }
-            // this is to notify dirty-callbacks if needed
-            return *reinterpret_cast<ContainerT*>(m_mem_lock.m_buffer);
-        }
-        
-        void modify(std::size_t offset, std::size_t size)
-        {
-            auto &ref = modify();
-            m_mem_lock.modify((std::byte*)&ref + offset, size);
-        }
-        
-        void destroy()
-        {
-            if (m_address.isValid()) {
-                assert(m_memspace_ptr);
-                // container's destroy
-                (*this)->destroy(*m_memspace_ptr);
-                m_mem_lock.release();
-                m_memspace_ptr->free(m_address);
-                this->m_address = {};
-                this->m_resource_flags = 0;
-                this->m_cached_size.reset();
-            }
         }
         
         mptr myPtr(Address address, FlagSet<AccessOptions> access_mode = {}) const {
@@ -242,17 +192,16 @@ namespace db0
             return last_dp - first_dp + 1;
         }
         
-        // Check if the underlying resource is available as mutable
-        // i.e. was already access for read/write
-        bool isModified() const {
-            return ResourceReadWriteMutexT::__ref(m_resource_flags).get();            
+        v_object &operator=(v_object &&other)
+        {
+            vtypeless::operator=(std::move(other));
+            return *this;
         }
 
-        // Get the underlying mapped range (for mutation)
-        MemLock modifyMappedRange()
+        v_object &operator=(v_object const &other)
         {
-            modify();
-            return this->m_mem_lock;
+            vtypeless::operator=(other);
+            return *this;
         }
 
     private:
@@ -267,7 +216,7 @@ namespace db0
             // lock for create & write
             // NOTE: must extract physical address for mapRange
             this->m_mem_lock = memspace.getPrefix().mapRange(
-                m_address, size, access_mode | AccessOptions::write
+                this->m_address, size, access_mode | AccessOptions::write
             );
             // mark the entire writable area as modified
             this->m_mem_lock.modify();
@@ -318,80 +267,7 @@ namespace db0
         static inline unsigned char getLocality(FlagSet<AccessOptions> access_mode) {
             // NOTE: use locality = 1 for no_cache allocations, 0 otherwise (undefined)
             return access_mode[AccessOptions::no_cache] ? 1 : 0;
-        }
-
-        void assureInitialized() const
-        {
-            assert(m_memspace_ptr);
-            // access the resource for read (or check if the read or read/write access has already been gained)
-            while (!ResourceReadMutexT::__ref(m_resource_flags).get()) {
-                ResourceReadMutexT::WriteOnlyLock lock(m_resource_flags);
-                if (lock.isLocked()) {
-                    // NOTE: must extract physical address for mapRange
-                    m_mem_lock = m_memspace_ptr->getPrefix().mapRange(
-                        m_address.getOffset(), this->getSize(), m_access_mode | AccessOptions::read);
-                    lock.commit_set();
-                    break;
-                }
-            }
-            assert(m_mem_lock.m_buffer);
-        }
-        
-        // version with known size-of (pre-retrieved from the allocator)
-        // we made it as a separate implementation for potential performance gains
-        void assureInitialized(std::size_t size_of) const
-        {
-            assert(m_memspace_ptr);
-            // access the resource for read (or check if the read or read/write access has already been gained)
-            while (!ResourceReadMutexT::__ref(m_resource_flags).get()) {
-                ResourceReadMutexT::WriteOnlyLock lock(m_resource_flags);
-                if (lock.isLocked()) {
-                    // NOTE: must extract physical address for mapRange
-                    m_mem_lock = m_memspace_ptr->getPrefix().mapRange(
-                        m_address.getOffset(), size_of, m_access_mode | AccessOptions::read);
-                    lock.commit_set();
-                    break;
-                }
-            }
-            assert(m_mem_lock.m_buffer);
-        }
-        
-        const ContainerT &safeConstRef(std::size_t size_of = 0) const
-        {
-            if (!size_of) {
-                size_of = this->getSize();
-            }
-            assureInitialized(size_of);
-            return ContainerT::__safe_const_ref(
-                safe_buf_t((std::byte*)m_mem_lock.m_buffer, (std::byte*)m_mem_lock.m_buffer + size_of)
-            );
-        }                     
-
-        // Resolve the instance size
-        std::uint32_t fetchSize() const
-        {
-            assert(m_memspace_ptr);
-            if constexpr(metaprog::has_constant_size<ContainerT>::value) {
-                // fixed size type
-                return ContainerT::measure();
-            }
-            else if constexpr(metaprog::has_fixed_header<ContainerT>::value) {
-                v_object<typename ContainerT::fixed_header_type, SLOT_NUM, REALM_ID> header(mptr{*m_memspace_ptr, m_address});
-                return header.getData()->getOBaseSize();
-            }
-            
-            // retrieve from allocator (slowest)
-            return m_memspace_ptr->getAllocator().getAllocSize(m_address, REALM_ID);
-        }
-        
-        // Get from cache or fetch size
-        std::uint32_t getSize() const
-        {
-            if (!m_cached_size) {
-                m_cached_size = fetchSize();
-            }
-            return *m_cached_size;            
-        }
+        }        
     };
 
     // Utility function to safely mutate a v_object's fixed-size member

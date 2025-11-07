@@ -1,6 +1,5 @@
 #pragma once
 
-#include "v_ptr.hpp"
 #include <dbzero/core/memory/Memspace.hpp>
 #include <dbzero/core/serialization/Fixed.hpp>
 #include <dbzero/core/compiler_attributes.hpp>

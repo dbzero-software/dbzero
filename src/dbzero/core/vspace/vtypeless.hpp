@@ -128,7 +128,7 @@ namespace db0
         
         // Get use count of the underlying lock
         unsigned int use_count() const;
-
+        
         /**
          * Check if the underlying resource is available in local memory
         */
@@ -137,13 +137,13 @@ namespace db0
         /**
          * Detach underlying resource lock (i.e. mark resource as not available in local memory)
         */
-        void detach();
+        void detach() const;
         
         /**
          * Commit by marking the write as final.
          * The subsequent modify() will need to refresh the underlying lock
         */
-        void commit();
+        void commit() const;
         
         /**
          * Cast to a specific concrete type

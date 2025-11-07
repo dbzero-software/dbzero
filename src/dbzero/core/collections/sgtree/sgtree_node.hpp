@@ -79,12 +79,13 @@ DB0_PACKED_BEGIN
         data_t m_data;
     };
 DB0_PACKED_END
-    
-    template <class data_t,class data_comp_t> class o_sgtree_node_traits
+
+    template <class data_t,class data_comp_t>
+    class o_sgtree_node_traits
     {
-    public :
-        typedef typename data_t::Initializer Initializer;
-        typedef typename v_object<o_sgtree_node<data_t> >::ptr_t node_ptr_t;
+    public:
+        using Initializer = typename data_t::Initializer;
+        using node_ptr_t = typename v_object<o_sgtree_node<data_t> >::ptr_t;
         
         struct comp_t
         {

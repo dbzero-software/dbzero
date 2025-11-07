@@ -17,8 +17,7 @@ namespace db0
     */
     template <typename BaseT> class has_fixture: public BaseT
     {
-    public:
-        using ptr_t = typename BaseT::ptr_t;
+    public:        
         has_fixture() = default;
 
         // create new instance
