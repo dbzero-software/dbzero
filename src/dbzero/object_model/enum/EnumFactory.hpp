@@ -1,6 +1,7 @@
 #pragma once
 
 #include <unordered_map>
+#include <dbzero/core/serialization/FixedVersioned.hpp>
 #include <dbzero/core/memory/Memspace.hpp>
 #include <dbzero/core/memory/swine_ptr.hpp>
 #include <dbzero/object_model/has_fixture.hpp>
@@ -19,7 +20,7 @@ DB0_PACKED_BEGIN
     using EnumPtr = db0::db0_ptr<Enum>;
     using VEnumMap = db0::v_map<db0::o_string, EnumPtr, o_string::comp_t>;
 
-    struct DB0_PACKED_ATTR o_enum_factory: public o_fixed<o_enum_factory>
+    struct DB0_PACKED_ATTR o_enum_factory: public o_fixed_versioned<o_enum_factory>
     {
         // 4 variants of enum identification
         db0::db0_ptr<VEnumMap> m_enum_map_ptrs[4];

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "LimitedPool.hpp"
+#include <dbzero/core/serialization/FixedVersioned.hpp>
 #include <dbzero/core/vspace/v_object.hpp>
 #include <dbzero/core/collections/map/v_map.hpp>
 #include <dbzero/core/serialization/compose.hpp>
@@ -11,7 +12,7 @@ namespace db0::pools
 {
     
 DB0_PACKED_BEGIN
-    struct DB0_PACKED_ATTR o_rc_limited_pool: public o_fixed<o_rc_limited_pool>
+    struct DB0_PACKED_ATTR o_rc_limited_pool: public o_fixed_versioned<o_rc_limited_pool>
     {
         Address m_pool_map_address = {};
 

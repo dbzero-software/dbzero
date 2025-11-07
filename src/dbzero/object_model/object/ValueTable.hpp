@@ -16,7 +16,7 @@ DB0_PACKED_BEGIN
     /**
      * Positionally-encoded value table
     */
-    class DB0_PACKED_ATTR PosVT: public o_base<PosVT, 0, false>
+    class DB0_PACKED_ATTR PosVT: public o_base<PosVT, 0, true>
     {
     public:
 
@@ -34,7 +34,7 @@ DB0_PACKED_BEGIN
         };
 
     protected: 
-        using super_t = o_base<PosVT, 0, false>;
+        using super_t = o_base<PosVT, 0, true>;
         friend super_t;
         
         // Create empty value table
@@ -60,18 +60,15 @@ DB0_PACKED_BEGIN
 
         std::size_t size() const;
         unsigned int offset() const;
-        
-        std::size_t sizeOf() const;
 
         static std::size_t measure(const Data &, unsigned int offset);
 
         template <typename BufT> static std::size_t safeSizeOf(BufT buf)
         {
-            auto start = buf;
-            auto size = TypesArrayT::__const_ref(buf).size();
-            buf += TypesArrayT::safeSizeOf(buf);
-            buf += o_unbound_array<Value>::measure(size);
-            return buf - start;
+            std::size_t size = super_t::__const_ref(buf).size();
+            return super_t::sizeOfMembers(buf)
+                (TypesArrayT::type())
+                (o_unbound_array<Value>::measure(size));
         }
         
         // Try finding element with a specific index
@@ -91,10 +88,10 @@ DB0_PACKED_END
      * Indexed value table
     */
 DB0_PACKED_BEGIN
-    class DB0_PACKED_ATTR IndexVT: public o_base<IndexVT, 0, false>
+    class DB0_PACKED_ATTR IndexVT: public o_base<IndexVT, 0, true>
     {
     protected:
-        using super_t = o_base<IndexVT, 0, false>;
+        using super_t = o_base<IndexVT, 0, true>;
         friend super_t;
 
         /**
@@ -115,7 +112,8 @@ DB0_PACKED_BEGIN
         static std::size_t measure(const XValue *begin = nullptr, const XValue *end = nullptr);
         
         template <typename BufT> static std::size_t safeSizeOf(BufT buf) {
-            return o_micro_array<XValue>::safeSizeOf(buf);
+            return super_t::sizeOfMembers(buf)
+                (o_micro_array<XValue>::type());
         }
         
         /**

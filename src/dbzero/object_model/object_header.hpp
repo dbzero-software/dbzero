@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <dbzero/core/serialization/FixedVersioned.hpp>
 #include <dbzero/core/serialization/Fixed.hpp>
 #include <dbzero/core/serialization/Ext.hpp>
 #include <dbzero/core/serialization/ref_counter.hpp>
@@ -14,7 +15,7 @@ namespace db0
 
     /// Common object header
 DB0_PACKED_BEGIN
-    struct DB0_PACKED_ATTR o_object_header: public o_fixed<o_object_header>
+    struct DB0_PACKED_ATTR o_object_header: public o_fixed_versioned<o_object_header>
     {
         using RefCounterT = o_ref_counter<std::uint32_t, 6>;
         // ref-counter to hold tags / objects reference counts separately

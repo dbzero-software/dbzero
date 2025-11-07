@@ -1,6 +1,7 @@
 #pragma once
 
 #include <unordered_map>
+#include <dbzero/core/serialization/FixedVersioned.hpp>
 #include <dbzero/core/memory/Memspace.hpp>
 #include <dbzero/core/vspace/db0_ptr.hpp>
 #include <dbzero/core/vspace/v_object.hpp>
@@ -26,7 +27,7 @@ DB0_PACKED_BEGIN
     using namespace db0;
     using namespace db0::pools;
     
-    struct DB0_PACKED_ATTR o_class_factory: public o_fixed<o_class_factory>
+    struct DB0_PACKED_ATTR o_class_factory: public o_fixed_versioned<o_class_factory>
     {
         // 4 variants of class identification
         db0::db0_ptr<VClassMap> m_class_map_ptrs[4];

@@ -9,7 +9,7 @@ namespace db0::object_model
 
 DB0_PACKED_BEGIN
 
-    class DB0_PACKED_ATTR o_common_base: public db0::o_base<o_common_base, 0, false>
+    class DB0_PACKED_ATTR o_common_base: public db0::o_base<o_common_base, 0, true>
     {
     public:
         // common object header

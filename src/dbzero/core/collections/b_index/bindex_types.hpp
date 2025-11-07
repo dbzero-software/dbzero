@@ -2,6 +2,7 @@
 
 #include <cstdlib>
 #include <functional>
+#include <dbzero/core/serialization/FixedVersioned.hpp>
 #include <dbzero/core/collections/sgtree/v_sgtree.hpp>
 #include <dbzero/core/collections/sgtree/sgtree_node.hpp>
 #include <dbzero/core/collections/sgtree/intrusive_node.hpp>
@@ -124,7 +125,7 @@ DB0_PACKED_END
         using node_stack = typename bindex_tree_t::join_stack;
 
 DB0_PACKED_BEGIN
-        class DB0_PACKED_ATTR bindex_container : public o_fixed<bindex_container> 
+        class DB0_PACKED_ATTR bindex_container : public o_fixed_versioned<bindex_container> 
         {
         public :
             // common dbzero object header (not copied)

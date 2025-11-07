@@ -5,6 +5,7 @@
 #include <optional>
 #include "RangeTreeBlock.hpp"
 #include "RT_NullBlock.hpp"
+#include <dbzero/core/serialization/FixedVersioned.hpp>
 #include <dbzero/core/collections/b_index/v_bindex.hpp>
 #include <dbzero/core/serialization/Types.hpp>
 #include <dbzero/core/compiler_attributes.hpp>
@@ -51,7 +52,7 @@ DB0_PACKED_BEGIN
 DB0_PACKED_END
     
 DB0_PACKED_BEGIN
-    struct DB0_PACKED_ATTR o_range_tree: public o_fixed<o_range_tree>
+    struct DB0_PACKED_ATTR o_range_tree: public o_fixed_versioned<o_range_tree>
     {
         std::uint32_t m_max_block_size;
         // address of the underlying v_bindex

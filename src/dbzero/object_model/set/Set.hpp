@@ -1,5 +1,6 @@
 #pragma once
 
+#include <dbzero/core/serialization/FixedVersioned.hpp>
 #include <dbzero/bindings/python/PyToolkit.hpp>
 #include <dbzero/core/collections/b_index/v_bindex.hpp>
 #include <dbzero/object_model/value/StorageClass.hpp>
@@ -29,7 +30,7 @@ namespace db0::object_model
     class SetIterator;
     
 DB0_PACKED_BEGIN
-    struct DB0_PACKED_ATTR o_set: public db0::o_fixed<o_set>
+    struct DB0_PACKED_ATTR o_set: public db0::o_fixed_versioned<o_set>
     {
         // common object header
         o_unique_header m_header;
