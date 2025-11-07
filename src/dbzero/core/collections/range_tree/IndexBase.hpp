@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <array>
+#include <dbzero/core/serialization/FixedVersioned.hpp>
 #include <dbzero/core/vspace/v_object.hpp>
 #include <dbzero/core/serialization/Fixed.hpp>
 #include <dbzero/object_model/object_header.hpp>
@@ -29,7 +30,7 @@ namespace db0
     };
     
 DB0_PACKED_BEGIN
-    struct DB0_PACKED_ATTR o_index: public o_fixed<o_index>
+    struct DB0_PACKED_ATTR o_index: public o_fixed_versioned<o_index>
     {
         // common object header
         o_unique_header m_header;
@@ -37,7 +38,6 @@ DB0_PACKED_BEGIN
         IndexDataType m_data_type = IndexDataType::Auto;
         // address of the actual index instance
         Address m_index_addr = {};
-        std::array<std::uint64_t, 2> m_reserved = {0, 0};
         
         o_index(IndexType, IndexDataType);
         // header not copied

@@ -6,6 +6,7 @@
 #include <cstring>
 #include <optional>
 #include "v_bdata_block.hpp"
+#include <dbzero/core/serialization/FixedVersioned.hpp>
 #include <dbzero/core/serialization/Types.hpp>
 #include <dbzero/core/threading/ProgressiveMutex.hpp>
 #include <dbzero/core/utils/uuid.hpp>
@@ -18,7 +19,7 @@ namespace db0
     
 DB0_PACKED_BEGIN
     template <typename PtrT>
-    struct DB0_PACKED_ATTR o_bvector: public o_fixed<o_bvector<PtrT> >
+    struct DB0_PACKED_ATTR o_bvector: public o_fixed_versioned<o_bvector<PtrT> >
     {
         // common dbzero object header
         db0::o_unique_header m_header;

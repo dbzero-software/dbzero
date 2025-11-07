@@ -6,6 +6,7 @@
 #include <shared_mutex>
 #include <map>
 
+#include <dbzero/core/serialization/FixedVersioned.hpp>
 #include <dbzero/core/memory/Memspace.hpp>
 #include <dbzero/core/collections/pools/StringPools.hpp>
 #include <dbzero/core/vspace/v_object.hpp>
@@ -50,7 +51,7 @@ DB0_PACKED_BEGIN
     /**
      * Fixture header placed at a fixed well-known address (e.g. 0x0)
     */
-    struct DB0_PACKED_ATTR o_fixture: public o_fixed<o_fixture>
+    struct DB0_PACKED_ATTR o_fixture: public o_fixed_versioned<o_fixture>
     {
         // auto-generated fixture UUID
         std::uint64_t m_UUID;

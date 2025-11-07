@@ -30,10 +30,10 @@ namespace db0::object_model
     using Fixture = db0::Fixture;
 
 DB0_PACKED_BEGIN
-    class DB0_PACKED_ATTR o_object: public db0::o_base<o_object, 0, false>
+    class DB0_PACKED_ATTR o_object: public db0::o_base<o_object, 0, true>
     {
     protected:
-        using super_t = db0::o_base<o_object, 0, false>;
+        using super_t = db0::o_base<o_object, 0, true>;
 
     public:
         static constexpr unsigned char REALM_ID = 1;

@@ -8,6 +8,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <functional>
+#include <dbzero/core/serialization/FixedVersioned.hpp>
 #include <dbzero/core/serialization/Fixed.hpp>
 #include <dbzero/core/memory/Address.hpp>
 #include <dbzero/core/compiler_attributes.hpp>
@@ -20,7 +21,7 @@ namespace db0
     class SlabManager;
 
 DB0_PACKED_BEGIN
-    struct DB0_PACKED_ATTR o_realm: public o_fixed<o_realm>
+    struct DB0_PACKED_ATTR o_realm: public o_fixed_versioned<o_realm>
     {
         Address m_slab_defs_ptr;
         Address m_capacity_items_ptr;
@@ -31,7 +32,7 @@ DB0_PACKED_BEGIN
 DB0_PACKED_END
     
 DB0_PACKED_BEGIN
-    struct DB0_PACKED_ATTR o_meta_header: public o_fixed<o_meta_header>
+    struct DB0_PACKED_ATTR o_meta_header: public o_fixed_versioned<o_meta_header>
     {
         // NOTE: when needed, this values can be changed to 4 (or 8?) or 1 (no realms)
         static constexpr std::size_t NUM_REALMS = 2;

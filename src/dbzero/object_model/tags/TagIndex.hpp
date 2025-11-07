@@ -1,6 +1,7 @@
 #pragma once
 
 #include <unordered_map>
+#include <dbzero/core/serialization/FixedVersioned.hpp>
 #include <dbzero/core/memory/Memspace.hpp>
 #include <dbzero/core/collections/full_text/FT_BaseIndex.hpp>
 #include <dbzero/object_model/object/Object.hpp>
@@ -23,7 +24,7 @@ DB0_PACKED_BEGIN
     using LongTagT = db0::LongTagT;
     class EnumFactory;
     
-    struct DB0_PACKED_ATTR o_tag_index: public o_fixed<o_tag_index>
+    struct DB0_PACKED_ATTR o_tag_index: public o_fixed_versioned<o_tag_index>
     {
         Address m_base_index_short_ptr = {};
         Address m_base_index_long_ptr = {};

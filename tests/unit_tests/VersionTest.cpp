@@ -5,12 +5,15 @@
 
 #include <gtest/gtest.h>
 #include <sstream>
+#include <numeric>
 
 using namespace db0;
 
 namespace tests {
 
-class [[gnu::packed]] VersionNone : public o_base<VersionNone, 0, false>{
+DB0_PACKED_BEGIN
+
+class DB0_PACKED_ATTR VersionNone : public o_base<VersionNone, 0, false>{
     friend o_base<VersionNone, 0, false>;
 protected:
     VersionNone(uint32_t i, const std::string &s1, const std::string &s2)
@@ -98,7 +101,7 @@ public:
 unsigned int VersionNone::fehler=0;
 
 //note - 0'th version without declaring it, but this is versioned object!
-class [[gnu::packed]] VersionZero : public o_base<VersionZero>{
+class DB0_PACKED_ATTR VersionZero : public o_base<VersionZero>{
     friend o_base<VersionZero>;
 protected:
     VersionZero(uint32_t i, const std::string &s1)
@@ -187,7 +190,7 @@ unsigned int VersionZero::fehler=0;
 //note - 1'st version
 //layout identical to VersionNull, so its memory compatible type
 
-class [[gnu::packed]] VersionOne : public o_base<VersionOne, 1>{
+class DB0_PACKED_ATTR VersionOne : public o_base<VersionOne, 1>{
     friend o_base<VersionOne, 1>;
 protected:
     VersionOne(uint32_t i, const std::string &s1, const std::string& s2)
@@ -309,7 +312,7 @@ unsigned int VersionOne::fehler=0;
 
 // //inheritance after non-versioned
 
-class [[gnu::packed]] VerNoneExt : public o_ext<VerNoneExt, VersionNone, 0, false>{
+class DB0_PACKED_ATTR VerNoneExt : public o_ext<VerNoneExt, VersionNone, 0, false>{
     friend o_ext<VerNoneExt, VersionNone, 0, false>;
     typedef o_ext<VerNoneExt, VersionNone, 0, false> Super;
 protected:
@@ -339,7 +342,7 @@ public:
 };
 
 
-class [[gnu::packed]] VerNoneExt0 : public o_ext<VerNoneExt0, VersionNone, 0>{
+class DB0_PACKED_ATTR VerNoneExt0 : public o_ext<VerNoneExt0, VersionNone, 0>{
     friend o_ext<VerNoneExt0, VersionNone, 0>;
     typedef o_ext<VerNoneExt0, VersionNone, 0> Super;
 protected:
@@ -368,7 +371,7 @@ public:
     }
 };
 
-class [[gnu::packed]] VerNoneExt1 : public o_ext<VerNoneExt1, VersionNone, 1>{
+class DB0_PACKED_ATTR VerNoneExt1 : public o_ext<VerNoneExt1, VersionNone, 1>{
     friend o_ext<VerNoneExt1, VersionNone, 1>;
     typedef o_ext<VerNoneExt1, VersionNone, 1> Super;
 protected:
@@ -414,7 +417,7 @@ public:
 
 // no versioned inheritance after versioned
 
-class [[gnu::packed]] Ver0ExtNone : public o_ext<Ver0ExtNone, VersionZero, 0, false>{
+class DB0_PACKED_ATTR Ver0ExtNone : public o_ext<Ver0ExtNone, VersionZero, 0, false>{
     friend o_ext<Ver0ExtNone, VersionZero, 0, false>;
     typedef o_ext<Ver0ExtNone, VersionZero, 0, false> Super;
 protected:
@@ -441,7 +444,7 @@ public:
     }
 };
 
-class [[gnu::packed]] Ver1ExtNone : public o_ext<Ver1ExtNone, VersionOne, 0, false>{
+class DB0_PACKED_ATTR Ver1ExtNone : public o_ext<Ver1ExtNone, VersionOne, 0, false>{
     friend o_ext<Ver1ExtNone, VersionOne, 0, false>;
     typedef o_ext<Ver1ExtNone, VersionOne, 0, false> Super;
 protected:
@@ -475,7 +478,7 @@ public:
 //ver 10 <- can be read from 10 11
 //ver 11 <- can be read from 11
 
-class [[gnu::packed]] Ver0Ext0 : public o_ext<Ver0Ext0, VersionZero>{
+class DB0_PACKED_ATTR Ver0Ext0 : public o_ext<Ver0Ext0, VersionZero>{
     friend o_ext<Ver0Ext0, VersionZero>;
     typedef o_ext<Ver0Ext0, VersionZero> Super;
 protected:
@@ -502,7 +505,7 @@ public:
     }
 };
 
-class [[gnu::packed]] Ver1Ext0 : public o_ext<Ver1Ext0, VersionOne>{
+class DB0_PACKED_ATTR Ver1Ext0 : public o_ext<Ver1Ext0, VersionOne>{
     friend o_ext<Ver1Ext0, VersionOne>;
     typedef o_ext<Ver1Ext0, VersionOne> Super;
 protected:
@@ -529,7 +532,7 @@ public:
     }
 };
 
-class [[gnu::packed]] Ver0Ext1 : public o_ext<Ver0Ext1, VersionZero, 1>{
+class DB0_PACKED_ATTR Ver0Ext1 : public o_ext<Ver0Ext1, VersionZero, 1>{
     friend o_ext<Ver0Ext1, VersionZero, 1>;
     typedef o_ext<Ver0Ext1, VersionZero, 1> Super;
 protected:
@@ -568,7 +571,7 @@ public:
     }
 };
 
-class [[gnu::packed]] Ver1Ext1 : public o_ext<Ver1Ext1, VersionOne, 1>{
+class DB0_PACKED_ATTR Ver1Ext1 : public o_ext<Ver1Ext1, VersionOne, 1>{
     friend o_ext<Ver1Ext1, VersionOne, 1>;
     typedef o_ext<Ver1Ext1, VersionOne, 1> Super;
 protected:
@@ -607,7 +610,7 @@ public:
     }
 };
 
-class [[gnu::packed]] o_base_type : public o_fixed<o_base_type> {
+class DB0_PACKED_ATTR o_base_type : public o_fixed<o_base_type> {
     int a;
     int b;
     double d;
@@ -647,7 +650,7 @@ public:
     }
 };
 
-class [[gnu::packed]] o_derived_type : public o_ext<o_derived_type, o_base_type, 0> {
+class DB0_PACKED_ATTR o_derived_type : public o_ext<o_derived_type, o_base_type, 0> {
     using super_t = o_ext<o_derived_type, o_base_type, 0>;
     int c;
 public:
@@ -960,7 +963,7 @@ TEST_F( VersionTest, testVerExtFromVer) {
 #endif
 }
 
-class [[gnu::packed]] Ver0Ext0Wrong : public o_ext<Ver0Ext0Wrong, VersionZero>{
+class DB0_PACKED_ATTR Ver0Ext0Wrong : public o_ext<Ver0Ext0Wrong, VersionZero>{
     friend o_ext<Ver0Ext0Wrong, VersionZero>;
     typedef o_ext<Ver0Ext0Wrong, VersionZero> Super;
 protected:
@@ -996,7 +999,7 @@ TEST_F( VersionTest, testExtendedFromDynamicBaseButWithStaticMember) {
 #endif
 }
 
-class [[gnu::packed]] Base : public o_base<Base>{
+class DB0_PACKED_ATTR Base : public o_base<Base>{
 public:
     std::uint8_t i1 = 1;
 
@@ -1011,7 +1014,7 @@ public:
     }
 };
 
-class [[gnu::packed]] ExtNoVer : public o_ext<ExtNoVer, Base, 0, false>{
+class DB0_PACKED_ATTR ExtNoVer : public o_ext<ExtNoVer, Base, 0, false>{
 public:
     std::uint8_t i2 = 2;
 
@@ -1026,7 +1029,7 @@ public:
     }
 };
 
-class [[gnu::packed]] ExtVer : public o_ext<ExtVer, Base>{
+class DB0_PACKED_ATTR ExtVer : public o_ext<ExtVer, Base>{
 public:
     std::uint8_t i2 = 3;
 
@@ -1041,7 +1044,7 @@ public:
     }
 };
 
-class [[gnu::packed]] ExtExtNoVer : public o_ext<ExtExtNoVer, ExtNoVer>{
+class DB0_PACKED_ATTR ExtExtNoVer : public o_ext<ExtExtNoVer, ExtNoVer>{
 public:
     std::uint8_t i3 = 4;
 
@@ -1056,7 +1059,7 @@ public:
     }
 };
 /* triggers compilation error, because of dynamic versioning
-class [[gnu::packed]] ExtExtVer : public o_ext<ExtExtVer, ExtVer>{
+class DB0_PACKED_ATTR ExtExtVer : public o_ext<ExtExtVer, ExtVer>{
 public:
     int i3 = 0;
 
@@ -1071,7 +1074,7 @@ public:
     }
 };
 */
-class [[gnu::packed]] ExtDynExtVer : public o_ext<ExtDynExtVer, ExtVer>{
+class DB0_PACKED_ATTR ExtDynExtVer : public o_ext<ExtDynExtVer, ExtVer>{
 public:
 
     ExtDynExtVer(){
@@ -1101,5 +1104,219 @@ TEST_F( VersionTest, testExtendedFromExtendedButWithStaticMember) {
     auto &edev = ExtDynExtVer::__new(ptr);  ptr += edev.sizeOf();
     auto &edev2 = ExtDynExtVer::__new(ptr);  ptr += edev2.sizeOf();
 }
+
+class DB0_PACKED_ATTR o_test_user : public o_base<o_test_user, 0, true> {
+public:
+    o_test_user(const std::string &first_name, const std::string &last_name)
+    {
+        arrangeMembers()
+            (o_string::type(), first_name)
+            (o_string::type(), last_name);
+    }
+
+    static std::size_t measure(const std::string &first_name, const std::string &last_name) {
+        return measureMembers()
+            (o_string::type(), first_name)
+            (o_string::type(), last_name);
+    }
+
+    template <class buf_t> static std::size_t safeSizeOf(buf_t buf) {
+        return sizeOfMembers(buf)
+            (o_string::type())
+            (o_string::type());
+    }
+
+    const o_string& getFirstName() const {
+        return getDynFirst(o_string::type());
+    }
+
+    const o_string& getLastName() const {
+        return getDynAfter(getFirstName(), o_string::type());
+    }
+};
+
+class DB0_PACKED_ATTR o_test_user_v2 : public o_base<o_test_user_v2, 1, true> {
+public:
+    o_test_user_v2(std::uint64_t id, const std::string &last_name, const std::string &first_name)
+    {
+        arrangeMembers()
+            (o_simple<std::uint64_t>::type(), id)
+            (o_string::type(), last_name)
+            (o_string::type(), first_name);
+    }
+
+    static std::size_t measure(std::uint64_t id, const std::string &last_name, const std::string &first_name) {
+        return measureMembers()
+            (o_simple<std::uint64_t>::type(), id)
+            (o_string::type(), last_name)
+            (o_string::type(), first_name);
+    }
+
+    template <class buf_t> static std::size_t safeSizeOf(buf_t buf) {
+        if(getObjVer(buf) == 0) {
+            return sizeOfMembers(buf)
+                (o_string::type())
+                (o_string::type());
+        }
+        return sizeOfMembers(buf)
+            (o_simple<std::uint64_t>::type())
+            (o_string::type())
+            (o_string::type());
+    }
+
+    const o_simple<std::uint64_t>& getID() const {
+        return getDynFirst(o_simple<std::uint64_t>::type(), 1);
+    }
+
+    const o_string& getFirstName() const {
+        if(getObjVer() == 0) {
+            return getDynFirst(o_string::type());
+        }
+        return getDynAfter(getLastName(), o_string::type(), 1);
+    }
+
+    const o_string& getLastName() const {
+        if(getObjVer() == 0) {
+            return getDynAfter(getFirstName(), o_string::type());
+        }
+        return getDynAfter(getID(), o_string::type(), 1);
+    }
+};
+
+TEST_F(VersionTest, testRearrangedMembersInVersionedObject) {
+    std::size_t obj1_measure = o_test_user::measure("Jan", "Kowalski");
+    auto obj1 = std::make_unique<std::byte[]>(obj1_measure);
+    auto obj1_ptr = obj1.get();
+    o_test_user::__new(obj1_ptr, "Jan", "Kowalski");
+    ASSERT_EQ(o_test_user::__ref(obj1_ptr).getFirstName(), "Jan");
+    ASSERT_EQ(o_test_user::__ref(obj1_ptr).getLastName(), "Kowalski");
+    std::size_t obj1_size = o_test_user::__ref(obj1_ptr).sizeOf();
+    ASSERT_EQ(obj1_measure, obj1_size);
+
+    std::size_t obj2_measure = o_test_user_v2::measure(1234, "Kowalski", "Jan");
+    auto obj2 = std::make_unique<std::byte[]>(obj2_measure);
+    auto obj2_ptr = obj2.get();
+    o_test_user_v2::__new(obj2_ptr, 1234, "Kowalski", "Jan");
+    ASSERT_EQ(o_test_user_v2::__ref(obj2_ptr).getID(), 1234);
+    ASSERT_EQ(o_test_user_v2::__ref(obj2_ptr).getFirstName(), "Jan");
+    ASSERT_EQ(o_test_user_v2::__ref(obj2_ptr).getLastName(), "Kowalski");
+    std::size_t obj2_size = o_test_user_v2::__ref(obj2_ptr).sizeOf();
+    ASSERT_EQ(obj2_measure, obj2_size);
+    ASSERT_EQ(obj2_size, obj1_size + 8);
+
+    ASSERT_EQ(o_test_user_v2::__ref(obj1_ptr).getFirstName(), "Jan");
+    ASSERT_EQ(o_test_user_v2::__ref(obj1_ptr).getLastName(), "Kowalski");
+    ASSERT_ANY_THROW(o_test_user_v2::__ref(obj1_ptr).getID());
+}
+
+struct DB0_PACKED_ATTR o_test_array_v1 : public o_fixed<o_test_array_v1> {
+public:
+    std::array<std::uint64_t, 4> data;
+
+    o_test_array_v1() {
+        std::fill(data.begin(), data.end(), 0);
+    }
+};
+
+struct DB0_PACKED_ATTR o_test_array_v2 : public o_fixed<o_test_array_v2> {
+public:
+    std::array<std::uint64_t, 8> data;
+
+    o_test_array_v2() {
+        std::fill(data.begin(), data.end(), 0);
+    }
+};
+
+template<int VER>
+class DB0_PACKED_ATTR o_test_content : public o_base<o_test_content<VER>, VER, true> {
+    using super_t = o_base<o_test_content, VER, true>;
+
+public:
+    o_test_content() {
+        if(VER == 0) {
+            this->arrangeMembers()(o_test_array_v1::type());
+        }
+        if(VER == 1) {
+            this->arrangeMembers()(o_test_array_v2::type());
+        }
+    }
+
+    static std::size_t measure() {
+        if(VER == 0) {
+            return super_t::measureMembers()(o_test_array_v1::type());
+        }
+        if(VER == 1) {
+            return super_t::measureMembers()(o_test_array_v2::type());
+        }
+    }
+
+    template <class buf_t> static std::size_t safeSizeOf(buf_t buf) {
+        if(super_t::getObjVer(buf) == 0) {
+            return super_t::sizeOfMembers(buf)(o_test_array_v1::type());
+        }
+        return super_t::sizeOfMembers(buf)(o_test_array_v2::type());
+    }
+
+    std::uint64_t* begin() {
+        return reinterpret_cast<std::uint64_t*>(this->beginOfDynamicArea());
+    }
+
+    std::uint64_t* end() {
+        return reinterpret_cast<std::uint64_t*>(this->beginOfDynamicArea() + this->sizeOf() - this->baseSize());
+    }
+
+    std::size_t length() {
+        return end() - begin();
+    }
+
+    std::uint64_t operator[](std::size_t i) {
+        return *(begin() + i);
+    }
+};
+
+TEST_F(VersionTest, testFixedContentReplaceInVersionedObject) {
+    using o_test_content_v1 = o_test_content<0>;
+    using o_test_content_v2 = o_test_content<1>;
+
+    std::size_t obj1_measure = o_test_content_v1::measure();
+    auto obj1 = std::make_unique<std::byte[]>(obj1_measure);
+    auto obj1_ptr = obj1.get();
+    o_test_content_v1::__new(obj1_ptr);
+    std::size_t obj1_size = o_test_content_v1::__ref(obj1_ptr).sizeOf();
+    ASSERT_EQ(obj1_measure, obj1_size);
+    ASSERT_EQ(o_test_content_v1::__ref(obj1_ptr).length(), 4);
+    {
+        auto &obj1_ref = o_test_content_v1::__ref(obj1_ptr);
+        ASSERT_EQ(std::count(obj1_ref.begin(), obj1_ref.end(), 0), 4);
+        std::iota(obj1_ref.begin(), obj1_ref.end(), 1);
+    }
+    for(std::size_t i = 0; i != 4; ++i) {
+        ASSERT_EQ(o_test_content_v1::__ref(obj1_ptr)[i], i + 1);
+    }
+
+    std::size_t obj2_measure = o_test_content_v2::measure();
+    auto obj2 = std::make_unique<std::byte[]>(obj2_measure);
+    auto obj2_ptr = obj2.get();
+    o_test_content_v2::__new(obj2_ptr);
+    std::size_t obj2_size = o_test_content_v2::__ref(obj2_ptr).sizeOf();
+    ASSERT_EQ(obj2_measure, obj2_size);
+    ASSERT_EQ(o_test_content_v2::__ref(obj2_ptr).length(), 8);
+    {
+        auto &obj2_ref = o_test_content_v2::__ref(obj2_ptr);
+        ASSERT_EQ(std::count(obj2_ref.begin(), obj2_ref.end(), 0), 8);
+        std::iota(obj2_ref.begin(), obj2_ref.end(), 1);
+    }
+    for(std::size_t i = 0; i != 8; ++i) {
+        ASSERT_EQ(o_test_content_v2::__ref(obj2_ptr)[i], i + 1);
+    }
+
+    auto &obj1_ref = o_test_content_v1::__ref(obj1_ptr);
+    auto &obj1_backref = o_test_content_v2::__ref(obj1_ptr);
+    ASSERT_EQ(obj1_ref.sizeOf(), obj1_backref.sizeOf());
+    ASSERT_EQ(obj1_ref.length(), obj1_backref.length());
+    ASSERT_TRUE(std::equal(obj1_ref.begin(), obj1_ref.end(), obj1_backref.begin(), obj1_backref.end()));
+}
+
+DB0_PACKED_END
 
 } //namespace tests
