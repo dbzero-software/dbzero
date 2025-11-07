@@ -205,7 +205,7 @@ namespace db0
         
         // Get access flags to propagate to members (e.g. no_cache)
         AccessFlags getMemberFlags() const {
-            return this->v_this.getAccessMode() & AccessOptions::no_cache;
+            return this->getAccessMode() & AccessOptions::no_cache;
         }
 
     protected:

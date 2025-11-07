@@ -1031,7 +1031,7 @@ DB0_PACKED_BEGIN
                 // delete VSPACE "this"
                 this->destroy();
                 // claim new identity
-                this->v_this = new_vector.get_v_ptr();
+                (*this) = new_vector;
                 return true;
             } else {
                 return false;
@@ -1057,7 +1057,7 @@ DB0_PACKED_BEGIN
                 // delete VSPACE "this"
                 this->destroy();
                 // claim new identity
-                this->v_this = new_vector.get_v_ptr();
+                (*this) = new_vector;
                 return true;
             } else {
                 return false;

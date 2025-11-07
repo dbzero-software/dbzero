@@ -547,13 +547,13 @@ namespace db0
         const std::size_t m_node_capacity;
         const NodeItemCompT m_item_comp;
         const HeapCompT m_heap_comp;
-
+        
         template <typename... Args> ItemIterator emplace_to_empty(Args&&... args)
         {
-            super_t::modify().m_sgb_size++;
+            ++super_t::modify().m_sgb_size;
             // create the root node which shares the same allocation as the 'head' node
             // obtain mutable mem lock first
-            auto mem_lock = this->get_v_ptr().modifyMappedRange();            
+            auto mem_lock = this->modifyMappedRange();
             // calculate residual capacity
             auto residual_capacity = (*this)->sizeOf() - (*this)->trueSizeOf();            
             // use the remaining capacity to initialize the root node

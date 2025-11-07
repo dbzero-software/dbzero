@@ -1,4 +1,4 @@
-#include <dbzero/core/vspace/v_ptr.hpp>
+#include "vtypeless.hpp"
 
 namespace db0
 
