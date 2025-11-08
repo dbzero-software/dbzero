@@ -158,6 +158,8 @@ DB0_PACKED_END
                     if (!range.isUnbound() || begin == end) {
                         break;
                     }
+                    // FIXME: log
+                    std::cout << "!!! bulkInsert continuing to insert into new range" << std::endl;
                     // in case of unbound ranges (i.e. the last range) append a new one and continue
                     range = insertRange(*begin);
                 }
@@ -240,9 +242,11 @@ DB0_PACKED_END
 
             auto null_block_ptr = getNullBlock();
             assert(null_block_ptr);
-
+            
             // erase values from the null block directly
-            auto diff = null_block_ptr->bulkErase(begin, end, static_cast<const ValueT*>(nullptr),  erase_callback_ptr);
+            auto diff = null_block_ptr->bulkErase(
+                begin, end, static_cast<const ValueT*>(nullptr),  erase_callback_ptr
+            );
             if (diff > 0) {
                 this->modify().m_size -= diff;
             }
@@ -428,14 +432,17 @@ DB0_PACKED_END
                         m_it.modifyItem().m_first_item = first_item;
                     }
                 }
-
+                
                 // Forwards a value to the add item callback
+                /* FIXME: log
                 std::function<void(ItemT)> add_item_callback = [&](ItemT item) {
                     (*add_callback_ptr)(item.m_value);                    
-                };
+                };                
                 
                 std::function<void(ItemT)> *add_item_callback_ptr = (add_callback_ptr ? &add_item_callback : nullptr);
                 return (*this)->bulkInsertUnique(begin_item, end_item, add_item_callback_ptr).second;
+                */
+                return (*this)->bulkInsertUnique(begin_item, end_item).second;
             }
 
             /**
@@ -603,7 +610,7 @@ DB0_PACKED_END
                 CallbackT *erase_callback_ptr = nullptr)
             {
                 // erase items first
-                if (!m_remove_items.empty()) {                    
+                if (!m_remove_items.empty()) {
                     std::vector<ItemT> items;
                     std::copy(m_remove_items.begin(), m_remove_items.end(), std::back_inserter(items));
                     range_tree.bulkErase(items.begin(), items.end(), erase_callback_ptr);
@@ -616,7 +623,7 @@ DB0_PACKED_END
                 }
                 if (!m_add_items.empty()) {
                     std::vector<ItemT> items;
-                    std::copy(m_add_items.begin(), m_add_items.end(), std::back_inserter(items));
+                    std::copy(m_add_items.begin(), m_add_items.end(), std::back_inserter(items));                    
                     range_tree.bulkInsert(items.begin(), items.end(), add_callback_ptr);
                     m_add_items.clear();
                 }
@@ -751,7 +758,7 @@ DB0_PACKED_END
             // retrieve existing range
             return { m_index, it, m_index.begin(), m_index.end(), it == m_index.begin(), true };
         }
-
+        
         RangeIterator insertRange(ItemT item)
         {
             BlockT new_block(this->getMemspace());

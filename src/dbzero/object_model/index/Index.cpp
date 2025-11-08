@@ -68,7 +68,7 @@ namespace db0::object_model
     {
         // in case of index we need to unregister first because otherwise
         // it may trigger discard of unflushed data (which has to be performed before destruction of 'builder')
-        unregister();        
+        unregister();
         
         // after unregister object might still have unflushed data, we need to flush them
         if (hasInstance() && isDirty()) {
@@ -198,7 +198,7 @@ namespace db0::object_model
         }    
         m_builder.flush();
     }
-
+    
     void Index::rollback() {
         m_builder.rollback();
     }
@@ -298,6 +298,8 @@ namespace db0::object_model
                     << " does not allow adding key type: " 
                     << LangToolkit::getTypeName(key) << THROWF_END;
         }
+        // subscribe for flush operation
+        getMemspace().collectForFlush(this);
         m_mutation_log->onDirty();
     }
     
@@ -333,6 +335,8 @@ namespace db0::object_model
                     << " does not allow keys of type: " 
                     << LangToolkit::getTypeName(key) << THROWF_END;
         }
+        // subscribe for flush operation
+        getMemspace().collectForFlush(this);
         m_mutation_log->onDirty();
     }
 
@@ -453,6 +457,8 @@ namespace db0::object_model
                     << "Unsupported index data type: " 
                     << static_cast<std::uint16_t>(m_builder.getDataType()) << THROWF_END;
         }
+        // subscribe for flush operation
+        getMemspace().collectForFlush(this);
         m_mutation_log->onDirty();
     }
     
@@ -475,7 +481,7 @@ namespace db0::object_model
         return type_manager.extractUInt64(type_manager.getTypeId(value), value);
     }
 
-    void Index::preCommit(bool revert)
+    void Index::flush(bool revert)
     {
         if (revert) {
             rollback();
@@ -484,8 +490,8 @@ namespace db0::object_model
         }        
     }
 
-    void Index::preCommitOp(void *ptr, bool revert) {
-        static_cast<Index*>(ptr)->preCommit(revert);
+    void Index::flushOp(void *ptr, bool revert) {
+        static_cast<Index*>(ptr)->flush(revert);
     }
 
     void Index::removeNull(ObjectPtr obj_ptr)

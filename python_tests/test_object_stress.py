@@ -63,7 +63,7 @@ def test_create_random_objects_stress_test(db0_slab_size):
         total_bytes += len(buf[-1].value)
         count += 1
         if total_bytes > report_bytes:
-            pre_commit = datetime.now()
+            flush = datetime.now()
             print("*** next transaction ***")
             db0.commit()
             storage_stats = db0.get_storage_stats()
@@ -71,7 +71,7 @@ def test_create_random_objects_stress_test(db0_slab_size):
             print(f"Rand DRAM I/O ops: {storage_stats['dram_io_rand_ops'] - rand_dram_io}")
             print(f"Rand file write ops: {storage_stats['file_rand_write_ops'] - rand_file_write_ops}")
             print(f"File bytes written: {storage_stats['file_bytes_written'] - bytes_written}")
-            print(f"Commit took: {datetime.now() - pre_commit}\n")
+            print(f"Commit took: {datetime.now() - flush}\n")
             rand_dram_io = storage_stats["dram_io_rand_ops"]
             rand_file_write_ops = storage_stats["file_rand_write_ops"]
             bytes_written = storage_stats["file_bytes_written"]
@@ -107,7 +107,7 @@ def test_create_random_gc0_objects_stress_test(db0_no_autocommit):
         total_bytes += len(buf[-1].value)
         count += 1
         if total_bytes > report_bytes:
-            pre_commit = datetime.now()
+            flush = datetime.now()
             # NOTE: with each commit the size of GC0 is increasing due to large 
             # number of objects referenced only from python            
             db0.commit()
@@ -116,7 +116,7 @@ def test_create_random_gc0_objects_stress_test(db0_no_autocommit):
             print(f"Rand DRAM I/O ops: {storage_stats['dram_io_rand_ops'] - rand_dram_io}")
             print(f"Rand file write ops: {storage_stats['file_rand_write_ops'] - rand_file_write_ops}")
             print(f"File bytes written: {storage_stats['file_bytes_written'] - bytes_written}")
-            print(f"Commit took: {datetime.now() - pre_commit}")
+            print(f"Commit took: {datetime.now() - flush}")
             rand_dram_io = storage_stats["dram_io_rand_ops"]
             rand_file_write_ops = storage_stats["file_rand_write_ops"]
             bytes_written = storage_stats["file_bytes_written"]

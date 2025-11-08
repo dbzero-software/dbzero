@@ -259,7 +259,7 @@ namespace db0::python
         }
         return shared_py_cast<PyObject*>(std::move(list_object));
     }
-
+    
     PyToolkit::ObjectSharedPtr PyToolkit::unloadByteArray(db0::swine_ptr<Fixture> fixture, 
         Address address, AccessFlags access_mode)
     {
@@ -281,9 +281,9 @@ namespace db0::python
         return shared_py_cast<PyObject*>(std::move(byte_array_object));
     }
     
-    PyToolkit::ObjectSharedPtr PyToolkit::unloadIndex(db0::swine_ptr<Fixture> fixture, 
+    PyToolkit::ObjectSharedPtr PyToolkit::unloadIndex(db0::swine_ptr<Fixture> fixture,
         Address address, std::uint16_t, AccessFlags access_mode)
-    {        
+    {
         // try pulling from cache first
         auto &lang_cache = fixture->getLangCache();
         auto object_ptr = lang_cache.get(address);
@@ -292,7 +292,7 @@ namespace db0::python
             return object_ptr;
         }
         
-        auto index_object = IndexDefaultObject_new();
+        auto index_object = Py_OWN(IndexDefaultObject_new());
         // retrieve actual dbzero instance
         index_object->unload(fixture, address, access_mode);
 

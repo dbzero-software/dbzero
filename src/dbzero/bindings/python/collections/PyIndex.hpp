@@ -10,7 +10,7 @@ namespace db0::python
     using IndexObject = PyWrapper<db0::object_model::Index>;
     
     IndexObject *IndexObject_new(PyTypeObject *type, PyObject *, PyObject *);
-    shared_py_object<IndexObject*> IndexDefaultObject_new();
+    IndexObject* IndexDefaultObject_new();
     void PyAPI_IndexObject_del(IndexObject* self);
     Py_ssize_t PyAPI_IndexObject_len(IndexObject *);
     

@@ -8,7 +8,7 @@ namespace db0
 
     template <typename T, std::uint32_t SLOT_NUM = 0, unsigned char REALM_ID = 0>
     class v_object;
-     
+    
     /**
      * virtual pointer to object of ContainerT
      */
@@ -74,9 +74,12 @@ namespace db0
                     // note that lock is getting updated, possibly copy-on-write is being performed
                     // NOTE: must extract physical address for mapRange                    
                     m_mem_lock = m_memspace_ptr->getPrefix().mapRange(
-                        m_address.getOffset(), this->getSize(), m_access_mode | AccessOptions::write | AccessOptions::read);
+                        m_address.getOffset(), this->getSize(), m_access_mode | AccessOptions::write | AccessOptions::read
+                    );
                     // by calling MemLock::modify we mark the object's associated range as modified
                     m_mem_lock.modify();
+                    // collect as a modified instance for commit speedup
+                    m_memspace_ptr->collectModified(this);
                     lock.commit_set();
                     break;
                 }
@@ -115,7 +118,7 @@ namespace db0
         }
         
     protected:
-    
+        
         const ContainerT &safeConstRef(std::size_t size_of = 0) const
         {
             if (!size_of) {
@@ -143,7 +146,8 @@ namespace db0
                 if (lock.isLocked()) {
                     // NOTE: must extract physical address for mapRange
                     m_mem_lock = m_memspace_ptr->getPrefix().mapRange(
-                        m_address.getOffset(), this->getSize(), m_access_mode | AccessOptions::read);
+                        m_address.getOffset(), this->getSize(), m_access_mode | AccessOptions::read
+                    );
                     lock.commit_set();
                     break;
                 }
@@ -162,7 +166,8 @@ namespace db0
                 if (lock.isLocked()) {
                     // NOTE: must extract physical address for mapRange
                     m_mem_lock = m_memspace_ptr->getPrefix().mapRange(
-                        m_address.getOffset(), size_of, m_access_mode | AccessOptions::read);
+                        m_address.getOffset(), size_of, m_access_mode | AccessOptions::read
+                    );
                     lock.commit_set();
                     break;
                 }

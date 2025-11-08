@@ -61,8 +61,8 @@ namespace db0::object_model
         std::unique_ptr<IteratorFactory>
         range(ObjectPtr min, ObjectPtr max, bool null_first = false) const;
         
-        static PreCommitFunction getPreCommitFunction() {
-            return preCommitOp;
+        static FlushFunction getFlushFunction() {
+            return flushOp;
         }
         
         void moveTo(db0::swine_ptr<Fixture> &);
@@ -84,8 +84,8 @@ namespace db0::object_model
         // the default / provisional type
         using DefaultT = std::int64_t;
         friend struct Builder;
-        void preCommit(bool revert);
-        static void preCommitOp(void *, bool revert);
+        void flush(bool revert);
+        static void flushOp(void *, bool revert);
 
         template <typename T> static constexpr IndexDataType dataTypeOf()
         {
@@ -105,7 +105,7 @@ namespace db0::object_model
             // concrete data type to be assigned (only allowed to update from Auto)
             IndexDataType m_initial_type;
             IndexDataType m_new_type;
-            mutable std::shared_ptr<void> m_index_builder;    
+            mutable std::shared_ptr<void> m_index_builder;
 
             Builder(Index &);
             
@@ -134,7 +134,7 @@ namespace db0::object_model
                     m_index_builder = db0::make_shared_void<IndexBuilder<T> >();
                     m_new_type = Index::dataTypeOf<T>();
                 }
-                return *static_cast<IndexBuilder<T>*>(m_index_builder.get());                
+                return *static_cast<IndexBuilder<T>*>(m_index_builder.get());
             }
             
             template <typename T> IndexBuilder<T> &getExisting() const
@@ -154,6 +154,8 @@ namespace db0::object_model
                 }
                 
                 if (!std::is_same_v<FromType, ToType>) {
+                    // FIXME: log
+                    std::cout << "Index builder update !!" << std::endl;
                     m_index_builder = db0::make_shared_void<IndexBuilder<ToType> >(
                         get<FromType>().releaseRemoveNullItems(),
                         get<FromType>().releaseAddNullItems(),
@@ -162,7 +164,6 @@ namespace db0::object_model
                     m_new_type = Index::dataTypeOf<ToType>();
                 }
             }
-
         };
         
         Builder m_builder;

@@ -40,8 +40,8 @@ namespace db0::python
         return reinterpret_cast<IndexObject*>(type->tp_alloc(type, 0));
     }
 
-    shared_py_object<IndexObject*> IndexDefaultObject_new() {
-        return { IndexObject_new(&IndexObjectType, NULL, NULL), false };
+    IndexObject *IndexDefaultObject_new() {
+        return IndexObject_new(&IndexObjectType, NULL, NULL);
     }
     
     void PyAPI_IndexObject_del(IndexObject* index_obj)
@@ -67,12 +67,12 @@ namespace db0::python
     IndexObject *tryMakeIndex(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
         // make actual dbzero instance, use default fixture
-        auto index_object = IndexDefaultObject_new();
+        auto py_index = Py_OWN(IndexDefaultObject_new());
         db0::FixtureLock lock(PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture());
-        index_object->makeNew(*lock);        
+        auto &index = py_index->makeNew(*lock);
         // register newly created index with py-object cache
-        lock->getLangCache().add(index_object.get()->ext().getAddress(), index_object.get());
-        return index_object.steal();
+        lock->getLangCache().add(index.getAddress(), py_index.get());
+        return py_index.steal();
     }
     
     IndexObject *PyAPI_makeIndex(PyObject *self, PyObject *const *args, Py_ssize_t nargs)    

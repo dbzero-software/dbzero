@@ -57,8 +57,8 @@ namespace db0
             initNew(
                 memspace,
                 ContainerT::measure(std::get<I>(std::forward<Tuple>(t))...),
-                std::get<N>(std::forward<Tuple>(t)) );            
-            
+                std::get<N>(std::forward<Tuple>(t))
+            );            
             ContainerT::__new(reinterpret_cast<std::byte*>(&this->modify()), std::get<I>(std::forward<Tuple>(t))...);
         }
         
@@ -170,18 +170,6 @@ namespace db0
             return this->getMemspace().myPtr(address, access_mode);
         }
         
-        /* FIXME: 
-        void commit() const
-        {
-            // NOTE: this operation assumes that only one v_object instance pointing to the same address exists
-            // otherwise modifications done to one instance will not be visible to the other instances
-            // this assumption holds true for dbzero objects but if unable to fulfill in the future,
-            // it must be changed to "this->detach()"
-
-            v_this.commit();
-        }
-        */
-        
         // Calculate the number of DPs spanned by this object
         // NOTE: even small objects may span more than 1 DP if are positioned on a boundary
         // however allocators typically will avoid such situations
@@ -222,6 +210,8 @@ namespace db0
             this->m_mem_lock.modify();
             this->m_resource_flags = db0::RESOURCE_AVAILABLE_FOR_READ | db0::RESOURCE_AVAILABLE_FOR_WRITE;
             this->m_access_mode = access_mode;
+            // collect as a modified instance for commit speedup
+            this->m_memspace_ptr->collectModified(this);
         }
         
         // Create a new instance using allocUnique functionality
@@ -243,7 +233,9 @@ namespace db0
             this->m_mem_lock.modify();
             // mark as available for both write & read
             this->m_resource_flags = db0::RESOURCE_AVAILABLE_FOR_READ | db0::RESOURCE_AVAILABLE_FOR_WRITE;
-            this->m_access_mode = access_mode;            
+            this->m_access_mode = access_mode;
+            // collect as a modified instance for commit speedup
+            this->m_memspace_ptr->collectModified(this);
         }
         
         /**
@@ -262,8 +254,10 @@ namespace db0
             // mark as available for read & write
             this->m_resource_flags = db0::RESOURCE_AVAILABLE_FOR_READ | db0::RESOURCE_AVAILABLE_FOR_WRITE;
             this->m_access_mode = access_mode;
+            // collect as a modified instance for commit speedup
+            this->m_memspace_ptr->collectModified(this);
         }
-            
+        
         static inline unsigned char getLocality(FlagSet<AccessOptions> access_mode) {
             // NOTE: use locality = 1 for no_cache allocations, 0 otherwise (undefined)
             return access_mode[AccessOptions::no_cache] ? 1 : 0;
