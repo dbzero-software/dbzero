@@ -281,6 +281,11 @@ namespace db0::object_model
             m_builder.update(type_manager.getTypeId(key));
         }
 
+        // subscribe for flush operation
+        if (!isDirty()) {
+            getMemspace().collectForFlush(this);
+        }
+
         switch (m_builder.getDataType()) {
             case IndexDataType::Int64: {
                 m_builder.get<std::int64_t>().add(type_manager.extractInt64(key), value); 
@@ -298,8 +303,6 @@ namespace db0::object_model
                     << " does not allow adding key type: " 
                     << LangToolkit::getTypeName(key) << THROWF_END;
         }
-        // subscribe for flush operation
-        getMemspace().collectForFlush(this);
         m_mutation_log->onDirty();
     }
     
@@ -316,6 +319,11 @@ namespace db0::object_model
         if (m_builder.getDataType() == IndexDataType::Auto) {
             // update to a concrete data type
             m_builder.update(type_manager.getTypeId(key));
+        }
+
+        // subscribe for flush operation
+        if (!isDirty()) {
+            getMemspace().collectForFlush(this);
         }
 
         switch (m_builder.getDataType()) {
@@ -335,11 +343,9 @@ namespace db0::object_model
                     << " does not allow keys of type: " 
                     << LangToolkit::getTypeName(key) << THROWF_END;
         }
-        // subscribe for flush operation
-        getMemspace().collectForFlush(this);
         m_mutation_log->onDirty();
     }
-
+    
     std::unique_ptr<Index::IteratorFactory> Index::range(ObjectPtr min, ObjectPtr max, bool null_first) const
     {
         assert(hasInstance());
@@ -435,6 +441,11 @@ namespace db0::object_model
     void Index::addNull(ObjectPtr obj_ptr)
     {
         assert(hasInstance());
+        // subscribe for flush operation
+        if (!isDirty()) {
+            getMemspace().collectForFlush(this);
+        }
+        
         switch (m_builder.getDataType()) {
             // use provisional data type for Auto
             case IndexDataType::Auto: {
@@ -457,8 +468,6 @@ namespace db0::object_model
                     << "Unsupported index data type: " 
                     << static_cast<std::uint16_t>(m_builder.getDataType()) << THROWF_END;
         }
-        // subscribe for flush operation
-        getMemspace().collectForFlush(this);
         m_mutation_log->onDirty();
     }
     
@@ -496,6 +505,10 @@ namespace db0::object_model
 
     void Index::removeNull(ObjectPtr obj_ptr)
     {
+        if (!isDirty()) {
+            getMemspace().collectForFlush(this);
+        }
+
         switch (m_builder.getDataType()) {
             // use provisional data type for Auto
             case IndexDataType::Auto: {

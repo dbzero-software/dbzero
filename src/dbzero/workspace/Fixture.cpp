@@ -300,8 +300,14 @@ namespace db0
         }
         
         // Flush using registered flush handlers
-        for (auto &handler: m_flush_handlers) {
-            handler();
+        {        
+            std::unique_ptr<ProcessTimer> flush_timer;
+            if (process_timer) {
+                flush_timer = std::make_unique<ProcessTimer>("Fixture::commit:flush_handlers", process_timer.get());
+            }
+            for (auto &handler: m_flush_handlers) {
+                handler();
+            }
         }
         
         // Clear expired instances from cache so that they're not persisted
