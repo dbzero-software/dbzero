@@ -3,6 +3,7 @@
 #include <utils/TestBase.hpp>
 #include <dbzero/core/collections/b_index/v_bindex.hpp>
 #include <dbzero/core/memory/BitSpace.hpp>
+#include <dbzero/core/utils/ProcessTimer.hpp>
 #include <dbzero/core/collections/full_text/key_value.hpp>
 #include <dbzero/object_model/dict/Dict.hpp>
 
@@ -126,6 +127,54 @@ namespace tests
             ++it2;
         }
     }
+
+    TEST_F( VBIndexTests , testVBIndexBulkPushBack1MSortedElements )
+    {
+        auto memspace = getMemspace();
+        std::vector<std::uint64_t> values;
+        for (std::uint64_t i = 0; i < 1000000; ++i) {
+            values.push_back(i);
+        }
+
+        db0::v_bindex<std::uint64_t> cut(memspace, memspace.getPageSize());
+        db0::ProcessTimer timer("bulkPushBack");
+        cut.bulkPushBack(values.begin(), values.end());        
+        timer.printLog(std::cout) << std::endl;
+    }
+
+    TEST_F( VBIndexTests , testVBIndexBulkPushBack1MRandomElements )
+    {
+        auto memspace = getMemspace();
+        std::vector<std::uint64_t> values;
+        for (std::uint64_t i = 0; i < 1000000; ++i) {
+            values.push_back(rand());
+        }
+
+        db0::v_bindex<std::uint64_t> cut(memspace, memspace.getPageSize());
+        db0::ProcessTimer timer("bulkPushBack (random)");
+        cut.bulkPushBack(values.begin(), values.end());
+        timer.printLog(std::cout) << std::endl;
+    }
     
+    TEST_F( VBIndexTests , testVBIndexBulkInsert1MRandomElementsInBatches )
+    {
+        auto memspace = getMemspace();
+        auto total_count = 1000000u;
+        auto batch_size = 1000u;
+        
+        db0::v_bindex<std::uint64_t> cut(memspace, memspace.getPageSize());
+        db0::ProcessTimer timer("bulkInsert (random)");
+        std::size_t count = 0;
+        while (count < total_count) {
+            std::vector<std::uint64_t> values;
+            for (std::size_t i = 0; i < batch_size; ++i) {
+                values.push_back(rand());
+            }
+            cut.bulkInsert(values.begin(), values.end());
+            count += batch_size;
+        }
+        timer.printLog(std::cout) << std::endl;
+    }
+
 }
 

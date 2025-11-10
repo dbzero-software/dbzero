@@ -111,7 +111,7 @@ namespace db0::object_model
                     << static_cast<std::uint16_t>(m_new_type) << THROWF_END;
         }
     }
-
+    
     void Index::Builder::flush()
     {
         if (!m_index_builder) {

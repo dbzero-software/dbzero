@@ -44,7 +44,7 @@ DB0_PACKED_BEGIN
         
         o_meta_header(std::uint32_t page_size, std::uint32_t slab_size);
     };
-DB0_PACKED_END    
+DB0_PACKED_END
     
     class MetaAllocator: public Allocator
     {
@@ -293,7 +293,7 @@ DB0_PACKED_END
             std::unique_ptr<SlabManager> m_slab_manager;
 
             Realm(Memspace &, std::shared_ptr<Prefix>, SlabRecycler *, o_realm, std::uint32_t slab_size,
-                std::uint32_t page_size, unsigned char realm_id);
+                std::uint32_t page_size, unsigned char realm_id, bool deferred_free);
             
             // get the max address from all underlying slabs
             std::uint64_t getSlabMaxAddress() const;
@@ -311,8 +311,8 @@ DB0_PACKED_END
         struct RealmsVector: protected std::vector<Realm>
         {
             RealmsVector(Memspace &, std::shared_ptr<Prefix>, SlabRecycler *, o_meta_header &, 
-                unsigned int size);
-
+                unsigned int size, bool deferred_free);
+            
             // evaluate the max address from all realms
             std::uint64_t getSlabMaxAddress() const;
 
@@ -338,12 +338,10 @@ DB0_PACKED_END
         
         RealmsVector m_realms;
         SlabRecycler *m_recycler_ptr;
-        const bool m_deferred_free;
-        mutable std::unordered_set<Address> m_deferred_free_ops;
+        const bool m_deferred_free;        
         std::function<std::uint32_t(Address)> m_slab_id_function;
         // flag indicating if the atomic operation is in progress
         bool m_atomic = false;
-        std::vector<Address> m_atomic_deferred_free_ops;
         
         /**
          * Reads header information from the prefix
@@ -357,10 +355,6 @@ DB0_PACKED_END
          * if not found then create a new slab
         */
         std::shared_ptr<SlabAllocator> getSlabAllocator(std::size_t min_capacity);
-
-        // internal "free" implementation which performs the dealloc instanly
-        void _free(Address);
-        void deferredFree(Address);
         
         // NOTE: instance ID will only be populated when unique = true
         std::optional<Address> tryAllocImpl(std::size_t size, std::uint32_t slot_num, bool aligned, bool unique, 

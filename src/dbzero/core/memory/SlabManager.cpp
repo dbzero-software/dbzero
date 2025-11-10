@@ -1,0 +1,597 @@
+#include "SlabManager.hpp"
+#include "SlabRecycler.hpp"
+
+namespace db0
+
+{
+
+    SlabManager::SlabManager(std::shared_ptr<Prefix> prefix, MetaAllocator::SlabTreeT &slab_defs,
+        MetaAllocator::CapacityTreeT &capacity_items, SlabRecycler *recycler, std::uint32_t slab_size, std::uint32_t page_size,
+        std::function<Address(unsigned int)> address_func, std::function<std::uint32_t(Address)> slab_id_func, 
+        unsigned char realm_id, bool deferred_free)
+        : m_prefix(prefix)
+        , m_realm_id(realm_id)
+        , m_slab_defs(slab_defs)
+        , m_capacity_items(capacity_items)
+        , m_recycler_ptr(recycler)
+        , m_slab_size(slab_size)
+        , m_page_size(page_size)
+        , m_slab_address_func(address_func)
+        , m_slab_id_func(slab_id_func)
+        , m_next_slab_id(fetchNextSlabId())
+        , m_deferred_free(deferred_free)
+    {
+    }
+    
+    SlabManager::FindResult SlabManager::tryGetActiveSlab(unsigned char locality) {
+        assert(locality < m_active_slab.size());
+        return m_active_slab[locality];
+    }
+    
+    void SlabManager::resetActiveSlab(unsigned char locality) {
+        assert(locality < m_active_slab.size());
+        m_active_slab[locality] = {};
+    }
+    
+    SlabManager::FindResult SlabManager::findFirst(std::size_t size, unsigned char locality)
+    {
+        // visit slabs starting from the largest available capacity
+        auto min_capacity = std::max(size, SlabAllocatorConfig::MIN_OP_CAPACITY());
+        auto it = m_capacity_items.cbegin();
+        for (;;) {
+            if (it.is_end() || it->m_remaining_capacity < min_capacity) {
+                // no existing slab has sufficient capacity
+                return {};
+            }
+            
+            if (m_active_slab.contains(it->m_slab_id)) {
+                // do not include active slab in find operation
+                ++it;
+                continue;
+            }
+            auto slab = openSlab(m_slab_address_func(it->m_slab_id));                
+            // make the slab active
+            m_active_slab[locality] = slab;                
+            return slab;
+        }
+    }
+
+    SlabManager::FindResult SlabManager::findNext(FindResult last_result, std::size_t size,
+        unsigned char locality)
+    {
+        auto min_capacity = std::max(size, SlabAllocatorConfig::MIN_OP_CAPACITY());
+        for (;;) {
+            // this is to find the next item in order
+            last_result.m_cap_item.m_slab_id += NUM_REALMS;
+            auto it = m_capacity_items.upper_equal_bound(last_result.m_cap_item);
+            if (!it.first || it.first->m_remaining_capacity < min_capacity) {
+                return {};
+            }
+            
+            if (m_active_slab.contains(it.first->m_slab_id)) {
+                // do not include active slab in find operation                    
+                continue;
+            }
+            auto slab = openSlab(m_slab_address_func(it.first->m_slab_id));                
+            // make the slab active and for a specific locality
+            m_active_slab[locality] = slab;
+            return slab;
+        }
+    }
+
+    std::pair<std::shared_ptr<SlabAllocator>, std::uint32_t> SlabManager::createNewSlab()
+    {
+        if (!m_next_slab_id) {
+            m_next_slab_id = fetchNextSlabId();
+        }
+
+        auto slab_id = *m_next_slab_id;
+        (*m_next_slab_id) += NUM_REALMS;
+        auto address = m_slab_address_func(slab_id);
+        // create the new slab
+        auto capacity = SlabAllocator::formatSlab(m_prefix, address, m_slab_size, m_page_size);
+        // NOTE: for a new slab, the initial lost capacity is 0
+        auto slab = std::make_shared<SlabAllocator>(m_prefix, address, m_slab_size, m_page_size, capacity, 0);
+        if (m_atomic) {
+            // if atomic operation is in progress, add to the volatile slabs
+            m_volatile_slabs.push_back(address);
+        }
+        
+        return { slab, slab_id };
+    }
+                
+    SlabManager::FindResult SlabManager::addNewSlab(unsigned char locality)
+    {
+        auto [slab, slab_id] = createNewSlab();
+        auto address = m_slab_address_func(slab_id);
+        CapacityItem cap_item { 
+            static_cast<std::uint32_t>(slab->getRemainingCapacity()), 
+            static_cast<std::uint32_t>(slab->getLostCapacity()),
+            slab_id
+        };
+        // register with slab defs
+        m_slab_defs.emplace(slab_id,
+            static_cast<std::uint32_t>(cap_item.m_remaining_capacity), 
+            static_cast<std::uint32_t>(cap_item.m_lost_capacity)
+        );
+        // register with capacity items
+        m_capacity_items.insert(cap_item);
+        // add to cache
+        auto cache_item = std::make_shared<CacheItem>(slab, cap_item);
+        m_slabs.emplace(address, cache_item);
+                
+        // append with the recycler
+        if (m_recycler_ptr) {
+            m_recycler_ptr->append(slab);
+        }
+
+        // make the newly added slab active
+        m_active_slab[locality] = { slab, cap_item };
+        return m_active_slab[locality];
+    }
+
+    std::uint32_t SlabManager::getRemainingCapacity(std::uint32_t slab_id) const
+    {
+        // look up with the cache first
+        auto address = m_slab_address_func(slab_id);
+        auto it = m_slabs.find(address);
+        if (it != m_slabs.end()) {
+            auto slab = it->second->m_slab.lock();
+            if (slab) {                    
+                return slab->getRemainingCapacity();
+            }
+        }
+
+        // look up with the slab defs next
+        auto slab_def_ptr = m_slab_defs.find_equal(slab_id);
+        if (!slab_def_ptr.first) {
+            THROWF(db0::InternalException) << "Slab definition not found.";
+        }
+        return slab_def_ptr.first->m_remaining_capacity;
+    }
+        
+    void SlabManager::close()
+    {
+        m_active_slab = {};
+        m_reserved_slabs.clear();
+        for (auto it = m_slabs.begin(); it != m_slabs.end();) {
+            it = unregisterSlab(it);
+        }
+    }
+            
+    SlabManager::FindResult SlabManager::tryFind(std::uint32_t slab_id) const
+    {
+        if (slab_id < nextSlabId()) {
+            if (m_active_slab.contains(slab_id)) {
+                return m_active_slab.find(slab_id);
+            }
+            // look up with the cache first
+            auto address = m_slab_address_func(slab_id);
+            auto it = m_slabs.find(address);
+            if (it != m_slabs.end()) {
+                auto slab = it->second->m_slab.lock();
+                if (slab) {
+                    return { slab, it->second->m_cap_item };
+                }
+            }
+
+            return tryOpenSlab(address);
+        }
+        return {};
+    }
+
+    SlabManager::FindResult SlabManager::find(std::uint32_t slab_id) const
+    {
+        auto slab = tryFind(slab_id);
+        if (!slab) {
+            THROWF(db0::BadAddressException) << "Slab " << slab_id << " not found";
+        }
+        return slab;
+    }
+    
+    void SlabManager::erase(const FindResult &slab) {
+        erase(slab, true);
+    }
+        
+    bool SlabManager::empty() const {
+        return nextSlabId() == m_realm_id;
+    }
+        
+    std::shared_ptr<SlabAllocator> SlabManager::reserveNewSlab()
+    {
+        auto [slab, slab_id] = createNewSlab();
+        // internally register the slab with capacity = 0 (to avoid use in regular allocations)
+        CapacityItem cap_item { 0, 0, slab_id };
+        // register with slab defs
+        m_slab_defs.emplace(
+            slab_id, 
+            static_cast<std::uint32_t>(cap_item.m_remaining_capacity), 
+            static_cast<std::uint32_t>(cap_item.m_lost_capacity)
+        );
+        // register with capacity items
+        m_capacity_items.insert(cap_item);
+        return slab;
+    }
+        
+    std::shared_ptr<SlabAllocator> SlabManager::openExistingSlab(const SlabDef &slab_def)
+    {
+        if (slab_def.m_slab_id >= nextSlabId()) {
+            THROWF(db0::InputException) << "Slab " << slab_def.m_slab_id << " does not exist";
+        }            
+        auto address = m_slab_address_func(slab_def.m_slab_id);
+        // look up with the cache first
+        auto it = m_slabs.find(address);
+        if (it != m_slabs.end()) {
+            auto slab = it->second->m_slab.lock();
+            if (slab) {
+                return slab;
+            }
+        }
+        // pull through cache
+        return openSlab(slab_def).m_slab;
+    }
+    
+    std::shared_ptr<SlabAllocator> SlabManager::openReservedSlab(Address address) const {
+        return openReservedSlab(address, m_slab_id_func(address));
+    }
+    
+    std::shared_ptr<SlabAllocator> SlabManager::openReservedSlab(Address address, std::uint32_t slab_id) const
+    {
+        assert(m_slab_id_func(address) == slab_id);
+        if (slab_id >= nextSlabId()) {
+            THROWF(db0::InputException) << "Slab " << slab_id << " does not exist";
+        }
+
+        // look up with the cache first
+        auto it = m_slabs.find(address);
+        if (it != m_slabs.end()) {
+            auto slab = it->second->m_slab.lock();
+            if (slab) {
+                return slab;
+            }
+        }
+
+        // retrieve slab definition
+        auto slab_def_ptr = m_slab_defs.find_equal(slab_id);
+        if (!slab_def_ptr.first) {
+            THROWF(db0::InternalException) << "Slab definition not found: " << slab_id;
+        }
+        
+        // pull through cache
+        auto result = openSlab(*slab_def_ptr.first).m_slab;
+        // and add for non-expiry cache
+        m_reserved_slabs.push_back(result);
+        return result;
+    }
+
+    Address SlabManager::getFirstAddress() const {
+        return m_slab_address_func(m_realm_id) + SlabAllocator::getFirstAddress();
+    }
+        
+    void SlabManager::commit() const
+    {
+        for (auto &it : m_slabs) {
+            it.second->commit();
+        }
+    }
+        
+    void SlabManager::detach() const
+    {
+        // detach all cached slabs
+        for (auto &it : m_slabs) {
+            it.second->detach();
+        }            
+        // NOTE: we retain the slab element because it's detached
+        // invalidate cached variable
+        m_next_slab_id = {};
+    }
+
+    std::uint32_t SlabManager::nextSlabId() const
+    {
+        if (!m_next_slab_id) {
+            m_next_slab_id = fetchNextSlabId();
+        }
+        return *m_next_slab_id;
+    }
+
+    void SlabManager::beginAtomic()
+    {            
+        assert(!m_atomic);
+        assert(m_volatile_slabs.empty());
+        m_atomic = true;            
+    }
+        
+    void SlabManager::endAtomic()
+    {            
+        assert(m_atomic);
+        m_volatile_slabs.clear();
+        m_atomic = false;         
+    }
+
+    void SlabManager::cancelAtomic()
+    {
+        assert(m_atomic);
+        // revert all volatile slabs from cache
+        for (auto slab_addr : m_volatile_slabs) {
+            auto it = m_slabs.find(slab_addr);
+            if (it != m_slabs.end()) {
+                m_slabs.erase(it);
+            }
+        }
+        m_active_slab = {};
+        m_volatile_slabs.clear();
+        m_atomic = false;
+    }
+
+    void SlabManager::saveItem(CacheItem &item) const
+    {
+        // if the remaining capacity has hanged, reflect this with backend
+        if (item.isModified()) {
+            auto slab_id = item.m_cap_item.m_slab_id;
+            if (item.m_final_remaining_capacity != item.m_cap_item.m_remaining_capacity) {
+                auto it = m_capacity_items.find_equal(item.m_cap_item);
+                assert(!it.isEnd());
+                // register under a modified key                    
+                m_capacity_items.erase(it);
+                m_capacity_items.emplace(
+                    item.m_final_remaining_capacity, item.m_final_lost_capacity, slab_id
+                );
+            }
+            // and update with the slab defs
+            auto slab_def_ptr = m_slab_defs.find_equal(slab_id);      
+            m_slab_defs.modify(slab_def_ptr)->m_remaining_capacity = item.m_final_remaining_capacity;
+            m_slab_defs.modify(slab_def_ptr)->m_lost_capacity = item.m_final_lost_capacity;
+
+            item.m_final_remaining_capacity = item.m_cap_item.m_remaining_capacity;
+            item.m_final_lost_capacity = item.m_cap_item.m_lost_capacity;
+            assert(!item.isModified());
+        }
+    }
+
+    SlabManager::CacheIterator SlabManager::unregisterSlab(CacheIterator it) const
+    {
+        auto cache_item = it->second;
+        if (!cache_item->m_slab.expired()) {
+            THROWF(db0::InternalException) 
+                << "Slab " << static_cast<std::uint32_t>(cache_item->m_cap_item.m_slab_id) << " is not closed";
+        }
+        
+        // auto &item = *cache_item;
+        // commitItem(item);
+        return m_slabs.erase(it);
+    }
+    
+    SlabManager::FindResult SlabManager::tryOpenSlab(Address address) const
+    {
+        auto it = m_slabs.find(address);
+        if (it != m_slabs.end()) {
+            auto result = it->second->m_slab.lock();
+            if (result) {
+                return { result, it->second->m_cap_item };
+            }
+            // unregister expired slab from cache
+            unregisterSlab(it);
+        }
+        
+        auto slab_id = m_slab_id_func(address);
+        // retrieve slab definition
+        auto slab_def_ptr = m_slab_defs.find_equal(slab_id);
+        if (!slab_def_ptr.first) {
+            return {};
+        }
+        
+        return openSlab(*slab_def_ptr.first);            
+    }
+
+    SlabManager::FindResult SlabManager::openSlab(Address address) const
+    {
+        auto slab = tryOpenSlab(address);
+        if (!slab) {
+            THROWF(db0::BadAddressException) << "Invalid address accessed";
+        }
+        return slab;
+    }
+
+    SlabManager::FindResult SlabManager::openSlab(const SlabDef &def) const
+    {
+        auto cap_item = CapacityItem(def.m_remaining_capacity, def.m_lost_capacity, def.m_slab_id);
+        auto addr = m_slab_address_func(def.m_slab_id);
+        auto slab = std::make_shared<SlabAllocator>(
+            m_prefix, addr, m_slab_size, m_page_size, def.m_remaining_capacity, def.m_lost_capacity
+        );
+        // add to cache (it's safe to reference item from the unordered_map)
+        auto cache_item = std::make_shared<CacheItem>(slab, cap_item);
+        m_slabs.emplace(addr, cache_item).first->second;
+        
+        // append with the recycler
+        if (m_recycler_ptr) {
+            m_recycler_ptr->append(slab);
+        }
+
+        return { slab, cap_item };
+    }
+    
+    void SlabManager::erase(const FindResult &slab, bool cleanup)
+    {
+        // erasing the last slab
+        if (slab.m_cap_item.m_slab_id != nextSlabId() - NUM_REALMS) {
+            return;
+        }
+
+        auto addr = m_slab_address_func(slab.m_cap_item.m_slab_id);
+        // unregister from cache
+        auto it = m_slabs.find(addr);
+        if (it != m_slabs.end()) {
+            m_slabs.erase(it);
+        }
+        // unregister from recycler
+        if (m_recycler_ptr) {
+            m_recycler_ptr->closeOne([&slab](const SlabAllocator &s) {
+                return slab.m_slab.get() == &s;
+            });
+        }
+        // unregister if active
+        if (m_active_slab.contains(slab)) {
+            m_active_slab.erase(slab);
+        }
+        // unregister from slab defs
+        if (!m_slab_defs.erase_equal(slab.m_cap_item.m_slab_id).first) {
+            THROWF(db0::InternalException) << "Slab definition not found.";
+        }
+        // unregister from capacity items
+        if (!m_capacity_items.erase_equal(slab.m_cap_item).first) {
+            THROWF(db0::InternalException) << "Capacity item not found.";
+        }
+        if (!m_next_slab_id) {
+            m_next_slab_id = fetchNextSlabId();
+        }
+        (*m_next_slab_id) -= NUM_REALMS;
+        // try removing other empty slabs if such exist
+        if (cleanup) {
+            while (!empty()) {
+                auto slab = openSlab(m_slab_address_func(nextSlabId() - NUM_REALMS));
+                if (!slab.m_slab->empty()) {
+                    break;
+                }
+                erase(slab, false);
+            }
+        }
+    }
+
+    std::uint32_t SlabManager::fetchNextSlabId() const
+    {
+        // determine the max slab id
+        auto it = m_slab_defs.find_max();
+        if (it.first) {
+            return it.first->m_slab_id + NUM_REALMS;
+        } else {
+            // first slab being created
+            return m_realm_id;
+        }
+    }
+
+    std::optional<Address> SlabManager::tryAlloc(std::size_t size, std::uint32_t slot_num, bool aligned,
+        bool unique, std::uint16_t &instance_id, unsigned char locality)
+    {
+        auto slab = tryGetActiveSlab(locality);
+        bool is_first = true;
+        bool is_new = false;
+        for (;;) {
+            if (slab.m_slab) {
+                for (;;) {
+                    auto addr = slab.m_slab->tryAlloc(size, 0, aligned);
+                    if (!addr) {
+                        // NOTE: since the last allocation failed, don't use this slab as "active"
+                        resetActiveSlab(locality);
+                        break;
+                    }
+                    
+                    if (!unique || slab.m_slab->tryMakeAddressUnique(*addr, instance_id)) {
+                        return addr;
+                    }
+                    
+                    // unable to make the address unique, schedule for deferred free and try again
+                    // NOTE: the allocation is lost
+                    deferredFree(*addr);
+                }
+                if (size > slab.m_slab->getMaxAllocSize()) {
+                    THROWF(db0::InternalException) 
+                        << "Requested allocation size " << size << " is larger than the slab size " << slab.m_slab->getMaxAllocSize();
+                }
+                if (is_new) {
+                    THROWF(db0::InternalException) << "Slab is new but cannot allocate " << size;
+                }
+            }
+            if (is_first) {
+                slab = findFirst(size, locality);
+                is_first = false;
+            } else {
+                slab = findNext(slab, size, locality);
+            }
+            if (!slab.m_slab) {
+                slab = addNewSlab(locality);
+                is_new = true;
+            }
+        }
+    }
+    
+    void SlabManager::free(Address address)
+    {
+        if (m_deferred_free) {
+            deferredFree(address);
+        } else {
+            _free(address);
+        }
+    }
+
+    void SlabManager::free(Address address, std::uint32_t slab_id)
+    {
+        assert(m_deferred_free_ops.find(address) == m_deferred_free_ops.end());
+        if (m_deferred_free) {
+            deferredFree(address);
+        } else {
+            _free(address, slab_id);
+        }
+    }
+
+    void SlabManager::_free(Address address) {
+        _free(address, m_slab_id_func(address));
+    }
+
+    void SlabManager::_free(Address address, std::uint32_t slab_id)
+    {
+        assert(m_slab_id_func(address) == slab_id); 
+        auto slab = find(slab_id);
+        slab.m_slab->free(address);
+        if (slab.m_slab->empty()) {
+            // erase or mark as erased
+            erase(slab);
+        }
+    }
+
+    std::size_t SlabManager::getAllocSize(Address address) const {
+        return getAllocSize(address, m_slab_id_func(address));
+    }
+    
+    std::size_t SlabManager::getAllocSize(Address address, std::uint32_t slab_id) const
+    { 
+        if (m_deferred_free_ops.find(address) != m_deferred_free_ops.end()) {
+            THROWF(db0::BadAddressException) << "Address " << address << " not found (pending deferred free)";
+        }
+
+        assert(m_slab_id_func(address) == slab_id);
+        return find(slab_id).m_slab->getAllocSize(address);
+    }
+    
+    bool SlabManager::isAllocated(Address address, std::size_t *size_of_result) const {
+        return isAllocated(address, m_slab_id_func(address), size_of_result);
+    }
+    
+    bool SlabManager::isAllocated(Address address, std::uint32_t slab_id, std::size_t *size_of_result) const
+    {
+        auto slab = tryFind(slab_id);
+        if (!slab) {
+            return false;
+        }
+        return slab.m_slab->isAllocated(address, size_of_result);
+    }
+    
+    void SlabManager::forAllSlabs(std::function<void(const SlabAllocator &, std::uint32_t)> f) const
+    {
+        auto it = m_slab_defs.cbegin();
+        for (;!it.is_end();++it) {
+            auto slab = openExistingSlab(*it);
+            f(*slab, it->m_slab_id);
+        }
+    }
+
+    void SlabManager::deferredFree(Address address)
+    {        
+        if (m_atomic) {
+            m_atomic_deferred_free_ops.push_back(address);
+        } else {
+            m_deferred_free_ops.insert(address);
+        }
+    }
+
+}
