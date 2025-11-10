@@ -7,66 +7,66 @@ on:
   workflow_dispatch:
 
 jobs:
-  wheels-windows:
-    runs-on: windows-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - python-version: "3.10"
-            python-tag: "310"
-            architecture: "AMD64"
-          - python-version: "3.11"
-            python-tag: "311"
-            architecture: "AMD64"
-          - python-version: "3.12"
-            python-tag: "312"
-            architecture: "AMD64"
-          - python-version: "3.13"
-            python-tag: "313"
-            architecture: "AMD64"
-          - python-version: "3.14"
-            python-tag: "314"
-            architecture: "AMD64"
+  # wheels-windows:
+  #   runs-on: windows-latest
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       include:
+  #         - python-version: "3.10"
+  #           python-tag: "310"
+  #           architecture: "AMD64"
+  #         - python-version: "3.11"
+  #           python-tag: "311"
+  #           architecture: "AMD64"
+  #         - python-version: "3.12"
+  #           python-tag: "312"
+  #           architecture: "AMD64"
+  #         - python-version: "3.13"
+  #           python-tag: "313"
+  #           architecture: "AMD64"
+  #         - python-version: "3.14"
+  #           python-tag: "314"
+  #           architecture: "AMD64"
             
 
 
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-      - uses: bus1/cabuild/action/msdevshell@v1
-        with:
-          architecture: x64
-        if: matrix.architecture == 'AMD64'
-      - uses: bus1/cabuild/action/msdevshell@v1
-        with:
-          architecture: x86
-        if: matrix.architecture == 'x86'
-      - name: Generate meson files
-        run: |
-          python scripts/generate_meson.py ./src/dbzero/ core
-          python scripts/generate_meson_tests.py tests/
-          python scripts/generate_meson_dbzero.py dbzero/
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Set up Python ${{ matrix.python-version }}
+  #       uses: actions/setup-python@v5
+  #       with:
+  #         python-version: ${{ matrix.python-version }}
+  #     - uses: bus1/cabuild/action/msdevshell@v1
+  #       with:
+  #         architecture: x64
+  #       if: matrix.architecture == 'AMD64'
+  #     - uses: bus1/cabuild/action/msdevshell@v1
+  #       with:
+  #         architecture: x86
+  #       if: matrix.architecture == 'x86'
+  #     - name: Generate meson files
+  #       run: |
+  #         python scripts/generate_meson.py ./src/dbzero/ core
+  #         python scripts/generate_meson_tests.py tests/
+  #         python scripts/generate_meson_dbzero.py dbzero/
       
-      - name: Configure git
-        run: |
-          git config --global user.email "ci@example.com"
-          git config --global user.name "CI Builder"
-          rm  .gitignore
-          git add . && git commit -m "Update meson files for build"  
+  #     - name: Configure git
+  #       run: |
+  #         git config --global user.email "ci@example.com"
+  #         git config --global user.name "CI Builder"
+  #         rm  .gitignore
+  #         git add . && git commit -m "Update meson files for build"  
       
-      - run: pip3 install pipx
-      - run: pipx run cibuildwheel
-        env:
-          CIBW_BUILD: cp${{ matrix.python-tag }}-*
-          CIBW_ARCHS_WINDOWS: ${{ matrix.architecture }}
-      - uses: actions/upload-artifact@v4
-        with:
-          name: wheels-windows-${{ matrix.python-version }}
-          path: wheelhouse/*.whl
+  #     - run: pip3 install pipx
+  #     - run: pipx run cibuildwheel
+  #       env:
+  #         CIBW_BUILD: cp${{ matrix.python-tag }}-*
+  #         CIBW_ARCHS_WINDOWS: ${{ matrix.architecture }}
+  #     - uses: actions/upload-artifact@v4
+  #       with:
+  #         name: wheels-windows-${{ matrix.python-version }}
+  #         path: wheelhouse/*.whl
 
   wheels-linux:
     runs-on: ubuntu-latest
@@ -101,48 +101,48 @@ jobs:
           name: wheels-linux-${{ matrix.python-version }}
           path: dist/*.whl
 
-  test-wheels-windows:
-    runs-on: windows-latest
-    needs: wheels-windows
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - python-version: "3.10"
-            python-tag: "310"
-            architecture: "AMD64"
-          - python-version: "3.11"
-            python-tag: "311"
-            architecture: "AMD64"
-          - python-version: "3.12"
-            python-tag: "312"
-            architecture: "AMD64"
-          - python-version: "3.13"
-            python-tag: "313"
-            architecture: "AMD64"
-          - python-version: "3.14"
-            python-tag: "314"
-            architecture: "AMD64"
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-      - name: Download wheel artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: wheels-windows-${{ matrix.python-version }}
-          path: ./wheels/
-      - name: Install wheel and dependencies
-        run: |
-          pip install pytest
-          pip install -r requirements.txt
-          Get-ChildItem -Path "./wheels/*.whl" | ForEach-Object { pip install $_.FullName }
-        shell: powershell
-      - name: Run tests
-        run: |
-          python -m pytest -m 'not integration_test' -m 'not stress_test' -c pytest.ini --capture=no -vv
+  # test-wheels-windows:
+  #   runs-on: windows-latest
+  #   needs: wheels-windows
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       include:
+  #         - python-version: "3.10"
+  #           python-tag: "310"
+  #           architecture: "AMD64"
+  #         - python-version: "3.11"
+  #           python-tag: "311"
+  #           architecture: "AMD64"
+  #         - python-version: "3.12"
+  #           python-tag: "312"
+  #           architecture: "AMD64"
+  #         - python-version: "3.13"
+  #           python-tag: "313"
+  #           architecture: "AMD64"
+  #         - python-version: "3.14"
+  #           python-tag: "314"
+  #           architecture: "AMD64"
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Set up Python ${{ matrix.python-version }}
+  #       uses: actions/setup-python@v5
+  #       with:
+  #         python-version: ${{ matrix.python-version }}
+  #     - name: Download wheel artifact
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: wheels-windows-${{ matrix.python-version }}
+  #         path: ./wheels/
+  #     - name: Install wheel and dependencies
+  #       run: |
+  #         pip install pytest
+  #         pip install -r requirements.txt
+  #         Get-ChildItem -Path "./wheels/*.whl" | ForEach-Object { pip install $_.FullName }
+  #       shell: powershell
+  #     - name: Run tests
+  #       run: |
+  #         python -m pytest -m 'not integration_test' -m 'not stress_test' -c pytest.ini --capture=no -vv
 
   test-wheels-linux:
     runs-on: ubuntu-latest
@@ -198,7 +198,7 @@ jobs:
   deploy-to-pypi:
     name: Deploy to PyPI (Manual)
     runs-on: ubuntu-latest
-    needs: [sdist, test-wheels-windows]
+    needs: [sdist, test-wheels-linux]
     if: github.event_name == 'workflow_dispatch'
     environment: pypi-deployment
     permissions:
@@ -222,7 +222,7 @@ jobs:
         with:
           repository-url: https://pypi.dbzero.io/
           user: admin
-          password: ${{ secrets.PYPI_API_TOKEN }}
+          password: ${{ secrets.PYPI_API_PASSWORD }}
           packages-dir: ./upload/
           verbose: true
           skip-existing: true
