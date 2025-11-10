@@ -1,7 +1,6 @@
 #include "MetaAllocator.hpp"
 #include "OneShotAllocator.hpp"
 #include "Memspace.hpp"
-#include "SlabRecycler.hpp"
 #include "SlabManager.hpp"
 #include <unordered_map>
 #include <dbzero/core/vspace/v_object.hpp>
@@ -11,7 +10,7 @@ namespace db0
 {
 
     static constexpr double MIN_FILL_RATE = 0.25;
-        
+    
     inline unsigned char getRealmID(std::uint32_t slab_id) {
         return slab_id & MetaAllocator::REALM_MASK;
     }
@@ -22,8 +21,8 @@ namespace db0
         std::size_t max_slab_count = (std::numeric_limits<std::uint32_t>::max() - MP * page_size) / slab_size - 1;
         // estimate the number of slabs for which the definitions can be stored on a single page
         // this is a very conservative estimate
-        std::size_t slab_count_1 = (std::size_t)(MIN_FILL_RATE * (double)page_size / (double)sizeof(MetaAllocator::SlabDef));
-        std::size_t slab_count_2 = (std::size_t)(MIN_FILL_RATE * (double)page_size / (double)sizeof(MetaAllocator::CapacityItem)) - (2 * MP);
+        std::size_t slab_count_1 = (std::size_t)(MIN_FILL_RATE * (double)page_size / (double)sizeof(SlabDef));
+        std::size_t slab_count_2 = (std::size_t)(MIN_FILL_RATE * (double)page_size / (double)sizeof(CapacityItem)) - (2 * MP);
         return std::min(max_slab_count, std::min(slab_count_1, slab_count_2));
     }
 
@@ -49,8 +48,8 @@ namespace db0
     }
 
     // Construct the reverse address pool function
-    std::function<unsigned int(Address)> MetaAllocator::getReverseAddressPool(std::size_t offset, std::size_t page_size, 
-        std::size_t slab_size) 
+    std::function<unsigned int(Address)> MetaAllocator::getReverseAddressPool(std::size_t offset, 
+        std::size_t page_size, std::size_t slab_size)
     {
         auto slab_count = getSlabCount(page_size, slab_size);
         // make offset page-aligned
@@ -102,7 +101,7 @@ namespace db0
         , m_slab_size(slab_size)
     {
     }
-        
+    
     std::uint64_t MetaAllocator::Realm::getSlabMaxAddress() const
     {
         // take max of the 2 collections
@@ -253,9 +252,6 @@ namespace db0
     
     bool MetaAllocator::isAllocated(Address address, std::size_t *size_of_result) const
     {                
-        if (m_deferred_free_ops.find(address) != m_deferred_free_ops.end()) {
-            return false;
-        }
         auto slab_id = m_slab_id_function(address);
         auto realm_id = getRealmID(slab_id);
         return m_realms[realm_id].isAllocated(address, slab_id, size_of_result);
@@ -266,9 +262,6 @@ namespace db0
         auto slab_id = m_slab_id_function(address);
         if (realm_id != getRealmID(slab_id)) {
             THROWF(db0::BadAddressException) << "Invalid address accessed";
-        }
-        if (m_deferred_free_ops.find(address) != m_deferred_free_ops.end()) {
-            return false;
         }
         return m_realms[realm_id].isAllocated(address, slab_id, size_of_result);
     }
@@ -363,20 +356,9 @@ namespace db0
     void MetaAllocator::flush() const
     {
         assert(!m_atomic);
-        assert(m_atomic_deferred_free_ops.empty());
-        // perform the deferred free operations
-        if (!m_deferred_free_ops.empty()) {
-            for (auto addr : m_deferred_free_ops) {
-                const_cast<MetaAllocator&>(*this)._free(addr);
-            }
-            m_deferred_free_ops.clear();
-        }
+        m_realms.flush();
     }
     
-    std::size_t MetaAllocator::getDeferredFreeCount() const {
-        return m_deferred_free_ops.size();
-    }
-
     void MetaAllocator::beginAtomic()
     {        
         assert(!m_atomic);
@@ -388,13 +370,6 @@ namespace db0
     {        
         assert(m_atomic);
         m_atomic = false;
-        // merge atomic deferred free operations
-        if (!m_atomic_deferred_free_ops.empty()) {
-            for (auto addr : m_atomic_deferred_free_ops) {
-                m_deferred_free_ops.insert(addr);
-            }
-            m_atomic_deferred_free_ops.clear();
-        }
         m_realms.endAtomic();
     }
     
@@ -402,8 +377,6 @@ namespace db0
     {
         assert(m_atomic);
         m_atomic = false;
-        // rollback atomic deferred free operations
-        m_atomic_deferred_free_ops.clear(); 
         m_realms.cancelAtomic();
     }
     
@@ -492,21 +465,6 @@ namespace db0
     
     std::uint32_t MetaAllocator::getSlabId(Address address) const {
         return m_slab_id_function(address);
-    }
-
-}
-
-namespace std 
-
-{
-    ostream &operator<<(ostream &os, const db0::MetaAllocator::CapacityItem &item) {
-        os << "CapacityItem(capacity=" << item.m_remaining_capacity << ", slab=" << item.m_slab_id << ")";
-        return os;
-    }
-
-    ostream &operator<<(ostream &os, const db0::MetaAllocator::SlabDef &def) {
-        os << "SlabDef(slab=" << def.m_slab_id << ", capacity=" << def.m_remaining_capacity << ")";
-        return os;
     }
 
 }

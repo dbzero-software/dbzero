@@ -67,6 +67,9 @@ namespace db0
         // we need to only perform them from a well researched contexts
         friend class PrefixCache;
         
+        void insert(std::unique_lock<std::shared_mutex> &, StateNumType state_num, 
+            std::shared_ptr<ResourceLockT>);
+        
         // Erase lock stored under a known state number
         void erase(StateNumType state_num, std::shared_ptr<ResourceLockT> lock);
         void erase(StateNumType state_num, std::uint64_t page_num);
@@ -102,16 +105,23 @@ namespace db0
     template <typename ResourceLockT>
     void PageMap<ResourceLockT>::insert(StateNumType state_num, std::shared_ptr<ResourceLockT> res_lock)
     {
-        std::unique_lock<std::shared_mutex> lock(m_rw_mutex);
+        std::unique_lock<std::shared_mutex> _lock(m_rw_mutex);
         m_cache[{res_lock->getAddress() >> m_shift, state_num}] = res_lock;
     }
     
     template <typename ResourceLockT>
-    void PageMap<ResourceLockT>::insert(StateNumType state_num, std::shared_ptr<ResourceLockT> lock,
+    void PageMap<ResourceLockT>::insert(std::unique_lock<std::shared_mutex> &, StateNumType state_num, 
+        std::shared_ptr<ResourceLockT> res_lock)
+    {
+        m_cache[{res_lock->getAddress() >> m_shift, state_num}] = res_lock;
+    }
+
+    template <typename ResourceLockT>
+    void PageMap<ResourceLockT>::insert(StateNumType state_num, std::shared_ptr<ResourceLockT> res_lock,
         std::uint64_t page_num)
     {
         std::unique_lock<std::shared_mutex> _lock(m_rw_mutex);
-        m_cache[{page_num, state_num}] = lock;
+        m_cache[{page_num, state_num}] = res_lock;
     }
 
     template <typename ResourceLockT>
@@ -217,13 +227,13 @@ namespace db0
     
     template <typename ResourceLockT>
     std::shared_ptr<ResourceLockT> PageMap<ResourceLockT>::replace(
-        StateNumType state_num, std::shared_ptr<ResourceLockT> lock, std::uint64_t page_num)
+        StateNumType state_num, std::shared_ptr<ResourceLockT> res_lock, std::uint64_t page_num)
     {
         std::unique_lock<std::shared_mutex> _lock(m_rw_mutex);
         // find exact match of the page / state
         auto it = m_cache.find({page_num, state_num});
         if (it == m_cache.end()) {
-            insert(state_num, lock);
+            insert(_lock, state_num, res_lock);
             return {};
         }
         auto existing_lock = it->second.lock();
@@ -232,13 +242,13 @@ namespace db0
             // this is fine because we're inserting under updated more recent state
             assert(state_num >= it->first.second);
             m_cache.erase(it);
-            insert(state_num, lock);
+            insert(_lock, state_num, res_lock);
             return {};
         }
         
-        assert(existing_lock->size() == lock->size());
+        assert(existing_lock->size() == res_lock->size());
         // apply changes from the lock being merged (discarding changes in this lock)
-        existing_lock->moveFrom(*lock);
+        existing_lock->moveFrom(*res_lock);
         return existing_lock;
     }
     

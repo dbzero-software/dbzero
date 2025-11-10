@@ -23,6 +23,36 @@ namespace db0
     {
     }
     
+    bool SlabManager::ActiveSlab::contains(std::uint32_t slab_id) const {
+        return ((*this)[0] == slab_id || (*this)[1] == slab_id);
+    }
+
+    bool SlabManager::ActiveSlab::contains(const FindResult &slab) const {
+        return ((*this)[0] == slab || (*this)[1] == slab);
+    }
+    
+    SlabManager::FindResult SlabManager::ActiveSlab::find(std::uint32_t slab_id) const
+    {
+        if ((*this)[0] == slab_id) {
+            return (*this)[0];
+        } else if ((*this)[1] == slab_id) {
+            return (*this)[1];
+        }
+        return {};
+    }
+
+    void SlabManager::ActiveSlab::erase(const FindResult &slab)
+    {
+        if ((*this)[0] == slab) {
+            (*this)[0] = {};
+        } else if ((*this)[1] == slab) {
+            (*this)[1] = {};
+        } else {
+            assert(false);
+            THROWF(db0::InternalException) << "Slab not found in active slabs." << THROWF_END;
+        }
+    }
+
     SlabManager::FindResult SlabManager::tryGetActiveSlab(unsigned char locality) {
         assert(locality < m_active_slab.size());
         return m_active_slab[locality];
@@ -212,7 +242,7 @@ namespace db0
         m_capacity_items.insert(cap_item);
         return slab;
     }
-        
+    
     std::shared_ptr<SlabAllocator> SlabManager::openExistingSlab(const SlabDef &slab_def)
     {
         if (slab_def.m_slab_id >= nextSlabId()) {
@@ -304,6 +334,14 @@ namespace db0
     void SlabManager::endAtomic()
     {            
         assert(m_atomic);
+        // merge atomic deferred free operations
+        if (!m_atomic_deferred_free_ops.empty()) {
+            for (auto addr : m_atomic_deferred_free_ops) {
+                m_deferred_free_ops.insert(addr);
+            }
+            m_atomic_deferred_free_ops.clear();
+        }
+
         m_volatile_slabs.clear();
         m_atomic = false;         
     }
@@ -311,6 +349,9 @@ namespace db0
     void SlabManager::cancelAtomic()
     {
         assert(m_atomic);
+        // rollback atomic deferred free operations
+        m_atomic_deferred_free_ops.clear(); 
+
         // revert all volatile slabs from cache
         for (auto slab_addr : m_volatile_slabs) {
             auto it = m_slabs.find(slab_addr);
@@ -569,6 +610,10 @@ namespace db0
     
     bool SlabManager::isAllocated(Address address, std::uint32_t slab_id, std::size_t *size_of_result) const
     {
+        if (m_deferred_free_ops.find(address) != m_deferred_free_ops.end()) {
+            return false;
+        }
+
         auto slab = tryFind(slab_id);
         if (!slab) {
             return false;
@@ -580,11 +625,11 @@ namespace db0
     {
         auto it = m_slab_defs.cbegin();
         for (;!it.is_end();++it) {
-            auto slab = openExistingSlab(*it);
+            auto slab = const_cast<SlabManager&>(*this).openExistingSlab(*it);
             f(*slab, it->m_slab_id);
         }
     }
-
+    
     void SlabManager::deferredFree(Address address)
     {        
         if (m_atomic) {
@@ -592,6 +637,23 @@ namespace db0
         } else {
             m_deferred_free_ops.insert(address);
         }
+    }
+
+    void SlabManager::flush() const
+    {
+        assert(!m_atomic);
+        assert(m_atomic_deferred_free_ops.empty());
+        // perform the deferred free operations
+        if (!m_deferred_free_ops.empty()) {
+            for (auto addr : m_deferred_free_ops) {
+                const_cast<SlabManager&>(*this)._free(addr);
+            }
+            m_deferred_free_ops.clear();
+        }
+    }
+    
+    std::size_t SlabManager::getDeferredFreeCount() const {
+        return m_deferred_free_ops.size();
     }
 
 }
