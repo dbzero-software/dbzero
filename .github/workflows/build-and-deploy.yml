@@ -220,7 +220,7 @@ jobs:
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          repository-url: https://pypi.dbzero.io/
+          repository-url: https://nexus.dbzero.io/repository/dbzero_hosted/
           user: admin
           password: ${{ secrets.PYPI_API_PASSWORD }}
           packages-dir: ./upload/
