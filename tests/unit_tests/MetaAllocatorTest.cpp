@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 #include <dbzero/core/memory/MetaAllocator.hpp>
-#include <dbzero/core/memory/SlabRecycler.hpp>
+#include <dbzero/core/memory/Recycler.hpp>
 #include <dbzero/core/memory/CacheRecycler.hpp>
 #include <dbzero/core/memory/PrefixImpl.hpp>
 #include <dbzero/core/memory/CacheRecycler.hpp>
@@ -14,7 +14,8 @@ namespace tests
 {
 
     using namespace db0;
-
+    using SlabRecycler = db0::Recycler<db0::SlabItem>;
+    
     // a proxy class to expose protected members for testing
     class MetaAllocatorProxy: public MetaAllocator
     {

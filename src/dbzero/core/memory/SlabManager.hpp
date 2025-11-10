@@ -30,11 +30,11 @@ namespace db0
     {
     public:
         static constexpr std::size_t NUM_REALMS = MetaAllocator::NUM_REALMS;
-        using CapacityItem = MetaAllocator::CapacityItem;
-        using SlabDef = MetaAllocator::SlabDef;
+        using SlabTreeT = MetaAllocator::SlabTreeT;
+        using CapacityTreeT = MetaAllocator::CapacityTreeT;
         
-        SlabManager(std::shared_ptr<Prefix> prefix, MetaAllocator::SlabTreeT &slab_defs,
-            MetaAllocator::CapacityTreeT &capacity_items, SlabRecycler *recycler, std::uint32_t slab_size, std::uint32_t page_size,
+        SlabManager(std::shared_ptr<Prefix> prefix, SlabTreeT &slab_defs,
+            CapacityTreeT &capacity_items, SlabRecycler *recycler, std::uint32_t slab_size, std::uint32_t page_size,
             std::function<Address(unsigned int)> address_func, std::function<std::uint32_t(Address)> slab_id_func, 
             unsigned char realm_id, bool deferred_free);
         
@@ -91,13 +91,13 @@ namespace db0
         struct ActiveSlab: public std::array<std::shared_ptr<SlabItem>, 2>
         {
             bool contains(std::uint32_t slab_id) const;
-            bool contains(const SlabItem &slab) const;
+            bool contains(std::shared_ptr<SlabItem>) const;
             
             std::shared_ptr<SlabItem> find(std::uint32_t slab_id) const;
 
-            void erase(const SlabItem &slab);
+            void erase(std::shared_ptr<SlabItem>);
         };
-
+        
         /**
          * Retrieves the active slab or returns nullptr if no active slab available
         */
@@ -135,12 +135,10 @@ namespace db0
         
         std::uint32_t nextSlabId() const;
         
-        using CacheIterator = std::unordered_map<std::uint64_t, std::weak_ptr<SlabItem> >::iterator;
-
         std::shared_ptr<Prefix> m_prefix;
         const unsigned char m_realm_id;
-        MetaAllocator::SlabTreeT &m_slab_defs;
-        MetaAllocator::CapacityTreeT &m_capacity_items;
+        SlabTreeT &m_slab_defs;
+        CapacityTreeT &m_capacity_items;
         SlabRecycler *m_recycler_ptr = nullptr;
         const std::uint32_t m_slab_size;
         const std::uint32_t m_page_size;
@@ -161,15 +159,14 @@ namespace db0
         const bool m_deferred_free;
         mutable std::unordered_set<Address> m_deferred_free_ops;
         // the list of modified slabs (need backend refresh)
-        std::vector<std::shared_ptr<SlabItem> > m_dirty_slabs;
+        mutable std::vector<std::shared_ptr<SlabItem> > m_dirty_slabs;
         
-        // Update item changes in the backend (if modified)
-        void saveItem(CacheItem &item) const;
-
-        CacheIterator unregisterSlab(CacheIterator it) const;
+        // Reflect item changes with the backend (if modified)
+        void saveItem(SlabItem &item) const;
+        // Save all dirty slabs to the backend
+        void saveDirtySlabs() const;
         
         std::shared_ptr<SlabItem> tryOpenSlab(Address address) const;
-
         std::shared_ptr<SlabItem> openSlab(Address address) const;
         
         // open slab by definition and add to cache

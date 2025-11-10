@@ -54,7 +54,7 @@ namespace db0
     
     template <typename T>
     std::size_t Recycler<T>::size() const {
-        return m_slabs.size();
+        return m_queue.size();
     }
 
     template <typename T>
@@ -81,7 +81,7 @@ namespace db0
     void Recycler<T>::closeOne(std::function<bool(const T &)> predicate) {
         close(predicate, true);
     }
-
+    
     template <typename T>
     void Recycler<T>::clear() {
         m_queue.clear();

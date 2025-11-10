@@ -141,19 +141,26 @@ DB0_PACKED_END
         std::shared_ptr<SlabAllocator> m_slab;
         // the capacity item as last retrieved from the backend (may need update)
         CapacityItem m_cap_item;
+        bool m_is_dirty = false;
         
         SlabItem(std::shared_ptr<SlabAllocator> slab, CapacityItem cap);
+        ~SlabItem();
         
         void commit() const;
         void detach() const;
-
+        
         bool operator==(std::uint32_t slab_id) const {
-            assert(m_slab)
+            assert(m_slab);
             return m_cap_item.m_slab_id == slab_id;
         }
 
         bool operator==(const SlabItem &rhs) const {            
             return *this == rhs.m_cap_item.m_slab_id;
+        }
+
+        SlabAllocator &operator*() {
+            assert(m_slab);
+            return *m_slab;
         }
 
         const SlabAllocator &operator*() const {
@@ -162,6 +169,11 @@ DB0_PACKED_END
         }
 
         const SlabAllocator *operator->() const {
+            assert(m_slab);
+            return m_slab.get();
+        }
+
+        SlabAllocator *operator->(){
             assert(m_slab);
             return m_slab.get();
         }

@@ -117,7 +117,7 @@ namespace db0
         }
         return max_addr;
     }
-
+    
     MetaAllocator::MetaAllocator(std::shared_ptr<Prefix> prefix, SlabRecycler *recycler, bool deferred_free)
         : m_prefix(prefix)
         , m_header(getMetaHeader(prefix))
@@ -281,16 +281,12 @@ namespace db0
         return m_realms[realm_id].getRemainingCapacity(slab_id);
     }
 
-    void MetaAllocator::Realm::close() {
-        m_slab_manager->close();
-    }
-
     void MetaAllocator::close()
     {
         if (m_recycler_ptr) {
             // unregister all owned (i.e. associated with the same prefix) slabs from the recycler
-            m_recycler_ptr->close([this](const SlabAllocator &slab) {
-                return &slab.getPrefix() == m_prefix.get();
+            m_recycler_ptr->close([this](const SlabItem &slab) {
+                return &slab->getPrefix() == m_prefix.get();
             });
         }
         m_realms.close();
@@ -344,11 +340,7 @@ namespace db0
     SlabRecycler *MetaAllocator::getSlabRecyclerPtr() const {
         return m_recycler_ptr;
     }
-    
-    void MetaAllocator::Realm::forAllSlabs(std::function<void(const SlabAllocator &, std::uint32_t)> f) const {
-        m_slab_manager->forAllSlabs(f);
-    }
-    
+        
     void MetaAllocator::forAllSlabs(std::function<void(const SlabAllocator &, std::uint32_t)> f) const {
         m_realms.forAllSlabs(f);        
     }
@@ -396,7 +388,7 @@ namespace db0
     void MetaAllocator::RealmsVector::forAllSlabs(std::function<void(const SlabAllocator &, std::uint32_t)> f) const
     {
         for (const auto &realm: *this) {
-            realm.forAllSlabs(f);
+            realm->forAllSlabs(f);
         }
     }
     
@@ -417,28 +409,28 @@ namespace db0
     void MetaAllocator::RealmsVector::beginAtomic()
     {
         for (auto &realm: *this) {
-            realm.beginAtomic();
+            realm->beginAtomic();
         }
     }
 
     void MetaAllocator::RealmsVector::endAtomic()
     {
         for (auto &realm: *this) {
-            realm.endAtomic();
+            realm->endAtomic();
         }
     }
 
     void MetaAllocator::RealmsVector::cancelAtomic()
     {
         for (auto &realm: *this) {
-            realm.cancelAtomic();
+            realm->cancelAtomic();
         }
     }
 
     void MetaAllocator::RealmsVector::close()
     {
         for (auto &realm: *this) {
-            realm.close();
+            realm->close();
         }
     }
 
@@ -446,25 +438,33 @@ namespace db0
     {        
         std::uint64_t max_addr = 0;
         for (const auto &realm : *this) {
-            max_addr = std::max(max_addr, realm.getSlabMaxAddress());            
+            max_addr = std::max(max_addr, realm.getSlabMaxAddress());
         }
         return max_addr;
     }
 
-    void MetaAllocator::Realm::beginAtomic() {
-        m_slab_manager->beginAtomic();
+    void MetaAllocator::RealmsVector::flush() const
+    {
+        for (const auto &realm : *this) {
+            realm->flush();
+        }    
     }
 
-    void MetaAllocator::Realm::endAtomic() {
-        m_slab_manager->endAtomic();
-    }
-
-    void MetaAllocator::Realm::cancelAtomic() {
-        m_slab_manager->cancelAtomic();
+    std::size_t MetaAllocator::RealmsVector::getDeferredFreeCount() const
+    {
+        std::size_t result = 0;
+        for (const auto &realm : *this) {
+            result += realm->getDeferredFreeCount();
+        }
+        return result;
     }
     
     std::uint32_t MetaAllocator::getSlabId(Address address) const {
         return m_slab_id_function(address);
+    }
+    
+    std::size_t MetaAllocator::getDeferredFreeCount() const {
+        return m_realms.getDeferredFreeCount();
     }
 
 }

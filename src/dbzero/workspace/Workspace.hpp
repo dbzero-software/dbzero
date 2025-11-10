@@ -10,7 +10,8 @@
 #include <dbzero/core/memory/Memspace.hpp>
 #include <dbzero/core/memory/CacheRecycler.hpp>
 #include <dbzero/core/memory/swine_ptr.hpp>
-#include <dbzero/core/memory/SlabRecycler.hpp>
+#include <dbzero/core/memory/SlabItem.hpp>
+#include <dbzero/core/memory/Recycler.hpp>
 #include <dbzero/core/memory/SlabAllocatorConfig.hpp>
 #include <dbzero/core/memory/PrefixImpl.hpp>
 #include <dbzero/core/memory/VObjectCache.hpp>
@@ -33,7 +34,8 @@ namespace db0
     class LangCache;
     class Config;
     class WorkspaceView;
-
+    using SlabRecycler = Recycler<SlabItem>;
+    
     class BaseWorkspace
     {
     public:

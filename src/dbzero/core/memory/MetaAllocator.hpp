@@ -166,19 +166,19 @@ DB0_PACKED_END
 
             Realm(Memspace &, std::shared_ptr<Prefix>, SlabRecycler *, o_realm, std::uint32_t slab_size,
                 std::uint32_t page_size, unsigned char realm_id, bool deferred_free);
-            
-            // get the max address from all underlying slabs
+
             std::uint64_t getSlabMaxAddress() const;
-            void close();
+
             void commit() const;
             void detach() const;
-            
-            void beginAtomic();
-            void endAtomic();
-            void cancelAtomic();
 
-            void forAllSlabs(std::function<void(const SlabAllocator &, std::uint32_t)>) const;
-            void flush() const;
+            SlabManager *operator->() {
+                return m_slab_manager.get();
+            }
+
+            const SlabManager *operator->() const {
+                return m_slab_manager.get();
+            }            
         };
         
         struct RealmsVector: protected std::vector<Realm>
@@ -188,7 +188,6 @@ DB0_PACKED_END
             
             // evaluate the max address from all realms
             std::uint64_t getSlabMaxAddress() const;
-
             std::size_t getDeferredFreeCount() const;
 
             inline SlabManager &operator[](unsigned char realm_id) {

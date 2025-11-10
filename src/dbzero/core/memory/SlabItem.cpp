@@ -10,6 +10,10 @@ namespace db0
     {
     }
     
+    SlabItem::~SlabItem() {
+        assert(!m_is_dirty && "SlabItem destroyed while still dirty");
+    }
+    
     void SlabItem::commit() const
     {                        
         assert(m_slab);
