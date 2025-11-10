@@ -220,9 +220,9 @@ jobs:
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          repository-url: http://ec2-35-178-225-110.eu-west-2.compute.amazonaws.com:8081/repository/dbzero/
+          repository-url: https://pypi.dbzero.io/
           user: admin
-          password: P@ssword123
+          password: ${{ secrets.PYPI_API_TOKEN }}
           packages-dir: ./upload/
           verbose: true
           skip-existing: true
