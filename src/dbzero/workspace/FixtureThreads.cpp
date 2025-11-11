@@ -178,14 +178,14 @@ namespace db0
     /**
      * Acquires locks for safe execution and handles post-commit callbacks
      */
-    class AutoCommitContext : public FixtureThreadCallbacksContext
+    class AutoSaveContext : public FixtureThreadCallbacksContext
     {
         std::unique_lock<std::mutex> m_commit_lock;
         std::unique_lock<std::shared_mutex> m_locked_context_lock;
         std::unique_lock<std::mutex> m_atomic_lock;
 
     public:
-        AutoCommitContext(
+        AutoSaveContext(
             std::unique_lock<std::mutex> &&commit_lock,
             std::unique_lock<std::shared_mutex> &&locked_context_lock, 
             std::unique_lock<std::mutex> &&atomic_lock)
@@ -234,13 +234,13 @@ namespace db0
 
     std::shared_ptr<FixtureThreadContextBase> AutoCommitThread::prepareContext()
     {
-        assert(!m_tmp_context.lock() && "Only one AutoCommitContext should exist at the time!");
+        assert(!m_tmp_context.lock() && "Only one AutoSaveContext should exist at the time!");
         auto commit_lock = std::unique_lock<std::mutex>(m_commit_mutex);
         // must acquire unique lock-context's lock
         auto locked_context_lock = db0::LockedContext::lockUnique();
         // and the atomic lock next (order is relevant here !!)
         auto atomic_lock = db0::AtomicContext::lock();
-        auto context = std::make_shared<AutoCommitContext>(std::move(commit_lock),
+        auto context = std::make_shared<AutoSaveContext>(std::move(commit_lock),
             std::move(locked_context_lock), std::move(atomic_lock)
         );
         // To collect callbacks from fixtures as we proceed with commiting

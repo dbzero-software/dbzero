@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 #include <dbzero/core/memory/MetaAllocator.hpp>
-#include <dbzero/core/memory/SlabRecycler.hpp>
+#include <dbzero/core/memory/Recycler.hpp>
 #include <dbzero/core/memory/CacheRecycler.hpp>
 #include <dbzero/core/memory/PrefixImpl.hpp>
 #include <dbzero/core/memory/CacheRecycler.hpp>
@@ -14,7 +14,8 @@ namespace tests
 {
 
     using namespace db0;
-
+    using SlabRecycler = db0::Recycler<db0::SlabItem>;
+    
     // a proxy class to expose protected members for testing
     class MetaAllocatorProxy: public MetaAllocator
     {
@@ -58,9 +59,9 @@ namespace tests
     protected:
         // in bytes
         static constexpr std::size_t PAGE_SIZE = 4096;
-        static constexpr std::size_t SLAB_SIZE = 4 * 1024 * 1024;
+        static constexpr std::size_t SLAB_SIZE = 4u << 20;
         static constexpr std::size_t SMALL_SLAB_SIZE = 64 * 4096;
-
+        
         std::atomic<std::size_t> m_dirty_meter = 0;
         CacheRecycler m_recycler;
         std::shared_ptr<Prefix> m_prefix;
@@ -156,7 +157,7 @@ namespace tests
         auto ptr = cut.alloc(100);
         // the allocation should be in the same slab
         ASSERT_EQ(cut.getSlabId(ptr), 0);
-    }  
+    }
     
     TEST_F( MetaAllocatorTests , testMetaAllocatorCanAllocateFromMultipleExistingSlabs )
     {

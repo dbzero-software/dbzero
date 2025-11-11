@@ -211,6 +211,7 @@ namespace db0::python
     {
         using Class = db0::object_model::Class;
         using TagIndex = db0::object_model::TagIndex;
+        using ExtT = typename MemoImplT::ExtT;
 
         PY_API_FUNC
         // the instance may already exist (e.g. if this is a singleton)        
@@ -230,7 +231,8 @@ namespace db0::python
                     auto type = self->ext().getClassPtr();
                     if (type->isExistingSingleton(fixture_uuid)) {
                         // drop existing instance
-                        self->ext().destroy();
+                        // NOTE: may use ext() because destroy does not mutate the instance itself
+                        const_cast<ExtT&>(self->ext()).destroy();
                         // unload singleton from a different fixture
                         if (!type->unloadSingleton(&self->modifyExt(), fixture_uuid)) {
                             PyErr_SetString(PyExc_RuntimeError, "Unloading singleton failed");

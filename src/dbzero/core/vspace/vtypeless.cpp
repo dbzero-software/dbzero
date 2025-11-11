@@ -1,4 +1,4 @@
-#include <dbzero/core/vspace/v_ptr.hpp>
+#include "vtypeless.hpp"
 
 namespace db0
 
@@ -88,12 +88,12 @@ namespace db0
     unsigned int vtypeless::use_count() const {
         return m_mem_lock.use_count();
     }
-
+    
     bool vtypeless::isAttached() const {
         return m_mem_lock.m_buffer != nullptr;
     }
     
-    void vtypeless::detach()
+    void vtypeless::detach() const
     {
         // detaching clears the reasource available for read flag
         while (ResourceDetachMutexT::__ref(m_resource_flags).get()) {
@@ -107,11 +107,19 @@ namespace db0
         }        
     }
     
-    void vtypeless::commit()
+    void vtypeless::commit() const
     {
+        /* FIXME:
+        // NOTE: this operation assumes that only one v_object instance pointing to the same address exists
+        // otherwise modifications done to one instance will not be visible to the other instances
+        // this assumption holds true for dbzero objects but if unable to fulfill in the future,
+        // it must be changed to "this->detach()"
+
         // commit clears the reasource available for write flag
         // it might still be available for read
         atomicResetFlags(m_resource_flags, db0::RESOURCE_AVAILABLE_FOR_WRITE);
+        */
+        detach();
     }
     
 }

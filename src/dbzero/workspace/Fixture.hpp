@@ -287,7 +287,7 @@ DB0_PACKED_BEGIN
         SlotAllocator &m_slot_allocator;
         MetaAllocator &m_meta_allocator;
         const std::uint64_t m_UUID;
-        // the registry holds active v_ptr instances (important for refresh)
+        // the registry holds active v_object instances (important for refresh)
         // and cleanup of the "hanging" references
         db0::GC0 *m_gc0_ptr = nullptr;
         StringPoolT m_string_pool;

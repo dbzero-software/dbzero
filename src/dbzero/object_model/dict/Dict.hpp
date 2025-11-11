@@ -89,7 +89,7 @@ DB0_PACKED_END
 
         void unrefMembers() const;
 
-        void destroy() const;
+        void destroy();
 
         std::shared_ptr<DictIterator> getIterator(ObjectPtr lang_dict) const;
 

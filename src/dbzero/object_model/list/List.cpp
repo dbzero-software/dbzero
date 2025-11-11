@@ -183,7 +183,7 @@ namespace db0::object_model
         super_t::moveTo(fixture);
     }
     
-    void List::destroy() const
+    void List::destroy()
     {
         clearMembers();
         super_t::destroy();

@@ -613,7 +613,7 @@ namespace db0
 		/**
 		 * Destroy existing instance
 		 */
-		void destroy() const {
+		void destroy() {
 			m_interface.destroy(*m_memspace_ptr);
 		}
 

@@ -101,7 +101,7 @@ namespace db0::object_model
         // Get description of the field layout
         FieldLayout getFieldLayout() const;
         
-        void destroy() const;
+        void destroy();
         
         // execute the function for all members (until false is returned from the input lambda)
         void forAll(std::function<bool(const std::string &, const XValue &, unsigned int offset)>) const;

@@ -5,7 +5,7 @@
 namespace db0
 
 {
-
+    
     Memspace::Memspace(std::shared_ptr<Prefix> prefix, std::shared_ptr<Allocator> allocator, std::optional<std::uint64_t> uuid)
         : m_prefix(prefix)
         , m_storage_ptr(&prefix->getStorage())
@@ -52,6 +52,9 @@ namespace db0
     bool Memspace::commit(ProcessTimer *timer)
     {       
         assert(m_prefix);
+        m_maybe_need_flush.clear();
+        m_maybe_modified.clear();
+
         // prepare the allocator for the next transaction
         getAllocatorForUpdate().commit();
         auto state_num = m_prefix->getStateNum(false);
@@ -70,6 +73,8 @@ namespace db0
             timer = std::make_unique<ProcessTimer>("Memspace::close", timer_ptr);
         }
         
+        m_maybe_need_flush.clear();
+        m_maybe_modified.clear();
         m_allocator_ptr = nullptr;
         m_allocator = nullptr;
         m_prefix->close();

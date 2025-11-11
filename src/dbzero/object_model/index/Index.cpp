@@ -68,7 +68,7 @@ namespace db0::object_model
     {
         // in case of index we need to unregister first because otherwise
         // it may trigger discard of unflushed data (which has to be performed before destruction of 'builder')
-        unregister();        
+        unregister();
         
         // after unregister object might still have unflushed data, we need to flush them
         if (hasInstance() && isDirty()) {
@@ -111,7 +111,7 @@ namespace db0::object_model
                     << static_cast<std::uint16_t>(m_new_type) << THROWF_END;
         }
     }
-
+    
     void Index::Builder::flush()
     {
         if (!m_index_builder) {
@@ -198,7 +198,7 @@ namespace db0::object_model
         }    
         m_builder.flush();
     }
-
+    
     void Index::rollback() {
         m_builder.rollback();
     }
@@ -281,6 +281,11 @@ namespace db0::object_model
             m_builder.update(type_manager.getTypeId(key));
         }
 
+        // subscribe for flush operation
+        if (!isDirty()) {
+            getMemspace().collectForFlush(this);
+        }
+
         switch (m_builder.getDataType()) {
             case IndexDataType::Int64: {
                 m_builder.get<std::int64_t>().add(type_manager.extractInt64(key), value); 
@@ -316,6 +321,11 @@ namespace db0::object_model
             m_builder.update(type_manager.getTypeId(key));
         }
 
+        // subscribe for flush operation
+        if (!isDirty()) {
+            getMemspace().collectForFlush(this);
+        }
+
         switch (m_builder.getDataType()) {
             case IndexDataType::Int64: {
                 m_builder.get<std::int64_t>().remove(type_manager.extractInt64(key), value); 
@@ -335,7 +345,7 @@ namespace db0::object_model
         }
         m_mutation_log->onDirty();
     }
-
+    
     std::unique_ptr<Index::IteratorFactory> Index::range(ObjectPtr min, ObjectPtr max, bool null_first) const
     {
         assert(hasInstance());
@@ -431,6 +441,11 @@ namespace db0::object_model
     void Index::addNull(ObjectPtr obj_ptr)
     {
         assert(hasInstance());
+        // subscribe for flush operation
+        if (!isDirty()) {
+            getMemspace().collectForFlush(this);
+        }
+        
         switch (m_builder.getDataType()) {
             // use provisional data type for Auto
             case IndexDataType::Auto: {
@@ -475,7 +490,7 @@ namespace db0::object_model
         return type_manager.extractUInt64(type_manager.getTypeId(value), value);
     }
 
-    void Index::preCommit(bool revert)
+    void Index::flush(bool revert)
     {
         if (revert) {
             rollback();
@@ -484,12 +499,16 @@ namespace db0::object_model
         }        
     }
 
-    void Index::preCommitOp(void *ptr, bool revert) {
-        static_cast<Index*>(ptr)->preCommit(revert);
+    void Index::flushOp(void *ptr, bool revert) {
+        static_cast<Index*>(ptr)->flush(revert);
     }
 
     void Index::removeNull(ObjectPtr obj_ptr)
     {
+        if (!isDirty()) {
+            getMemspace().collectForFlush(this);
+        }
+
         switch (m_builder.getDataType()) {
             // use provisional data type for Auto
             case IndexDataType::Auto: {
@@ -577,7 +596,7 @@ namespace db0::object_model
         super_t::detach();
     }
     
-    void Index::destroy() const
+    void Index::destroy()
     {
         m_mutation_log = nullptr;
         // discard any pending changes

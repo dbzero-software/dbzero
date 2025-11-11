@@ -13,6 +13,8 @@ namespace db0
 {
     
     class ProcessTimer;
+    class vtypeless;
+    class GC0;
 
     /**
      * Combines application requisites, prefix related 
@@ -112,6 +114,14 @@ namespace db0
             // NOTE: m_page_shift is 0 if page size is not a power of 2
             return m_page_shift ? (address.getOffset() >> m_page_shift) : (address.getOffset() / m_page_size);
         }
+
+        void collectForFlush(db0::vtypeless *vptr) {
+            m_maybe_need_flush.push_back(vptr);
+        }
+        
+        void collectModified(db0::vtypeless *vptr) {
+            m_maybe_modified.push_back(vptr);
+        }
         
     protected:
         std::shared_ptr<Prefix> m_prefix;
@@ -124,12 +134,23 @@ namespace db0
         bool m_atomic = false;
         std::size_t m_page_size = 0;
         unsigned int m_page_shift = 0;
-                
+        // exhaustive list of instances which may need flush
+        std::vector<db0::vtypeless*> m_maybe_need_flush;
+        // exhaustive list of pointers to instances (may be expired!) modified within the current transaction
+        std::vector<db0::vtypeless*> m_maybe_modified;
+        
         inline Allocator &getAllocatorForUpdate() {
             assert(m_allocator_ptr);
             return *m_allocator_ptr;
         }
-    
+
+        const std::vector<db0::vtypeless*> &getModified() const {
+            return m_maybe_modified;
+        }
+        
+        const std::vector<db0::vtypeless*> &getForFlush() const {
+            return m_maybe_need_flush;
+        }
     };
     
 }

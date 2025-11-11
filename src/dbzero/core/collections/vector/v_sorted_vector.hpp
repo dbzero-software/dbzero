@@ -834,7 +834,7 @@ DB0_PACKED_BEGIN
             return ((*this)->m_size == 0);
         }
         
-        void destroy() const
+        void destroy()
         {
             // container destroy
             (*this)->destroy(this->getMemspace(), m_item_destroy_func);
@@ -1031,7 +1031,7 @@ DB0_PACKED_BEGIN
                 // delete VSPACE "this"
                 this->destroy();
                 // claim new identity
-                this->v_this = new_vector.get_v_ptr();
+                (*this) = new_vector;
                 return true;
             } else {
                 return false;
@@ -1057,7 +1057,7 @@ DB0_PACKED_BEGIN
                 // delete VSPACE "this"
                 this->destroy();
                 // claim new identity
-                this->v_this = new_vector.get_v_ptr();
+                (*this) = new_vector;
                 return true;
             } else {
                 return false;

@@ -4,7 +4,8 @@
 #include <unordered_map>
 #include <mutex>
 #include <optional>
-#include <dbzero/core/vspace/v_ptr.hpp>
+#include <dbzero/core/vspace/vtypeless.hpp>
+#include <dbzero/core/vspace/v_object.hpp>
 #include <dbzero/core/collections/vector/v_bvector.hpp>
 #include <dbzero/object_model/value/TypedAddress.hpp>
 #include <dbzero/object_model/value/StorageClass.hpp>
@@ -16,6 +17,7 @@ namespace db0
 {
         
     class Fixture;
+    class ProcessTimer;
         
     using TypedAddress = db0::object_model::TypedAddress;
     using StorageClass = db0::object_model::StorageClass;
@@ -26,7 +28,7 @@ namespace db0
     using GetAddress = std::pair<UniqueAddress, StorageClass> (*)(const void *);
     using StorageClass = db0::object_model::StorageClass;
     using DropByAddrFunction = void (*)(db0::swine_ptr<Fixture> &, Address);
-    using PreCommitFunction = void (*)(void *, bool revert);
+    using FlushFunction = void (*)(void *, bool revert);
     
     struct GC_Ops
     {
@@ -37,8 +39,8 @@ namespace db0
         NoArgsFunction commit = nullptr;
         GetAddress address = nullptr;
         DropByAddrFunction dropByAddr = nullptr;        
-        // null allowed, preCommit handler is called just before fixture.commit
-        PreCommitFunction preCommit = nullptr;
+        // null allowed, flush handler is called just before fixture.commit
+        FlushFunction flush = nullptr;
     };
     
     struct GCOps_ID
@@ -61,9 +63,9 @@ namespace db0
     static GCOps_ID m_gc_ops_id;
 
 #define GC0_Define(T) GCOps_ID T::m_gc_ops_id;
-
+    
     /**
-     * GC0 keeps track of all "live" v_ptr instances.
+     * GC0 keeps track of all "live" v_object instances.
      * and drops associated dbzero instances once they are no longer referenced from Python
      * GC0 has also a persistence layer to keep track of unreferenced instances as long as
      * the corresponding Python objects are still alive.
@@ -81,38 +83,19 @@ namespace db0
         // move instance from another GC0
         template <typename T> void moveFrom(GC0 &other, void *vptr);
         
-        // preCommit calls the operation on objects which implement it
-        void preCommit();
-
         /**
          * Unregister instance (i.e. when reference from Python was removed)
          * @return true if object was also dropped
          */
         bool tryRemove(void *vptr, bool is_volatile = false);
         
-        /**
-         * Detach all instances held by this registry.
-        */
+        // flush calls the operation on objects which implement it
+        void flushAllOf(const std::vector<vtypeless*> &, ProcessTimer * = nullptr);
+
+        // Detach all instances held by this registry
         void detachAll();
-        void commitAll();
-        
+
         std::size_t size() const;
-
-        struct CommitContext
-        {
-            GC0 &m_gc0;
-
-            CommitContext(GC0 &gc0);
-            ~CommitContext();
-
-            void commit();
-        };
-
-        /**
-         * Commit serializes the list of unreferenced instances to the persistence layer
-         * this is to be able to drop those instances once the corresponding references from Python expire
-        */
-        std::unique_ptr<CommitContext> beginCommit();
 
         template <typename... T> static void registerTypes();
 
@@ -125,13 +108,25 @@ namespace db0
         void beginAtomic();
         void endAtomic();
         void cancelAtomic();
+        
+        struct CommitContext
+        {
+            GC0 &m_gc0;
+
+            CommitContext(GC0 &gc0);
+            ~CommitContext();
+
+            void commitAllOf(const std::vector<vtypeless*> &, ProcessTimer * = nullptr);
+        };
+        
+        std::unique_ptr<CommitContext> beginCommit();
 
     protected:
-        friend CommitContext;
         bool m_commit_pending = false;
-
-        void commit();
-        // @return pre-commit ops-id if element was assigned it
+        
+        // Commit specific (e.g. modified) instances held by this registry
+        void commitAllOf(const std::vector<vtypeless*> &, ProcessTimer * = nullptr);        
+        // @return flush ops-id if element was assigned it
         std::optional<unsigned int> erase(void *vptr);
         
     private:
@@ -143,9 +138,9 @@ namespace db0
         const bool m_read_only;
         // type / ops_id
         std::unordered_map<void*, unsigned int> m_vptr_map;
-        // the map dedicated to instances which implement preCommit
+        // the map dedicated to instances which implement flush
         // it's assumed that it's much smaller than m_vptr_map (it duplicates some of its entries)
-        std::unordered_map<void*, unsigned int> m_pre_commit_map;
+        std::unordered_map<void*, unsigned int> m_flush_map;
         // objects irrevocably scheduled for deletion
         std::unordered_map<UniqueAddress, StorageClass> m_scheduled_for_deletion;
         // flag indicating atomic operation in progress
@@ -154,6 +149,8 @@ namespace db0
         std::vector<void*> m_volatile;
         mutable std::mutex m_mutex;
         
+        void commitAll();
+
         template <typename T> static void registerSingleType()
         {            
             T::m_gc_ops_id = GCOps_ID(m_ops.size());
@@ -171,9 +168,9 @@ namespace db0
         assert(m_ops[T::m_gc_ops_id].detach);
         assert(m_ops[T::m_gc_ops_id].address);
         m_vptr_map[vptr] = T::m_gc_ops_id;
-        // if the type implements preCommit then also add it to the preCommit map
-        if (m_ops[T::m_gc_ops_id].preCommit) {
-            m_pre_commit_map[vptr] = T::m_gc_ops_id;
+        // if the type implements flush then also add it to the flush map
+        if (m_ops[T::m_gc_ops_id].flush) {
+            m_flush_map[vptr] = T::m_gc_ops_id;
         }
         if (m_atomic) {
             m_volatile.push_back(vptr);
@@ -183,11 +180,11 @@ namespace db0
     template <typename T> void GC0::moveFrom(GC0 &other, void *vptr)
     {
         std::unique_lock<std::mutex> lock(m_mutex);
-        auto pre_commit_op = other.erase(vptr);
+        auto flush_op = other.erase(vptr);
         m_vptr_map[vptr] = T::m_gc_ops_id;
-        // also move between pre-commit maps
-        if (pre_commit_op) {
-            m_pre_commit_map[vptr] = *pre_commit_op;
+        // also move between flush maps
+        if (flush_op) {
+            m_flush_map[vptr] = *flush_op;
         }
         if (m_atomic) {
             m_volatile.push_back(vptr);

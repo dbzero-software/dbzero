@@ -121,7 +121,7 @@ DB0_PACKED_END
     {
     public:
         using super = typename node_t::tree_base_t;
-        using c_type = typename super::c_type;
+        using c_type = typename super::ContainerT;
         using comp_t = typename node_t::comp_t;
         using node_ptr_t = typename node_t::ptr_t;
         using ptr_t = typename super::ptr_t;
@@ -226,28 +226,23 @@ DB0_PACKED_END
         using const_iterator = iterator;
 
         iterator begin() {
-            // cast to node_prt_t
-            return _Tree::begin_node(node_ptr_t(this->get_v_ptr()));
+            return _Tree::begin_node(node_ptr_t(*this));
         }
 
         iterator end() {
-            // cast to node_prt_t
-            return _Tree::end_node(node_ptr_t(this->get_v_ptr()));
+            return _Tree::end_node(node_ptr_t(*this));
         }
 
-        iterator begin() const {
-            // cast to node_prt_t
-            return _Tree::begin_node(node_ptr_t(this->get_v_ptr()));
+        iterator begin() const {            
+            return _Tree::begin_node(node_ptr_t(*this));
         }
 
         iterator end() const {
-            // cast to node_prt_t
-            return _Tree::end_node(node_ptr_t(this->get_v_ptr()));
+            return _Tree::end_node(node_ptr_t(*this));
         }
 
         bool empty() const {
-            // cast to node_prt_t
-            return (_Tree::begin_node(node_ptr_t(this->get_v_ptr())) == _Tree::end_node(node_ptr_t(this->get_v_ptr())));
+            return (_Tree::begin_node(node_ptr_t(*this))) == _Tree::end_node(node_ptr_t(*this));
         }
         
         // This method allows constructing an iterator from a previously saved address
@@ -271,7 +266,8 @@ DB0_PACKED_END
          * KeyInitializer - node key initializer type
          * args - data initializers
          */
-        template <typename KeyInitializer, typename... Args> iterator insert_equal(const KeyInitializer &key, Args&&... args)
+        template <typename KeyInitializer, typename... Args>
+        iterator insert_equal(const KeyInitializer &key, Args&&... args)
         {
             std::size_t depth;
             link_data ld;
@@ -282,7 +278,7 @@ DB0_PACKED_END
             SG_Tree::link(this->head(), new_node, ld);
             SG_Tree::rebalance_after_insertion(new_node, depth, this->modify().size++, _alpha);
             this->updateMaxTreeSize();
-            return new_node.get_v_ptr();
+            return new_node;
         }
 
         /**
@@ -300,7 +296,7 @@ DB0_PACKED_END
             SG_Tree::link(this->head(), new_node, ld);
             SG_Tree::rebalance_after_insertion(new_node, depth, ++this->modify().size, _alpha);
             this->updateMaxTreeSize();
-            return new_node.get_v_ptr();
+            return new_node;
         }
 
         /**
@@ -335,7 +331,7 @@ DB0_PACKED_END
                 this->head(), new_node, commit_data, this->modify().size++, _alpha
             );
             this->updateMaxTreeSize();
-            return std::make_pair(new_node.get_v_ptr(), true);
+            return std::make_pair(new_node, true);
         }
         
         /**
@@ -436,7 +432,7 @@ DB0_PACKED_END
         /**
          * Destroy SG-Tree and all its nodes (v-objects)
          */
-        void destroy() const
+        void destroy()
         {
             // destroy SG-Tree starting from the "head" element
             destroyHeadNode(this->head());
@@ -466,16 +462,14 @@ DB0_PACKED_END
     #pragma GCC diagnostic push
     #pragma GCC diagnostic ignored "-Wstrict-aliasing"
 #endif
-        node_ptr_t &head()
-        {
+        node_ptr_t &head() {
             // cast to head
-            return (node_ptr_t&)(this->v_this);
+            return reinterpret_cast<node_ptr_t&>(*this);
         }
-
-        const node_ptr_t &head() const
-        {
+        
+        const node_ptr_t &head() const {
             // cast to head
-            return (const node_ptr_t&)(this->v_this);
+            return reinterpret_cast<const node_ptr_t&>(*this);
         }
 
 #ifdef  __linux__
@@ -562,7 +556,7 @@ DB0_PACKED_END
          * Join / use specialized comparer
          */
         template <class KeyT,class NodePtrKeyComp> bool join(join_stack &it, const KeyT &key,
-                NodePtrKeyComp key_comp, int direction) const
+            NodePtrKeyComp key_comp, int direction) const
         {
             if (direction > 0) {
                 // initialize join stack
@@ -601,11 +595,10 @@ DB0_PACKED_END
 
         /// joinBound implementation with dedicated key comparator
         template <class KeyT, typename NodePtrKeyComp> void joinBound(join_stack &it, const KeyT &key,
-                NodePtrKeyComp key_comp) const
+            NodePtrKeyComp key_comp) const
         {
             // initialize join stack
-            if (it.empty())
-            {
+            if (it.empty()) {
                 SG_Tree::beginJoinBackward(this->head(),it);
             }
             SG_Tree::joinBound(it,key, key_comp);

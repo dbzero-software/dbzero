@@ -53,31 +53,7 @@ namespace tests
         db0::v_object<db0::o_binary> i2(std::move(i1));        
         ASSERT_EQ(i2->size(), 4096);
     }
-    
-    TEST_F( VSpaceTests , testMoveConstructorForVPtr )
-    {        
-        auto memspace = getMemspace();
         
-        auto vptr_1 = db0::v_ptr<o_binary>::makeNew(memspace, o_binary::measure(4096), {});
-        o_binary::__new(reinterpret_cast<std::byte*>(&vptr_1.modify()), 4096);
-        ASSERT_TRUE(vptr_1.isAttached());
-        db0::v_ptr<o_binary> vptr_2(std::move(vptr_1));
-
-        ASSERT_EQ(vptr_2->size(), 4096);
-    }
-
-    TEST_F( VSpaceTests , testVPtrImplementsDetach )
-    {        
-        auto memspace = getMemspace();
-        
-        auto vptr_1 = db0::v_ptr<o_binary>::makeNew(memspace, o_binary::measure(4096), {});
-        o_binary::__new(reinterpret_cast<std::byte*>(&vptr_1.modify()), 4096);
-        ASSERT_TRUE(vptr_1.isAttached());
-
-        vptr_1.detach();
-        ASSERT_FALSE(vptr_1.isAttached());
-    }
-    
     TEST_F( VSpaceTests , testVObjectCanBeAccessedAfterDetach )
     {        
         auto memspace = getMemspace();

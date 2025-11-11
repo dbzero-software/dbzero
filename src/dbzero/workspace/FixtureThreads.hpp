@@ -86,7 +86,7 @@ namespace db0
      * The purpose of the AutoCommitThread is to commit changes from all read/write fixtures
      * after 250ms (unless configured differently) since the last modification
     */
-    class AutoCommitContext;
+    class AutoSaveContext;
     class AutoCommitThread: public FixtureThread
     {
     public:
@@ -101,7 +101,7 @@ namespace db0
 
     private:
         static std::mutex m_commit_mutex;
-        std::weak_ptr<AutoCommitContext> m_tmp_context;
+        std::weak_ptr<AutoSaveContext> m_tmp_context;
     };
     
 } 

@@ -17,8 +17,7 @@ namespace db0
     */
     template <typename BaseT> class has_fixture: public BaseT
     {
-    public:
-        using ptr_t = typename BaseT::ptr_t;
+    public:        
         has_fixture() = default;
 
         // create new instance
@@ -51,7 +50,7 @@ namespace db0
         template <typename... Args> void init(db0::swine_ptr<Fixture> &fixture, Args &&... args)
         {
             // must release existing weak ref
-            Fixture *raw_ptr = reinterpret_cast<Fixture*>(this->v_this.getMemspacePtr());
+            Fixture *raw_ptr = reinterpret_cast<Fixture*>(this->getMemspacePtr());
             if (raw_ptr) {
                 // release weak ref of the Fixture
                 db0::swine_ptr<Fixture>::release_weak(raw_ptr);                
@@ -65,7 +64,7 @@ namespace db0
         std::uint16_t initUnique(db0::swine_ptr<Fixture> &fixture, Args &&... args)
         {
             // must release existing weak ref
-            Fixture *raw_ptr = reinterpret_cast<Fixture*>(this->v_this.getMemspacePtr());
+            Fixture *raw_ptr = reinterpret_cast<Fixture*>(this->getMemspacePtr());
             if (raw_ptr) {
                 // release weak ref of the Fixture
                 db0::swine_ptr<Fixture>::release_weak(raw_ptr);                
@@ -78,7 +77,7 @@ namespace db0
         
         ~has_fixture()
         {
-            Fixture *raw_ptr = reinterpret_cast<Fixture*>(this->v_this.getMemspacePtr());
+            Fixture *raw_ptr = reinterpret_cast<Fixture*>(this->getMemspacePtr());
             if (raw_ptr) {
                 // release weak ref of the Fixture
                 db0::swine_ptr<Fixture>::release_weak(raw_ptr);                
@@ -87,7 +86,7 @@ namespace db0
         
         db0::swine_ptr<Fixture> tryGetFixture() const
         {
-            Fixture *raw_ptr = reinterpret_cast<Fixture*>(this->v_this.getMemspacePtr());
+            Fixture *raw_ptr = reinterpret_cast<Fixture*>(this->getMemspacePtr());
             if (raw_ptr) {
                 // construct swine_ptr from raw ptr
                 return db0::swine_ptr<Fixture>::lock_weak(raw_ptr);
@@ -109,7 +108,7 @@ namespace db0
         void operator=(const has_fixture &other)
         {
             // must release existing weak ref and take from the copied object
-            Fixture *raw_ptr = reinterpret_cast<Fixture*>(this->v_this.getMemspacePtr());
+            Fixture *raw_ptr = reinterpret_cast<Fixture*>(this->getMemspacePtr());
             if (raw_ptr) {
                 // release weak ref of the Fixture
                 db0::swine_ptr<Fixture>::release_weak(raw_ptr);                
@@ -120,10 +119,10 @@ namespace db0
             other_fixture.take_weak();
         }
         
-        void operator=(has_fixture &&other) 
+        void operator=(has_fixture &&other)
         {
             // must release existing weak ref and take from the copied object
-            Fixture *raw_ptr = reinterpret_cast<Fixture*>(this->v_this.getMemspacePtr());
+            Fixture *raw_ptr = reinterpret_cast<Fixture*>(this->getMemspacePtr());
             if (raw_ptr) {
                 // release weak ref of the Fixture
                 db0::swine_ptr<Fixture>::release_weak(raw_ptr);                

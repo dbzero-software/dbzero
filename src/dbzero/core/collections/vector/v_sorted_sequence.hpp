@@ -1,6 +1,6 @@
 #pragma once
 
-#include <dbzero/core/vspace/v_ptr.hpp>
+#include <dbzero/core/vspace/v_object.hpp>
 #include <dbzero/core/serialization/Types.hpp>
 #include <dbzero/core/compiler_attributes.hpp>
 

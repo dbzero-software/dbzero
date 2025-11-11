@@ -191,13 +191,13 @@ namespace db0
             // prevents commit on a closed fixture
             std::unique_lock<std::mutex> lock(m_close_mutex);
             if (!Memspace::isClosed()) {
-                // pre-commit to prepare objects which require it (e.g. Index) for commit
-                // NOTE: pre-commit must NOT lock the fixture's shared mutex
+                // flush to prepare objects which require it (e.g. Index) for commit
+                // NOTE: flush must NOT lock the fixture's shared mutex
                 if (m_gc0_ptr) {
-                    getGC0().preCommit();
+                    getGC0().flushAllOf(Memspace::getForFlush());
                 }
-
-                // clear lang cache again since pre-commit might've released some Python instances
+                
+                // clear lang cache again since flush might've released some Python instances
                 m_lang_cache.clear(true);
 
                 // lock for exclusive access
@@ -290,23 +290,31 @@ namespace db0
     
     bool Fixture::commit()
     {
+        std::unique_ptr<ProcessTimer> process_timer;
+        // process_timer = std::make_unique<ProcessTimer>("Fixture::commit");
         assert(getPrefixPtr());
-        // pre-commit to prepare objects which require it (e.g. Index) for commit
-        // NOTE: pre-commit must NOT lock the fixture's shared mutex
-        // NOTE: pre-commit may release some of the Python instances
+        // flush to prepare objects which require it (e.g. Index) for commit
+        // NOTE: flush must NOT lock the fixture's shared mutex
+        // NOTE: flush may release some of the Python instances
         if (m_gc0_ptr) {
-            getGC0().preCommit();
+            getGC0().flushAllOf(Memspace::getForFlush(), process_timer.get());
         }
         
         // Flush using registered flush handlers
-        for (auto &handler: m_flush_handlers) {
-            handler();
+        {        
+            std::unique_ptr<ProcessTimer> flush_timer;
+            if (process_timer) {
+                flush_timer = std::make_unique<ProcessTimer>("Fixture::commit:flush_handlers", process_timer.get());
+            }
+            for (auto &handler: m_flush_handlers) {
+                handler();
+            }
         }
-
-        // Clear expired instances from cache so that they're not persisted
+        
+        // Clear Python-side expired instances from cache so that they're not persisted
         m_lang_cache.clear(true);
         std::unique_lock<std::shared_mutex> lock(m_commit_mutex);
-        bool result = tryCommit(lock);
+        bool result = tryCommit(lock, process_timer.get());
         m_updated = false;
         auto callbacks = collectStateReachedCallbacks();
         lock.unlock();
@@ -329,7 +337,7 @@ namespace db0
                 return result;
             }
             
-            std::unique_ptr<GC0::CommitContext> gc0_ctx = m_gc0_ptr ? getGC0().beginCommit() : nullptr;            
+            std::unique_ptr<GC0::CommitContext> ctx = m_gc0_ptr ? m_gc0_ptr->beginCommit() : nullptr;
             // NOTE: close handlers perform internal buffers flush (e.g. TagIndex)
             // which may result in modifications (e.g. incRef)
             // it's therefore important to perform this action before GC0::commitAll (which commits finalized objects)
@@ -337,15 +345,12 @@ namespace db0
                 commit(true);
             }
             
-            if (m_gc0_ptr) {
-                getGC0().commitAll();
+            // Commit modified only (to avoid scan over all objects)
+            if (ctx) {
+                ctx->commitAllOf(Memspace::getModified(), timer.get());
+                ctx = nullptr;
             }
-                        
-            // commit garbage collector's state
-            // we check if gc0 exists because the unit-tests set up may not have it
-            if (gc0_ctx) {
-                gc0_ctx->commit();
-            }
+            
             m_string_pool.commit();
             m_object_catalogue.commit();
             m_v_object_cache.commit();
@@ -369,11 +374,11 @@ namespace db0
                 return {};
             }
 
-            assert(!Memspace::isClosed());            
-            // pre-commit to prepare objects which require it (e.g. Index) for commit
-            // NOTE: pre-commit must NOT lock the fixture's shared mutex
+            assert(!Memspace::isClosed());
+            // flush to prepare objects which require it (e.g. Index) for commit
+            // NOTE: flush must NOT lock the fixture's shared mutex
             if (m_gc0_ptr) {
-                getGC0().preCommit();
+                getGC0().flushAllOf(Memspace::getForFlush());
             }
             
             // Flush using registered flush handlers
@@ -432,7 +437,8 @@ namespace db0
     
     void Fixture::preAtomic()
     {
-        getGC0().preCommit();
+        getGC0().flushAllOf(Memspace::getForFlush());
+        m_maybe_need_flush.clear();
         for (auto &commit: m_close_handlers) {
             commit(true);
         }

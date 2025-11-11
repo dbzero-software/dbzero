@@ -205,7 +205,7 @@ namespace db0
         
         // Get access flags to propagate to members (e.g. no_cache)
         AccessFlags getMemberFlags() const {
-            return this->v_this.getAccessMode() & AccessOptions::no_cache;
+            return this->getAccessMode() & AccessOptions::no_cache;
         }
 
     protected:
@@ -221,16 +221,16 @@ namespace db0
                has_fixture<BaseT>::init(fixture, std::forward<Args>(args)...);
             }
         }
-         
-        // member should be overridden for derived types which need pre-commit
-        using PreCommitFunction = void (*)(void *, bool revert);
-        static PreCommitFunction getPreCommitFunction() {
+        
+        // member should be overridden for derived types which need flush
+        using FlushFunction = void (*)(void *, bool revert);
+        static FlushFunction getFlushFunction() {
             return nullptr;
         }
         
         // called from GC0 to bind GC_Ops for this type
         static GC_Ops getGC_Ops() {
-            return { hasRefsOp, dropOp, detachOp, commitOp, getTypedAddress, dropByAddr, T::getPreCommitFunction() };
+            return { hasRefsOp, dropOp, detachOp, commitOp, getTypedAddress, dropByAddr, T::getFlushFunction() };
         }
         
         void operator=(ObjectBase &&other)

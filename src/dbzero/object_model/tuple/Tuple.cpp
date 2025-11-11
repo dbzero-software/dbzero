@@ -146,7 +146,7 @@ namespace db0::object_model
         return !(*this == tuple);
     }
     
-    void Tuple::destroy() const
+    void Tuple::destroy()
     {
         auto fixture = this->getFixture();
         for (auto &elem: this->getData()->items()) {

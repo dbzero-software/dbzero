@@ -64,7 +64,7 @@ namespace db0::object_model
 
         void moveTo(db0::swine_ptr<Fixture> &);
 
-        void destroy() const;
+        void destroy();
 
         void clearMembers() const;
 

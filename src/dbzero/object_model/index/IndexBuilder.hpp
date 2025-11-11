@@ -24,7 +24,8 @@ namespace db0::object_model
         IndexBuilder(std::unordered_set<UniqueAddress> &&remove_null_values,
             std::unordered_set<UniqueAddress> &&add_null_values,
             std::unordered_map<UniqueAddress, ObjectSharedPtr> &&object_cache);
-        
+        ~IndexBuilder();
+
         void add(KeyT key, ObjectPtr obj_ptr);
         void remove(KeyT key, ObjectPtr obj_ptr);
 
@@ -66,6 +67,10 @@ namespace db0::object_model
     {
     }
     
+    template <typename KeyT> IndexBuilder<KeyT>::~IndexBuilder()
+    {
+    }
+    
     template <typename KeyT> void IndexBuilder<KeyT>::add(KeyT key, ObjectPtr obj_ptr) {
         super_t::add(key, addToCache(obj_ptr));
     }
@@ -83,7 +88,7 @@ namespace db0::object_model
     }
     
     template <typename KeyT> void IndexBuilder<KeyT>::flush(RangeTreeT &index)
-    {
+    {        
         std::function<void(UniqueAddress)> add_callback = [&](UniqueAddress address) {
             auto it = m_object_cache.find(address);
             assert(it != m_object_cache.end());
@@ -94,13 +99,13 @@ namespace db0::object_model
             auto it = m_object_cache.find(address);
             assert(it != m_object_cache.end());
             m_type_manager.extractMutableAnyObject(it->second.get()).decRef(false);
-        };
+        };        
         
         super_t::flush(index, &add_callback, &erase_callback);
         m_object_cache.clear();
     }
     
-    template <typename KeyT>     
+    template <typename KeyT>
     UniqueAddress IndexBuilder<KeyT>::addToCache(ObjectPtr obj_ptr)
     {
         auto obj_addr = m_type_manager.extractAnyObject(obj_ptr).getUniqueAddress();

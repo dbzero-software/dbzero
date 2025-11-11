@@ -195,7 +195,7 @@ namespace db0::object_model
         return nullptr;
     }
         
-    void Set::destroy() const
+    void Set::destroy()
     {
         unrefMembers();
         m_index.destroy();

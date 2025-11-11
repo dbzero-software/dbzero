@@ -5,7 +5,8 @@
 #include <dbzero/core/memory/Memspace.hpp>
 #include <dbzero/core/memory/CacheRecycler.hpp>
 #include <dbzero/core/memory/VObjectCache.hpp>
-#include <dbzero/core/memory/SlabRecycler.hpp>
+#include <dbzero/core/memory/SlabItem.hpp>
+#include <dbzero/core/memory/Recycler.hpp>
 #include <dbzero/object_model/LangCache.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/Snapshot.hpp>
@@ -73,11 +74,11 @@ namespace db0
         void tearDown();
 
         std::size_t size() const override;
-
+        
     private:
         const std::size_t m_slab_size;
         FixedObjectList m_shared_object_list;
-        SlabRecycler m_slab_recycler;
+        Recycler<db0::SlabItem> m_slab_recycler;
         db0::swine_ptr<Fixture> m_current_fixture;
         std::unordered_map<std::uint64_t, db0::swine_ptr<Fixture> > m_fixtures;
         std::unordered_map<std::string, std::uint64_t> m_uuids;

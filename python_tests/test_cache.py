@@ -15,16 +15,16 @@ def rand_array(max_bytes):
 
     
 def test_cache_size_can_be_updated_at_runtime(db0_fixture):
-    cache_0 = db0.get_cache_stats()
+    cache_0 = db0.get_cache_stats()    
     # create object instances to populate cache
     buf = []
     for _ in range(1000):
         buf.append(MemoTestClass(get_string(1024)))
-    cache_1 = db0.get_cache_stats()
+    cache_1 = db0.get_cache_stats()    
     diff_1 = cache_1["size"] - cache_0["size"]
     # reduce cache size so that only 1/2 of objects can fit
     db0.set_cache_size(512 * 1024)
-    cache_2 = db0.get_cache_stats()
+    cache_2 = db0.get_cache_stats()    
     # make sure cache size / capacity was adjusted with at least 95% accuracy
     assert abs(1.0 - (512 * 1024) / cache_2["size"]) < 0.05
     assert abs(1.0 - cache_2["capacity"] / cache_2["size"]) < 0.05

@@ -58,9 +58,6 @@ namespace db0
     
     SlabAllocator::~SlabAllocator()
     {
-        if (m_on_close_handler) {
-            m_on_close_handler(*this);
-        }
     }
     
     std::optional<Address> SlabAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num,
@@ -113,20 +110,24 @@ namespace db0
         if (size % page_size != 0) {
             THROWF(db0::InternalException) << "Slab size not multiple of page size: " << size << " % " << page_size;
         }
-
-        // put bitspace right before the header (at the end of the slab )
-        BitSpace<SLAB_BITSPACE_SIZE()>::create(prefix, headerAddr(begin_addr, size), page_size, -1);
+        
+        // put bitspace right before the header (at the end of the slab)
+        BitSpace<SlabAllocatorConfig::SLAB_BITSPACE_SIZE()>::create(
+            prefix, headerAddr(begin_addr, size), page_size, -1
+        );
         // open newly created bitspace
         // use offset = begin_addr (to allow storing internal addresses as 32bit)
-        BitSpace<SLAB_BITSPACE_SIZE()> bitspace(prefix, headerAddr(begin_addr, size), page_size, -1);
+        BitSpace<SlabAllocatorConfig::SLAB_BITSPACE_SIZE()> bitspace(
+            prefix, headerAddr(begin_addr, size), page_size, -1
+        );
         
-        // create the CRDT allocator data structures on top of the bitspace
+        // Create the CRDT allocator data structures on top of the bitspace
         AllocSetT allocs(bitspace, page_size);
         BlankSetT blanks(bitspace, page_size);
         AlignedBlankSetT aligned_blanks(bitspace, page_size, CompT(page_size), page_size);
         StripeSetT stripes(bitspace, page_size);
-        LimitedVector<std::uint16_t> alloc_counter(bitspace, page_size);
-        alloc_counter.reserve(SLAB_BITSPACE_SIZE());
+        LimitedVector<std::uint16_t> alloc_counter(bitspace, page_size);        
+        alloc_counter.reserve(SlabAllocatorConfig::SLAB_BITSPACE_SIZE());
         // calculate size initially available to CRTD allocator
         std::uint32_t crdt_size = static_cast<std::uint32_t>(size - admin_size - admin_margin_bytes);
         assert(crdt_size > 0);
@@ -167,13 +168,13 @@ namespace db0
     
     std::size_t SlabAllocator::calculateAdminSpaceSize(std::size_t page_size)
     {
-        auto result = BitSpace<SLAB_BITSPACE_SIZE()>::sizeOf() + o_slab_header::sizeOf();
+        auto result = BitSpace<SlabAllocatorConfig::SLAB_BITSPACE_SIZE()>::sizeOf() + o_slab_header::sizeOf();
         // round to full page size
         result = (result + page_size - 1) / page_size * page_size;
         // add ADMIN_SPAN pages for CRDT types (actual space initially occupied)
         result += page_size * ADMIN_SPAN();
         // include limited vector's reserved capacity
-        result += LimitedVectorT::DP_REQ(SLAB_BITSPACE_SIZE(), page_size) * page_size;
+        result += LimitedVectorT::DP_REQ(SlabAllocatorConfig::SLAB_BITSPACE_SIZE(), page_size) * page_size;
         return result;
     }
     
@@ -203,15 +204,7 @@ namespace db0
     const Prefix &SlabAllocator::getPrefix() const {
         return *m_prefix;
     }
-    
-    void SlabAllocator::setOnCloseHandler(std::function<void(const SlabAllocator &)> handler) {
-        m_on_close_handler = handler;
-    }
-    
-    void SlabAllocator::resetOnCloseHandler() {
-        m_on_close_handler = {};
-    }
-    
+        
     bool SlabAllocator::empty() const {
         return m_allocs.empty();
     }

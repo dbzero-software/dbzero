@@ -744,7 +744,7 @@ namespace db0::object_model
     }
     
     template <typename T, typename ImplT>
-    void ObjectImplBase<T, ImplT>::destroy() const
+    void ObjectImplBase<T, ImplT>::destroy()
     {
         if (this->hasInstance()) {
             // associated class type (may require unloading)

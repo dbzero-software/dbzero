@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include <dbzero/core/memory/MetaAllocator.hpp>
-#include <dbzero/core/memory/SlabRecycler.hpp>
+#include <dbzero/core/memory/SlabItem.hpp>
+#include <dbzero/core/memory/Recycler.hpp>
 #include <dbzero/core/memory/CacheRecycler.hpp>
 #include <dbzero/core/memory/PrefixImpl.hpp>
 #include <dbzero/core/memory/CacheRecycler.hpp>
@@ -50,8 +51,7 @@ namespace tests
     
     TEST_F( CapacityTreeTests , testCapacityTreeInsertEraseIssue1 )
     {
-        using CapacityTreeT = typename db0::MetaAllocator::CapacityTreeT;
-        using CapacityItem = typename db0::MetaAllocator::CapacityItem;
+        using CapacityTreeT = typename db0::MetaAllocator::CapacityTreeT;        
         
         std::vector<CapacityTreeT> realms;
         realms.emplace_back(m_bitspace, page_size);

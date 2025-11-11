@@ -269,7 +269,7 @@ namespace db0::object_model
         return m_index.end();
     }
     
-    void Dict::destroy() const
+    void Dict::destroy()
     {
         unrefMembers();
         m_index.destroy();

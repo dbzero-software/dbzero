@@ -9,8 +9,8 @@
 namespace db0
 
 {
-DB0_PACKED_BEGIN
 
+DB0_PACKED_BEGIN
     template <typename store_t> class DB0_PACKED_ATTR AddressType
     {
     public:
@@ -79,9 +79,10 @@ DB0_PACKED_BEGIN
     };
     
     using Address = AddressType<std::uint64_t>;
-
+    
     // The UniqueAddress combines memory offset and instance ID
     // by definition the UniqueAddress will not be assigned more than once throughut the lifetime of the prefix
+DB0_PACKED_BEGIN    
     class DB0_PACKED_ATTR UniqueAddress
     {
     public:
@@ -173,10 +174,10 @@ DB0_PACKED_BEGIN
         {            
         }
     };
-    
+DB0_PACKED_END    
+
     UniqueAddress makeUniqueAddr(std::uint64_t offset, std::uint16_t id);
 
-DB0_PACKED_END
 }
 
 namespace std

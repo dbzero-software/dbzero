@@ -20,7 +20,7 @@ namespace db0
         using CompT = typename TypesT::CompT;
         using AddressT = typename TypesT::AddressT;
         using NodeT = typename TypesT::NodeT;
-        using NodePtrT = typename NodeT::ptr_t;
+        using NodePtrT = NodeT;
         using node_iterator = typename TypesT::o_sgb_node_t::iterator;
         using node_const_iterator = typename TypesT::o_sgb_node_t::const_iterator;
         using sg_tree_const_iterator = typename super_t::const_iterator;
@@ -547,13 +547,13 @@ namespace db0
         const std::size_t m_node_capacity;
         const NodeItemCompT m_item_comp;
         const HeapCompT m_heap_comp;
-
+        
         template <typename... Args> ItemIterator emplace_to_empty(Args&&... args)
         {
-            super_t::modify().m_sgb_size++;
+            ++super_t::modify().m_sgb_size;
             // create the root node which shares the same allocation as the 'head' node
             // obtain mutable mem lock first
-            auto mem_lock = this->get_v_ptr().modifyMappedRange();            
+            auto mem_lock = this->modifyMappedRange();
             // calculate residual capacity
             auto residual_capacity = (*this)->sizeOf() - (*this)->trueSizeOf();            
             // use the remaining capacity to initialize the root node

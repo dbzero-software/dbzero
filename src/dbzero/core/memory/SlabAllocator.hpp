@@ -4,6 +4,7 @@
 #include "Prefix.hpp"
 #include "BitSpace.hpp"
 #include "Memspace.hpp"
+#include "SlabAllocatorConfig.hpp"
 #include <dbzero/core/crdt/CRDT_Allocator.hpp>
 #include <dbzero/core/serialization/Fixed.hpp>
 #include <dbzero/core/vspace/v_object.hpp>
@@ -13,8 +14,8 @@
 namespace db0
 
 {
-DB0_PACKED_BEGIN
-    
+
+DB0_PACKED_BEGIN    
     struct DB0_PACKED_ATTR o_slab_header: public db0::o_fixed<o_slab_header>
     {
         const std::uint32_t m_version = 1;
@@ -42,13 +43,8 @@ DB0_PACKED_BEGIN
         {
         }
     };
-    
-    static constexpr unsigned int SLAB_BITSPACE_SIZE() {
-        // typical configuration, sufficient for a 64MB slab
-        // FIXME: page_size hardcoded
-        return 64 * 1024 * 1024 / 4096;
-    }
-
+DB0_PACKED_END
+        
     /**
      * The SlabAllocator takes a fixed size address range (e.g. 64MB)
      * and organizes the space with the use of BitSetAllocator/BitSpace + CRDT_Allocator 
@@ -122,13 +118,7 @@ DB0_PACKED_BEGIN
         std::size_t getLostCapacity() const;
         
         const Prefix &getPrefix() const;
-
-        /**
-         * Register a handler to be called pre-destruction
-        */
-        void setOnCloseHandler(std::function<void(const SlabAllocator &)>);
-        void resetOnCloseHandler();
-
+        
         bool empty() const;
 
         /**
@@ -185,7 +175,7 @@ DB0_PACKED_BEGIN
         const std::uint32_t m_slab_size;
         Memspace m_internal_memspace;
         v_object<o_slab_header> m_header;
-        BitSpace<SLAB_BITSPACE_SIZE()> m_bitspace;
+        BitSpace<SlabAllocatorConfig::SLAB_BITSPACE_SIZE()> m_bitspace;
         AllocSetT m_allocs;
         BlankSetT m_blanks;
         AlignedBlankSetT m_aligned_blanks;
@@ -195,11 +185,9 @@ DB0_PACKED_BEGIN
         CRDT_Allocator m_allocator;
         const std::optional<std::size_t> m_initial_remaining_capacity;
         const std::optional<std::size_t> m_initial_lost_capacity;
-        std::size_t m_initial_admin_size;        
-        std::function<void(const SlabAllocator &)> m_on_close_handler;
+        std::size_t m_initial_admin_size;
         
         static Address headerAddr(Address begin_addr, std::uint32_t size);
     };
     
-DB0_PACKED_END
 }

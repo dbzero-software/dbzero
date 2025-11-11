@@ -121,7 +121,7 @@ namespace db0
             return b_index.getAddress();
         }
         
-        void destroy() const
+        void destroy()
         {
             // must clear all nodes (item destroy)
             assert(!m_item_destroy_func && "Operation not implemented");

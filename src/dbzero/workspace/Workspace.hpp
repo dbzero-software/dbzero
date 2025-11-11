@@ -10,7 +10,9 @@
 #include <dbzero/core/memory/Memspace.hpp>
 #include <dbzero/core/memory/CacheRecycler.hpp>
 #include <dbzero/core/memory/swine_ptr.hpp>
-#include <dbzero/core/memory/SlabRecycler.hpp>
+#include <dbzero/core/memory/SlabItem.hpp>
+#include <dbzero/core/memory/Recycler.hpp>
+#include <dbzero/core/memory/SlabAllocatorConfig.hpp>
 #include <dbzero/core/memory/PrefixImpl.hpp>
 #include <dbzero/core/memory/VObjectCache.hpp>
 #include <dbzero/core/storage/Storage0.hpp>
@@ -32,19 +34,19 @@ namespace db0
     class LangCache;
     class Config;
     class WorkspaceView;
-
+    using SlabRecycler = Recycler<SlabItem>;
+    
     class BaseWorkspace
     {
     public:
-        // 4KB pages
-        static constexpr std::size_t DEFAULT_PAGE_SIZE = 4096;
+        static constexpr std::size_t DEFAULT_PAGE_SIZE = SlabAllocatorConfig::DEFAULT_PAGE_SIZE;
+        static constexpr std::size_t DEFAULT_SLAB_SIZE = SlabAllocatorConfig::DEFAULT_SLAB_SIZE;
+
         // 16KB sparse index index (memory pages)
         static constexpr std::size_t DEFAULT_SPARSE_INDEX_NODE_SIZE = 16 * 1024 - 256;
-        // 64MB slabs
-        static constexpr std::size_t DEFAULT_SLAB_SIZE = 64 * 1024 * 1024;
         static constexpr std::size_t DEFAULT_CACHE_SIZE = 2u << 30;
         static constexpr std::size_t DEFAULT_SLAB_CACHE_SIZE = 256;
-                
+        
         /**
          * @param root_path default search path for existing prefixes and storage for new ones (pass "" for current directory)
          **/        
