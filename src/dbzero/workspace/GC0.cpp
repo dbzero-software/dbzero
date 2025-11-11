@@ -30,25 +30,6 @@ namespace db0
     {
     }
     
-    GC0::SaveContext::SaveContext(GC0 &gc0)
-        : m_gc0(gc0)
-    {        
-        assert(!m_gc0.m_save_pending);
-        m_gc0.m_save_pending = true;
-    }
-
-    GC0::SaveContext::~SaveContext()
-    {
-        assert(m_gc0.m_save_pending);
-        m_gc0.m_save_pending = false;
-    }
-    
-    void GC0::SaveContext::save(ProcessTimer *timer)
-    {
-        assert(m_gc0.m_save_pending);
-        m_gc0.save(timer);
-    }
-    
     bool GC0::tryRemove(void *vptr, bool is_volatile)
     {
         std::unique_lock<std::mutex> lock(m_mutex);
@@ -70,7 +51,7 @@ namespace db0
         if (!m_read_only && ops.hasRefs && ops.drop && !is_volatile
             && !ops.hasRefs(it->first))
         {
-            if (m_save_pending) {
+            if (m_commit_pending) {
                 // must schedule for deletion since unable to drop while save is pending
                 auto addr_pair = ops.address(it->first);
                 m_scheduled_for_deletion[addr_pair.first] = addr_pair.second;
@@ -110,24 +91,40 @@ namespace db0
         if (timer_ptr) {
             timer = std::make_unique<ProcessTimer>("GC0::commitAllOf", timer_ptr);
         }
-    
+        
+        // Commit & collect unreferenced instances
+        // Important ! Collect instance addresses first because push_back can trigger "remove" calls        
         std::unique_lock<std::mutex> lock(m_mutex);
+        std::unordered_set<TypedAddress> addresses;
         std::size_t count = 0;
         for (auto vptr : vptrs) {
             auto it = m_vptr_map.find(vptr);
             if (it != m_vptr_map.end()) {
-                m_ops[it->second].commit(vptr);
+                auto &ops = m_ops[it->second];
+                ops.commit(vptr);
+                if (ops.hasRefs && !ops.hasRefs(vptr)) {
+                    addresses.insert(toTypedAddress(ops.address(vptr)));
+                }
                 ++count;
             }
         }
-        // FIXME: log
-        std::cout << "GC0::commit size: " << count << std::endl;
+
+        lock.unlock();
+                
+        super_t::clear();
+        for (auto addr: addresses) {
+            super_t::push_back(addr);
+        }
+        // also registered instances scheduled for deletion
+        for (auto &addr_pair: m_scheduled_for_deletion) {
+            super_t::push_back(toTypedAddress(addr_pair));
+        }
+        m_scheduled_for_deletion.clear();
+        super_t::commit();
     }
     
     void GC0::commitAll()
     {
-        // FIXME: log
-        std::cout << "commitAll" << std::endl;
         std::unique_lock<std::mutex> lock(m_mutex);
         for (auto &vptr_item : m_vptr_map) {
             m_ops[vptr_item.second].commit(vptr_item.first);
@@ -162,41 +159,6 @@ namespace db0
         for (auto &item : flush_ops) {
             m_ops[item.second].flush(item.first, false);
         }
-        // FIXME: log
-        std::cout << "GC0 flushed: " << flush_ops.size() << std::endl;
-    }
-    
-    void GC0::save(ProcessTimer *timer_ptr)
-    {
-        std::unique_ptr<ProcessTimer> timer;
-        if (timer_ptr) {
-            timer = std::make_unique<ProcessTimer>("GC0::save", timer_ptr);
-        }
-        
-        // collect unreferenced instances
-        // Important ! Collect instance addresses first because push_back can trigger "remove" calls
-        /* FIXME: log
-        std::vector<TypedAddress> addresses;
-        std::unique_lock<std::mutex> lock(m_mutex);
-        for (auto &vptr_item : m_vptr_map) {
-            auto &ops = m_ops[vptr_item.second];
-            if (ops.hasRefs && !ops.hasRefs(vptr_item.first)) {
-                addresses.push_back(toTypedAddress(ops.address(vptr_item.first)));
-            }
-        }
-        lock.unlock();
-        
-        super_t::clear();
-        for (auto addr: addresses) {
-            super_t::push_back(addr);
-        }
-        // also registered instances scheduled for deletion
-        for (auto &addr_pair: m_scheduled_for_deletion) {
-            super_t::push_back(toTypedAddress(addr_pair));
-        }
-        m_scheduled_for_deletion.clear();
-        */
-        super_t::commit();
     }
     
     void GC0::collect()
@@ -258,10 +220,6 @@ namespace db0
         m_atomic = false;
     }
     
-    std::unique_ptr<GC0::SaveContext> GC0::beginSave() {
-        return std::make_unique<SaveContext>(*this);
-    }
-
     std::optional<unsigned int> GC0::erase(void *vptr)
     {
         std::optional<unsigned int> flush_op;
@@ -284,4 +242,26 @@ namespace db0
         return flush_op;
     }
 
+    GC0::CommitContext::CommitContext(GC0 &gc0)
+        : m_gc0(gc0)
+    {        
+        assert(!m_gc0.m_commit_pending);
+        m_gc0.m_commit_pending = true;
+    }
+
+    GC0::CommitContext::~CommitContext()
+    {
+        assert(m_gc0.m_commit_pending);
+        m_gc0.m_commit_pending = false;
+    }
+    
+    void GC0::CommitContext::commitAllOf(const std::vector<vtypeless*> &vec, ProcessTimer *timer)
+    {
+        assert(m_gc0.m_commit_pending);
+        m_gc0.commitAllOf(vec, timer);
+    } 
+    
+    std::unique_ptr<GC0::CommitContext> GC0::beginCommit() {
+        return std::make_unique<CommitContext>(*this);
+    }    
 }

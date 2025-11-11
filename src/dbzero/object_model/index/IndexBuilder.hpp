@@ -88,8 +88,7 @@ namespace db0::object_model
     }
     
     template <typename KeyT> void IndexBuilder<KeyT>::flush(RangeTreeT &index)
-    {
-        /* FIXME: log
+    {        
         std::function<void(UniqueAddress)> add_callback = [&](UniqueAddress address) {
             auto it = m_object_cache.find(address);
             assert(it != m_object_cache.end());
@@ -103,8 +102,6 @@ namespace db0::object_model
         };        
         
         super_t::flush(index, &add_callback, &erase_callback);
-        */
-        super_t::flush(index);
         m_object_cache.clear();
     }
     

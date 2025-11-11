@@ -45,12 +45,31 @@ DB0_PACKED_BEGIN
         void setAddress(Address);
         void setType(StorageClass type);
 
-        bool operator==(const TypedAddress &other) const;
-        bool operator<(const TypedAddress &other) const;
+        inline bool operator==(const TypedAddress &other) const {
+            return m_value == other.m_value;
+        }
+
+        inline bool operator<(const TypedAddress &other) const {
+            return m_value < other.m_value;
+        }
     };
     
     TypedAddress toTypedAddress(const std::pair<UniqueAddress, StorageClass> &);
     
 DB0_PACKED_END
+
+}
+
+namespace std
+
+{
+    
+    template <>
+    struct hash<db0::object_model::TypedAddress>
+    {
+        std::size_t operator()(const db0::object_model::TypedAddress& k) const {
+            return std::hash<std::uint64_t>()(k.m_value);
+        }
+    };
 
 }

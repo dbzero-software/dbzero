@@ -61,6 +61,20 @@ namespace db0::python
         }
         
         PySafeDict_SetItemString(*dict, "size", Py_OWN(PyLong_FromLong(cache_recycler.size())));
+        
+        {
+            std::vector<std::size_t> detailed_size = cache_recycler.getDetailedSize();
+            auto detailed_size_dict = Py_OWN(PyDict_New());
+            unsigned int priority_index = 0;
+            for (auto size: detailed_size) {
+                std::stringstream key_str;
+                key_str << "P" << priority_index++;
+                PySafeDict_SetItemString(*detailed_size_dict, key_str.str().c_str(), Py_OWN(PyLong_FromLong(size)));
+            }
+            // cache size with a by-priority breakdown
+            PySafeDict_SetItemString(*dict, "P_size", detailed_size_dict);
+        }
+
         PySafeDict_SetItemString(*dict, "capacity", Py_OWN(PyLong_FromLong(cache_recycler.getCapacity())));
         PySafeDict_SetItemString(*dict, "deferred_free_count", Py_OWN(PyLong_FromLong(deferred_free_count)));
         PySafeDict_SetItemString(*dict, "lang_cache_size", Py_OWN(PyLong_FromLong(lang_cache_size)));

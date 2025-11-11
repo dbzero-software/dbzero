@@ -154,8 +154,6 @@ namespace db0::object_model
                 }
                 
                 if (!std::is_same_v<FromType, ToType>) {
-                    // FIXME: log
-                    std::cout << "Index builder update !!" << std::endl;
                     m_index_builder = db0::make_shared_void<IndexBuilder<ToType> >(
                         get<FromType>().releaseRemoveNullItems(),
                         get<FromType>().releaseAddNullItems(),

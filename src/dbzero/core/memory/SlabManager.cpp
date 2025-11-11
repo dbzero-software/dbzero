@@ -69,7 +69,7 @@ namespace db0
         // NOTE: before accessing capacity items we must synchronize any updates
         saveDirtySlabs();
         // visit slabs starting from the largest available capacity
-        auto min_capacity = std::max(size, SlabAllocatorConfig::MIN_OP_CAPACITY());
+        auto min_capacity = std::max(size, SlabAllocatorConfig::MIN_OP_CAPACITY(m_slab_size));
         auto it = m_capacity_items.cbegin();
         for (;;) {
             if (it.is_end() || it->m_remaining_capacity < min_capacity) {
@@ -93,8 +93,8 @@ namespace db0
         unsigned char locality)
     {
         saveDirtySlabs();
-        auto min_capacity = std::max(size, SlabAllocatorConfig::MIN_OP_CAPACITY());
-        auto last_key = last_result->m_cap_item;        
+        auto min_capacity = std::max(size, SlabAllocatorConfig::MIN_OP_CAPACITY(m_slab_size)); 
+        auto last_key = last_result->m_cap_item;
         for (;;) {
             // this is to find the next item in order
             last_key.m_slab_id += NUM_REALMS;
@@ -104,10 +104,11 @@ namespace db0
             }
             
             if (m_active_slab.contains(it.first->m_slab_id)) {
+                last_key = *(it.first);
                 // do not include active slab in find operation                    
                 continue;
             }
-            auto slab = openSlab(m_slab_address_func(it.first->m_slab_id));                
+            auto slab = openSlab(m_slab_address_func(it.first->m_slab_id));
             // make the slab active and for a specific locality
             m_active_slab[locality] = slab;
             return slab;
@@ -537,17 +538,20 @@ namespace db0
         auto slab = tryGetActiveSlab(locality);
         bool is_first = true;
         bool is_new = false;
+        // The number of alloc attempts from existing slabs before
+        // resorting to adding a new slab
+        int num_remaining_attempts = SlabAllocatorConfig::NUM_EXISTING_SLAB_ALLOC_ATTEMPTS;
         for (;;) {
             if (slab) {
                 for (;;) {
                     auto addr = (*slab)->tryAlloc(size, 0, aligned);
                     if (!addr) {
                         // NOTE: since the last allocation failed, don't use this slab as "active"
-                        resetActiveSlab(locality);
+                        resetActiveSlab(locality);                        
                         break;
                     }
                     
-                    if (!unique || ((*slab)->tryMakeAddressUnique(*addr, instance_id))) {
+                    if (!unique || ((*slab)->tryMakeAddressUnique(*addr, instance_id))) {                        
                         // modified, add to dirty slabs
                         if (!slab->m_is_dirty) {
                             slab->m_is_dirty = true;
@@ -571,9 +575,14 @@ namespace db0
             if (is_first) {
                 slab = findFirst(size, locality);
                 is_first = false;
-            } else {
+                --num_remaining_attempts;
+            } else if (num_remaining_attempts-- > 0) {
                 slab = findNext(slab, size, locality);
+            } else {
+                slab = {};
             }
+            // Create if unable to allocate from existing slabs
+            // or the number of attempts has been exhausted
             if (!slab) {
                 slab = addNewSlab(locality);
                 is_new = true;

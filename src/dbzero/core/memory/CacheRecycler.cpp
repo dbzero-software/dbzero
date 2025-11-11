@@ -7,6 +7,7 @@ namespace db0
 
 {
     
+    // Calculate target capacity for specific priority
     std::size_t getCapacity(std::size_t total_capacity, int priority)
     {
         auto result = total_capacity;
@@ -27,8 +28,9 @@ namespace db0
         std::optional<std::size_t> flush_size,
         std::function<void(std::size_t limit)> flush_dirty,
         std::function<bool(bool threshold_reached)> flush_callback)
-        : m_capacity { db0::getCapacity(capacity, 0), db0::getCapacity(capacity, 1) }
-        , m_res_bufs { getMaxSize(m_capacity[0]), getMaxSize(m_capacity[1]) }
+        : m_capacity(capacity)
+        // NOTE: buffers are overprovisioned
+        , m_res_bufs { getMaxSize(m_capacity), getMaxSize(m_capacity) }
         , m_dirty_meter(dirty_meter)
         // assign default flush size
         , m_flush_size(flush_size.value_or(DEFAULT_FLUSH_SIZE))
@@ -116,20 +118,19 @@ namespace db0
 			} else {
                 // add new resource (if to be cached)
                 auto lock_size = res_lock->usedMem();
-                auto &res_buf = m_res_bufs[priority];
-                auto capacity = m_capacity[priority];
-                if (lock_size > capacity) {
+                auto &res_buf = m_res_bufs[priority];                
+                if (lock_size > m_capacity) {
                     // Cache size is too small to keep this resource
                     // (or is uninitialized)
                     return;
                 }
                 m_current_size[priority] += lock_size;
-                if (m_current_size[priority] > capacity) {
+                if (getCurrentSize() > m_capacity) {
                     // try reducing cache utilization to capacity minus flush size
-                    auto flush_size = std::min(capacity >> 1, m_flush_size);
-                    updateSize(lock, priority, capacity - flush_size);
+                    auto flush_size = std::min(m_capacity >> 1, m_flush_size);
+                    updateSize(lock, m_capacity - flush_size);
                     flushed = true;
-                    flush_result = m_current_size[priority] <= (capacity - flush_size);
+                    flush_result = m_current_size[priority] <= (m_capacity - flush_size);
                 }
                 // resize is a costly operation but cannot be avoided if the number of locked
                 // resources exceeds the assumed limit
@@ -140,7 +141,7 @@ namespace db0
                     // Update self-iterators in all cached locks
                     for (auto it = res_buf.begin(), end = res_buf.end(); it != end; ++it) {
                         (*it)->m_recycle_it = it;
-                    }                    
+                    }
                 }
                 res_buf.push_back(res_lock);
                 res_lock->m_recycle_it = std::prev(res_buf.end());
@@ -157,31 +158,44 @@ namespace db0
 	void CacheRecycler::clear()
     {
         std::unique_lock<std::mutex> lock(m_mutex);
-        // try releasing all locks
+        // try releasing all locks without changing capacity
         updateSize(lock, 0, 0);
         updateSize(lock, 1, 0);
 	}
     
-    void CacheRecycler::resize(std::size_t new_size)
+    void CacheRecycler::resize(std::size_t new_capacity)
     {
-        resize(db0::getCapacity(new_size, 0), 0);
-        resize(db0::getCapacity(new_size, 1), 1);
+        std::unique_lock<std::mutex> lock(m_mutex);
+        bool resize = (new_capacity < m_capacity);
+        m_capacity = new_capacity;
+        if (resize) {
+            // try reducing cache utilization to new capacity
+            updateSize(lock, new_capacity);
+        }
     }
     
-    void CacheRecycler::resize(std::size_t new_size, int priority)
+    void CacheRecycler::updateSize(std::unique_lock<std::mutex> &_lock, std::size_t expected_size)
+    {
+        // try keeping priority = 1 below its target capacity
+        auto new_size_1 = std::min(db0::getCapacity(expected_size, 1), m_current_size[1]);
+        resize(_lock, new_size_1, 1);
+        // priority = 0 may excteed its target capacity when there's sufficient free space
+        resize(_lock, std::min(expected_size - new_size_1, m_current_size[0]), 0);
+    }
+
+    void CacheRecycler::resize(std::unique_lock<std::mutex> &_lock, std::size_t new_size, int priority)
     {        
-        std::unique_lock<std::mutex> lock(m_mutex);
-        if (new_size == m_capacity[priority]) {
+        if (m_current_size[priority] <= new_size) {
+            // target size already satisfied
             return;
         }
         
-        m_capacity[priority] = new_size;
         // try releasing excess locks
-        updateSize(lock, priority, m_capacity[priority]);
+        updateSize(_lock, priority, new_size);
         auto &res_buf = m_res_bufs[priority];
         // new capacity of the fixed list should allow storing existing locks
-        auto new_max_size = std::max((m_capacity[priority] - 1) / MIN_PAGE_SIZE + 1, res_buf.size());
-        if (new_max_size != res_buf.max_size()) {
+        auto new_max_size = std::max((m_capacity - 1) / MIN_PAGE_SIZE + 1, res_buf.size());
+        if (new_max_size > res_buf.max_size()) {
             // After resize, all iterators to cached elements will be invalidated!!
             res_buf.resize(new_max_size);
             
@@ -202,7 +216,9 @@ namespace db0
         }
     }
     
-	std::size_t CacheRecycler::size() const {
+	std::size_t CacheRecycler::size() const
+    {
+        std::unique_lock<std::mutex> lock(m_mutex);
         return getCurrentSize();
     }
 
@@ -220,7 +236,13 @@ namespace db0
     std::size_t CacheRecycler::getCapacity() const
     {
         std::unique_lock<std::mutex> lock(m_mutex);
-        return m_capacity[0] + m_capacity[1];
+        return m_capacity;
     }
 
+    std::vector<std::size_t> CacheRecycler::getDetailedSize() const
+    {
+        std::unique_lock<std::mutex> lock(m_mutex);
+        return { m_current_size[0], m_current_size[1] };
+    }
+    
 }

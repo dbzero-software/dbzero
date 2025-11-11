@@ -158,9 +158,8 @@ namespace db0
     template <typename ResourceLockT>
     std::weak_ptr<ResourceLockT> *PageMap<ResourceLockT>::find(StateNumType state_num, std::uint64_t page_num,
         StateNumType &read_state_num) const
-    {
-        // needs to be unique locked due to potential m_cache::erase operation
-        std::unique_lock<std::shared_mutex> lock(m_rw_mutex);
+    {        
+        std::shared_lock<std::shared_mutex> lock(m_rw_mutex);
         auto it = findImpl(page_num, state_num);
         if (it == m_cache.end()) {
             return nullptr;
@@ -176,17 +175,27 @@ namespace db0
         if (m_cache.empty()) {
             return m_cache.end();
         }
+        
+        // Find the first element with key >= {page_num, state_num}
         auto it = m_cache.lower_bound({page_num, state_num});
-        if (it == m_cache.end()) {
-            assert(!m_cache.empty());
-            --it;
+        
+        // If we found exact match or an element with same page_num and state <= state_num
+        if (it != m_cache.end() && it->first.first == page_num && it->first.second <= state_num) {
+            return it;
         }
-        if (it != m_cache.begin() && (it->first.second > state_num || it->first.first != page_num)) {
-            --it;
+        
+        // Look backwards for the largest state <= state_num with same page_num
+        if (it == m_cache.begin()) {
+            return m_cache.end(); // No valid element found
         }
+        
+        --it; // Safe because we checked it != m_cache.begin()
+        
+        // Check if this element matches our criteria
         if (it->first.first == page_num && it->first.second <= state_num) {
             return it;
         }
+        
         return m_cache.end();
     }
     
@@ -197,8 +206,11 @@ namespace db0
         auto page_num = res_lock->getAddress() >> m_shift;
         auto it = findImpl(page_num, state_num);
         assert(it != m_cache.end());
+        if (it == m_cache.end()) {
+            THROWF(db0::InternalException) << "Attempt to erase non-existing lock from PageMap";
+        }
         assert(it->second.lock() == res_lock);
-        m_cache.erase(it);        
+        m_cache.erase(it);
     }
     
     template <typename ResourceLockT> void PageMap<ResourceLockT>::clear() 

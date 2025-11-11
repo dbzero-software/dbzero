@@ -17,7 +17,7 @@ namespace db0
 	class CacheRecycler
     {
 	public:
-		static constexpr std::size_t DEFAULT_FLUSH_SIZE = 128 << 20u;
+		static constexpr std::size_t DEFAULT_FLUSH_SIZE = 256u << 20;
 		
 		/**
 		 * Holds resource locks and recycles based on LRU policy
@@ -45,10 +45,10 @@ namespace db0
 		void clear();
 		
         /**
-         * Modify cache size
-         * @param new_size as byte count
+         * Change cache capacity at runtime
+         * @param new_capacity as byte size
          */
-        void resize(std::size_t new_size);
+        void resize(std::size_t new_capacity);
 
 		void setFlushSize(unsigned int);
 
@@ -63,6 +63,9 @@ namespace db0
 		 * Get current cache utilization
 		*/
 		std::size_t size() const;
+		
+		// @return current cache size with a by-priority breakdown
+		std::vector<std::size_t> getDetailedSize() const;
 
 		std::size_t getCapacity() const;
 		
@@ -75,8 +78,8 @@ namespace db0
         using list_t = db0::FixedList<std::shared_ptr<ResourceLock> >;
         using iterator = list_t::iterator;
 		
-		// cache capacities as number of bytes (priority 0 and 1)
-		std::array<std::size_t, 2> m_capacity;
+		// total cache capacity
+		std::size_t m_capacity;
 		// buffers for priority cache (#0) and secondary cache (#1)
 		std::array<list_t, 2> m_res_bufs;
 		std::array<std::size_t, 2> m_current_size = {0, 0};
@@ -87,8 +90,8 @@ namespace db0
 		std::function<void(std::size_t limit)> m_flush_dirty;
 		std::function<bool(bool)> m_flush_callback;
 		std::pair<bool, bool> m_last_flush_callback_result = {true, false};
-
-		void resize(std::size_t new_size, int priority);
+		
+		void resize(std::unique_lock<std::mutex> &, std::size_t new_size, int priority);
 
         /**
          * Adjusts cache size after updates, collect locks to unlock (can be unlocked off main thread)
@@ -99,6 +102,8 @@ namespace db0
         std::size_t adjustSize(std::unique_lock<std::mutex> &, list_t &res_buf, std::size_t release_size);
 		void adjustSize(std::unique_lock<std::mutex> &, std::size_t release_size);
 		void updateSize(std::unique_lock<std::mutex> &, int priority, std::size_t expected_size);
+		// update overall size
+		void updateSize(std::unique_lock<std::mutex> &, std::size_t expected_size);
 
 		inline std::size_t getCurrentSize() const {
 			return m_current_size[0] + m_current_size[1];

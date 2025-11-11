@@ -290,7 +290,8 @@ namespace db0
     
     bool Fixture::commit()
     {
-        auto process_timer = std::make_unique<ProcessTimer>("Fixture::commit");
+        std::unique_ptr<ProcessTimer> process_timer;
+        // process_timer = std::make_unique<ProcessTimer>("Fixture::commit");
         assert(getPrefixPtr());
         // flush to prepare objects which require it (e.g. Index) for commit
         // NOTE: flush must NOT lock the fixture's shared mutex
@@ -310,17 +311,14 @@ namespace db0
             }
         }
         
-        // Clear expired instances from cache so that they're not persisted
-        // FIXME: log
-        // m_lang_cache.clear(true);
+        // Clear Python-side expired instances from cache so that they're not persisted
+        m_lang_cache.clear(true);
         std::unique_lock<std::shared_mutex> lock(m_commit_mutex);
         bool result = tryCommit(lock, process_timer.get());
         m_updated = false;
         auto callbacks = collectStateReachedCallbacks();
         lock.unlock();
         executeStateReachedCallbacks(callbacks);
-        // FIXME: log
-        process_timer->printLog(std::cout) << std::endl;
         return result;
     }
     
@@ -338,8 +336,8 @@ namespace db0
             if (!prefix_ptr) {
                 return result;
             }
-
-            std::unique_ptr<GC0::SaveContext> gc0_ctx = m_gc0_ptr ? getGC0().beginSave() : nullptr;
+            
+            std::unique_ptr<GC0::CommitContext> ctx = m_gc0_ptr ? m_gc0_ptr->beginCommit() : nullptr;
             // NOTE: close handlers perform internal buffers flush (e.g. TagIndex)
             // which may result in modifications (e.g. incRef)
             // it's therefore important to perform this action before GC0::commitAll (which commits finalized objects)
@@ -348,15 +346,11 @@ namespace db0
             }
             
             // Commit modified only (to avoid scan over all objects)
-            if (m_gc0_ptr) {
-                getGC0().commitAllOf(Memspace::getModified(), timer.get());
+            if (ctx) {
+                ctx->commitAllOf(Memspace::getModified(), timer.get());
+                ctx = nullptr;
             }
             
-            // Save garbage collector's state
-            // we check if gc0 exists because the unit-tests set up may not have it
-            if (gc0_ctx) {
-                gc0_ctx->save(timer.get());
-            }
             m_string_pool.commit();
             m_object_catalogue.commit();
             m_v_object_cache.commit();

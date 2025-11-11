@@ -53,15 +53,15 @@ def test_memo_no_cache_issue1(db0_fixture):
         del obj
     
     
-def test_excluding_no_cache_instances_from_dbzero_cache(db0_fixture):
+def test_excluding_no_cache_instances_from_P0_cache(db0_fixture):
     buf = db0.list()
-    initial_cache_size = db0.get_cache_stats()["size"] 
+    initial_cache_size = db0.get_cache_stats()["P_size"]["P0"]
     for _ in range(100):
-        obj = MemoNoCacheClass()
+        obj = MemoNoCacheClass()        
         buf.append(obj)
     
-    gc.collect()
-    final_cache_size = db0.get_cache_stats()["size"]
+    gc.collect()        
+    final_cache_size = db0.get_cache_stats()["P_size"]["P0"]
     # make sure cache utilization is low
     assert abs(final_cache_size - initial_cache_size) < (350 << 10)
 
@@ -80,7 +80,7 @@ def test_fetching_no_cache_objects(db0_fixture):
     db0.open(px_name, "r")
     
     # now fetch objects by uuid
-    initial_cache_size = db0.get_cache_stats()["size"]
+    initial_cache_size = db0.get_cache_stats()["P_size"]["P0"]
     total_len = 0
     for id in uuid_list:
         # NOTE: must fetch with type, otherwise no_cache flag may not be honored
@@ -88,7 +88,7 @@ def test_fetching_no_cache_objects(db0_fixture):
         # this forces data retrieval
         total_len += len(obj.data)
     
-    final_cache_size = db0.get_cache_stats()["size"]    
+    final_cache_size = db0.get_cache_stats()["P_size"]["P0"]
     # make sure cache utilization is low
     assert abs(final_cache_size - initial_cache_size) < (300 << 10)
 
@@ -105,14 +105,14 @@ def test_find_no_cache_objects(db0_fixture):
     db0.open(px_name, "r")
     
     # now retrieve objects using db0.find
-    initial_cache_size = db0.get_cache_stats()["size"]
+    initial_cache_size = db0.get_cache_stats()["P_size"]["P0"]
     total_len = 0
     for obj in db0.find(MemoNoCacheClass):
         # this forces data retrieval (but not caching)
         total_len += len(obj.data)
     
     assert total_len > 0
-    final_cache_size = db0.get_cache_stats()["size"]
+    final_cache_size = db0.get_cache_stats()["P_size"]["P0"]
     # make sure cache utilization is low
     assert abs(final_cache_size - initial_cache_size) < (300 << 10)
 
@@ -131,7 +131,7 @@ def test_fetching_no_cache_objects(db0_fixture):
     db0.open(px_name, "r")
     
     # now fetch objects by uuid
-    initial_cache_size = db0.get_cache_stats()["size"]
+    initial_cache_size = db0.get_cache_stats()["P_size"]["P0"]
     total_len = 0
     for id in uuid_list:
         # NOTE: must fetch with type, otherwise no_cache flag may not be honored
@@ -139,7 +139,7 @@ def test_fetching_no_cache_objects(db0_fixture):
         # this forces data retrieval
         total_len += len(obj.data)
     
-    final_cache_size = db0.get_cache_stats()["size"]    
+    final_cache_size = db0.get_cache_stats()["P_size"]["P0"]
     # make sure cache utilization is low
     assert abs(final_cache_size - initial_cache_size) < (300 << 10)
 
@@ -156,13 +156,13 @@ def test_find_no_cache_objects(db0_fixture):
     db0.open(px_name, "r")
     
     # now retrieve objects using db0.find
-    initial_cache_size = db0.get_cache_stats()["size"]
+    initial_cache_size = db0.get_cache_stats()["P_size"]["P0"]
     total_len = 0
     for obj in db0.find(MemoNoCacheClass):
         # this forces data retrieval (but not caching)
         total_len += len(obj.data)
     
     assert total_len > 0
-    final_cache_size = db0.get_cache_stats()["size"]
+    final_cache_size = db0.get_cache_stats()["P_size"]["P0"]
     # make sure cache utilization is low
     assert abs(final_cache_size - initial_cache_size) < (350 << 10)

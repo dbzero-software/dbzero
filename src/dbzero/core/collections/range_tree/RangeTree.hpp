@@ -158,8 +158,6 @@ DB0_PACKED_END
                     if (!range.isUnbound() || begin == end) {
                         break;
                     }
-                    // FIXME: log
-                    std::cout << "!!! bulkInsert continuing to insert into new range" << std::endl;
                     // in case of unbound ranges (i.e. the last range) append a new one and continue
                     range = insertRange(*begin);
                 }
@@ -433,18 +431,15 @@ DB0_PACKED_END
                     }
                 }
                 
-                // Forwards a value to the add item callback
-                /* FIXME: log
+                // Forwards a value to the add item callback                
                 std::function<void(ItemT)> add_item_callback = [&](ItemT item) {
                     (*add_callback_ptr)(item.m_value);                    
                 };                
                 
                 std::function<void(ItemT)> *add_item_callback_ptr = (add_callback_ptr ? &add_item_callback : nullptr);
                 return (*this)->bulkInsertUnique(begin_item, end_item, add_item_callback_ptr).second;
-                */
-                return (*this)->bulkInsertUnique(begin_item, end_item).second;
             }
-
+            
             /**
              * Erase existing elements, ignore non-existing ones
              * @return number of erased elements

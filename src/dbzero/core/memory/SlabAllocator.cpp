@@ -126,7 +126,7 @@ namespace db0
         BlankSetT blanks(bitspace, page_size);
         AlignedBlankSetT aligned_blanks(bitspace, page_size, CompT(page_size), page_size);
         StripeSetT stripes(bitspace, page_size);
-        LimitedVector<std::uint16_t> alloc_counter(bitspace, page_size);
+        LimitedVector<std::uint16_t> alloc_counter(bitspace, page_size);        
         alloc_counter.reserve(SlabAllocatorConfig::SLAB_BITSPACE_SIZE());
         // calculate size initially available to CRTD allocator
         std::uint32_t crdt_size = static_cast<std::uint32_t>(size - admin_size - admin_margin_bytes);

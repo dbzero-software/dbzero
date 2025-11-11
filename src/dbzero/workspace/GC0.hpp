@@ -94,26 +94,8 @@ namespace db0
 
         // Detach all instances held by this registry
         void detachAll();
-        // Commit specific (e.g. modified) instances held by this registry
-        void commitAllOf(const std::vector<vtypeless*> &, ProcessTimer * = nullptr);
-        
+
         std::size_t size() const;
-
-        struct SaveContext
-        {
-            GC0 &m_gc0;
-
-            SaveContext(GC0 &gc0);
-            ~SaveContext();
-
-            void save(ProcessTimer * = nullptr);
-        };
-        
-        /**
-         * Save serializes the list of unreferenced instances to the persistence layer
-         * this is to be able to drop those instances once the corresponding references from Python expire
-        */
-        std::unique_ptr<SaveContext> beginSave();
 
         template <typename... T> static void registerTypes();
 
@@ -126,12 +108,24 @@ namespace db0
         void beginAtomic();
         void endAtomic();
         void cancelAtomic();
+        
+        struct CommitContext
+        {
+            GC0 &m_gc0;
+
+            CommitContext(GC0 &gc0);
+            ~CommitContext();
+
+            void commitAllOf(const std::vector<vtypeless*> &, ProcessTimer * = nullptr);
+        };
+        
+        std::unique_ptr<CommitContext> beginCommit();
 
     protected:
-        friend SaveContext;
-        bool m_save_pending = false;
+        bool m_commit_pending = false;
         
-        void save(ProcessTimer * = nullptr);
+        // Commit specific (e.g. modified) instances held by this registry
+        void commitAllOf(const std::vector<vtypeless*> &, ProcessTimer * = nullptr);        
         // @return flush ops-id if element was assigned it
         std::optional<unsigned int> erase(void *vptr);
         
