@@ -79,13 +79,24 @@ namespace db0::object_model
         void rollback();
 
         void operator=(const Index &) = delete;
-        
+
+        // Callback invoked when the index is marked dirty (or clean)
+        // for proper lifecycle management (incRef prevents premature deletion e.g. from LangCache)
+        // @param incRef true to increase ref count, false to decrease        
+        void setDirtyCallback(std::function<void(bool incRef)> &&callback) {
+            m_dirty_callback = std::move(callback);
+        }
+
     protected:
         // the default / provisional type
         using DefaultT = std::int64_t;
         friend struct Builder;
         void flush(bool revert);
         static void flushOp(void *, bool revert);
+        std::function<void(bool incRef)> m_dirty_callback;
+        
+        // Set or reset dirty state
+        void setDirty(bool dirty);
 
         template <typename T> static constexpr IndexDataType dataTypeOf()
         {
