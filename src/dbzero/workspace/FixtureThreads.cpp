@@ -137,7 +137,7 @@ namespace db0
         std::uint64_t uuid = fixture.getUUID();
         auto last_updated = prefix_ptr->getLastUpdated();
         auto now = ClockType::now();
-
+        
         auto it = m_fixture_status.find(uuid);
         assert(it != m_fixture_status.end());        
         FixtureUpdateStatus &update_status = it->second;
@@ -145,11 +145,8 @@ namespace db0
             tryRefresh(fixture);
             update_status.last_updated = last_updated;
             update_status.last_updated_check_tp = now;
-        }
-        else
-        {
-            if((now - update_status.last_updated_check_tp) > std::chrono::seconds(5))
-            {
+        } else {
+            if ((now - update_status.last_updated_check_tp) > std::chrono::seconds(5)) {
                 // This is to protect against edge-case hang on 'wait' function,
                 // caused by refresh thread not picking up all cases when prefix file is modified.
                 // The refresh mechanism can potentially be improved in the future.
