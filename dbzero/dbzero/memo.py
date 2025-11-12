@@ -180,11 +180,26 @@ def memo(cls: Optional[type] = None, **kwargs) -> type:
             # value assignment
             if next_inst.opname == "STORE_ATTR":
                 # "self" argument put on the stack
-                if last_inst is not None and last_inst.opname == "LOAD_FAST" and last_inst.arg == 0:
+                if last_inst and _is_self_load_instruction(last_inst):
                     if next_inst.argval not in unique_args:
                         unique_args.add(next_inst.argval)
                         yield next_inst.argval
-            last_inst = next_inst   
+            last_inst = next_inst
+    
+    def _is_self_load_instruction(inst):
+        """Check if an instruction loads 'self' onto the stack."""
+        if inst.opname == "LOAD_FAST" and inst.arg == 0:
+            # Traditional single load of first argument (self)
+            return True
+        elif inst.opname == "LOAD_FAST_BORROW" and inst.arg == 0:
+            # Python 3.14+ borrowed reference load of first argument (self)
+            return True
+        elif inst.opname == "LOAD_FAST_BORROW_LOAD_FAST_BORROW":
+            # Python 3.14+ dual borrowed reference load
+            # argval is a tuple, check if 'self' is the second element (target for STORE_ATTR)
+            if isinstance(inst.argval, tuple) and len(inst.argval) == 2:
+                return inst.argval[1] == 'self'
+        return False   
     
     def dis_init_assig(from_type):
         """
