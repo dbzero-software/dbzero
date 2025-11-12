@@ -83,7 +83,7 @@ namespace db0::object_model
         // Callback invoked when the index is marked dirty (or clean)
         // for proper lifecycle management (incRef prevents premature deletion e.g. from LangCache)
         // @param incRef true to increase ref count, false to decrease        
-        void setDirtyCallback(std::function<void(bool incRef)> &&callback) {
+        void setDirtyCallback(std::function<void(bool incRef)> &&callback) const {
             m_dirty_callback = std::move(callback);
         }
 
@@ -93,7 +93,7 @@ namespace db0::object_model
         friend struct Builder;
         void flush(bool revert);
         static void flushOp(void *, bool revert);
-        std::function<void(bool incRef)> m_dirty_callback;
+        mutable std::function<void(bool incRef)> m_dirty_callback;
         
         // Set or reset dirty state
         void setDirty(bool dirty);
@@ -186,10 +186,9 @@ namespace db0::object_model
     private: 
         // actual index instance (must be cast to a specific type)
         mutable std::shared_ptr<void> m_index;
-
-        Index(tag_no_gc, db0::swine_ptr<Fixture> &, const Index &);
         
-        void operator=(Index &&);
+        // Constructor required by moveTo (auto-hardening)
+        Index(tag_no_gc, db0::swine_ptr<Fixture> &, const Index &);
         
         bool hasRangeTree() const {
             return (*this)->m_index_addr.isValid();
