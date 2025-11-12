@@ -70,6 +70,18 @@ namespace db0::python
         auto py_index = Py_OWN(IndexDefaultObject_new());
         db0::FixtureLock lock(PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture());
         auto &index = py_index->makeNew(*lock);
+        
+        // NOTE: this callback is important for proper lifecycle management
+        // we must prevent dirty Index instance from deletion
+        auto py_index_ptr = py_index.get();
+        index.setDirtyCallback([py_index_ptr](bool incRef) {
+            if (incRef) {
+                Py_INCREF(py_index_ptr);
+            } else {
+                Py_DECREF(py_index_ptr);
+            }
+        });
+        
         // register newly created index with py-object cache
         lock->getLangCache().add(index.getAddress(), py_index.get());
         return py_index.steal();
