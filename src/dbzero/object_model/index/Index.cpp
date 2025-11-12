@@ -265,7 +265,17 @@ namespace db0::object_model
                     << static_cast<std::uint16_t>((*this)->m_data_type) << THROWF_END;
         }
     }
-    
+
+    void Index::setDirty(bool dirty)
+    {
+        if (dirty) {
+            getMemspace().collectForFlush(this);            
+        }
+        if (m_dirty_callback) {
+            m_dirty_callback(dirty);
+        }
+    }
+
     void Index::add(ObjectPtr key, ObjectPtr value)
     {        
         assert(hasInstance());
@@ -283,7 +293,7 @@ namespace db0::object_model
 
         // subscribe for flush operation
         if (!isDirty()) {
-            getMemspace().collectForFlush(this);
+            setDirty(true);
         }
 
         switch (m_builder.getDataType()) {
@@ -323,7 +333,7 @@ namespace db0::object_model
 
         // subscribe for flush operation
         if (!isDirty()) {
-            getMemspace().collectForFlush(this);
+            setDirty(true);            
         }
 
         switch (m_builder.getDataType()) {
@@ -443,7 +453,7 @@ namespace db0::object_model
         assert(hasInstance());
         // subscribe for flush operation
         if (!isDirty()) {
-            getMemspace().collectForFlush(this);
+            setDirty(true);
         }
         
         switch (m_builder.getDataType()) {
@@ -489,14 +499,15 @@ namespace db0::object_model
         }
         return type_manager.extractUInt64(type_manager.getTypeId(value), value);
     }
-
+    
     void Index::flush(bool revert)
     {
         if (revert) {
             rollback();
         } else {
             _flush();
-        }        
+        }
+        setDirty(false);
     }
 
     void Index::flushOp(void *ptr, bool revert) {
@@ -506,7 +517,7 @@ namespace db0::object_model
     void Index::removeNull(ObjectPtr obj_ptr)
     {
         if (!isDirty()) {
-            getMemspace().collectForFlush(this);
+            setDirty(true);
         }
 
         switch (m_builder.getDataType()) {
@@ -540,18 +551,6 @@ namespace db0::object_model
         assert(hasInstance());
         this->_flush();
         super_t::moveTo(fixture);
-    }
-    
-    void Index::operator=(Index &&other)
-    {
-        other._flush();
-        super_t::operator=(std::move(other));
-        m_index = std::move(other.m_index);
-        m_mutation_log = std::move(other.m_mutation_log);
-        other.m_index = nullptr;
-        assert(!other.hasInstance());
-        // if m_index exists then also must have a range tree
-        assert(!m_index || hasRangeTree());
     }
     
     void Index::commit() const

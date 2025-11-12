@@ -37,6 +37,16 @@ else
   add_project_arguments('-DENABLE_DEBUG_EXCEPTIONS=0', language: 'c')
 endif
 
+enable_sanitizers = get_option('enable_sanitizers')
+
+if enable_sanitizers
+    message('Enabling address and undefined behavior sanitizers')
+    add_project_arguments('-fsanitize=address', language: 'cpp')
+    add_project_link_arguments('-fsanitize=address', language: 'cpp')
+else
+    message('Disabling address and undefined behavior sanitizers')
+endif
+
 buildtype = get_option('buildtype')
 build_suffix = ''
 if buildtype.startswith('release')
