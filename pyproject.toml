@@ -4,7 +4,7 @@ requires = ['meson-python']
 
 [project]
 name = 'DBzero'
-version = '0.0.1'
+version = '0.1.0'
 description = 'DBZero Community edition'
 readme = 'README.md'
 requires-python = '>=3.8'
