@@ -476,7 +476,7 @@ namespace db0::python
     // Regular memo slots
     static PyType_Slot MemoObject_common_slots[] = {
         {Py_tp_new, (void *)PyAPI_MemoObject_new<MemoObject>},
-        {Py_tp_dealloc, (void *)MemoObject_del<MemoObject>},
+        {Py_tp_dealloc, (void(*)(MemoObject*))(MemoObject_del<MemoObject>)},
         {Py_tp_init, (void *)PyAPI_MemoObject_init<MemoObject>},
         {Py_tp_getattro, (void *)PyAPI_MemoObject_getattro<MemoObject>},
         {Py_tp_setattro, (void *)PyAPI_MemoObject_setattro<MemoObject>},
@@ -488,7 +488,7 @@ namespace db0::python
     // Immutable memo slots
     static PyType_Slot MemoImmutableObject_common_slots[] = {
         {Py_tp_new, (void *)PyAPI_MemoObject_new<MemoImmutableObject>},
-        {Py_tp_dealloc, (void *)MemoObject_del<MemoImmutableObject>},
+        {Py_tp_dealloc, (void(*)(MemoImmutableObject*))(MemoObject_del<MemoImmutableObject>)},
         {Py_tp_init, (void *)PyAPI_MemoObject_init<MemoImmutableObject>},
         {Py_tp_getattro, (void *)PyAPI_MemoObject_getattro<MemoImmutableObject>},
         // set available only on pre-initialized objects
@@ -995,22 +995,30 @@ namespace db0::python
     bool PyAnyMemoType_Check(PyTypeObject *type)
     {
         assert(type);
-        return type->tp_dealloc == reinterpret_cast<destructor>(MemoObject_del<MemoObject>) ||
-               type->tp_dealloc == reinterpret_cast<destructor>(MemoObject_del<MemoImmutableObject>);
+        return type->tp_dealloc == reinterpret_cast<destructor>((void(*)(MemoObject*))MemoObject_del<MemoObject>) ||
+               type->tp_dealloc == reinterpret_cast<destructor>((void(*)(MemoImmutableObject*))MemoObject_del<MemoImmutableObject>);
     }
 
     template <typename MemoImplT>
     bool PyMemo_Check(PyObject *obj)
     {
         assert(obj);
-        return obj->ob_type->tp_dealloc == reinterpret_cast<destructor>(MemoObject_del<MemoImplT>);        
+        // needs to stay as 2 lines to proper compile on window
+        auto expected = reinterpret_cast<destructor>(
+            static_cast<void(*)(MemoImplT*)>(&MemoObject_del<MemoImplT>)
+        );
+        return obj->ob_type->tp_dealloc == expected;        
     }
     
     template <typename MemoImplT>
     bool PyMemoType_Check(PyTypeObject *type)
     {
         assert(type);
-        return type->tp_dealloc == reinterpret_cast<destructor>(MemoObject_del<MemoImplT>);
+        // needs to stay as 2 lines to proper compile on window
+        auto expected = reinterpret_cast<destructor>(
+            static_cast<void(*)(MemoImplT*)>(&MemoObject_del<MemoImplT>)
+        );
+        return type->tp_dealloc == expected;
     }
     
     template bool PyMemo_Check<MemoObject>(PyObject *);
