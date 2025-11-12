@@ -165,11 +165,12 @@ def test_memo_class_with_typeid(db0_fixture):
 class MemoConditionalMember:
     def __init__(self, cond_value):
         if cond_value > 10:
+            self.cond_value = None
             return
         self.cond_value = cond_value
     
     
-def test_memo_unsed_value_defaults_to_none(db0_fixture):
+def test_memo_unset_value_defaults_to_none(db0_fixture):
     obj_1 = MemoConditionalMember(15)
     assert obj_1.cond_value is None
     
