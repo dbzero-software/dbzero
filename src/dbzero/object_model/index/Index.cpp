@@ -553,18 +553,6 @@ namespace db0::object_model
         super_t::moveTo(fixture);
     }
     
-    void Index::operator=(Index &&other)
-    {
-        other._flush();
-        super_t::operator=(std::move(other));
-        m_index = std::move(other.m_index);
-        m_mutation_log = std::move(other.m_mutation_log);
-        other.m_index = nullptr;
-        assert(!other.hasInstance());
-        // if m_index exists then also must have a range tree
-        assert(!m_index || hasRangeTree());
-    }
-    
     void Index::commit() const
     {
         // if m_index exists then also must have a range tree

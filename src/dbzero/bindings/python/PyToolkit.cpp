@@ -292,15 +292,25 @@ namespace db0::python
             return object_ptr;
         }
         
-        auto index_object = Py_OWN(IndexDefaultObject_new());
+        auto py_index = Py_OWN(IndexDefaultObject_new());
         // retrieve actual dbzero instance
-        index_object->unload(fixture, address, access_mode);
+        py_index->unload(fixture, address, access_mode);
 
         // add list object to cache
-        if (!index_object->ext().isNoCache()) {
-            lang_cache.add(address, index_object.get());
-        }
-        return shared_py_cast<PyObject*>(std::move(index_object));
+        // NOTE: in case of Index (which requires a flush on update) we need to cache instance
+        // even if accessed as no-cache to prevent premature deletion        
+        lang_cache.add(address, py_index.get());
+
+        auto py_index_ptr = py_index.get();
+        py_index->ext().setDirtyCallback([py_index_ptr](bool incRef) {
+            if (incRef) {
+                Py_INCREF(py_index_ptr);
+            } else {
+                Py_DECREF(py_index_ptr);
+            }
+        });
+        
+        return shared_py_cast<PyObject*>(std::move(py_index));
     }
     
     PyToolkit::ObjectSharedPtr PyToolkit::unloadSet(db0::swine_ptr<Fixture> fixture, 
