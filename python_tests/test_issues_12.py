@@ -34,7 +34,7 @@ def get_random_tax_id(tax_ids_set=set()):
 
 
 @pytest.mark.stress_test
-@pytest.mark.parametrize("db0_slab_size", [{"slab_size": 64 << 20, "autocommit": False}], indirect=True)
+@pytest.mark.parametrize("db0_slab_size", [{"slab_size": 256 << 20, "autocommit": False}], indirect=True)
 def test_no_cache_allocator_issue(db0_slab_size):
     db0.set_cache_size(8 << 30)
     # create 25 k unique tax_id numbers
@@ -55,7 +55,7 @@ def test_no_cache_allocator_issue(db0_slab_size):
         new_issuer = Issuer(tax_id=tax_id, inv_list=[], inv_index=db0.index())
         issuers[tax_id] = new_issuer
     
-    execution_time = 15
+    execution_time = 45
     RANDOM_BYTES = b'DB0'*22000
     total_size = 0
     count_of_objects = 0
