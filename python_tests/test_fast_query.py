@@ -182,45 +182,47 @@ def test_group_by_with_multiple_ops_and_constant(db0_fixture, memo_enum_tags):
     for k in groups.keys():
         assert len(k) == 3
 
+
 def create_process(num_objects: List, px_name):
+    db0.init(DB0_DIR)
+    db0.open(px_name.name, "rw")
+    for count in num_objects:
+        for _ in range(count):
+            obj = MemoTestClass(0)
+            db0.tags(obj).add("tag1")
+        db0.commit()
+        time.sleep(0.05)
+    db0.close()
+    
+
+def test_refreshing_group_by_results(db0_fixture, memo_enum_tags):
+    """
+    In this test, one process is generating data while the other - running group_by queries.
+    """
+    px_name = db0.get_current_prefix()
+
+    db0.close()
+    
+    num_objects = [5, 10, 11, 6, 22,8, 11, 6]    
+    p = multiprocessing.Process(target=create_process, args = (num_objects, px_name))
+    p.start()
+    
+    # start the reader process
+    try:
         db0.init(DB0_DIR)
-        db0.open(px_name.name, "rw")
-        for count in num_objects:
-            for _ in range(count):
-                obj = MemoTestClass(0)
-                db0.tags(obj).add("tag1")
-            db0.commit()
-            time.sleep(0.05)
-        db0.close()
-
-# FIXME: log
-# def test_refreshing_group_by_results(db0_fixture, memo_enum_tags):
-#     """
-#     In this test, one process is generating data while the other - running group_by queries.
-#     """
-#     px_name = db0.get_current_prefix()
-
-#     db0.close()
-    
-#     num_objects = [5, 10, 11, 6, 22,8, 11, 6]    
-#     p = multiprocessing.Process(target=create_process, args = (num_objects, px_name))
-#     p.start()
-    
-#     # start the reader process
-#     try:
-#         db0.init(DB0_DIR)
-#         db0.init_fast_query("__fq_cache/data")
-#         db0.open(px_name.name, "r")
+        db0.init_fast_query("__fq_cache/data")
+        db0.open(px_name.name, "r")
         
-#         result = {0:0}
-#         while result[0] < sum(num_objects):
-#             if db0.refresh():
-#                 result = db0.group_by(lambda x: x.value, db0.find(MemoTestClass, "tag1"))                
-#             time.sleep(0.05)
-#     finally:
-#         p.terminate()
-#         p.join()
-#         db0.close()
+        result = {0:0}
+        while result and result[0] < sum(num_objects):
+            # NOTE: we might call db0.refresh() but it's also performed automatically            
+            result = db0.group_by(lambda x: x.value, db0.find(MemoTestClass, "tag1"))
+            time.sleep(0.05)
+
+    finally:
+        p.terminate()
+        p.join()
+        db0.close()
     
     
 def test_group_by_issue_1(db0_fixture, memo_enum_tags):
