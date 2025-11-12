@@ -19,7 +19,7 @@ export CPLUS_INCLUDE_PATH="$CPLUS_INCLUDE_PATH:/usr/include/python3.9/"
 cores=`grep -c ^processor /proc/cpuinfo`
 export build_type="debug"
 install_dir=""
-sanitizer="OFF"
+sanitizer="false"
 enable_debug_exceptions="true"
 
 TEMP=`getopt -o hj:rsie --long help,jobs:,release,sanitize,install,debug_exceptions -n 'build.sh' -- "$@"`
@@ -31,7 +31,7 @@ eval set -- "$TEMP"
 while true ; do
     case "$1" in
         -h|--help) show_help ; shift ;;
-        -s|--sanitize) sanitizer="ON" ; shift ;;
+        -s|--sanitize) sanitizer="true" ; shift ;;
         -r|--release) build_type="release" ; shift ;;
         -e|--disable_debug_exceptions) enable_debug_exceptions="false" ; shift ;;
         -j|--jobs)
@@ -60,10 +60,10 @@ python3 scripts/generate_meson_dbzero.py dbzero/
 mkdir -p build
 
 if [ "$build_type" == "debug" ]; then
-	meson setup --buildtype="debug"  -Denable_debug_exceptions=$enable_debug_exceptions build/debug
+	meson setup --buildtype="debug"  -Denable_debug_exceptions=$enable_debug_exceptions -Denable_sanitizers=$sanitizer build/debug
     cd build/debug
 else
-	meson setup --buildtype="release" -Denable_debug_exceptions=$enable_debug_exceptions build/release
+	meson setup --buildtype="release" -Denable_debug_exceptions=$enable_debug_exceptions -Denable_sanitizers=$sanitizer build/release
     cd build/release
 fi
 

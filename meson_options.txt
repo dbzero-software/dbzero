@@ -3,3 +3,9 @@ option('enable_debug_exceptions',
   value: false,
   description: 'Enable debug exceptions (exceptions and stack traces from c++ code).'
 )
+
+option('enable_sanitizers',
+  type: 'boolean',
+  value: false,
+  description: 'Enable address and undefined behavior sanitizers.'
+)
