@@ -28,9 +28,9 @@ python3 setup.py sdist
 PYTHON3_VERSION=$(python3 -c 'import sys; print(f"{sys.version_info.minor}")')
 if [ "${INSTALL}" ] ; then
     if [ "$PYTHON3_VERSION" -ge 11 ]; then
-        pip3 install ./dist/dbzero-0.0.1.tar.gz --break-system-packages
+        pip3 install ./dist/dbzero-0.1.0.tar.gz --break-system-packages
     else
-        pip3 install ./dist/dbzero-0.0.1.tar.gz
+        pip3 install ./dist/dbzero-0.1.0.tar.gz
     fi
 fi
 
