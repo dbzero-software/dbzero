@@ -57,7 +57,7 @@ namespace db0::python
         m_config = std::make_shared<db0::Config>(py_config);
         db0::Config default_lock_flags(py_lock_flags);
         // Retrieve the cache size from passed config parameters
-        auto cache_size = m_config->get<long>("cache_size");
+        auto cache_size = m_config->get<unsigned long long>("cache_size");
 
         m_workspace = std::shared_ptr<db0::Workspace>(
             new Workspace(root_path, std::move(cache_size), {}, {}, {}, db0::object_model::initializer(), m_config, default_lock_flags));

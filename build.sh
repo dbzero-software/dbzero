@@ -21,8 +21,9 @@ export build_type="debug"
 install_dir=""
 sanitizer="false"
 enable_debug_exceptions="true"
+build_tests="false"
 
-TEMP=`getopt -o hj:rsie --long help,jobs:,release,sanitize,install,debug_exceptions -n 'build.sh' -- "$@"`
+TEMP=`getopt -o hj:rtsie --long help,jobs:,release,tests,sanitize,install,debug_exceptions -n 'build.sh' -- "$@"`
 if [ ! $? -eq 0 ]; then
     exit
 fi
@@ -33,6 +34,7 @@ while true ; do
         -h|--help) show_help ; shift ;;
         -s|--sanitize) sanitizer="true" ; shift ;;
         -r|--release) build_type="release" ; shift ;;
+        -t|--tests) build_tests="true" ; shift ;;
         -e|--disable_debug_exceptions) enable_debug_exceptions="false" ; shift ;;
         -j|--jobs)
             case "$2" in
@@ -59,11 +61,16 @@ python3 scripts/generate_meson_dbzero.py dbzero/
 
 mkdir -p build
 
+options=""
+options+=" -Denable_debug_exceptions=$enable_debug_exceptions"
+options+=" -Denable_sanitizers=$sanitizer"
+options+=" -Dbuild_tests=$build_tests"
+
 if [ "$build_type" == "debug" ]; then
-	meson setup --buildtype="debug"  -Denable_debug_exceptions=$enable_debug_exceptions -Denable_sanitizers=$sanitizer build/debug
+	meson setup --buildtype="debug" $options build/debug
     cd build/debug
 else
-	meson setup --buildtype="release" -Denable_debug_exceptions=$enable_debug_exceptions -Denable_sanitizers=$sanitizer build/release
+	meson setup --buildtype="release" $options build/release
     cd build/release
 fi
 

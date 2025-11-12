@@ -9,3 +9,9 @@ option('enable_sanitizers',
   value: false,
   description: 'Enable address and undefined behavior sanitizers.'
 )
+
+option('build_tests',
+  type: 'boolean',
+  value: false,
+  description: 'Build c++ tests.'
+)

@@ -38,7 +38,6 @@ else
 endif
 
 enable_sanitizers = get_option('enable_sanitizers')
-
 if enable_sanitizers
     message('Enabling address and undefined behavior sanitizers')
     add_project_arguments('-fsanitize=address', language: 'cpp')
@@ -98,12 +97,17 @@ gtest_dep = dependency('gtest', main : true, required : false)
 gmock_dep = dependency('gmock', main : true, required : false) 
 
 dbzero_lib = static_library('pyzero', [all_srcs], include_directories:include_dirs, dependencies: [deps], install : true, install_dir: install_dir)
-subdir('tests')
- 
-e = executable('tests' + build_suffix + '.x', [all_srcs,tests_sources], dependencies: [deps, gtest_dep, gmock_dep], 
-               link_with: [dbzero_lib, link_with], include_directories:include_dirs_test, link_language : 'cpp',)
 
-test('gtest tests', e)
+build_tests = get_option('build_tests')
+if build_tests
+    message('Building C++ tests')
+    subdir('tests')
+    e = executable('tests' + build_suffix + '.x', [all_srcs,tests_sources], dependencies: [deps, gtest_dep, gmock_dep], 
+                   link_with: [dbzero_lib, link_with], include_directories:include_dirs_test, link_language : 'cpp',)
+    test('gtest tests', e)
+else
+    message('Skipping C++ tests build')
+endif
 
 py3avlw = py3_inst.extension_module('dbzero',
     sources: ['src/dbzero/bindings/python/dbzero.cpp'], 
