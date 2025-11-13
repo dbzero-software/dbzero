@@ -10,5 +10,5 @@ setup(
     version='0.1.0',
     description='DBZero community edition',
     packages=['dbzero'],
-    python_requires='>=3.11',
+    python_requires='>=3.10',
 )
