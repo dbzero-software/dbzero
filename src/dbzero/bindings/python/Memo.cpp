@@ -205,6 +205,22 @@ namespace db0::python
         memo_obj->destroy();
         Py_TYPE(memo_obj)->tp_free((PyObject*)memo_obj);
     }
+
+    template <typename MemoImplT>
+    int MemoObject_traverse(MemoImplT *self, visitproc visit, void *arg)
+    {
+        // No Python object references to traverse in memo objects
+        // They only contain dbzero native objects
+        return 0;
+    }
+
+    template <typename MemoImplT>
+    int MemoObject_clear(MemoImplT *self)
+    {
+        // No Python object references to clear in memo objects  
+        // They only contain dbzero native objects
+        return 0;
+    }
     
     template <typename MemoImplT>
     int PyAPI_MemoObject_init(MemoImplT *self, PyObject* args, PyObject* kwds)
@@ -481,7 +497,9 @@ namespace db0::python
         {Py_tp_getattro, (void *)PyAPI_MemoObject_getattro<MemoObject>},
         {Py_tp_setattro, (void *)PyAPI_MemoObject_setattro<MemoObject>},
         {Py_tp_richcompare, (void *)PyAPI_MemoObject_rq<MemoObject>},
-        {Py_tp_hash, (void *)PyAPI_MemoHash},        
+        {Py_tp_hash, (void *)PyAPI_MemoHash},
+        {Py_tp_traverse, (void *)MemoObject_traverse<MemoObject>},
+        {Py_tp_clear, (void *)MemoObject_clear<MemoObject>},        
         {0, 0}
     };
     
@@ -494,7 +512,9 @@ namespace db0::python
         // set available only on pre-initialized objects
         {Py_tp_setattro, (void *)PyAPI_MemoObject_setattro<MemoImmutableObject>},
         {Py_tp_richcompare, (void *)PyAPI_MemoObject_rq<MemoImmutableObject>},
-        {Py_tp_hash, (void *)PyAPI_MemoHash},        
+        {Py_tp_hash, (void *)PyAPI_MemoHash},
+        {Py_tp_traverse, (void *)MemoObject_traverse<MemoImmutableObject>},
+        {Py_tp_clear, (void *)MemoObject_clear<MemoImmutableObject>},        
         {0, 0}
     };
     
@@ -517,7 +537,15 @@ namespace db0::python
         // fill-in common slots first
         auto slot_ptr = getCommonSlots<MemoImplT>();
         while (slot_ptr->slot || slot_ptr->pfunc) {
+#if PY_VERSION_HEX < 0x030B0000  // Python < 3.11
+            // Include all slots including traverse/clear for GC compatibility
             slots.push_back(*slot_ptr);
+#else
+            // Skip traverse/clear slots for Python 3.11+ where GC is disabled
+            if (slot_ptr->slot != Py_tp_traverse && slot_ptr->slot != Py_tp_clear) {
+                slots.push_back(*slot_ptr);
+            }
+#endif
             ++slot_ptr;
         }
         
@@ -529,11 +557,18 @@ namespace db0::python
         }
         
         slots.push_back({0, 0});
-
+        
+        // Enable GC for Python 3.10 compatibility - required for inheritance hierarchies
+        std::uint32_t flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE;
+#if PY_VERSION_HEX < 0x030B0000  // Python < 3.11
+        flags |= Py_TPFLAGS_HAVE_GC;
+#endif
+        flags &= ~Py_TPFLAGS_MANAGED_DICT;
+        
         auto type_spec = PyType_Spec {
             .name = tp_name,
             .basicsize = MemoImplT::sizeOf(),            
-            .flags = (Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE) & ~(Py_TPFLAGS_HAVE_GC | Py_TPFLAGS_MANAGED_DICT),
+            .flags = flags,
             .slots = slots.data()
         };
         
@@ -577,17 +612,21 @@ namespace db0::python
         
         auto [type_name, full_type_name] = getMemoTypeName(py_class);
         TypeObjectSharedPtr new_type = nullptr;
+        
+        // For Python 3.10 compatibility: ensure tp_name string persists beyond this scope
+        // by using pooled string to avoid segfault due to tp_name pointer being copied literally
+        auto &type_manager = PyToolkit::getTypeManager();
+        const char* safe_tp_name = type_manager.getPooledString(full_type_name);
+        
         // NOTE: MemoObject and MemoImmutableObject have different implementations
         if (immutable) {
-            new_type = Py_OWN(PyMemoType_FromSpec<MemoImmutableObject>(base_class, full_type_name.c_str(), is_singleton));
+            new_type = Py_OWN(PyMemoType_FromSpec<MemoImmutableObject>(base_class, safe_tp_name, is_singleton));
         } else {
-            new_type = Py_OWN(PyMemoType_FromSpec<MemoObject>(base_class, full_type_name.c_str(), is_singleton));
+            new_type = Py_OWN(PyMemoType_FromSpec<MemoObject>(base_class, safe_tp_name, is_singleton));
         }
         if (!new_type) {
             return nullptr;
         }
-        
-        auto &type_manager = PyToolkit::getTypeManager();
         MemoFlags type_flags = no_default_tags ? MemoFlags { MemoOptions::NO_DEFAULT_TAGS } : MemoFlags();
         if (no_cache) {
             type_flags.set(MemoOptions::NO_CACHE);

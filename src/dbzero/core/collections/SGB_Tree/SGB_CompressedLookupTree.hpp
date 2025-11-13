@@ -48,6 +48,7 @@ DB0_PACKED_BEGIN
             // initialize header by compressing the key item (first item in the node)
             // need to append with base, otherwise is_sorted_flag would be erased
             base_t::append(comp, this->header().compressFirst(item));
+            assert(this->size() == 1);
         }
         
         static std::size_t measure(const KeyItemT &, CapacityT capacity, const HeapCompT &) {

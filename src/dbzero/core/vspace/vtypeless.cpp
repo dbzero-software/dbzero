@@ -13,18 +13,14 @@ namespace db0
         assert(!(m_resource_flags.load() & RESOURCE_LOCK));
     }
 
-    vtypeless::vtypeless(const vtypeless &other)
-        : m_memspace_ptr(other.m_memspace_ptr)
-    {
+    vtypeless::vtypeless(const vtypeless &other) {
         *this = other;
     }
     
-    vtypeless::vtypeless(vtypeless &&other)
-        : m_memspace_ptr(other.m_memspace_ptr)
-    {
+    vtypeless::vtypeless(vtypeless &&other) {
         *this = std::move(other);
     }
-
+    
     vtypeless::vtypeless(Memspace &memspace, Address address, MemLock &&mem_lock, std::uint16_t resource_flags,
         FlagSet<AccessOptions> access_mode)
         : m_address(address)
@@ -83,6 +79,10 @@ namespace db0
                 break;
             }
         }
+        
+        // invalidate the other instance
+        other.m_address = {};
+        other.m_memspace_ptr = nullptr;
     }
     
     unsigned int vtypeless::use_count() const {

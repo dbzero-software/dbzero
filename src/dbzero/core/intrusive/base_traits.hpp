@@ -17,7 +17,7 @@ namespace db0
         
         static node_ptr get_parent(const node_ptr &n)
         {
-            if (n) {
+            if (!!n) {
                 // NOTE: Address::fromOffset is in case ptr_set is of a regular numeric type
                 return node_ptr(n.getMemspace().myPtr(Address::fromOffset(n->ptr_set.parent)));
             } else {
@@ -31,7 +31,7 @@ namespace db0
         
         static node_ptr get_left(const node_ptr &n)
         {
-            if (n) {
+            if (!!n) {
                 // NOTE: Address::fromOffset is in case ptr_set is of a regular numeric type
                 return node_ptr(n.getMemspace().myPtr(Address::fromOffset(n->ptr_set.left)));
             } else {
@@ -45,7 +45,7 @@ namespace db0
         
         static node_ptr get_right(const node_ptr &n)
         {
-            if (n) {
+            if (!!n) {
                 // NOTE: Address::fromOffset is in case ptr_set is of a regular numeric type
                 return node_ptr(n.getMemspace().myPtr(Address::fromOffset(n->ptr_set.right)));
             } else {
@@ -61,5 +61,5 @@ namespace db0
             n->checkIntegrity(n.getMemspace());
         }
     };
-
+    
 }
