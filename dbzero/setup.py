@@ -9,5 +9,6 @@ setup(
     name='dbzero',
     version='0.1.0',
     description='DBZero community edition',
-    packages=['dbzero']
+    packages=['dbzero'],
+    python_requires='>=3.11',
 )
