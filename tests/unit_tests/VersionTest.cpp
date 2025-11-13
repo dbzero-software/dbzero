@@ -1197,7 +1197,7 @@ TEST_F(VersionTest, testRearrangedMembersInVersionedObject) {
     auto obj2 = std::make_unique<std::byte[]>(obj2_measure);
     auto obj2_ptr = obj2.get();
     o_test_user_v2::__new(obj2_ptr, 1234, "Kowalski", "Jan");
-    ASSERT_EQ(o_test_user_v2::__ref(obj2_ptr).getID(), 1234);
+    ASSERT_EQ(o_test_user_v2::__ref(obj2_ptr).getID(), uint64_t(1234));
     ASSERT_EQ(o_test_user_v2::__ref(obj2_ptr).getFirstName(), "Jan");
     ASSERT_EQ(o_test_user_v2::__ref(obj2_ptr).getLastName(), "Kowalski");
     std::size_t obj2_size = o_test_user_v2::__ref(obj2_ptr).sizeOf();

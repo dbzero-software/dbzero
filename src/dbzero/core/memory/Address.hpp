@@ -77,7 +77,7 @@ DB0_PACKED_BEGIN
         {            
         }
     };
-    
+DB0_PACKED_END
     using Address = AddressType<std::uint64_t>;
     
     // The UniqueAddress combines memory offset and instance ID

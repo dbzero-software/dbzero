@@ -39,7 +39,6 @@ def generate_for_directory(dir):
         filenames = []
         for file in files:
             splited = os.path.splitext(file.name)
-            print(splited)
 
             if len(splited) == 2 and splited[1] ==".cpp":
                 filenames.append(f"'{file.name}'")

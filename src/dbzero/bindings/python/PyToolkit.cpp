@@ -655,6 +655,20 @@ namespace db0::python
         return PyLong_AsLong(*py_value);
     }
 
+    std::optional<unsigned long long> PyToolkit::getUnsignedLongLong(ObjectPtr py_object, const std::string &key)
+    {
+        auto py_value = Py_OWN(getValue(py_object, key));
+        if (!py_value) {
+            return std::nullopt;
+        }        
+
+        if (!PyLong_Check(*py_value)) {
+            THROWF(db0::InputException) << "Invalid type of: " << key << ". Integer expected but got: " 
+                << Py_TYPE(*py_value)->tp_name << THROWF_END;
+        }
+        return PyLong_AsUnsignedLongLong(*py_value);
+    }
+
     std::optional<bool> PyToolkit::getBool(ObjectPtr py_object, const std::string &key)
     {
         auto py_value = Py_OWN(getValue(py_object, key));

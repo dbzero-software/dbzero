@@ -284,10 +284,10 @@ namespace db0::python
         
         using DefaultValueFunction = PyObject*(*)();
         const std::pair<const char*, const DefaultValueFunction> defaults[] = {
-            {"cache_size", []{ return PyLong_FromLong(BaseWorkspace::DEFAULT_CACHE_SIZE); }},
-            {"lang_cache_size", []{ return PyLong_FromLong(LangCache::DEFAULT_CAPACITY); }},
+            {"cache_size", []{ return PyLong_FromUnsignedLongLong(BaseWorkspace::DEFAULT_CACHE_SIZE); }},
+            {"lang_cache_size", []{ return PyLong_FromUnsignedLongLong(LangCache::DEFAULT_CAPACITY); }},
             {"autocommit", []{ Py_RETURN_TRUE; }},
-            {"autocommit_interval", []{ return PyLong_FromLong(Workspace::DEFAULT_AUTOCOMMIT_INTERVAL_MS); }}
+            {"autocommit_interval", []{ return PyLong_FromUnsignedLongLong(Workspace::DEFAULT_AUTOCOMMIT_INTERVAL_MS); }}
         };
         for (const auto &[key_str, default_fn] : defaults) {
             // Populate default values so then can be easily accessed with get_config

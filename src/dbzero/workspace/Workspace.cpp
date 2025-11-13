@@ -237,7 +237,7 @@ namespace db0
         , m_workspace_threads(std::make_unique<WorkspaceThreads>())        
     {
         // apply autocommit interval if configured
-        std::optional<long> autocommit_interval_ms = (m_config ? m_config->get<long>("autocommit_interval") : std::nullopt);
+        std::optional<unsigned long long> autocommit_interval_ms = (m_config ? m_config->get<unsigned long long>("autocommit_interval") : std::nullopt);
         if (autocommit_interval_ms) {
             this->setAutocommitInterval(*autocommit_interval_ms);
         }
@@ -806,7 +806,7 @@ namespace db0
     std::optional<std::size_t> Workspace::getLangCacheSize() const
     {
         if (m_config) {
-            auto value = m_config->get<long>("lang_cache_size");
+            auto value = m_config->get<unsigned long long>("lang_cache_size");
             if (value) {
                 return value;
             }

@@ -39,10 +39,6 @@ def generate_meson_build(target_dir):
         print("No Python files found!")
         return False
     
-    print(f"Found {len(python_files)} Python files:")
-    for file_path in python_files:
-        print(f"  - {file_path}")
-    
     meson_path = os.path.join(target_dir, "meson.build")
     
     with open(meson_path, "w") as meson_file:

@@ -34,7 +34,6 @@ namespace db0::python
     // create a memo object stub
     MemoObject* MemoObjectStub_new(PyTypeObject *type);
     
-    void MemoObject_del(MemoObject* self);
     void MemoObject_drop(MemoObject* self);
     
     // check if memo type has been marked as singleton
