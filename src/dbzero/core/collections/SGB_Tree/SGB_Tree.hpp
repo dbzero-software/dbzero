@@ -148,6 +148,8 @@ namespace db0
                 auto max_item_index = node->indexOf(max_item_ptr);
                 auto new_node = super_t::insert_equal(*max_item_ptr, m_node_capacity, m_heap_comp);                
                 node.modify().erase_existing(max_item_index, m_heap_comp);
+                // must not be empty after removing a single item
+                assert(!new_node->empty());
                 // rebalance the nodes
                 node.modify().rebalance(new_node.modify(), m_heap_comp);
                 // append to either of the nodes
