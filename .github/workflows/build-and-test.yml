@@ -1,4 +1,4 @@
-name: Build and Deploy Packages
+name: Build and test
 on:
   push:
     branches: [ "main" ]
