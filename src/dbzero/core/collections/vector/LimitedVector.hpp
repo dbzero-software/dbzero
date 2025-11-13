@@ -179,7 +179,7 @@ namespace db0
     {
         m_root.commit();
         for (auto &block: m_cache) {
-            if (block) {
+            if (!!block) {
                 block.commit();
             }
         }

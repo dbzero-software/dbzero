@@ -272,8 +272,11 @@ DB0_PACKED_BEGIN
                     if (comp.itemComp(*it, split_item)) {
                         it += step_;
                     } else {
-                        other.append(comp, *it);
-                        this->erase_existing(it, comp);
+                        // prevents from leaving an empty node
+                        if (this->size() > 1) {
+                            other.append(comp, *it);
+                            this->erase_existing(it, comp);
+                        }
                         end_ -= step_;
                     }
                 }

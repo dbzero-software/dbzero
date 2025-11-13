@@ -75,23 +75,11 @@ DB0_PACKED_BEGIN
             return this->getDynFirst(HeaderT::type());
         }
         
-        o_sgb_tree_node(CapacityT capacity)
-            : m_capacity(capacity)
-        {
-            // FIXME: log
-            std::cout << "Empty node created @" << this << std::endl;
-            // initialize header with default arguments
-            this->arrangeMembers()
-                (HeaderT::type());
-        }
-        
         /// Must be initialized with an item
         o_sgb_tree_node(const ItemT &item, CapacityT capacity, const HeapCompT &comp = {})
             : o_sgb_tree_node(capacity)
         {
             this->append(comp, item);
-            // FIXME: log
-            std::cout << "Node created size = 1 @" << this << std::endl;
         }
 
         static std::size_t measure(CapacityT capacity) {
@@ -104,10 +92,6 @@ DB0_PACKED_BEGIN
 
         inline ItemT &at(unsigned int index)
         {
-            // FIXME: log
-            if (index >= m_size) {
-                std::cout << "!!! empty node accessed: @" << this << std::endl;                
-            }
             // items stored in the dynamic area
             assert(index < m_size);
             return begin()[index];            
@@ -115,10 +99,6 @@ DB0_PACKED_BEGIN
 
         inline const ItemT &at(unsigned int index) const 
         {
-            // FIXME: log
-            if (index >= m_size) {
-                std::cout << "!!! empty node accessed: @" << this << std::endl;                
-            }
             // items stored in the dynamic area
             assert(index < m_size);
             return cbegin()[index];
@@ -170,7 +150,7 @@ DB0_PACKED_BEGIN
             // heapify (as min heap), return pointer to the position of the item
             return dheap::push<D>(begin(), end(), comp);
         }
-
+        
         /**
          * Erase item by key if it exists
          * 
@@ -184,8 +164,6 @@ DB0_PACKED_BEGIN
             }
             dheap::erase<D>(begin(), end(), item_ptr, comp);
             --m_size;
-            // FIXME: log
-            assert(m_size > 0);
             return true;
         }
 
@@ -419,6 +397,16 @@ DB0_PACKED_BEGIN
         */
         static std::size_t measureSizeOf(unsigned int item_count) {
             return sizeof(o_sgb_tree_node) + HeaderT::sizeOf() + item_count * sizeof(ItemT);
+        }
+
+    protected:
+
+        o_sgb_tree_node(CapacityT capacity)
+            : m_capacity(capacity)
+        {
+            // initialize header with default arguments
+            this->arrangeMembers()
+                (HeaderT::type());
         }
 
     private:

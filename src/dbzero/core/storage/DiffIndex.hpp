@@ -11,13 +11,14 @@
 namespace db0
 
 {
-DB0_PACKED_BEGIN
+
 
     // DiffIndex is a specialization of SparseIndexBase for storing
     // references do diff-pages
     // Each element consists of: page num (logical) / state num + physical page num + sequence of encoded: page num / state num
     // One element can encode variable number of state updates (transactions)
 
+DB0_PACKED_BEGIN
     struct DB0_PACKED_ATTR DI_Item: public SI_Item
     {
         using CompT = SI_ItemCompT;
@@ -81,7 +82,9 @@ DB0_PACKED_BEGIN
         // @return the smallest state number such that state >= state_num
         std::uint32_t findUpper(std::uint32_t state_num) const;
     };
-    
+DB0_PACKED_END    
+
+DB0_PACKED_BEGIN
     struct DB0_PACKED_ATTR DI_CompressedItem: public SI_CompressedItem
     {
         using CompT = SI_CompressedItemCompT;
@@ -106,7 +109,8 @@ DB0_PACKED_BEGIN
         // append relative values
         void append(std::uint32_t state_num, std::uint64_t storage_page_num);        
     };
-    
+DB0_PACKED_END    
+
     class DiffIndex: protected SparseIndexBase<DI_Item, DI_CompressedItem>
     {
     public:
@@ -143,5 +147,4 @@ DB0_PACKED_BEGIN
         void refresh();
     };
 
-DB0_PACKED_END
 }

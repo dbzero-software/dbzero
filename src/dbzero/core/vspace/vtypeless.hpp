@@ -100,11 +100,7 @@ namespace db0
         inline bool isNull() const {
             return !m_address.isValid();
         }
-
-        inline operator bool() const {
-            return m_address.isValid();
-        }
-
+        
         bool operator!() const {
             return !m_address.isValid();
         }
