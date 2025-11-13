@@ -13,6 +13,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - python-version: "3.10"
+            python-tag: "310"
+            architecture: "AMD64"
           - python-version: "3.11"
             python-tag: "311"
             architecture: "AMD64"
@@ -70,7 +73,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12", "3.13", "3.14"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
@@ -105,6 +108,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - python-version: "3.10"
+            python-tag: "310"
+            architecture: "AMD64"
           - python-version: "3.11"
             python-tag: "311"
             architecture: "AMD64"
@@ -144,7 +150,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12", "3.13", "3.14"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
     
     steps:
       - uses: actions/checkout@v4

@@ -12,7 +12,6 @@
 namespace db0
 
 {
-DB0_PACKED_BEGIN
     
     class DRAM_Prefix;
     class DRAM_Allocator;
@@ -125,6 +124,7 @@ DB0_PACKED_BEGIN
             std::string toString(const CompressedItemT &) const;
         };
 
+DB0_PACKED_BEGIN
         // tree-level header type
         struct DB0_PACKED_ATTR o_sparse_index_header: o_fixed_versioned<o_sparse_index_header>
         {
@@ -135,6 +135,7 @@ DB0_PACKED_BEGIN
             // reserved space for future use
             std::array<std::uint64_t, 4> m_reserved = {0, 0, 0, 0};
         };
+DB0_PACKED_END
 
         // DRAM space deployed sparse index (in-memory)
         using IndexT = SGB_CompressedLookupTree<
@@ -407,5 +408,4 @@ DB0_PACKED_BEGIN
         m_index.commit();        
     }
     
-DB0_PACKED_END
 }       

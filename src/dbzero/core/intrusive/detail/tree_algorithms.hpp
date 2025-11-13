@@ -422,13 +422,12 @@ class tree_algorithms
    static node_ptr next_node(const node_ptr &p)
    {
       node_ptr p_right(NodeTraits::get_right(p));
-      if(p_right){
+      if (!!p_right){
          return minimum(p_right);
-      }
-      else {
-	     node_ptr p_temp = p;
+      } else {
+	      node_ptr p_temp = p;
          node_ptr x = NodeTraits::get_parent(p_temp);
-         while(p_temp == NodeTraits::get_right(x)){
+         while (!!(p_temp == NodeTraits::get_right(x))) {
             p_temp = x;
             x = NodeTraits::get_parent(x);
          }
@@ -446,29 +445,26 @@ class tree_algorithms
    static node_ptr prev_node(const node_ptr &p)
    {
       if (is_header(p)) {
-		  if (NodeTraits::get_parent(p)) {
-			  return maximum(NodeTraits::get_parent(p));
-		  }
-		  else {
-			  return p;
-		  }
-      }
-      else {
-		  if (NodeTraits::get_left(p)) {
-			  return maximum(NodeTraits::get_left(p));
-		  }
-		  else {
-			  node_ptr p_temp = p;
-			  node_ptr x = NodeTraits::get_parent(p_temp);
-			  while (p_temp==NodeTraits::get_left(x)) {
-				  p_temp = x;
-				  x = NodeTraits::get_parent(x);
-			  }
-			  return x;
-		  }
+		   if (!!NodeTraits::get_parent(p)) {
+			   return maximum(NodeTraits::get_parent(p));
+		   } else {
+			   return p;
+		   }
+      } else {
+		   if (!!NodeTraits::get_left(p)) {
+			   return maximum(NodeTraits::get_left(p));
+		   } else {
+			   node_ptr p_temp = p;
+			   node_ptr x = NodeTraits::get_parent(p_temp);
+			   while (!!(p_temp == NodeTraits::get_left(x))) {
+               p_temp = x;
+				   x = NodeTraits::get_parent(x);
+			   }
+			   return x;
+		   }
       }
    }
-
+   
    //! <b>Requires</b>: p is a node of a tree but not the header.
    //!
    //! <b>Effects</b>: Returns the minimum node of the subtree starting at p.
@@ -476,9 +472,10 @@ class tree_algorithms
    //! <b>Complexity</b>: Logarithmic to the size of the subtree.
    //!
    //! <b>Throws</b>: Nothing.
-   static node_ptr minimum (node_ptr p) {
-      for(node_ptr p_left = NodeTraits::get_left(p)
-         ;p_left
+   static node_ptr minimum(node_ptr p) 
+   {
+      for (node_ptr p_left = NodeTraits::get_left(p)
+         ;!!p_left
          ;p_left = NodeTraits::get_left(p)){
          p = p_left;
       }
@@ -492,11 +489,12 @@ class tree_algorithms
    //! <b>Complexity</b>: Logarithmic to the size of the subtree.
    //!
    //! <b>Throws</b>: Nothing.
-   static node_ptr maximum (node_ptr p) {
+   static node_ptr maximum (node_ptr p) 
+   {
       node_ptr p_right = NodeTraits::get_right(p);
-	  while (p_right) {
-		  p = p_right;
-		  p_right = NodeTraits::get_right(p);
+	   while (!!p_right) {
+		   p = p_right;
+		   p_right = NodeTraits::get_right(p);
       }
       return p;
    }
@@ -510,7 +508,8 @@ class tree_algorithms
    //! <b>Throws</b>: Nothing.
    //!
    //! <b>Nodes</b>: If node is inserted in a tree, this function corrupts the tree.
-   static void init(node_ptr &node) {
+   static void init(node_ptr &node)
+   {
 	   NodeTraits::set_parent(node, 0);
 	   NodeTraits::set_left(node, 0);
 	   NodeTraits::set_right(node, 0);
@@ -526,7 +525,8 @@ class tree_algorithms
    //! <b>Throws</b>: Nothing.
    //!
    //! <b>Nodes</b>: If node is inserted in a tree, this function corrupts the tree.
-   static void init_header(node_ptr &header) {
+   static void init_header(node_ptr &header) 
+   {
       NodeTraits::set_parent(header, 0);
       NodeTraits::set_left(header, header);
       NodeTraits::set_right(header, header);
@@ -544,9 +544,10 @@ class tree_algorithms
    //!
    //! <b>Throws</b>: If cloner functor throws. If this happens target nodes are disposed.
    template<class Disposer>
-   static void clear_and_dispose(const node_ptr &header, Disposer disposer) {
+   static void clear_and_dispose(const node_ptr &header, Disposer disposer) 
+   {
       node_ptr source_root = NodeTraits::get_parent(header);
-      if(!source_root)
+      if (!source_root)
          return;
       dispose_subtree(source_root, disposer);
       init_header(header);
@@ -604,20 +605,21 @@ class tree_algorithms
    //! <b>Throws</b>: Nothing.
    static std::size_t count(const node_ptr &subtree)
    {
-      if(!subtree) return 0;
+      if (!subtree) 
+         return 0;
+
       std::size_t count = 0;
       node_ptr p = minimum(subtree);
       bool continue_looping = true;
-      while(continue_looping){
+      while (continue_looping) {
          ++count;
          node_ptr p_right(NodeTraits::get_right(p));
-         if(p_right){
+         if (!!p_right) {
             p = minimum(p_right);
-         }
-         else {
-            for(;;){
+         } else {
+            for (;;) {
                node_ptr q;
-               if (p == subtree){
+               if (p == subtree) {
                   continue_looping = false;
                   break;
                }
@@ -658,7 +660,7 @@ class tree_algorithms
    //! <b>Throws</b>: Nothing.
    static void swap_tree(node_ptr header1, node_ptr header2)
    {
-      if(header1 == header2)
+      if (header1 == header2)
          return;
 
       node_ptr tmp;
@@ -696,18 +698,19 @@ class tree_algorithms
       }
    }
 
-   static bool is_header(const node_ptr &p) {
+   static bool is_header(const node_ptr &p) 
+   {
       bool result = false;
-	  node_ptr p_parent = NodeTraits::get_parent(p);
-	  if(!p_parent || p_parent==p){
+	   node_ptr p_parent = NodeTraits::get_parent(p);
+	   if (!p_parent || p_parent==p) {
          result = true;
       }
-      else if(NodeTraits::get_parent(p_parent) == p){
-         if(NodeTraits::get_left(p) != 0){
-            if(NodeTraits::get_parent(NodeTraits::get_left(p)) != p){
+      else if (NodeTraits::get_parent(p_parent) == p) {
+         if (!!NodeTraits::get_left(p)) {
+            if (NodeTraits::get_parent(NodeTraits::get_left(p)) != p) {
                result = true;
             }
-            if(p_parent == NodeTraits::get_left(p)){
+            if (p_parent == NodeTraits::get_left(p)) {
                result = true;
             }
          }
@@ -829,23 +832,23 @@ class tree_algorithms
       node_ptr y = header;
       // start with root node
       node_ptr x = NodeTraits::get_parent(header);
-      while (x) {
+      while (!!x) {
          if (comp(key, x)) {
         	// potential result
             y = x;
             x = NodeTraits::get_left(x);
          }
          else {
-        	if (comp(x, key)) {
-        		x = NodeTraits::get_right(x);
-        	} else {
-        		y = NodeTraits::get_right(x);
-				// continue with equal values
-				if (!y || comp(y, key) || comp(key, y)) {
-					return x;
-				}
-				x = y;
-        	}
+            if (comp(x, key)) {
+               x = NodeTraits::get_right(x);
+            } else {
+               y = NodeTraits::get_right(x);
+               // continue with equal values
+               if (!y || comp(y, key) || comp(key, y)) {
+                  return x;
+               }
+               x = y;
+            }
          }
       }
       return y;
@@ -869,7 +872,7 @@ class tree_algorithms
    {      
       node_ptr y = header;
       node_ptr x = NodeTraits::get_parent(header);
-      while (x) {
+      while (!!x) {
          if (comp(x, key)) {
             x = NodeTraits::get_right(x);
          } else {
@@ -897,15 +900,16 @@ class tree_algorithms
 	   divide(NodeTraits::get_parent(header), N, result);
 	   return result;
    }
-
+   
    // @return last lower or equal node
    template<class KeyType, class KeyNodePtrCompare>
 	   static node_ptr lower_equal_bound
 	   (const node_ptr &header, const KeyType &key, KeyNodePtrCompare comp)
    {
+      assert(!!header);
       node_ptr y = header;
       node_ptr x = NodeTraits::get_parent(header);
-      while (x) {
+      while (!!x) {
          if (comp(x, key)) {
             y = x;
             x = NodeTraits::get_right(x);
@@ -937,7 +941,7 @@ class tree_algorithms
    {
 	   assert (it.empty());
 	   node_ptr x = NodeTraits::get_parent(header);
-	   if (x) {
+	   if (!!x) {
 		   it.push_back(x);
 		   x = NodeTraits::get_left(header);
 		   while (comp(key, x)) {
@@ -961,7 +965,7 @@ class tree_algorithms
 				x = *it;
 			}
 	   }
-	   while (x) {
+	   while (!!x) {
 		   if (comp(x, key)) {
 			   x = NodeTraits::get_right(x);
 		   }
@@ -984,19 +988,20 @@ class tree_algorithms
    {
 	   assert (it.empty());
 	   node_ptr x = NodeTraits::get_parent(header);
-	   if (x) {
+	   if (!!x) {
 		   it.push_back(x);
 		   x = NodeTraits::get_right(header);
-		   if (x && comp(x,key)) {
+		   if (!!x && comp(x,key)) {
 			   it.push_back(x);			   
 		   }
 	   }
    }
 
-   static void beginJoinBackward (const node_ptr &header,join_stack &it) {
+   static void beginJoinBackward (const node_ptr &header,join_stack &it) 
+   {
 	   assert (it.empty());
 	   node_ptr x = NodeTraits::get_parent(header);
-	   while (x) {
+	   while (!!x) {
 		   it.push_back(x);
 		   x = NodeTraits::get_right(x);
 	   }
@@ -1016,7 +1021,7 @@ class tree_algorithms
 				x = *it;
 			}
 	   }
-	   while (x) {
+	   while (!!x) {
 		   if (comp(key,x)) {
 			   x = NodeTraits::get_left(x);
 		   }
@@ -1045,7 +1050,7 @@ class tree_algorithms
 				x = *it;
 			}
 	   }
-	   while (x) {
+	   while (!!x) {
 		   if (comp(key,x)) {
 			   it.push_back(x);
 			   x = NodeTraits::get_left(x);
@@ -1085,7 +1090,7 @@ class tree_algorithms
       (node_ptr &header, node_ptr &new_value, insert_commit_data &commit_data)
    {
       //Check if commit_data has not been initialized by a insert_unique_check call.
-      assert(commit_data.node != 0);
+      assert(!!commit_data.node);
       link(header, new_value, commit_data.node, commit_data.link_left);
    }
 
@@ -1137,26 +1142,26 @@ class tree_algorithms
       //Find the upper bound, cache the previous value and if we should
       //store it in the left or right node
       bool left_child = true;
-      while(x){
+      while (!!x) {
          ++depth;
          y = x;
          x = (left_child = comp(key, x)) ? 
                NodeTraits::get_left(x) : (prev = y, NodeTraits::get_right(x));
       }
 
-      if(pdepth)  *pdepth = depth;
+      if (pdepth) *pdepth = depth;
 
       //Since we've found the upper bound there is no other value with the same key if:
       //    - There is no previous node
       //    - The previous node is less than the key
-      if(!prev || comp(prev, key)){
+      if (!prev || comp(prev, key)) {
          commit_data.link_left = left_child;
          commit_data.node      = y;
          return std::pair<node_ptr, bool>(node_ptr(), true);
       }
       //If the previous value was not less than key, it means that it's equal
       //(because we've checked the upper bound)
-      else{
+      else {
          return std::pair<node_ptr, bool>(prev, false);
       }
    }
@@ -1166,24 +1171,24 @@ class tree_algorithms
       (const node_ptr &header,  const node_ptr &hint, const KeyType &key
       ,KeyNodePtrCompare comp, insert_commit_data &commit_data, std::size_t *pdepth = 0)
    {
-      //hint must be bigger than the key
-      if(hint == header || comp(key, hint)){
+      // hint must be bigger than the key
+      if(hint == header || comp(key, hint)) {
          node_ptr prev = hint;
          //The previous value should be less than the key
-         if(prev == NodeTraits::get_left(header) || comp((prev = prev_node(hint)), key)){
+         if (prev == NodeTraits::get_left(header) || comp((prev = prev_node(hint)), key)) {
             commit_data.link_left = unique(header) || !NodeTraits::get_left(hint);
             commit_data.node      = commit_data.link_left ? hint : prev;
-            if(pdepth){
+            if (pdepth) {
                *pdepth = commit_data.node == header ? 0 : depth(commit_data.node) + 1;
             }
             return std::pair<node_ptr, bool>(node_ptr(), true);
          }
-         else{
+         else {
             return insert_unique_check(header, key, comp, commit_data, pdepth);
          }
       }
       //The hint was wrong, use hintless insert
-      else{
+      else {
          return insert_unique_check(header, key, comp, commit_data, pdepth);
       }
    }
@@ -1206,24 +1211,24 @@ class tree_algorithms
    static node_ptr insert_equal
       (node_ptr &header, node_ptr &hint, node_ptr &new_node, NodePtrCompare comp, std::size_t *pdepth = 0)
    {
-      if(hint == header || !comp(hint, new_node)){
+      if (hint == header || !comp(hint, new_node)) {
          node_ptr prev(hint);
-         if(hint == NodeTraits::get_left(header) || 
-            !comp(new_node, (prev = prev_node(hint)))){
+         if (hint == NodeTraits::get_left(header) || 
+            !comp(new_node, (prev = prev_node(hint)))) {
             bool link_left = unique(header) || !NodeTraits::get_left(hint);
             link(header, new_node, link_left ? hint : prev, link_left);
-            if(pdepth)  *pdepth = depth(new_node) + 1;
+            if (pdepth) *pdepth = depth(new_node) + 1;
             return new_node;
          }
-         else{
+         else {
             return insert_equal_upper_bound(header, new_node, comp, pdepth);
          }
       }
-      else{
+      else { 
          return insert_equal_lower_bound(header, new_node, comp, pdepth);
       }
    }
-
+   
    //! <b>Requires</b>: p can't be a header node.
    //! 
    //! <b>Effects</b>: Calculates the depth of a node: the depth of a
@@ -1249,19 +1254,19 @@ class tree_algorithms
    static void link_equal_upper_bound (node_ptr &h, const KeyType &key, KeyNodePtrCompare comp, link_data &ld, 
 	   std::size_t *pdepth = 0)
    {
-	  std::size_t depth = 0;
-	  ld.y = h;
+	   std::size_t depth = 0;
+	   ld.y = h;
       node_ptr x(NodeTraits::get_parent(ld.y));
 
-      while(x){
+      while(!!x) {
          ++depth;
          ld.y = x;
          x = comp(key, x) ? 
                NodeTraits::get_left(x) : NodeTraits::get_right(x);
       }
-	
+      
       ld.link_left = (ld.y == h) || comp(key, ld.y);      
-      if(pdepth)  *pdepth = depth;
+      if( pdepth) *pdepth = depth;
 	}
    
    template<class NodePtrCompare>
@@ -1272,7 +1277,7 @@ class tree_algorithms
       node_ptr y(h);
       node_ptr x(NodeTraits::get_parent(y));
 
-      while(x){
+      while (!!x) {
          ++depth;
          y = x;
          x = comp(new_node, x) ? 
@@ -1281,7 +1286,7 @@ class tree_algorithms
 
       bool link_left = (y == h) || comp(new_node, y);
       link(h, new_node, y, link_left);
-      if(pdepth)  *pdepth = depth;
+      if( pdepth) *pdepth = depth;
       return new_node;
    }
 
@@ -1293,7 +1298,7 @@ class tree_algorithms
       node_ptr y(h);
       node_ptr x(NodeTraits::get_parent(y));
 
-      while(x){
+      while(!!x) {
          ++depth;
          y = x;
          x = !comp(x, new_node) ? 
@@ -1314,7 +1319,7 @@ class tree_algorithms
       ld.y = h;
       node_ptr x(NodeTraits::get_parent(ld.y));
 
-      while(x){
+      while (!!x) {
          ++depth;
          ld.y = x;
          x = !comp(x, key) ? 
@@ -1322,7 +1327,7 @@ class tree_algorithms
       }
 	
       ld.link_left = (ld.y == h) || !comp(ld.y, key);
-      if(pdepth)  *pdepth = depth;      
+      if( pdepth) *pdepth = depth;
    }
 	
    //! <b>Requires</b>: "cloner" must be a function
@@ -1346,7 +1351,7 @@ class tree_algorithms
    static void clone
       (const node_ptr &source_header, node_ptr &target_header, Cloner cloner, Disposer disposer)
    {
-      if(!unique(target_header)){
+      if (!unique(target_header)) {
          clear_and_dispose(target_header, disposer);
       }
 
@@ -1354,7 +1359,7 @@ class tree_algorithms
       node_ptr new_root = clone_subtree
          (source_header, target_header, cloner, disposer, leftmost, rightmost);
 
-      //Now update header node
+      // Now update header node
       NodeTraits::set_parent(target_header, new_root);
       NodeTraits::set_left  (target_header, leftmost);
       NodeTraits::set_right (target_header, rightmost);
@@ -1369,10 +1374,10 @@ class tree_algorithms
    {
       node_ptr target_sub_root = target_parent;
       node_ptr source_root = NodeTraits::get_parent(source_parent);
-      if(!source_root){
+      if (!source_root) {
          leftmost_out = rightmost_out = source_root;
       }
-      else{
+      else {
          //We'll calculate leftmost and rightmost nodes while iterating
          node_ptr current = source_root;
          node_ptr insertion_point = target_sub_root = cloner(current);
@@ -1639,7 +1644,7 @@ class tree_algorithms
       //information to restore the original relationship after
       //the algorithm is applied.
       node_ptr super_root = NodeTraits::get_parent(old_root);
-      assert(super_root);
+      assert(!!super_root);
       
       //Get info
       node_ptr super_root_right_backup = NodeTraits::get_right(super_root);
@@ -1650,9 +1655,9 @@ class tree_algorithms
       node_ptr new_root(x);
       node_ptr save;
       bool moved_to_right = false;
-      for( ; x; x = save){
+      for ( ; !!x; x = save) {
          save = NodeTraits::get_left(x);
-         if(save){
+         if (!!save) {
             // Right rotation
             node_ptr save_right = NodeTraits::get_right(save);
             node_ptr x_parent   = NodeTraits::get_parent(x);
@@ -1661,19 +1666,18 @@ class tree_algorithms
             NodeTraits::set_parent(x, save);
             NodeTraits::set_right (save, x);
             NodeTraits::set_left(x, save_right);
-            if(save_right)
+            if (!!save_right)
                NodeTraits::set_parent(save_right, x);
-            if(!moved_to_right)
+            if (!moved_to_right)
                new_root = save;
-         }
-         else{
+         } else {
             moved_to_right = true;
             save = NodeTraits::get_right(x);
             ++len;
          }
       }
 
-      if(super_root_is_header){
+      if (super_root_is_header) {
          NodeTraits::set_right(super_root, super_root_right_backup);
          NodeTraits::set_parent(super_root, new_root);
       }
@@ -1684,10 +1688,10 @@ class tree_algorithms
          NodeTraits::set_right(super_root, super_root_right_backup);
          NodeTraits::set_left(super_root, new_root);
       }
-      if(plen) *plen = len;
+      if (plen) *plen = len;
       return new_root;
    }
-
+   
    static node_ptr vine_to_subtree(const node_ptr &old_root, std::size_t count)
    {
       std::size_t leaf_nodes = count + 1 - ((size_t) 1 << floor_log2 (count + 1));
@@ -1703,7 +1707,7 @@ class tree_algorithms
 
    static node_ptr compress_subtree(const node_ptr &old_root, std::size_t count)
    {
-      if(!old_root)   return old_root;
+      if (!old_root) return old_root;
 
       //To avoid irregularities in the algorithm (old_root can be
       //left or right child or even the root of the tree) just put the 
@@ -1711,7 +1715,7 @@ class tree_algorithms
       //information to restore the original relationship after
       //the algorithm is applied.
       node_ptr super_root = NodeTraits::get_parent(old_root);
-      assert(super_root);
+      assert(!!super_root);
 
       //Get info
       node_ptr super_root_right_backup = NodeTraits::get_right(super_root);
@@ -1725,16 +1729,16 @@ class tree_algorithms
       node_ptr even_parent = super_root;
       node_ptr new_root = old_root;
 
-      while(count--){
+      while (count--) {
          node_ptr even = NodeTraits::get_right(even_parent);
          node_ptr odd = NodeTraits::get_right(even);
 
-         if(new_root == old_root)
+         if (new_root == old_root)
             new_root = odd;
 
          node_ptr even_right = NodeTraits::get_left(odd);
          NodeTraits::set_right(even, even_right);
-         if (even_right)
+         if (!!even_right)
             NodeTraits::set_parent(even_right, even);
 
          NodeTraits::set_right(even_parent, odd);
@@ -1760,8 +1764,9 @@ class tree_algorithms
 
 private:
 
-   static uint64_t get_height(const node_ptr &root, uint64_t current) {
-	   if(root) {
+   static uint64_t get_height(const node_ptr &root, uint64_t current)
+   {
+	   if (!!root) {
 		   return std::max(
 				   get_height(NodeTraits::get_left(root), current + 1),
 				   get_height(NodeTraits::get_right(root), current +1));
@@ -1772,22 +1777,23 @@ private:
    /**
     * @return number of chunks created
     */
-   static int divide(const node_ptr &root, int N, std::vector<node_ptr> &result) {
+   static int divide(const node_ptr &root, int N, std::vector<node_ptr> &result) 
+   {
 	   int count = 0;
-	   if(root) {
+	   if (!!root) {
 		   std::vector<node_ptr> right_result;
-		   if(N > 1) {
+		   if (N > 1) {
 			   int left_count = divide(NodeTraits::get_left(root), N / 2, result);
 			   count += left_count;
 			   count += divide(NodeTraits::get_right(root), N - left_count, right_result);
 		   }
 		   // if less than requested also register root element
-		   if(count < N) {
+		   if (count < N) {
 			   result.emplace_back(root);
 			   ++count;
 		   }
 		   // this push is postponed to guarantee proper ascending order
-		   for(const node_ptr &ptr: right_result) {
+		   for (const node_ptr &ptr: right_result) {
 			   result.emplace_back(ptr);
 		   }
 	   }
@@ -1801,26 +1807,25 @@ private:
       node_ptr x_parent(NodeTraits::get_null());
       node_ptr z_left(NodeTraits::get_left(z));
       node_ptr z_right(NodeTraits::get_right(z));
-      if(!z_left){
+      if (!z_left) {
          x = z_right;    // x might be null.
       }
-      else if(!z_right){ // z has exactly one non-null child. y == z.
+      else if (!z_right) { // z has exactly one non-null child. y == z.
          x = z_left;       // x is not null.
-      }
-      else{
+      } else {
          // find z's successor
          y = tree_algorithms::minimum (z_right);
          x = NodeTraits::get_right(y);     // x might be null.
       }
 
-      if(y != z){
+      if (y != z) {
          // relink y in place of z.  y is z's successor
-    	 node_ptr zLeft = NodeTraits::get_left(z);
+    	   node_ptr zLeft = NodeTraits::get_left(z);
          NodeTraits::set_parent(zLeft, y);
          NodeTraits::set_left(y, NodeTraits::get_left(z));
          if(y != NodeTraits::get_right(z)){
             x_parent = NodeTraits::get_parent(y);
-            if(x)
+            if(!!x)
                NodeTraits::set_parent(x, x_parent);
             NodeTraits::set_left(x_parent, x);   // y must be a child of left_
             NodeTraits::set_right(y, NodeTraits::get_right(z));
@@ -1834,16 +1839,16 @@ private:
       }
       else {   // y == z --> z has only one child, or none
          x_parent = NodeTraits::get_parent(z);
-         if(x)
+         if(!!x)
             NodeTraits::set_parent(x, x_parent);
          tree_algorithms::replace_own (z, x, header);
          if(NodeTraits::get_left(header) == z){
-            NodeTraits::set_left(header, NodeTraits::get_right(z) == 0 ?        // z->get_left() must be null also
+            NodeTraits::set_left(header, !NodeTraits::get_right(z) ?        // z->get_left() must be null also
                NodeTraits::get_parent(z) :  // makes leftmost == header if z == root
                tree_algorithms::minimum (x));
          }
          if(NodeTraits::get_right(header) == z){
-            NodeTraits::set_right(header, NodeTraits::get_left(z) == 0 ?        // z->get_right() must be null also
+            NodeTraits::set_right(header, !NodeTraits::get_left(z) ?        // z->get_right() must be null also
                               NodeTraits::get_parent(z) :  // makes rightmost == header if z == root
                               tree_algorithms::maximum(x));
          }

@@ -188,7 +188,7 @@ namespace db0::python
         void close();
         
     private:
-        std::vector<std::string*> m_string_pool;
+        static std::vector<std::unique_ptr<std::string> > m_string_pool;
         // the registry of memo types, used for retrieving type decorators
         std::unordered_map<TypeObjectPtr, MemoTypeDecoration> m_type_registry;
         std::unordered_map<TypeId, ObjectSharedPtr> m_py_type_map;

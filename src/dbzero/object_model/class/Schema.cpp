@@ -144,11 +144,11 @@ namespace db0::object_model
         }
         
         if (!extra_items.empty()) {
-            assert(type_vector);
+            assert(!!type_vector);
             // register the extra items
             type_vector.bulkInsertUnique(extra_items.begin(), extra_items.end(), nullptr);
             // type vector's address might've been changed
-            if (type_vector && m_type_vector_ptr.getAddress() != type_vector.getAddress()) {
+            if (!!type_vector && m_type_vector_ptr.getAddress() != type_vector.getAddress()) {
                 m_type_vector_ptr = db0::db0_ptr<TypeVector>(type_vector);
             }
         }
@@ -190,7 +190,7 @@ namespace db0::object_model
         }
 
         initTypeVector(memspace, type_vector);
-        assert(type_vector);
+        assert(!!type_vector);
         
         o_type_item max_item, second_max_item;
         for (auto &type_item : type_vector) {

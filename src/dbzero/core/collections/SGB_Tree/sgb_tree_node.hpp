@@ -65,7 +65,7 @@ DB0_PACKED_BEGIN
                 return itemComp(rhs, lhs);
             }
         };
-
+        
         // Notice: header stored as variable-length to allow 0-bytes type (default)
         inline HeaderT &header() {
             return this->getDynFirst(HeaderT::type());
@@ -73,14 +73,6 @@ DB0_PACKED_BEGIN
 
         inline const HeaderT &header() const {
             return this->getDynFirst(HeaderT::type());
-        }
-        
-        o_sgb_tree_node(CapacityT capacity)
-            : m_capacity(capacity)
-        {
-            // initialize header with default arguments
-            this->arrangeMembers()
-                (HeaderT::type());
         }
         
         /// Must be initialized with an item
@@ -98,7 +90,7 @@ DB0_PACKED_BEGIN
             return capacity;
         }
 
-        inline ItemT &at(unsigned int index) 
+        inline ItemT &at(unsigned int index)
         {
             // items stored in the dynamic area
             assert(index < m_size);
@@ -158,7 +150,7 @@ DB0_PACKED_BEGIN
             // heapify (as min heap), return pointer to the position of the item
             return dheap::push<D>(begin(), end(), comp);
         }
-
+        
         /**
          * Erase item by key if it exists
          * 
@@ -373,6 +365,9 @@ DB0_PACKED_BEGIN
                 return;
             }
             
+            assert(size() > other.size());
+            assert(size() > 0 );
+            assert(other.size() > 0);
             // pick the split point assuming that elements are already approximately sorted (heap sorted)
             int iter_max = 2;
             while (iter_max-- > 0 && size() > other.size()) {
@@ -382,8 +377,12 @@ DB0_PACKED_BEGIN
                     if (comp.itemComp(*it, split_item)) {
                         ++it;
                     } else {
-                        other.append(comp, *it);
-                        this->erase_existing(it, comp);
+                        if (size() > 1) {
+                            other.append(comp, *it);
+                            this->erase_existing(it, comp);
+                            // must not be empty after removing a single item
+                            assert(!this->empty());
+                        }
                         --end_;
                     }
                 }
@@ -398,6 +397,16 @@ DB0_PACKED_BEGIN
         */
         static std::size_t measureSizeOf(unsigned int item_count) {
             return sizeof(o_sgb_tree_node) + HeaderT::sizeOf() + item_count * sizeof(ItemT);
+        }
+
+    protected:
+
+        o_sgb_tree_node(CapacityT capacity)
+            : m_capacity(capacity)
+        {
+            // initialize header with default arguments
+            this->arrangeMembers()
+                (HeaderT::type());
         }
 
     private:

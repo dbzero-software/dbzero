@@ -37,6 +37,8 @@ namespace db0::python
 
 {
     
+    std::vector<std::unique_ptr<std::string> > PyTypeManager::m_string_pool;
+    
     PyTypeManager::PyTypeManager()
     {
         if (!Py_IsInitialized()) {
@@ -96,9 +98,6 @@ namespace db0::python
     
     PyTypeManager::~PyTypeManager()
     {
-        for (auto &str: m_string_pool) {
-            delete str;
-        }
         if (!Py_IsInitialized()) {
             for (auto &pair: m_type_cache) {
                 pair.second.steal();
@@ -342,7 +341,7 @@ namespace db0::python
 
     const char *PyTypeManager::getPooledString(std::string str)
     {
-        m_string_pool.push_back(new std::string(str));
+        m_string_pool.push_back(std::make_unique<std::string>(std::move(str)));
         return m_string_pool.back()->c_str();
     }
     

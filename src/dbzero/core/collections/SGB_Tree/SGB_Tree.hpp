@@ -146,8 +146,10 @@ namespace db0
                 // erase the max element and create the new node
                 auto max_item_ptr = node->find_max(m_heap_comp);
                 auto max_item_index = node->indexOf(max_item_ptr);
-                auto new_node = super_t::insert_equal(*max_item_ptr, m_node_capacity, m_heap_comp);                
+                auto new_node = super_t::insert_equal(*max_item_ptr, m_node_capacity, m_heap_comp);
                 node.modify().erase_existing(max_item_index, m_heap_comp);
+                // must not be empty after removing a single item
+                assert(!node->empty());
                 // rebalance the nodes
                 node.modify().rebalance(new_node.modify(), m_heap_comp);
                 // append to either of the nodes
@@ -157,7 +159,7 @@ namespace db0
             }
             return { node.modify().append(m_heap_comp, std::forward<Args>(args)...), node };
         }
-
+        
         /**
          * Remove element from the collection if it exists
          * 
@@ -190,11 +192,13 @@ namespace db0
         {
             assert(item.validate());
             --(super_t::modify().m_sgb_size);
-            auto item_index = item.second->indexOf(item.first);
-            // erase by index since item pointer gets modified (due to CoW)
-            if (const_cast<sg_tree_const_iterator &>(item.second).modify().erase_existing(item_index, m_heap_comp)) {
-                // delete the entire node
+            if (item.second->size() == 1) {
+                // deleting the only item in the node, remove the entire node
                 super_t::erase(const_cast<sg_tree_const_iterator &>(item.second));
+            } else {
+                auto item_index = item.second->indexOf(item.first);
+                // erase by index since item pointer gets modified (due to CoW)
+                const_cast<sg_tree_const_iterator &>(item.second).modify().erase_existing(item_index, m_heap_comp);
             }
 #ifndef NDEBUG
             item.first = nullptr;
@@ -362,10 +366,14 @@ namespace db0
         {
             assert(!item.is_end());
             --(super_t::modify().m_sgb_size);
-            auto item_index = item.m_item_it.getIndex();
-            if (item.m_item_it.second.modify().erase_existing(item_index, m_heap_comp)) {
-                // delete the entire node
+            if (item.m_item_it.second->size() == 1) {
+                // deleting the only item in the node, remove the entire node
                 super_t::erase(item.m_item_it.second);
+                item.m_item_it.first = nullptr;
+                item.m_is_end = true;                
+            } else {
+                auto item_index = item.m_item_it.getIndex();
+                item.m_item_it.second.modify().erase_existing(item_index, m_heap_comp);
             }
         }
         
