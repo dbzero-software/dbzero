@@ -31,21 +31,19 @@ def fulltext(f):
     wrapper.__db0_fulltext = True
     return wrapper
 
-def table_view(operator=None):
+def table_view(f, operator=None):
     """The table_view decorator marks a specific function or method as generating a table view. The following properties apply:
         - First result represents the table header
         - All other results (rows) are key-decorated (i.e. return tuples with unique identifiers) - see Cell Editor
         - Optional operator may be defined to allow cell editions (see Cell Operator)
     """
-    def decorator(f):
-        @functools.wraps(f)
-        def wrapper(*args, **kwargs):
-            retval = f(*args, **kwargs)
-            return retval
-        # Immutable query if True and immutable parameter if false
-        wrapper.__db0_table_view = True
-        return wrapper
-    return decorator
+    @functools.wraps(f)
+    def wrapper(*args, **kwargs):
+        retval = f(*args, **kwargs)
+        return retval
+    # Immutable query if True and immutable parameter if false
+    wrapper.__db0_table_view = True
+    return wrapper
 
 def is_immutable(f):
     return hasattr(f, '__db0_immutable_query')
