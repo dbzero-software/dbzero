@@ -117,7 +117,7 @@ namespace db0
         return m_pages.empty();
     }
     
-    void DRAM_Prefix::close() 
+    void DRAM_Prefix::close(ProcessTimer *) 
     {
         for (auto &page: m_pages) {
             page.second.resetDirtyFlag();

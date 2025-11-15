@@ -55,7 +55,7 @@ namespace db0
         */
         virtual std::uint64_t commit(ProcessTimer * = nullptr) = 0;
         
-        virtual void close() = 0;
+        virtual void close(ProcessTimer *timer_ptr = nullptr) = 0;
         
         /**
          * Get last update timestamp

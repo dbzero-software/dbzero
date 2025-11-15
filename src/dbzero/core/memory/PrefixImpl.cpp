@@ -307,9 +307,14 @@ namespace db0
         return m_head_state_num;
     }
     
-    void PrefixImpl::close()
+    void PrefixImpl::close(ProcessTimer *timer_ptr)
     {
-        m_cache.release();
+        std::unique_ptr<ProcessTimer> timer;
+        if (timer_ptr) {
+            timer = std::make_unique<ProcessTimer>("Prefix::close", timer_ptr);
+        }
+        // FIXME: log
+        // m_cache.release();
         m_storage_ptr->close();
     }
     

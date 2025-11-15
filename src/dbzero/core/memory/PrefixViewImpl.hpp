@@ -32,7 +32,7 @@ namespace db0
 
         std::uint64_t getLastUpdated() const override;
 
-        void close() override;        
+        void close(ProcessTimer *timer_ptr = nullptr) override;
         
         AccessType getAccessType() const override;
 

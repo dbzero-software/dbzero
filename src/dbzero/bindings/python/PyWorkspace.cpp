@@ -91,14 +91,18 @@ namespace db0::python
         return m_workspace;
     }
     
-    void PyWorkspace::close()
+    void PyWorkspace::close(db0::ProcessTimer *timer_ptr)
     {
+        std::unique_ptr<db0::ProcessTimer> timer;
+        if (timer_ptr) {
+            timer = std::make_unique<db0::ProcessTimer>("PyWorkspace::close", *timer_ptr);
+        }
         if (m_workspace) {
-            getWorkspace().close();
+            getWorkspace().close(false, timer.get());
             // NOTE: must unlock API because workspace destroy may trigger db0 object deletions            
             m_workspace = nullptr;            
         }
-        PyToolkit::getTypeManager().close();
+        PyToolkit::getTypeManager().close(timer.get());
         m_config = nullptr;
         m_workspace = nullptr;
     }
