@@ -285,8 +285,11 @@ DB0_PACKED_END
             // node will be sorted if needed (only if in READ/WRITE mode)
             if (this->m_access_type == AccessType::READ_WRITE) {
                 this->onNodeLookup(node);
+            }            
+            if (!node->header().canFit(key)) {
+                return { nullptr, sg_tree_const_iterator() };
             }
-            // within the node look up by compressed key
+            // within the node look up by compressed key (only if able to fit)
             return { node->lower_equal_bound(node->header().compress(key), this->m_heap_comp), node };
         }
 
@@ -305,15 +308,18 @@ DB0_PACKED_END
                 this->onNodeLookup(node);
             }
             // within the node look up by compressed key
-            auto item_ptr = node->lower_equal_bound(node->header().compress(key), this->m_heap_comp);
-            if (!item_ptr) {
-                return std::nullopt;
+            // NOTE: if unable to fit key then the item cannot be present in the node
+            if (node->header().canFit(key)) {
+                auto item_ptr = node->lower_equal_bound(node->header().compress(key), this->m_heap_comp);
+                if (item_ptr) {
+                    // return uncompressed
+                    return node->header().uncompress(*item_ptr);
+                }
             }
-            
-            // return uncompressed
-            return node->header().uncompress(*item_ptr);
-        }
 
+            return std::nullopt;
+        }
+        
         // Locate first element which is greater or equal to the key
         template <typename KeyT> std::optional<ItemT> upper_equal_bound(const KeyT &key) const
         {
@@ -332,11 +338,14 @@ DB0_PACKED_END
                 this->onNodeLookup(node);
             }
             // within the node look up by compressed key
-            auto item_ptr = node->upper_equal_bound(node->header().compress(key), this->m_heap_comp);
+            const CompressedItemT *item_ptr = nullptr;
+            if (node->header().canFit(key)) {
+                item_ptr = node->upper_equal_bound(node->header().compress(key), this->m_heap_comp);
+            }
             if (!item_ptr) {
                 // check within the next node
                 ++node;
-                if (node == base_t::end()) {
+                if (node == base_t::end() || !node->header().canFit(key)) {
                     return std::nullopt;
                 }
                 item_ptr = node->upper_equal_bound(node->header().compress(key), this->m_heap_comp);
@@ -361,7 +370,11 @@ DB0_PACKED_END
             if (this->m_access_type == AccessType::READ_WRITE) {
                 this->onNodeLookup(node);
             }
+            if (!node->header().canFit(key)) {
+                return nullptr;
+            }
             // within the node look up by compressed key
+            // NOTE: if unable to fit key then the item cannot be present in the node
             return node->lower_equal_bound(node->header().compress(key), this->m_heap_comp);
         }
 

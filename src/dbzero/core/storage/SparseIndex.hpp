@@ -9,7 +9,6 @@
 namespace db0
 
 {
-DB0_PACKED_BEGIN
     
     struct SI_Item;
     struct SI_CompressedItem;
@@ -32,6 +31,7 @@ DB0_PACKED_BEGIN
         bool operator()(std::pair<std::uint64_t, std::uint32_t>, const SI_Item &) const;
     };
 
+DB0_PACKED_BEGIN
     struct DB0_PACKED_ATTR SI_Item
     {
         using CompT = SI_ItemCompT;
@@ -65,7 +65,8 @@ DB0_PACKED_BEGIN
             return m_state_num;
         }
     };
-    
+DB0_PACKED_END
+
     struct SI_CompressedItemCompT
     {
         bool operator()(const SI_CompressedItem &, const SI_CompressedItem &) const;
@@ -75,8 +76,9 @@ DB0_PACKED_BEGIN
     {
         bool operator()(const SI_CompressedItem &, const SI_CompressedItem &) const;
     };
-
+    
     // Compressed items are actual in-memory representation
+DB0_PACKED_BEGIN
     struct DB0_PACKED_ATTR SI_CompressedItem
     {
         using CompT = SI_CompressedItemCompT;
@@ -120,8 +122,8 @@ DB0_PACKED_BEGIN
 
         std::string toString() const;
     };
+DB0_PACKED_END
 
     using SparseIndex = SparseIndexBase<SI_Item, SI_CompressedItem>;
 
-DB0_PACKED_END
 }

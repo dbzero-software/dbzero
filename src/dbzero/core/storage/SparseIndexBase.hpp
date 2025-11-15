@@ -111,7 +111,6 @@ namespace db0
 
             // Compress the key part only for lookup purposes
             CompressedItemT compress(std::pair<PageNumT, StateNumT>) const;
-
             CompressedItemT compress(const ItemT &) const;
 
             ItemT uncompress(const CompressedItemT &) const;
@@ -119,6 +118,7 @@ namespace db0
             // From a compressed item, retrieve the (logical) page number only
             PageNumT getPageNum(const CompressedItemT &) const;
 
+            bool canFit(std::pair<PageNumT, StateNumT>) const;
             bool canFit(const ItemT &) const;
 
             std::string toString(const CompressedItemT &) const;
@@ -308,6 +308,12 @@ DB0_PACKED_END
     template <typename ItemT, typename CompressedItemT>
     bool SparseIndexBase<ItemT, CompressedItemT>::BlockHeader::canFit(const ItemT &item) const {
         return this->m_first_page_num == (item.m_page_num >> 24);
+    }
+    
+    template <typename ItemT, typename CompressedItemT>
+    bool SparseIndexBase<ItemT, CompressedItemT>::BlockHeader::canFit(std::pair<PageNumT, StateNumT> item) const 
+    {
+        return this->m_first_page_num == (item.first >> 24);
     }
 
     template <typename ItemT, typename CompressedItemT>
