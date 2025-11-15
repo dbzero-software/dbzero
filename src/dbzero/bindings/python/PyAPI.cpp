@@ -819,13 +819,12 @@ namespace db0::python
     PyObject *PyAPI_setPrefix(PyObject *self, PyObject *args, PyObject *kwargs)
     {
         PY_API_FUNC
-
+        
         // extract object / prefix name (can be None)
         PyObject *py_object = nullptr;
         const char *prefix_name = nullptr;
         static const char *kwlist[] = {"object", "prefix", NULL};
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|z", const_cast<char**>(kwlist), &py_object, &prefix_name)) {
-            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|z", const_cast<char**>(kwlist), &py_object, &prefix_name)) {            
             return NULL;
         }
         

@@ -280,7 +280,7 @@ namespace db0
         auto realm_id = slab_id & MetaAllocator::REALM_MASK;
         return m_realms[realm_id].getRemainingCapacity(slab_id);
     }
-
+    
     void MetaAllocator::close()
     {
         if (m_recycler_ptr) {

@@ -28,6 +28,10 @@ DB0_PACKED_BEGIN
             return AddressType(value);
         }
 
+        inline bool operator!() const {
+            return m_value == 0;
+        }
+        
         inline bool isValid() const {
             return m_value != 0; 
         }

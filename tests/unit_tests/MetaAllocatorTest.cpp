@@ -135,6 +135,7 @@ namespace tests
             ASSERT_TRUE(ptr.getOffset() > last_address);
             last_address = ptr;
         }
+        cut.close();
     }
 
     TEST_F( MetaAllocatorTests , testMetaAllocatorCanAllocateFromExistingSlab )
@@ -150,13 +151,15 @@ namespace tests
                 auto ptr = cut.alloc(alloc_size);
                 ASSERT_EQ(cut.getSlabId(ptr), 0);
             }
+            cut.close();
         }
         
         // open again and try to allocate
         MetaAllocatorProxy cut(m_prefix);
         auto ptr = cut.alloc(100);
         // the allocation should be in the same slab
-        ASSERT_EQ(cut.getSlabId(ptr), 0);
+        ASSERT_EQ(cut.getSlabId(ptr), 0);    
+        cut.close();    
     }
     
     TEST_F( MetaAllocatorTests , testMetaAllocatorCanAllocateFromMultipleExistingSlabs )
@@ -177,6 +180,7 @@ namespace tests
         auto ptr = cut.alloc(100);
         // the allocation should be from the other slab since the 1st is full
         ASSERT_TRUE(cut.getSlabId(ptr) > 0);
+        cut.close();
     }
     
     TEST_F( MetaAllocatorTests , testMetaAllocatorRemainingCapacityIsTrackedPerSlab )
@@ -353,6 +357,7 @@ namespace tests
         std::cout << "Total bytes: " << total_bytes << std::endl;
         std::cout << "MB / sec : " << (total_bytes / 1024.0 / 1024.0) * 1000.0 / elapsed.count() << std::endl;
         std::cout << "Allocs / sec : " << alloc_count * 1000.0 / elapsed.count() << std::endl;
+        cut.close();
     }
 
     TEST_F( MetaAllocatorTests , testReservedPrivateSlab )
@@ -379,6 +384,7 @@ namespace tests
             auto ptr = cut.alloc(alloc_size);
             ASSERT_FALSE(in_range(ptr));
         }
+        cut.close();
     }
     
     TEST_F( MetaAllocatorTests , testMetaAllocatorFirstAllocatedAddress )
@@ -387,6 +393,7 @@ namespace tests
         SlabRecycler recycler;
         MetaAllocator cut(m_prefix, &recycler);
         ASSERT_EQ(cut.alloc(8), cut.getFirstAddress());
+        cut.close();
     }
     
     TEST_F( MetaAllocatorTests , testMetaAllocatorLocalityAwareAllocation )
@@ -404,6 +411,7 @@ namespace tests
         ASSERT_EQ(cut.getSlabId(addr_0), cut.getSlabId(addr_1));
         // different slabs
         ASSERT_NE(cut.getSlabId(addr_0), cut.getSlabId(addr_2));
+        cut.close();
     }
-
+    
 }

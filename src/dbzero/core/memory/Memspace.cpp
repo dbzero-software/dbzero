@@ -75,6 +75,7 @@ namespace db0
         
         m_maybe_need_flush.clear();
         m_maybe_modified.clear();
+        getAllocatorForUpdate().close();        
         m_allocator_ptr = nullptr;
         m_allocator = nullptr;
         m_prefix->close();

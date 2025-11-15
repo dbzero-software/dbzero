@@ -418,7 +418,7 @@ def test_dict_duplicate_keys_issue1(db0_no_autocommit):
     db0.close()
     db0.init(DB0_DIR)
     db0.open("my-new-prefix", "r")
-    mtc = MemoScopedSingleton({}, prefix="my-new-prefix")
+    mtc = MemoScopedSingleton({}, prefix="my-new-prefix")    
     assert mtc.value.get(key, None) is not None
     assert len(mtc.value) == 1
     assert len(mtc.value[key]) == 10

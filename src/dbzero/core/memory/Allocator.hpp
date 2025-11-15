@@ -92,6 +92,9 @@ namespace db0
         // Get range covered by the allocator or a specific slot
         // @return begin / end (which might be undefined for unlimited allocators)
         virtual std::pair<Address, std::optional<Address> > getRange(std::uint32_t slot_num = 0) const;
+        
+        // To be implemented where it makes sense
+        virtual void close();
     };
     
 }

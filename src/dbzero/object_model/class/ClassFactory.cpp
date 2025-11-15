@@ -90,6 +90,10 @@ namespace db0::object_model
     {
     }
     
+    ClassFactory::~ClassFactory()
+    {
+    }
+
     void ClassFactory::initWith(const ClassFactory &other)
     {
         assert(m_type_cache.empty());

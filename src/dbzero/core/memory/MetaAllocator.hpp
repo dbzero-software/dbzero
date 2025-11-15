@@ -123,11 +123,11 @@ DB0_PACKED_END
          * Open existing slab for private use (reserved slab)
         */
         std::shared_ptr<SlabAllocator> openReservedSlab(Address, std::size_t size) const;
-
+        
         /**
          * Close the allocator and flush all modifications with backed
         */
-        void close();
+        void close() override;
         
         /**
          * Get address of the 1st allocation (irrespective of whether it was performed by the MetaAllocator or not)

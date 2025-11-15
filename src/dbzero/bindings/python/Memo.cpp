@@ -157,7 +157,7 @@ namespace db0::python
                 return result;
             }
         }
-
+        
         // fixture, does not exist, try creating a new one
         if (!fixture) {
             fixture = tryGetFixture(px_name, fixture_uuid, AccessType::READ_WRITE);
@@ -341,7 +341,22 @@ namespace db0::python
             return member.steal();
         }
         
-        return _PyObject_GenericGetAttrWithDict(reinterpret_cast<PyObject*>(memo_obj), attr, NULL, 0);        
+        /* FIXME: log
+        // Use type's tp_getattro to avoid instance dict access issues in Python 3.10
+        // Since we disable Py_TPFLAGS_MANAGED_DICT, PyObject_GenericGetAttr can crash
+        // when it tries to access the instance dictionary. Instead, we use the base type's
+        // getattro or fall back to PyType_Type's implementation.
+        PyTypeObject *type = Py_TYPE(memo_obj);
+        PyTypeObject *base = type->tp_base;
+        
+        // Use base class tp_getattro if it's not the memo wrapper itself
+        if (base && base->tp_getattro && base->tp_getattro != (getattrofunc)PyAPI_MemoObject_getattro<MemoImplT>) {
+            return base->tp_getattro(reinterpret_cast<PyObject*>(memo_obj), attr);
+        }
+        */
+        
+        // Fallback to type-level attribute lookup only (no instance dict)
+        return PyObject_GenericGetAttr(reinterpret_cast<PyObject*>(memo_obj), attr);
     }
     
     template <typename MemoImplT>
@@ -577,6 +592,8 @@ namespace db0::python
         (*tp_result)->tp_dict = copyDict(base_class->tp_dict);
         // disable weak-refs (important for Python 3.11.x)
         (*tp_result)->tp_weaklistoffset = 0;
+        // explicitly disable instance dict to prevent segfault in Python 3.10
+        (*tp_result)->tp_dictoffset = 0;
         
         // replace default __str__ and __repr__ implementations
         if (base_class->tp_str == PyType_Type.tp_str) {
@@ -867,7 +884,9 @@ namespace db0::python
             return member.steal();
         }
 
-        return _PyObject_GenericGetAttrWithDict(reinterpret_cast<PyObject*>(memo_obj), attr, NULL, 0);
+        // FIXME: log
+        // return _PyObject_GenericGetAttrWithDict(reinterpret_cast<PyObject*>(memo_obj), attr, NULL, 0);
+        return PyObject_GenericGetAttr(reinterpret_cast<PyObject*>(memo_obj), attr);
     }
     
     PyObject *getKwargsForMethod(PyObject* method, PyObject* kwargs)

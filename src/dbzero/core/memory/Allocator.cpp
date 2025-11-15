@@ -55,4 +55,8 @@ namespace db0
         return { Address::fromOffset(0), std::nullopt };
     }
 
+    void Allocator::close()
+    {
+    }
+
 }

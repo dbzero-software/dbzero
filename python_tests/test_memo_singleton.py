@@ -4,6 +4,7 @@ from .memo_test_types import MemoTestClass, MemoTestSingleton, MemoScopedSinglet
 from .memo_test_types import MemoSingletonWithMigrations
     
 from .conftest import DB0_DIR
+from dbzero.memo import __dyn_prefix
 
 
 def test_memo_singleton_is_created_once(db0_fixture):
@@ -72,4 +73,9 @@ def test_find_singleton(db0_fixture):
 
 def test_singleton_with_migrations(db0_fixture):
     obj_1 = MemoSingletonWithMigrations(123)
+    
+    
+def test_assembling_dyn_prefix_function(db0_fixture):
+    assert __dyn_prefix(MemoTestSingleton) is None
+    assert __dyn_prefix(MemoScopedSingleton) is not None
     

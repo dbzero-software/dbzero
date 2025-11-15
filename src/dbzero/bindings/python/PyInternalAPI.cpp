@@ -786,9 +786,9 @@ namespace db0::python
         if (!type) {
             return nullptr;
         }
-
+        
         auto addr = type->getSingletonAddress();
-        if (!addr.isValid()) {
+        if (!addr) {
             return nullptr;
         }
         

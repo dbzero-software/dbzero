@@ -10,6 +10,143 @@ def migration(func: Callable) -> Callable:
     return func
 
 
+def __dyn_prefix(from_type):
+    """
+    Process a specific init_func and build derived bytecode which
+    returns the dynamically applied scope (prefix)
+    This operation is only viable for very specific class of object constructors 
+    which call db0.set_prefix as the 1st statement
+    """
+    import types as py_types
+    import dis
+    import inspect
+    import sys
+    
+    # this is to check if __init__ exists and is not inherited from object
+    if not hasattr(from_type, "__init__") or from_type.__init__ == object.__init__:
+        return None
+
+    def assemble_code(code, post_code, stop_instr, ret_instr):
+        """
+        Build a new function by splicing the original code up to the target CALL
+        and appending a RETURN from a template. Uses CodeType.replace when
+        available for cross-version compatibility (3.8+), with a constructor
+        fallback for 3.10/3.11 differences.
+        """
+        # execute up to the stop instruction + return instruction
+        new_bytecode = code.co_code[:stop_instr.offset] + post_code.co_code[ret_instr.offset:]
+
+        # Prefer the safer, version-agnostic replace API (available since 3.8)
+        try:
+            replaced = code.replace(co_code=new_bytecode)
+            return py_types.FunctionType(replaced, from_type.__init__.__globals__)
+        except AttributeError:
+            # Fallback to manual constructor with version-specific layout
+            if sys.version_info >= (3, 11):
+                new_code = py_types.CodeType(
+                    code.co_argcount,
+                    code.co_posonlyargcount,
+                    code.co_kwonlyargcount,
+                    code.co_nlocals,
+                    code.co_stacksize,
+                    code.co_flags,
+                    new_bytecode,
+                    code.co_consts,
+                    code.co_names,
+                    code.co_varnames,
+                    code.co_filename,
+                    code.co_name,
+                    code.co_qualname,
+                    code.co_firstlineno,
+                    b'',  # co_linetable
+                    code.co_exceptiontable,
+                    code.co_freevars,
+                    code.co_cellvars,
+                )
+            else:
+                # Python 3.10: note the signature differences and no co_qualname/exceptiontable
+                new_code = py_types.CodeType(
+                    code.co_argcount,
+                    code.co_posonlyargcount,
+                    code.co_kwonlyargcount,
+                    code.co_nlocals,
+                    code.co_stacksize,
+                    code.co_flags,
+                    new_bytecode,
+                    code.co_consts,
+                    code.co_names,
+                    code.co_varnames,
+                    code.co_filename,
+                    code.co_name,
+                    code.co_firstlineno,
+                    b'',  # co_lnotab
+                    code.co_freevars,
+                    code.co_cellvars,
+                )
+
+        return py_types.FunctionType(new_code, from_type.__init__.__globals__)
+    
+    def template_func(self, prefix = None):
+        return set_prefix(self, prefix)
+    
+    # get index of the first CALL instruction to set_prefix, compatible with 3.8+ through 3.11+
+    def find_call_instr(instructions):
+        attr_stack = []
+        call_instr, ret_instr = None, None
+        # process up to 10 instructions
+        for instr in instructions[:10]:
+            # Python 3.11+ uses LOAD_ATTR, Python 3.8-3.10 uses LOAD_METHOD
+            if instr.opname in ["LOAD_GLOBAL", "LOAD_FAST", "LOAD_ATTR", "LOAD_METHOD"]:
+                attr_stack.append(instr.argval)
+            # this is a likely call to db0.set_prefix
+            elif instr.opname in {"CALL", "CALL_FUNCTION", "CALL_METHOD", "CALL_FUNCTION_KW", "CALL_FUNCTION_EX"}:
+                if "set_prefix" in attr_stack:
+                    return instr
+        return None
+    
+    # get index of the last "RETURN_VALUE" instruction
+    def find_ret_instr(instructions):
+        for instr in reversed(instructions):
+            if instr.opname == "RETURN_VALUE":
+                return instr
+            
+        return None
+    
+    init_func = from_type.__init__
+    # NOTE: return instructions are fetched from the template_func
+    call_ = find_call_instr(list(dis.get_instructions(init_func)))
+    ret_ = find_ret_instr(list(dis.get_instructions(template_func)))
+    # unable to identify the relevant instructions
+    if call_ is None or ret_ is None:
+        return None
+    
+    # Extract default values for arguments
+    default_args = []
+    default_kwargs = {}
+    px_map = {}
+    signature = inspect.signature(init_func)
+    for index, param in enumerate(signature.parameters.values()):
+        px_map[param.name] = index
+        if param.default is not param.empty:
+            default_args.append(param.default)
+            default_kwargs[param.name] = param.default
+    
+    # assemble the callable
+    dyn_func = assemble_code(init_func.__code__, template_func.__code__, call_, ret_)
+                                    
+    # this wrapper is required to populate default arguments
+    def dyn_wrapper(*args, **kwargs):
+        min_kw = len(default_args) + 1
+        for kw in kwargs.keys():
+            min_kw = min(min_kw, px_map[kw])
+        
+        # populate default args and kwargs
+        all_kwargs = { **kwargs, **{ k: v for k, v in default_kwargs.items() if k not in kwargs and px_map[k] > min_kw } }            
+        return dyn_func(None, *args, *default_args[len(args):min_kw - 1], **all_kwargs)
+    
+    return dyn_wrapper
+
+
 def memo(cls: Optional[type] = None, **kwargs) -> type:
     """Transform a standard Python class into a persistent, dbzero-managed object.
 
@@ -70,109 +207,7 @@ def memo(cls: Optional[type] = None, **kwargs) -> type:
             return inspect.getfile(cls_)
         except (TypeError, OSError):
             return None
-        
-    def dyn_prefix(from_type):
-        """
-        Process a specific init_func and build derived bytecode which
-        returns the dynamically applied scope (prefix)
-        This operation is only viable for very specific class of object constructors 
-        which call db0.set_prefix as the 1st statement
-        """
-        import types as py_types
-        import dis
-        import inspect
-        
-        # this is to check if __init__ exists and is not inherited from object
-        if not hasattr(from_type, "__init__") or from_type.__init__ == object.__init__:
-            return None
-
-        def assemble_code(code, post_code, stop_instr, ret_instr):
-            # Now create a new code object
-            new_code = py_types.CodeType(
-                code.co_argcount, # Number of arguments
-                0, # code.co_posonlyargcount,
-                code.co_kwonlyargcount,
-                code.co_nlocals,
-                code.co_stacksize,
-                code.co_flags,
-                # execute up to the stop instruction + return instruction
-                code.co_code[:stop_instr.offset] + post_code.co_code[ret_instr.offset:],
-                code.co_consts,
-                code.co_names,
-                code.co_varnames,
-                code.co_filename,
-                code.co_name,
-                code.co_qualname,
-                code.co_firstlineno,
-                # co_linetable (empty since this is a dynamically generated code)
-                b'',
-                code.co_exceptiontable,
-                code.co_freevars,
-                code.co_cellvars,
-            )
-
-            # Create a new function with the modified bytecode
-            return py_types.FunctionType(new_code, from_type.__init__.__globals__)
-        
-        def template_func(self, prefix = None):
-            return set_prefix(self, prefix)
-        
-        # get index of the first "CALL" instruction
-        def find_call_instr(instructions):
-            attr_stack = []
-            call_instr, ret_instr = None, None
-            # process up to 10 instructions
-            for instr in instructions[:10]:
-                if instr.opname in ["LOAD_GLOBAL", "LOAD_FAST", "LOAD_ATTR"]:
-                    attr_stack.append(instr.argval)
-                # this is a likely call to db0.set_prefix
-                elif instr.opname == "CALL":
-                    if "set_prefix" in attr_stack:
-                        return instr
-            return None
-        
-        # get index of the last "RETURN_VALUE" instruction
-        def find_ret_instr(instructions):
-            for instr in reversed(instructions):
-                if instr.opname == "RETURN_VALUE":
-                    return instr
-                
-            return None
-        
-        init_func = from_type.__init__
-        # NOTE: return instructions are fetched from the template_func
-        call_ = find_call_instr(list(dis.get_instructions(init_func)))
-        ret_ = find_ret_instr(list(dis.get_instructions(template_func)))
-        # unable to identify the relevant instructions
-        if call_ is None or ret_ is None:
-            return None
-        
-        # Extract default values for arguments
-        default_args = []
-        default_kwargs = {}
-        px_map = {}
-        signature = inspect.signature(init_func)
-        for index, param in enumerate(signature.parameters.values()):
-            px_map[param.name] = index
-            if param.default is not param.empty:
-                default_args.append(param.default)
-                default_kwargs[param.name] = param.default
-        
-        # assemble the callable
-        dyn_func = assemble_code(init_func.__code__, template_func.__code__, call_, ret_)
-                                        
-        # this wrapper is required to populate default arguments
-        def dyn_wrapper(*args, **kwargs):
-            min_kw = len(default_args) + 1
-            for kw in kwargs.keys():
-                min_kw = min(min_kw, px_map[kw])
             
-            # populate default args and kwargs
-            all_kwargs = { **kwargs, **{ k: v for k, v in default_kwargs.items() if k not in kwargs and px_map[k] > min_kw } }            
-            return dyn_func(None, *args, *default_args[len(args):min_kw - 1], **all_kwargs)
-        
-        return dyn_wrapper
-    
     def dis_assig(method):
         last_inst = None
         unique_args = set()
@@ -220,10 +255,10 @@ def memo(cls: Optional[type] = None, **kwargs) -> type:
                     yield (attr, list(dis_assig(attr)))
     
     def wrap(cls_):
-        # note that we use the dyn_prefix mechanism only for singletons
+        # note that we use the __dyn_prefix mechanism only for singletons
         is_singleton = kwargs.get("singleton", False)
         return _wrap_memo_type(cls_, py_file = getfile(cls_), py_init_vars = list(dis_init_assig(cls_)), \
-            py_dyn_prefix = dyn_prefix(cls_) if is_singleton else None, \
+            py_dyn_prefix = __dyn_prefix(cls_) if is_singleton else None, \
             py_migrations = list(find_migrations(cls_)) if is_singleton else None, **kwargs
         )
     

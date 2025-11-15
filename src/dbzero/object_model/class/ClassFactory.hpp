@@ -16,8 +16,6 @@
 namespace db0::object_model
 
 {
-
-DB0_PACKED_BEGIN
     
     class Class;
     struct ObjectId;
@@ -26,7 +24,8 @@ DB0_PACKED_BEGIN
     using VClassPtrIndex = db0::v_bindex<ClassPtr>;
     using namespace db0;
     using namespace db0::pools;
-    
+
+DB0_PACKED_BEGIN
     struct DB0_PACKED_ATTR o_class_factory: public o_fixed_versioned<o_class_factory>
     {
         // 4 variants of class identification
@@ -37,6 +36,7 @@ DB0_PACKED_BEGIN
         
         o_class_factory(Memspace &memspace);
     };
+DB0_PACKED_END    
     
     ClassFactory &getClassFactory(Fixture &);
     const ClassFactory &getClassFactory(const Fixture &);
@@ -51,8 +51,8 @@ DB0_PACKED_BEGIN
         using TypeObjectSharedPtr = typename LangToolkit::TypeObjectSharedPtr;
 
         ClassFactory(db0::swine_ptr<Fixture> &);
-
         ClassFactory(db0::swine_ptr<Fixture> &, Address address);
+        ~ClassFactory();
         
         // Copy all cached type mappings from another ClassFactory
         void initWith(const ClassFactory &);
@@ -151,7 +151,5 @@ DB0_PACKED_BEGIN
     
     std::optional<std::string> getNameVariant(ClassFactory::TypeObjectPtr lang_type,
         const char *type_id, int variant_id);    
-
-DB0_PACKED_END
-
+    
 }
