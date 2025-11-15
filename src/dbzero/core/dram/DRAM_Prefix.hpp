@@ -34,7 +34,7 @@ namespace db0
         
         std::uint64_t commit(ProcessTimer * = nullptr) override;
 
-        void close() override;
+        void close(ProcessTimer *timer_ptr = nullptr) override;
         
         std::size_t getDirtySize() const override;
 

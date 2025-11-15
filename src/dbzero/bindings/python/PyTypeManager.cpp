@@ -32,6 +32,7 @@
 #include <dbzero/bindings/python/types/PyClass.hpp>
 #include <dbzero/bindings/python/types/PyTag.hpp>
 #include <dbzero/bindings/python/types/PyDecimal.hpp>
+#include <dbzero/core/utils/ProcessTimer.hpp>
 
 namespace db0::python
 
@@ -485,8 +486,12 @@ namespace db0::python
         }
     }
     
-    void PyTypeManager::close()
-    {        
+    void PyTypeManager::close(db0::ProcessTimer *timer_ptr)
+    {
+        std::unique_ptr<db0::ProcessTimer> timer;
+        if (timer_ptr) {
+            timer = std::make_unique<db0::ProcessTimer>("PyTypeManager::close", *timer_ptr);
+        }
         // close Enum's but don't remove from cache
         // this is to allow future creation / retrieval of dbzero enums while keeping python objects alive
         for (auto &item : m_enum_cache) {

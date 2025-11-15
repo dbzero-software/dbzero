@@ -39,7 +39,7 @@ namespace db0::tests
             return m_prefix->commit(timer);
         }
 
-        void close() override {
+        void close(ProcessTimer * = nullptr) override {
             m_prefix->close();
         }
         

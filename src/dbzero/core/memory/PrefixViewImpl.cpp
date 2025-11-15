@@ -74,7 +74,7 @@ namespace db0
             << "PrefixViewImpl::getLastUpdated: cannot get last updated timestamp from snapshot" << THROWF_END;
     }
     
-    void PrefixViewImpl::close() {
+    void PrefixViewImpl::close(ProcessTimer *) {
         // close does nothing
     }
     

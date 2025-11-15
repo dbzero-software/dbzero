@@ -392,7 +392,7 @@ namespace db0::python
         if (prefix_name) {
             PyToolkit::getPyWorkspace().getWorkspace().close(db0::PrefixName(prefix_name));
         } else {
-            PyToolkit::getPyWorkspace().close();
+            PyToolkit::getPyWorkspace().close();            
         }
         Py_RETURN_NONE;
     }

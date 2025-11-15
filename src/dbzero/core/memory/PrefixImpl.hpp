@@ -63,7 +63,7 @@ namespace db0
          * this method should be called before closing the prefix to clean up used resources
          * Finally close the corresponding storage.
         */
-        void close() override;
+        void close(ProcessTimer *timer_ptr = nullptr) override;
         
         bool beginRefresh() override;
         

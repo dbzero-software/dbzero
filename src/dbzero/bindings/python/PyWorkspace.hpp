@@ -16,6 +16,7 @@ namespace db0 {
     class Config;
     class Fixture;
     class Memspace;
+    class ProcessTimer;
 
 }
 
@@ -70,7 +71,7 @@ namespace db0::python
         
         std::shared_ptr<db0::Workspace> getWorkspaceSharedPtr() const;
         
-        void close();
+        void close(ProcessTimer *timer = nullptr);
 
         bool refresh();
         

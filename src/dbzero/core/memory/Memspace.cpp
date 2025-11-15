@@ -78,7 +78,7 @@ namespace db0
         getAllocatorForUpdate().close();        
         m_allocator_ptr = nullptr;
         m_allocator = nullptr;
-        m_prefix->close();
+        m_prefix->close(timer.get());
         m_prefix = nullptr;
     }
     

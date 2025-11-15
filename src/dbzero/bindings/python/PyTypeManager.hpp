@@ -11,6 +11,14 @@
 #include <dbzero/bindings/python/types/PyEnumType.hpp>
 #include <dbzero/bindings/python/MemoTypeDecoration.hpp>
 
+namespace db0
+
+{
+
+    class ProcessTimer;
+
+}
+
 namespace db0::object_model {
 
     class Object;
@@ -185,7 +193,7 @@ namespace db0::python
         // Decode either of: None, False or True from a lo-fi code
         ObjectSharedPtr getLangConstant(unsigned int) const;
         
-        void close();
+        void close(db0::ProcessTimer *timer_ptr = nullptr);
         
     private:
         static std::vector<std::unique_ptr<std::string> > m_string_pool;
