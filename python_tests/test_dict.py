@@ -475,7 +475,6 @@ def test_pydict_with_db0_tuples_as_keys(db0_no_autocommit):
     assert "unhashable" in str(ex.value)
 
 
-@pytest.mark.skip()
 def test_dict_del_by_key(db0_no_autocommit):
     cut = db0.dict({"a": 1, "b": 2, "c": 3, "d": 4, "e": 5})
     del cut["a"]
