@@ -1014,7 +1014,7 @@ namespace db0::object_model
         std::size_t nargs, const char *prefix_name)
     {
         if (prefix_name) {
-            return workspace.getFixture(prefix_name);
+            return workspace.getFixture(prefix_name, std::nullopt);
         }
         
         std::uint64_t fixture_uuid = 0;

@@ -3,6 +3,7 @@
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/bindings/python/PyInternalAPI.hpp>
 #include <dbzero/bindings/python/PyTagsAPI.hpp>
+#include <dbzero/bindings/python/ArgParse.hpp>
 
 namespace db0::python
 
@@ -96,7 +97,7 @@ namespace db0::python
         for (Py_ssize_t i = 0; i < num_args; ++i) {
             args_data[i] = PyTuple_GetItem(args, i);
         }
-        const char *prefix_name = nullptr;        
+
         if (!kwargs) {
             // The "join" function requires "on" as keyword argument
             PyErr_SetString(PyExc_TypeError, "join() missing 1 required keyword argument: 'on'");
@@ -109,19 +110,13 @@ namespace db0::python
             return NULL;
         }
         
+        const char prefix_arg[] = "prefix";
+        const char *prefix_name = nullptr;      
         PyObject *py_prefix_name = PyDict_GetItemString(kwargs, "prefix");
         if (py_prefix_name) {
-            if (!PyUnicode_Check(py_prefix_name) && !PyBytes_Check(py_prefix_name)) {
-                std::stringstream err_msg;
-                err_msg << "Expected 'prefix' argument to be a string or bytes, got: " << (py_prefix_name ? Py_TYPE(py_prefix_name)->tp_name : "None");
-                PyErr_SetString(PyExc_TypeError, err_msg.str().c_str());
-                return NULL;
-            }
-            if (PyUnicode_Check(py_prefix_name)) {
-                prefix_name = PyUnicode_AsUTF8(py_prefix_name);
-            } else {
-                assert(PyBytes_Check(py_prefix_name));
-                prefix_name = PyBytes_AsString(py_prefix_name);
+            prefix_name = parseStringLikeArgument(py_prefix_name, "join", prefix_arg);
+            if (!prefix_name) {
+                return nullptr;
             }
         }
         

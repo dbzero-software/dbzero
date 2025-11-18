@@ -25,7 +25,7 @@ namespace db0::python
     ClassObject *makeClass(std::shared_ptr<db0::object_model::Class>);
     bool PyClassObject_Check(PyObject *);
     
-    PyObject *tryGetAttributes(PyObject *);
+    PyObject *tryGetPyClassAttributes(PyObject *);
     PyObject *tryGetClassAttributes(const db0::object_model::Class &);
     PyObject *tryGetTypeInfo(const db0::object_model::Class &);
     
