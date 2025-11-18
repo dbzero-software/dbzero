@@ -131,6 +131,10 @@ namespace db0
                     updateSize(lock, m_capacity - flush_size);
                     flushed = true;
                     flush_result = m_current_size[priority] <= (m_capacity - flush_size);
+                    if(getCurrentSize() >= m_capacity){
+                        THROWF(db0::CacheException) << "CacheRecycler: unable to free sufficient cache space. " 
+                            << "To many memo objects in python scope" << THROWF_END;
+                    }
                 }
                 // resize is a costly operation but cannot be avoided if the number of locked
                 // resources exceeds the assumed limit
