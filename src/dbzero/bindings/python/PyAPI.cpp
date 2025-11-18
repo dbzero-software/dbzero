@@ -21,6 +21,7 @@
 #include <dbzero/bindings/python/collections/PyTuple.hpp>
 #include <dbzero/bindings/python/types/PyEnum.hpp>
 #include <dbzero/bindings/python/types/PyObjectId.hpp>
+#include <dbzero/bindings/python/types/PyClass.hpp>
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/object_model/tags/TagIndex.hpp>
 #include <dbzero/object_model/tags/QueryObserver.hpp>
@@ -392,7 +393,7 @@ namespace db0::python
         if (prefix_name) {
             PyToolkit::getPyWorkspace().getWorkspace().close(db0::PrefixName(prefix_name));
         } else {
-            PyToolkit::getPyWorkspace().close();            
+            PyToolkit::getPyWorkspace().close();
         }
         Py_RETURN_NONE;
     }
@@ -458,6 +459,8 @@ namespace db0::python
             fixture = reinterpret_cast<PyObjectIterable*>(py_object)->ext().getFixture();            
         } else if (PyObjectIterator_Check(py_object)) {
             fixture = reinterpret_cast<PyObjectIterator*>(py_object)->ext().getFixture();
+        } else if (PyClassObject_Check(py_object)) {
+            fixture = reinterpret_cast<ClassObject*>(py_object)->ext().getFixture();
         } else {
             fixture = getFixtureOf(py_object);
         }            

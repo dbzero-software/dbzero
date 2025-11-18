@@ -77,14 +77,14 @@ namespace db0::python
         return py_list.steal();
     }
     
-    PyObject *tryGetAttributes(PyObject *self) {
+    PyObject *tryGetPyClassAttributes(PyObject *self) {
         return tryGetClassAttributes(reinterpret_cast<ClassObject*>(self)->ext());
     }
     
     PyObject *PyAPI_PyClass_get_attributes(PyObject *self, PyObject *)
     {
         PY_API_FUNC        
-        return runSafe(tryGetAttributes, self);
+        return runSafe(tryGetPyClassAttributes, self);
     }
     
     PyObject *PyAPI_PyClass_type_info(PyObject *self, PyObject *)

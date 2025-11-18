@@ -4,6 +4,7 @@
 #include <dbzero/bindings/python/PyInternalAPI.hpp>
 #include <dbzero/bindings/python/PyTagsAPI.hpp>
 #include <dbzero/bindings/python/PyToolkit.hpp>
+#include <dbzero/bindings/python/ArgParse.hpp>
 #include <dbzero/core/utils/base32.hpp>
 
 namespace db0::python
@@ -251,21 +252,14 @@ namespace db0::python
             args_data[i] = PyTuple_GetItem(args, i);
         }
         
+        const char prefix_arg[] = "prefix";
         const char *prefix_name = nullptr;
         if (kwargs) {
-            PyObject *py_prefix_name = PyDict_GetItemString(kwargs, "prefix");
+            PyObject *py_prefix_name = PyDict_GetItemString(kwargs, prefix_arg);
             if (py_prefix_name) {                
-                if (!PyUnicode_Check(py_prefix_name) && !PyBytes_Check(py_prefix_name)) {
-                    std::stringstream err_msg;
-                    err_msg << "Expected 'prefix' argument to be a string or bytes, got: " << (py_prefix_name ? Py_TYPE(py_prefix_name)->tp_name : "None");
-                    PyErr_SetString(PyExc_TypeError, err_msg.str().c_str());
-                    return NULL;
-                }
-                if (PyUnicode_Check(py_prefix_name)) {
-                    prefix_name = PyUnicode_AsUTF8(py_prefix_name);
-                } else {
-                    assert(PyBytes_Check(py_prefix_name));
-                    prefix_name = PyBytes_AsString(py_prefix_name);
+                prefix_name = parseStringLikeArgument(py_prefix_name, "find", prefix_arg);
+                if (!prefix_name) {
+                    return nullptr;
                 }
             }
         }

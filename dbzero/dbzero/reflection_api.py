@@ -155,17 +155,23 @@ class MemoMetaClass:
     
     def all(self, snapshot=None, as_memo_base=False):
         """Find all instances of this Memo class."""
-        if not as_memo_base and self.get_class().is_known_type():
+
+        cls = self.get_class()
+        prefix_name = db0.get_prefix_of(cls).name
+
+        if not cls.type_exists():
+            as_memo_base = True
+
+        if as_memo_base:
             if snapshot is not None:
-                return snapshot.find(self.get_class().type())
+                return snapshot.find(db0.MemoBase, cls, prefix=prefix_name)
             else:
-                return db0.find(self.get_class().type())
-        
-        # fall back to the base class if the actual model class is not imported
+                return db0.find(db0.MemoBase, cls, prefix=prefix_name)
+
         if snapshot is not None:
-            return snapshot.find(db0.MemoBase, self.get_class())
+            return snapshot.find(cls, prefix=prefix_name)
         else:
-            return db0.find(db0.MemoBase, self.get_class())
+            return db0.find(cls, prefix=prefix_name)
     
     def get_instance_count(self):
         """Get number of instances of this Memo class."""
