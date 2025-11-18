@@ -52,7 +52,8 @@ namespace db0
          **/        
         BaseWorkspace(const std::string &root_path = "", std::optional<std::size_t> cache_size = {},
             std::optional<std::size_t> slab_cache_size = {}, std::optional<std::size_t> flush_size = {},
-            std::optional<LockFlags> default_lock_flags = {});
+            std::optional<LockFlags> default_lock_flags = {},
+            std::optional<bool> throw_on_dist_memory_overflow = {});
         virtual ~BaseWorkspace()= default;
         
         /**

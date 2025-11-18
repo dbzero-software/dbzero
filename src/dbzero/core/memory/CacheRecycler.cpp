@@ -27,7 +27,8 @@ namespace db0
     CacheRecycler::CacheRecycler(std::size_t capacity, const std::atomic<std::size_t> &dirty_meter,
         std::optional<std::size_t> flush_size,
         std::function<void(std::size_t limit)> flush_dirty,
-        std::function<bool(bool threshold_reached)> flush_callback)
+        std::function<bool(bool threshold_reached)> flush_callback,
+        bool throw_on_dist_memory_overflow)
         : m_capacity(capacity)
         // NOTE: buffers are overprovisioned
         , m_res_bufs { getMaxSize(m_capacity), getMaxSize(m_capacity) }
@@ -36,6 +37,7 @@ namespace db0
         , m_flush_size(flush_size.value_or(DEFAULT_FLUSH_SIZE))
         , m_flush_dirty(flush_dirty)
         , m_flush_callback(flush_callback)
+        , m_throw_on_dist_memory_overflow(throw_on_dist_memory_overflow)
     {
     }
 
@@ -131,9 +133,8 @@ namespace db0
                     updateSize(lock, m_capacity - flush_size);
                     flushed = true;
                     flush_result = m_current_size[priority] <= (m_capacity - flush_size);
-                    if(getCurrentSize() >= m_capacity){
-                        THROWF(db0::CacheException) << "CacheRecycler: unable to free sufficient cache space. " 
-                            << "To many memo objects in python scope" << THROWF_END;
+                    if(getCurrentSize() >= m_capacity && m_throw_on_dist_memory_overflow){
+                        THROWF(db0::CacheException) << "DIST Memory Overflow. Too many Python objects" << THROWF_END;
                     }
                 }
                 // resize is a costly operation but cannot be avoided if the number of locked

@@ -73,7 +73,7 @@ def db0_autocommit_fixture(request):
         shutil.rmtree(DB0_DIR)
     # create empty directory
     os.mkdir(DB0_DIR)
-    db0.init(DB0_DIR, autocommit=True, autocommit_interval=request.param)
+    db0.init(DB0_DIR, autocommit=True, autocommit_interval=request.param, throw_on_dist_memory_overflow=False)
     db0.open("my-test-prefix")
     yield db0    
     gc.collect()
@@ -92,7 +92,7 @@ def db0_no_autocommit():
     # create empty directory
     os.mkdir(DB0_DIR)
     # disable autocommit on all prefixes
-    db0.init(DB0_DIR, autocommit=False)
+    db0.init(DB0_DIR, autocommit=False, throw_on_dist_memory_overflow=False)
     db0.open("my-test-prefix")
     yield db0    
     db0.close()    
