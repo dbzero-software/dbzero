@@ -201,7 +201,7 @@ class Snapshot:
         """
         ...
 
-    def find(self, *query_criteria: Union[Tag, List[Tag], Tuple[Tag], QueryObject, TagSet]) -> QueryObject:
+    def find(self, *query_criteria: Union[Tag, List[Tag], Tuple[Tag], QueryObject, TagSet], prefix: Optional[str] = None) -> QueryObject:
         """Query for memo objects based on search criteria such as tags, types, or subqueries.
 
         Parameters
@@ -216,6 +216,9 @@ class Snapshot:
             * Tuple of tags (AND): Objects with all of the specified tags
             * QueryObject: Result of another query
             * TagSet: Logical set operation.
+        prefix : str, optional
+            Optional data prefix to run the query on.
+            If omitted, the prefix to run the query is resolved based on query criteria.
 
         Returns
         -------

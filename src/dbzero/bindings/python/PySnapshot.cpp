@@ -4,6 +4,7 @@
 #include "PyTagsAPI.hpp"
 #include "Memo.hpp"
 #include <dbzero/object_model/object/Object.hpp>
+#include <dbzero/bindings/python/ArgParse.hpp>
 
 namespace db0::python
 
@@ -120,16 +121,34 @@ namespace db0::python
         return tryFetchFrom(snapshot, py_id, type, prefix_name).steal();
     }
     
-    PyObject *tryPySnapshot_find(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
+    PyObject *tryPySnapshot_find(PyObject *self, PyObject *args, PyObject *kwargs)
     {
         if (!PySnapshot_Check(self)) {
             PyErr_SetString(PyExc_TypeError, "Invalid argument type");
             return NULL;
         }
 
+        Py_ssize_t num_args = PyTuple_Size(args);
+        std::vector<PyObject*> args_data(num_args);
+        for (Py_ssize_t i = 0; i < num_args; ++i) {
+            args_data[i] = PyTuple_GetItem(args, i);
+        }
+
+        const char prefix_arg[] = "prefix";
+        const char *prefix_name = nullptr;
+        if (kwargs) {
+            PyObject *py_prefix_name = PyDict_GetItemString(kwargs, prefix_arg);
+            if (py_prefix_name) {
+                prefix_name = parseStringLikeArgument(py_prefix_name, "find", prefix_arg);
+                if (!prefix_name) {
+                    return nullptr;
+                }
+            }
+        }
+
         auto &snapshot = reinterpret_cast<PySnapshotObject*>(self)->modifyExt();
         // NOTE: self attached as context
-        return findIn(snapshot, args, nargs, self);
+        return findIn(snapshot, (PyObject* const*)args_data.data(), num_args, self, prefix_name);
     }
     
     PyObject *tryGetStateNum(db0::Snapshot &snapshot, PyObject *args, PyObject *kwargs)
@@ -176,10 +195,10 @@ namespace db0::python
         return runSafe(tryPySnapshot_fetch, self, py_id, reinterpret_cast<PyTypeObject*>(py_type), prefix_name);
     }
 
-    PyObject *PyAPI_PySnapshot_find(PyObject *self, PyObject *const *args, Py_ssize_t nargs) 
+    PyObject *PyAPI_PySnapshot_find(PyObject *self, PyObject *args, PyObject *kwargs) 
     {
         PY_API_FUNC
-        return runSafe(tryPySnapshot_find, self, args, nargs);
+        return runSafe(tryPySnapshot_find, self, args, kwargs);
     }
 
     PyObject *PyAPI_PySnapshot_enter(PyObject *self, PyObject *)
@@ -276,7 +295,7 @@ namespace db0::python
     static PyMethodDef PySnapshot_methods[] = 
     {
         {"fetch", (PyCFunction)&PyAPI_PySnapshot_fetch, METH_VARARGS | METH_KEYWORDS, "Fetch dbzero object instance by its ID or type (in case of a singleton)"},
-        {"find", (PyCFunction)&PyAPI_PySnapshot_find, METH_FASTCALL, ""},
+        {"find", (PyCFunction)&PyAPI_PySnapshot_find, METH_VARARGS | METH_KEYWORDS, ""},
         {"deserialize", (PyCFunction)&PyAPI_PySnapshot_deserialize, METH_FASTCALL, "Deserialize from bytes within the snapshot's context"},
         {"close", &PyAPI_PySnapshot_close, METH_NOARGS, "Close dbzero snapshot"},
         {"get_state_num", (PyCFunction)&PyAPI_PySnapshot_GetStateNum, METH_VARARGS | METH_KEYWORDS, "Get state number of the snapshot"},
