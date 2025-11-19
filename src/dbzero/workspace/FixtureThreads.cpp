@@ -14,16 +14,15 @@ namespace db0
         using StateReachedCallbackList = Fixture::StateReachedCallbackList;
 
         virtual ~FixtureThreadCallbacksContext() = default;
-
+        
         virtual void finalize() override
         {
             for(auto &callback : m_callbacks) {
                 callback->execute();
             }
         }
-
-        void appendCallbacks(StateReachedCallbackList &&callbacks)
-        {
+        
+        void appendCallbacks(StateReachedCallbackList &&callbacks) {
             // As of writing this, the purpose of these callbacks is solely to notify observers of prefix state number being reached
             std::move(callbacks.begin(), callbacks.end(), std::back_inserter(m_callbacks));
         }
@@ -62,8 +61,8 @@ namespace db0
     }
     
     void FixtureThread::run()
-    {        
-        while (true) {            
+    {
+        while (true) {
             std::unique_lock<std::mutex> lock(m_mutex);
             m_cv.wait_for(lock, std::chrono::milliseconds(m_interval_ms));
             if (m_stopped) {
@@ -71,12 +70,12 @@ namespace db0
             }
             // prepare commit context if configured
             lock.unlock();
-            std::shared_ptr<FixtureThreadContextBase> context = prepareContext();
+            prepareContext();
             // collect fixtures first
             std::vector<db0::swine_ptr<Fixture> > fixtures;
-            fixtures.reserve(m_fixtures.size());
             lock.lock();
-            for (auto it = m_fixtures.begin(); it != m_fixtures.end(); ) {
+            fixtures.reserve(m_fixtures.size());
+            for (auto it = m_fixtures.begin(); it != m_fixtures.end();) {
                 auto fixture_ptr = it->lock();
                 if (!fixture_ptr) {
                     it = m_fixtures.erase(it);
@@ -88,24 +87,16 @@ namespace db0
             // then process as unlocked
             lock.unlock();
             for (auto &fixture_ptr : fixtures) {
-                onUpdate(*fixture_ptr);       
+                onUpdate(*fixture_ptr);
             }
-
-            if (context) {
-                context->finalize();
-            }
-        }
+            
+            closeContext();
+        }        
     }
-
+    
     void FixtureThread::onFixtureAdded(Fixture &)
     {
     }
-
-    std::shared_ptr<FixtureThreadContextBase> FixtureThread::prepareContext() {
-        return nullptr;
-    }
-
-
 
     RefreshThread::RefreshThread()
         : FixtureThread(250)
@@ -119,11 +110,17 @@ namespace db0
         m_fixture_status[uuid] = FixtureUpdateStatus{fixture.getPrefix().getLastUpdated(), ClockType::now()};
     }
     
-    std::shared_ptr<FixtureThreadContextBase> RefreshThread::prepareContext()
+    void RefreshThread::prepareContext() 
     {
-        auto context = std::make_shared<FixtureThreadCallbacksContext>();
-        m_tmp_context = context;
-        return context;
+        assert(!m_context && "Only one FixtureThreadCallbacksContext should exist at the time!");
+        m_context = std::make_shared<FixtureThreadCallbacksContext>();
+    }
+
+    void RefreshThread::closeContext()
+    {
+        assert(m_context && "FixtureThreadCallbacksContext must exist here!");
+        m_context->finalize();
+        m_context = nullptr;
     }
     
     void RefreshThread::onUpdate(Fixture &fixture)
@@ -164,9 +161,8 @@ namespace db0
 
         auto callbacks = fixture.onRefresh();
         if (!callbacks.empty()) {
-            auto context = m_tmp_context.lock();
-            assert(context);
-            context->appendCallbacks(std::move(callbacks));
+            assert(m_context && "FixtureThreadCallbacksContext must exist here!");
+            m_context->appendCallbacks(std::move(callbacks));
         }
     }
 
@@ -217,32 +213,37 @@ namespace db0
         auto lang_lock = LangToolkit::ensureLocked();
 #ifndef NDEBUG
         ThreadTracker::beginUnique();
-#endif        
+#endif
         auto callbacks = fixture.onAutoCommit();
-        // This should always succeed. We just want the context lifetime to be managed by the FixtureThread.
-        auto context = m_tmp_context.lock();
-        assert(context);
-        // These callbacks have to be executed when 'everything' is unlocked. Otherwise we are risking a deadlock.
-        context->appendCallbacks(std::move(callbacks));
+        if (!callbacks.empty()) {
+            assert(m_context && "AutoSaveContext must exist here!");
+            // These callbacks have to be executed when 'everything' is unlocked. Otherwise we are risking a deadlock.
+            m_context->appendCallbacks(std::move(callbacks));
+        }
 #ifndef NDEBUG
         ThreadTracker::end();
-#endif        
+#endif
     }
 
-    std::shared_ptr<FixtureThreadContextBase> AutoCommitThread::prepareContext()
+    void AutoCommitThread::prepareContext()
     {
-        assert(!m_tmp_context.lock() && "Only one AutoSaveContext should exist at the time!");
+        assert(!m_context && "Only one AutoSaveContext should exist at the time!");
         auto commit_lock = std::unique_lock<std::mutex>(m_commit_mutex);
         // must acquire unique lock-context's lock
         auto locked_context_lock = db0::LockedContext::lockUnique();
         // and the atomic lock next (order is relevant here !!)
         auto atomic_lock = db0::AtomicContext::lock();
-        auto context = std::make_shared<AutoSaveContext>(std::move(commit_lock),
-            std::move(locked_context_lock), std::move(atomic_lock)
-        );
         // To collect callbacks from fixtures as we proceed with commiting
-        m_tmp_context = context;
-        return context;
+        m_context = std::make_shared<AutoSaveContext>(std::move(commit_lock),
+            std::move(locked_context_lock), std::move(atomic_lock)
+        );                
+    }
+
+    void AutoCommitThread::closeContext()
+    {
+        assert(m_context && "AutoSaveContext must exist here!");
+        m_context->finalize();
+        m_context = nullptr;
     }
 
     std::unique_lock<std::mutex> AutoCommitThread::preventAutoCommit() {

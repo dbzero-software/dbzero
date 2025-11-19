@@ -41,8 +41,6 @@ namespace db0
 
         virtual void onFixtureAdded(Fixture &);
 
-        virtual std::shared_ptr<FixtureThreadContextBase> prepareContext();
-
     protected:
         std::atomic<std::uint64_t> m_interval_ms;
         std::condition_variable m_cv;
@@ -50,6 +48,9 @@ namespace db0
         bool m_stopped = false;
 
         std::vector<weak_swine_ptr<Fixture>> m_fixtures;
+
+        virtual void prepareContext() = 0;
+        virtual void closeContext() = 0;
     };
     
     /**
@@ -65,9 +66,7 @@ namespace db0
         virtual void onUpdate(Fixture &) override;
 
         virtual void onFixtureAdded(Fixture &) override;
-
-        virtual std::shared_ptr<FixtureThreadContextBase> prepareContext() override;
-
+        
     private:
         void tryRefresh(Fixture &fixture);
 
@@ -79,7 +78,10 @@ namespace db0
         };
 
         std::unordered_map<std::uint64_t, FixtureUpdateStatus> m_fixture_status;
-        std::weak_ptr<FixtureThreadCallbacksContext> m_tmp_context;
+        std::shared_ptr<FixtureThreadCallbacksContext> m_context;
+
+        void prepareContext() override;
+        void closeContext() override;
     };
 
     /**
@@ -91,17 +93,18 @@ namespace db0
     {
     public:
         AutoCommitThread(std::uint64_t commit_interval_ms = 250);
-
-        virtual void onUpdate(Fixture &) override;
-
-        virtual std::shared_ptr<FixtureThreadContextBase> prepareContext() override;
         
+        virtual void onUpdate(Fixture &) override;
+                
         // This lock prevents auto-commit thread collision (even if auto-commit thread is already waiting)
         static std::unique_lock<std::mutex> preventAutoCommit();
 
     private:
         static std::mutex m_commit_mutex;
-        std::weak_ptr<AutoSaveContext> m_tmp_context;
+        std::shared_ptr<AutoSaveContext> m_context;
+
+        void prepareContext() override;
+        void closeContext() override;
     };
     
 } 

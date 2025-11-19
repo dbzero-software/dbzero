@@ -508,13 +508,13 @@ def test_db0_list_compare_with_other_typse(db0_fixture):
     
     
 @pytest.mark.stress_test
-@pytest.mark.parametrize("db0_autocommit_fixture", [500], indirect=True)
+@pytest.mark.parametrize("db0_autocommit_fixture", [50], indirect=True)
 def test_append_to_random_lists(db0_autocommit_fixture):
     print("Creating multiple lists")
     db0.set_cache_size(8 << 30)
     lists = db0.dict()
     for k in range(100000):
-        lists[k] = db0.list()
+        lists[k] = db0.index()
     
     RANDOM_BYTES = b'DB0'*22000
     count = 0
@@ -529,8 +529,10 @@ def test_append_to_random_lists(db0_autocommit_fixture):
             # mostly create small objects
             data_size = random.randint(1, 1500)
 
-        item.append(MemoTestClass(value = RANDOM_BYTES[0:data_size]))
+        item.add(count, MemoTestClass(value = RANDOM_BYTES[0:data_size]))
         count += 1
+        if count % 5000 == 0:
+            db0.commit()
         if count % 10000 == 0:
             print(f"Appended {count} objects")
             print(f"Prefix size = {db0.get_storage_stats()['prefix_size']} bytes")

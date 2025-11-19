@@ -295,10 +295,6 @@ DB0_PACKED_END
     CompressedItemT SparseIndexBase<ItemT, CompressedItemT>::BlockHeader::compress(const ItemT &item) const
     {
         assert(m_first_page_num == (item.m_page_num >> 24));
-        // FIXME: log
-        if (m_first_page_num != (item.m_page_num >> 24)) {
-            std::terminate();
-        }
         return CompressedItemT(m_first_page_num, item);
     }
     
@@ -306,10 +302,6 @@ DB0_PACKED_END
     CompressedItemT SparseIndexBase<ItemT, CompressedItemT>::BlockHeader::compress(std::pair<PageNumT, StateNumT> item) const
     {
         assert(m_first_page_num == (item.first >> 24));
-        // FIXME: log
-        if (m_first_page_num != (item.first >> 24)) {
-            std::terminate();
-        }
         return CompressedItemT(m_first_page_num, item.first, item.second);
     }
     
