@@ -8,6 +8,7 @@
 #include "SGB_LookupTree.hpp"
 #include <dbzero/core/memory/AccessOptions.hpp>
 #include <dbzero/core/compiler_attributes.hpp>
+#include <dbzero/core/metaprog/misc_utils.hpp>
 
 namespace db0
 
@@ -286,6 +287,7 @@ DB0_PACKED_END
             if (this->m_access_type == AccessType::READ_WRITE) {
                 this->onNodeLookup(node);
             }        
+
             /* FIXME: causing segfault in some cases, need to investigate
             if (!node->header().canFit(key)) {
                 return { nullptr, sg_tree_const_iterator() };
@@ -309,6 +311,7 @@ DB0_PACKED_END
             if (this->m_access_type == AccessType::READ_WRITE) {
                 this->onNodeLookup(node);
             }
+
             // within the node look up by compressed key
             // NOTE: if unable to fit key then the item cannot be present in the node
             /* FIXME: causing segfault in some cases, need to investigate
@@ -320,7 +323,7 @@ DB0_PACKED_END
                 }
             }
             */
-
+            
             auto item_ptr = node->lower_equal_bound(node->header().compress(key), this->m_heap_comp);
             if (item_ptr) {
                 // return uncompressed
@@ -384,14 +387,17 @@ DB0_PACKED_END
             if (this->m_access_type == AccessType::READ_WRITE) {
                 this->onNodeLookup(node);
             }
+            
+            /* FIXME: log
             if (!node->header().canFit(key)) {
                 return nullptr;
             }
+            */
             // within the node look up by compressed key
             // NOTE: if unable to fit key then the item cannot be present in the node
             return node->lower_equal_bound(node->header().compress(key), this->m_heap_comp);
         }
-
+        
         const TreeHeaderT &treeHeader() const {
             return base_t::getData()->treeHeader();
         }

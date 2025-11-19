@@ -313,8 +313,6 @@ namespace db0
         if (timer_ptr) {
             timer = std::make_unique<ProcessTimer>("Prefix::close", timer_ptr);
         }
-        // FIXME: log
-        // m_cache.release();
         m_storage_ptr->close();
     }
     

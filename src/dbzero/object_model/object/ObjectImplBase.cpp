@@ -178,7 +178,7 @@ namespace db0::object_model
         auto type_id = LangToolkit::getTypeManager().getTypeId(lang_value);
         // NOTE: allow storage as PACK_2
         auto pre_storage_class = TypeUtils::m_storage_class_mapper.getPreStorageClass(type_id, true);
-        if (type_id == TypeId::MEMO_OBJECT) {
+        if (type_id == TypeId::MEMO_OBJECT || type_id == TypeId::MEMO_IMMUTABLE_OBJECT) {
             // object reference must be from the same fixture
             auto &obj = LangToolkit::getTypeManager().extractAnyObject(lang_value);
             if (fixture.getUUID() != obj.getFixture()->getUUID()) {

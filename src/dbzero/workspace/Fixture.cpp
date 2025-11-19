@@ -555,7 +555,7 @@ namespace db0
         StateReachedCallbackList result_callbacks;
         auto current_state_num = prefix_ptr->getStateNum(true);
         auto it = m_state_num_callbacks.begin();
-        while(it != m_state_num_callbacks.end() && it->first <= current_state_num) {
+        while (it != m_state_num_callbacks.end() && it->first <= current_state_num) {
             StateReachedCallbackList &state_num_callbacks = it->second;
             std::move(state_num_callbacks.begin(), state_num_callbacks.end(), std::back_inserter(result_callbacks));
             it = m_state_num_callbacks.erase(it);
