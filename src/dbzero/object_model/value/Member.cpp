@@ -56,18 +56,17 @@ namespace db0::object_model
         return db0::v_object<db0::o_string>(*fixture, PyUnicode_AsUTF8(obj_ptr), access_mode).getAddress();
     }
     
-    // OBJECT specialization (mutable)
-    template <> Value createMember<TypeId::MEMO_OBJECT, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
+    // OBJECT specialization (mutable or immutable)
+    template <typename MemoObjectT> Value createObjectMember(db0::swine_ptr<Fixture> &fixture,
         PyObjectPtr obj_ptr, StorageClass, AccessFlags)
-    {
-        using MemoObject = PyToolkit::TypeManager::MemoObject;
-        auto &obj = PyToolkit::getTypeManager().extractMutableObject<MemoObject>(obj_ptr);
+    {                
+        auto &obj = PyToolkit::getTypeManager().extractMutableObject<MemoObjectT>(obj_ptr);
         assert(obj.hasInstance());
         assureSameFixture(fixture, obj);
         obj.modify().incRef(false);
         return obj.getAddress();
     }
-    
+
     // LIST specialization
     template <> Value createMember<TypeId::DB0_LIST, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
         PyObjectPtr obj_ptr, StorageClass, AccessFlags)
@@ -332,13 +331,17 @@ namespace db0::object_model
     template <> void registerCreateMemberFunctions<PyToolkit>(
         std::vector<Value (*)(db0::swine_ptr<Fixture> &, PyObjectPtr, StorageClass, AccessFlags)> &functions)
     {
+        using MemoObject = PyToolkit::TypeManager::MemoObject;
+        using MemoImmutableObject = PyToolkit::TypeManager::MemoImmutableObject;
+        
         functions.resize(static_cast<int>(TypeId::COUNT));
         std::fill(functions.begin(), functions.end(), nullptr);
         functions[static_cast<int>(TypeId::NONE)] = createMember<TypeId::NONE, PyToolkit>;
         functions[static_cast<int>(TypeId::INTEGER)] = createMember<TypeId::INTEGER, PyToolkit>;
         functions[static_cast<int>(TypeId::FLOAT)] = createMember<TypeId::FLOAT, PyToolkit>;
         functions[static_cast<int>(TypeId::STRING)] = createMember<TypeId::STRING, PyToolkit>;
-        functions[static_cast<int>(TypeId::MEMO_OBJECT)] = createMember<TypeId::MEMO_OBJECT, PyToolkit>;
+        functions[static_cast<int>(TypeId::MEMO_OBJECT)] = createObjectMember<MemoObject>;
+        functions[static_cast<int>(TypeId::MEMO_IMMUTABLE_OBJECT)] = createObjectMember<MemoImmutableObject>;
         functions[static_cast<int>(TypeId::DB0_LIST)] = createMember<TypeId::DB0_LIST, PyToolkit>;
         functions[static_cast<int>(TypeId::DB0_INDEX)] = createMember<TypeId::DB0_INDEX, PyToolkit>;
         functions[static_cast<int>(TypeId::DB0_SET)] = createMember<TypeId::DB0_SET, PyToolkit>;

@@ -17,6 +17,7 @@
 #include "MetaIOStream.hpp"
 #include <dbzero/workspace/LockFlags.hpp>
 #include <dbzero/core/compiler_attributes.hpp>
+#include <shared_mutex>
 
 namespace db0
 
@@ -149,6 +150,7 @@ DB0_PACKED_END
         // the stream for storing & reading full-DPs and diff-encoded DPs
         Diff_IO m_page_io;
         bool m_refresh_pending = false;
+        mutable std::shared_mutex m_mutex;
 #ifndef NDEBUG
         // total number of bytes from mutated data pages
         std::uint64_t m_page_io_raw_bytes = 0;

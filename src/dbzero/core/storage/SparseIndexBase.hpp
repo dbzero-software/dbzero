@@ -2,6 +2,16 @@
 
 #include <dbzero/core/serialization/FixedVersioned.hpp>
 #include <dbzero/core/dram/DRAMSpace.hpp>
+
+namespace db0
+{
+    // Forward declarations for operator<< to be used in SGB_LookupTree.hpp
+    template <typename ItemT, typename CompressedItemT> class SparseIndexBase;
+    
+    template <typename ItemT, typename CompressedItemT>
+    std::ostream &operator<<(std::ostream &os, const typename db0::SparseIndexBase<ItemT, CompressedItemT>::BlockHeader &header);
+}
+
 #include <dbzero/core/collections/SGB_Tree/SGB_CompressedLookupTree.hpp>
 #include <dbzero/core/collections/rle/RLE_Sequence.hpp>
 #include <dbzero/core/dram/DRAM_Prefix.hpp>
@@ -99,9 +109,6 @@ namespace db0
 
         void commit();
 
-    protected:
-        friend class SparsePair;
-
         struct BlockHeader
         {
             // number of the 1st page in a data block / node (high order bits)
@@ -122,7 +129,11 @@ namespace db0
             bool canFit(const ItemT &) const;
 
             std::string toString(const CompressedItemT &) const;
+            std::string toString() const;
         };
+
+    protected:
+        friend class SparsePair;
 
 DB0_PACKED_BEGIN
         // tree-level header type
@@ -284,13 +295,21 @@ DB0_PACKED_END
     CompressedItemT SparseIndexBase<ItemT, CompressedItemT>::BlockHeader::compress(const ItemT &item) const
     {
         assert(m_first_page_num == (item.m_page_num >> 24));
+        // FIXME: log
+        if (m_first_page_num != (item.m_page_num >> 24)) {
+            std::terminate();
+        }
         return CompressedItemT(m_first_page_num, item);
     }
-
+    
     template <typename ItemT, typename CompressedItemT>
     CompressedItemT SparseIndexBase<ItemT, CompressedItemT>::BlockHeader::compress(std::pair<PageNumT, StateNumT> item) const
     {
         assert(m_first_page_num == (item.first >> 24));
+        // FIXME: log
+        if (m_first_page_num != (item.first >> 24)) {
+            std::terminate();
+        }
         return CompressedItemT(m_first_page_num, item.first, item.second);
     }
     
@@ -365,7 +384,15 @@ DB0_PACKED_END
     std::string SparseIndexBase<ItemT, CompressedItemT>::BlockHeader::toString(const CompressedItemT &item) const {
         return item.toString();
     }
-        
+    
+    template <typename ItemT, typename CompressedItemT>
+    std::string SparseIndexBase<ItemT, CompressedItemT>::BlockHeader::toString() const 
+    {
+        std::stringstream _str;
+        _str << "BlockHeader{ first_page_num: " << m_first_page_num << " }";
+        return _str.str();
+    }
+
     template <typename ItemT, typename CompressedItemT>
     std::size_t SparseIndexBase<ItemT, CompressedItemT>::size() const {
         return m_index.size();
@@ -414,4 +441,4 @@ DB0_PACKED_END
         m_index.commit();        
     }
     
-}       
+}

@@ -151,12 +151,14 @@ namespace db0
     bool BDevStorage::tryFindMutation(std::uint64_t page_num, StateNumType state_num,
         StateNumType &mutation_id) const
     {
+        std::shared_lock<std::shared_mutex> lock(m_mutex);
         return db0::tryFindMutation(m_sparse_index, m_diff_index, page_num, state_num, mutation_id);
     }
     
     StateNumType BDevStorage::findMutation(std::uint64_t page_num, StateNumType state_num) const
     {
         StateNumType result;
+        std::shared_lock<std::shared_mutex> lock(m_mutex);
         if (!db0::tryFindMutation(m_sparse_index, m_diff_index, page_num, state_num, result)) {
             assert(false && "BDevStorage::findMutation: page not found");
             THROWF(db0::IOException) 
@@ -168,6 +170,7 @@ namespace db0
     void BDevStorage::read(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer,
         FlagSet<AccessOptions> flags) const
     {
+        std::shared_lock<std::shared_mutex> lock(m_mutex);
         _read(address, state_num, size, buffer, flags);
     }
     
@@ -231,11 +234,13 @@ namespace db0
         assert(state_num > 0 && "BDevStorage::write: state number must be > 0");
         assert((address % m_config.m_page_size == 0) && "BDevStorage::write: address must be page-aligned");
         assert((size % m_config.m_page_size == 0) && "BDevStorage::write: size must be page-aligned");
-        
+                
         auto begin_page = address / m_config.m_page_size;
         auto end_page = begin_page + size / m_config.m_page_size;
         
         std::byte *write_buf = reinterpret_cast<std::byte *>(buffer);
+
+        std::unique_lock<std::shared_mutex> lock(m_mutex);
         // write as physical pages and register with the sparse index
         for (auto page_num = begin_page; page_num != end_page; ++page_num, write_buf += m_config.m_page_size) {
             // look up if page has already been added in current transaction
@@ -265,6 +270,7 @@ namespace db0
         
         auto page_num = address / m_config.m_page_size;
         
+        std::unique_lock<std::shared_mutex> lock(m_mutex);
         // Use SparseIndexQuery to determine the current sequence length & check limits
         SparseIndexQuery query(m_sparse_index, m_diff_index, page_num, state_num);
         // if a page has already been written as full-DP in the current transaction then
@@ -300,6 +306,7 @@ namespace db0
     
     bool BDevStorage::flush(ProcessTimer *parent_timer)
     {
+        std::unique_lock<std::shared_mutex> lock(m_mutex);
         std::unique_ptr<ProcessTimer> timer;
         if (parent_timer) {
             timer = std::make_unique<ProcessTimer>("BDevStorage::flush", parent_timer);
@@ -522,6 +529,7 @@ namespace db0
     
     void BDevStorage::getStats(std::function<void(const std::string &, std::uint64_t)> callback) const
     {
+        std::unique_lock<std::shared_mutex> lock(m_mutex);
         callback("dram_io_rand_ops", m_dram_io.getRandOpsCount());
         callback("dram_prefix_size", m_dram_io.getDRAMPrefix().size());
         auto file_rand_ops = m_file.getRandOps();
@@ -541,7 +549,9 @@ namespace db0
         #endif
     }
     
-    std::pair<std::size_t, std::size_t> BDevStorage::getDiff_IOStats() const {
+    std::pair<std::size_t, std::size_t> BDevStorage::getDiff_IOStats() const 
+    {
+        std::unique_lock<std::shared_mutex> lock(m_mutex);
         return m_page_io.getStats();
     }
 
@@ -572,6 +582,7 @@ namespace db0
     void BDevStorage::fetchChangeLogs(StateNumType begin_state, std::optional<StateNumType> end_state,
         std::function<void(StateNumType state_num, const o_change_log &)> f) const
     {
+        std::unique_lock<std::shared_mutex> lock(m_mutex);
         if (m_dp_changelog_io.modified()) {
             THROWF(db0::IOException) << "BDevStorage::fetchChangeLogs: dp-changelog is modified and needs to be flushed first";
         }
@@ -624,7 +635,7 @@ namespace db0
 #endif        
     }
     
-    void BDevStorage::endCommit() 
+    void BDevStorage::endCommit()
     {
 #ifndef NDEBUG        
         m_commit_pending = false;

@@ -295,11 +295,11 @@ namespace db0::python
         lock->getLangCache().add(bytearray_object.get()->ext().getAddress(), bytearray_object.get());
         return bytearray_object.steal();
     }
-
-     ByteArrayObject *PyAPI_makeByteArray(PyObject *self, PyObject *const *args, Py_ssize_t nargs){
+    
+    ByteArrayObject *PyAPI_makeByteArray(PyObject *self, PyObject *const *args, Py_ssize_t nargs) {
         PY_API_FUNC
         return runSafe(tryPyAPI_makeByteArray, self, args, nargs);
-     }
+    }
     
     bool ByteArrayObject_Check(PyObject *object) {
         return Py_TYPE(object) == &ByteArrayObjectType;        
