@@ -27,9 +27,9 @@ namespace tests
         void SetUp() override {
             m_bitspace.clear();
         }
-
+        
         void TearDown() override {
-            m_bitspace.clear();
+            m_bitspace.clear();        
         }
 
     protected:
@@ -39,24 +39,27 @@ namespace tests
         BitSpace<0x8000> m_bitspace;
     };
     
-    struct [[gnu::packed]] CompressingTestHeader: public o_fixed<CompressingTestHeader> 
+    template <typename IntT = std::uint16_t>
+    struct [[gnu::packed]] CompressingTestHeader: public o_fixed<CompressingTestHeader<IntT> > 
     {
         std::uint32_t m_base = 0;
 
         /// initialize header and compress the first item
-        std::uint16_t compressFirst(std::uint32_t first_item) {
+        IntT compressFirst(std::uint32_t first_item) 
+        {
             m_base = first_item;
             return 0;
         }
 
-        std::uint16_t compress(std::uint32_t key_item) const {
+        IntT compress(std::uint32_t key_item) const
+        {
             if (!canFit(key_item)) {
                 THROWF(db0::InternalException) << "Unable to fit " << key_item << " with base: " << m_base;
             }
-            return static_cast<std::uint16_t>(key_item - m_base);
+            return static_cast<IntT>(key_item - m_base);
         }
         
-        std::uint32_t uncompress(std::uint16_t item) const {
+        std::uint32_t uncompress(IntT item) const {
             return m_base + item;
         }
 
@@ -65,26 +68,32 @@ namespace tests
             if (item < m_base) {
                 return false;
             }
-            return item - m_base <= std::numeric_limits<std::uint16_t>::max();
+            return item - m_base <= std::numeric_limits<IntT>::max();
         }
 
-        std::string toString(std::uint16_t item) const {
+        std::string toString(IntT item) const {
             return std::to_string(uncompress(item));
         }
-    };
 
+        std::string toString() const {
+            return "Header{base=" + std::to_string(m_base) + "}";
+        }
+    };
+    
     TEST_F( SGB_CompressedLookupTreeTest , testSGBCompressedLookupTreeCanBeCreatedOnBitspace )
     {
-        // compress uint64 to uint32
-        SGB_CompressedLookupTree<std::uint64_t, std::uint32_t, CompressingTestHeader> cut(m_bitspace, 
+        // compress uint64 to uint16
+        using HeaderT = CompressingTestHeader<std::uint16_t>;
+        SGB_CompressedLookupTree<std::uint64_t, std::uint16_t, HeaderT> cut(m_bitspace, 
             page_size, AccessType::READ_WRITE);
         ASSERT_TRUE(cut.getAddress().isValid());
     }
     
     TEST_F( SGB_CompressedLookupTreeTest , testSGBCompressedLookupTreeCanCompressInsertedElements )
     {
-        // compress uint64 to uint32
-        SGB_CompressedLookupTree<std::uint64_t, std::uint32_t, CompressingTestHeader> cut(m_bitspace, 
+        // compress uint64 to uint16
+        using HeaderT = CompressingTestHeader<std::uint16_t>;
+        SGB_CompressedLookupTree<std::uint64_t, std::uint16_t, HeaderT> cut(m_bitspace, 
             page_size, AccessType::READ_WRITE);
         unsigned int i = 0;
         while (m_bitspace.span() < 2) {
@@ -96,8 +105,9 @@ namespace tests
     
     TEST_F( SGB_CompressedLookupTreeTest , testSGBCompressedLookupTreeNodesStayCompressedAndBalancedAfterSplit )
     {
-        // compress uint64 to uint32
-        SGB_CompressedLookupTree<std::uint64_t, std::uint32_t, CompressingTestHeader> cut(m_bitspace, 
+        // compress uint64 to uint16
+        using HeaderT = CompressingTestHeader<std::uint16_t>;
+        SGB_CompressedLookupTree<std::uint64_t, std::uint16_t, HeaderT> cut(m_bitspace, 
             page_size, AccessType::READ_WRITE);
         unsigned int i = 0;
         while (m_bitspace.span() < 2) {
@@ -116,18 +126,20 @@ namespace tests
         ASSERT_TRUE(sorted > 0);
     }
 
-    template <typename TreeT> int countNodes(const TreeT &tree) {
+    template <typename TreeT> int countNodes(const TreeT &tree) 
+    {
         int result = 0;
         for (auto node = tree.cbegin_nodes(); node != tree.cend_nodes(); ++node) {
             ++result;
         }
         return result;
     }
-
+    
     TEST_F( SGB_CompressedLookupTreeTest , testSGBCompressedLookupTreeHeaderIsInitialized )
     {
-        // compress uint64 to uint32
-        SGB_CompressedLookupTree<std::uint64_t, std::uint32_t, CompressingTestHeader> cut(m_bitspace, 
+        // compress uint64 to uint16
+        using HeaderT = CompressingTestHeader<std::uint16_t>;
+        SGB_CompressedLookupTree<std::uint64_t, std::uint16_t, HeaderT> cut(m_bitspace, 
             page_size, AccessType::READ_WRITE);
         cut.insert(123);
         ASSERT_EQ(cut.cbegin_nodes()->header().m_base, 123);
@@ -135,9 +147,11 @@ namespace tests
     
     TEST_F( SGB_CompressedLookupTreeTest , testSGBCompressedLookupTreeSplitNodesIfUnableToCompressElement )
     {
-        SGB_CompressedLookupTree<std::uint64_t, std::uint32_t, CompressingTestHeader> cut(m_bitspace, 
+        // compress uint64 to uint16
+        using HeaderT = CompressingTestHeader<std::uint16_t>;
+        SGB_CompressedLookupTree<std::uint64_t, std::uint16_t, HeaderT> cut(m_bitspace, 
             page_size, AccessType::READ_WRITE);
-        std::uint32_t value = std::numeric_limits<std::uint16_t>::max();
+        std::uint16_t value = std::numeric_limits<std::uint16_t>::max();
         cut.insert(value);
         ASSERT_EQ(countNodes(cut), 1);
         // a new node must be created to fit the higher value
@@ -150,7 +164,9 @@ namespace tests
     
     TEST_F( SGB_CompressedLookupTreeTest , testSGBCompressedLookupTreeCanSplitFirstNode )
     {
-        SGB_CompressedLookupTree<std::uint64_t, std::uint32_t, CompressingTestHeader> cut(m_bitspace, 
+        // compress uint64 to uint16
+        using HeaderT = CompressingTestHeader<std::uint16_t>;
+        SGB_CompressedLookupTree<std::uint64_t, std::uint16_t, HeaderT> cut(m_bitspace, 
             page_size, AccessType::READ_WRITE);
         cut.insert(123);
         ASSERT_EQ(countNodes(cut), 1);
@@ -162,7 +178,8 @@ namespace tests
 
     TEST_F( SGB_CompressedLookupTreeTest , testSGBCompressedLookupTreeCanFindLowerEqualBound )
     {
-        SGB_CompressedLookupTree<std::uint64_t, std::uint32_t, CompressingTestHeader> cut(m_bitspace, 
+        using HeaderT = CompressingTestHeader<std::uint16_t>;
+        SGB_CompressedLookupTree<std::uint64_t, std::uint16_t, HeaderT> cut(m_bitspace, 
             page_size, AccessType::READ_WRITE);
         std::vector<std::uint32_t> values;
         srand(781785u);
@@ -184,6 +201,43 @@ namespace tests
                 ASSERT_FALSE(item.has_value());
             }
         }
+    }
+    
+    TEST_F( SGB_CompressedLookupTreeTest , testSGBCompressedLookupTreeFindLowerWhenUnableToFit )
+    {
+        // NOTE: in this test we're compreessing to 8 bits
+        using HeaderT = CompressingTestHeader<std::uint8_t>;
+        SGB_CompressedLookupTree<std::uint64_t, std::uint8_t, HeaderT> cut(m_bitspace, 
+            page_size, AccessType::READ_WRITE);
+        
+        // Populate the first node densely
+        for (std::uint32_t i = 0; i < 256u; ++i) {
+            cut.insert(i);
+        }
+
+        // force a new distant node
+        cut.insert(1000);
+
+        // locate element in between nodes 
+        auto item = cut.findLower(500);
+        ASSERT_EQ(item.second->header().uncompress(*item.first), 255u);        
+    }
+    
+    TEST_F( SGB_CompressedLookupTreeTest , testSGBCompressedLookupTreeFindUpperWhenUnableToFit )
+    {
+        // NOTE: in this test we're compreessing to 8 bits
+        using HeaderT = CompressingTestHeader<std::uint8_t>;
+        SGB_CompressedLookupTree<std::uint64_t, std::uint8_t, HeaderT> cut(m_bitspace, 
+            page_size, AccessType::READ_WRITE);
+        
+        // Populate the first node densely
+        for (std::uint32_t i = 0; i < 256u; ++i) {
+            cut.insert(i);
+        }
+
+        // force a new distant node
+        cut.insert(1000);        
+        ASSERT_EQ(cut.upper_equal_bound(500).value(), 1000u);
     }
 
 }

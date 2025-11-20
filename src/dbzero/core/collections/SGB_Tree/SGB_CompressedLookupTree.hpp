@@ -282,19 +282,19 @@ DB0_PACKED_END
             if (node == base_t::end()) {
                 return { nullptr, sg_tree_const_iterator() };
             }
-
+            
             // node will be sorted if needed (only if in READ/WRITE mode)
             if (this->m_access_type == AccessType::READ_WRITE) {
                 this->onNodeLookup(node);
-            }        
-
-            /* FIXME: causing segfault in some cases, need to investigate
-            if (!node->header().canFit(key)) {
-                return { nullptr, sg_tree_const_iterator() };
             }
-            */
-            // within the node look up by compressed key (only if able to fit)
-            return { node->lower_equal_bound(node->header().compress(key), this->m_heap_comp), node };
+            
+            if (node->header().canFit(key)) {
+                // within the node look up by compressed key (only if able to fit)
+                return { node->lower_equal_bound(node->header().compress(key), this->m_heap_comp), node };
+            } else {
+                // NOTE: since unable to fit key, it's larger than any item in this node
+                return { node->find_max(this->m_heap_comp), node };
+            }
         }
 
         /**
@@ -313,23 +313,16 @@ DB0_PACKED_END
             }
 
             // within the node look up by compressed key
-            // NOTE: if unable to fit key then the item cannot be present in the node
-            /* FIXME: causing segfault in some cases, need to investigate
             if (node->header().canFit(key)) {
                 auto item_ptr = node->lower_equal_bound(node->header().compress(key), this->m_heap_comp);
-                if (item_ptr) {
-                    // return uncompressed
-                    return node->header().uncompress(*item_ptr);
-                }
-            }
-            */
-            
-            auto item_ptr = node->lower_equal_bound(node->header().compress(key), this->m_heap_comp);
-            if (item_ptr) {
+                assert(item_ptr);                
                 // return uncompressed
                 return node->header().uncompress(*item_ptr);
+            } else {
+                // return uncompressed
+                return node->header().uncompress(*node->find_max(this->m_heap_comp));
             }
-
+            
             return std::nullopt;
         }
         
@@ -351,24 +344,19 @@ DB0_PACKED_END
                 this->onNodeLookup(node);
             }
             // within the node look up by compressed key
-            const CompressedItemT *item_ptr = nullptr;
-            /* FIXME: causing segfault in some cases
+            const CompressedItemT *item_ptr = nullptr;     
             if (node->header().canFit(key)) {
                 item_ptr = node->upper_equal_bound(node->header().compress(key), this->m_heap_comp);
             }
-            */
-            item_ptr = node->upper_equal_bound(node->header().compress(key), this->m_heap_comp);
+            
             if (!item_ptr) {
-                // check within the next node
-                ++node;
-                // FIXME: causing segfault in some cases
-                if (node == base_t::end() /*|| !node->header().canFit(key)*/) {
+                // pick first item from the next node otherwise
+                ++node;                
+                if (node == base_t::end()) {
                     return std::nullopt;
                 }
-                item_ptr = node->upper_equal_bound(node->header().compress(key), this->m_heap_comp);
-                if (!item_ptr) {
-                    return std::nullopt;
-                }                
+                item_ptr = node->find_min();
+                assert(item_ptr);
             }
             
             // return uncompressed
@@ -387,15 +375,13 @@ DB0_PACKED_END
             if (this->m_access_type == AccessType::READ_WRITE) {
                 this->onNodeLookup(node);
             }
-            
-            /* FIXME: log
-            if (!node->header().canFit(key)) {
-                return nullptr;
+                    
+            if (node->header().canFit(key)) {
+                // within the node look up by compressed key            
+                return node->lower_equal_bound(node->header().compress(key), this->m_heap_comp);
+            } else {
+                return node->find_max(this->m_heap_comp);
             }
-            */
-            // within the node look up by compressed key
-            // NOTE: if unable to fit key then the item cannot be present in the node
-            return node->lower_equal_bound(node->header().compress(key), this->m_heap_comp);
         }
         
         const TreeHeaderT &treeHeader() const {
