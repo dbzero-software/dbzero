@@ -295,14 +295,22 @@ DB0_PACKED_BEGIN
             return this->begin() + (this->size() >> 1) * this->step();
         }
         
+        const_iterator find_min() const
+        {
+            if (is_sorted()) {
+                return this->cbegin();
+            }
+            return super_t::find_min();
+        }
+        
         const_iterator find_max(const HeapCompT &comp) const
         {
             if (is_sorted()) {
-                return this->cend() + this->step();
+                return this->cend() - this->step();
             }
             return super_t::find_max(comp);
         }
-
+        
         /**
          * Erase existing item, return true if the node is empty after the operation         
          * @return true if node is empty after the operation
@@ -488,5 +496,5 @@ DB0_PACKED_END
         {
         }
     };
-
+    
 }

@@ -98,4 +98,3 @@ def test_no_cache_allocator_issue(db0_slab_size):
         
         if  (now - start) > execution_time:
             break
-    

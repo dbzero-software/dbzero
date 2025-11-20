@@ -4,6 +4,7 @@ import dbzero as db0
 from .memo_test_types import MemoTestClass, MemoTestSingleton
 from .conftest import DB0_DIR
 from .memo_test_types import MemoTestClass
+import random
 
 
 def make_python_list():
@@ -465,11 +466,13 @@ def test_list_extend_with_none(db0_fixture):
     for i in range(1024):
         assert cut[i] is None
 
+
 def test_db0_list_str_same_as_python_list(db0_fixture):
     db0_list = db0.list([1, "two", 3.0, None])
     py_list = [1, "two", 3.0, None]
     assert str(db0_list) == str(py_list)
     assert repr(db0_list) == repr(py_list)
+
 
 def test_db0_list_str_with_nested_objects(db0_fixture):
     inner_list = db0.list([1, 2, 3])
@@ -479,6 +482,7 @@ def test_db0_list_str_with_nested_objects(db0_fixture):
     assert str(db0_list) == str(py_list)
     assert repr(db0_list) == repr(py_list)
 
+
 def test_db0_list_str_with_nested_memo_objects(db0_fixture):
     inner_memo = MemoTestClass("inner")
     db0_list = db0.list([inner_memo, "test", None])
@@ -487,11 +491,13 @@ def test_db0_list_str_with_nested_memo_objects(db0_fixture):
     assert str(db0_list) == str(py_list)
     assert repr(db0_list) == repr(py_list)
 
+
 def test_db0_list_islice_iteration(db0_fixture):
     db0_list = db0.list(range(30))
     expected_values = [10, 12, 14, 16, 18]
     for index, value in enumerate(itertools.islice(db0_list, 10, 20, 2)):    
         assert value == expected_values[index]
+
 
 def test_db0_list_compare_with_other_typse(db0_fixture):
     db0_list = db0.list([1, 2, 3])
@@ -499,3 +505,36 @@ def test_db0_list_compare_with_other_typse(db0_fixture):
     python_set = {1, 2, 3}
     assert db0_list != python_tuple
     assert db0_list != python_set
+    
+    
+@pytest.mark.stress_test
+@pytest.mark.parametrize("db0_autocommit_fixture", [50], indirect=True)
+def test_append_to_random_lists(db0_autocommit_fixture):
+    print("Creating multiple lists")
+    db0.set_cache_size(8 << 30)
+    lists = db0.dict()
+    for k in range(100000):
+        lists[k] = db0.index()
+    
+    RANDOM_BYTES = b'DB0'*22000
+    count = 0
+    db0.commit()
+    print(f"Appending objects to random {len(lists)} lists")
+    for _ in range(200000):
+        item = lists[random.randint(0, len(lists) - 1)]
+        if random.randint(0, 100) < 10:
+            # 20% chance to create a large object
+            data_size = random.randint(8000, 56000)
+        else:
+            # mostly create small objects
+            data_size = random.randint(1, 1500)
+
+        item.add(count, MemoTestClass(value = RANDOM_BYTES[0:data_size]))
+        count += 1
+        if count % 5000 == 0:
+            db0.commit()
+        if count % 10000 == 0:
+            print(f"Appended {count} objects")
+            print(f"Prefix size = {db0.get_storage_stats()['prefix_size']} bytes")
+    
+    db0.commit()

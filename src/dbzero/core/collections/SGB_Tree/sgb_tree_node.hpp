@@ -268,10 +268,10 @@ DB0_PACKED_BEGIN
         }
 
         const_iterator find_max(const HeapCompT &comp) const {
-            // max item because we use the inverted comparator
+            // min item because we use the inverted comparator
             return dheap::find_min<D>(cbegin(), cend(), comp);
         }
-        
+                
         const_iterator find_min() const {
             // first item is the min item
             return cbegin();
