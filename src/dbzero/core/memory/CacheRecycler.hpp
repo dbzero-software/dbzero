@@ -30,7 +30,7 @@ namespace db0
 		CacheRecycler(std::size_t capacity, const std::atomic<std::size_t> &dirty_meter, std::optional<std::size_t> flush_size = {},
 			std::function<void(std::size_t limit)> flush_dirty = {},
 			std::function<bool(bool threshold_reached)> flush_callback = {},
-			bool throw_on_dist_memory_overflow = true);
+			bool suppress_dist_overflow_error = false);
 
 		void update(std::shared_ptr<ResourceLock> res_lock);
         
@@ -91,7 +91,7 @@ namespace db0
 		std::function<void(std::size_t limit)> m_flush_dirty;
 		std::function<bool(bool)> m_flush_callback;
 		std::pair<bool, bool> m_last_flush_callback_result = {true, false};
-		bool m_throw_on_dist_memory_overflow = true;
+		bool m_suppress_dist_overflow_error = false;
 		
 		void resize(std::unique_lock<std::mutex> &, std::size_t new_size, int priority);
 

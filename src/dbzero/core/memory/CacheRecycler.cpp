@@ -28,7 +28,7 @@ namespace db0
         std::optional<std::size_t> flush_size,
         std::function<void(std::size_t limit)> flush_dirty,
         std::function<bool(bool threshold_reached)> flush_callback,
-        bool throw_on_dist_memory_overflow)
+        bool suppress_dist_overflow_error)
         : m_capacity(capacity)
         // NOTE: buffers are overprovisioned
         , m_res_bufs { getMaxSize(m_capacity), getMaxSize(m_capacity) }
@@ -37,7 +37,7 @@ namespace db0
         , m_flush_size(flush_size.value_or(DEFAULT_FLUSH_SIZE))
         , m_flush_dirty(flush_dirty)
         , m_flush_callback(flush_callback)
-        , m_throw_on_dist_memory_overflow(throw_on_dist_memory_overflow)
+        , m_suppress_dist_overflow_error(suppress_dist_overflow_error)
     {
     }
 
@@ -133,7 +133,7 @@ namespace db0
                     updateSize(lock, m_capacity - flush_size);
                     flushed = true;
                     flush_result = m_current_size[priority] <= (m_capacity - flush_size);
-                    if(getCurrentSize() >= m_capacity && m_throw_on_dist_memory_overflow){
+                    if(getCurrentSize() >= m_capacity && !m_suppress_dist_overflow_error){
                         THROWF(db0::CacheException) << "DIST Memory Overflow. Too many Python objects" << THROWF_END;
                     }
                 }

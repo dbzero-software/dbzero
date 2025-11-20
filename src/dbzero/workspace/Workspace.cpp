@@ -12,7 +12,7 @@ namespace db0
     
     BaseWorkspace::BaseWorkspace(const std::string &root_path, std::optional<std::size_t> cache_size,
         std::optional<std::size_t> slab_cache_size, std::optional<std::size_t> flush_size,
-        std::optional<LockFlags> default_lock_flags, std::optional<bool> throw_on_dist_memory_overflow)
+        std::optional<LockFlags> default_lock_flags, std::optional<bool> suppress_dist_overflow_error)
         : m_prefix_catalog(root_path)
         , m_default_lock_flags(default_lock_flags ? *default_lock_flags : LockFlags())        
         , m_cache_recycler(cache_size ? *cache_size : DEFAULT_CACHE_SIZE, m_dirty_meter, flush_size,
@@ -22,7 +22,7 @@ namespace db0
             [this](bool threshold_reached) -> bool {
                 return this->onCacheFlushed(threshold_reached);
             },
-            throw_on_dist_memory_overflow ? *throw_on_dist_memory_overflow : true
+            suppress_dist_overflow_error ? *suppress_dist_overflow_error : false
         )
         , m_slab_recycler(slab_cache_size ? *slab_cache_size : DEFAULT_SLAB_CACHE_SIZE)
     {
@@ -231,7 +231,7 @@ namespace db0
         std::optional<std::size_t> flush_size, std::function<void(db0::swine_ptr<Fixture> &, bool, bool, bool)> fixture_initializer,
         std::shared_ptr<Config> config, std::optional<LockFlags> default_lock_flags)
         : BaseWorkspace(root_path, cache_size, slab_cache_size, flush_size, 
-            default_lock_flags, m_config ? config->get<bool>("throw_on_dist_memory_overflow") : true)
+            default_lock_flags, m_config ? config->get<bool>("suppress_dist_overflow_error") : false)
         , m_config(config)
         , m_fixture_catalog(m_prefix_catalog)
         , m_fixture_initializer(fixture_initializer)
