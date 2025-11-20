@@ -64,4 +64,9 @@ namespace db0
     {        
     }
 
+    CacheException::CacheException()
+        : CriticalException(exception_id)
+    {        
+    }
+
 }

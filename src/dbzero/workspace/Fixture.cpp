@@ -385,7 +385,7 @@ namespace db0
             for (auto &handler: m_flush_handlers) {
                 handler();
             }
-
+            m_lang_cache.clear(true);
             // lock for exclusive access
             {
                 std::unique_lock<std::shared_mutex> lock(m_commit_mutex);

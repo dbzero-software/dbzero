@@ -118,4 +118,11 @@ namespace db0
         BadAddressException();
     };
 
+    class CacheException: public CriticalException
+    {
+    public:
+        static constexpr int exception_id = EXCEPTION_ID_PREFIX::BASIC | 0x0f;
+        CacheException();
+    };
+
 }
