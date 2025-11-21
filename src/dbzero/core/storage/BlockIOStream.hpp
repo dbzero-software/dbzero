@@ -13,7 +13,6 @@
 namespace db0
 
 {
-DB0_PACKED_BEGIN
     
     /**
      * Calculate a buffer's checksum (must be aligned to 8 bytes)
@@ -21,6 +20,7 @@ DB0_PACKED_BEGIN
     std::uint64_t checksum(const void *begin, const void *end);
 
     // block level header
+DB0_PACKED_BEGIN
     struct DB0_PACKED_ATTR o_block_io_block_header: public o_fixed<o_block_io_block_header>
     {
         std::uint64_t m_next_block_address = 0;
@@ -34,8 +34,10 @@ DB0_PACKED_BEGIN
             m_next_block_address = address;
         }
     };
-
+DB0_PACKED_END
+    
     // block level header with a checksum
+DB0_PACKED_BEGIN
     struct DB0_PACKED_ATTR o_block_io_cs_block_header:
     public o_fixed_ext<o_block_io_cs_block_header, o_block_io_block_header>
     {        
@@ -47,9 +49,11 @@ DB0_PACKED_BEGIN
             // calculate checksum of this object excluding the checksum field
             return checksum((const char*)this, (const char*)this + sizeOf() - sizeof(m_block_checksum));
         }
-    };
-    
+    };    
+DB0_PACKED_END
+
     // chunk level header
+DB0_PACKED_BEGIN
     struct DB0_PACKED_ATTR o_block_io_chunk_header: public o_fixed<o_block_io_chunk_header>
     {
         std::uint32_t m_chunk_size = 0;
@@ -64,6 +68,7 @@ DB0_PACKED_BEGIN
             return m_chunk_size != 0;
         }
     };
+DB0_PACKED_END
 
     /**
      * Stream of blocks embeddable into the .db0 file        
@@ -282,5 +287,4 @@ DB0_PACKED_BEGIN
         std::uint64_t nextAddress() const;
     };
 
-DB0_PACKED_END
 }

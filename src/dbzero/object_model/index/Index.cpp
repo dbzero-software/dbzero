@@ -66,14 +66,20 @@ namespace db0::object_model
     
     Index::~Index()
     {
-        // in case of index we need to unregister first because otherwise
-        // it may trigger discard of unflushed data (which has to be performed before destruction of 'builder')
-        unregister();
-        
-        // after unregister object might still have unflushed data, we need to flush them
-        if (hasInstance() && isDirty()) {
-            _flush();
-        }        
+        try {
+            // in case of index we need to unregister first because otherwise
+            // it may trigger discard of unflushed data (which has to be performed before destruction of 'builder')
+            unregister();
+            
+            // after unregister object might still have unflushed data, we need to flush them
+            if (hasInstance() && isDirty()) {
+                _flush();
+            }
+        } catch (...) {
+            // Suppress all exceptions in destructor to avoid std::terminate()
+            // Exceptions during destruction indicate a serious issue but we cannot
+            // safely propagate them from a destructor
+        }
     }
     
     Index::Builder::Builder(Index &index)
