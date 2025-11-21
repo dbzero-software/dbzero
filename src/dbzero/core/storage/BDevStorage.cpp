@@ -332,11 +332,14 @@ namespace db0
         m_sparse_pair.extractChangeLog(m_dp_changelog_io);
         m_dram_io.flushUpdates(state_num, m_dram_changelog_io);
         m_dp_changelog_io.flush();
-        // flush changelog AFTER all updates from dram_io have been flushed
-        m_dram_changelog_io.flush();
         m_page_io.flush();
         // NOTE: fsync has stronger guarantees than flush in a multi-process environments
         m_file.fsync();
+        // flush changelog AFTER all updates from all other streams have been flushed
+        m_dram_changelog_io.flush();
+        // the last fsync finalizes the commit
+        m_file.fsync();
+        
         // commit to collect future updates correctly
         m_sparse_pair.commit();
         return true;
@@ -458,7 +461,7 @@ namespace db0
     {
         assert(m_access_type == AccessType::READ_ONLY);
         std::uint64_t result = 0;
-        // continue refreshing until all updates retrieved to guarantee a consistent state
+        // continue refreshing until all updates are retrieved to guarantee a consistent state
         do {
             // safe stream positions for rollback on file read failure
             auto dram_changelog_io_pos = m_dram_changelog_io.getStreamPos();
