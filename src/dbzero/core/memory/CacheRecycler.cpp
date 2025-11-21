@@ -133,9 +133,9 @@ namespace db0
                     updateSize(lock, m_capacity - flush_size);
                     flushed = true;
                     flush_result = m_current_size[priority] <= (m_capacity - flush_size);
-                    if(getCurrentSize() >= m_capacity && !m_suppress_dist_overflow_error){
-                        THROWF(db0::CacheException) << "DIST Memory Overflow. Too many Python objects" << THROWF_END;
-                    }
+                    if (getCurrentSize() >= m_capacity && !m_suppress_dist_overflow_error) {                        
+                        THROWF(db0::CacheException) << "DIST Memory Overflow. Too many Python objects";
+                    }                    
                 }
                 // resize is a costly operation but cannot be avoided if the number of locked
                 // resources exceeds the assumed limit

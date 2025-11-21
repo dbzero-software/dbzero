@@ -164,7 +164,7 @@ namespace db0::object_model
             m_batch_op_types.empty() && 
             "TagIndex::flush() or close() must be called before destruction");
     }
-        
+    
     void TagIndex::addTags(ObjectPtr memo_ptr, ObjectPtr const *args, std::size_t nargs)
     {       
         using TypeId = db0::bindings::TypeId;

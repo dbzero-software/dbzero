@@ -72,8 +72,12 @@ namespace db0::object_model
         
         // after unregister object might still have unflushed data, we need to flush them
         if (hasInstance() && isDirty()) {
-            _flush();
-        }        
+            try {
+                _flush();
+            } catch (CacheException &) {
+                // suppress cache exception, other exceptions will terminate
+            }
+        }
     }
     
     Index::Builder::Builder(Index &index)
