@@ -182,6 +182,12 @@ namespace db0
             timer = std::make_unique<ProcessTimer>("Fixture::close", timer_ptr);
         }
         
+        // flush to prepare objects which require it (e.g. Index) for commit
+        // NOTE: flush must NOT lock the fixture's shared mutex
+        if (m_gc0_ptr) {
+            getGC0().flushAllOf(Memspace::getForFlush());
+        }
+                
         // clear cache to destroy object instances supported by the cache
         // this has to be done before commit (to not commit unrefereced objects)
         m_lang_cache.clear(true, as_defunct);
@@ -191,12 +197,6 @@ namespace db0
             // prevents commit on a closed fixture
             std::unique_lock<std::mutex> lock(m_close_mutex);
             if (!Memspace::isClosed()) {
-                // flush to prepare objects which require it (e.g. Index) for commit
-                // NOTE: flush must NOT lock the fixture's shared mutex
-                if (m_gc0_ptr) {
-                    getGC0().flushAllOf(Memspace::getForFlush());
-                }
-                
                 // clear lang cache again since flush might've released some Python instances
                 m_lang_cache.clear(true);
 
@@ -385,7 +385,7 @@ namespace db0
             for (auto &handler: m_flush_handlers) {
                 handler();
             }
-
+            m_lang_cache.clear(true);
             // lock for exclusive access
             {
                 std::unique_lock<std::shared_mutex> lock(m_commit_mutex);
