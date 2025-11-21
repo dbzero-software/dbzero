@@ -15,12 +15,13 @@ namespace db0
     // Currently we use uint32_t as the state number which allows enumerating 4B sequential transactions
     // assuming 1s per transaction that gives us 136 years of continuous operation until the state number wraps
     using StateNumType = std::uint32_t;
-    
-    struct Settings
+        
+    class Settings
     {
+    public:
 #ifndef NDEBUG        
         static bool __dbg_logs;
 #endif
     };
-    
+        
 }
