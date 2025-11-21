@@ -69,4 +69,32 @@ jobs:
       - name: Run tests
         run: |
           python -m pytest -m 'not integration_test' -m 'not stress_test' -c pytest.ini --capture=no -vv
+  stress-tests-wheels-linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: build-linux
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12"]
+    
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Download wheel artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: wheels-linux-${{ matrix.python-version }}
+          path: ./wheels/
+      - name: Install wheel and dependencies
+        run: |
+          pip install pytest
+          pip install -r requirements.txt
+          pip install ./wheels/*.whl
+      - name: Run tests
+        run: |
+          python3 -m pytest -m 'stress_test' -c pytest.ini --capture=no -vv -s
 
