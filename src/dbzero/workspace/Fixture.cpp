@@ -181,7 +181,7 @@ namespace db0
         if (timer_ptr) {
             timer = std::make_unique<ProcessTimer>("Fixture::close", timer_ptr);
         }
-                
+                        
         // clear cache to destroy object instances supported by the cache
         // this has to be done before commit (to not commit unrefereced objects)
         m_lang_cache.clear(true, as_defunct);

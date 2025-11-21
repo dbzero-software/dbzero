@@ -7,11 +7,11 @@ namespace db0
 
     ChangeLogIOStream::ChangeLogIOStream(CFile &m_file, std::uint64_t begin, std::uint32_t block_size,
         std::function<std::uint64_t()> tail_function, AccessType access_type)
-        // enable checksums
+        // enable checksums by default
         : BlockIOStream(m_file, begin, block_size, tail_function, access_type, true)
     {
     }
-
+    
     ChangeLogIOStream::ChangeLogIOStream(BlockIOStream &&io_stream)
         : BlockIOStream(std::move(io_stream))
     {

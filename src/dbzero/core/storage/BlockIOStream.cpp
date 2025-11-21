@@ -457,7 +457,7 @@ namespace db0
     bool BlockIOStream::eos() const {
         return m_eos;
     }
-
+    
     bool BlockIOStream::readBlock(std::uint64_t address, void *buffer)
     {        
         if (m_checksums_enabled) {
