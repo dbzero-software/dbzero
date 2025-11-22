@@ -20,11 +20,6 @@ namespace db0
         , m_prefix(std::make_shared<DRAM_Prefix>(m_dram_page_size))
         , m_allocator(std::make_shared<DRAM_Allocator>(m_dram_page_size))
     {
-        // load only allowed in read/write mode because otherwise the reader might
-        // fetch inconsistent state
-        if (m_access_type == AccessType::READ_WRITE) {
-            load();
-        }
     }
     
     DRAM_IOStream::DRAM_IOStream(DRAM_IOStream &&other)
@@ -86,9 +81,14 @@ namespace db0
         }
     }
     
-    void DRAM_IOStream::load()
+    void DRAM_IOStream::load(ChangeLogIOStream &changelog_io)
     {
         assert(m_access_type == AccessType::READ_WRITE);
+
+        // simply exhaust the change-log stream
+        // its position marks the synchronization point
+        while (changelog_io.readChangeLogChunk());
+
         std::vector<char> buffer(m_chunk_size, 0);
         const auto &header = o_dram_chunk_header::__ref(buffer.data());
         auto bytes = buffer.data() + header.sizeOf();
@@ -164,7 +164,7 @@ namespace db0
             m_page_map[page_num] = { state_num, address };
         };
         
-        // flush all changes done to DRAM Prerfix (append modified pages only)
+        // flush all changes done to DRAM Prefix (append modified pages only)
         std::vector<std::uint64_t> dram_changelog;
         m_prefix->flushDirty([&, this](std::uint64_t page_num, const void *page_buffer) {
             // the last page must be stored in a new block to mark end of the sequence
@@ -235,8 +235,8 @@ namespace db0
             // Note that change log and the data chunks may be updated by other process while we read it
             // the consistent state is only guaranteed after reaching end of the stream        
             auto change_log_ptr = changelog_io.readChangeLogChunk();
-
-            // first collect the change log to only visit each address once
+            
+            // First collect the change log to only visit each address once
             while (change_log_ptr) {
                 for (auto address: *change_log_ptr) {
                     if (m_addr_set.find(address) == m_addr_set.end()) {
@@ -251,6 +251,18 @@ namespace db0
                 }
                 change_log_ptr = changelog_io.readChangeLogChunk();
             }
+            
+            // Visit the addresses next
+            // this is important becase otherwise we might've been accessing outdated or inconsistent DPs
+            for (auto address: m_addr_set) {
+                // buffer must include BlockIOStream's chunk header and data
+                auto &buffer = createReadAheadBuffer(address, m_chunk_size + o_block_io_chunk_header::sizeOf());                        
+                // the address reported in changelog must already be available in the stream
+                // it may come from a more recent update as well (and potentially may only be partially written)
+                // therefore chunk-level checksum validation is necessary
+                BlockIOStream::readFromChunk(address, buffer.data(), buffer.size());
+            }
+
         } catch (db0::IOException &) {
             changelog_io.setStreamPos(stream_pos);
             m_read_ahead_chunks.clear();

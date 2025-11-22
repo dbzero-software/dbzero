@@ -40,12 +40,14 @@ namespace db0
         , m_dp_changelog_io(getChangeLogIOStream(m_config.m_dp_changelog_io_offset, access_type))
         , m_meta_io(init(getMetaIOStream(m_config.m_meta_io_offset, meta_io_step_size.value_or(DEFAULT_META_IO_STEP_SIZE),
             access_type)))
-        , m_dram_io(init(getDRAMIOStream(m_config.m_dram_io_offset, m_config.m_dram_page_size, access_type), m_dram_changelog_io))            
+        , m_dram_io(init(getDRAMIOStream(m_config.m_dram_io_offset, m_config.m_dram_page_size, access_type), m_dram_changelog_io))
         , m_sparse_pair(m_dram_io.getDRAMPair(), access_type)
         , m_sparse_index(m_sparse_pair.getSparseIndex())
         , m_diff_index(m_sparse_pair.getDiffIndex())
         , m_page_io(getPage_IO(m_sparse_pair.getNextStoragePageNum(), access_type))
     {
+        // in read-only mode need to refresh in order to retrieve a consitent DRAM state
+        // since other process might be actively modifying the underlying file
         if (m_access_type == AccessType::READ_ONLY) {
             refresh();
         }
@@ -56,15 +58,8 @@ namespace db0
     }
     
     DRAM_IOStream BDevStorage::init(DRAM_IOStream &&dram_io, ChangeLogIOStream &dram_change_log)
-    {
-        if (dram_io.getAccessType() == AccessType::READ_WRITE) {
-            // simply exhaust the change-log stream
-            while (dram_change_log.readChangeLogChunk());
-        } else {
-            // apply all changes from the change-log
-            dram_io.beginApplyChanges(dram_change_log);
-            dram_io.completeApplyChanges();            
-        }
+    {        
+        dram_io.load(dram_change_log);
         return std::move(dram_io);
     }
     
@@ -81,7 +76,7 @@ namespace db0
         m_file.read(0, buffer.size(), buffer.data());
         auto &config = o_prefix_config::__const_ref(buffer.data());
         if (config.m_magic != o_prefix_config::DB0_MAGIC) {
-            THROWF(db0::IOException) << "Invalid DB0 file: " << m_file.getName();
+            THROWF(db0::IOException) << "Not a dbzero file: " << m_file.getName();
         }
         return config;
     }

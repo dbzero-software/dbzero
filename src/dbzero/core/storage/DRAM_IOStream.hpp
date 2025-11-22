@@ -117,7 +117,7 @@ DB0_PACKED_BEGIN
         std::size_t getAllocatedSize() const;
 
         const DRAM_Prefix &getDRAMPrefix() const;
-
+        
         const DRAM_Allocator &getDRAMAllocator() const;
         
         // get the number of random write operations performed while flushing updates
@@ -130,7 +130,13 @@ DB0_PACKED_BEGIN
         // Read physical data block from file and detect discrepancies        
         void dramIOCheck(std::vector<DRAM_CheckResult> &) const;
 #endif
-    
+        
+        /**
+         * Exhaust the entire change-log (to mark synchronization point)
+         * then load entire contents from stream into the DRAM Storage
+        */
+        void load(ChangeLogIOStream &changelog_io);
+        
     private:
         const std::uint32_t m_dram_page_size;
         const std::size_t m_chunk_size;
@@ -142,12 +148,8 @@ DB0_PACKED_BEGIN
         std::shared_ptr<DRAM_Allocator> m_allocator;
         // chunks buffer for the beginApplyChanges / completeApplyChanges operations
         mutable std::unordered_map<std::uint64_t, std::vector<char> > m_read_ahead_chunks;
-        mutable std::unordered_set<std::uint64_t> m_addr_set;        
-        
-        /**
-         * Load entire contents from stream into the DRAM Storage
-        */
-        void load();
+        mutable std::unordered_set<std::uint64_t> m_addr_set;
+
         void *updateDRAMPage(std::uint64_t address, std::unordered_set<std::size_t> *allocs_ptr, 
             const o_dram_chunk_header &header);
         void updateDRAMPage(std::uint64_t address, std::unordered_set<std::size_t> *allocs_ptr, 
