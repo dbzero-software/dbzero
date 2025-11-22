@@ -13,13 +13,20 @@ TEST_FILES_DIR_ROOT = os.path.join(os.getcwd(), "python_tests", "files")
 DB0_DIR = os.path.join(os.getcwd(), "db0-test-data")
 
 
+def __extract_param(request, key, default):
+    if hasattr(request, "param") and request.param and key in request.param:
+        return request.param[key]
+    return default
+
 @pytest.fixture()
-def db0_fixture():
+def db0_fixture(request):
     if os.path.exists(DB0_DIR):
-        shutil.rmtree(DB0_DIR)
-    # create empty directory
+        shutil.rmtree(DB0_DIR)    
     os.mkdir(DB0_DIR)
-    db0.init(DB0_DIR)
+    db0.init(
+        DB0_DIR,
+        suppress_dist_overflow_error=__extract_param(request, "suppress_dist_overflow_error", False),
+    )
     db0.open("my-test-prefix")
     yield db0    
     gc.collect()
@@ -55,6 +62,7 @@ def db0_slab_size(request):
         DB0_DIR,
         autocommit=request.param.get("autocommit", True),
         autocommit_interval=request.param.get("autocommit_interval", 250),
+        suppress_dist_overflow_error=__extract_param(request, "suppress_dist_overflow_error", False),
     )
     db0.open("my-test-prefix", slab_size=request.param["slab_size"])
     yield db0     

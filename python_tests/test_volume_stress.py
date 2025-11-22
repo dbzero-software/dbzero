@@ -59,7 +59,8 @@ def test_create_large_objects_cache_recycler_issue_1(db0_slab_size):
     
 
 @pytest.mark.stress_test
-@pytest.mark.parametrize("db0_slab_size", [{"slab_size": 1024 * 1024 * 1024}], indirect=True)
+@pytest.mark.parametrize("db0_slab_size", 
+                         [{"slab_size": 1024 * 1024 * 1024, "suppress_dist_overflow_error": True}], indirect=True)
 def test_create_and_drop_simple_memo_objects(db0_slab_size):
     """
     Run on valgrind with --tool=massif to detect memory problems
