@@ -137,6 +137,7 @@ DB0_PACKED_END
         ChangeLogIOStream m_dram_changelog_io;
         // data-page change log, each chunk corresponds to a separate data transaction
         // first element from each chunk represents the state number
+        // and the rest are the logical data page numbers mutated in that transaction
         ChangeLogIOStream m_dp_changelog_io;
         // meta-stream keeps meta-data about the other streams
         MetaIOStream m_meta_io;

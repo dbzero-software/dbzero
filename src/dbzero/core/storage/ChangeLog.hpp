@@ -8,7 +8,6 @@
 namespace db0
 
 {
-DB0_PACKED_BEGIN
 
     class ChangeLogData
     {
@@ -31,6 +30,7 @@ DB0_PACKED_BEGIN
         void initRLECompress(bool is_sorted, bool add_duplicates);
     };
     
+DB0_PACKED_BEGIN
     struct DB0_PACKED_ATTR o_change_log: public o_base<o_change_log, 0, false>
     {
     protected:
@@ -91,6 +91,6 @@ DB0_PACKED_BEGIN
             return buf - _buf;
         }
     };
-        
 DB0_PACKED_END
+
 }
