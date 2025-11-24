@@ -81,7 +81,7 @@ namespace db0
         }
     }
     
-    void DRAM_IOStream::load(ChangeLogIOStream &changelog_io)
+    void DRAM_IOStream::load(DRAM_ChangeLogStreamT &changelog_io)
     {
         assert(m_access_type == AccessType::READ_WRITE);
 
@@ -114,7 +114,7 @@ namespace db0
         m_allocator->update(allocs);
     }
     
-    void DRAM_IOStream::flushUpdates(std::uint64_t state_num, ChangeLogIOStream &dram_changelog_io)
+    void DRAM_IOStream::flushUpdates(std::uint64_t state_num, DRAM_ChangeLogStreamT &dram_changelog_io)
     {
         if (m_access_type == AccessType::READ_ONLY) {
             THROWF(db0::IOException) << "DRAM_IOStream::flushUpdates error: read-only stream";
@@ -221,7 +221,7 @@ namespace db0
         return { m_prefix, m_allocator };
     }
     
-    void DRAM_IOStream::beginApplyChanges(ChangeLogIOStream &changelog_io) const
+    void DRAM_IOStream::beginApplyChanges(DRAM_ChangeLogStreamT &changelog_io) const
     {
         assert(m_read_ahead_chunks.empty());
         if (m_access_type == AccessType::READ_WRITE) {
@@ -292,7 +292,7 @@ namespace db0
     }
 #endif
 
-    void fetchDRAM_IOChanges(const DRAM_IOStream &dram_io, ChangeLogIOStream &changelog_io,
+    void fetchDRAM_IOChanges(const DRAM_IOStream &dram_io, DRAM_IOStream::DRAM_ChangeLogStreamT &changelog_io,
         std::unordered_map<std::uint64_t, std::vector<char> > &chunks_buf)
     {
         auto create_read_ahead_buffer = [&](std::uint64_t address, std::size_t size) -> std::vector<char> & 
@@ -345,7 +345,7 @@ namespace db0
             throw;
         }
     }
-    
+
     void flushDRAM_IOChanges(DRAM_IOStream &dram_io,
         std::unordered_map<std::uint64_t, std::vector<char> > &chunks_buf)
     {

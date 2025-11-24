@@ -3,6 +3,7 @@
 #include <dbzero/core/utils/FlagSet.hpp>
 #include <dbzero/core/memory/config.hpp>
 #include <dbzero/core/memory/AccessOptions.hpp>
+#include <dbzero/core/serialization/Types.hpp>
 #include <functional>
 #include <unordered_map>
 #include <optional>
@@ -12,17 +13,20 @@ namespace db0
 {
 
     class ProcessTimer;
-    struct o_change_log;
+    template <typename BaseT> struct o_change_log;
 
     /**
      * Defines the file-oriented storage interface
     */
     class BaseStorage
     {
-    public:
+    public:    
+        using DRAM_ChangeLogT = db0::o_change_log<db0::o_fixed_null>;
+        using DP_ChangeLogT = db0::o_change_log<db0::o_fixed_null>;
+        
         BaseStorage(AccessType);
         virtual ~BaseStorage() = default;
-
+        
         /**
          * Read data from a specific state into a user provided buffer
          * 
@@ -121,13 +125,13 @@ namespace db0
         // @param end_state the first state number past the last state number to be included 
         //   in the change log (or up to the last state number if not specified)
         // @param f function to be called for each transaction's change log
-        virtual void fetchChangeLogs(StateNumType begin_state, std::optional<StateNumType> end_state,
-            std::function<void(StateNumType state_num, const o_change_log &)> f) const;
+        virtual void fetchDP_ChangeLogs(StateNumType begin_state, std::optional<StateNumType> end_state,
+            std::function<void(StateNumType state_num, const DP_ChangeLogT &)> f) const;
         
 #ifndef NDEBUG
         // state number, file offset
         using DRAM_PageInfo = std::pair<std::uint64_t, std::uint64_t>;
-
+        
         struct DRAM_CheckResult
         {
             std::uint64_t m_address;
@@ -140,8 +144,8 @@ namespace db0
                 
         // Activate throw from commit after specific number of operations (for testing purposes)
         virtual void setCrashFromCommit(unsigned int *op_count_ref);
-#endif        
-
+#endif
+    
     protected:
         AccessType m_access_type;
     };

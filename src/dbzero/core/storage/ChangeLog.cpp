@@ -12,7 +12,7 @@ namespace db0
             initRLECompress(is_sorted, add_duplicates);
         }        
     }
-
+    
     ChangeLogData::ChangeLogData(std::vector<std::uint64_t> &&change_log, bool rle_compress, bool add_duplicates, bool is_sorted)
         : m_change_log(std::move(change_log))
     {
@@ -30,44 +30,23 @@ namespace db0
             m_rle_builder.append(value, add_duplicates);
         }        
     }
-
-    o_change_log::o_change_log(const ChangeLogData &data)
-        : m_rle_compressed(!data.m_rle_builder.empty())
-    {
-        if (m_rle_compressed) {
-            arrangeMembers()
-                (o_rle_sequence<std::uint64_t>::type(), data.m_rle_builder.getData());
-        } else {
-            arrangeMembers()
-                (o_list<o_simple<std::uint64_t> >::type(), data.m_change_log);
-        }
-    }
     
-    std::size_t o_change_log::measure(const ChangeLogData &data)
-    {
-        bool rle_compressed = !data.m_rle_builder.empty();
-        if (rle_compressed) {
-            return measureMembers()
-                (o_rle_sequence<std::uint64_t>::type(), data.m_rle_builder.getData());
-        } else {
-            return measureMembers()
-                (o_list<o_simple<std::uint64_t> >::type(), data.m_change_log);
-        }
-    }
-    
-    o_change_log::ConstIterator::ConstIterator(o_list<o_simple<std::uint64_t> >::const_iterator it)
+    template <typename BaseT>
+    o_change_log<BaseT>::ConstIterator::ConstIterator(o_list<o_simple<std::uint64_t> >::const_iterator it)
         : m_rle(false)
         , m_list_it(it)
     {
     }
 
-    o_change_log::ConstIterator::ConstIterator(o_rle_sequence<std::uint64_t>::ConstIterator it)
+    template <typename BaseT>
+    o_change_log<BaseT>::ConstIterator::ConstIterator(o_rle_sequence<std::uint64_t>::ConstIterator it)
         : m_rle(true)
         , m_rle_it(it)
     {
     }
 
-    o_change_log::ConstIterator &o_change_log::ConstIterator::operator++()
+    template <typename BaseT>
+    typename o_change_log<BaseT>::ConstIterator &o_change_log<BaseT>::ConstIterator::operator++()
     {
         if (m_rle) {
             ++m_rle_it;
@@ -77,7 +56,8 @@ namespace db0
         return *this;
     }
 
-    std::uint64_t o_change_log::ConstIterator::operator*() const
+    template <typename BaseT>
+    std::uint64_t o_change_log<BaseT>::ConstIterator::operator*() const
     {
         if (m_rle) {
             return *m_rle_it;
@@ -86,7 +66,8 @@ namespace db0
         }
     }
 
-    bool o_change_log::ConstIterator::operator!=(const ConstIterator &other) const
+    template <typename BaseT>
+    bool o_change_log<BaseT>::ConstIterator::operator!=(const ConstIterator &other) const
     {
         if (m_rle != other.m_rle) {
             return true;
@@ -98,26 +79,29 @@ namespace db0
         }
     }
     
-    o_change_log::ConstIterator o_change_log::begin() const
+    template <typename BaseT>
+    typename o_change_log<BaseT>::ConstIterator o_change_log<BaseT>::begin() const
     {
-        if (m_rle_compressed) {
+        if (this->isRLECompressed()) {
             return ConstIterator(rle_sequence().begin());
         } else {
             return ConstIterator(changle_log().begin());
         }
     }
 
-    o_change_log::ConstIterator o_change_log::end() const
+    template <typename BaseT>
+    typename o_change_log<BaseT>::ConstIterator o_change_log<BaseT>::end() const
     {
-        if (m_rle_compressed) {
+        if (this->isRLECompressed()) {
             return ConstIterator(rle_sequence().end());
         } else {
             return ConstIterator(changle_log().end());
         }
     }
     
-    bool o_change_log::isRLECompressed() const {
-        return m_rle_compressed;
+    template <typename BaseT>
+    bool o_change_log<BaseT>::isRLECompressed() const {
+        return rleCompressed().value();
     }
-    
+        
 }

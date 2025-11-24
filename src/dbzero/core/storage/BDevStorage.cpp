@@ -36,11 +36,18 @@ namespace db0
         : BaseStorage(access_type)
         , m_file(file_name, access_type, lock_flags)
         , m_config(readConfig())
-        , m_dram_changelog_io(getChangeLogIOStream(m_config.m_dram_changelog_io_offset, access_type))
-        , m_dp_changelog_io(getChangeLogIOStream(m_config.m_dp_changelog_io_offset, access_type))
-        , m_meta_io(init(getMetaIOStream(m_config.m_meta_io_offset, meta_io_step_size.value_or(DEFAULT_META_IO_STEP_SIZE),
-            access_type)))
-        , m_dram_io(init(getDRAMIOStream(m_config.m_dram_io_offset, m_config.m_dram_page_size, access_type), m_dram_changelog_io))
+        , m_dram_changelog_io(getChangeLogIOStream<DRAM_ChangeLogStreamT>(
+            m_config.m_dram_changelog_io_offset, access_type)
+        )
+        , m_dp_changelog_io(getChangeLogIOStream<DP_ChangeLogStreamT>(
+            m_config.m_dp_changelog_io_offset, access_type)
+        )
+        , m_meta_io(init(getMetaIOStream(
+            m_config.m_meta_io_offset, meta_io_step_size.value_or(DEFAULT_META_IO_STEP_SIZE), access_type))
+        )
+        , m_dram_io(init(getDRAMIOStream(
+            m_config.m_dram_io_offset, m_config.m_dram_page_size, access_type), m_dram_changelog_io)
+        )
         , m_sparse_pair(m_dram_io.getDRAMPair(), access_type)
         , m_sparse_index(m_sparse_pair.getSparseIndex())
         , m_diff_index(m_sparse_pair.getDiffIndex())
@@ -57,7 +64,7 @@ namespace db0
     {
     }
     
-    DRAM_IOStream BDevStorage::init(DRAM_IOStream &&dram_io, ChangeLogIOStream &dram_change_log)
+    DRAM_IOStream BDevStorage::init(DRAM_IOStream &&dram_io, DRAM_ChangeLogStreamT &dram_change_log)
     {        
         dram_io.load(dram_change_log);
         return std::move(dram_io);
@@ -118,15 +125,15 @@ namespace db0
         // Create higher-order data structures
         {
             CFile file(file_name, AccessType::READ_WRITE);
-            ChangeLogIOStream *dram_changelog_io_ptr = nullptr;
+            DRAM_ChangeLogStreamT *dram_changelog_io_ptr = nullptr;
             DRAM_IOStream *dram_io_ptr = nullptr;
             auto tail_function = [&]() {
                 assert(dram_io_ptr && dram_changelog_io_ptr);                
                 // take max from the underlying I/O streams
                 return std::max(offset, std::max(dram_io_ptr->tail(), dram_changelog_io_ptr->tail()));
             };
-
-            auto dram_changelog_io = ChangeLogIOStream(file, config->m_dram_changelog_io_offset, config->m_block_size,
+            
+            auto dram_changelog_io = DRAM_ChangeLogStreamT(file, config->m_dram_changelog_io_offset, config->m_block_size,
                 tail_function, AccessType::READ_WRITE);
             dram_changelog_io_ptr = &dram_changelog_io;
             auto dram_io = DRAM_IOStream(file, config->m_dram_io_offset, config->m_block_size, tail_function,
@@ -369,11 +376,7 @@ namespace db0
     DRAM_IOStream BDevStorage::getDRAMIOStream(std::uint64_t first_block_pos, std::uint32_t dram_page_size, AccessType access_type) {
         return { m_file, first_block_pos, m_config.m_block_size, getTailFunction(), access_type, dram_page_size };
     }
-
-    ChangeLogIOStream BDevStorage::getChangeLogIOStream(std::uint64_t first_block_pos, AccessType access_type) {
-        return { m_file, first_block_pos, m_config.m_block_size, getTailFunction(), access_type };
-    }
-
+    
     std::uint64_t BDevStorage::tail() const
     {
         // take max from the 4 underlying I/O streams
@@ -577,17 +580,17 @@ namespace db0
     }
 #endif
     
-    void BDevStorage::fetchChangeLogs(StateNumType begin_state, std::optional<StateNumType> end_state,
-        std::function<void(StateNumType state_num, const o_change_log &)> f) const
+    void BDevStorage::fetchDP_ChangeLogs(StateNumType begin_state, std::optional<StateNumType> end_state,
+        std::function<void(StateNumType state_num, const DP_ChangeLogT &)> f) const
     {
         std::unique_lock<std::shared_mutex> lock(m_mutex);
         if (m_dp_changelog_io.modified()) {
             THROWF(db0::IOException) << "BDevStorage::fetchChangeLogs: dp-changelog is modified and needs to be flushed first";
         }
-        auto &dp_changelog_io = const_cast<ChangeLogIOStream &>(m_dp_changelog_io);        
-        ChangeLogIOStream::State dp_state;
+        auto &dp_changelog_io = const_cast<DP_ChangeLogStreamT &>(m_dp_changelog_io);
+        DP_ChangeLogStreamT::State dp_state;
         dp_changelog_io.saveState(dp_state);
-
+        
         {
             std::vector<char> buf;
             // try locating the nearest meta-log entry to position the dp-changelog
@@ -626,7 +629,7 @@ namespace db0
         dp_changelog_io.restoreState(dp_state);
     }
     
-    void BDevStorage::beginCommit() 
+    void BDevStorage::beginCommit()
     {
 #ifndef NDEBUG        
         m_commit_pending = true;

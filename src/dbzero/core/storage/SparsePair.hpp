@@ -3,13 +3,13 @@
 #include <dbzero/core/serialization/Types.hpp>
 #include "SparseIndex.hpp"
 #include "DiffIndex.hpp"
+#include "BaseStorage.hpp"
+#include "ChangeLogIOStream.hpp"
 
 namespace db0
 
 {
-
-    class ChangeLogIOStream;
-
+    
     // The SparsePair combines SparseIndex and DiffIndex
     class SparsePair
     {
@@ -17,6 +17,8 @@ namespace db0
         using PageNumT = SparseIndex::PageNumT;
         using StateNumT = SparseIndex::StateNumT;
         using tag_create = SparseIndex::tag_create;
+        using DRAM_ChangeLogT = BaseStorage::DRAM_ChangeLogT;
+        using DRAM_ChangeLogStreamT = db0::ChangeLogIOStream<DRAM_ChangeLogT>;
         
         SparsePair(std::size_t node_size);
         SparsePair(DRAM_Pair, AccessType);
@@ -54,10 +56,10 @@ namespace db0
          * Write internally managed change log into a specific stream 
          * and then clean the internal change log
         */
-        const o_change_log &extractChangeLog(ChangeLogIOStream &);
+        const DRAM_ChangeLogT &extractChangeLog(DRAM_ChangeLogStreamT &);
         
         std::size_t getChangeLogSize() const;
-
+        
         void commit();
 
     private:

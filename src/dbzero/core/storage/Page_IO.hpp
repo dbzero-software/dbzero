@@ -44,7 +44,12 @@ namespace db0
         std::uint64_t tail() const;
 
         std::uint32_t getPageSize() const;
-
+        
+        // Get the page number which is > all pages currently stored
+        // This value can act as a "sentinel" for end-of-stream (at the moment of the call)
+        // NOTE: the member is only available in read/write mode
+        std::uint64_t getEndPageNum() const;
+        
     protected:
         const std::size_t m_header_size;        
         const std::uint32_t m_page_size;

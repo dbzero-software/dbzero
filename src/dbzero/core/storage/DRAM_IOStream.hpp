@@ -11,6 +11,8 @@
 #include <unordered_map>
 #include <atomic>
 #include <dbzero/core/compiler_attributes.hpp>
+#include "BaseStorage.hpp"
+#include "ChangeLogIOStream.hpp"
 
 namespace db0
 
@@ -19,7 +21,6 @@ namespace db0
     class DRAM_Prefix;
     class DRAM_Allocator;
     class CFile;
-    class ChangeLogIOStream;
 
 DB0_PACKED_BEGIN
     struct DB0_PACKED_ATTR o_dram_chunk_header: public o_fixed<o_dram_chunk_header>
@@ -61,6 +62,8 @@ DB0_PACKED_END
     public:
         // checksums disabled in this type of stream
         static constexpr bool ENABLE_CHECKSUMS = false;
+        using DRAM_ChangeLogT = BaseStorage::DRAM_ChangeLogT;
+        using DRAM_ChangeLogStreamT = db0::ChangeLogIOStream<DRAM_ChangeLogT>;
         
         DRAM_IOStream(CFile &m_file, std::uint64_t begin, std::uint32_t block_size, std::function<std::uint64_t()> tail_function,
             AccessType access_type, std::uint32_t dram_page_size);
@@ -73,12 +76,12 @@ DB0_PACKED_END
          * @param state_num the state number under which the modifications are to be stored
          * @param dram_changelog_io the stream to receive DRAM IO "changelog" chunks        
         */
-        void flushUpdates(std::uint64_t state_num, ChangeLogIOStream &dram_changelog_io);
+        void flushUpdates(std::uint64_t state_num, DRAM_ChangeLogStreamT &);
         
         // The purpose of this operation is allowing atomic application of changes
         // this call may end with an IOException without affecting internal state (except populating temporary buffers)
         // @return the latest state number of available changes
-        void beginApplyChanges(ChangeLogIOStream &changelog_io) const;
+        void beginApplyChanges(DRAM_ChangeLogStreamT &) const;
         
         // Apply buffered changes (allowed on condition beginApplyChanges succeeded)
         bool completeApplyChanges();
@@ -136,12 +139,12 @@ DB0_PACKED_END
          * Exhaust the entire change-log (to mark synchronization point)
          * then load entire contents from stream into the DRAM Storage
         */
-        void load(ChangeLogIOStream &changelog_io);
+        void load(DRAM_ChangeLogStreamT &);
         
         std::size_t getChunkSize() const {
             return m_chunk_size;
         }
-
+        
     private:
         const std::uint32_t m_dram_page_size;
         const std::size_t m_chunk_size;
@@ -164,7 +167,7 @@ DB0_PACKED_END
     };
     
     // Pre-fetch changes into the chunks buffer
-    void fetchDRAM_IOChanges(const DRAM_IOStream &dram_io, ChangeLogIOStream &changelog_io,
+    void fetchDRAM_IOChanges(const DRAM_IOStream &dram_io, DRAM_IOStream::DRAM_ChangeLogStreamT &changelog_io,
         std::unordered_map<std::uint64_t, std::vector<char> > &chunks_buf);
     
     // Flush changes from the buffer

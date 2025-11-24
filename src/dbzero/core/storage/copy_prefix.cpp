@@ -4,8 +4,8 @@ namespace db0
 
 {
     
-    void copyDRAM_IO(DRAM_IOStream &input_io, ChangeLogIOStream &input_dram_changelog,
-        DRAM_IOStream &output_io, ChangeLogIOStream::Writer &output_dram_changelog)
+    void copyDRAM_IO(DRAM_IOStream &input_io, DRAM_ChangeLogStreamT &input_dram_changelog,
+        DRAM_IOStream &output_io, DRAM_ChangeLogStreamT::Writer &output_dram_changelog)
     {
         // Exhaust the input_dram_changelog first
         input_dram_changelog.setStreamPosHead();
@@ -37,5 +37,5 @@ namespace db0
             out.appendToChunk(buffer.data(), chunk_size);
         }
     }
-
+    
 }

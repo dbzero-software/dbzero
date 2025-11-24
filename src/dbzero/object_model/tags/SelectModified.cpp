@@ -21,6 +21,7 @@ namespace db0::object_model
     std::unique_ptr<QueryIterator> selectModCandidates(std::unique_ptr<QueryIterator> &&query, const db0::BaseStorage &storage,
         StateNumType from_state, StateNumType to_state)
     {
+        using DP_ChangeLogT = db0::BaseStorage::DP_ChangeLogT;
         auto dp_size = storage.getPageSize();
         auto dp_shift = db0::getPageShift(dp_size);
 
@@ -31,7 +32,7 @@ namespace db0::object_model
         // 4. refine results (lazy filter) by binary comparison of pre-scope and post-scope objects to identify actual mutations
         
         std::unordered_set<std::uint64_t> mutated_dps;
-        storage.fetchChangeLogs(from_state, to_state + 1, [&](StateNumType, const db0::o_change_log &change_log) {
+        storage.fetchDP_ChangeLogs(from_state, to_state + 1, [&](StateNumType, const DP_ChangeLogT &change_log) {
             auto it = change_log.begin(), end = change_log.end();
             if (it != end) {
                 // first element holds the state number and should be ignored
