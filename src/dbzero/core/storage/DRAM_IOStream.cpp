@@ -83,8 +83,6 @@ namespace db0
     
     void DRAM_IOStream::load(ChangeLogIOStream &changelog_io)
     {
-        assert(m_access_type == AccessType::READ_WRITE);
-
         // simply exhaust the change-log stream
         // its position marks the synchronization point
         while (changelog_io.readChangeLogChunk());
