@@ -169,9 +169,9 @@ class MemoMetaClass:
                 return db0.find(db0.MemoBase, cls, prefix=prefix_name)
 
         if snapshot is not None:
-            return snapshot.find(cls, prefix=prefix_name)
+            return snapshot.find(cls.type(), prefix=prefix_name)
         else:
-            return db0.find(cls, prefix=prefix_name)
+            return db0.find(cls.type(), prefix=prefix_name)
     
     def get_instance_count(self):
         """Get number of instances of this Memo class."""
