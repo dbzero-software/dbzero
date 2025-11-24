@@ -27,7 +27,7 @@ namespace db0
     SparsePair::~SparsePair()
     {
     }
-
+    
     typename SparsePair::PageNumT SparsePair::getNextStoragePageNum() const {
         return std::max(m_sparse_index.getNextStoragePageNum(), m_diff_index.getNextStoragePageNum());
     }
@@ -46,7 +46,7 @@ namespace db0
         return m_sparse_index.size() + m_diff_index.size();
     }
     
-    const o_change_log &SparsePair::extractChangeLog(ChangeLogIOStream &changelog_io)
+    const SparsePair::DRAM_ChangeLogT &SparsePair::extractChangeLog(DRAM_ChangeLogStreamT &changelog_io)
     {        
         assert(!m_change_log.empty());
         // sort change log but keep the 1st item (the state number) at its place

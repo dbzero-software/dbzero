@@ -76,7 +76,7 @@ DB0_PACKED_BEGIN
          */
         template<typename buf_t> static T &__safe_ref(buf_t buf)
         {
-            const std::byte *_buf = buf;
+            const std::byte *_buf = static_cast<std::byte*>(buf);
             // validate bounds here
             buf += true_size_of<T>();
             return __ref(const_cast<std::byte*>(_buf));
@@ -84,7 +84,7 @@ DB0_PACKED_BEGIN
         
         template <typename buf_t> static const T &__safe_const_ref(buf_t buf)
         {            
-            const std::byte *_buf = buf;
+            const std::byte *_buf = static_cast<const std::byte*>(buf);
             // validate bounds here
             buf += true_size_of<T>();
             return __const_ref(_buf);

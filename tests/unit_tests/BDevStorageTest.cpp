@@ -495,6 +495,8 @@ namespace tests
     
     TEST_F( BDevStorageTest , testBDevStorageFetchChangeLogs )
     {
+        using DP_ChangeLogT = db0::BaseStorage::DP_ChangeLogT;
+
         srand(9142424u);
         BDevStorage::create(file_name);
         BDevStorage cut(file_name, AccessType::READ_WRITE, {}, 16);
@@ -536,12 +538,12 @@ namespace tests
             { 8, 9, 10 },
             { 3, 4, 5, 6 }
         };
-
+        
         unsigned int range_id = 0;
         for (auto range: state_ranges) {
             // collect and validate change-logs
             std::vector<StateNumType> state_nums;
-            cut.fetchChangeLogs(range.first, range.second, [&](StateNumType fetched_state_num, const o_change_log &cl) {
+            cut.fetchDP_ChangeLogs(range.first, range.second, [&](StateNumType fetched_state_num, const DP_ChangeLogT &cl) {
                 state_nums.push_back(fetched_state_num);
                 std::vector<std::uint64_t> page_nums;
                 auto it = cl.begin();

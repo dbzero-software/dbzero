@@ -56,6 +56,8 @@ DB0_PACKED_END
     public:
         static constexpr std::uint32_t DEFAULT_PAGE_SIZE = 4096;
         static constexpr std::size_t DEFAULT_META_IO_STEP_SIZE = 16 << 20;
+        using DRAM_ChangeLogStreamT = ChangeLogIOStream<>;
+        using DP_ChangeLogStreamT = ChangeLogIOStream<DP_ChangeLogT>;
 
         /**
          * Opens BDevStorage over an existing file
@@ -115,8 +117,8 @@ DB0_PACKED_END
         // @return total bytes written / diff bytes written
         std::pair<std::size_t, std::size_t> getDiff_IOStats() const;
         
-        void fetchChangeLogs(StateNumType begin_state, std::optional<StateNumType> end_state,
-            std::function<void(StateNumType, const o_change_log &)> f) const override;
+        void fetchDP_ChangeLogs(StateNumType begin_state, std::optional<StateNumType> end_state,
+            std::function<void(StateNumType, const DP_ChangeLogT &)> f) const override;
         
 #ifndef NDEBUG
         void getDRAM_IOMap(std::unordered_map<std::uint64_t, DRAM_PageInfo> &) const override;
@@ -134,10 +136,11 @@ DB0_PACKED_END
         
         // DRAM-changelog stream stores the sequence of updates to DRAM pages
         // DRAM-changelog must be initialized before DRAM_IOStream
-        ChangeLogIOStream m_dram_changelog_io;
+        DRAM_ChangeLogStreamT m_dram_changelog_io;
         // data-page change log, each chunk corresponds to a separate data transaction
         // first element from each chunk represents the state number
-        ChangeLogIOStream m_dp_changelog_io;
+        // and the rest are the logical data page numbers mutated in that transaction
+        DP_ChangeLogStreamT m_dp_changelog_io;
         // meta-stream keeps meta-data about the other streams
         MetaIOStream m_meta_io;
         // memory-mapped file I/O
@@ -159,7 +162,7 @@ DB0_PACKED_END
         unsigned int *m_throw_op_count_ptr = nullptr;
 #endif
 
-        static DRAM_IOStream init(DRAM_IOStream &&, ChangeLogIOStream &);
+        static DRAM_IOStream init(DRAM_IOStream &&, DRAM_ChangeLogStreamT &);
         
         static MetaIOStream init(MetaIOStream &&);
         
@@ -172,8 +175,12 @@ DB0_PACKED_END
         BlockIOStream getBlockIOStream(std::uint64_t first_block_pos, AccessType);
         
         DRAM_IOStream getDRAMIOStream(std::uint64_t first_block_pos, std::uint32_t dram_page_size, AccessType);
-
-        ChangeLogIOStream getChangeLogIOStream(std::uint64_t first_block_pos, AccessType);
+        
+        template<typename ChangeLogIOStreamT>
+        ChangeLogIOStreamT getChangeLogIOStream(std::uint64_t first_block_pos, AccessType access_type)
+        {
+            return { m_file, first_block_pos, m_config.m_block_size, getTailFunction(), access_type };
+        }
 
         MetaIOStream getMetaIOStream(std::uint64_t first_block_pos, std::size_t step_size, AccessType);
         
@@ -198,5 +205,5 @@ DB0_PACKED_END
         void _read(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer,
             FlagSet<AccessOptions> = { AccessOptions::read, AccessOptions::write }, unsigned int *chain_len = nullptr) const;
     };
-
+    
 }

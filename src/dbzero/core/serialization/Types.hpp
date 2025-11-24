@@ -8,7 +8,6 @@
 namespace db0 
 
 {
-DB0_PACKED_BEGIN
 
     class Memspace;
 
@@ -18,6 +17,7 @@ DB0_PACKED_BEGIN
     /**
      * Overlaid simple type wrapper
      */
+DB0_PACKED_BEGIN
     template <class T> class DB0_PACKED_ATTR o_simple: public o_fixed<o_simple<T> >
     {
     public :
@@ -172,10 +172,12 @@ DB0_PACKED_BEGIN
         std::uint32_t m_bytes = 0;
         std::byte m_buf;
     };
+DB0_PACKED_END
 
     /**
-     * Overlaid null type
+     * Overlaid null type (derived from o_base)
      */
+DB0_PACKED_BEGIN
     class DB0_PACKED_ATTR o_null: public o_base<o_null>
     {
     public :
@@ -207,14 +209,24 @@ DB0_PACKED_BEGIN
         std::uint16_t getVersion() const;
         static constexpr bool versionIsStored();
     };
-
+DB0_PACKED_END
+    
+DB0_PACKED_BEGIN
+    // NOTE: when used as a base class, the sizeof should be zero! (due to empty base optimization)
+    struct DB0_PACKED_ATTR o_fixed_null: public o_fixed<o_fixed_null>
+    {
+        static std::size_t sizeOf() {
+            return 0;
+        }
+    };
+DB0_PACKED_END    
+    
     /// some predefined simple overlaid types
     using o_int = o_simple<int>;
     using o_uint = o_simple<std::uint32_t>;
     using o_float = o_simple<float>;
     using o_double = o_simple<double>;
 
-DB0_PACKED_END
 }
 
 namespace std
