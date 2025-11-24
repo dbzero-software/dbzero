@@ -237,7 +237,7 @@ DB0_PACKED_END
     
     template <typename ItemT, typename CompressedItemT>
     void SparseIndexBase<ItemT, CompressedItemT>::update(PageNumT page_num, StateNumT state_num, std::uint64_t max_storage_page_num)
-    {   
+    {
         // update tree header if necessary
         this->update(max_storage_page_num);
         if (state_num > m_max_state_num) {
@@ -246,9 +246,6 @@ DB0_PACKED_END
         }
         // put the currently generated state number as the first element in the change-log
         if (m_change_log_ptr) {
-            if (m_change_log_ptr->empty()) {
-                m_change_log_ptr->push_back(m_max_state_num);
-            }
             m_change_log_ptr->push_back(page_num);
         }
     }

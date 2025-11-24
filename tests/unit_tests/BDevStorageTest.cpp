@@ -543,16 +543,13 @@ namespace tests
         for (auto range: state_ranges) {
             // collect and validate change-logs
             std::vector<StateNumType> state_nums;
-            cut.fetchDP_ChangeLogs(range.first, range.second, [&](StateNumType fetched_state_num, const DP_ChangeLogT &cl) {
-                state_nums.push_back(fetched_state_num);
+            cut.fetchDP_ChangeLogs(range.first, range.second, [&](const DP_ChangeLogT &cl) {
+                state_nums.push_back(cl.m_state_num);
                 std::vector<std::uint64_t> page_nums;
-                auto it = cl.begin();
-                ASSERT_EQ(fetched_state_num, *it);            
-                ++it;
-                for (;it != cl.end(); ++it) {
-                    page_nums.push_back(*it);
+                for (auto page_num: cl) {
+                    page_nums.push_back(page_num);
                 }
-                auto sorted_updates = updates[fetched_state_num - 1];
+                auto sorted_updates = updates[cl.m_state_num - 1];
                 std::sort(sorted_updates.begin(), sorted_updates.end());
                 ASSERT_EQ(page_nums, sorted_updates);
             });

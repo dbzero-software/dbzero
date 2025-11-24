@@ -7,6 +7,7 @@
 #include <functional>
 #include <unordered_map>
 #include <optional>
+#include "ChangeLogTypes.hpp"
 
 namespace db0
 
@@ -22,7 +23,7 @@ namespace db0
     {
     public:    
         using DRAM_ChangeLogT = db0::o_change_log<db0::o_fixed_null>;
-        using DP_ChangeLogT = db0::o_change_log<db0::o_fixed_null>;
+        using DP_ChangeLogT = db0::o_change_log<db0::o_dp_changelog_header>;
         
         BaseStorage(AccessType);
         virtual ~BaseStorage() = default;
@@ -126,7 +127,7 @@ namespace db0
         //   in the change log (or up to the last state number if not specified)
         // @param f function to be called for each transaction's change log
         virtual void fetchDP_ChangeLogs(StateNumType begin_state, std::optional<StateNumType> end_state,
-            std::function<void(StateNumType state_num, const DP_ChangeLogT &)> f) const;
+            std::function<void(const DP_ChangeLogT &)> f) const;
         
 #ifndef NDEBUG
         // state number, file offset

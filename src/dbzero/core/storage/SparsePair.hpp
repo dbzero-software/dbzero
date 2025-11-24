@@ -17,8 +17,8 @@ namespace db0
         using PageNumT = SparseIndex::PageNumT;
         using StateNumT = SparseIndex::StateNumT;
         using tag_create = SparseIndex::tag_create;
-        using DRAM_ChangeLogT = BaseStorage::DRAM_ChangeLogT;
-        using DRAM_ChangeLogStreamT = db0::ChangeLogIOStream<DRAM_ChangeLogT>;
+        using DP_ChangeLogT = BaseStorage::DP_ChangeLogT;
+        using DP_ChangeLogStreamT = db0::ChangeLogIOStream<DP_ChangeLogT>;
         
         SparsePair(std::size_t node_size);
         SparsePair(DRAM_Pair, AccessType);
@@ -56,7 +56,7 @@ namespace db0
          * Write internally managed change log into a specific stream 
          * and then clean the internal change log
         */
-        const DRAM_ChangeLogT &extractChangeLog(DRAM_ChangeLogStreamT &);
+        const DP_ChangeLogT &extractChangeLog(DP_ChangeLogStreamT &);
         
         std::size_t getChangeLogSize() const;
         

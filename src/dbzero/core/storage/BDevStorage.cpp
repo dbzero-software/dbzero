@@ -485,20 +485,15 @@ namespace db0
                             break;
                         }
                         
-                        // First element from the chunk is the updated state number
-                        auto it = dp_change_log_ptr->begin(), end = dp_change_log_ptr->end();
-                        assert(it != end);
-                        // First element in the log is the updated state number
-                        assert(*it != updated_state_num);
-                        updated_state_num = *it;
-                        // All other elements are page numbers
-                        ++it;
-                        for (; it != end; ++it) {
-                            on_page_updated(*it, updated_state_num);
+                        assert(dp_change_log_ptr->m_state_num != updated_state_num);
+                        updated_state_num = dp_change_log_ptr->m_state_num;
+                        // Elements are storage page numbers (mutated in that transaction)
+                        for (auto storage_page_num: *dp_change_log_ptr) {
+                            on_page_updated(storage_page_num, updated_state_num);
                         }
                     }
                 }
-
+                
             } catch (db0::IOException &) {
                 // NOTE: this exception may appear on distributed filesystems
                 // where changes are not guaranteed to be written sequentially
@@ -581,7 +576,7 @@ namespace db0
 #endif
     
     void BDevStorage::fetchDP_ChangeLogs(StateNumType begin_state, std::optional<StateNumType> end_state,
-        std::function<void(StateNumType state_num, const DP_ChangeLogT &)> f) const
+        std::function<void(const DP_ChangeLogT &)> f) const
     {
         std::unique_lock<std::shared_mutex> lock(m_mutex);
         if (m_dp_changelog_io.modified()) {
@@ -612,14 +607,13 @@ namespace db0
                     // end of the stream reached
                     break;
                 }
-                // first item of the change-log is the state number
-                auto state_num = *change_log->begin();
+                auto state_num = change_log->m_state_num;
                 if (end_state && state_num >= *end_state) {
                     // end of the range reached
                     break;
                 }
                 if (state_num >= begin_state) {
-                    f(state_num, *change_log);
+                    f(*change_log);
                 }
             }
         } catch (...) {

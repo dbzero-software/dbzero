@@ -46,35 +46,23 @@ namespace db0
         return m_sparse_index.size() + m_diff_index.size();
     }
     
-    const SparsePair::DRAM_ChangeLogT &SparsePair::extractChangeLog(DRAM_ChangeLogStreamT &changelog_io)
-    {        
-        assert(!m_change_log.empty());
-        // sort change log but keep the 1st item (the state number) at its place
-        if (!m_change_log.empty()) {
-            std::sort(m_change_log.begin() + 1, m_change_log.end());
-        }
-        
+    const SparsePair::DP_ChangeLogT &SparsePair::extractChangeLog(DP_ChangeLogStreamT &changelog_io)
+    {
+        std::sort(m_change_log.begin(), m_change_log.end());        
         ChangeLogData cl_data;
-        auto it = m_change_log.begin(), end = m_change_log.end();
-        // first item is the state number
-        cl_data.m_rle_builder.append(*(it++), true);
-        // the first page number (second item) must be added even if it is identical as the state number
-        if (it != end) {
-            cl_data.m_rle_builder.append(*(it++), true);
-        }
-        // all remaining items add with deduplication
-        for (; it != end; ++it) {
-            cl_data.m_rle_builder.append(*it, false);
+        // add page numbers with deduplication
+        for (auto page_num : m_change_log) {
+            cl_data.m_rle_builder.append(page_num, false);            
         }
         
-        // RLE encode, no duplicates
-        auto &result = changelog_io.appendChangeLog(std::move(cl_data));
+        // RLE encode, no duplicates        
+        auto &result = changelog_io.appendChangeLog(std::move(cl_data), this->getMaxStateNum());
         m_change_log.clear();
         return result;
     }
-
+    
     std::size_t SparsePair::getChangeLogSize() const {
-        return m_change_log.empty() ? 0 : m_change_log.size() - 1;
+        return m_change_log.size();
     }
 
     void SparsePair::commit()

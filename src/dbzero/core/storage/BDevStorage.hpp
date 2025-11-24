@@ -118,7 +118,7 @@ DB0_PACKED_END
         std::pair<std::size_t, std::size_t> getDiff_IOStats() const;
         
         void fetchDP_ChangeLogs(StateNumType begin_state, std::optional<StateNumType> end_state,
-            std::function<void(StateNumType, const DP_ChangeLogT &)> f) const override;
+            std::function<void(const DP_ChangeLogT &)> f) const override;
         
 #ifndef NDEBUG
         void getDRAM_IOMap(std::unordered_map<std::uint64_t, DRAM_PageInfo> &) const override;
@@ -137,9 +137,8 @@ DB0_PACKED_END
         // DRAM-changelog stream stores the sequence of updates to DRAM pages
         // DRAM-changelog must be initialized before DRAM_IOStream
         DRAM_ChangeLogStreamT m_dram_changelog_io;
-        // data-page change log, each chunk corresponds to a separate data transaction
-        // first element from each chunk represents the state number
-        // and the rest are the logical data page numbers mutated in that transaction
+        // data-page change log, each chunk corresponds to a separate data transaction        
+        // holds logical data page numbers mutated in that transaction
         DP_ChangeLogStreamT m_dp_changelog_io;
         // meta-stream keeps meta-data about the other streams
         MetaIOStream m_meta_io;
