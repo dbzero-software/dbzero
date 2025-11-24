@@ -230,8 +230,8 @@ namespace db0
         std::optional<std::size_t> slab_cache_size, std::optional<std::size_t> vobject_cache_size, 
         std::optional<std::size_t> flush_size, std::function<void(db0::swine_ptr<Fixture> &, bool, bool, bool)> fixture_initializer,
         std::shared_ptr<Config> config, std::optional<LockFlags> default_lock_flags)
-        : BaseWorkspace(root_path, cache_size, slab_cache_size, flush_size, 
-            default_lock_flags, m_config ? config->get<bool>("suppress_dist_overflow_error") : false)
+        : BaseWorkspace(root_path, cache_size, slab_cache_size, flush_size,
+            default_lock_flags, config ? config->get<bool>("suppress_dist_overflow_error") : false)
         , m_config(config)
         , m_fixture_catalog(m_prefix_catalog)
         , m_fixture_initializer(fixture_initializer)

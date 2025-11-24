@@ -82,6 +82,25 @@ namespace db0
         std::vector<char> m_buffer;
     };
     
+    template <typename o_change_log_t>
+    template <typename... Args>
+    const o_change_log_t &ChangeLogIOStream<o_change_log_t>::appendChangeLog(ChangeLogData &&data, Args&&... args)
+    {
+        auto size_of = o_change_log_t::measure(data, std::forward<Args>(args)...);
+        if (m_buffer.size() < size_of) {
+            m_buffer.resize(size_of);
+        }
+        
+        o_change_log_t::__new(m_buffer.data(), data, std::forward<Args>(args)...);
+        // append change log as a separate chunk
+        BlockIOStream::addChunk(size_of);
+        BlockIOStream::appendToChunk(m_buffer.data(), size_of);
+        m_last_change_log_ptr = &o_change_log_t::__const_ref(m_buffer.data());
+        assert(m_last_change_log_ptr->sizeOf() == size_of);
+
+        return *m_last_change_log_ptr;
+    }
+    
     extern template class ChangeLogIOStream<>;
     
 }

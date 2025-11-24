@@ -103,5 +103,7 @@ namespace db0
     bool o_change_log<BaseT>::isRLECompressed() const {
         return rleCompressed().value();
     }
-        
+    
+    template class o_change_log<db0::o_fixed_null>;
+
 }

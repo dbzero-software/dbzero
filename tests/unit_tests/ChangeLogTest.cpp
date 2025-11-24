@@ -27,7 +27,7 @@ namespace tests
     
     TEST_F( ChangeLogTest , testChangeLogMeasureAndSizeOf )
     {
-        std::vector<char> buf;
+        std::vector<std::byte> buf;
         // create default change log (i.e. null header)
         using ChangeLogT = o_change_log<>;
 
@@ -39,7 +39,7 @@ namespace tests
             auto safe_size = ChangeLogT::safeSizeOf(buf.data());
             ASSERT_EQ(measured_size, safe_size);
         }
-
+        
         // Test RLE compressed
         {
             std::vector<std::uint64_t> change_log = { 1, 2, 3, 4, 5 };
@@ -47,7 +47,8 @@ namespace tests
             auto measured_size = ChangeLogT::measure(data);
             buf.resize(measured_size);
             ChangeLogT::__new(buf.data(), data);
-            auto safe_size = ChangeLogT::safeSizeOf(buf.data());            
+            auto safe_size = ChangeLogT::safeSizeOf(buf.data());         
+            ASSERT_EQ(measured_size, safe_size);
         }
 
         // Test uncompressed
@@ -60,6 +61,30 @@ namespace tests
             auto safe_size = ChangeLogT::safeSizeOf(buf.data());
             ASSERT_EQ(measured_size, safe_size);
         }                
+    }
+
+    TEST_F( ChangeLogTest , testChangeLogNullHeaderHasNoOverhead )
+    {
+        std::vector<std::byte> buf;
+        // create default change log (i.e. null header)
+        using ChangeLogT = o_change_log<db0::o_fixed_null>;
+                
+        std::vector<std::uint64_t> change_log = { 1, 2, 3, 4, 5 };
+        ChangeLogData data(std::move(change_log), true, false, false);
+        auto measured_size = ChangeLogT::measure(data);
+        buf.resize(measured_size);
+        auto &cut = ChangeLogT::__new(buf.data(), data);
+        ASSERT_TRUE(cut.isRLECompressed());
+
+        auto diff = (std::byte*)&cut.rleCompressed() - (std::byte*)&cut;
+        ASSERT_EQ(0, diff);
+        
+        unsigned int count = 0;
+        for (auto addr: cut) {
+            ASSERT_EQ(addr, count + 1);
+            ++count;
+        }
+        ASSERT_EQ(count, 5u);
     }
     
 }

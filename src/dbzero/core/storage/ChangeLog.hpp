@@ -44,10 +44,6 @@ DB0_PACKED_BEGIN
         template <typename... Args>
         o_change_log(const ChangeLogData &, Args&&... args);
 
-        const o_simple<bool> &rleCompressed() const {
-            return this->getDynFirst(o_simple<bool>::type());
-        }
-
         // change log as RLE sequence type
         const o_rle_sequence<std::uint64_t> &rle_sequence() const
         {
@@ -64,6 +60,10 @@ DB0_PACKED_BEGIN
     public:
         template <typename... Args>
         static std::size_t measure(const ChangeLogData &, Args... args);
+
+        const o_simple<bool> &rleCompressed() const {
+            return this->getDynFirst(o_simple<bool>::type());
+        }
 
         class ConstIterator
         {
@@ -82,12 +82,9 @@ DB0_PACKED_BEGIN
         };
         
         bool isRLECompressed() const;
-
+        
         ConstIterator begin() const;
         ConstIterator end() const;
-
-        // Decode the last element from the log (possibly a sentinel)
-        std::uint64_t last() const;
         
         template <typename T> static std::size_t safeSizeOf(T buf)
         {
@@ -128,11 +125,11 @@ DB0_PACKED_END
     {
         bool rle_compressed = !data.m_rle_builder.empty();
         if (rle_compressed) {
-            return measureBaseMembers(std::forward<Args>(args)...)
+            return super_t::measureMembersFromBase(std::forward<Args>(args)...)
                 (o_simple<bool>::type())
                 (o_rle_sequence<std::uint64_t>::type(), data.m_rle_builder.getData());
         } else {
-            return measureBaseMembers(std::forward<Args>(args)...)
+            return super_t::measureMembersFromBase(std::forward<Args>(args)...)
                 (o_simple<bool>::type())
                 (o_list<o_simple<std::uint64_t> >::type(), data.m_change_log);
         }
