@@ -289,7 +289,6 @@ namespace db0::python
             {"lang_cache_size", []{ return PyLong_FromUnsignedLongLong(LangCache::DEFAULT_CAPACITY); }},
             {"autocommit", []{ Py_RETURN_TRUE; }},
             {"autocommit_interval", []{ return PyLong_FromUnsignedLongLong(Workspace::DEFAULT_AUTOCOMMIT_INTERVAL_MS); }},
-            {"suppress_dist_overflow_error", []{ Py_RETURN_FALSE; }}
         };
         for (const auto &[key_str, default_fn] : defaults) {
             // Populate default values so then can be easily accessed with get_config
