@@ -57,6 +57,23 @@ namespace db0
             return m_value;
         }
     };
+
+    struct GC0_SharedState
+    {
+        std::vector<GC_Ops> m_ops;
+        // GC-ops by storage class
+        std::unordered_map<StorageClass, GCOps_ID> m_ops_map;
+        // flag indicating if static bindings were initialized
+        bool m_initialized;
+
+        GC0_SharedState() = default;
+        // We don't want accidental copy
+        GC0_SharedState(const GC0_SharedState&) = delete;
+        GC0_SharedState(GC0_SharedState&&) = delete;
+        GC0_SharedState& operator=(const GC0_SharedState&) = delete;
+        GC0_SharedState& operator=(GC0_SharedState&) = delete;
+    };
+    
     
 #define GC0_Declare protected: \
     friend class db0::GC0; \
@@ -130,11 +147,11 @@ namespace db0
         std::optional<unsigned int> erase(void *vptr);
         
     private:
-        static std::vector<GC_Ops> m_ops;
-        // GC-ops by storage class
-        static std::unordered_map<StorageClass, GCOps_ID> m_ops_map;
-        // flag indicating if static bindings were initialized
-        static bool m_initialized;
+        // Keep shared state 'alive' until it isn't needed anymore 
+        std::shared_ptr<GC0_SharedState> m_shared_state;
+        static std::shared_ptr<GC0_SharedState>& getGlobalSharedState();
+        GC0_SharedState& getSharedState();
+
         const bool m_read_only;
         // type / ops_id
         std::unordered_map<void*, unsigned int> m_vptr_map;
@@ -153,9 +170,10 @@ namespace db0
 
         template <typename T> static void registerSingleType()
         {            
-            T::m_gc_ops_id = GCOps_ID(m_ops.size());
-            m_ops.push_back(T::getGC_Ops());
-            m_ops_map[T::storageClass()] = T::m_gc_ops_id;
+            auto &state = getGlobalSharedState();
+            T::m_gc_ops_id = GCOps_ID(state->m_ops.size());
+            state->m_ops.push_back(T::getGC_Ops());
+            state->m_ops_map[T::storageClass()] = T::m_gc_ops_id;
         }
     };
     
@@ -165,11 +183,12 @@ namespace db0
         assert(vptr);
         std::unique_lock<std::mutex> lock(m_mutex);
         // detach function must always be provided
-        assert(m_ops[T::m_gc_ops_id].detach);
-        assert(m_ops[T::m_gc_ops_id].address);
+        auto &ops_list = getSharedState().m_ops;
+        assert(ops_list[T::m_gc_ops_id].detach);
+        assert(ops_list[T::m_gc_ops_id].address);
         m_vptr_map[vptr] = T::m_gc_ops_id;
         // if the type implements flush then also add it to the flush map
-        if (m_ops[T::m_gc_ops_id].flush) {
+        if (ops_list[T::m_gc_ops_id].flush) {
             m_flush_map[vptr] = T::m_gc_ops_id;
         }
         if (m_atomic) {
@@ -193,12 +212,13 @@ namespace db0
     
     template <typename... T> void GC0::registerTypes()
     {        
-        if (m_initialized) {
+        auto &state = getGlobalSharedState();
+        if (state->m_initialized) {
             return;
         }
         
         (registerSingleType<T>(), ...);
-        m_initialized = true;
+        state->m_initialized = true;
     }
 
 }

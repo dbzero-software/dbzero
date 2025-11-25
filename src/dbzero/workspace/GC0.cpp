@@ -3,10 +3,12 @@
 namespace db0
 
 {
-    
-    std::vector<GC_Ops> GC0::m_ops;
-    std::unordered_map<StorageClass, GCOps_ID> GC0::m_ops_map;
-    bool GC0::m_initialized = false;
+    std::shared_ptr<GC0_SharedState>& GC0::getGlobalSharedState()
+    {
+        // Enforce singleton-like behavior. Single initialization is guaranteed by C++.
+        static std::shared_ptr<GC0_SharedState> global_shared_state = std::make_shared<GC0_SharedState>();
+        return global_shared_state;
+    }
 
     template <typename T> void dropByAddr(Memspace &memspace, Address addr, const std::vector<GC_Ops> &ops)
     {
@@ -15,19 +17,26 @@ namespace db0
     }
 
     GC0::GC0(db0::swine_ptr<Fixture> &fixture)
-        : super_t(fixture)        
+        : super_t(fixture)
+        , m_shared_state(getGlobalSharedState())    
         , m_read_only(false)
     {
     }
     
     GC0::GC0(db0::swine_ptr<Fixture> &fixture, Address address, bool read_only)
         : super_t(tag_from_address(), fixture, address)
+        , m_shared_state(getGlobalSharedState())    
         , m_read_only(read_only)
     {
     }
     
     GC0::~GC0()
     {
+    }
+
+    GC0_SharedState& GC0::getSharedState()
+    {
+        return *m_shared_state;
     }
     
     bool GC0::tryRemove(void *vptr, bool is_volatile)
@@ -39,7 +48,7 @@ namespace db0
         }
         
         NoArgsFunction drop_op = nullptr;
-        auto &ops = m_ops[it->second];
+        auto &ops = getSharedState().m_ops[it->second];
         // if type implements flush then remove it from flush map as well
         if (ops.flush) {
             m_flush_map.erase(vptr);
@@ -80,8 +89,9 @@ namespace db0
     void GC0::detachAll()
     {
         std::unique_lock<std::mutex> lock(m_mutex);
+        auto &ops_list = getSharedState().m_ops;
         for (auto &vptr_item : m_vptr_map) {
-            m_ops[vptr_item.second].detach(vptr_item.first);
+            ops_list[vptr_item.second].detach(vptr_item.first);
         }
     }
     
@@ -97,10 +107,11 @@ namespace db0
         std::unique_lock<std::mutex> lock(m_mutex);
         std::unordered_set<TypedAddress> addresses;
         std::size_t count = 0;
+        auto &ops_list = getSharedState().m_ops;
         for (auto vptr : vptrs) {
             auto it = m_vptr_map.find(vptr);
             if (it != m_vptr_map.end()) {
-                auto &ops = m_ops[it->second];
+                auto &ops = ops_list[it->second];
                 ops.commit(vptr);
                 if (ops.hasRefs && !ops.hasRefs(vptr)) {
                     addresses.insert(toTypedAddress(ops.address(vptr)));
@@ -126,8 +137,9 @@ namespace db0
     void GC0::commitAll()
     {
         std::unique_lock<std::mutex> lock(m_mutex);
+        auto &ops_list = getSharedState().m_ops;
         for (auto &vptr_item : m_vptr_map) {
-            m_ops[vptr_item.second].commit(vptr_item.first);
+            ops_list[vptr_item.second].commit(vptr_item.first);
         }
     }
 
@@ -156,8 +168,9 @@ namespace db0
         lock.unlock();
         
         // call flush where it's provided
+        auto &ops_list = getSharedState().m_ops;
         for (auto &item : flush_ops) {
-            m_ops[item.second].flush(item.first, false);
+            ops_list[item.second].flush(item.first, false);
         }
     }
     
@@ -171,20 +184,23 @@ namespace db0
         if (!fixture) {
             THROWF(db0::InternalException) << "GC0::collect: cannot collect without a valid fixture";
         }
+
+        auto &ops_list = getSharedState().m_ops;
+        auto &ops_map = getSharedState().m_ops_map;
         
         // drop scheduled for deletion
         for (auto &addr_pair: m_scheduled_for_deletion) {
-            auto ops_id = m_ops_map[addr_pair.second];
-            assert(ops_id < m_ops.size());
-            m_ops[ops_id].dropByAddr(fixture, addr_pair.first.getAddress());
+            auto ops_id = ops_map[addr_pair.second];
+            assert(ops_id < ops_list.size());
+            ops_list[ops_id].dropByAddr(fixture, addr_pair.first.getAddress());
         }
         m_scheduled_for_deletion.clear();
         
         for (auto addr: *this) {
-            auto ops_id = m_ops_map[addr.getType()];
-            assert(ops_id < m_ops.size());
+            auto ops_id = ops_map[addr.getType()];
+            assert(ops_id < ops_list.size());
             // object will be dropped only if it has no references
-            m_ops[ops_id].dropByAddr(fixture, addr.getAddress());
+            ops_list[ops_id].dropByAddr(fixture, addr.getAddress());
         }
         super_t::clear();
     }
@@ -213,8 +229,9 @@ namespace db0
             }
         }
         // call reverse flush where it's provided (use revert=true)
+        auto &ops_list = getSharedState().m_ops;
         for (auto &item : m_flush_map) {
-            m_ops[item.second].flush(item.first, true);
+            ops_list[item.second].flush(item.first, true);
         }
         m_volatile.clear();
         m_atomic = false;
