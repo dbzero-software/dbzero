@@ -61,10 +61,9 @@ namespace db0
         std::size_t getChangeLogSize() const;
         
         void commit();
-
+        
     private:
-        // change log contains the list of updates (modified items / page numbers)
-        // first element is the state number
+        // Change log contains the list of updates (modified items / page numbers)        
         std::vector<std::uint64_t> m_change_log;
         SparseIndex m_sparse_index;
         DiffIndex m_diff_index;

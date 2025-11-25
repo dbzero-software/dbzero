@@ -35,7 +35,7 @@ namespace db0
     typename SparsePair::StateNumT SparsePair::getMaxStateNum() const {
         return std::max(m_sparse_index.getMaxStateNum(), m_diff_index.getMaxStateNum());
     }
-
+    
     void SparsePair::refresh()
     {
         m_sparse_index.refresh();

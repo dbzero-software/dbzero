@@ -69,7 +69,7 @@ namespace db0
     void Page_IO::read(std::uint64_t page_num, void *buffer) const {
         m_file.read(m_header_size + page_num * m_page_size, m_page_size, buffer);
     }
-
+    
     void Page_IO::write(std::uint64_t page_num, void *buffer) {
         m_file.write(m_header_size + page_num * m_page_size, m_page_size, buffer);
     }

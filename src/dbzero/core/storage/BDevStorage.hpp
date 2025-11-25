@@ -18,11 +18,14 @@
 #include <dbzero/workspace/LockFlags.hpp>
 #include <dbzero/core/compiler_attributes.hpp>
 #include <shared_mutex>
+#include "ExtSpace.hpp"
 
 namespace db0
 
 {
     
+    class REL_Index;
+
 DB0_PACKED_BEGIN
     struct DB0_PACKED_ATTR o_prefix_config: public o_fixed_versioned<o_prefix_config>
     {
@@ -30,7 +33,7 @@ DB0_PACKED_BEGIN
         static constexpr std::uint64_t DB0_MAGIC = 0x0DB0DB0DB0DB0DB0;
 
         std::uint64_t m_magic = DB0_MAGIC;
-        std::uint32_t m_version = 1;        
+        std::uint32_t m_version = 1;  
         std::uint32_t m_block_size;
         // the prefix page size
         std::uint32_t m_page_size;
@@ -44,6 +47,9 @@ DB0_PACKED_BEGIN
         // a a single indivisible "step".
         // This value (entire step) corresponts to a single entry in the REL_Index (if it's used)
         std::uint32_t m_page_io_step_size;
+        std::uint64_t m_ext_dram_io_offset = 0;
+        std::uint32_t m_ext_dram_page_size = 0;
+        std::uint64_t m_ext_dram_changelog_io_offset = 0;
         // reserved for future use (0-filled)
         std::array<std::uint64_t, 16> m_reserved;
         
@@ -51,7 +57,7 @@ DB0_PACKED_BEGIN
             std::uint32_t page_io_step_size);
     };
 DB0_PACKED_END
-
+    
     /**
      * Block-device based storage implementation
      * the SparseIndex is held in-memory, modifications are written to WAL and serialized to disk on close
@@ -150,13 +156,19 @@ DB0_PACKED_END
         MetaIOStream m_meta_io;
         // memory-mapped file I/O
         DRAM_IOStream m_dram_io;
-        // SparseIndex + DiffIndex
+        // SparseIndex + DiffIndex (based over the dram_io)
         SparsePair m_sparse_pair;
         // DRAM-backed sparse index tree
         SparseIndex &m_sparse_index;
         DiffIndex &m_diff_index;
         // the stream for storing & reading full-DPs and diff-encoded DPs
         Diff_IO m_page_io;
+        // extension DRAM IO (only initialized when holding extension indexes e.g. REL_Index)
+        std::unique_ptr<DRAM_ChangeLogStreamT> m_ext_dram_changelog_io;
+        std::unique_ptr<DRAM_IOStream> m_ext_dram_io;
+        ExtSpace m_ext_space;
+        // the primary REL_Index instance (if used)
+        REL_Index *m_rel_index_ptr = nullptr;
         bool m_refresh_pending = false;
         mutable std::shared_mutex m_mutex;
 #ifndef NDEBUG
@@ -168,6 +180,7 @@ DB0_PACKED_END
 #endif
 
         static DRAM_IOStream init(DRAM_IOStream &&, DRAM_ChangeLogStreamT &);
+        static std::unique_ptr<DRAM_IOStream> init(std::unique_ptr<DRAM_IOStream> &&, DRAM_ChangeLogStreamT *);
         
         static MetaIOStream init(MetaIOStream &&);
         
@@ -180,11 +193,26 @@ DB0_PACKED_END
         BlockIOStream getBlockIOStream(std::uint64_t first_block_pos, AccessType);
         
         DRAM_IOStream getDRAMIOStream(std::uint64_t first_block_pos, std::uint32_t dram_page_size, AccessType);
+        std::unique_ptr<DRAM_IOStream> tryGetDRAMIOStream(std::uint64_t first_block_pos,
+            std::uint32_t dram_page_size, AccessType);
         
         template<typename ChangeLogIOStreamT>
         ChangeLogIOStreamT getChangeLogIOStream(std::uint64_t first_block_pos, AccessType access_type)
         {
             return { m_file, first_block_pos, m_config.m_block_size, getTailFunction(), access_type };
+        }
+
+        template<typename ChangeLogIOStreamT>
+        std::unique_ptr<ChangeLogIOStreamT> tryGetChangeLogIOStream(std::uint64_t first_block_pos, AccessType access_type)
+        {
+            if (first_block_pos) {
+                return std::make_unique<ChangeLogIOStreamT>(
+                    m_file, first_block_pos, m_config.m_block_size, getTailFunction(), access_type
+                );
+            } else {
+                // stream does not exist
+                return {};
+            }            
         }
 
         MetaIOStream getMetaIOStream(std::uint64_t first_block_pos, std::size_t step_size, AccessType);

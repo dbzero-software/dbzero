@@ -12,18 +12,6 @@ namespace db0
 
 {
     
-    BlockIOStream readAll(BlockIOStream &&io)
-    {
-       // FIXME: implement WAL processing
-        std::vector<char> buf;
-        for (;;) {
-            if (!io.readChunk(buf)) {
-                break;
-            }
-        }
-        return std::move(io);
-    }
-
     o_prefix_config::o_prefix_config(std::uint32_t block_size, std::uint32_t page_size,
         std::uint32_t dram_page_size, std::uint32_t page_io_step_size)
         : m_block_size(block_size)
@@ -34,6 +22,14 @@ namespace db0
         std::memset(m_reserved.data(), 0, sizeof(m_reserved));
     }
     
+    DRAM_Pair tryGetDRAMPair(DRAM_IOStream *dram_io_ptr)
+    {
+        if (!dram_io_ptr) {
+            return {};
+        }
+        return dram_io_ptr->getDRAMPair();
+    }
+
     BDevStorage::BDevStorage(const std::string &file_name, AccessType access_type, LockFlags lock_flags,
         std::optional<std::size_t> meta_io_step_size)
         : BaseStorage(access_type)
@@ -55,6 +51,13 @@ namespace db0
         , m_sparse_index(m_sparse_pair.getSparseIndex())
         , m_diff_index(m_sparse_pair.getDiffIndex())
         , m_page_io(getPage_IO(m_sparse_pair.getNextStoragePageNum(), m_config.m_page_io_step_size, access_type))
+        , m_ext_dram_changelog_io(tryGetChangeLogIOStream<DRAM_ChangeLogStreamT>(
+            m_config.m_ext_dram_changelog_io_offset, access_type)
+        )
+        , m_ext_dram_io(init(tryGetDRAMIOStream(
+            m_config.m_ext_dram_io_offset, m_config.m_ext_dram_page_size, access_type), m_ext_dram_changelog_io.get())
+        )
+        , m_ext_space(tryGetDRAMPair(m_ext_dram_io.get()), access_type)
     {
         // in read-only mode need to refresh in order to retrieve a consitent DRAM state
         // since other process might be actively modifying the underlying file
@@ -73,6 +76,15 @@ namespace db0
         return std::move(dram_io);
     }
     
+    std::unique_ptr<DRAM_IOStream> BDevStorage::init(std::unique_ptr<DRAM_IOStream> &&dram_io,
+        DRAM_ChangeLogStreamT *dram_change_log)
+    {
+        if (dram_io && dram_change_log) {
+            dram_io->load(*dram_change_log);
+        }
+        return std::move(dram_io);
+    }
+
     MetaIOStream BDevStorage::init(MetaIOStream &&io)
     {
         // exhaust the meta-log stream (position at the last item) and all managed streams
@@ -91,11 +103,11 @@ namespace db0
         return config;
     }
     
-    std::uint32_t getPageIOStepSize(std::optional<std::size_t> step_size_hint)
+    std::uint32_t getPageIOStepSize(std::uint32_t block_size, std::optional<std::size_t> step_size_hint)
     {
-        if (step_size_hint) {
-            // FIXME: log
-            throw std::runtime_error("not implemented");
+        if (step_size_hint && *step_size_hint > 0) {
+            // align to full block size
+            return (*step_size_hint + block_size - 1) / block_size;
         } else {
             // default to single-block steps
             return 1u;
@@ -120,7 +132,7 @@ namespace db0
             DRAM_IOStream::sizeOfHeader();
         // create a new config using placement new
         auto config = new (buffer.data()) o_prefix_config(
-            block_size, *page_size, dram_page_size, getPageIOStepSize(step_size_hint)
+            block_size, *page_size, dram_page_size, getPageIOStepSize(block_size, step_size_hint)
         );
 
         std::uint64_t offset = CONFIG_BLOCK_SIZE;
@@ -136,6 +148,16 @@ namespace db0
         config->m_dram_changelog_io_offset = next_block_offset();
         config->m_dp_changelog_io_offset = next_block_offset();
         config->m_meta_io_offset = next_block_offset();
+
+        // initialize ext streams only when needed
+        bool has_ext_dram_io = config->m_page_io_step_size > 1;
+        if (has_ext_dram_io) {
+            config->m_ext_dram_io_offset = next_block_offset();
+            // NOTE: use same as the prefix page size
+            config->m_ext_dram_page_size = *page_size;
+            config->m_ext_dram_changelog_io_offset = next_block_offset();
+        }
+        
         CFile::create(file_name, buffer);
         
         // Create higher-order data structures
@@ -143,10 +165,18 @@ namespace db0
             CFile file(file_name, AccessType::READ_WRITE);
             DRAM_ChangeLogStreamT *dram_changelog_io_ptr = nullptr;
             DRAM_IOStream *dram_io_ptr = nullptr;
-            auto tail_function = [&]() {
+            std::unique_ptr<DRAM_ChangeLogStreamT> ext_dram_changelog_io_ptr = nullptr;
+            std::unique_ptr<DRAM_IOStream> ext_dram_io_ptr = nullptr;
+
+            auto tail_function = [&]()
+            {
                 assert(dram_io_ptr && dram_changelog_io_ptr);                
                 // take max from the underlying I/O streams
-                return std::max(offset, std::max(dram_io_ptr->tail(), dram_changelog_io_ptr->tail()));
+                auto result = std::max(offset, std::max(dram_io_ptr->tail(), dram_changelog_io_ptr->tail()));
+                if (ext_dram_io_ptr && ext_dram_changelog_io_ptr) {
+                    result = std::max(result, std::max(ext_dram_io_ptr->tail(), ext_dram_changelog_io_ptr->tail()));
+                }
+                return result;
             };
             
             auto dram_changelog_io = DRAM_ChangeLogStreamT(file, config->m_dram_changelog_io_offset, config->m_block_size,
@@ -156,14 +186,36 @@ namespace db0
                 AccessType::READ_WRITE, config->m_dram_page_size);
             dram_io_ptr = &dram_io;
             
+            // Initialize extension streams when needed
+            if (has_ext_dram_io) {
+                ext_dram_changelog_io_ptr = std::make_unique<DRAM_ChangeLogStreamT>(file,
+                    static_cast<std::uint64_t>(config->m_ext_dram_changelog_io_offset), 
+                    static_cast<std::uint32_t>(config->m_block_size), tail_function,
+                    AccessType::READ_WRITE);
+                ext_dram_io_ptr = std::make_unique<DRAM_IOStream>(file,
+                    static_cast<std::uint64_t>(config->m_ext_dram_io_offset), 
+                    static_cast<std::uint32_t>(config->m_block_size), tail_function, AccessType::READ_WRITE,
+                    static_cast<std::uint32_t>(config->m_ext_dram_page_size));
+            }
+            
             // create then flush an empty sparse pair (i.e. SparseIndex + DiffIndex)
             SparsePair sparse_pair(SparsePair::tag_create(), dram_io.getDRAMPair());
-            dram_io.flushUpdates(sparse_pair.getMaxStateNum(), dram_changelog_io);
+            auto max_state_num = sparse_pair.getMaxStateNum();
+            dram_io.flushUpdates(max_state_num, dram_changelog_io);
             dram_changelog_io.flush();
             dram_io.close();
             dram_changelog_io.close();
+
+            if (has_ext_dram_io) {
+                assert(ext_dram_io_ptr && ext_dram_changelog_io_ptr);
+                ext_dram_io_ptr->flushUpdates(max_state_num, *ext_dram_changelog_io_ptr);
+                ext_dram_changelog_io_ptr->flush();
+                ext_dram_io_ptr->close();
+                ext_dram_changelog_io_ptr->close();
+            }
+            
             file.close();
-        }        
+        }
     }
     
     bool BDevStorage::tryFindMutation(std::uint64_t page_num, StateNumType state_num,
@@ -394,14 +446,30 @@ namespace db0
         return { m_file, first_block_pos, m_config.m_block_size, getTailFunction(), access_type, dram_page_size };
     }
     
+    std::unique_ptr<DRAM_IOStream> BDevStorage::tryGetDRAMIOStream(std::uint64_t first_block_pos,
+            std::uint32_t dram_page_size, AccessType access_type)
+    {
+        if (!first_block_pos) {
+            return nullptr;
+        }
+        return std::make_unique<DRAM_IOStream>(m_file, first_block_pos, m_config.m_block_size, 
+            getTailFunction(), access_type, dram_page_size);
+    }
+    
     std::uint64_t BDevStorage::tail() const
     {
         // take max from the 4 underlying I/O streams
         auto result = std::max(m_dram_io.tail(), m_meta_io.tail());
         result = std::max(result, m_dram_changelog_io.tail());
         result = std::max(result, m_dp_changelog_io.tail());
-        result = std::max(result, m_page_io.tail());        
+        result = std::max(result, m_page_io.tail());
 
+        // include ext streams when initialized
+        if (m_ext_dram_io) {
+            assert(m_ext_dram_changelog_io);
+            result =  std::max(result, std::max(m_ext_dram_io->tail(), m_ext_dram_changelog_io->tail()));
+        }
+        
         return result;
     }
     
