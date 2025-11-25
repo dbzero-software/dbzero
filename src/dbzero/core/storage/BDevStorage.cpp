@@ -205,9 +205,11 @@ namespace db0
             dram_changelog_io.flush();
             dram_io.close();
             dram_changelog_io.close();
-
+            
+            // create then flush the extension space
             if (has_ext_dram_io) {
                 assert(ext_dram_io_ptr && ext_dram_changelog_io_ptr);
+                ExtSpace ext_space(ExtSpace::tag_create(), ext_dram_io_ptr->getDRAMPair());
                 ext_dram_io_ptr->flushUpdates(max_state_num, *ext_dram_changelog_io_ptr);
                 ext_dram_changelog_io_ptr->flush();
                 ext_dram_io_ptr->close();
@@ -404,6 +406,12 @@ namespace db0
         m_sparse_pair.extractChangeLog(m_dp_changelog_io, m_page_io.getEndPageNum());
         m_dram_io.flushUpdates(state_num, m_dram_changelog_io);
         m_dp_changelog_io.flush();
+        // Flush ext streams
+        if (m_ext_dram_io) {
+            assert(m_ext_dram_changelog_io);
+            m_ext_dram_io->flushUpdates(state_num, *m_ext_dram_changelog_io);            
+            m_ext_dram_changelog_io->flush();
+        }
         // NOTE: fsync has stronger guarantees than flush in a multi-process environments
         m_file.fsync();
         // flush changelog AFTER all updates from all other streams have been flushed

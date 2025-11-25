@@ -218,7 +218,7 @@ DB0_PACKED_END
         , m_dram_allocator(dram_pair.second)
         , m_dram_space(DRAMSpace::create(dram_pair))
         , m_access_type(AccessType::READ_WRITE)
-        , m_index(createIndex())        
+        , m_index(createIndex())
         , m_next_page_num(m_index.treeHeader().m_next_page_num)
         , m_max_state_num(m_index.treeHeader().m_max_state_num)
         , m_change_log_ptr(change_log_ptr)

@@ -36,6 +36,11 @@ namespace db0
         void commit() const;
         
     private:
+        std::shared_ptr<DRAM_Prefix> m_dram_prefix;
+        std::shared_ptr<DRAM_Allocator> m_dram_allocator;
+        Memspace m_dram_space;
+        const AccessType m_access_type;
+        
         std::uint32_t m_step_size = 0;
         std::uint32_t m_shift = 0;
     };
