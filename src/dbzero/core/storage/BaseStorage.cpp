@@ -56,11 +56,11 @@ namespace db0
     void BaseStorage::beginCommit() {
     }
     
-    void BaseStorage::endCommit() {        
+    void BaseStorage::endCommit() {  
     }
 
-    void BaseStorage::fetchChangeLogs(StateNumType begin_state, std::optional<StateNumType> end_state,
-        std::function<void(StateNumType state_num, const o_change_log &)> f) const
+    void BaseStorage::fetchDP_ChangeLogs(StateNumType begin_state, std::optional<StateNumType> end_state,
+        std::function<void(StateNumType state_num, const DP_ChangeLogT &)> f) const
     {
         THROWF(db0::InternalException) << "Operation not supported: fetchChangeLog";
     }

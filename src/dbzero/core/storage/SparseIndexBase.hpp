@@ -16,7 +16,6 @@ namespace db0
 #include <dbzero/core/collections/rle/RLE_Sequence.hpp>
 #include <dbzero/core/dram/DRAM_Prefix.hpp>
 #include <dbzero/core/dram/DRAM_Allocator.hpp>
-#include "ChangeLogIOStream.hpp"
 #include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
@@ -24,8 +23,7 @@ namespace db0
 {
     
     class DRAM_Prefix;
-    class DRAM_Allocator;
-    class ChangeLogIOStream;
+    class DRAM_Allocator;    
     
     /**
      * The in-memory sparse index implementation

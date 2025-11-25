@@ -84,4 +84,10 @@ namespace db0
         return { m_first_page_num + m_page_count, m_block_capacity - m_page_count };
     }
     
+    std::uint64_t Page_IO::getEndPageNum() const
+    {
+        assert(m_access_type == AccessType::READ_WRITE);
+        return m_first_page_num + m_page_count;        
+    }
+    
 }

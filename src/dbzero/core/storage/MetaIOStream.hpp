@@ -8,8 +8,8 @@
 namespace db0
 
 {
-DB0_PACKED_BEGIN
 
+DB0_PACKED_BEGIN
     // Single managed-stream associated item
     struct DB0_PACKED_ATTR o_meta_item: public o_fixed<o_meta_item>
     {
@@ -20,7 +20,9 @@ DB0_PACKED_BEGIN
         
         o_meta_item(std::pair<std::uint64_t, std::uint64_t> stream_pos);
     };
+DB0_PACKED_END    
     
+DB0_PACKED_BEGIN
     // The single log item, possibly associated with multiple managed streams
     class DB0_PACKED_ATTR o_meta_log: public o_base<o_meta_log, 0, true>
     {
@@ -43,6 +45,7 @@ DB0_PACKED_BEGIN
                 (o_list<o_meta_item>::type());
         }
     };
+DB0_PACKED_END
     
     // The MetaIOStream is used to annotate data (i.e. state numbers and the corresponding file positions)
     // in the underlying managed ChangeLogIOStream-s
@@ -93,6 +96,5 @@ DB0_PACKED_BEGIN
         bool checkAppend() const;
         void appendMetaLog(StateNumType state_num, const std::vector<o_meta_item> &meta_items);
     };
-
-DB0_PACKED_END
+    
 }

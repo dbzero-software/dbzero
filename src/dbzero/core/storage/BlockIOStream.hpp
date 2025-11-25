@@ -170,7 +170,7 @@ DB0_PACKED_END
         static constexpr std::size_t sizeOfHeaders(bool checksums_enabled) {
             return sizeOfBlockHeader(checksums_enabled) + sizeOfChunkHeader();
         }
-
+        
         AccessType getAccessType() const {
             return m_access_type;
         }
@@ -195,7 +195,7 @@ DB0_PACKED_END
             bool m_eos;
         };
         
-        // Temporarily save the stream's state, to be later restore with restoreState()
+        // Temporarily save the stream's state, to be later restored with restoreState()
         // NOTE: no mutations between saveState() and restoreState() are allowed, or the behavior is undefined
         void saveState(State &) const;
         
@@ -206,6 +206,26 @@ DB0_PACKED_END
             return m_modified;
         }
 
+        /**
+         * Overwrite existing chunk with arbitrary data.
+         * No validations are performed, needs to be used with caution.
+         * Since this operations affects checksum, it's not allowed for streams opened with maintain_checksums = true
+         * Cursor position is not affected by this operation.
+         * @param address absolute address of the chunk
+         * @param buffer data to be written
+         * @param size size of the buffer
+        */
+        void writeToChunk(std::uint64_t address, const void *buffer, std::size_t size);
+
+        /**
+         * Read a chunk under a specific address without moving the within-stream cursor's position
+         * checksum validation is not performed
+         * @param address absolute address of the chunk
+         * @param buffer buffer to hold the chunk data
+         * @param chunk_size size of the chunk
+        */
+        void readFromChunk(std::uint64_t address, void *buffer, std::size_t chunk_size) const;
+        
     protected:
         CFile &m_file;
         // the stream's starting address
@@ -263,26 +283,6 @@ DB0_PACKED_END
          * @return false if validation was not successful
         */
         bool readBlock(std::uint64_t address, void *buffer);
-
-        /**
-         * Overwrite existing chunk with arbitrary data.
-         * No validations are performed, needs to be used with caution.
-         * Since this operations affects checksum, it's not allowed for streams opened with maintain_checksums = true
-         * Cursor position is not affected by this operation.
-         * @param address absolute address of the chunk
-         * @param buffer data to be written
-         * @param size size of the buffer
-        */
-        void writeToChunk(std::uint64_t address, const void *buffer, std::size_t size);
-
-        /**
-         * Read a chunk under a specific address without moving the within-stream cursor's position
-         * checksum validation is not performed
-         * @param address absolute address of the chunk
-         * @param buffer buffer to hold the chunk data
-         * @param chunk_size size of the chunk
-        */
-        void readFromChunk(std::uint64_t address, void *buffer, std::size_t chunk_size) const;
 
         std::uint64_t nextAddress() const;
     };
