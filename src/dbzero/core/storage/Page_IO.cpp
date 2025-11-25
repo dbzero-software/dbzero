@@ -7,25 +7,28 @@ namespace db0
 {
 
     Page_IO::Page_IO(std::size_t header_size, CFile &file, std::uint32_t page_size, std::uint32_t block_size,
-        std::uint64_t address, std::uint32_t page_count, std::function<std::uint64_t()> tail_function)  
-        : m_header_size(header_size)        
+        std::uint64_t address, std::uint32_t page_count, std::uint32_t step_size, std::function<std::uint64_t()> tail_function,
+        std::optional<std::uint32_t> block_num)
+        : m_header_size(header_size)
         , m_page_size(page_size)
         , m_block_size(block_size)
         , m_block_capacity(block_size / page_size)
+        , m_step_size(step_size)
         , m_file(file)
         , m_address(address)
         , m_page_count(page_count)
-        , m_first_page_num(getPageNum(address))
+        , m_first_page_num(getPageNum(address))        
         , m_tail_function(tail_function)
         , m_access_type(AccessType::READ_WRITE)
-    {        
+        , m_block_num(block_num)
+    {
         assert(block_size % page_size == 0);
     }
     
     Page_IO::Page_IO(std::size_t header_size, CFile &file, std::uint32_t page_size)
         : m_header_size(header_size)        
-        , m_page_size(page_size)
-        , m_file(file)
+        , m_page_size(page_size)        
+        , m_file(file)        
         , m_access_type(AccessType::READ_ONLY)
     {
     }
@@ -47,10 +50,20 @@ namespace db0
     
     void Page_IO::allocateNextBlock()
     {
-        // allocate the next block by appending it to the file
-        m_address = std::max(this->tail(), m_tail_function());
-        m_first_page_num = getPageNum(m_address);
-        m_page_count = 0;
+        if (m_block_num && *m_block_num < (m_step_size - 1)) {
+            // allocate next block within the step
+            m_address += m_block_size;
+            m_first_page_num += m_block_capacity;
+            m_page_count = 0;
+            ++(*m_block_num);
+        } else {
+            // allocate the next step / block by appending it to the file            
+            m_address = std::max(this->tail(), m_tail_function());
+            m_first_page_num = getPageNum(m_address);
+            m_page_count = 0;
+            // initiate the next full step
+            m_block_num = 0;
+        }
     }
     
     void Page_IO::read(std::uint64_t page_num, void *buffer) const {
@@ -64,11 +77,17 @@ namespace db0
     std::uint64_t Page_IO::getPageNum(std::uint64_t address) const {
         return ((address - m_header_size) / m_block_size) * m_block_capacity;
     }
-
-    std::uint64_t Page_IO::tail() const 
+    
+    std::uint64_t Page_IO::tail() const
     {
         assert(m_access_type == AccessType::READ_WRITE);
-        return m_address + m_block_size;
+        if (m_block_num) {
+            // reserve space up to end of the step
+            return m_address + (m_step_size - *m_block_num) * m_block_size;
+        } else {
+            // step not known, return end of current block
+            return m_address + m_block_size;
+        }
     }
     
     std::uint32_t Page_IO::getPageSize() const {

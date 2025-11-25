@@ -24,11 +24,14 @@ namespace db0
         return std::move(io);
     }
 
-    o_prefix_config::o_prefix_config(std::uint32_t block_size, std::uint32_t page_size, std::uint32_t dram_page_size)
+    o_prefix_config::o_prefix_config(std::uint32_t block_size, std::uint32_t page_size,
+        std::uint32_t dram_page_size, std::uint32_t page_io_step_size)
         : m_block_size(block_size)
         , m_page_size(page_size)
         , m_dram_page_size(dram_page_size)
+        , m_page_io_step_size(page_io_step_size)
     {
+        std::memset(m_reserved.data(), 0, sizeof(m_reserved));
     }
     
     BDevStorage::BDevStorage(const std::string &file_name, AccessType access_type, LockFlags lock_flags,
@@ -51,7 +54,7 @@ namespace db0
         , m_sparse_pair(m_dram_io.getDRAMPair(), access_type)
         , m_sparse_index(m_sparse_pair.getSparseIndex())
         , m_diff_index(m_sparse_pair.getDiffIndex())
-        , m_page_io(getPage_IO(m_sparse_pair.getNextStoragePageNum(), access_type))
+        , m_page_io(getPage_IO(m_sparse_pair.getNextStoragePageNum(), m_config.m_page_io_step_size, access_type))
     {
         // in read-only mode need to refresh in order to retrieve a consitent DRAM state
         // since other process might be actively modifying the underlying file
@@ -88,8 +91,19 @@ namespace db0
         return config;
     }
     
+    std::uint32_t getPageIOStepSize(std::optional<std::size_t> step_size_hint)
+    {
+        if (step_size_hint) {
+            // FIXME: log
+            throw std::runtime_error("not implemented");
+        } else {
+            // default to single-block steps
+            return 1u;
+        }
+    }
+    
     void BDevStorage::create(const std::string &file_name, std::optional<std::size_t> page_size,
-        std::uint32_t dram_page_size_hint)
+        std::uint32_t dram_page_size_hint, std::optional<std::size_t> step_size_hint)
     {
         if (!page_size) {
             page_size = DEFAULT_PAGE_SIZE;
@@ -105,7 +119,9 @@ namespace db0
         auto dram_page_size = block_size - BlockIOStream::sizeOfHeaders(DRAM_IOStream::ENABLE_CHECKSUMS) - 
             DRAM_IOStream::sizeOfHeader();
         // create a new config using placement new
-        auto config = new (buffer.data()) o_prefix_config(block_size, *page_size, dram_page_size);
+        auto config = new (buffer.data()) o_prefix_config(
+            block_size, *page_size, dram_page_size, getPageIOStepSize(step_size_hint)
+        );
 
         std::uint64_t offset = CONFIG_BLOCK_SIZE;
         auto next_block_offset = [&]() 
@@ -389,8 +405,8 @@ namespace db0
         return result;
     }
     
-    Diff_IO BDevStorage::getPage_IO(std::uint64_t next_page_hint, AccessType access_type)
-    {   
+    Diff_IO BDevStorage::getPage_IO(std::uint64_t next_page_hint, std::uint32_t step_size, AccessType access_type)
+    {
         if (access_type == AccessType::READ_ONLY) {
             // return empty page IO
             return { CONFIG_BLOCK_SIZE, m_file, m_config.m_page_size };
@@ -399,14 +415,16 @@ namespace db0
         assert(access_type == AccessType::READ_WRITE);
         auto block_id = (next_page_hint * m_config.m_page_size) / m_config.m_block_size;
         auto block_capacity = m_config.m_block_size / m_config.m_page_size;
-
+        
         if (next_page_hint == 0) {
             // assign first page
             auto address = std::max(m_dram_io.tail(), m_meta_io.tail());
             address = std::max(address, m_dram_changelog_io.tail());
             address = std::max(address, m_dp_changelog_io.tail());
+            // NOTE: initialize with a known block num = 0 (first block of the first step)
             return { CONFIG_BLOCK_SIZE, m_file, m_config.m_page_size, m_config.m_block_size, address, 0,
-                getBlockIOTailFunction() };
+                step_size, getBlockIOTailFunction(), 0 
+            };
         }
         
         auto address = CONFIG_BLOCK_SIZE + block_id * m_config.m_block_size;
@@ -418,8 +436,10 @@ namespace db0
             page_count = block_capacity;
         }
 
+        // NOTE: block num is unknown in this case
         return { CONFIG_BLOCK_SIZE, m_file, m_config.m_page_size, m_config.m_block_size, address, page_count,
-            getBlockIOTailFunction() };
+            step_size, getBlockIOTailFunction() 
+        };
     }
     
     std::uint32_t BDevStorage::getMaxStateNum() const {

@@ -61,10 +61,11 @@ namespace db0::python
          * Opens a specific prefix for read or read/write
          * a newly opened read/write prefix becomes the default one
          * @param slab_size will only have effect for a newly created prefixes
+         * @param page_io_step_size parameter only respected for newly created prefixes
         */
         void open(const std::string &prefix_name, AccessType, std::optional<bool> autocommit = {},
             std::optional<std::size_t> slab_size = {}, ObjectPtr lock_flags = nullptr, 
-            std::optional<std::size_t> meta_io_step_size = {}
+            std::optional<std::size_t> meta_io_step_size = {}, std::optional<std::size_t> page_io_step_size = {}
         );
         
         db0::Workspace &getWorkspace() const;

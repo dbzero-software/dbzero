@@ -6,8 +6,8 @@
 namespace db0
 
 {
-DB0_PACKED_BEGIN
 
+DB0_PACKED_BEGIN
     struct DB0_PACKED_ATTR o_diff_header: public o_fixed<o_diff_header>
     {
         // the number of objects contained
@@ -16,6 +16,7 @@ DB0_PACKED_BEGIN
         // (bytes before offset can be taken by remnants of the object from the previous page)
         std::uint16_t m_offset = 0;
     };
+DB0_PACKED_END    
     
     class DiffWriter
     {
@@ -221,9 +222,10 @@ DB0_PACKED_BEGIN
         m_current += o_diff_header::sizeOf();
     }
     
-    Diff_IO::Diff_IO(std::size_t header_size, CFile &file, std::uint32_t page_size, std::uint32_t block_size, std::uint64_t address,
-        std::uint32_t page_count, std::function<std::uint64_t()> tail_function)
-        : Page_IO(header_size, file, page_size, block_size, address, page_count, tail_function)
+    Diff_IO::Diff_IO(std::size_t header_size, CFile &file, std::uint32_t page_size, 
+        std::uint32_t block_size, std::uint64_t address, std::uint32_t page_count, std::uint32_t step_size, 
+        std::function<std::uint64_t()> tail_function, std::optional<std::uint32_t> block_num)
+        : Page_IO(header_size, file, page_size, block_size, address, page_count, step_size, tail_function, block_num)
         , m_write_buf(page_size * 2)
         , m_read_buf(page_size * 2)
         , m_writer(std::make_unique<DiffWriter>(
@@ -233,7 +235,7 @@ DB0_PACKED_BEGIN
     }
     
     Diff_IO::Diff_IO(std::size_t header_size, CFile &file, std::uint32_t page_size)
-        : Page_IO(header_size, file, page_size)    
+        : Page_IO(header_size, file, page_size)
         , m_read_buf(page_size * 2)
     {
     }
@@ -337,5 +339,4 @@ DB0_PACKED_BEGIN
         return { m_full_dp_bytes_written + m_diff_bytes_written, m_diff_bytes_written };
     }
 
-DB0_PACKED_END
 }

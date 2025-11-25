@@ -18,7 +18,7 @@ namespace tests
     public:
         Diff_IOProxy(std::size_t header_size, CFile &file, std::uint32_t page_size, std::uint32_t block_size, std::uint64_t address,
             std::uint32_t page_count, std::function<std::uint64_t()> tail_function)
-            : Diff_IO(header_size, file, page_size, block_size, address, page_count, tail_function)             
+            : Diff_IO(header_size, file, page_size, block_size, address, page_count, 1u, tail_function)
         {
         }
 
@@ -93,7 +93,7 @@ namespace tests
             return file.size();
         };
 
-        Diff_IO cut(0, file, page_size, page_size * 16, 0, 0, tail_function);        
+        Diff_IOProxy cut(0, file, page_size, page_size * 16, 0, 0, tail_function);        
         std::vector<std::uint16_t> diff_buf;
         db0::getDiffs(m_dp_0.data(), m_dp_1.data(), page_size, diff_buf);
 
@@ -109,7 +109,7 @@ namespace tests
             return file.size();
         };
 
-        Diff_IO cut(0, file, page_size, page_size * 16, 0, 0, tail_function);        
+        Diff_IOProxy cut(0, file, page_size, page_size * 16, 0, 0, tail_function);        
         std::vector<std::uint16_t> diff_buf;
         db0::getDiffs(m_dp_0.data(), m_dp_1.data(), page_size, diff_buf);
 
@@ -129,7 +129,7 @@ namespace tests
         };
 
         // block size set to "2" so that it overflows quickly
-        Diff_IO cut(0, file, page_size, page_size * 2, 0, 0, tail_function);        
+        Diff_IOProxy cut(0, file, page_size, page_size * 2, 0, 0, tail_function);        
         std::vector<std::uint16_t> diff_buf;
         db0::getDiffs(m_dp_0.data(), m_dp_1.data(), page_size, diff_buf);
 
@@ -149,7 +149,7 @@ namespace tests
         };
 
         // block size set to "2" so that it overflows quickly
-        Diff_IO cut(0, file, page_size, page_size * 2, 0, 0, tail_function);        
+        Diff_IOProxy cut(0, file, page_size, page_size * 2, 0, 0, tail_function);        
         std::vector<std::uint16_t> diff_buf;
         db0::getDiffs(m_dp_0.data(), m_dp_1.data(), page_size, diff_buf);
         

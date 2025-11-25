@@ -14,7 +14,8 @@ namespace db0
     {
     public:
         Diff_IO(std::size_t header_size, CFile &file, std::uint32_t page_size, std::uint32_t block_size, std::uint64_t address, 
-            std::uint32_t page_count, std::function<std::uint64_t()> tail_function);
+            std::uint32_t page_count, std::uint32_t step_size, std::function<std::uint64_t()> tail_function, 
+            std::optional<std::uint32_t> block_num = {});
         // Read-only Diff_IO
         Diff_IO(std::size_t header_size, CFile &file, std::uint32_t page_size);
         ~Diff_IO();

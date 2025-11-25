@@ -40,10 +40,15 @@ DB0_PACKED_BEGIN
         // data pages change log
         std::uint64_t m_dp_changelog_io_offset = 0;
         std::uint64_t m_meta_io_offset = 0;
-        // reserved for future use
-        std::array<std::uint64_t, 16> m_reserved = { 0, 0, 0, 0 };
-
-        o_prefix_config(std::uint32_t block_size, std::uint32_t page_size, std::uint32_t dram_page_size);
+        // the number of concsecutive blocks created by the PageIO
+        // a a single indivisible "step".
+        // This value (entire step) corresponts to a single entry in the REL_Index (if it's used)
+        std::uint32_t m_page_io_step_size;
+        // reserved for future use (0-filled)
+        std::array<std::uint64_t, 16> m_reserved;
+        
+        o_prefix_config(std::uint32_t block_size, std::uint32_t page_size, std::uint32_t dram_page_size,
+            std::uint32_t page_io_step_size);
     };
 DB0_PACKED_END
 
@@ -69,9 +74,10 @@ DB0_PACKED_END
         
         /**
          * Create a new .db0 file
+         * @param step_size_hint defines requested Page IO step size in bytes
         */
         static void create(const std::string &file_name, std::optional<std::size_t> page_size = {},
-            std::uint32_t dram_page_size_hint = 16 * 1024 - 256);
+            std::uint32_t dram_page_size_hint = 16 * 1024 - 256, std::optional<std::size_t> step_size_hint = {});
         
         void read(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer,
             FlagSet<AccessOptions> = { AccessOptions::read, AccessOptions::write }) const override;
@@ -183,7 +189,7 @@ DB0_PACKED_END
 
         MetaIOStream getMetaIOStream(std::uint64_t first_block_pos, std::size_t step_size, AccessType);
         
-        Diff_IO getPage_IO(std::uint64_t next_page_hint, AccessType);
+        Diff_IO getPage_IO(std::uint64_t next_page_hint, std::uint32_t step_size, AccessType);
         
         o_prefix_config readConfig() const;
         
