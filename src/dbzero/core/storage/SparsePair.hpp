@@ -56,7 +56,7 @@ namespace db0
          * Write internally managed change log into a specific stream 
          * and then clean the internal change log
         */
-        const DP_ChangeLogT &extractChangeLog(DP_ChangeLogStreamT &);
+        const DP_ChangeLogT &extractChangeLog(DP_ChangeLogStreamT &, std::uint64_t end_storage_page_num);
         
         std::size_t getChangeLogSize() const;
         

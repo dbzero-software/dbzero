@@ -46,7 +46,8 @@ namespace db0
         return m_sparse_index.size() + m_diff_index.size();
     }
     
-    const SparsePair::DP_ChangeLogT &SparsePair::extractChangeLog(DP_ChangeLogStreamT &changelog_io)
+    const SparsePair::DP_ChangeLogT &SparsePair::extractChangeLog(DP_ChangeLogStreamT &changelog_io, 
+        std::uint64_t end_storage_page_num)
     {
         std::sort(m_change_log.begin(), m_change_log.end());        
         ChangeLogData cl_data;
@@ -56,7 +57,9 @@ namespace db0
         }
         
         // RLE encode, no duplicates        
-        auto &result = changelog_io.appendChangeLog(std::move(cl_data), this->getMaxStateNum());
+        auto &result = changelog_io.appendChangeLog(
+            std::move(cl_data), this->getMaxStateNum(), end_storage_page_num
+        );
         m_change_log.clear();
         return result;
     }

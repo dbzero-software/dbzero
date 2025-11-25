@@ -330,11 +330,12 @@ namespace db0
         m_meta_io.checkAndAppend(state_num);
         m_meta_io.flush();
         
+        m_page_io.flush();
         // Extract & flush sparse index change log first (on condition of any updates)
-        m_sparse_pair.extractChangeLog(m_dp_changelog_io);
+        // we also need to collect the end storage page number (sentinel)
+        m_sparse_pair.extractChangeLog(m_dp_changelog_io, m_page_io.getEndPageNum());
         m_dram_io.flushUpdates(state_num, m_dram_changelog_io);
         m_dp_changelog_io.flush();
-        m_page_io.flush();
         // NOTE: fsync has stronger guarantees than flush in a multi-process environments
         m_file.fsync();
         // flush changelog AFTER all updates from all other streams have been flushed

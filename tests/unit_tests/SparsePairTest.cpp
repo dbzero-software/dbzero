@@ -61,7 +61,7 @@ namespace tests
 
         {
             DP_ChangeLogStreamT io(file, 0, 4096, tail_function);
-            auto &change_log = cut.extractChangeLog(io);
+            auto &change_log = cut.extractChangeLog(io, 0);
             std::vector<std::uint64_t> data;
             for (auto value: change_log) {
                 data.push_back(value);
@@ -83,7 +83,7 @@ namespace tests
         {
             DP_ChangeLogStreamT io(file, 0, 4096, tail_function);
             while (io.readChangeLogChunk());
-            auto &change_log = cut.extractChangeLog(io);
+            auto &change_log = cut.extractChangeLog(io, 0);
             std::vector<std::uint64_t> expected_data { 0, 2, 3, 4 };
             std::vector<std::uint64_t> data;
             for (auto value: change_log) {
@@ -124,7 +124,7 @@ namespace tests
             // simulate change log extraction
             DP_ChangeLogStreamT io(file, 0, 16 << 10, tail_function, AccessType::READ_WRITE);
             while (io.readChangeLogChunk());
-            cut.extractChangeLog(io);
+            cut.extractChangeLog(io, 0);
             io.close();
 
             // refresh updates local cached variables with DRAM prefix

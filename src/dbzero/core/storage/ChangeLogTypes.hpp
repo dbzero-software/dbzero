@@ -14,7 +14,7 @@ DB0_PACKED_BEGIN
         // sentinel storage page number for this transaction (see Page_IO::getEndPageNum())
         std::uint64_t m_end_storage_page_num;
         
-        o_dp_changelog_header(StateNumType state_num, std::uint64_t end_storage_page_num = 0)
+        o_dp_changelog_header(StateNumType state_num, std::uint64_t end_storage_page_num)
             : m_state_num(state_num)
             , m_end_storage_page_num(end_storage_page_num)
         {
