@@ -1,9 +1,10 @@
 #pragma once
 
-#include <dbzero/core/serialization/Types.hpp>
 #include "BaseStorage.hpp"
 #include "ChangeLogIOStream.hpp"
 #include "REL_Index.hpp"
+#include <dbzero/core/serialization/Types.hpp>
+#include <dbzero/core/dram/DRAMSpace.hpp>
 
 namespace db0
 

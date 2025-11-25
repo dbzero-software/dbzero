@@ -34,10 +34,10 @@ namespace db0
         
         void detach() const;
         void commit() const;
-
+        
     private:
-        const std::uint32_t m_step_size;
-        const std::uint32_t m_shift;
+        std::uint32_t m_step_size = 0;
+        std::uint32_t m_shift = 0;
     };
     
 }
