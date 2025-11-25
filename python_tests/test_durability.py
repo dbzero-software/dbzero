@@ -283,7 +283,7 @@ def test_low_cache_mt_issue1(db0_autocommit_fixture):
 
 @pytest.mark.stress_test
 @pytest.mark.parametrize("db0_slab_size", 
-                         [{"slab_size": 2 << 20, "autocommit": True, "suppress_dist_overflow_error": True}], indirect=True)
+                         [{"slab_size": 2 << 20, "autocommit": True}], indirect=True)
 def test_low_cache_bad_address_issue1(db0_slab_size):
     """
     Test was failing with: CRDT_Allocator internal error: blank not found after ~6k operations

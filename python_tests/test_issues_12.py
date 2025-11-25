@@ -7,7 +7,7 @@ from dataclasses import dataclass
 import random
 import time
 from typing import Dict, List
-
+import sys
 
 @db0.memo
 @dataclass
@@ -17,13 +17,28 @@ class Issuer:
   inv_index: db0.index
 
 
-@db0.memo(no_cache=True)
+@db0.memo()
 @dataclass
 class Invoice:
   tax_id: int
   issue_dt: datetime
   data: bytes
 
+
+
+
+@db0.memo(no_cache=True)
+@dataclass
+class InvoiceNoCache:
+  tax_id: int
+  issue_dt: datetime
+  data: bytes
+
+@db0.memo
+@dataclass
+class SimpleIssuer:
+  inv_object: InvoiceNoCache
+  inv_index: db0.index
 
 def get_random_tax_id(tax_ids_set=set()):
     tax_id = random.randint(1000000000, 9999999999)
@@ -98,3 +113,13 @@ def test_no_cache_allocator_issue(db0_slab_size):
         
         if  (now - start) > execution_time:
             break
+    
+@pytest.mark.skip(reason="need to fix: issues/533")
+def test_free_issue_with_index_and_no_cache_object(db0_fixture):
+    index = db0.index()
+    new_issuer = SimpleIssuer(inv_object=None, inv_index=index)
+    db0.commit()
+    RANDOM_BYTES = b'DB0'*5
+    invoice = InvoiceNoCache(tax_id=None, issue_dt=datetime.now(), data=RANDOM_BYTES)
+    new_issuer.inv_object = invoice
+    new_issuer.inv_index.add(datetime.now(), invoice)
