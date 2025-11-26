@@ -1,0 +1,186 @@
+name: Test All Versions
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+
+jobs:
+  build-linux-asan:
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+    uses: ./.github/workflows/build-linux-wheel.yml
+    with:
+      python-version: ${{ matrix.python-version }}
+      build-args: '--config-setting=setup-args=-Denable_sanitizers=true'
+      timeout-minutes: 60
+
+  build-windows:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - python-version: "3.10"
+            python-tag: "310"
+          - python-version: "3.11"
+            python-tag: "311"
+          - python-version: "3.12"
+            python-tag: "312"
+          - python-version: "3.13"
+            python-tag: "313"
+          - python-version: "3.14"
+            python-tag: "314"
+    uses: ./.github/workflows/build-windows-wheel.yml
+    with:
+      python-version: ${{ matrix.python-version }}
+      python-tag: ${{ matrix.python-tag }}
+      architecture: 'AMD64'
+
+  test-linux-unit-asan:
+    needs: build-linux-asan
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      
+      - name: Download wheel artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: wheels-linux-${{ matrix.python-version }}
+          path: ./wheels/
+      
+      - name: Install wheel and dependencies
+        run: |
+          pip install pytest
+          pip install -r requirements.txt
+          pip install ./wheels/*.whl
+      
+      - name: Run unit tests with ASAN
+        run: |
+          LD_PRELOAD=$(gcc -print-file-name=libasan.so) python -m pytest -m 'not integration_test' -m 'not stress_test' -c pytest.ini --capture=no -vv
+
+  test-linux-stress-asan:
+    needs: build-linux-asan
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      
+      - name: Download wheel artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: wheels-linux-${{ matrix.python-version }}
+          path: ./wheels/
+      
+      - name: Install wheel and dependencies
+        run: |
+          pip install pytest
+          pip install -r requirements.txt
+          pip install ./wheels/*.whl
+      
+      - name: Run stress tests with ASAN
+        run: |
+          LD_PRELOAD=$(gcc -print-file-name=libasan.so) python -m pytest -m 'stress_test' -c pytest.ini --capture=no -vv
+
+  test-windows-unit:
+    needs: build-windows
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      
+      - name: Download wheel artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: wheels-windows-${{ matrix.python-version }}
+          path: ./wheels/
+      
+      - name: Install wheel and dependencies
+        run: |
+          pip install pytest
+          pip install -r requirements.txt
+          Get-ChildItem -Path "./wheels/*.whl" | ForEach-Object { pip install $_.FullName }
+        shell: powershell
+      
+      - name: Run unit tests
+        run: |
+          python -m pytest -m 'not integration_test' -m 'not stress_test' -c pytest.ini --capture=no -vv
+
+  test-windows-stress:
+    needs: build-windows
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      
+      - name: Download wheel artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: wheels-windows-${{ matrix.python-version }}
+          path: ./wheels/
+      
+      - name: Install wheel and dependencies
+        run: |
+          pip install pytest
+          pip install -r requirements.txt
+          Get-ChildItem -Path "./wheels/*.whl" | ForEach-Object { pip install $_.FullName }
+        shell: powershell
+      
+      - name: Run stress tests
+        run: |
+          python -m pytest -m 'stress_test' -c pytest.ini --capture=no -vv
+
+  summary:
+    needs: [test-linux-unit-asan, test-linux-stress-asan, test-windows-unit, test-windows-stress]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Test Summary
+        run: |
+          echo "## Test Results Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "All tests completed across all Python versions (3.10-3.14) on both Linux (with ASAN) and Windows." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Linux Unit Tests: ${{ needs.test-linux-unit-asan.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Linux Stress Tests: ${{ needs.test-linux-stress-asan.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Windows Unit Tests: ${{ needs.test-windows-unit.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Windows Stress Tests: ${{ needs.test-windows-stress.result }}" >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,49 @@
+name: Test Windows Wheel
+
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      python-version:
+        description: 'Python version to test'
+        required: true
+        type: choice
+        options:
+          - '3.10'
+          - '3.11'
+          - '3.12'
+          - '3.13'
+          - '3.14'
+        default: '3.12'
+
+jobs:
+  test-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python ${{ inputs.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python-version }}
+      
+      - name: Download wheel artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: wheels-windows-${{ inputs.python-version }}
+          path: ./wheels/
+      
+      - name: Install wheel and dependencies
+        run: |
+          pip install pytest
+          pip install -r requirements.txt
+          Get-ChildItem -Path "./wheels/*.whl" | ForEach-Object { pip install $_.FullName }
+        shell: powershell
+      
+      - name: Run tests
+        run: |
+          python -m pytest -m 'not integration_test' -m 'not stress_test' -c pytest.ini --capture=no -vv
