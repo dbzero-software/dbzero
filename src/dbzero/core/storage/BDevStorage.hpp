@@ -161,14 +161,13 @@ DB0_PACKED_END
         // DRAM-backed sparse index tree
         SparseIndex &m_sparse_index;
         DiffIndex &m_diff_index;
-        // the stream for storing & reading full-DPs and diff-encoded DPs
-        Diff_IO m_page_io;
         // extension DRAM IO (only initialized when holding extension indexes e.g. REL_Index)
         std::unique_ptr<DRAM_ChangeLogStreamT> m_ext_dram_changelog_io;
         std::unique_ptr<DRAM_IOStream> m_ext_dram_io;
         ExtSpace m_ext_space;
-        // the primary REL_Index instance (if used)
-        REL_Index *m_rel_index_ptr = nullptr;
+        // the stream for storing & reading full-DPs and diff-encoded DPs
+        Diff_IO m_page_io;
+        
         bool m_refresh_pending = false;
         mutable std::shared_mutex m_mutex;
 #ifndef NDEBUG

@@ -9,9 +9,9 @@ namespace db0
         , m_diff_index(node_size, &m_change_log)
     {
     }
-
+    
     SparsePair::SparsePair(DRAM_Pair dram_pair, AccessType access_type)
-        : m_sparse_index(dram_pair, access_type, Address::fromOffset(0), &m_change_log)
+        : m_sparse_index(dram_pair, access_type, {}, &m_change_log)
         , m_diff_index(dram_pair, access_type, Address::fromOffset(m_sparse_index.getExtraData()), &m_change_log)
     {
     }

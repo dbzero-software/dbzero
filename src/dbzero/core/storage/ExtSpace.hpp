@@ -50,14 +50,22 @@ DB0_PACKED_END
         ExtSpace(DRAM_Pair, AccessType);
         ~ExtSpace();
         
-        bool operator!() const;
-        
-        // get the primary REL_Index
-        inline REL_Index &getREL_Index() {
-            assert(m_rel_index);
-            return *m_rel_index;
+        inline bool operator!() const {
+            return !m_dram_prefix || !m_dram_allocator;
         }
         
+        // Assign a mapping from an absolute to relative page number
+        std::uint64_t toRelative(std::uint64_t storage_page_num, bool is_first_in_step) {
+            assert(m_rel_index);
+            return m_rel_index->toRelative(storage_page_num, is_first_in_step);
+        }
+        
+        // Retrieve storage (absolute) page num for a given relative page num
+        std::uint64_t get(std::uint64_t rel_page_num) const {
+            assert(m_rel_index);
+            return m_rel_index->get(rel_page_num);
+        }
+
         void refresh();
         void commit();
         

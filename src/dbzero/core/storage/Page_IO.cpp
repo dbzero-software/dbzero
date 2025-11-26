@@ -37,13 +37,18 @@ namespace db0
     {
     }
     
-    std::uint64_t Page_IO::append(const void *buffer)
+    std::uint64_t Page_IO::append(const void *buffer, bool *is_first_page_ptr)
     {
         assert(m_access_type == AccessType::READ_WRITE);
         if (m_page_count == m_block_capacity) {
             allocateNextBlock();
         }
         
+        if (is_first_page_ptr) {
+            // first page of the first block in the step
+            *is_first_page_ptr = (m_page_count == 0) && (m_block_num && *m_block_num == 0);
+        }
+
         m_file.write(m_address + m_page_count * m_page_size, m_page_size, buffer);
         return m_first_page_num + (m_page_count++);
     }
@@ -94,11 +99,15 @@ namespace db0
         return m_page_size;        
     }
     
-    std::pair<std::uint64_t, std::uint32_t> Page_IO::getNextPageNum()
+    std::pair<std::uint64_t, std::uint32_t> Page_IO::getNextPageNum(bool *is_first_page_ptr)
     {
         assert(m_access_type == AccessType::READ_WRITE);
         if (m_page_count == m_block_capacity) {
             allocateNextBlock();
+        }
+        if (is_first_page_ptr) {
+            // first page of the first block in the step
+            *is_first_page_ptr = (m_page_count == 0) && (m_block_num && *m_block_num == 0);
         }
         return { m_first_page_num + m_page_count, m_block_capacity - m_page_count };
     }

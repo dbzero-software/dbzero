@@ -16,12 +16,16 @@ namespace db0
 
     struct REL_ItemCompT
     {
-        bool operator()(const REL_Item &, const REL_Item &) const;
+        bool operator()(const REL_Item &lhs, const REL_Item &rhs) const;
+        bool operator()(const REL_Item &lhs, std::uint64_t rhs) const;
+        bool operator()(std::uint64_t lhs, const REL_Item &rhs) const;
     };
 
     struct REL_ItemEqualT
     {
-        bool operator()(const REL_Item &, const REL_Item &) const;
+        bool operator()(const REL_Item &lhs, const REL_Item &rhs) const;
+        bool operator()(const REL_Item &lhs, std::uint64_t rhs) const;
+        bool operator()(std::uint64_t lhs, const REL_Item &rhs) const;
     };
 
 DB0_PACKED_BEGIN
@@ -82,6 +86,8 @@ DB0_PACKED_END
         // tree-level header type (currently unused)
         struct DB0_PACKED_ATTR o_rel_index_header: o_fixed_versioned<o_rel_index_header>
         {
+            // maximum relative page number assigned by this instance
+            std::uint64_t m_next_rel_page_num = 0;
             // reserved space for future use
             std::array<std::uint64_t, 4> m_reserved = {0, 0, 0, 0};
         };
@@ -97,6 +103,8 @@ DB0_PACKED_END
 
             CompressedItemT compressFirst(const ItemT &);            
             CompressedItemT compress(const ItemT &) const;
+            // compress for comparison only
+            CompressedItemT compress(std::uint64_t rel_page_num) const;
 
             ItemT uncompress(const CompressedItemT &) const;
 
@@ -104,6 +112,7 @@ DB0_PACKED_END
             std::uint64_t getRelPageNum(const CompressedItemT &) const;
             
             bool canFit(const ItemT &) const;
+            bool canFit(std::uint64_t rel_page_num) const;
 
             std::string toString(const CompressedItemT &) const;
             std::string toString() const;
@@ -133,16 +142,25 @@ DB0_PACKED_END
         REL_Index(Memspace &, std::size_t node_capacity, AccessType);
         REL_Index(mptr, std::size_t node_capacity, AccessType);
         
-        // Add a new mapping from relative page num to storage page num
-        void add(std::uint64_t start_rel_page_num, std::uint64_t start_storage_page_num);
+        // Assign a mapping from an absolute to relative page number
+        // NOTE: the mapping needs to be persisted for each "first_in_step" page
+        std::uint64_t toRelative(std::uint64_t storage_page_num, bool is_first_in_step);
         
         // Retrieve storage (absolute) page num for a given relative page num
         std::uint64_t get(std::uint64_t rel_page_num) const;
         
         db0::Address getAddress() const;
-
+        
         void detach() const;
         void commit() const;
+        
+        void refresh();
+
+        std::uint64_t size() const;
+
+    private:
+        // value maintained in-sync with the tree
+        std::uint64_t m_next_rel_page_num = 0;
     };
     
 }

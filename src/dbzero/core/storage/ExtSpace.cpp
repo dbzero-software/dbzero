@@ -26,6 +26,8 @@ namespace db0
     {
         assert(!!m_ext_space_root);
         assert(m_rel_index);
+        // make sure root is the first allocation
+        assert(m_ext_space_root.getAddress() == m_dram_allocator->firstAlloc());
         // NOTE: the secondary REL_Index is not used currently
         m_ext_space_root.modify().m_rel_index_addr[0] = m_rel_index->getAddress();
     }
@@ -39,13 +41,9 @@ namespace db0
         , m_rel_index(tryOpenPrimaryREL_Index(access_type))
     {
     }
-
+    
     ExtSpace::~ExtSpace()
     {
-    }
-    
-    bool ExtSpace::operator!() const {
-        return !m_dram_prefix || !m_dram_allocator;
     }
     
     db0::v_object<o_ext_space> ExtSpace::tryOpenRoot() const
@@ -53,12 +51,13 @@ namespace db0
         if (!(*this)) {
             return {};
         }
-        return db0::v_object<o_ext_space>(m_dram_space.myPtr(Address::fromOffset(0)));
+        // retrieve root from the first allocation
+        return db0::v_object<o_ext_space>(m_dram_space.myPtr(m_dram_allocator->firstAlloc()));
     }
     
     std::unique_ptr<REL_Index> ExtSpace::tryOpenPrimaryREL_Index(AccessType access_type) const
     {
-        if (!m_ext_space_root) {
+        if (!(*this)) {        
             return {};
         }
         auto rel_index_addr = Address::fromOffset(m_ext_space_root->m_rel_index_addr[0]);

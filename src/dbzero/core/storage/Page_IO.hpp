@@ -35,8 +35,9 @@ namespace db0
         ~Page_IO();
         
         // Appends a new page to the stream
-        // @return ever increasing page number (aka storage page number)
-        std::uint64_t append(const void *buffer);
+        // @return ever increasing page number (aka storage page number) + is_first_page (of the current step) optional flag
+        // NOTE: first block (on first page) must be registered with REL_Index if it's maintained
+        std::uint64_t append(const void *buffer, bool *is_first_page = nullptr);
         
         void read(std::uint64_t page_num, void *buffer) const;
         
@@ -46,7 +47,7 @@ namespace db0
         void write(std::uint64_t page_num, void *buffer);
         
         std::uint64_t tail() const;
-
+        
         std::uint32_t getPageSize() const;
         
         // Get the page number which is > all pages currently stored
@@ -65,7 +66,7 @@ namespace db0
         
         // Get the next page number to be assigned by the "append" method (first)
         // and the number of consecutive pages available in the current block
-        std::pair<std::uint64_t, std::uint32_t> getNextPageNum();
+        std::pair<std::uint64_t, std::uint32_t> getNextPageNum(bool *is_first_page = nullptr);
         
     private:
         CFile &m_file;

@@ -244,8 +244,9 @@ DB0_PACKED_END
     {
     }
     
-    std::pair<std::uint64_t, bool> Diff_IO::appendDiff(const void *dp_data,
-        std::pair<std::uint64_t, std::uint32_t> page_and_state, const std::vector<std::uint16_t> &diff_data)
+    std::pair<std::uint64_t, bool> Diff_IO::appendDiff(
+        const void *dp_data, std::pair<std::uint64_t, std::uint32_t> page_and_state,
+        const std::vector<std::uint16_t> &diff_data, bool *is_first_page)
     {
         // must lock because the write-buffer is shared
         std::unique_lock<std::mutex> lock(m_mx_write);
@@ -255,7 +256,7 @@ DB0_PACKED_END
                 m_diff_bytes_written += m_writer->flushDP();
             }
             bool overflow = false;
-            auto next_page_num = Page_IO::getNextPageNum();
+            auto next_page_num = Page_IO::getNextPageNum(is_first_page);
             assert(next_page_num.second > 0);
             if (m_writer->append((const std::byte*)dp_data, page_and_state, diff_data, overflow)) {
                 if (overflow) {
@@ -324,7 +325,7 @@ DB0_PACKED_END
         Page_IO::read(page_num, buffer);
     }
 
-    std::uint64_t Diff_IO::append(const void *buffer)
+    std::uint64_t Diff_IO::append(const void *buffer, bool *is_first_page_ptr)
     {
         // full-DP write can only be performed after flushing from diff-writer
         std::unique_lock<std::mutex> lock(m_mx_write);
@@ -332,7 +333,7 @@ DB0_PACKED_END
             m_diff_bytes_written += m_writer->flush();
         }
         m_full_dp_bytes_written += m_page_size;
-        return Page_IO::append(buffer);
+        return Page_IO::append(buffer, is_first_page_ptr);
     }
     
     std::pair<std::size_t, std::size_t> Diff_IO::getStats() const {
