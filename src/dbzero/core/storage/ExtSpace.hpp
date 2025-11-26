@@ -55,17 +55,17 @@ DB0_PACKED_END
         }
         
         // Assign a mapping from an absolute to relative page number
-        std::uint64_t toRelative(std::uint64_t storage_page_num, bool is_first_in_step) {
+        std::uint64_t assignRelative(std::uint64_t storage_page_num, bool is_first_in_step) {
             assert(m_rel_index);
-            return m_rel_index->toRelative(storage_page_num, is_first_in_step);
+            return m_rel_index->assignRelative(storage_page_num, is_first_in_step);
         }
         
         // Retrieve storage (absolute) page num for a given relative page num
-        std::uint64_t get(std::uint64_t rel_page_num) const {
+        std::uint64_t getAbsolute(std::uint64_t rel_page_num) const {
             assert(m_rel_index);
-            return m_rel_index->get(rel_page_num);
+            return m_rel_index->getAbsolute(rel_page_num);
         }
-
+        
         void refresh();
         void commit();
         

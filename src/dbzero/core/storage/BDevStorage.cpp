@@ -284,7 +284,7 @@ namespace db0
             if (page_io_id) {
                 if (!!m_ext_space) {
                     // convert relative page number back to absolute
-                    page_io_id = m_ext_space.get(page_io_id);
+                    page_io_id = m_ext_space.getAbsolute(page_io_id);
                 }
                 // read full DP
                 m_page_io.read(page_io_id, read_buf);
@@ -298,7 +298,7 @@ namespace db0
             while (query.next(diff_state_num, page_io_id)) {
                 if (!!m_ext_space) {
                     // convert relative page number back to absolute
-                    page_io_id = m_ext_space.get(page_io_id);
+                    page_io_id = m_ext_space.getAbsolute(page_io_id);
                 }
                 // apply all diff-updates on top of the full-DP
                 m_page_io.applyFrom(page_io_id, read_buf, { page_num, diff_state_num });
@@ -332,7 +332,7 @@ namespace db0
                 auto page_io_id = item.m_storage_page_num;
                 if (!!m_ext_space) {
                     // convert relative page number back to absolute
-                    page_io_id = m_ext_space.get(page_io_id);
+                    page_io_id = m_ext_space.getAbsolute(page_io_id);
                 }
                 m_page_io.write(page_io_id, write_buf);
             } else {
@@ -342,7 +342,7 @@ namespace db0
                 if (!!m_ext_space) {
                     // NOTE: first page (of each step) must be registered with REL_Index if it's maintained
                     // assign a relative page number
-                    page_io_id = m_ext_space.toRelative(page_io_id, is_first_page);
+                    page_io_id = m_ext_space.assignRelative(page_io_id, is_first_page);
                 }
                 m_sparse_index.emplace(page_num, state_num, page_io_id);
                 #ifndef NDEBUG
@@ -375,7 +375,7 @@ namespace db0
             auto page_io_id = storage_page_num;
             if (!!m_ext_space) {
                 // convert relative page number back to absolute
-                page_io_id = m_ext_space.get(page_io_id);
+                page_io_id = m_ext_space.getAbsolute(page_io_id);
             }
             m_page_io.write(page_io_id, buffer);
             return;
@@ -388,14 +388,14 @@ namespace db0
             if (!!m_ext_space) {
                 // NOTE: first page (of each step) must be registered with REL_Index if it's maintained
                 // assign a relative page number
-                page_io_id = m_ext_space.toRelative(page_io_id, is_first_page);
+                page_io_id = m_ext_space.assignRelative(page_io_id, is_first_page);
             }
             m_diff_index.insert(page_num, state_num, page_io_id, overflow);
         } else {
             // full-DP write            
             auto page_io_id = m_page_io.append(buffer, &is_first_page);
             if (!!m_ext_space) {
-                page_io_id = m_ext_space.toRelative(page_io_id, is_first_page);
+                page_io_id = m_ext_space.assignRelative(page_io_id, is_first_page);
             }
             m_sparse_index.emplace(page_num, state_num, page_io_id);
         }
@@ -427,6 +427,10 @@ namespace db0
             return false;
         }
         
+        if (!!m_ext_space) {
+            m_ext_space.commit();
+        }
+
         // save metadata checkpoints before making any updates to the managed streams
         // NOTE: the checkpoint is only saved after exceeding specific threshold of updates in the managed streams
         auto state_num = m_sparse_pair.getMaxStateNum();

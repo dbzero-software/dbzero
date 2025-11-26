@@ -86,8 +86,12 @@ DB0_PACKED_END
         // tree-level header type (currently unused)
         struct DB0_PACKED_ATTR o_rel_index_header: o_fixed_versioned<o_rel_index_header>
         {
-            // maximum relative page number assigned by this instance
-            std::uint64_t m_next_rel_page_num = 0;
+            // the largest registered mapping from absolute page number
+            std::uint64_t m_last_storage_page_num = 0;
+            // relative page number associated with the 
+            std::uint64_t m_rel_page_num = 0;
+            // the maximum assigned relative page number
+            std::uint64_t m_max_rel_page_num = 0;
             // reserved space for future use
             std::array<std::uint64_t, 4> m_reserved = {0, 0, 0, 0};
         };
@@ -142,12 +146,12 @@ DB0_PACKED_END
         REL_Index(Memspace &, std::size_t node_capacity, AccessType);
         REL_Index(mptr, std::size_t node_capacity, AccessType);
         
-        // Assign a mapping from an absolute to relative page number
+        // Assign (append) a mapping from an absolute to relative page number
         // NOTE: the mapping needs to be persisted for each "first_in_step" page
-        std::uint64_t toRelative(std::uint64_t storage_page_num, bool is_first_in_step);
+        std::uint64_t assignRelative(std::uint64_t storage_page_num, bool is_first_in_step);
         
         // Retrieve storage (absolute) page num for a given relative page num
-        std::uint64_t get(std::uint64_t rel_page_num) const;
+        std::uint64_t getAbsolute(std::uint64_t rel_page_num) const;
         
         db0::Address getAddress() const;
         
@@ -159,8 +163,10 @@ DB0_PACKED_END
         std::uint64_t size() const;
 
     private:
-        // value maintained in-sync with the tree
-        std::uint64_t m_next_rel_page_num = 0;
+        // values maintained in-sync with the tree
+        std::uint64_t m_last_storage_page_num = 0;            
+        std::uint64_t m_rel_page_num = 0;        
+        std::uint64_t m_max_rel_page_num = 0;
     };
     
 }

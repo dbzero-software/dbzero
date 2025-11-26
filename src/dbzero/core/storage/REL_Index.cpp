@@ -113,7 +113,9 @@ namespace db0
 
     REL_Index::REL_Index(mptr ptr, std::size_t node_capacity, AccessType access_type)
         : super_t(ptr, node_capacity, access_type)
-        , m_next_rel_page_num(this->treeHeader().m_next_rel_page_num)
+        , m_last_storage_page_num(this->treeHeader().m_last_storage_page_num)
+        , m_rel_page_num(this->treeHeader().m_rel_page_num)
+        , m_max_rel_page_num(this->treeHeader().m_max_rel_page_num)        
     {        
     }
     
@@ -128,38 +130,47 @@ namespace db0
     void REL_Index::commit() const
     {
         // flush locally cached value
-        const_cast<REL_Index&>(*this).modifyTreeHeader().m_next_rel_page_num = m_next_rel_page_num;
+        auto &self = const_cast<REL_Index&>(*this);
+        self.modifyTreeHeader().m_last_storage_page_num = m_last_storage_page_num;
+        self.modifyTreeHeader().m_rel_page_num = m_rel_page_num;
+        self.modifyTreeHeader().m_max_rel_page_num = m_max_rel_page_num;        
         super_t::commit();
     }
     
-    std::uint64_t REL_Index::toRelative(std::uint64_t storage_page_num, bool is_first_in_step)
-    {
+    std::uint64_t REL_Index::assignRelative(std::uint64_t storage_page_num, bool is_first_in_step)
+    {        
         if (is_first_in_step) {
-            super_t::insert({ m_next_rel_page_num, storage_page_num });            
+            super_t::insert({ ++m_max_rel_page_num, storage_page_num });
+            assert(storage_page_num > m_last_storage_page_num);
+            m_last_storage_page_num = storage_page_num;
+            m_rel_page_num = m_max_rel_page_num;
         }
-        // FIXME: log
-        auto result = m_next_rel_page_num++;
-        std::cout << storage_page_num << " -> " << result << std::endl;
+
+        assert(storage_page_num >= m_last_storage_page_num);
+        auto result = m_rel_page_num + (storage_page_num - m_last_storage_page_num);
+        if (result > m_max_rel_page_num) {
+            m_max_rel_page_num = result;
+        }
+
         return result;
     }
     
     void REL_Index::refresh()
     {
-        m_next_rel_page_num = this->treeHeader().m_next_rel_page_num;
+        m_last_storage_page_num = this->treeHeader().m_last_storage_page_num;
+        m_rel_page_num = this->treeHeader().m_rel_page_num;
+        m_max_rel_page_num = this->treeHeader().m_max_rel_page_num;
         detach();
     }
     
-    std::uint64_t REL_Index::get(std::uint64_t rel_page_num) const
+    std::uint64_t REL_Index::getAbsolute(std::uint64_t rel_page_num) const
     {
         auto result = super_t::lower_equal_bound(rel_page_num);
         if (!result) {
             THROWF(db0::InternalException) << "REL_Index: page lookup failed on: " << rel_page_num;            
         }
         // translate to absolute storage page number
-        // FIXME: log
-        auto storage_page_num = result->m_storage_page_num + (rel_page_num - result->m_rel_page_num);        
-        std::cout << rel_page_num << "(rel) -> " << storage_page_num << std::endl;
-        return storage_page_num;
+        return result->m_storage_page_num + (rel_page_num - result->m_rel_page_num);        
     }
     
     std::uint64_t REL_Index::size() const {

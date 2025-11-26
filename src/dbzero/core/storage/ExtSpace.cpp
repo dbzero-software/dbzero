@@ -46,6 +46,16 @@ namespace db0
     {
     }
     
+    void ExtSpace::commit()
+    {
+        if (!!m_ext_space_root) {
+            m_ext_space_root.commit();
+        }
+        if (m_rel_index) {
+            m_rel_index->commit();
+        }
+    }
+    
     db0::v_object<o_ext_space> ExtSpace::tryOpenRoot() const
     {
         if (!(*this)) {

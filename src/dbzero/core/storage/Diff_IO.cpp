@@ -258,6 +258,11 @@ DB0_PACKED_END
             bool overflow = false;
             auto next_page_num = Page_IO::getNextPageNum(is_first_page);
             assert(next_page_num.second > 0);
+            if (is_first_page) {
+                // Must be first write into the first page (of the step)
+                // to report result as the is_first_page = true
+                *is_first_page &= m_writer->empty();
+            }
             if (m_writer->append((const std::byte*)dp_data, page_and_state, diff_data, overflow)) {
                 if (overflow) {
                     // on overflow we can either append remnants to the next storage page (+1)
