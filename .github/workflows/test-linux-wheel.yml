@@ -1,0 +1,76 @@
+name: Test Linux Wheel
+
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        required: true
+        type: string
+      ld-preload:
+        required: false
+        type: string
+        default: ''
+      timeout-minutes:
+        required: false
+        type: number
+        default: 15
+      pytest-markers:
+        required: false
+        type: string
+        default: "-m 'not integration_test' -m 'not stress_test'"
+  workflow_dispatch:
+    inputs:
+      python-version:
+        description: 'Python version to test'
+        required: true
+        type: choice
+        options:
+          - '3.10'
+          - '3.11'
+          - '3.12'
+          - '3.13'
+          - '3.14'
+        default: '3.12'
+      ld-preload:
+        description: 'LD_PRELOAD value (for ASAN: LD_PRELOAD=$(gcc -print-file-name=libasan.so))'
+        required: false
+        type: string
+        default: ''
+      timeout-minutes:
+        description: 'Timeout in minutes'
+        required: false
+        type: number
+        default: 15
+      pytest-markers:
+        description: 'Pytest markers (e.g., -m stress_test)'
+        required: false
+        type: string
+        default: "-m 'not integration_test' -m 'not stress_test'"
+
+jobs:
+  test-wheels-linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python ${{ inputs.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python-version }}
+      
+      - name: Download wheel artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: wheels-linux-${{ inputs.python-version }}
+          path: ./wheels/
+      
+      - name: Install wheel and dependencies
+        run: |
+          pip install pytest
+          pip install -r requirements.txt
+          pip install ./wheels/*.whl
+      
+      - name: Run tests
+        run: |
+          ${{ inputs.ld-preload }} python -m pytest ${{ inputs.pytest-markers }} -c pytest.ini --capture=no -vv
