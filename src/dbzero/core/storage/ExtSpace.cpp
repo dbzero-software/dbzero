@@ -4,29 +4,39 @@ namespace db0
 
 {
     
-    o_ext_space::o_ext_space() {
-        std::memset(m_reserved.data(), 0, sizeof(m_reserved));
+    o_ext_space::o_ext_space(std::uint32_t page_size)
+        : m_page_size(page_size)
+    {
+        assert(page_size >= sizeof(*this));
+        // initialize reserved area to zero
+        std::memset((std::byte*)this + sizeof(*this), 0, page_size - sizeof(*this));
     }
 
-    ExtSpace::ExtSpace(tag_create, DRAM_Pair dram_pair, std::uint32_t step_size)
+    std::size_t o_ext_space::measure(std::size_t page_size) {
+        return page_size;
+    }
+    
+    ExtSpace::ExtSpace(tag_create, DRAM_Pair dram_pair)
         : m_dram_prefix(dram_pair.first)
         , m_dram_allocator(dram_pair.second)
         , m_dram_space(DRAMSpace::create(dram_pair))
         , m_access_type(AccessType::READ_WRITE)
-        , m_ext_space_root(m_dram_space)
-        , m_rel_index(m_dram_space, step_size)
+        , m_ext_space_root(m_dram_space, m_dram_space.getPageSize())
+        , m_rel_index(std::make_unique<REL_Index>(m_dram_space, m_dram_space.getPageSize(), AccessType::READ_WRITE))
     {
+        assert(!!m_ext_space_root);
+        assert(m_rel_index);
         // NOTE: the secondary REL_Index is not used currently
-        m_ext_space_root.modify().m_rel_index_addr[0] = m_rel_index.getAddress();
+        m_ext_space_root.modify().m_rel_index_addr[0] = m_rel_index->getAddress();
     }
-
-    ExtSpace::ExtSpace(DRAM_Pair dram_pair, AccessType access_type, std::uint32_t step_size)
+    
+    ExtSpace::ExtSpace(DRAM_Pair dram_pair, AccessType access_type)
         : m_dram_prefix(dram_pair.first)
         , m_dram_allocator(dram_pair.second)
-        , m_dram_space(DRAMSpace::create(dram_pair))
+        , m_dram_space(DRAMSpace::tryCreate(dram_pair))
         , m_access_type(access_type)
         , m_ext_space_root(tryOpenRoot())
-        , m_rel_index(tryOpenPrimaryREL_Index(step_size))
+        , m_rel_index(tryOpenPrimaryREL_Index(access_type))
     {
     }
 
@@ -34,20 +44,27 @@ namespace db0
     {
     }
     
+    bool ExtSpace::operator!() const {
+        return !m_dram_prefix || !m_dram_allocator;
+    }
+    
     db0::v_object<o_ext_space> ExtSpace::tryOpenRoot() const
     {
-        if (!m_dram_prefix || !m_dram_allocator) {
+        if (!(*this)) {
             return {};
         }
         return db0::v_object<o_ext_space>(m_dram_space.myPtr(Address::fromOffset(0)));
     }
     
-    REL_Index ExtSpace::tryOpenPrimaryREL_Index(std::uint32_t step_size) const
+    std::unique_ptr<REL_Index> ExtSpace::tryOpenPrimaryREL_Index(AccessType access_type) const
     {
         if (!m_ext_space_root) {
             return {};
         }
-        return { m_dram_space.myPtr(m_ext_space_root->m_rel_index_addr[0]), step_size };
+        auto rel_index_addr = Address::fromOffset(m_ext_space_root->m_rel_index_addr[0]);
+        return std::make_unique<REL_Index>(
+            m_dram_space.myPtr(rel_index_addr), m_dram_space.getPageSize(), access_type
+        );
     }
-
+    
 }

@@ -120,7 +120,7 @@ namespace db0
         if (!page_size) {
             page_size = DEFAULT_PAGE_SIZE;
         }
-
+        
         std::vector<char> buffer(CONFIG_BLOCK_SIZE);
         // calculate block size to be page aligned and sufficient to fit a single sparse index node
         auto min_block_size = dram_page_size_hint + 
@@ -153,8 +153,8 @@ namespace db0
         bool has_ext_dram_io = config->m_page_io_step_size > 1;
         if (has_ext_dram_io) {
             config->m_ext_dram_io_offset = next_block_offset();
-            // NOTE: use same as the prefix page size
-            config->m_ext_dram_page_size = *page_size;
+            // NOTE: use entire block for ext DRAM page
+            config->m_ext_dram_page_size = dram_page_size;
             config->m_ext_dram_changelog_io_offset = next_block_offset();
         }
         
@@ -167,7 +167,7 @@ namespace db0
             DRAM_IOStream *dram_io_ptr = nullptr;
             std::unique_ptr<DRAM_ChangeLogStreamT> ext_dram_changelog_io_ptr = nullptr;
             std::unique_ptr<DRAM_IOStream> ext_dram_io_ptr = nullptr;
-
+            
             auto tail_function = [&]()
             {
                 assert(dram_io_ptr && dram_changelog_io_ptr);                
@@ -430,9 +430,16 @@ namespace db0
             flush();
         }
         
+        // close extension streams
+        if (m_ext_dram_io) {
+            assert(m_ext_dram_changelog_io);
+            m_ext_dram_io->close();
+            m_ext_dram_changelog_io->close();
+        }
+        
         m_dram_io.close();
         m_dram_changelog_io.close();
-        m_dp_changelog_io.close();        
+        m_dp_changelog_io.close(); 
         m_meta_io.close();
         m_file.close();
     }

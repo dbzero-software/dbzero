@@ -11,16 +11,32 @@
 #include <dbzero/core/threading/ProgressiveMutex.hpp>
 #include <dbzero/core/utils/uuid.hpp>
 #include <dbzero/object_model/object_header.hpp>
+#include <dbzero/core/utils/FlagSet.hpp>
 #include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
 
 {
     
+    enum class BVectorOptions: std::uint16_t
+    {
+        // Forces all allocations to be constant size (= page size)
+        FIXED_BLOCK = 0x0001,
+    };
+    
+    using BVectorFlags = FlagSet<BVectorOptions>;
+
 DB0_PACKED_BEGIN
     template <typename PtrT>
-    struct DB0_PACKED_ATTR o_bvector: public o_fixed_versioned<o_bvector<PtrT> >
+    class DB0_PACKED_ATTR o_bvector: public o_base<o_bvector<PtrT>, 0, true>
     {
+        using super_t = o_base<o_bvector<PtrT>, 0, true>;
+        friend super_t;
+
+        o_bvector() = default;
+        o_bvector(std::uint32_t page_size_hint, BVectorFlags flags = {});
+
+    public:
         // common dbzero object header
         db0::o_unique_header m_header;
         // root node pointer (may be data or pointers' block)
@@ -29,12 +45,11 @@ DB0_PACKED_BEGIN
         std::uint64_t m_size = 0;
         // page size hint
         std::uint32_t m_page_size;
+        BVectorFlags m_flags;
+        
+        static std::size_t measure(std::uint32_t page_size_hint, BVectorFlags flags = {});
 
-        o_bvector() = default;
-        o_bvector(std::uint32_t page_size_hint)
-            : m_page_size(page_size_hint)            
-        {
-        }        
+        template <typename buf_t> static std::size_t safeSizeOf(buf_t buf);
 
         void incRef(bool is_tag) {
             m_header.incRef(is_tag);
@@ -69,8 +84,8 @@ DB0_PACKED_END
         /**
          * New, empty instance of the data structure
          */
-        v_bvector(Memspace &mem, AccessFlags access_mode = {})
-            : super_t(mem, mem.getPageSize(), access_mode)
+        v_bvector(Memspace &mem, BVectorFlags flags = {}, AccessFlags access_mode = {})
+            : super_t(mem, mem.getPageSize(), flags, access_mode)
             , m_db_shift(data_container::shift(mem.getPageSize()))
             , m_db_mask(data_container::mask(mem.getPageSize()))
             , m_pb_shift(ptr_container::shift(mem.getPageSize()))
@@ -120,14 +135,15 @@ DB0_PACKED_END
         }
         
         // Construct populated with values from a specific sequence
-        template <class SequenceT> v_bvector(Memspace &mem, const SequenceT &in, AccessFlags access_mode = {})
-            : v_bvector(mem, access_mode)
+        template <class SequenceT> v_bvector(Memspace &mem, const SequenceT &in, BVectorFlags flags = {}, 
+            AccessFlags access_mode = {})
+            : v_bvector(mem, flags, access_mode)
         {
             for (const auto &item: in) {
                 push_back(item);
             }
         }
-
+        
         template <class SequenceT>
         void init(Memspace &mem, const SequenceT &in, AccessFlags access_mode = {})
         {
@@ -1052,7 +1068,11 @@ DB0_PACKED_END
 
         std::size_t evaluateBClass(std::uint64_t size) const 
         {
-            std::size_t result = 0;
+            // NOTE: fixed block always evaluates to 0 (full DP) irrespective of size
+            if ((*this)->m_flags[BVectorOptions::FIXED_BLOCK]) {
+                return 0;
+            }
+            std::size_t result = 0;            
             std::uint32_t ref_size = (1 << (m_db_shift - 1));
             while ((ref_size >= size) && (ref_size > 0)) {
                 ref_size >>= 1;
@@ -1593,5 +1613,41 @@ DB0_PACKED_END
     template <typename ItemT, typename PtrT>
     std::map<std::pair<const Memspace*, Address>, int> v_bvector<ItemT, PtrT>::m_instance_log;
 #endif
+
+    template <typename PtrT>
+    o_bvector<PtrT>::o_bvector(std::uint32_t page_size_hint, BVectorFlags flags)
+        : m_page_size(page_size_hint)
+        , m_flags(flags)    
+    {
+    }        
+    
+    template <typename PtrT>
+    std::size_t o_bvector<PtrT>::measure(std::uint32_t page_size_hint, BVectorFlags flags)
+    {
+        // size aligned to 1 DP
+        if (flags[BVectorOptions::FIXED_BLOCK]) {
+            return page_size_hint;
+        } else {
+            // actual size of members
+            return super_t::measureMembers();
+        }
+    }
+
+    template <typename PtrT>
+    template <typename buf_t> 
+    std::size_t o_bvector<PtrT>::safeSizeOf(buf_t buf)
+    {
+        auto _buf = buf;
+        _buf += super_t::baseSize();
+        auto &self = o_bvector::__const_ref(buf);
+        // size aligned to 1 DP
+        if (self.m_flags[BVectorOptions::FIXED_BLOCK]) {
+            buf += self.m_page_size;
+            return self.m_page_size;
+        } else {
+            // actual size of members
+            return _buf - buf;
+        }
+    }
 
 }

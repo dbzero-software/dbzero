@@ -17,8 +17,21 @@ namespace db0
         return DRAMSpace::create(dram_pair);
     }      
     
-    Memspace DRAMSpace::create(DRAM_Pair dram_pair) {
+    Memspace DRAMSpace::create(DRAM_Pair dram_pair)
+    {
+        if (!dram_pair.first || !dram_pair.second) {
+            THROWF(db0::InternalException) << "Invalid DRAM_Pair provided to DRAMSpace::create";
+        }
         return { dram_pair.first, dram_pair.second };
+    }
+
+    Memspace DRAMSpace::tryCreate(DRAM_Pair dram_pair)
+    {
+        if (dram_pair.first && dram_pair.second) {                
+            return { dram_pair.first, dram_pair.second };
+        } else {
+            return {};        
+        }
     }
 
 }
