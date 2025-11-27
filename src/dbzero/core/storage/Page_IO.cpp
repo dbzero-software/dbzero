@@ -74,7 +74,11 @@ namespace db0
     void Page_IO::read(std::uint64_t page_num, void *buffer) const {
         m_file.read(m_header_size + page_num * m_page_size, m_page_size, buffer);
     }
-    
+
+    void Page_IO::read(std::uint64_t page_num, void *buffer, std::uint32_t page_count) const {
+        m_file.read(m_header_size + page_num * m_page_size, page_count * m_page_size, buffer);
+    }
+
     void Page_IO::write(std::uint64_t page_num, void *buffer) {
         m_file.write(m_header_size + page_num * m_page_size, m_page_size, buffer);
     }
@@ -118,4 +122,39 @@ namespace db0
         return m_first_page_num + m_page_count;        
     }
     
+    Page_IO::Reader::Reader(const Page_IO &page_io, std::optional<std::uint64_t> end_page_num)
+        : m_page_io(page_io)
+        , m_end_page_num(std::min(end_page_num.value_or(std::numeric_limits<std::uint64_t>::max()), page_io.getEndPageNum()))
+    {        
+    }
+
+    std::uint32_t Page_IO::Reader::next(std::vector<std::byte> &buf, std::uint64_t &start_page_num,
+        std::size_t max_bytes)
+    {
+        std::size_t page_size = m_page_io.getPageSize();
+        auto max_pages = max_bytes / page_size;
+        if (buf.size() < max_pages * page_size) {
+            buf.resize(max_pages * page_size);
+        }
+
+        start_page_num = m_current_page_num;
+        auto to_read = std::min(max_pages, m_end_page_num - m_current_page_num);
+        if (to_read > 0) {
+            m_page_io.read(m_current_page_num, buf.data(), static_cast<std::uint32_t>(to_read));
+            m_current_page_num += to_read;
+            return static_cast<std::uint32_t>(to_read);
+        }
+        return to_read;
+    }
+    
+    std::uint64_t Page_IO::Reader::endPageNum() const
+    {
+        // calculate end page number from actual file size
+        auto file_size = m_page_io.m_file.size();
+        if (file_size < m_page_io.m_header_size) {
+            return 0;
+        }
+        return (file_size - m_page_io.m_header_size) / m_page_io.m_page_size;
+    }
+
 }

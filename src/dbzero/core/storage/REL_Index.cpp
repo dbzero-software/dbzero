@@ -154,8 +154,27 @@ namespace db0
         if (result > m_max_rel_page_num) {
             m_max_rel_page_num = result;
         }
-
+    
         return result;
+    }
+    
+    void REL_Index::addMapping(std::uint64_t storage_page_num, std::uint64_t rel_page_num)
+    {
+        assert(storage_page_num >= m_last_storage_page_num);
+        assert(rel_page_num >= m_rel_page_num);
+        if (!this->empty()) {
+            // check if the mapping is already valid
+            if (storage_page_num - m_last_storage_page_num == rel_page_num - m_rel_page_num) {
+                // mapping already valid
+                return;
+            }
+        }
+
+        // register the new mapping
+        super_t::insert({ rel_page_num, storage_page_num });
+        m_max_rel_page_num = rel_page_num;
+        m_last_storage_page_num = storage_page_num;
+        m_rel_page_num = rel_page_num;            
     }
     
     void REL_Index::refresh()

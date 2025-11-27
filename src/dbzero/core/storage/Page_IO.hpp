@@ -39,7 +39,14 @@ namespace db0
         // NOTE: first block (on first page) must be registered with REL_Index if it's maintained
         std::uint64_t append(const void *buffer, bool *is_first_page = nullptr);
         
+        // Appends one or more pages to the stream
+        // @return first appended page number (aka storage page number)
+        std::uint64_t append(const void *buffer, std::uint64_t page_count);
+        
         void read(std::uint64_t page_num, void *buffer) const;
+        
+        // Read multiple consecutive pages
+        void read(std::uint64_t page_num, void *buffer, std::uint32_t page_count) const;
         
         /**
          * Overwrite existing page
@@ -55,29 +62,42 @@ namespace db0
         // NOTE: the member is only available in read/write mode
         std::uint64_t getEndPageNum() const;
         
+        // Get the next page number to be assigned by the "append" method (first)
+        // and the number of consecutive pages available in the current block
+        std::pair<std::uint64_t, std::uint32_t> getNextPageNum(bool *is_first_page = nullptr);
+        
+        // Get the number of pages remaining in the current step (for append)
+        std::uint32_t getCurrentStepRemainingPages() const;
+        
         // Reads entire blocks / steps sequentially
         // until reaching the end_page_num or end-of-stream whichever comes first
         class Reader
         {
         public:
             Reader(const Page_IO &page_io, std::optional<std::uint64_t> end_page_num = {});
-
-            bool next(std:::vector<byte> &, std::uint64_t &start_page_num, 
-                std::uint32_t &page_count);
+            
+            // Reads up to max_bytes of data
+            // @return number of pages read, 0 if end-of-stream reached
+            std::uint32_t next(std::vector<std::byte> &, std::uint64_t &start_page_num,
+                std::size_t max_bytes = 64u << 20);
+            
+        private:
+            const Page_IO &m_page_io;
+            std::uint64_t m_end_page_num;
+            std::uint64_t m_current_page_num = 0;
+            
+            // Calculate end page number from actual file size
+            std::uint64_t endPageNum() const;
         };
         
     protected:
-        const std::size_t m_header_size;        
+        const std::size_t m_header_size;
         const std::uint32_t m_page_size;
         const std::uint32_t m_block_size = 0;
         // maximum number of pages in block
         const std::uint32_t m_block_capacity = 0;
         // must be >= 1 in read/write mode
         const std::uint32_t m_step_size = 0;
-        
-        // Get the next page number to be assigned by the "append" method (first)
-        // and the number of consecutive pages available in the current block
-        std::pair<std::uint64_t, std::uint32_t> getNextPageNum(bool *is_first_page = nullptr);
         
     private:
         CFile &m_file;

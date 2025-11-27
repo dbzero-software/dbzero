@@ -1,4 +1,5 @@
 #include "copy_prefix.hpp"
+#include "ExtSpace.hpp"
 
 namespace db0
 
@@ -40,11 +41,27 @@ namespace db0
     
     void copyPageIO(const Page_IO &in, Page_IO &out, std::uint64_t end_page_num, ExtSpace &ext_space)
     {
+        std::size_t page_size = in.getPageSize();
+        if (page_size != out.getPageSize()) {
+            THROWF(db0::IOException) << "copyPageIO: page size mismatch between input and output streams";
+        }
+        
         Page_IO::Reader reader(in, end_page_num);
-        std::vector<byte> buffer;
+        std::vector<std::byte> buffer;
         std::uint64_t start_page_num = 0;
-        std::uint32_t page_count = 0;
-        while (reader.next(buffer, start_page_num, page_count)) {
+        while (auto page_count = reader.next(buffer, start_page_num)) {
+            auto buf_ptr = buffer.data();
+            while (page_count > 0) {
+                // page number (absolute) in the output stream
+                auto storage_page_num = out.getNextPageNum().first;
+                auto count = std::min(page_count, out.getCurrentStepRemainingPages());
+                // append as many pages as possible in current "step"
+                out.append(buf_ptr, count);
+                buf_ptr += page_size * count;
+                // note start_page_num must be registered as relative to storage_page_num
+                ext_space.addMapping(storage_page_num, start_page_num);
+                page_count -= count;
+            }
         }
     }
     
