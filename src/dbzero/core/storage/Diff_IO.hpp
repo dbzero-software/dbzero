@@ -1,3 +1,5 @@
+#pragma once
+
 #include "Page_IO.hpp"
 #include "diff_buffer.hpp"
 #include <memory>

@@ -63,7 +63,10 @@ namespace db0
             std::list<std::vector<char> > m_buffers;
             std::list<std::vector<char> >::const_iterator m_it_next_buffer;
         };
-        
+
+        // Retrieves a caching reaader, which allows multiple scan over the same data
+        Reader getStreamReader();
+
         // The buffering proxy for write operations
         // changes are only reflected with the underlying stream on "flush"
         class Writer
@@ -71,12 +74,10 @@ namespace db0
         public:
             void appendChangeLog(const o_change_log_t &);
             void flush();
-
         private:
         };
         
-        // Retrieves a caching reaader, which allows multiple scan over the same data
-        Reader getStreamReader();
+        Writer getStreamWriter();
 
     private:
         const o_change_log_t *m_last_change_log_ptr = nullptr;

@@ -7,6 +7,7 @@
 #include <dbzero/core/dram/DRAM_Allocator.hpp>
 #include <dbzero/core/memory/AccessOptions.hpp>
 #include <dbzero/core/utils/ProcessTimer.hpp>
+#include "copy_prefix.hpp"
 
 namespace db0
 
@@ -811,5 +812,33 @@ namespace db0
         m_commit_pending = false;
 #endif        
     }
+    
+    void BDevStorage::fsync() {
+        m_file.fsync();
+    }
+
+    void BDevStorage::copyTo(BDevStorage &out)
+    {
+        if (m_access_type == AccessType::READ_ONLY) {
+            THROWF(db0::IOException) << "BDevStorage::copyTo: source storage must be opened in read-only mode";
+        }
+        if (!out.m_ext_space) {
+            THROWF(db0::IOException) << "BDevStorage::copyTo: destination storage must have ext-space initialized";
+        }
         
+        auto writer = out.m_dram_changelog_io.getStreamWriter();
+        copyDRAM_IO(m_dram_io, m_dram_changelog_io, out.m_dram_io, writer);
+        copyStream(m_dp_changelog_io, out.m_dp_changelog_io);
+        // we can retrieve the end page number from the writer's last chunk
+        auto last_chunk_ptr = out.m_dp_changelog_io.getLastChangeLogChunk();
+        if (last_chunk_ptr) {
+            auto end_page_num = last_chunk_ptr->m_end_storage_page_num;
+            copyPageIO(m_page_io, out.m_page_io, end_page_num, out.m_ext_space);
+        }
+        copyStream(m_meta_io, out.m_meta_io);
+        out.fsync();
+        writer.flush();
+        out.fsync();                     
+    }
+    
 }

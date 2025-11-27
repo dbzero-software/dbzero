@@ -16,7 +16,7 @@ namespace db0
             output_dram_changelog.appendChangeLog(*change_log_ptr);
             change_log_ptr = input_dram_changelog.readChangeLogChunk();
         }
-
+        
         // Copy the entire DRAM_IO stream next
         copyStream(input_io, output_io);
 

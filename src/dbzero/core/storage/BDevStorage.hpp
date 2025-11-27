@@ -83,7 +83,7 @@ DB0_PACKED_END
          * @param step_size_hint defines requested Page IO step size in bytes
         */
         static void create(const std::string &file_name, std::optional<std::size_t> page_size = {},
-            std::uint32_t dram_page_size_hint = 16 * 1024 - 256, std::optional<std::size_t> step_size_hint = {});
+            std::uint32_t dram_page_size_hint = (16u << 10) - 256, std::optional<std::size_t> step_size_hint = {});
         
         void read(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer,
             FlagSet<AccessOptions> = { AccessOptions::read, AccessOptions::write }) const override;
@@ -97,9 +97,9 @@ DB0_PACKED_END
         StateNumType findMutation(std::uint64_t page_num, StateNumType state_num) const override;
         
         bool tryFindMutation(std::uint64_t page_num, StateNumType state_num, StateNumType &mutation_id) const override;
-
+        
         bool beginRefresh() override;
-
+        
         std::uint64_t completeRefresh(
             std::function<void(std::uint64_t updated_page_num, StateNumType state_num)> f = {}) override;
         
@@ -139,7 +139,10 @@ DB0_PACKED_END
         
         void checkCrashFromCommit();
 #endif
-
+        
+        // Copy a read-only prefix to an empty BDevStorage
+        void copyTo(BDevStorage &);
+        
     protected:
         // all prefix configuration must fit into this block
         static constexpr unsigned int CONFIG_BLOCK_SIZE = 4096;
@@ -236,6 +239,8 @@ DB0_PACKED_END
         // @param chain_len length of the diff-storage chain processed while reading
         void _read(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer,
             FlagSet<AccessOptions> = { AccessOptions::read, AccessOptions::write }, unsigned int *chain_len = nullptr) const;
+        
+        void fsync();
     };
     
 }
