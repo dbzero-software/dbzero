@@ -28,20 +28,26 @@ namespace db0
     void LangCache::moveFrom(LangCache &other, std::uint16_t src_fixture_id, Address src_address,
         std::uint16_t dst_fixture_id, Address dst_address)
     {
-        auto src_uid = makeUID(src_fixture_id, src_address);
-        auto it = other.m_uid_to_index.find(src_uid);
-        // instance not found
-        if (it == other.m_uid_to_index.end()) {
-            return;
+        ObjectSharedExtPtr obj_ptr;
+        {
+            auto other_lock = other.lockUnique();
+            auto src_uid = makeUID(src_fixture_id, src_address);
+            auto it = other.m_uid_to_index.find(src_uid);
+            // instance not found
+            if (it == other.m_uid_to_index.end()) {
+                return;
+            }
+            obj_ptr = std::move(other.m_cache[it->second].second);
+            other.m_uid_to_index.erase(it);
+            --other.m_size;
         }
         // move object from the other LangCache
-        add(dst_fixture_id, dst_address, other.m_cache[it->second].second.get());
-        other.m_cache[it->second] = {};
-        other.m_uid_to_index.erase(it);
-        --other.m_size;
+        add(dst_fixture_id, dst_address, obj_ptr.get());
     }
-
-    bool LangCache::isFull() const {
+    
+    bool LangCache::isFull() const
+    {        
+        // internal method, no need to lock
         return m_size == m_cache.size();
     }
     
@@ -66,6 +72,8 @@ namespace db0
     
     void LangCache::add(std::uint16_t fixture_id, Address address, ObjectPtr obj)
     {
+        // optional object to be deleted outside of the lock
+        ObjectSharedExtPtr to_delete;
         std::unique_lock<std::shared_mutex> lock(m_mutex);
         auto uid = makeUID(fixture_id, address);
         std::optional<std::uint32_t> slot;
@@ -76,10 +84,10 @@ namespace db0
                 assert(slot);
             } else {
                 int num_visited = 0;
-                slot = evictOne(&num_visited);
+                slot = evictOne(to_delete, &num_visited);
                 if (!slot && num_visited > 0) {
                     // try again after visiting some elements
-                    slot = evictOne();
+                    slot = evictOne(to_delete);
                 }
                 if (!slot) {
                     // resize by a predefined step
@@ -93,11 +101,13 @@ namespace db0
             assert(slot);
         }
         auto slot_id = *slot;
+        // slot must be empty
         assert(!m_cache[slot_id].second);
         m_cache[slot_id] = { uid, obj };
         m_visited[slot_id] = true;
         m_uid_to_index[uid] = slot_id;        
         ++m_size;
+        lock.unlock();
     }
     
     bool LangCache::erase(const Fixture &fixture, Address address, bool expired_only, bool as_defunct) {
@@ -178,7 +188,7 @@ namespace db0
         return m_cache[it->second].second.get();
     }
     
-    std::optional<std::uint32_t> LangCache::evictOne(int *num_visited)
+    std::optional<std::uint32_t> LangCache::evictOne(ObjectSharedExtPtr &evicted, int *num_visited)
     {
         if (m_size == 0) {
             return std::nullopt;
@@ -205,11 +215,11 @@ namespace db0
                     }
                     m_visited[m_evict_hand - m_cache.begin()] = false;
                 } else {
-                    // NOTE: we check for any refernces except from LangCache itself (+1)
+                    // NOTE: we check for any references except from LangCache itself (+1)
                     if (!LangToolkit::hasAnyLangRefs(m_evict_hand->second.get(), 1)) {
                         // evict the object
-                        m_uid_to_index.erase(m_evict_hand->first);                                                
-                        *m_evict_hand = {};                        
+                        m_uid_to_index.erase(m_evict_hand->first);
+                        evicted = std::move(m_evict_hand->second);                        
                         --m_size;
                         return m_evict_hand - m_cache.begin();
                     }
@@ -238,13 +248,19 @@ namespace db0
     }
 
     std::size_t LangCache::size() const {
+        std::shared_lock<std::shared_mutex> lock(m_mutex);
         return m_size;
     }
     
     std::size_t LangCache::getCapacity() const {
+        std::shared_lock<std::shared_mutex> lock(m_mutex);
         return m_capacity;
     }
     
+    std::unique_lock<std::shared_mutex> LangCache::lockUnique() const {
+        return std::unique_lock<std::shared_mutex>(m_mutex);
+    }
+
     LangCacheView::LangCacheView(const Fixture &fixture, std::shared_ptr<LangCache> cache_ptr)
         : m_fixture(fixture)
         , m_cache_ptr(cache_ptr)
@@ -306,5 +322,5 @@ namespace db0
             m_objects.clear();
         }
     }
-    
+        
 }
