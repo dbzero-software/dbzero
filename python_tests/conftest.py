@@ -24,8 +24,7 @@ def db0_fixture(request):
         shutil.rmtree(DB0_DIR)    
     os.mkdir(DB0_DIR)
     db0.init(
-        DB0_DIR,
-        suppress_dist_overflow_error=__extract_param(request, "suppress_dist_overflow_error", False),
+        DB0_DIR
     )
     db0.open(
         "my-test-prefix",
@@ -65,8 +64,7 @@ def db0_slab_size(request):
     db0.init(
         DB0_DIR,
         autocommit=request.param.get("autocommit", True),
-        autocommit_interval=request.param.get("autocommit_interval", 250),
-        suppress_dist_overflow_error=__extract_param(request, "suppress_dist_overflow_error", False),
+        autocommit_interval=request.param.get("autocommit_interval", 250)
     )
     db0.open("my-test-prefix", slab_size=request.param["slab_size"])
     yield db0     
@@ -85,7 +83,7 @@ def db0_autocommit_fixture(request):
         shutil.rmtree(DB0_DIR)
     # create empty directory
     os.mkdir(DB0_DIR)
-    db0.init(DB0_DIR, autocommit=True, autocommit_interval=request.param, suppress_dist_overflow_error=True)
+    db0.init(DB0_DIR, autocommit=True, autocommit_interval=request.param)
     db0.open("my-test-prefix")
     yield db0    
     gc.collect()
@@ -104,7 +102,7 @@ def db0_no_autocommit():
     # create empty directory
     os.mkdir(DB0_DIR)
     # disable autocommit on all prefixes
-    db0.init(DB0_DIR, autocommit=False, suppress_dist_overflow_error=True)
+    db0.init(DB0_DIR, autocommit=False)
     db0.open("my-test-prefix")
     yield db0    
     db0.close()    
