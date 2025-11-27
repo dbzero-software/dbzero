@@ -38,4 +38,14 @@ namespace db0
         }
     }
     
+    void copyPageIO(const Page_IO &in, Page_IO &out, std::uint64_t end_page_num, ExtSpace &ext_space)
+    {
+        Page_IO::Reader reader(in, end_page_num);
+        std::vector<byte> buffer;
+        std::uint64_t start_page_num = 0;
+        std::uint32_t page_count = 0;
+        while (reader.next(buffer, start_page_num, page_count)) {
+        }
+    }
+    
 }

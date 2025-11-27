@@ -55,6 +55,17 @@ namespace db0
         // NOTE: the member is only available in read/write mode
         std::uint64_t getEndPageNum() const;
         
+        // Reads entire blocks / steps sequentially
+        // until reaching the end_page_num or end-of-stream whichever comes first
+        class Reader
+        {
+        public:
+            Reader(const Page_IO &page_io, std::optional<std::uint64_t> end_page_num = {});
+
+            bool next(std:::vector<byte> &, std::uint64_t &start_page_num, 
+                std::uint32_t &page_count);
+        };
+        
     protected:
         const std::size_t m_header_size;        
         const std::uint32_t m_page_size;
@@ -80,7 +91,7 @@ namespace db0
         const AccessType m_access_type;
         // block number within the step
         std::optional<std::uint32_t> m_block_num;
-        
+
         std::uint64_t getPageNum(std::uint64_t address) const;
         void allocateNextBlock();        
     };

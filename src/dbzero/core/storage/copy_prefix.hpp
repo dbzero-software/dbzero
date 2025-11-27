@@ -11,6 +11,7 @@ namespace db0
 
 {
     
+    class ExtSpace;
     using DRAM_ChangeLogStreamT = db0::ChangeLogIOStream<BaseStorage::DRAM_ChangeLogT>;
     using DP_ChangeLogStreamT = db0::ChangeLogIOStream<BaseStorage::DP_ChangeLogT>;
 
@@ -23,7 +24,13 @@ namespace db0
     // Copy entire contents from one BlockIOStream to another (type agnostic)
     void copyStream(BlockIOStream &in, BlockIOStream &out);
     
-    void copyPageIO(const Page_IO &input_io, const DP_ChangeLogStreamT &input_dp_changelog,
-        Page_IO &output_io, DP_ChangeLogStreamT::Writer &output_dp_changelog);
+    // Copy raw contents of a specific Page_IO up to a specific storage page number
+    // @param in the input (source) Page_IO (must NOT define ext-space - i.e. absolute / relative mapping)
+    // @param out the output Page_IO
+    // @param end_page_num the storage page number (not to be exceeded on copy)
+    // @param ext_space the ExtSpace to assign new relative page numbers on copy
+    // NOTE: after copy the source "absolute" page numbers will be corresponding do destination's relative page numbers
+    // therefore we have no need to translate the source DRAM_IO
+    void copyPageIO(const Page_IO &in, Page_IO &out, std::uint64_t end_page_num, ExtSpace &ext_space);
     
 }
