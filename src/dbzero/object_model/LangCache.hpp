@@ -65,6 +65,8 @@ namespace db0
         
         bool erase(std::uint16_t fixture_id, Address, bool expired_only = false, bool as_defunct = false);
         
+        std::unique_lock<std::shared_mutex> lockUnique() const;
+        
     private:
         mutable std::shared_mutex m_mutex;
         // UID + instance pair
@@ -90,7 +92,7 @@ namespace db0
             std::uint16_t dst_fixture_id, Address dst_address);
         
         // Try evicting one element from cache
-        std::optional<std::uint32_t> evictOne(int *num_visited = nullptr);
+        std::optional<std::uint32_t> evictOne(ObjectSharedExtPtr &evicted, int *num_visited = nullptr);
         std::optional<std::uint32_t> findEmptySlot() const;
         
         // Combine high 50 bits of the physical address (aka memory offset) with the fixture id
