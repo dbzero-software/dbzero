@@ -202,14 +202,13 @@ namespace db0::python
         if (py_autocommit && PyLong_Check(py_autocommit)) {
             autocommit_interval = PyLong_AsLong(py_autocommit);
         }
-
+        
         std::optional<std::size_t> slab_size;
-        if (py_slab_size && !PyLong_Check(py_slab_size)) {
-            PyErr_SetString(PyExc_TypeError, "Invalid argument type: slab_size");
-            return NULL;
-        }
-
-        if (py_slab_size) {
+        if (py_slab_size && py_slab_size != Py_None) {
+            if (!PyLong_Check(py_slab_size)) {
+                PyErr_SetString(PyExc_TypeError, "Invalid argument type: slab_size");
+                return NULL;
+            }            
             slab_size = PyLong_AsUnsignedLong(py_slab_size);
         }
         
@@ -228,7 +227,7 @@ namespace db0::python
 
         std::optional<std::size_t> meta_io_step_size;
         std::optional<std::size_t> page_io_step_size;
-        if (py_meta_io_step_size) {
+        if (py_meta_io_step_size && py_meta_io_step_size != Py_None) {
             if (!PyLong_Check(py_meta_io_step_size))    {
                 PyErr_SetString(PyExc_TypeError, "Invalid argument type: meta_io_step_size");
                 return NULL;
@@ -236,8 +235,9 @@ namespace db0::python
             meta_io_step_size = PyLong_AsUnsignedLong(py_meta_io_step_size);
         }
 
-        if (py_page_io_step_size) {
-            if (!PyLong_Check(py_page_io_step_size))    {
+        // check for None (default)
+        if (py_page_io_step_size && py_page_io_step_size != Py_None) {
+            if (!PyLong_Check(py_page_io_step_size)) {
                 PyErr_SetString(PyExc_TypeError, "Invalid argument type: page_io_step_size");
                 return NULL;
             }

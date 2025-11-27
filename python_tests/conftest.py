@@ -27,8 +27,12 @@ def db0_fixture(request):
         DB0_DIR,
         suppress_dist_overflow_error=__extract_param(request, "suppress_dist_overflow_error", False),
     )
-    db0.open("my-test-prefix")
-    yield db0    
+    db0.open(
+        "my-test-prefix",
+        # use custom page_io_step_size if specified in request.param
+        page_io_step_size=__extract_param(request, "page_io_step_size", None)
+    )
+    yield db0
     gc.collect()
     db0.close()
     if os.path.exists(DB0_DIR):

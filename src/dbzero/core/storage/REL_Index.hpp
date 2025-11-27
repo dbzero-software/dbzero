@@ -14,6 +14,14 @@ namespace db0
     struct REL_Item;
     struct REL_CompressedItem;
 
+    // Options to additionally annotate REL_Index elements (i.e. continuous Page-IO steps)
+    // this might be usefull for maintaining different classess of data (e.g. metadata vs no-cache data)
+    enum class REL_Options: std::uint8_t
+    {
+    };
+
+    using REL_Flags = FlagSet<REL_Options>;
+
     struct REL_ItemCompT
     {
         bool operator()(const REL_Item &lhs, const REL_Item &rhs) const;
@@ -38,12 +46,14 @@ DB0_PACKED_BEGIN
         std::uint64_t m_rel_page_num = 0;
         // the starting storage page number (absolute)
         std::uint64_t m_storage_page_num = 0;
+        REL_Flags m_flags;
         
         REL_Item() = default;
         
-        REL_Item(std::uint64_t rel_page_num, std::uint64_t storage_page_num)
+        REL_Item(std::uint64_t rel_page_num, std::uint64_t storage_page_num, REL_Flags flags = {})
             : m_rel_page_num(rel_page_num)
             , m_storage_page_num(storage_page_num)
+            , m_flags(flags)
         {                
         }
         
@@ -69,10 +79,12 @@ DB0_PACKED_BEGIN
         using EqualT = REL_CompressedItemEqualT;
         // construct REL-compressed item relative to the specific page number - i.e. first_page_num
         REL_CompressedItem(std::uint32_t first_rel_page_num, const REL_Item &);
-        REL_CompressedItem(std::uint32_t first_rel_page_num, std::uint64_t rel_page_num, std::uint64_t storage_page_num);
-
+        REL_CompressedItem(std::uint32_t first_rel_page_num, std::uint64_t rel_page_num, 
+            std::uint64_t storage_page_num, REL_Flags flags = {});
+        
         std::uint32_t m_compressed_rel_page_num;
         std::uint64_t m_storage_page_num;
+        REL_Flags m_flags;
         
         // uncompress relative to a specific page number
         REL_Item uncompress(std::uint32_t first_rel_page_num) const;        

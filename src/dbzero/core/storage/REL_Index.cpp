@@ -49,6 +49,7 @@ namespace db0
     
     REL_CompressedItem::REL_CompressedItem(std::uint32_t first_rel_page_num, const REL_Item &item)
         : m_storage_page_num(item.m_storage_page_num)
+        , m_flags(item.m_flags)
     {
         // check if can fit
         assert(first_rel_page_num == (item.m_rel_page_num >> 32));
@@ -56,8 +57,10 @@ namespace db0
         m_compressed_rel_page_num = static_cast<std::uint32_t>(item.m_rel_page_num & 0xFFFFFFFF);
     }
     
-    REL_CompressedItem::REL_CompressedItem(std::uint32_t first_rel_page_num, std::uint64_t rel_page_num, std::uint64_t storage_page_num)
+    REL_CompressedItem::REL_CompressedItem(std::uint32_t first_rel_page_num, std::uint64_t rel_page_num,
+        std::uint64_t storage_page_num, REL_Flags flags)
         : m_storage_page_num(storage_page_num)
+        , m_flags(flags)
     {
         // check if can fit
         assert(first_rel_page_num == (rel_page_num >> 32));
@@ -68,7 +71,7 @@ namespace db0
     REL_Item REL_CompressedItem::uncompress(std::uint32_t first_rel_page_num) const 
     {
         std::uint64_t full_rel_page_num = (static_cast<std::uint64_t>(first_rel_page_num) << 32) | static_cast<std::uint64_t>(m_compressed_rel_page_num);
-        return { full_rel_page_num, m_storage_page_num };
+        return { full_rel_page_num, m_storage_page_num, m_flags };
     }
 
     std::string REL_CompressedItem::toString() const {
