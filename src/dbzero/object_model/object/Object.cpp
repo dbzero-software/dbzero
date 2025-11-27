@@ -596,4 +596,13 @@ namespace db0::object_model
         return true;
     }
     
+    void Object::dropInstance(FixtureLock &)
+    {
+        auto unique_addr = this->getUniqueAddress();
+        auto ext_refs = this->getExtRefs();
+        this->~Object();
+        // construct a null placeholder
+        new ((void*)this) Object(tag_as_dropped(), unique_addr, ext_refs);
+    }
+    
 }

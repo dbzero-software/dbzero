@@ -65,12 +65,6 @@ DB0_PACKED_BEGIN
             }
         }
 
-        // Value constructor
-        explicit FlagSet(store_t value)
-            // only set flags that are allowed
-            : m_flags(value & FlagSetLimits<enum_t>::all())
-        {}
-
         bool operator[](enum_t flag) const {
             return test(flag);
         }
@@ -134,27 +128,27 @@ DB0_PACKED_BEGIN
         }
         
         FlagSet operator&(EnumT flag) const {
-            return FlagSet(m_flags & static_cast<store_t>(flag));
+            return FlagSet::fromValue(m_flags & static_cast<store_t>(flag));
         }
         
         FlagSet operator&(const FlagSet &other) const {
-            return FlagSet(m_flags & other.m_flags);
+            return FlagSet::fromValue(m_flags & other.m_flags);
         }
 
         FlagSet operator|(EnumT flag) const {
-            return FlagSet(m_flags | static_cast<store_t>(flag));
+            return FlagSet::fromValue(m_flags | static_cast<store_t>(flag));
         }
 
         FlagSet operator|(const FlagSet &other) const {
-            return FlagSet(m_flags | other.m_flags);
+            return FlagSet::fromValue(m_flags | other.m_flags);
         }
 
         FlagSet operator^(const FlagSet &other) const {
-            return FlagSet(m_flags ^ other);
+            return FlagSet::fromValue(m_flags ^ other.m_flags);
         }
 
         FlagSet operator~() const {
-            return FlagSet(~m_flags);
+            return FlagSet::fromValue(~m_flags);
         }
 
         bool operator==(const FlagSet &other) const {
@@ -163,6 +157,14 @@ DB0_PACKED_BEGIN
 
         bool operator!=(const FlagSet &other) const {
             return m_flags != other.m_flags;
+        }
+
+        void operator+=(EnumT flag) {
+            set(flag);
+        }
+        
+        void operator-=(EnumT flag) {
+            clear(flag);
         }
 
         /**
@@ -191,11 +193,20 @@ DB0_PACKED_BEGIN
          * @return
          */
         static constexpr FlagSet all() {
-            return FlagSet(FlagSetLimits<enum_t>::all());
+            return FlagSet::fromValue(FlagSetLimits<enum_t>::all());
+        }
+        
+        static FlagSet fromValue(store_t value) {
+            return FlagSet(value);
         }
 
     private:
         store_t m_flags = 0;
+
+        FlagSet(store_t flags)
+            : m_flags(flags)
+        {
+        }
     };
 DB0_PACKED_END
 

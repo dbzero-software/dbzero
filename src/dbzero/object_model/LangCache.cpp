@@ -52,9 +52,9 @@ namespace db0
     void LangCache::add(const db0::Fixture &fixture, Address address, ObjectPtr obj) {
         add(getFixtureId(fixture), address, obj);
     }
-
+    
     void LangCache::resize(std::size_t new_size)
-    {
+    {        
         assert(new_size > m_cache.size());
         auto evict_index = m_evict_hand - m_cache.begin();
         auto insert_index = m_insert_hand - m_cache.begin();                        
@@ -63,9 +63,10 @@ namespace db0
         m_evict_hand = m_cache.begin() + evict_index;
         m_insert_hand = m_cache.begin() + insert_index;
     }
-
+    
     void LangCache::add(std::uint16_t fixture_id, Address address, ObjectPtr obj)
     {
+        std::unique_lock<std::shared_mutex> lock(m_mutex);
         auto uid = makeUID(fixture_id, address);
         std::optional<std::uint32_t> slot;
         if (isFull()) {
@@ -105,6 +106,7 @@ namespace db0
 
     bool LangCache::erase(std::uint16_t fixture_id, Address address, bool expired_only, bool as_defunct)
     {
+        std::unique_lock<std::shared_mutex> lock(m_mutex);
         auto uid = makeUID(fixture_id, address);
         auto it = m_uid_to_index.find(uid);
         // instance not found
@@ -124,25 +126,34 @@ namespace db0
             // just release the pointer since Python is defunct
             m_cache[slot_id].second.steal();
         }
-        m_cache[slot_id] = {};
-        --m_size;
+        // grab object from cache / invalidate slot
+        auto cached_obj_ptr = std::move(m_cache[slot_id].second);
+        --m_size;        
+        lock.unlock();
+        // NOTE: potential object destruction outside of the lock
         return true;
     }
     
     void LangCache::clear(bool expired_only)
     {
+        std::vector<ObjectSharedExtPtr> to_destroy;
+        std::unique_lock<std::shared_mutex> lock(m_mutex);
         for (auto &item: m_cache) {
             // NOTE: we check for any refernces except from LangCache itself (+1)
             if (item.second.get() && (!expired_only || !LangToolkit::hasAnyLangRefs(item.second.get(), 1))) {
                 m_uid_to_index.erase(item.first);
-                item = {};
+                // grab object for destruction outside of the lock
+                to_destroy.push_back(std::move(item.second));
                 --m_size;
             }
-        }
+        }        
+        lock.unlock();
+        // destroy outside of the lock
     }
     
     void LangCache::clearDefunct()
-    {
+    {        
+        std::unique_lock<std::shared_mutex> lock(m_mutex);
         for (auto &item: m_cache) {
             if (item.second.get()) {
                 m_uid_to_index.erase(item.first);
@@ -152,9 +163,10 @@ namespace db0
             }            
         }
     }
-        
+    
     LangCache::ObjectSharedExtPtr LangCache::get(std::uint16_t fixture_id, Address address) const
     {
+        std::shared_lock<std::shared_mutex> lock(m_mutex);
         auto uid = makeUID(fixture_id, address);
         auto it = m_uid_to_index.find(uid);
         if (it == m_uid_to_index.end()) {

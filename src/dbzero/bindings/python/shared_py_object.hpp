@@ -2,8 +2,9 @@
 
 #include <Python.h>
 #include <iostream>
+#include <thread>
 
-// extended inc-ref, handles additional ref-counter for memo objects
+// Extended inc-ref, handles additional ref-counter for memo objects
 // must dec-ref with PyEXT_DECREF
 #define PyEXT_INCREF(ptr) db0::python::incExtRef(ptr)
 #define PyEXT_DECREF(ptr) db0::python::decExtRef(ptr)
@@ -20,15 +21,17 @@ namespace db0::python
 
 {
     
-    // incRef / decRef with a special handling for memo objects
     void incExtRef(PyObject *);
     void decExtRef(PyObject *);
-    unsigned int getExtRefcount(PyObject *, unsigned int default_count = 0);
-    
+    unsigned int getExtRefcount(PyObject *, unsigned int default_count);
+
     // @tparam ExtRef flag indicating if should be counted as an "external" reference
     template <typename T, bool ExtRef = false> class shared_py_object
     {
     public:
+        using self_t = shared_py_object<T, ExtRef>;
+        static constexpr bool hasExtRefs = ExtRef;
+
         inline shared_py_object() = default;
         inline shared_py_object(T py_object, bool incref = true)
             : m_py_object(py_object)
@@ -39,7 +42,7 @@ namespace db0::python
                 }
                 if constexpr (ExtRef) {
                     PyEXT_INCREF(py_object);
-                }                
+                }
             }
         }
         
@@ -48,13 +51,15 @@ namespace db0::python
         shared_py_object(shared_py_object<T, true> &&other)
             : m_py_object(other.m_py_object)
         {
+            static_assert(!ExtRef, "Member only available for non-ExtRef conversion");
+            static_assert(other.hasExtRefs, "Source object must have ExtRef");
             if (m_py_object) {
                 PyEXT_DECREF(m_py_object);
             }
             other.m_py_object = nullptr;
         }
         
-        shared_py_object(const shared_py_object &other)
+        shared_py_object(const self_t &other)
             : m_py_object(other.m_py_object)
         {
             if (m_py_object) {
@@ -64,21 +69,15 @@ namespace db0::python
                 }
             }
         }
-
-        shared_py_object(shared_py_object &&other)
+        
+        shared_py_object(self_t &&other)
             : m_py_object(other.m_py_object)
         {
             other.m_py_object = nullptr;
         }
 
-        inline ~shared_py_object()
-        {
-            if (m_py_object) {
-                if constexpr (ExtRef) {
-                    PyEXT_DECREF(m_py_object);
-                }
-                Py_DECREF(m_py_object);
-            }
+        inline ~shared_py_object() {
+            this->_destruct();
         }
         
         inline T get() const {
@@ -113,19 +112,19 @@ namespace db0::python
             }
             m_py_object = nullptr;
             return result;
-        } 
+        }
         
-        inline bool operator==(const shared_py_object &other) const {
+        inline bool operator==(const self_t &other) const {
             return m_py_object == other.m_py_object;
         }
-
-        inline bool operator!=(const shared_py_object &other) const {
+        
+        inline bool operator!=(const self_t &other) const {
             return m_py_object != other.m_py_object;
         }
         
-        shared_py_object<T, ExtRef> &operator=(const shared_py_object &other)
+        self_t &operator=(const self_t &other)
         {
-            this->~shared_py_object();
+            this->_destruct();
             m_py_object = other.m_py_object;
             if (m_py_object) {
                 Py_INCREF(m_py_object);
@@ -135,10 +134,10 @@ namespace db0::python
             }
             return *this;
         }
-
-        shared_py_object<T, ExtRef> &operator=(shared_py_object &&other)
+        
+        self_t &operator=(self_t &&other)
         {
-            this->~shared_py_object();
+            this->_destruct();
             m_py_object = other.m_py_object;
             other.m_py_object = nullptr;
             return *this;
@@ -146,18 +145,23 @@ namespace db0::python
 
         void reset()
         {
-            if (m_py_object) {
-                if constexpr (ExtRef) {
-                    PyEXT_DECREF(m_py_object);
-                }
-                Py_DECREF(m_py_object);
-                m_py_object = nullptr;
-            }
+            this->_destruct();
+            m_py_object = nullptr;            
         }
         
     private:
         friend class shared_py_object<T, !ExtRef>;
-        T m_py_object = nullptr;        
+        T m_py_object = nullptr;
+
+        void _destruct()
+        {
+            if (m_py_object) {
+                if constexpr (ExtRef) {
+                    PyEXT_DECREF(m_py_object);
+                }
+                Py_DECREF(m_py_object);                
+            }
+        }
     };
     
     // PyTypeObject specialization
@@ -241,7 +245,7 @@ namespace db0::python
     template <typename T, typename K> shared_py_object<T> shared_py_cast(shared_py_object<K> &&obj) {
         return shared_py_object<T>(static_cast<T>(obj.steal()), false);
     }
-
+    
 }
 
 namespace std

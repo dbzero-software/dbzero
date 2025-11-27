@@ -28,8 +28,8 @@ namespace db0::object_model
     }
     
     template <typename T, typename ImplT>
-    ObjectImplBase<T, ImplT>::ObjectImplBase(UniqueAddress addr, unsigned int ext_refs)
-        : super_t(addr, ext_refs)
+    ObjectImplBase<T, ImplT>::ObjectImplBase(tag_as_dropped, UniqueAddress addr, unsigned int ext_refs)
+        : super_t(tag_as_dropped(), addr, ext_refs)
     {
     }
     
@@ -96,17 +96,7 @@ namespace db0::object_model
             InitManager::instance.tryCloseInitializer(*this);
         }
     }
-
-    template <typename T, typename ImplT>
-    void ObjectImplBase<T, ImplT>::dropInstance(FixtureLock &)
-    {
-        auto unique_addr = this->getUniqueAddress();
-        auto ext_refs = this->getExtRefs();
-        this->~ObjectImplBase<T, ImplT>();
-        // construct a null placeholder
-        new ((void*)this) Object(unique_addr, ext_refs);
-    }
-
+    
     template <typename T, typename ImplT>
     typename ObjectImplBase<T, ImplT>::ObjectStem ObjectImplBase<T, ImplT>::tryUnloadStem(db0::swine_ptr<Fixture> &fixture,
         Address address, std::uint16_t instance_id, AccessFlags access_mode)

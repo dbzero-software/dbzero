@@ -8,6 +8,7 @@
 namespace db0
 
 {
+
     class FixtureThreadCallbacksContext : public FixtureThreadContextBase
     {
     public:
@@ -30,9 +31,7 @@ namespace db0
     private:
         StateReachedCallbackList m_callbacks;
     };
-
-
-
+    
     FixtureThread::FixtureThread(std::uint64_t interval_ms)
         : m_interval_ms(interval_ms)        
     {

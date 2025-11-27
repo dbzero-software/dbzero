@@ -157,10 +157,13 @@ namespace db0::object_model
                 if (!checkAccessType(*fixture, AccessType::READ_WRITE)) {
                     return {};
                 }
-
+                
                 // create new Class instance
                 bool is_singleton = LangToolkit::isSingleton(lang_type);
-                ClassFlags flags { is_singleton ? ClassOptions::SINGLETON : 0 };
+                ClassFlags flags;
+                if (is_singleton) {
+                    flags += ClassOptions::SINGLETON;
+                }                
                 flags.set(ClassOptions::NO_DEFAULT_TAGS, LangToolkit::isNoDefaultTags(lang_type));
                 flags.set(ClassOptions::IMMUTABLE, LangToolkit::isImmutable(lang_type));
                 auto memo_base = LangToolkit::getBaseMemoType(lang_type);

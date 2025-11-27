@@ -9,8 +9,9 @@
 namespace db0::object_model
 
 {
-    GC0_Define(List)
 
+    GC0_Define(List)
+    
     template <typename LangToolkit> o_typed_item createListItem(db0::swine_ptr<Fixture> &fixture,
         db0::bindings::TypeId type_id, typename LangToolkit::ObjectPtr lang_value, 
         StorageClass storage_class, FlagSet<AccessOptions> access_mode)
