@@ -1632,7 +1632,7 @@ DB0_PACKED_END
             return super_t::measureMembers();
         }
     }
-
+    
     template <typename PtrT>
     template <typename buf_t> 
     std::size_t o_bvector<PtrT>::safeSizeOf(buf_t buf)

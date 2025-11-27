@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <dbzero/core/utils/auto_map.hpp>
+#include <shared_mutex>
 
 namespace db0 
 
@@ -25,7 +26,7 @@ namespace db0
         
         LangCache(std::optional<std::size_t> capacity = {}, std::optional<std::uint32_t> step = {});
         virtual ~LangCache();
-
+        
         // Add a new instance to cache
         // @return slot id the element was written to
         void add(const Fixture &, Address, ObjectPtr);
@@ -63,8 +64,9 @@ namespace db0
         void add(std::uint16_t fixture_id, Address, ObjectPtr);
         
         bool erase(std::uint16_t fixture_id, Address, bool expired_only = false, bool as_defunct = false);
-
+        
     private:
+        mutable std::shared_mutex m_mutex;
         // UID + instance pair
         using CacheItem = std::pair<std::uint64_t, ObjectSharedExtPtr>;
         const std::size_t m_capacity;

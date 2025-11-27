@@ -149,8 +149,9 @@ namespace db0::object_model
         }
         
         // As a dropped object
-        ObjectAnyBase(UniqueAddress addr, unsigned int ext_refs);
-
+        struct tag_as_dropped {};
+        ObjectAnyBase(tag_as_dropped, UniqueAddress addr, unsigned int ext_refs);
+        
         void _touch();
     };
     

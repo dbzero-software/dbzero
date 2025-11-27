@@ -30,6 +30,9 @@ namespace db0::object_model
         void set(FixtureLock &, const char *field_name, ObjectPtr lang_value);
         void remove(FixtureLock &, const char *field_name);
         
+        // Destroys an existing instance and constructs a "null" placeholder
+        void dropInstance(FixtureLock &);
+
     protected:
         friend super_t;
 

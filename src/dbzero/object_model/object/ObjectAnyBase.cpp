@@ -5,9 +5,9 @@ namespace db0::object_model
 {
         
     ObjectInitializerManager InitManager::instance;
-
+    
     template <typename T, typename ImplT>
-    ObjectAnyBase<T, ImplT>::ObjectAnyBase(UniqueAddress addr, unsigned int ext_refs)
+    ObjectAnyBase<T, ImplT>::ObjectAnyBase(tag_as_dropped, UniqueAddress addr, unsigned int ext_refs)
         : m_flags { ObjectOptions::DROPPED }
         , m_ext_refs(ext_refs)
         , m_unique_address(addr)        

@@ -44,9 +44,10 @@ namespace db0::object_model
         using TypeManager = typename LangToolkit::TypeManager;
         using ObjectStem = ObjectVType<T>;
         using TypeInitializer = ObjectInitializer::TypeInitializer;
+        using tag_as_dropped = typename super_t::tag_as_dropped;
         
         // Construct as null / dropped object
-        ObjectImplBase(UniqueAddress, unsigned int ext_refs);
+        ObjectImplBase(tag_as_dropped, UniqueAddress, unsigned int ext_refs);
         ObjectImplBase(const ObjectImplBase<T, ImplT> &) = delete;
         ObjectImplBase(ObjectImplBase<T, ImplT> &&) = delete;
 
@@ -76,10 +77,7 @@ namespace db0::object_model
         
         // post-init invoked by memo type directly after __init__
         void postInit(FixtureLock &);
-        
-        // Destroys an existing instance and constructs a "null" placeholder 
-        void dropInstance(FixtureLock &);
-        
+                
         // Unload the object stem, to retrieve its type
         static ObjectStem tryUnloadStem(db0::swine_ptr<Fixture> &, Address, 
             std::uint16_t instance_id = 0, AccessFlags = {});
@@ -88,7 +86,7 @@ namespace db0::object_model
         
         // Called to finalize adding members
         void endInit();
-           
+        
         // Assign field of an uninitialized instance (assumed as a non-mutating operation)
         // NOTE: if lang_value is nullptr then the member is removed
         void setPreInit(const char *field_name, ObjectPtr lang_value) const;
@@ -154,7 +152,7 @@ namespace db0::object_model
         std::pair<bool, bool> tryGetMemberAt(std::pair<FieldID, unsigned int>, 
             std::pair<StorageClass, Value> &) const;
         FieldID tryGetMember(const char *field_name, std::pair<StorageClass, Value> &, bool &is_init_var) const;
-                
+
         // Try resolving field ID of an existing (or deleted) member and also its storage location
         // @param pos the member's position in the containing collection
         // @return FieldID + containing collection (e.g. pos_vt())
