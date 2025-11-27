@@ -2,6 +2,7 @@
 
 #include "BlockIOStream.hpp"
 #include "ChangeLog.hpp"
+#include "ChangeLogTypes.hpp"
 #include <dbzero/core/serialization/Base.hpp>
 #include <dbzero/core/collections/rle/RLE_Sequence.hpp>
 
@@ -102,5 +103,6 @@ namespace db0
     }
     
     extern template class ChangeLogIOStream<>;
+    extern template class ChangeLogIOStream<db0::o_change_log<db0::o_dp_changelog_header> >;
     
 }

@@ -4,6 +4,7 @@
 #include <dbzero/core/dram/DRAM_Allocator.hpp>
 #include <dbzero/core/collections/SGB_Tree/SGB_Tree.hpp>
 #include <dbzero/core/collections/SGB_Tree/SGB_Key.hpp>
+#include <dbzero/core/collections/vector/v_bvector.hpp>
 #include <chrono>
 #include <unordered_set>
 
@@ -128,6 +129,24 @@ namespace tests
         // call free to make sure all allocs have been taken
         for (auto addr: allocs) {
             ASSERT_NO_THROW(cut.free(Address::fromOffset(addr)));
+        }
+    }
+    
+    TEST_F( DRAMSpaceTest, testVBVectorCanBePutOnDRAMSpace )
+    {
+        // use 4KiB, 16KiB page sizes
+        std::vector<std::size_t> page_sizes { 4u << 10, 16u << 10 };
+        for (auto page_size: page_sizes) {        
+            auto cut = DRAMSpace::create(page_size);
+            
+            // Using std::uint32_t as capacity type to handle large page size
+            using BVectorT = db0::v_bvector<std::uint64_t>;
+            // NOTE: must be created as fixed-block to DRAM space requirements
+            BVectorT b_vector(cut, { BVectorOptions::FIXED_BLOCK });
+            for (std::uint64_t i = 0; i < 10000; ++i) {
+                b_vector.push_back(i * 10);
+            }
+            ASSERT_EQ(b_vector.size(), 10000u);
         }
     }
     

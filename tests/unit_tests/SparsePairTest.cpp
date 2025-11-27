@@ -20,6 +20,8 @@ namespace tests
     {
     public:
         static constexpr const char *file_name = "my-test-prefix_1.db0";
+        using DP_ChangeLogStreamT = SparsePair::DP_ChangeLogStreamT;
+
         SparsePairTest() = default;
 
         void SetUp() override {
@@ -43,7 +45,7 @@ namespace tests
         SparsePair cut(SparsePair::tag_create(), dram_pair);
         auto &sparse_index = cut.getSparseIndex();
         std::vector<typename SparseIndex::SI_ItemT> items_1 {
-            // page number, state number, physical page number, page type
+            // page number, state number, physical page number
             { 1, 1, 1 }, { 0, 1, 0 }
         };
 
@@ -56,21 +58,21 @@ namespace tests
         auto tail_function = [&]() {
             return file.size();
         };
-        
+
         {
-            ChangeLogIOStream io(file, 0, 4096, tail_function);
-            auto &change_log = cut.extractChangeLog(io);
+            DP_ChangeLogStreamT io(file, 0, 4096, tail_function);
+            auto &change_log = cut.extractChangeLog(io, 0);
             std::vector<std::uint64_t> data;
             for (auto value: change_log) {
                 data.push_back(value);
             }
-            io.close();
-            // first element of the change log is the state number
-            ASSERT_EQ(data, (std::vector<std::uint64_t> { 1, 0, 1 }));
+            io.close();            
+            ASSERT_EQ(data, (std::vector<std::uint64_t> { 0, 1 }));
+            ASSERT_EQ(change_log.m_state_num, 1u);
         }
-
+        
         std::vector<typename SparseIndex::SI_ItemT> items_2 {
-            // page number, state number, physical page number, page type
+            // page number, state number, physical page number
             { 2, 1, 2 }, { 3, 2, 3 }, { 0, 3, 4 }, { 2, 4, 5 }, { 4, 5, 6 }
         };
 
@@ -79,17 +81,17 @@ namespace tests
         }
         
         {
-            ChangeLogIOStream io(file, 0, 4096, tail_function);
+            DP_ChangeLogStreamT io(file, 0, 4096, tail_function);
             while (io.readChangeLogChunk());
-            auto &change_log = cut.extractChangeLog(io);
-            // first element of the change log is the state number
-            std::vector<std::uint64_t> expected_data { 1, 0, 2, 3, 4 };
+            auto &change_log = cut.extractChangeLog(io, 0);
+            std::vector<std::uint64_t> expected_data { 0, 2, 3, 4 };
             std::vector<std::uint64_t> data;
             for (auto value: change_log) {
                 data.push_back(value);
             }
             io.close();
             ASSERT_EQ(data, expected_data);
+            ASSERT_EQ(change_log.m_state_num, 5u);
         }
     }
 
@@ -120,9 +122,9 @@ namespace tests
             }
             
             // simulate change log extraction
-            db0::ChangeLogIOStream io(file, 0, 16 << 10, tail_function, AccessType::READ_WRITE);
+            DP_ChangeLogStreamT io(file, 0, 16 << 10, tail_function, AccessType::READ_WRITE);
             while (io.readChangeLogChunk());
-            cut.extractChangeLog(io);
+            cut.extractChangeLog(io, 0);
             io.close();
 
             // refresh updates local cached variables with DRAM prefix
@@ -130,5 +132,5 @@ namespace tests
             ASSERT_EQ(cut.getMaxStateNum(), i);
         }
     }
-
+    
 }

@@ -32,16 +32,10 @@ namespace db0::object_model
         // 4. refine results (lazy filter) by binary comparison of pre-scope and post-scope objects to identify actual mutations
         
         std::unordered_set<std::uint64_t> mutated_dps;
-        storage.fetchDP_ChangeLogs(from_state, to_state + 1, [&](StateNumType, const DP_ChangeLogT &change_log) {
-            auto it = change_log.begin(), end = change_log.end();
-            if (it != end) {
-                // first element holds the state number and should be ignored
-                ++it;                
+        storage.fetchDP_ChangeLogs(from_state, to_state + 1, [&](const DP_ChangeLogT &change_log) {
+            for (auto page_num: change_log) {
+                mutated_dps.insert(page_num);
             }
-            
-            for (;it != end; ++it) {
-                mutated_dps.insert(*it);
-            }        
         });
         
         std::vector<db0::UniqueAddress> unique_dps;

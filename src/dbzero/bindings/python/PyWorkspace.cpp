@@ -29,21 +29,22 @@ namespace db0::python
     }
     
     void PyWorkspace::open(const std::string &prefix_name, AccessType access_type, std::optional<bool> autocommit,
-        std::optional<std::size_t> slab_size, ObjectPtr py_lock_flags, std::optional<std::size_t> meta_io_step_size)
+        std::optional<std::size_t> slab_size, ObjectPtr py_lock_flags, std::optional<std::size_t> meta_io_step_size,
+        std::optional<std::size_t> page_io_step_size)
     {
         if (!m_workspace) {
             // initialize dbzero with current working directory
             initWorkspace("");
         }
-
+        
         if (py_lock_flags) {
             db0::Config lock_flags_config(py_lock_flags);
             m_workspace->open(prefix_name, access_type, autocommit, slab_size, 
-                lock_flags_config, meta_io_step_size
+                lock_flags_config, meta_io_step_size, page_io_step_size
             );
         } else {
             m_workspace->open(prefix_name, access_type, autocommit, slab_size, 
-                {}, meta_io_step_size
+                {}, meta_io_step_size, page_io_step_size
             );
         }
     }

@@ -182,7 +182,8 @@ namespace db0::python
     {
         // prefix_name, open_mode, autocommit (bool)
         static const char *kwlist[] = {
-            "prefix_name", "open_mode", "autocommit", "slab_size", "lock_flags", "meta_io_step_size", NULL
+            "prefix_name", "open_mode", "autocommit", "slab_size", "lock_flags", "meta_io_step_size", 
+            "page_io_step_size", NULL
         };
         const char *prefix_name = nullptr;
         const char *open_mode = nullptr;
@@ -190,8 +191,9 @@ namespace db0::python
         PyObject *py_slab_size = nullptr;
         PyObject *py_lock_flags = nullptr;
         PyObject *py_meta_io_step_size = nullptr;
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|sOOOO:open", const_cast<char**>(kwlist),
-            &prefix_name, &open_mode, &py_autocommit, &py_slab_size, &py_lock_flags, &py_meta_io_step_size))
+        PyObject *py_page_io_step_size = nullptr;
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|sOOOOO:open", const_cast<char**>(kwlist),
+            &prefix_name, &open_mode, &py_autocommit, &py_slab_size, &py_lock_flags, &py_meta_io_step_size, &py_page_io_step_size))
         {
             return NULL;
         }
@@ -200,14 +202,13 @@ namespace db0::python
         if (py_autocommit && PyLong_Check(py_autocommit)) {
             autocommit_interval = PyLong_AsLong(py_autocommit);
         }
-
+        
         std::optional<std::size_t> slab_size;
-        if (py_slab_size && !PyLong_Check(py_slab_size)) {
-            PyErr_SetString(PyExc_TypeError, "Invalid argument type: slab_size");
-            return NULL;
-        }
-
-        if (py_slab_size) {
+        if (py_slab_size && py_slab_size != Py_None) {
+            if (!PyLong_Check(py_slab_size)) {
+                PyErr_SetString(PyExc_TypeError, "Invalid argument type: slab_size");
+                return NULL;
+            }            
             slab_size = PyLong_AsUnsignedLong(py_slab_size);
         }
         
@@ -225,7 +226,8 @@ namespace db0::python
         }
 
         std::optional<std::size_t> meta_io_step_size;
-        if (py_meta_io_step_size) {
+        std::optional<std::size_t> page_io_step_size;
+        if (py_meta_io_step_size && py_meta_io_step_size != Py_None) {
             if (!PyLong_Check(py_meta_io_step_size))    {
                 PyErr_SetString(PyExc_TypeError, "Invalid argument type: meta_io_step_size");
                 return NULL;
@@ -233,13 +235,22 @@ namespace db0::python
             meta_io_step_size = PyLong_AsUnsignedLong(py_meta_io_step_size);
         }
 
+        // check for None (default)
+        if (py_page_io_step_size && py_page_io_step_size != Py_None) {
+            if (!PyLong_Check(py_page_io_step_size)) {
+                PyErr_SetString(PyExc_TypeError, "Invalid argument type: page_io_step_size");
+                return NULL;
+            }
+            page_io_step_size = PyLong_AsUnsignedLong(py_page_io_step_size);
+        }
+
         auto access_type = open_mode ? parseAccessType(open_mode) : db0::AccessType::READ_WRITE;
         PyToolkit::getPyWorkspace().open(
-            prefix_name, access_type, autocommit, slab_size, py_lock_flags, meta_io_step_size
+            prefix_name, access_type, autocommit, slab_size, py_lock_flags, meta_io_step_size, page_io_step_size
         );
         Py_RETURN_NONE;
     }
-
+    
     PyObject *PyAPI_open(PyObject *self, PyObject *args, PyObject *kwargs)
     {
         PY_API_FUNC

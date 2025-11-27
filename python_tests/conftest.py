@@ -26,8 +26,12 @@ def db0_fixture(request):
     db0.init(
         DB0_DIR
     )
-    db0.open("my-test-prefix")
-    yield db0    
+    db0.open(
+        "my-test-prefix",
+        # use custom page_io_step_size if specified in request.param
+        page_io_step_size=__extract_param(request, "page_io_step_size", None)
+    )
+    yield db0
     gc.collect()
     db0.close()
     if os.path.exists(DB0_DIR):

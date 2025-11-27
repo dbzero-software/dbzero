@@ -6,8 +6,8 @@
 namespace db0
 
 {
-DB0_PACKED_BEGIN
 
+DB0_PACKED_BEGIN
     struct DB0_PACKED_ATTR o_diff_header: public o_fixed<o_diff_header>
     {
         // the number of objects contained
@@ -16,6 +16,7 @@ DB0_PACKED_BEGIN
         // (bytes before offset can be taken by remnants of the object from the previous page)
         std::uint16_t m_offset = 0;
     };
+DB0_PACKED_END    
     
     class DiffWriter
     {
@@ -221,9 +222,10 @@ DB0_PACKED_BEGIN
         m_current += o_diff_header::sizeOf();
     }
     
-    Diff_IO::Diff_IO(std::size_t header_size, CFile &file, std::uint32_t page_size, std::uint32_t block_size, std::uint64_t address,
-        std::uint32_t page_count, std::function<std::uint64_t()> tail_function)
-        : Page_IO(header_size, file, page_size, block_size, address, page_count, tail_function)
+    Diff_IO::Diff_IO(std::size_t header_size, CFile &file, std::uint32_t page_size, 
+        std::uint32_t block_size, std::uint64_t address, std::uint32_t page_count, std::uint32_t step_size, 
+        std::function<std::uint64_t()> tail_function, std::optional<std::uint32_t> block_num)
+        : Page_IO(header_size, file, page_size, block_size, address, page_count, step_size, tail_function, block_num)
         , m_write_buf(page_size * 2)
         , m_read_buf(page_size * 2)
         , m_writer(std::make_unique<DiffWriter>(
@@ -233,7 +235,7 @@ DB0_PACKED_BEGIN
     }
     
     Diff_IO::Diff_IO(std::size_t header_size, CFile &file, std::uint32_t page_size)
-        : Page_IO(header_size, file, page_size)    
+        : Page_IO(header_size, file, page_size)
         , m_read_buf(page_size * 2)
     {
     }
@@ -242,8 +244,9 @@ DB0_PACKED_BEGIN
     {
     }
     
-    std::pair<std::uint64_t, bool> Diff_IO::appendDiff(const void *dp_data,
-        std::pair<std::uint64_t, std::uint32_t> page_and_state, const std::vector<std::uint16_t> &diff_data)
+    std::pair<std::uint64_t, bool> Diff_IO::appendDiff(
+        const void *dp_data, std::pair<std::uint64_t, std::uint32_t> page_and_state,
+        const std::vector<std::uint16_t> &diff_data, bool *is_first_page)
     {
         // must lock because the write-buffer is shared
         std::unique_lock<std::mutex> lock(m_mx_write);
@@ -253,8 +256,13 @@ DB0_PACKED_BEGIN
                 m_diff_bytes_written += m_writer->flushDP();
             }
             bool overflow = false;
-            auto next_page_num = Page_IO::getNextPageNum();
+            auto next_page_num = Page_IO::getNextPageNum(is_first_page);
             assert(next_page_num.second > 0);
+            if (is_first_page) {
+                // Must be first write into the first page (of the step)
+                // to report result as the is_first_page = true
+                *is_first_page &= m_writer->empty();
+            }
             if (m_writer->append((const std::byte*)dp_data, page_and_state, diff_data, overflow)) {
                 if (overflow) {
                     // on overflow we can either append remnants to the next storage page (+1)
@@ -322,7 +330,7 @@ DB0_PACKED_BEGIN
         Page_IO::read(page_num, buffer);
     }
 
-    std::uint64_t Diff_IO::append(const void *buffer)
+    std::uint64_t Diff_IO::append(const void *buffer, bool *is_first_page_ptr)
     {
         // full-DP write can only be performed after flushing from diff-writer
         std::unique_lock<std::mutex> lock(m_mx_write);
@@ -330,12 +338,11 @@ DB0_PACKED_BEGIN
             m_diff_bytes_written += m_writer->flush();
         }
         m_full_dp_bytes_written += m_page_size;
-        return Page_IO::append(buffer);
+        return Page_IO::append(buffer, is_first_page_ptr);
     }
     
     std::pair<std::size_t, std::size_t> Diff_IO::getStats() const {
         return { m_full_dp_bytes_written + m_diff_bytes_written, m_diff_bytes_written };
     }
 
-DB0_PACKED_END
 }

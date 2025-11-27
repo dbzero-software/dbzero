@@ -31,7 +31,7 @@ namespace db0
         const PrefixName &prefix_name, bool &new_file_created, AccessType access_type, 
         std::optional<std::size_t> page_size, std::optional<std::size_t> slab_size, 
         std::optional<std::size_t> sparse_index_node_size, std::optional<LockFlags> lock_flags,
-        std::optional<std::size_t> meta_io_step_size)
+        std::optional<std::size_t> meta_io_step_size, std::optional<std::size_t> page_io_step_size)
     {
         if (!page_size) {
             page_size = DEFAULT_PAGE_SIZE;
@@ -50,8 +50,8 @@ namespace db0
             if (access_type == AccessType::READ_ONLY) {
                 THROWF(db0::InputException) << "Prefix does not exist: " << prefix_name;
             }
-            
-            BDevStorage::create(file_name, *page_size, *sparse_index_node_size);
+                        
+            BDevStorage::create(file_name, *page_size, *sparse_index_node_size, page_io_step_size);
             new_file_created = true;
         }
         auto storage = std::make_shared<BDevStorage>(
@@ -333,7 +333,8 @@ namespace db0
     db0::swine_ptr<Fixture> Workspace::tryGetFixtureEx(const PrefixName &prefix_name,
         std::optional<AccessType> access_type, std::optional<std::size_t> page_size, 
         std::optional<std::size_t> slab_size, std::optional<std::size_t> sparse_index_node_size, 
-        std::optional<bool> autocommit, std::optional<LockFlags> lock_flags, std::optional<std::size_t> meta_io_step_size) 
+        std::optional<bool> autocommit, std::optional<LockFlags> lock_flags, std::optional<std::size_t> meta_io_step_size,
+        std::optional<std::size_t> page_io_step_size)
     {
         bool file_created = false;
         auto uuid = getUUID(prefix_name);
@@ -348,7 +349,7 @@ namespace db0
                 }
                 bool read_only = (*access_type == AccessType::READ_ONLY);
                 auto [prefix, allocator] = openMemspace(prefix_name, file_created, *access_type, page_size, slab_size, 
-                    sparse_index_node_size, lock_flags, meta_io_step_size
+                    sparse_index_node_size, lock_flags, meta_io_step_size, page_io_step_size
                 );
                 if (file_created) {
                     // initialize new fixture
@@ -409,10 +410,10 @@ namespace db0
         std::optional<std::size_t> page_size, std::optional<std::size_t> slab_size, 
         std::optional<std::size_t> sparse_index_node_size,
         std::optional<bool> autocommit, std::optional<LockFlags> lock_flags,
-        std::optional<std::size_t> meta_io_step_size)
+        std::optional<std::size_t> meta_io_step_size, std::optional<std::size_t> page_io_step_size)
     {
         auto fixture = tryGetFixtureEx(px_name, access_type, page_size, slab_size, sparse_index_node_size,
-            autocommit, lock_flags, meta_io_step_size
+            autocommit, lock_flags, meta_io_step_size, page_io_step_size
         );
         if (!fixture) {
             THROWF(db0::InputException) << "Prefix: " << px_name << " not found";
@@ -551,10 +552,11 @@ namespace db0
     }
     
     void Workspace::open(const PrefixName &prefix_name, AccessType access_type, std::optional<bool> autocommit,
-        std::optional<std::size_t> slab_size, std::optional<LockFlags> lock_flags, std::optional<std::size_t> meta_io_step_size)
+        std::optional<std::size_t> slab_size, std::optional<LockFlags> lock_flags, 
+        std::optional<std::size_t> meta_io_step_size, std::optional<std::size_t> page_io_step_size)
     {
         auto fixture = getFixtureEx(prefix_name, access_type, {}, slab_size, {}, autocommit, 
-            lock_flags, meta_io_step_size
+            lock_flags, meta_io_step_size, page_io_step_size
         );
         // update default fixture
         if (!m_default_fixture || (*m_default_fixture != *fixture)) {

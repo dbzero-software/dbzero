@@ -14,7 +14,8 @@ namespace db0
     {
     public:
         Diff_IO(std::size_t header_size, CFile &file, std::uint32_t page_size, std::uint32_t block_size, std::uint64_t address, 
-            std::uint32_t page_count, std::function<std::uint64_t()> tail_function);
+            std::uint32_t page_count, std::uint32_t step_size, std::function<std::uint64_t()> tail_function, 
+            std::optional<std::uint32_t> block_num = {});
         // Read-only Diff_IO
         Diff_IO(std::size_t header_size, CFile &file, std::uint32_t page_size);
         ~Diff_IO();
@@ -27,7 +28,7 @@ namespace db0
         // @param diff_data the diff buffer (see getDiffs)
         // @return page number + overflow flag (where "true" means that 2 pages were written to)
         std::pair<std::uint64_t, bool> appendDiff(const void *dp_data, std::pair<std::uint64_t, std::uint32_t> page_and_state,
-            const std::vector<std::uint16_t> &diff_data);
+            const std::vector<std::uint16_t> &diff_data, bool *is_first_page = nullptr);
         
         // Read diff stream and apply changes to the DP-buffer (must be already populated with the base data)
         // @param page_num the storage page number to read from
@@ -35,7 +36,7 @@ namespace db0
         // @param page_and_state logical page and state numbers (possibly relative) to identify the diff block
         // Exception raised if the diff block is not found
         void applyFrom(std::uint64_t page_num, void *buffer, std::pair<std::uint64_t, std::uint32_t> page_and_state) const;
-
+        
         // Flush needs to be called before closing the stream
         // and after each transaction
         void flush();
@@ -43,7 +44,7 @@ namespace db0
         // Write as full-DP
         void write(std::uint64_t page_num, void *buffer);
         
-        std::uint64_t append(const void *buffer);
+        std::uint64_t append(const void *buffer, bool *is_first_page = nullptr);
 
         void read(std::uint64_t page_num, void *buffer) const;
         

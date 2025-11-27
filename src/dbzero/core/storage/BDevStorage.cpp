@@ -12,23 +12,22 @@ namespace db0
 
 {
     
-    BlockIOStream readAll(BlockIOStream &&io)
-    {
-       // FIXME: implement WAL processing
-        std::vector<char> buf;
-        for (;;) {
-            if (!io.readChunk(buf)) {
-                break;
-            }
-        }
-        return std::move(io);
-    }
-
-    o_prefix_config::o_prefix_config(std::uint32_t block_size, std::uint32_t page_size, std::uint32_t dram_page_size)
+    o_prefix_config::o_prefix_config(std::uint32_t block_size, std::uint32_t page_size,
+        std::uint32_t dram_page_size, std::uint32_t page_io_step_size)
         : m_block_size(block_size)
         , m_page_size(page_size)
         , m_dram_page_size(dram_page_size)
+        , m_page_io_step_size(page_io_step_size)
     {
+        std::memset(m_reserved.data(), 0, sizeof(m_reserved));
+    }
+    
+    DRAM_Pair tryGetDRAMPair(DRAM_IOStream *dram_io_ptr)
+    {
+        if (!dram_io_ptr) {
+            return {};
+        }
+        return dram_io_ptr->getDRAMPair();
     }
     
     BDevStorage::BDevStorage(const std::string &file_name, AccessType access_type, LockFlags lock_flags,
@@ -51,7 +50,14 @@ namespace db0
         , m_sparse_pair(m_dram_io.getDRAMPair(), access_type)
         , m_sparse_index(m_sparse_pair.getSparseIndex())
         , m_diff_index(m_sparse_pair.getDiffIndex())
-        , m_page_io(getPage_IO(m_sparse_pair.getNextStoragePageNum(), access_type))
+        , m_ext_dram_changelog_io(tryGetChangeLogIOStream<DRAM_ChangeLogStreamT>(
+            m_config.m_ext_dram_changelog_io_offset, access_type)
+        )
+        , m_ext_dram_io(init(tryGetDRAMIOStream(
+            m_config.m_ext_dram_io_offset, m_config.m_ext_dram_page_size, access_type), m_ext_dram_changelog_io.get())
+        )
+        , m_ext_space(tryGetDRAMPair(m_ext_dram_io.get()), access_type)
+        , m_page_io(getPage_IO(m_sparse_pair.getNextStoragePageNum(), m_config.m_page_io_step_size, access_type))
     {
         // in read-only mode need to refresh in order to retrieve a consitent DRAM state
         // since other process might be actively modifying the underlying file
@@ -70,6 +76,16 @@ namespace db0
         return std::move(dram_io);
     }
     
+    std::unique_ptr<DRAM_IOStream> BDevStorage::init(std::unique_ptr<DRAM_IOStream> &&dram_io,
+        DRAM_ChangeLogStreamT *dram_change_log)
+    {
+        if (dram_io) {
+            assert(dram_change_log);
+            dram_io->load(*dram_change_log);
+        }
+        return std::move(dram_io);
+    }
+
     MetaIOStream BDevStorage::init(MetaIOStream &&io)
     {
         // exhaust the meta-log stream (position at the last item) and all managed streams
@@ -88,13 +104,24 @@ namespace db0
         return config;
     }
     
+    std::uint32_t getPageIOStepSize(std::uint32_t block_size, std::optional<std::size_t> step_size_hint)
+    {
+        if (step_size_hint && *step_size_hint > 0) {
+            // align to full block size
+            return (*step_size_hint + block_size - 1) / block_size;
+        } else {
+            // default to single-block steps
+            return 1u;
+        }
+    }
+    
     void BDevStorage::create(const std::string &file_name, std::optional<std::size_t> page_size,
-        std::uint32_t dram_page_size_hint)
+        std::uint32_t dram_page_size_hint, std::optional<std::size_t> step_size_hint)
     {
         if (!page_size) {
             page_size = DEFAULT_PAGE_SIZE;
         }
-
+        
         std::vector<char> buffer(CONFIG_BLOCK_SIZE);
         // calculate block size to be page aligned and sufficient to fit a single sparse index node
         auto min_block_size = dram_page_size_hint + 
@@ -105,7 +132,9 @@ namespace db0
         auto dram_page_size = block_size - BlockIOStream::sizeOfHeaders(DRAM_IOStream::ENABLE_CHECKSUMS) - 
             DRAM_IOStream::sizeOfHeader();
         // create a new config using placement new
-        auto config = new (buffer.data()) o_prefix_config(block_size, *page_size, dram_page_size);
+        auto config = new (buffer.data()) o_prefix_config(
+            block_size, *page_size, dram_page_size, getPageIOStepSize(block_size, step_size_hint)
+        );
 
         std::uint64_t offset = CONFIG_BLOCK_SIZE;
         auto next_block_offset = [&]() 
@@ -120,6 +149,16 @@ namespace db0
         config->m_dram_changelog_io_offset = next_block_offset();
         config->m_dp_changelog_io_offset = next_block_offset();
         config->m_meta_io_offset = next_block_offset();
+
+        // initialize ext streams only when needed
+        bool has_ext_dram_io = config->m_page_io_step_size > 1;
+        if (has_ext_dram_io) {
+            config->m_ext_dram_io_offset = next_block_offset();
+            // NOTE: use entire block for ext DRAM page
+            config->m_ext_dram_page_size = dram_page_size;
+            config->m_ext_dram_changelog_io_offset = next_block_offset();
+        }
+        
         CFile::create(file_name, buffer);
         
         // Create higher-order data structures
@@ -127,10 +166,18 @@ namespace db0
             CFile file(file_name, AccessType::READ_WRITE);
             DRAM_ChangeLogStreamT *dram_changelog_io_ptr = nullptr;
             DRAM_IOStream *dram_io_ptr = nullptr;
-            auto tail_function = [&]() {
+            std::unique_ptr<DRAM_ChangeLogStreamT> ext_dram_changelog_io_ptr = nullptr;
+            std::unique_ptr<DRAM_IOStream> ext_dram_io_ptr = nullptr;
+            
+            auto tail_function = [&]()
+            {
                 assert(dram_io_ptr && dram_changelog_io_ptr);                
                 // take max from the underlying I/O streams
-                return std::max(offset, std::max(dram_io_ptr->tail(), dram_changelog_io_ptr->tail()));
+                auto result = std::max(offset, std::max(dram_io_ptr->tail(), dram_changelog_io_ptr->tail()));
+                if (ext_dram_io_ptr && ext_dram_changelog_io_ptr) {
+                    result = std::max(result, std::max(ext_dram_io_ptr->tail(), ext_dram_changelog_io_ptr->tail()));
+                }
+                return result;
             };
             
             auto dram_changelog_io = DRAM_ChangeLogStreamT(file, config->m_dram_changelog_io_offset, config->m_block_size,
@@ -140,14 +187,38 @@ namespace db0
                 AccessType::READ_WRITE, config->m_dram_page_size);
             dram_io_ptr = &dram_io;
             
+            // Initialize extension streams when needed
+            if (has_ext_dram_io) {
+                ext_dram_changelog_io_ptr = std::make_unique<DRAM_ChangeLogStreamT>(file,
+                    static_cast<std::uint64_t>(config->m_ext_dram_changelog_io_offset), 
+                    static_cast<std::uint32_t>(config->m_block_size), tail_function,
+                    AccessType::READ_WRITE);
+                ext_dram_io_ptr = std::make_unique<DRAM_IOStream>(file,
+                    static_cast<std::uint64_t>(config->m_ext_dram_io_offset), 
+                    static_cast<std::uint32_t>(config->m_block_size), tail_function, AccessType::READ_WRITE,
+                    static_cast<std::uint32_t>(config->m_ext_dram_page_size));
+            }
+            
             // create then flush an empty sparse pair (i.e. SparseIndex + DiffIndex)
             SparsePair sparse_pair(SparsePair::tag_create(), dram_io.getDRAMPair());
-            dram_io.flushUpdates(sparse_pair.getMaxStateNum(), dram_changelog_io);
+            auto max_state_num = sparse_pair.getMaxStateNum();
+            dram_io.flushUpdates(max_state_num, dram_changelog_io);
             dram_changelog_io.flush();
             dram_io.close();
             dram_changelog_io.close();
+            
+            // create then flush the extension space
+            if (has_ext_dram_io) {
+                assert(ext_dram_io_ptr && ext_dram_changelog_io_ptr);
+                ExtSpace ext_space(ExtSpace::tag_create(), ext_dram_io_ptr->getDRAMPair());
+                ext_dram_io_ptr->flushUpdates(max_state_num, *ext_dram_changelog_io_ptr);
+                ext_dram_changelog_io_ptr->flush();
+                ext_dram_io_ptr->close();
+                ext_dram_changelog_io_ptr->close();
+            }
+            
             file.close();
-        }        
+        }
     }
     
     bool BDevStorage::tryFindMutation(std::uint64_t page_num, StateNumType state_num,
@@ -209,10 +280,14 @@ namespace db0
             }
             
             // query.first yields the full-DP (if it exists)
-            std::uint64_t storage_page_num = query.first();
-            if (storage_page_num) {
-                // read full page
-                m_page_io.read(storage_page_num, read_buf);
+            std::uint64_t page_io_id = query.first();
+            if (page_io_id) {
+                if (!!m_ext_space) {
+                    // convert relative page number back to absolute
+                    page_io_id = m_ext_space.getAbsolute(page_io_id);
+                }
+                // read full DP
+                m_page_io.read(page_io_id, read_buf);
             } else {
                 // requesting a diff-DP only encoded page, use zero buffer as a base
                 memset(read_buf, 0, m_config.m_page_size);
@@ -220,9 +295,13 @@ namespace db0
             
             // apply changes from diff-DPs
             std::uint32_t diff_state_num;
-            while (query.next(diff_state_num, storage_page_num)) {
+            while (query.next(diff_state_num, page_io_id)) {
+                if (!!m_ext_space) {
+                    // convert relative page number back to absolute
+                    page_io_id = m_ext_space.getAbsolute(page_io_id);
+                }
                 // apply all diff-updates on top of the full-DP
-                m_page_io.applyFrom(storage_page_num, read_buf, { page_num, diff_state_num });
+                m_page_io.applyFrom(page_io_id, read_buf, { page_num, diff_state_num });
                 // collect chain-len statistics
                 if (chain_len) {
                     ++(*chain_len);
@@ -241,7 +320,7 @@ namespace db0
         auto end_page = begin_page + size / m_config.m_page_size;
         
         std::byte *write_buf = reinterpret_cast<std::byte *>(buffer);
-
+        
         std::unique_lock<std::shared_mutex> lock(m_mutex);
         // write as physical pages and register with the sparse index
         for (auto page_num = begin_page; page_num != end_page; ++page_num, write_buf += m_config.m_page_size) {
@@ -250,11 +329,22 @@ namespace db0
             if (item && item.m_state_num == state_num) {
                 // page already added in current transaction / update in the stream
                 // this may happen due to cache overflow and later modification of the same page
-                m_page_io.write(item.m_storage_page_num, write_buf);
+                auto page_io_id = item.m_storage_page_num;
+                if (!!m_ext_space) {
+                    // convert relative page number back to absolute
+                    page_io_id = m_ext_space.getAbsolute(page_io_id);
+                }
+                m_page_io.write(page_io_id, write_buf);
             } else {
                 // append as new page
-                auto storage_page_id = m_page_io.append(write_buf);
-                m_sparse_index.emplace(page_num, state_num, storage_page_id);
+                bool is_first_page;
+                auto page_io_id = m_page_io.append(write_buf, &is_first_page);
+                if (!!m_ext_space) {
+                    // NOTE: first page (of each step) must be registered with REL_Index if it's maintained
+                    // assign a relative page number
+                    page_io_id = m_ext_space.assignRelative(page_io_id, is_first_page);
+                }
+                m_sparse_index.emplace(page_num, state_num, page_io_id);
                 #ifndef NDEBUG
                 m_page_io_raw_bytes += m_config.m_page_size;
                 checkCrashFromCommit();
@@ -282,18 +372,32 @@ namespace db0
         if (first_state_num == state_num) {
             // page already added in current transaction / update in the stream
             // this may happen due to cache overflow and later modification of the same page
-            m_page_io.write(storage_page_num, buffer);
+            auto page_io_id = storage_page_num;
+            if (!!m_ext_space) {
+                // convert relative page number back to absolute
+                page_io_id = m_ext_space.getAbsolute(page_io_id);
+            }
+            m_page_io.write(page_io_id, buffer);
             return;
         }
         
+        bool is_first_page;
         if (query.leftLessThan(max_len)) {
-            // append as diff-page (NOTE: diff-writes are only appended)
-            auto [storage_page_num, overflow] = m_page_io.appendDiff(buffer, { page_num, state_num }, diff_data);
-            m_diff_index.insert(page_num, state_num, storage_page_num, overflow);
+            // append as diff-page (NOTE: diff-writes are only appended)            
+            auto [page_io_id, overflow] = m_page_io.appendDiff(buffer, { page_num, state_num }, diff_data, &is_first_page);
+            if (!!m_ext_space) {
+                // NOTE: first page (of each step) must be registered with REL_Index if it's maintained
+                // assign a relative page number
+                page_io_id = m_ext_space.assignRelative(page_io_id, is_first_page);
+            }
+            m_diff_index.insert(page_num, state_num, page_io_id, overflow);
         } else {
-            // full-DP write
-            auto storage_page_num = m_page_io.append(buffer);
-            m_sparse_index.emplace(page_num, state_num, storage_page_num);
+            // full-DP write            
+            auto page_io_id = m_page_io.append(buffer, &is_first_page);
+            if (!!m_ext_space) {
+                page_io_id = m_ext_space.assignRelative(page_io_id, is_first_page);
+            }
+            m_sparse_index.emplace(page_num, state_num, page_io_id);
         }
         
         #ifndef NDEBUG
@@ -323,6 +427,10 @@ namespace db0
             return false;
         }
         
+        if (!!m_ext_space) {
+            m_ext_space.commit();
+        }
+
         // save metadata checkpoints before making any updates to the managed streams
         // NOTE: the checkpoint is only saved after exceeding specific threshold of updates in the managed streams
         auto state_num = m_sparse_pair.getMaxStateNum();
@@ -330,11 +438,18 @@ namespace db0
         m_meta_io.checkAndAppend(state_num);
         m_meta_io.flush();
         
+        m_page_io.flush();
         // Extract & flush sparse index change log first (on condition of any updates)
-        m_sparse_pair.extractChangeLog(m_dp_changelog_io);
+        // we also need to collect the end storage page number (sentinel)
+        m_sparse_pair.extractChangeLog(m_dp_changelog_io, m_page_io.getEndPageNum());
         m_dram_io.flushUpdates(state_num, m_dram_changelog_io);
         m_dp_changelog_io.flush();
-        m_page_io.flush();
+        // Flush ext streams
+        if (m_ext_dram_io) {
+            assert(m_ext_dram_changelog_io);
+            m_ext_dram_io->flushUpdates(state_num, *m_ext_dram_changelog_io);            
+            m_ext_dram_changelog_io->flush();
+        }
         // NOTE: fsync has stronger guarantees than flush in a multi-process environments
         m_file.fsync();
         // flush changelog AFTER all updates from all other streams have been flushed
@@ -348,14 +463,21 @@ namespace db0
     }
     
     void BDevStorage::close()
-    {        
+    {    
         if (m_access_type == AccessType::READ_WRITE) {
             flush();
         }
         
+        // Close extension streams
+        if (m_ext_dram_io) {
+            assert(m_ext_dram_changelog_io);
+            m_ext_dram_io->close();
+            m_ext_dram_changelog_io->close();
+        }
+        
         m_dram_io.close();
         m_dram_changelog_io.close();
-        m_dp_changelog_io.close();        
+        m_dp_changelog_io.close(); 
         m_meta_io.close();
         m_file.close();
     }
@@ -377,19 +499,35 @@ namespace db0
         return { m_file, first_block_pos, m_config.m_block_size, getTailFunction(), access_type, dram_page_size };
     }
     
+    std::unique_ptr<DRAM_IOStream> BDevStorage::tryGetDRAMIOStream(std::uint64_t first_block_pos,
+            std::uint32_t dram_page_size, AccessType access_type)
+    {
+        if (!first_block_pos) {
+            return nullptr;
+        }
+        return std::make_unique<DRAM_IOStream>(m_file, first_block_pos, m_config.m_block_size, 
+            getTailFunction(), access_type, dram_page_size);
+    }
+    
     std::uint64_t BDevStorage::tail() const
     {
         // take max from the 4 underlying I/O streams
         auto result = std::max(m_dram_io.tail(), m_meta_io.tail());
         result = std::max(result, m_dram_changelog_io.tail());
         result = std::max(result, m_dp_changelog_io.tail());
-        result = std::max(result, m_page_io.tail());        
+        result = std::max(result, m_page_io.tail());
 
+        // include ext streams when initialized
+        if (m_ext_dram_io) {
+            assert(m_ext_dram_changelog_io);
+            result =  std::max(result, std::max(m_ext_dram_io->tail(), m_ext_dram_changelog_io->tail()));
+        }
+        
         return result;
     }
     
-    Diff_IO BDevStorage::getPage_IO(std::uint64_t next_page_hint, AccessType access_type)
-    {   
+    Diff_IO BDevStorage::getPage_IO(std::uint64_t next_page_hint, std::uint32_t step_size, AccessType access_type)
+    {
         if (access_type == AccessType::READ_ONLY) {
             // return empty page IO
             return { CONFIG_BLOCK_SIZE, m_file, m_config.m_page_size };
@@ -398,14 +536,22 @@ namespace db0
         assert(access_type == AccessType::READ_WRITE);
         auto block_id = (next_page_hint * m_config.m_page_size) / m_config.m_block_size;
         auto block_capacity = m_config.m_block_size / m_config.m_page_size;
-
+        
         if (next_page_hint == 0) {
             // assign first page
             auto address = std::max(m_dram_io.tail(), m_meta_io.tail());
             address = std::max(address, m_dram_changelog_io.tail());
             address = std::max(address, m_dp_changelog_io.tail());
+            if (m_ext_dram_io) {
+                assert(m_ext_dram_changelog_io);
+                address = std::max(address, m_ext_dram_io->tail());
+                address = std::max(address, m_ext_dram_changelog_io->tail());
+            }
+
+            // NOTE: initialize with a known block num = 0 (first block of the first step)
             return { CONFIG_BLOCK_SIZE, m_file, m_config.m_page_size, m_config.m_block_size, address, 0,
-                getBlockIOTailFunction() };
+                step_size, getBlockIOTailFunction(), 0 
+            };
         }
         
         auto address = CONFIG_BLOCK_SIZE + block_id * m_config.m_block_size;
@@ -417,8 +563,10 @@ namespace db0
             page_count = block_capacity;
         }
 
+        // NOTE: block num is unknown in this case
         return { CONFIG_BLOCK_SIZE, m_file, m_config.m_page_size, m_config.m_block_size, address, page_count,
-            getBlockIOTailFunction() };
+            step_size, getBlockIOTailFunction() 
+        };
     }
     
     std::uint32_t BDevStorage::getMaxStateNum() const {
@@ -438,7 +586,12 @@ namespace db0
         return [this]() -> std::uint64_t {
             auto result = std::max(m_dram_io.tail(), m_meta_io.tail());
             result = std::max(result, m_dram_changelog_io.tail());
-            result = std::max(result, m_dp_changelog_io.tail());            
+            result = std::max(result, m_dp_changelog_io.tail());
+            if (m_ext_dram_io) {
+                assert(m_ext_dram_changelog_io);
+                result = std::max(result, m_ext_dram_io->tail());
+                result = std::max(result, m_ext_dram_changelog_io->tail());
+            }
             return result;
         };
     }
@@ -450,6 +603,8 @@ namespace db0
         }
         if (!m_refresh_pending) {
             m_refresh_pending = m_dram_changelog_io.refresh();
+            // NOTE: inclusion of ext-space is not necessary here since DRAM changelog
+            // is sufficient to determine if there're any updates
         }
         return m_refresh_pending;
     }
@@ -463,10 +618,20 @@ namespace db0
         do {
             // safe stream positions for rollback on file read failure
             auto dram_changelog_io_pos = m_dram_changelog_io.getStreamPos();
+            std::pair<std::uint64_t, std::uint64_t> ext_dram_changelog_io_pos;
+            if (!!m_ext_space) {
+                assert(m_ext_dram_changelog_io);
+                ext_dram_changelog_io_pos = m_ext_dram_changelog_io->getStreamPos();
+            }
             auto dp_changelog_io_pos = m_dp_changelog_io.getStreamPos();
             try {
                 m_dram_io.beginApplyChanges(m_dram_changelog_io);
                 dram_changelog_io_pos = m_dram_changelog_io.getStreamPos();
+                if (!!m_ext_space) {
+                    assert(m_ext_dram_changelog_io);
+                    m_ext_dram_io->beginApplyChanges(*m_ext_dram_changelog_io);
+                    ext_dram_changelog_io_pos = m_ext_dram_changelog_io->getStreamPos();
+                }
                 // send all page-update notifications to the provided handler
                 if (on_page_updated) {
                     StateNumType updated_state_num = 0;
@@ -485,26 +650,25 @@ namespace db0
                             break;
                         }
                         
-                        // First element from the chunk is the updated state number
-                        auto it = dp_change_log_ptr->begin(), end = dp_change_log_ptr->end();
-                        assert(it != end);
-                        // First element in the log is the updated state number
-                        assert(*it != updated_state_num);
-                        updated_state_num = *it;
-                        // All other elements are page numbers
-                        ++it;
-                        for (; it != end; ++it) {
-                            on_page_updated(*it, updated_state_num);
+                        assert(dp_change_log_ptr->m_state_num != updated_state_num);
+                        updated_state_num = dp_change_log_ptr->m_state_num;
+                        // Elements are storage page numbers (mutated in that transaction)
+                        for (auto storage_page_num: *dp_change_log_ptr) {
+                            on_page_updated(storage_page_num, updated_state_num);
                         }
                     }
                 }
-
+                
             } catch (db0::IOException &) {
                 // NOTE: this exception may appear on distributed filesystems
                 // where changes are not guaranteed to be written sequentially
                 // need to revert the refresh operation to the point where it originally started
                 m_dram_changelog_io.setStreamPos(dram_changelog_io_pos);
-                m_dp_changelog_io.setStreamPos(dp_changelog_io_pos);                
+                m_dp_changelog_io.setStreamPos(dp_changelog_io_pos);
+                if (!!m_ext_space) {
+                    assert(m_ext_dram_changelog_io);
+                    m_ext_dram_changelog_io->setStreamPos(ext_dram_changelog_io_pos);
+                }
                 break;
             }
             
@@ -515,6 +679,9 @@ namespace db0
             if (m_dram_io.completeApplyChanges()) {
                 // refresh underlying sparse index / diff index after DRAM update
                 m_sparse_pair.refresh();
+            }
+            if (!!m_ext_space && m_ext_dram_io->completeApplyChanges()) {
+                m_ext_space.refresh();
             }
             m_meta_io.refresh();
             // refresh cycle complete
@@ -532,7 +699,7 @@ namespace db0
     {
         std::unique_lock<std::shared_mutex> lock(m_mutex);
         callback("dram_io_rand_ops", m_dram_io.getRandOpsCount());
-        callback("dram_prefix_size", m_dram_io.getDRAMPrefix().size());
+        callback("dram_io_size", m_dram_io.getDRAMPrefix().size());
         auto file_rand_ops = m_file.getRandOps();
         callback("file_rand_read_ops", file_rand_ops.first);
         callback("file_rand_write_ops", file_rand_ops.second);
@@ -545,6 +712,9 @@ namespace db0
         auto page_io_stats = m_page_io.getStats();
         callback("page_io_total_bytes", page_io_stats.first);
         callback("page_io_diff_bytes", page_io_stats.second);
+        if (m_ext_dram_io) {
+            callback("ext_dram_io_size", m_ext_dram_io->getDRAMPrefix().size());
+        }
         #ifndef NDEBUG
         callback("page_io_raw_bytes", m_page_io_raw_bytes);
         #endif
@@ -581,7 +751,7 @@ namespace db0
 #endif
     
     void BDevStorage::fetchDP_ChangeLogs(StateNumType begin_state, std::optional<StateNumType> end_state,
-        std::function<void(StateNumType state_num, const DP_ChangeLogT &)> f) const
+        std::function<void(const DP_ChangeLogT &)> f) const
     {
         std::unique_lock<std::shared_mutex> lock(m_mutex);
         if (m_dp_changelog_io.modified()) {
@@ -612,14 +782,13 @@ namespace db0
                     // end of the stream reached
                     break;
                 }
-                // first item of the change-log is the state number
-                auto state_num = *change_log->begin();
+                auto state_num = change_log->m_state_num;
                 if (end_state && state_num >= *end_state) {
                     // end of the range reached
                     break;
                 }
                 if (state_num >= begin_state) {
-                    f(state_num, *change_log);
+                    f(*change_log);
                 }
             }
         } catch (...) {

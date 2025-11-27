@@ -271,8 +271,8 @@ DB0_PACKED_END
         std::size_t size() const {
             return super_t::size();
         }
-
-        void commit() {
+        
+        void commit() const {
             super_t::commit();
         }
 

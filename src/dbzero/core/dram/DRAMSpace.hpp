@@ -15,6 +15,7 @@ namespace db0
     {
         static Memspace create(std::size_t page_size, std::function<void(DRAM_Pair)> callback = {});
         static Memspace create(DRAM_Pair);
+        static Memspace tryCreate(DRAM_Pair);
     };
     
 }
