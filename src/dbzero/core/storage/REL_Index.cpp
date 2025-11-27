@@ -157,10 +157,10 @@ namespace db0
     
     void REL_Index::refresh()
     {
+        detach();
         m_last_storage_page_num = this->treeHeader().m_last_storage_page_num;
         m_rel_page_num = this->treeHeader().m_rel_page_num;
-        m_max_rel_page_num = this->treeHeader().m_max_rel_page_num;
-        detach();
+        m_max_rel_page_num = this->treeHeader().m_max_rel_page_num;        
     }
     
     std::uint64_t REL_Index::getAbsolute(std::uint64_t rel_page_num) const

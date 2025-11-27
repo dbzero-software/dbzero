@@ -603,6 +603,8 @@ namespace db0
         }
         if (!m_refresh_pending) {
             m_refresh_pending = m_dram_changelog_io.refresh();
+            // NOTE: inclusion of ext-space is not necessary here since DRAM changelog
+            // is sufficient to determine if there're any updates
         }
         return m_refresh_pending;
     }
@@ -616,10 +618,20 @@ namespace db0
         do {
             // safe stream positions for rollback on file read failure
             auto dram_changelog_io_pos = m_dram_changelog_io.getStreamPos();
+            std::pair<std::uint64_t, std::uint64_t> ext_dram_changelog_io_pos;
+            if (!!m_ext_space) {
+                assert(m_ext_dram_changelog_io);
+                ext_dram_changelog_io_pos = m_ext_dram_changelog_io->getStreamPos();
+            }
             auto dp_changelog_io_pos = m_dp_changelog_io.getStreamPos();
             try {
                 m_dram_io.beginApplyChanges(m_dram_changelog_io);
                 dram_changelog_io_pos = m_dram_changelog_io.getStreamPos();
+                if (!!m_ext_space) {
+                    assert(m_ext_dram_changelog_io);
+                    m_ext_dram_io->beginApplyChanges(*m_ext_dram_changelog_io);
+                    ext_dram_changelog_io_pos = m_ext_dram_changelog_io->getStreamPos();
+                }
                 // send all page-update notifications to the provided handler
                 if (on_page_updated) {
                     StateNumType updated_state_num = 0;
@@ -652,7 +664,11 @@ namespace db0
                 // where changes are not guaranteed to be written sequentially
                 // need to revert the refresh operation to the point where it originally started
                 m_dram_changelog_io.setStreamPos(dram_changelog_io_pos);
-                m_dp_changelog_io.setStreamPos(dp_changelog_io_pos);                
+                m_dp_changelog_io.setStreamPos(dp_changelog_io_pos);
+                if (!!m_ext_space) {
+                    assert(m_ext_dram_changelog_io);
+                    m_ext_dram_changelog_io->setStreamPos(ext_dram_changelog_io_pos);
+                }
                 break;
             }
             
@@ -663,6 +679,9 @@ namespace db0
             if (m_dram_io.completeApplyChanges()) {
                 // refresh underlying sparse index / diff index after DRAM update
                 m_sparse_pair.refresh();
+            }
+            if (!!m_ext_space && m_ext_dram_io->completeApplyChanges()) {
+                m_ext_space.refresh();
             }
             m_meta_io.refresh();
             // refresh cycle complete

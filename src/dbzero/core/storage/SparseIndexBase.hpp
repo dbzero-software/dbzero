@@ -361,10 +361,10 @@ DB0_PACKED_END
     
     template <typename ItemT, typename CompressedItemT>
     void SparseIndexBase<ItemT, CompressedItemT>::refresh()
-    {                
-        m_next_page_num = m_index.treeHeader().m_next_page_num;
-        m_max_state_num = m_index.treeHeader().m_max_state_num;
+    {   
         m_index.detach();
+        m_next_page_num = m_index.treeHeader().m_next_page_num;
+        m_max_state_num = m_index.treeHeader().m_max_state_num;        
     }
     
     template <typename ItemT, typename CompressedItemT>
