@@ -31,8 +31,7 @@ def test_continue_append_with_step_size(db0_fixture):
     for _ in range(50):
         root.value.append(MemoTestClass("a" * 1024))  # 1 KB string
     db0.commit()
-    
-    print("--- before close ---")
+        
     db0.close()
     db0.init(DB0_DIR)
     # NOTE: we're opening an existing prefix with already initialized page I/O step size
