@@ -80,8 +80,6 @@ namespace db0
     std::unique_ptr<DRAM_IOStream> BDevStorage::init(std::unique_ptr<DRAM_IOStream> &&dram_io,
         DRAM_ChangeLogStreamT *dram_change_log)
     {
-        // FIXME: log
-        std::cout << "before init ext dram io" << std::endl;      
         if (dram_io) {
             assert(dram_change_log);
             dram_io->load(*dram_change_log);
@@ -456,8 +454,13 @@ namespace db0
         
         m_page_io.flush();
         // Extract & flush sparse index change log first (on condition of any updates)
-        // we also need to collect the end storage page number (sentinel)
-        m_sparse_pair.extractChangeLog(m_dp_changelog_io, m_page_io.getEndPageNum());
+        // we also need to collect the end storage page number, possibly relative (sentinel)
+        auto end_page_io_page_num = m_page_io.getEndPageNum();
+        if (!!m_ext_space) {
+            // convert to relative page number
+            end_page_io_page_num = m_ext_space.assignRelative(end_page_io_page_num, false);
+        }
+        m_sparse_pair.extractChangeLog(m_dp_changelog_io, end_page_io_page_num);
         m_dram_io.flushUpdates(state_num, m_dram_changelog_io);
         m_dp_changelog_io.flush();
         // Flush ext streams (if existing)
@@ -839,21 +842,20 @@ namespace db0
         
         auto writer = out.m_dram_changelog_io.getStreamWriter();
         copyDRAM_IO(m_dram_io, m_dram_changelog_io, out.m_dram_io, writer);
-        auto end_page_num = copyDPStream(m_dp_changelog_io, out.m_dp_changelog_io);
+        auto end_page_num = copyDPStream(m_dp_changelog_io, out.m_dp_changelog_io);        
         if (end_page_num) {
-            // FIXME: log
-            std::cout << "Before copy page IO, end_page_num: " << end_page_num << std::endl;
-            copyPageIO(m_page_io, out.m_page_io, end_page_num, out.m_ext_space);
+            // NOTE: end_page_num may be relative, need to translate to absolute
+            if (!!m_ext_space) {
+                end_page_num = m_ext_space.getAbsolute(*end_page_num);
+            }            
+            copyPageIO(m_page_io, out.m_page_io, *end_page_num, out.m_ext_space);
         }
+        
         copyStream(m_meta_io, out.m_meta_io);
         // flush ext-space only, the other streams are already flushed by copy operators
-        // FIXME: log
-        std::cout << "before flush ext" << std::endl;
         // NOTE: we need to use max state num from the source storage since the desination
         // did not load the sparse index (it was only copied)
         out.flushExt(m_sparse_pair.getMaxStateNum());
-        // FIXME: log
-        std::cout << "after flush ext" << std::endl;
         out.fsync();
         // flush DRAM-changelog as the last step (important for consitency)
         writer.flush();

@@ -926,12 +926,12 @@ namespace db0::python
         }
         
         auto &in = prefix->getPrefix().getStorage().asFile();
-        // use either explicit step size, input step size (if > 1) or default = 64MB
+        // use either explicit step size, input step size (if > 1) or default = 4MB
         if (!page_io_step_size) {
             auto in_step_size = in.getPageIO().getStepSize();
-            page_io_step_size = in_step_size > 1 ? in_step_size : (64u << 20);
+            page_io_step_size = in_step_size > 1 ? in_step_size : (4u << 20);
         }
-
+        
         try {
             BDevStorage::create(output_file_name, in.getPageSize(), in.getDRAMPageSize(), page_io_step_size);
             BDevStorage out(output_file_name, db0::AccessType::READ_WRITE);

@@ -29,15 +29,11 @@ namespace db0
     
     std::vector<char> copyStream(BlockIOStream &in, BlockIOStream &out)
     {
-        // FIXME: log
-        std::cout << "Copying stream from tail: " << in.tail() << std::endl;
         // position at the beginning of the stream
         in.setStreamPosHead();
         std::vector<char> buffer;
         std::size_t chunk_size = 0;
         while ((chunk_size = in.readChunk(buffer)) > 0) {
-            // FIXME: log
-            std::cout << "Copying chunk of size: " << chunk_size << std::endl;
             out.addChunk(chunk_size);
             out.appendToChunk(buffer.data(), chunk_size);
         }
@@ -45,15 +41,15 @@ namespace db0
         return buffer;
     }
     
-    std::uint64_t copyDPStream(DP_ChangeLogStreamT &in, DP_ChangeLogStreamT &out)
+    std::optional<std::uint64_t> copyDPStream(DP_ChangeLogStreamT &in, DP_ChangeLogStreamT &out)
     {
         auto last_chunk_buf = copyStream(in, out);
         // we can retrieve the end page number from the last appended chunk        
-        if (last_chunk_buf.empty()) {
+        if (last_chunk_buf.empty()) {            
             // nothing copied
-            return 0;
+            return {};
         }
-
+        
         using o_change_log_t = DP_ChangeLogStreamT::ChangeLogT;
         auto &last_chunk = o_change_log_t::__const_ref(last_chunk_buf.data());
         return last_chunk.m_end_storage_page_num;
@@ -72,8 +68,6 @@ namespace db0
         while (auto page_count = reader.next(buffer, start_page_num)) {
             auto buf_ptr = buffer.data();
             while (page_count > 0) {
-                // FIXME: log
-                std::cout << "Copy page count: " << page_count << " starting at page num: " << start_page_num << std::endl;
                 // page number (absolute) in the output stream
                 auto storage_page_num = out.getNextPageNum().first;
                 auto count = std::min(page_count, out.getCurrentStepRemainingPages());
