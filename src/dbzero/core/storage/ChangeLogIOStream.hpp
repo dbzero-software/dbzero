@@ -68,16 +68,27 @@ namespace db0
         Reader getStreamReader();
 
         // The buffering proxy for write operations
-        // changes are only reflected with the underlying stream on "flush"
+        // changes are only reflected with the underlying stream on "flush", ignored on destroy
         class Writer
         {
         public:
+            Writer(ChangeLogIOStream &);
+
             void appendChangeLog(const o_change_log_t &);
             void flush();
+
         private:
+            ChangeLogIOStream &m_stream;
+            std::vector<std::vector<char> > m_buffers;
         };
         
         Writer getStreamWriter();
+
+    protected:
+        friend class Reader;
+        friend class Writer;
+
+        const o_change_log_t &appendChangeLog(const o_change_log_t &);
 
     private:
         const o_change_log_t *m_last_change_log_ptr = nullptr;

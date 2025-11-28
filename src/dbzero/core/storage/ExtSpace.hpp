@@ -68,7 +68,10 @@ DB0_PACKED_END
         
         // Registers a new mapping rel_page_num -> storage_page_num
         // exception raised if unable to add the mapping
-        void addMapping(std::uint64_t storage_page_num, std::uint64_t rel_page_num);
+        void addMapping(std::uint64_t storage_page_num, std::uint64_t rel_page_num) {
+            assert(m_rel_index);
+            m_rel_index->addMapping(storage_page_num, rel_page_num);
+        }
         
         void refresh();
         void commit();

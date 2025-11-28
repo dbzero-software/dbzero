@@ -93,6 +93,7 @@ namespace db0
     protected:
         const std::size_t m_header_size;
         const std::uint32_t m_page_size;
+        // block size in bytes (i.e. capacity expressed in bytes)
         const std::uint32_t m_block_size = 0;
         // maximum number of pages in block
         const std::uint32_t m_block_capacity = 0;
@@ -113,7 +114,11 @@ namespace db0
         std::optional<std::uint32_t> m_block_num;
 
         std::uint64_t getPageNum(std::uint64_t address) const;
-        void allocateNextBlock();        
+        void allocateNextBlock();
+        
+        // Update the stream's current location
+        // @param address must be within or at the end of the current step
+        void setAt(std::uint64_t address);
     };
 
 }
