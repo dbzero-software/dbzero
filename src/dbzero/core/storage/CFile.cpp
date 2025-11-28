@@ -236,6 +236,13 @@ namespace db0
         return stat(file_name.c_str(), &st) == 0;
     }
 
+    void CFile::remove(const std::string &file_name)
+    {
+        if (std::remove(file_name.c_str()) != 0) {
+            THROWF(db0::IOException) << "CFile::remove: unable to remove file " << file_name;
+        }
+    }
+
     std::pair<std::uint64_t, std::uint64_t> CFile::getRandOps() const {
         return { m_rand_read_ops, m_rand_write_ops };
     }
