@@ -27,16 +27,36 @@ namespace db0
         flushDRAM_IOChanges(output_io, chunk_buf);
     }
     
-    void copyStream(BlockIOStream &in, BlockIOStream &out)
+    std::vector<char> copyStream(BlockIOStream &in, BlockIOStream &out)
     {
+        // FIXME: log
+        std::cout << "Copying stream from tail: " << in.tail() << std::endl;
         // position at the beginning of the stream
         in.setStreamPosHead();
         std::vector<char> buffer;
         std::size_t chunk_size = 0;
         while ((chunk_size = in.readChunk(buffer)) > 0) {
+            // FIXME: log
+            std::cout << "Copying chunk of size: " << chunk_size << std::endl;
             out.addChunk(chunk_size);
             out.appendToChunk(buffer.data(), chunk_size);
         }
+        out.flush();
+        return buffer;
+    }
+    
+    std::uint64_t copyDPStream(DP_ChangeLogStreamT &in, DP_ChangeLogStreamT &out)
+    {
+        auto last_chunk_buf = copyStream(in, out);
+        // we can retrieve the end page number from the last appended chunk        
+        if (last_chunk_buf.empty()) {
+            // nothing copied
+            return 0;
+        }
+
+        using o_change_log_t = DP_ChangeLogStreamT::ChangeLogT;
+        auto &last_chunk = o_change_log_t::__const_ref(last_chunk_buf.data());
+        return last_chunk.m_end_storage_page_num;
     }
     
     void copyPageIO(const Page_IO &in, Page_IO &out, std::uint64_t end_page_num, ExtSpace &ext_space)
@@ -52,10 +72,12 @@ namespace db0
         while (auto page_count = reader.next(buffer, start_page_num)) {
             auto buf_ptr = buffer.data();
             while (page_count > 0) {
+                // FIXME: log
+                std::cout << "Copy page count: " << page_count << " starting at page num: " << start_page_num << std::endl;
                 // page number (absolute) in the output stream
                 auto storage_page_num = out.getNextPageNum().first;
                 auto count = std::min(page_count, out.getCurrentStepRemainingPages());
-                // append as many pages as possible in current "step"
+                // append as many pages as possible in current "step"                
                 out.append(buf_ptr, count);
                 buf_ptr += page_size * count;
                 // note start_page_num must be registered as relative to storage_page_num

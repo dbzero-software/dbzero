@@ -80,6 +80,8 @@ namespace db0
     std::unique_ptr<DRAM_IOStream> BDevStorage::init(std::unique_ptr<DRAM_IOStream> &&dram_io,
         DRAM_ChangeLogStreamT *dram_change_log)
     {
+        // FIXME: log
+        std::cout << "before init ext dram io" << std::endl;      
         if (dram_io) {
             assert(dram_change_log);
             dram_io->load(*dram_change_log);
@@ -415,6 +417,19 @@ namespace db0
         return m_config.m_dram_page_size;
     }
     
+    bool BDevStorage::flushExt(StateNumType max_state_num)
+    {        
+        if (!m_ext_space) {
+            return false;
+        }
+        m_ext_space.commit();
+        assert(m_ext_dram_io);
+        assert(m_ext_dram_changelog_io);
+        m_ext_dram_io->flushUpdates(max_state_num, *m_ext_dram_changelog_io);
+        m_ext_dram_changelog_io->flush();
+        return true;
+    }
+
     bool BDevStorage::flush(ProcessTimer *parent_timer)
     {
         std::unique_lock<std::shared_mutex> lock(m_mutex);
@@ -432,10 +447,6 @@ namespace db0
             return false;
         }
         
-        if (!!m_ext_space) {
-            m_ext_space.commit();
-        }
-
         // save metadata checkpoints before making any updates to the managed streams
         // NOTE: the checkpoint is only saved after exceeding specific threshold of updates in the managed streams
         auto state_num = m_sparse_pair.getMaxStateNum();
@@ -449,12 +460,8 @@ namespace db0
         m_sparse_pair.extractChangeLog(m_dp_changelog_io, m_page_io.getEndPageNum());
         m_dram_io.flushUpdates(state_num, m_dram_changelog_io);
         m_dp_changelog_io.flush();
-        // Flush ext streams
-        if (m_ext_dram_io) {
-            assert(m_ext_dram_changelog_io);
-            m_ext_dram_io->flushUpdates(state_num, *m_ext_dram_changelog_io);            
-            m_ext_dram_changelog_io->flush();
-        }
+        // Flush ext streams (if existing)
+        flushExt(state_num);
         // NOTE: fsync has stronger guarantees than flush in a multi-process environments
         m_file.fsync();
         // flush changelog AFTER all updates from all other streams have been flushed
@@ -832,19 +839,27 @@ namespace db0
         
         auto writer = out.m_dram_changelog_io.getStreamWriter();
         copyDRAM_IO(m_dram_io, m_dram_changelog_io, out.m_dram_io, writer);
-        copyStream(m_dp_changelog_io, out.m_dp_changelog_io);
-        // we can retrieve the end page number from the writer's last chunk
-        auto last_chunk_ptr = out.m_dp_changelog_io.getLastChangeLogChunk();
-        if (last_chunk_ptr) {
-            auto end_page_num = last_chunk_ptr->m_end_storage_page_num;
+        auto end_page_num = copyDPStream(m_dp_changelog_io, out.m_dp_changelog_io);
+        if (end_page_num) {
+            // FIXME: log
+            std::cout << "Before copy page IO, end_page_num: " << end_page_num << std::endl;
             copyPageIO(m_page_io, out.m_page_io, end_page_num, out.m_ext_space);
         }
         copyStream(m_meta_io, out.m_meta_io);
+        // flush ext-space only, the other streams are already flushed by copy operators
+        // FIXME: log
+        std::cout << "before flush ext" << std::endl;
+        // NOTE: we need to use max state num from the source storage since the desination
+        // did not load the sparse index (it was only copied)
+        out.flushExt(m_sparse_pair.getMaxStateNum());
+        // FIXME: log
+        std::cout << "after flush ext" << std::endl;
         out.fsync();
+        // flush DRAM-changelog as the last step (important for consitency)
         writer.flush();
-        out.fsync();                     
+        out.fsync();
     }
-
+    
     BDevStorage &BDevStorage::asFile() {
         return *this;
     }

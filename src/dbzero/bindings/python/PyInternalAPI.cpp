@@ -499,7 +499,21 @@ namespace db0::python
     db0::swine_ptr<Fixture> getPrefixFromArgs(PyObject *args, PyObject *kwargs, const char *param_name) {
         return getPrefixFromArgs(PyToolkit::getPyWorkspace().getWorkspace(), args, kwargs, param_name); 
     }
-    
+
+    db0::swine_ptr<Fixture> getPrefixFromArgs(PyObject *maybe_prefix_name)
+    {
+        auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
+        if (!maybe_prefix_name || maybe_prefix_name == Py_None) {
+            return workspace.getCurrentFixture();
+        }
+
+        if (!PyUnicode_Check(maybe_prefix_name)) {
+            THROWF(db0::InputException) << "Invalid argument type: expected prefix name string";
+        }
+        auto prefix_name = PyUnicode_AsUTF8(maybe_prefix_name);
+        return workspace.getFixture(prefix_name, AccessType::READ_ONLY);
+    }
+
     PyObject *tryGetPrefixStats(PyObject *args, PyObject *kwargs)
     {
         auto fixture = getPrefixFromArgs(args, kwargs, "prefix");
@@ -945,8 +959,8 @@ namespace db0::python
         PyObject *py_prefix = nullptr;
         PyObject *py_output = nullptr;
         PyObject *py_page_io_step_size = nullptr;
-        static const char *kwlist[] = {"prefix", "output", "page_io_step_size", NULL};
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|O", const_cast<char**>(kwlist), &py_prefix, &py_output, &py_page_io_step_size)) {            
+        static const char *kwlist[] = {"output", "prefix", "page_io_step_size", NULL};
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OO", const_cast<char**>(kwlist), &py_output, &py_prefix, &py_page_io_step_size)) {
             return NULL;
         }
         
@@ -968,8 +982,8 @@ namespace db0::python
                 return NULL;
             }
         }
-
-        auto prefix = getPrefixFromArgs(args, kwargs, "prefix");
+        
+        auto prefix = getPrefixFromArgs(py_prefix);
         return tryCopyPrefixImpl(prefix, output_file_name, page_io_step_size);
     }
     

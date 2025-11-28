@@ -242,11 +242,13 @@ DB0_PACKED_END
         // non-virtual version of tryFindMutation
         bool tryFindMutationImpl(std::uint64_t page_num, StateNumType state_num,
             StateNumType &mutation_id) const;
-
+        
         // @param chain_len length of the diff-storage chain processed while reading
         void _read(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer,
             FlagSet<AccessOptions> = { AccessOptions::read, AccessOptions::write }, unsigned int *chain_len = nullptr) const;
         
+        // Flush ext-space streams only (if existing)
+        bool flushExt(StateNumType max_state_num);
         void fsync();
     };
     

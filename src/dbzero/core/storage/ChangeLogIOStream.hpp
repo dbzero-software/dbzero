@@ -18,6 +18,8 @@ namespace db0
     class ChangeLogIOStream: public BlockIOStream
     {
     public:
+        using ChangeLogT = o_change_log_t;
+
         /**
          * Note that checksums are always enabled for the ChangeLogStream
         */

@@ -38,6 +38,7 @@ namespace db0
     {
         // page map = page_num / state_num
         auto dram_page = m_page_map.find(header.m_page_num);
+        std::cout << "Update DRAM page @" << address << " state = " << header.m_state_num << " page num = " << header.m_page_num << std::endl;
         if (dram_page == m_page_map.end() || dram_page->second.m_state_num < header.m_state_num) {
             // update DRAM to most recent page version, page not marked as dirty
             auto result = m_prefix->update(header.m_page_num, false);
@@ -102,6 +103,9 @@ namespace db0
                 break;
             }
 
+            // FIXME: log
+            std::cout << "DRAM io read @ chunk addr: " << chunk_addr << std::endl;
+
             // make sure chunks are aligned with blocks (and one chunk per block)
             if (block_id.second != 0 || (!eos() && block_id.first == tellBlock().first)) {
                 THROWF(db0::IOException) << "DRAM_IOStream::load error: unaligned block";
@@ -165,6 +169,8 @@ namespace db0
         // flush all changes done to DRAM Prefix (append modified pages only)
         std::vector<std::uint64_t> dram_changelog;
         m_prefix->flushDirty([&, this](std::uint64_t page_num, const void *page_buffer) {
+            // FIXME: log
+            std::cout << "DRAM dirty page: " << page_num << std::endl;
             // the last page must be stored in a new block to mark end of the sequence
             auto reusable_addr = find_reusable();
             if (reusable_addr) {
@@ -182,6 +188,8 @@ namespace db0
                 std::uint64_t chunk_addr;
                 // append data into a new chunk / block
                 addChunk(m_chunk_size, &chunk_addr);
+                // FIXME: log
+                std::cout << "written @ chunk addr: " << chunk_addr << std::endl;
                 o_dram_chunk_header header(state_num, page_num);
                 appendToChunk(&header, sizeof(header));
                 appendToChunk(page_buffer, m_dram_page_size);

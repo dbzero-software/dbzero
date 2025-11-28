@@ -165,6 +165,8 @@ namespace db0
         if (!this->empty()) {
             // check if the mapping is already valid
             if (storage_page_num - m_last_storage_page_num == rel_page_num - m_rel_page_num) {
+                // FIXME: log
+                std::cout << "Valid mapping found " << std::endl;
                 // mapping already valid
                 return;
             }
@@ -174,7 +176,10 @@ namespace db0
         super_t::insert({ rel_page_num, storage_page_num });
         m_max_rel_page_num = rel_page_num;
         m_last_storage_page_num = storage_page_num;
-        m_rel_page_num = rel_page_num;            
+        m_rel_page_num = rel_page_num;
+        // FIXME: log
+        std::cout << "REL_Index::addMapping: added mapping: " << storage_page_num << " -> " << rel_page_num << std::endl;
+        std::cout << "size is now: " << super_t::size() << std::endl;
     }
     
     void REL_Index::refresh()
@@ -189,6 +194,10 @@ namespace db0
     {
         auto result = super_t::lower_equal_bound(rel_page_num);
         if (!result) {
+            std::cout << "REL index size: " << super_t::size() << std::endl;
+            std::cout << "last storage page num: " << m_last_storage_page_num << std::endl;
+            std::cout << "rel page num: " << m_rel_page_num << std::endl;
+            std::cout << "max rel page num: " << m_max_rel_page_num << std::endl;
             THROWF(db0::InternalException) << "REL_Index: page lookup failed on: " << rel_page_num;            
         }
         // translate to absolute storage page number
