@@ -14,6 +14,7 @@ namespace db0
 {
 
     class ProcessTimer;
+    class BDevStorage;
     template <typename BaseT> struct o_change_log;
 
     /**
@@ -128,6 +129,9 @@ namespace db0
         // @param f function to be called for each transaction's change log
         virtual void fetchDP_ChangeLogs(StateNumType begin_state, std::optional<StateNumType> end_state,
             std::function<void(const DP_ChangeLogT &)> f) const;
+        
+        // Throws where this conversion is not possible
+        virtual BDevStorage &asFile();
         
 #ifndef NDEBUG
         // state number, file offset

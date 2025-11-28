@@ -69,6 +69,10 @@ namespace db0
         // Get the number of pages remaining in the current step (for append)
         std::uint32_t getCurrentStepRemainingPages() const;
         
+        std::uint32_t getStepSize() const {
+            return m_step_size;
+        }
+
         // Reads entire blocks / steps sequentially
         // until reaching the end_page_num or end-of-stream whichever comes first
         class Reader

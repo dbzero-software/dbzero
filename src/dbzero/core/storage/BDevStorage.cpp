@@ -411,6 +411,10 @@ namespace db0
         return m_config.m_page_size;
     }
     
+    std::size_t BDevStorage::getDRAMPageSize() const {
+        return m_config.m_dram_page_size;
+    }
+    
     bool BDevStorage::flush(ProcessTimer *parent_timer)
     {
         std::unique_lock<std::shared_mutex> lock(m_mutex);
@@ -840,5 +844,9 @@ namespace db0
         writer.flush();
         out.fsync();                     
     }
-    
+
+    BDevStorage &BDevStorage::asFile() {
+        return *this;
+    }
+
 }

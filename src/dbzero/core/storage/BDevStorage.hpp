@@ -112,6 +112,7 @@ DB0_PACKED_END
         void close() override;
         
         std::size_t getPageSize() const override;
+        std::size_t getDRAMPageSize() const;
 
         StateNumType getMaxStateNum() const override;
         
@@ -122,6 +123,8 @@ DB0_PACKED_END
         */
         std::uint64_t getLastUpdated() const override;
         
+        BDevStorage &asFile() override;
+
         const DRAM_IOStream &getDramIO() const {
             return m_dram_io;
         }
@@ -132,6 +135,13 @@ DB0_PACKED_END
         void fetchDP_ChangeLogs(StateNumType begin_state, std::optional<StateNumType> end_state,
             std::function<void(const DP_ChangeLogT &)> f) const override;
         
+        const Page_IO &getPageIO() const {
+            return m_page_io;
+        }
+
+        // Copy a read-only prefix to an empty BDevStorage
+        void copyTo(BDevStorage &);
+
 #ifndef NDEBUG
         void getDRAM_IOMap(std::unordered_map<std::uint64_t, DRAM_PageInfo> &) const override;
         void dramIOCheck(std::vector<DRAM_CheckResult> &) const override;
@@ -139,10 +149,7 @@ DB0_PACKED_END
         
         void checkCrashFromCommit();
 #endif
-        
-        // Copy a read-only prefix to an empty BDevStorage
-        void copyTo(BDevStorage &);
-        
+                
     protected:
         // all prefix configuration must fit into this block
         static constexpr unsigned int CONFIG_BLOCK_SIZE = 4096;

@@ -1481,5 +1481,11 @@ namespace db0::python
         PY_API_FUNC
         return runSafe(tryTouch, args, nargs);
     }
-        
+    
+    PyObject *PyAPI_copyPrefix(PyObject *, PyObject *args, PyObject *kwargs)
+    {
+        PY_API_FUNC
+        return reinterpret_cast<PyObject*>(runSafe(tryCopyPrefix, args, kwargs));
+    }
+
 }
