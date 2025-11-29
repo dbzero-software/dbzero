@@ -17,6 +17,14 @@ namespace db0
     class BDevStorage;
     template <typename BaseT> struct o_change_log;
 
+    enum class StorageOptions : std::uint16_t
+    {
+        // Prevents loading any data into memory (e.g. when opening for copying)
+        NO_LOAD = 0x0001,
+    };
+
+    using StorageFlags = FlagSet<StorageOptions>;
+
     /**
      * Defines the file-oriented storage interface
     */
@@ -26,7 +34,7 @@ namespace db0
         using DRAM_ChangeLogT = db0::o_change_log<db0::o_fixed_null>;
         using DP_ChangeLogT = db0::o_change_log<db0::o_dp_changelog_header>;
         
-        BaseStorage(AccessType);
+        BaseStorage(AccessType, StorageFlags = {});
         virtual ~BaseStorage() = default;
         
         /**
@@ -153,6 +161,7 @@ namespace db0
     
     protected:
         AccessType m_access_type;
+        StorageFlags m_flags;
     };
            
 }

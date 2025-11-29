@@ -918,21 +918,30 @@ namespace db0::python
     }
 
     PyObject *tryCopyPrefixImpl(db0::swine_ptr<Fixture> &prefix, const std::string &output_file_name,
-        std::optional<std::uint64_t> page_io_step_size)
+        std::optional<std::uint64_t> page_io_step_size, std::optional<std::uint64_t> meta_io_step_size) 
     {
         // make sure output file does not exist
         if (db0::CFile::exists(output_file_name)) {
             THROWF(db0::IOException) << "Output file already exists: " << output_file_name;
         }
         
-        auto &in = prefix->getPrefix().getStorage().asFile();
+        auto &storage = prefix->getPrefix().getStorage().asFile();
         // use either explicit step size, input step size (if > 1) or default = 4MB
         if (!page_io_step_size) {
-            auto in_step_size = in.getPageIO().getStepSize();
+            auto in_step_size = storage.getPageIO().getStepSize();
             page_io_step_size = in_step_size > 1 ? in_step_size : (4u << 20);
         }
-        
+
+        if (!meta_io_step_size) {
+            auto in_meta_step_size = storage.getMetaIO().getStepSize();
+            meta_io_step_size = in_meta_step_size > 1 ? in_meta_step_size : (1u << 20);
+        }
+
         try {
+            // open as READ_ONLY and as NO_LOAD
+            BDevStorage in(storage.getFileName(), db0::AccessType::READ_ONLY, LockFlags {},
+                meta_io_step_size = {}, { StorageOptions::NO_LOAD }
+            );
             BDevStorage::create(output_file_name, in.getPageSize(), in.getDRAMPageSize(), page_io_step_size);
             BDevStorage out(output_file_name, db0::AccessType::READ_WRITE);
             // copy entire prefix
@@ -952,15 +961,18 @@ namespace db0::python
 
         Py_RETURN_NONE;
     }
-
+    
     PyObject *tryCopyPrefix(PyObject *args, PyObject *kwargs)
     {
         // arguments: prefix, output
         PyObject *py_prefix = nullptr;
         PyObject *py_output = nullptr;
         PyObject *py_page_io_step_size = nullptr;
-        static const char *kwlist[] = {"output", "prefix", "page_io_step_size", NULL};
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OO", const_cast<char**>(kwlist), &py_output, &py_prefix, &py_page_io_step_size)) {
+        PyObject *py_meta_io_step_size = nullptr;
+        static const char *kwlist[] = {"output", "prefix", "page_io_step_size", "meta_io_step_size", NULL};
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OOO", const_cast<char**>(kwlist), &py_output, &py_prefix, 
+            &py_page_io_step_size, &py_meta_io_step_size)) 
+        {
             return NULL;
         }
         
@@ -982,9 +994,19 @@ namespace db0::python
                 return NULL;
             }
         }
+
+        std::optional<std::uint64_t> meta_io_step_size;
+        if (py_meta_io_step_size && py_meta_io_step_size != Py_None) {
+            if (PyLong_Check(py_meta_io_step_size)) {
+                meta_io_step_size = PyLong_AsUnsignedLongLong(py_meta_io_step_size);
+            } else {
+                PyErr_SetString(PyExc_TypeError, "Invalid meta_io_step_size argument type");
+                return NULL;
+            }
+        }
         
         auto prefix = getPrefixFromArgs(py_prefix);
-        return tryCopyPrefixImpl(prefix, output_file_name, page_io_step_size);
+        return tryCopyPrefixImpl(prefix, output_file_name, page_io_step_size, meta_io_step_size);
     }
     
     template PyObject *getMaterializedMemoObject(MemoObject *);

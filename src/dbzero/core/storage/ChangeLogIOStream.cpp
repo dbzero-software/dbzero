@@ -18,7 +18,7 @@ namespace db0
         : BlockIOStream(std::move(io_stream))
     {
     }
-        
+    
     template <typename o_change_log_t>
     const o_change_log_t *ChangeLogIOStream<o_change_log_t>::readChangeLogChunk(std::vector<char> &buffer)
     {

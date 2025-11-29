@@ -75,7 +75,7 @@ DB0_PACKED_END
          * @param meta_io_step_size - the size of the step in the MetaIOStream (16MB by default)
         */
         BDevStorage(const std::string &file_name, AccessType = AccessType::READ_WRITE, LockFlags lock_flags = {},
-            std::optional<std::size_t> meta_io_step_size = {});
+            std::optional<std::size_t> meta_io_step_size = {}, StorageFlags = {});
         ~BDevStorage();
         
         /**
@@ -139,6 +139,14 @@ DB0_PACKED_END
             return m_page_io;
         }
 
+        const MetaIOStream &getMetaIO() const {
+            return m_meta_io;
+        }
+        
+        std::string getFileName() const {
+            return m_file.getName();
+        }
+
         // Copy a read-only prefix to an empty BDevStorage
         void copyTo(BDevStorage &);
 
@@ -188,10 +196,10 @@ DB0_PACKED_END
         unsigned int *m_throw_op_count_ptr = nullptr;
 #endif
 
-        static DRAM_IOStream init(DRAM_IOStream &&, DRAM_ChangeLogStreamT &);
-        static std::unique_ptr<DRAM_IOStream> init(std::unique_ptr<DRAM_IOStream> &&, DRAM_ChangeLogStreamT *);
+        static DRAM_IOStream init(DRAM_IOStream &&, DRAM_ChangeLogStreamT &, StorageFlags);
+        static std::unique_ptr<DRAM_IOStream> init(std::unique_ptr<DRAM_IOStream> &&, DRAM_ChangeLogStreamT *, StorageFlags);
         
-        static MetaIOStream init(MetaIOStream &&);
+        static MetaIOStream init(MetaIOStream &&, StorageFlags);
         
         /**
          * Calculates the total number of blocks stored in this file

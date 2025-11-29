@@ -32,8 +32,8 @@ namespace db0
     }
     
     BDevStorage::BDevStorage(const std::string &file_name, AccessType access_type, LockFlags lock_flags,
-        std::optional<std::size_t> meta_io_step_size)
-        : BaseStorage(access_type)
+        std::optional<std::size_t> meta_io_step_size, StorageFlags flags)
+        : BaseStorage(access_type, flags)
         , m_file(file_name, access_type, lock_flags)
         , m_config(readConfig())
         , m_dram_changelog_io(getChangeLogIOStream<DRAM_ChangeLogStreamT>(
@@ -43,10 +43,10 @@ namespace db0
             m_config.m_dp_changelog_io_offset, access_type)
         )
         , m_meta_io(init(getMetaIOStream(
-            m_config.m_meta_io_offset, meta_io_step_size.value_or(DEFAULT_META_IO_STEP_SIZE), access_type))
+            m_config.m_meta_io_offset, meta_io_step_size.value_or(DEFAULT_META_IO_STEP_SIZE), access_type), flags)
         )
         , m_dram_io(init(getDRAMIOStream(
-            m_config.m_dram_io_offset, m_config.m_dram_page_size, access_type), m_dram_changelog_io)
+            m_config.m_dram_io_offset, m_config.m_dram_page_size, access_type), m_dram_changelog_io, flags)
         )
         , m_sparse_pair(m_dram_io.getDRAMPair(), access_type)
         , m_sparse_index(m_sparse_pair.getSparseIndex())
@@ -55,14 +55,14 @@ namespace db0
             m_config.m_ext_dram_changelog_io_offset, access_type)
         )
         , m_ext_dram_io(init(tryGetDRAMIOStream(
-            m_config.m_ext_dram_io_offset, m_config.m_ext_dram_page_size, access_type), m_ext_dram_changelog_io.get())
+            m_config.m_ext_dram_io_offset, m_config.m_ext_dram_page_size, access_type), m_ext_dram_changelog_io.get(), flags)
         )
         , m_ext_space(tryGetDRAMPair(m_ext_dram_io.get()), access_type)
         , m_page_io(getPage_IO(m_sparse_pair.getNextStoragePageNum(), m_config.m_page_io_step_size, access_type))
     {
         // in read-only mode need to refresh in order to retrieve a consitent DRAM state
         // since other process might be actively modifying the underlying file
-        if (m_access_type == AccessType::READ_ONLY) {
+        if (m_access_type == AccessType::READ_ONLY && !m_flags.test(StorageOptions::NO_LOAD)) {
             refresh();
         }
     }
@@ -71,26 +71,30 @@ namespace db0
     {
     }
     
-    DRAM_IOStream BDevStorage::init(DRAM_IOStream &&dram_io, DRAM_ChangeLogStreamT &dram_change_log)
-    {        
-        dram_io.load(dram_change_log);
+    DRAM_IOStream BDevStorage::init(DRAM_IOStream &&dram_io, DRAM_ChangeLogStreamT &dram_change_log, StorageFlags flags)
+    {
+        if (!flags[StorageOptions::NO_LOAD]) {
+            dram_io.load(dram_change_log);
+        }        
         return std::move(dram_io);
     }
     
     std::unique_ptr<DRAM_IOStream> BDevStorage::init(std::unique_ptr<DRAM_IOStream> &&dram_io,
-        DRAM_ChangeLogStreamT *dram_change_log)
+        DRAM_ChangeLogStreamT *dram_change_log, StorageFlags flags)
     {
-        if (dram_io) {
+        if (dram_io && !flags[StorageOptions::NO_LOAD]) {
             assert(dram_change_log);
             dram_io->load(*dram_change_log);
         }
         return std::move(dram_io);
     }
-
-    MetaIOStream BDevStorage::init(MetaIOStream &&io)
+    
+    MetaIOStream BDevStorage::init(MetaIOStream &&io, StorageFlags flags)
     {
-        // exhaust the meta-log stream (position at the last item) and all managed streams
-        io.setTailAll();        
+        if (!flags[StorageOptions::NO_LOAD]) {
+            // exhaust the meta-log stream (position at the last item) and all managed streams
+            io.setTailAll();
+        }
         return std::move(io);
     }
     
@@ -830,12 +834,9 @@ namespace db0
     void BDevStorage::fsync() {
         m_file.fsync();
     }
-
+    
     void BDevStorage::copyTo(BDevStorage &out)
     {
-        if (m_access_type == AccessType::READ_ONLY) {
-            THROWF(db0::IOException) << "BDevStorage::copyTo: source storage must be opened in read-only mode";
-        }
         if (!out.m_ext_space) {
             THROWF(db0::IOException) << "BDevStorage::copyTo: destination storage must have ext-space initialized";
         }

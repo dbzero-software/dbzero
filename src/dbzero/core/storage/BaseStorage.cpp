@@ -3,8 +3,9 @@
 namespace db0
 {
 
-    BaseStorage::BaseStorage(AccessType access_type)
+    BaseStorage::BaseStorage(AccessType access_type, StorageFlags flags)
         : m_access_type(access_type)
+        , m_flags(flags)
     {
     }
     
