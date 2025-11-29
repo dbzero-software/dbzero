@@ -59,6 +59,11 @@ namespace db0
         auto result = getNextPageNum().first;
         const std::byte *byte_buffer = static_cast<const std::byte *>(buffer);        
         while (page_count > 0) {
+            // allocate next block or step
+            if (page_count > 0 && m_page_count == m_block_capacity) {
+                allocateNextBlock();
+            }
+
             // the number of pages remaining in the current step
             auto step_remaining = getCurrentStepRemainingPages();
             if (step_remaining > 0) {
@@ -67,13 +72,8 @@ namespace db0
                 m_file.write(m_address + m_page_count * m_page_size, to_write_bytes, byte_buffer);
                 byte_buffer += to_write_bytes;
                 // position at the new address (within the current step)
-                setAt(m_address + m_page_count * m_page_size + to_write_bytes);
+                moveBy(to_write_pages);
                 page_count -= to_write_pages;
-            }
-
-            // allocate next block / step
-            if (page_count > 0 && m_page_count == m_block_capacity) {
-                allocateNextBlock();
             }
         }
         return result;
@@ -183,28 +183,34 @@ namespace db0
         return (file_size - m_page_io.m_header_size) / m_page_io.m_page_size;
     }
     
-    void Page_IO::setAt(std::uint64_t address)
+    void Page_IO::moveBy(std::uint32_t page_count)
     {
         if (!m_block_num) {
-            THROWF(db0::InternalException) << "Page_IO::setAt: step access not initialized";
+            THROWF(db0::InternalException) << "Page_IO::moveBy: step access not initialized";
         }
 
-        // calculate the step's first address
-        std::uint64_t step_addr = m_address - (static_cast<std::uint64_t>(*m_block_num) * m_block_size);
-        // new block number within the step
-        // NOTE: new block might be past the current step's end
-        m_block_num = static_cast<std::uint32_t>((address - step_addr) / m_block_size);
-        if (*m_block_num > m_step_size) {
-            THROWF(db0::InternalException) << "Page_IO::setAt: address outside of the current step";
+        // move by the end of the current block
+        auto count = std::min(page_count, m_block_capacity - m_page_count);
+        auto new_block_num = *m_block_num + (page_count - count) / m_block_capacity + 1;
+        if (new_block_num > m_step_size) {
+            THROWF(db0::InternalException) << "Page_IO::moveBy: attempt to move beyond the current step";
+        }
+        // positioned at the end of the step
+        if (new_block_num == m_step_size) {
+            --new_block_num;
+        }
+        
+        auto page_diff = count + (new_block_num - *m_block_num - 1) * m_block_capacity;
+        page_count -= page_diff;
+        if (page_count > m_block_capacity) {
+            THROWF(db0::InternalException) << "Page_IO::moveBy: attempt to move beyond the current step";
         }
 
-        // block's begin address
-        m_address = step_addr + static_cast<std::uint64_t>(*m_block_num) * m_block_size;
-        m_first_page_num = getPageNum(m_address);
-        // page number within the block
-        assert(address >= m_address);
-        assert((address - m_address) % m_page_size == 0);
-        m_page_count = static_cast<std::uint32_t>((address - m_address) / m_page_size);
+        // set new position variables (might be end of the block / step)
+        m_first_page_num += page_diff;
+        m_address += page_diff * m_page_size;
+        m_block_num = new_block_num;
+        m_page_count = page_count;
     }
     
     std::uint32_t Page_IO::getCurrentStepRemainingPages() const
@@ -220,7 +226,8 @@ namespace db0
             return 0;
         }
 
-        auto blocks_remaining = m_step_size - (*m_block_num - 1);
+        // current block excluding
+        auto blocks_remaining = m_step_size - *m_block_num - 1;
         auto pages_remaining_in_block = m_block_capacity - m_page_count;
         return blocks_remaining * m_block_capacity + pages_remaining_in_block;
     }

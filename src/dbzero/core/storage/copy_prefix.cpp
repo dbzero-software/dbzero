@@ -61,7 +61,7 @@ namespace db0
         if (page_size != out.getPageSize()) {
             THROWF(db0::IOException) << "copyPageIO: page size mismatch between input and output streams";
         }
-        
+                
         Page_IO::Reader reader(in, end_page_num);
         std::vector<std::byte> buffer;
         std::uint64_t start_page_num = 0;
@@ -75,8 +75,11 @@ namespace db0
                 out.append(buf_ptr, count);
                 buf_ptr += page_size * count;
                 // note start_page_num must be registered as relative to storage_page_num
+                // note each step might require is own mapping (unless stored as consecutive pages)
+                // the de-duplication logic is handled by ExtSpace
                 ext_space.addMapping(storage_page_num, start_page_num);
                 page_count -= count;
+                start_page_num += count;
             }
         }
     }

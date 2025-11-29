@@ -40,7 +40,7 @@ def test_recover_prefix_from_copy(db0_fixture):
     db0.close()
     
     # drop original file and replace with copy
-    os.remove(px_path)        
+    os.remove(px_path)
     os.rename(file_name, px_path)
     
     # open dbzero and read all data
@@ -49,3 +49,34 @@ def test_recover_prefix_from_copy(db0_fixture):
     for item in root.value:
         assert item.value == "a" * 1024
     assert len(root.value) == 50
+
+
+def test_copy_prefix_custom_step_size(db0_fixture):
+    file_name = "./test-copy.db0"
+    if os.path.exists(file_name):
+        os.remove(file_name)
+    
+    px_name = db0.get_current_prefix().name
+    px_path = os.path.join(DB0_DIR, px_name + ".db0")
+    
+    root = MemoTestSingleton([])
+    for count in range(500):
+        root.value.append(MemoTestClass("b" * 1024))  # 1 KB string
+        if (count % 50) == 0:
+            db0.commit()
+    db0.commit()
+    
+    # copy using custom (small) step size (64 KB)
+    db0.copy_prefix(file_name, page_io_step_size=64 << 10)
+    db0.close()
+    
+    # drop original file and replace with copy
+    os.remove(px_path)
+    os.rename(file_name, px_path)
+    
+    # open dbzero and read all data
+    db0.init(DB0_DIR, prefix=px_name, read_write=False)
+    root = db0.fetch(MemoTestSingleton)
+    for item in root.value:
+        assert item.value == "b" * 1024
+    assert len(root.value) == 500

@@ -169,7 +169,7 @@ namespace db0
                 return;
             }
         }
-
+        
         // register the new mapping
         super_t::insert({ rel_page_num, storage_page_num });
         m_max_rel_page_num = rel_page_num;

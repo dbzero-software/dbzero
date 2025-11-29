@@ -120,9 +120,9 @@ namespace db0
         std::uint64_t getPageNum(std::uint64_t address) const;
         void allocateNextBlock();
         
-        // Update the stream's current location
-        // @param address must be within or at the end of the current step
-        void setAt(std::uint64_t address);
+        // Update the stream's current location within the current step
+        // @param page_count number of pages to move by within the current step
+        void moveBy(std::uint32_t page_count);
     };
 
 }

@@ -847,7 +847,7 @@ namespace db0
             // NOTE: end_page_num may be relative, need to translate to absolute
             if (!!m_ext_space) {
                 end_page_num = m_ext_space.getAbsolute(*end_page_num);
-            }            
+            }
             copyPageIO(m_page_io, out.m_page_io, *end_page_num, out.m_ext_space);
         }
         
