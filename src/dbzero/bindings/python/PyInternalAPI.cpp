@@ -500,7 +500,7 @@ namespace db0::python
         return getPrefixFromArgs(PyToolkit::getPyWorkspace().getWorkspace(), args, kwargs, param_name); 
     }
 
-    db0::swine_ptr<Fixture> getPrefixFromArgs(PyObject *maybe_prefix_name)
+    db0::swine_ptr<Fixture> tryFindPrefixFromArgs(PyObject *maybe_prefix_name)
     {
         auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
         if (!maybe_prefix_name || maybe_prefix_name == Py_None) {
@@ -511,9 +511,22 @@ namespace db0::python
             THROWF(db0::InputException) << "Invalid argument type: expected prefix name string";
         }
         auto prefix_name = PyUnicode_AsUTF8(maybe_prefix_name);
-        return workspace.getFixture(prefix_name, AccessType::READ_ONLY);
+        return workspace.tryFindFixture(prefix_name);
     }
-
+    
+    std::unique_ptr<BDevStorage> getPrefixStorage(PyObject *maybe_prefix_name,
+        std::optional<std::size_t> meta_io_step_size, StorageFlags flags)
+    {
+        auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
+        if (!maybe_prefix_name || !PyUnicode_Check(maybe_prefix_name)) {
+            THROWF(db0::InputException) << "Invalid argument type: expected prefix name string";
+        }
+        auto prefix_name = PyUnicode_AsUTF8(maybe_prefix_name);
+        auto &catalog = workspace.getFixtureCatalog();
+        auto px_path = catalog.getPrefixFileName(prefix_name).string();
+        return std::unique_ptr<BDevStorage>(new BDevStorage(px_path, AccessType::READ_ONLY, {}, meta_io_step_size, flags));
+    }
+    
     PyObject *tryGetPrefixStats(PyObject *args, PyObject *kwargs)
     {
         auto fixture = getPrefixFromArgs(args, kwargs, "prefix");
@@ -917,35 +930,30 @@ namespace db0::python
         Py_RETURN_NONE;
     }
 
-    PyObject *tryCopyPrefixImpl(db0::swine_ptr<Fixture> &prefix, const std::string &output_file_name,
+    PyObject *tryCopyPrefixImpl(BDevStorage &src_storage, const std::string &output_file_name,
         std::optional<std::uint64_t> page_io_step_size, std::optional<std::uint64_t> meta_io_step_size) 
     {
         // make sure output file does not exist
         if (db0::CFile::exists(output_file_name)) {
             THROWF(db0::IOException) << "Output file already exists: " << output_file_name;
         }
-        
-        auto &storage = prefix->getPrefix().getStorage().asFile();
+                
         // use either explicit step size, input step size (if > 1) or default = 4MB
         if (!page_io_step_size) {
-            auto in_step_size = storage.getPageIO().getStepSize();
+            auto in_step_size = src_storage.getPageIO().getStepSize();
             page_io_step_size = in_step_size > 1 ? in_step_size : (4u << 20);
         }
 
         if (!meta_io_step_size) {
-            auto in_meta_step_size = storage.getMetaIO().getStepSize();
+            auto in_meta_step_size = src_storage.getMetaIO().getStepSize();
             meta_io_step_size = in_meta_step_size > 1 ? in_meta_step_size : (1u << 20);
         }
-
+        
         try {
-            // open as READ_ONLY and as NO_LOAD
-            BDevStorage in(storage.getFileName(), db0::AccessType::READ_ONLY, LockFlags {},
-                meta_io_step_size = {}, { StorageOptions::NO_LOAD }
-            );
-            BDevStorage::create(output_file_name, in.getPageSize(), in.getDRAMPageSize(), page_io_step_size);
+            BDevStorage::create(output_file_name, src_storage.getPageSize(), src_storage.getDRAMPageSize(), page_io_step_size);
             BDevStorage out(output_file_name, db0::AccessType::READ_WRITE);
             // copy entire prefix
-            in.copyTo(out);            
+            src_storage.copyTo(out);
             out.close();
         } catch (...) {
             // cleanup
@@ -1005,8 +1013,29 @@ namespace db0::python
             }
         }
         
-        auto prefix = getPrefixFromArgs(py_prefix);
-        return tryCopyPrefixImpl(prefix, output_file_name, page_io_step_size, meta_io_step_size);
+        std::unique_ptr<BDevStorage> storage;
+        try {
+            auto prefix = tryFindPrefixFromArgs(py_prefix); 
+            StorageFlags flags = { StorageOptions::NO_LOAD };
+            if (prefix) {
+                // open as a copy of an existing prefix
+                auto &in = prefix->getPrefix().getStorage().asFile();
+                storage = std::unique_ptr<BDevStorage>(new BDevStorage(
+                    in.getFileName(), AccessType::READ_ONLY, {}, in.getMetaIO().getStepSize(), flags)
+                );
+            } else {
+                // NOTE: for copy we open the storage as NO_LOAD
+                storage = getPrefixStorage(py_prefix, meta_io_step_size, flags);
+            }
+            auto result = Py_OWN(tryCopyPrefixImpl(*storage, output_file_name, page_io_step_size, meta_io_step_size));
+            storage->close();
+            return result.steal();
+        } catch (...) {
+            if (storage) {
+                storage->close();
+            }
+            throw;
+        }
     }
     
     template PyObject *getMaterializedMemoObject(MemoObject *);

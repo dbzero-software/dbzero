@@ -41,7 +41,7 @@ namespace db0
         return buffer;
     }
     
-    std::optional<std::uint64_t> copyDPStream(DP_ChangeLogStreamT &in, DP_ChangeLogStreamT &out)
+    std::optional<o_dp_changelog_header> copyDPStream(DP_ChangeLogStreamT &in, DP_ChangeLogStreamT &out)
     {
         auto last_chunk_buf = copyStream(in, out);
         // we can retrieve the end page number from the last appended chunk        
@@ -51,8 +51,7 @@ namespace db0
         }
         
         using o_change_log_t = DP_ChangeLogStreamT::ChangeLogT;
-        auto &last_chunk = o_change_log_t::__const_ref(last_chunk_buf.data());
-        return last_chunk.m_end_storage_page_num;
+        return o_change_log_t::__const_ref(last_chunk_buf.data());        
     }
     
     void copyPageIO(const Page_IO &in, Page_IO &out, std::uint64_t end_page_num, ExtSpace &ext_space)
@@ -61,7 +60,7 @@ namespace db0
         if (page_size != out.getPageSize()) {
             THROWF(db0::IOException) << "copyPageIO: page size mismatch between input and output streams";
         }
-                
+         
         Page_IO::Reader reader(in, end_page_num);
         std::vector<std::byte> buffer;
         std::uint64_t start_page_num = 0;

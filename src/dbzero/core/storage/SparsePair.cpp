@@ -10,9 +10,9 @@ namespace db0
     {
     }
     
-    SparsePair::SparsePair(DRAM_Pair dram_pair, AccessType access_type)
-        : m_sparse_index(dram_pair, access_type, {}, &m_change_log)
-        , m_diff_index(dram_pair, access_type, Address::fromOffset(m_sparse_index.getExtraData()), &m_change_log)
+    SparsePair::SparsePair(DRAM_Pair dram_pair, AccessType access_type, StorageFlags flags)
+        : m_sparse_index(dram_pair, access_type, {}, &m_change_log, flags)
+        , m_diff_index(dram_pair, access_type, getDiffIndexAddress(m_sparse_index, flags), &m_change_log, flags)
     {
     }
     
@@ -74,4 +74,14 @@ namespace db0
         m_diff_index.commit();
     }
     
+    Address SparsePair::getDiffIndexAddress(const SparseIndex &sparse_index, StorageFlags flags)
+    {        
+        assert(!!sparse_index || flags[StorageOptions::NO_LOAD]);
+        if (!!sparse_index) {
+            return Address::fromOffset(sparse_index.getExtraData());
+        }
+        // NOTE: address may not be available if NO_LOAD flag is set
+        return {};
+    }
+
 }

@@ -153,7 +153,7 @@ namespace db0
         , m_end_page_num(std::min(end_page_num.value_or(std::numeric_limits<std::uint64_t>::max()), page_io.getEndPageNum()))
     {        
     }
-
+    
     std::uint32_t Page_IO::Reader::next(std::vector<std::byte> &buf, std::uint64_t &start_page_num,
         std::size_t max_bytes)
     {

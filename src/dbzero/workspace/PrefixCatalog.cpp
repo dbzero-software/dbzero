@@ -197,4 +197,12 @@ namespace db0
         return m_name_uuids;
     }
     
+    fs::path FixtureCatalog::getPrefixFileName(const PrefixName &prefix_name) const 
+    {
+        if (!m_prefix_catalog.exists(prefix_name)) {
+            THROWF(db0::InputException) << "Prefix does not exist: " << prefix_name;
+        }
+        return m_prefix_catalog.getFileName(prefix_name);
+    }
+
 }

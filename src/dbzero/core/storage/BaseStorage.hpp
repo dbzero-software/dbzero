@@ -8,6 +8,7 @@
 #include <unordered_map>
 #include <optional>
 #include "ChangeLogTypes.hpp"
+#include "StorageFlags.hpp"
 
 namespace db0
 
@@ -16,15 +17,7 @@ namespace db0
     class ProcessTimer;
     class BDevStorage;
     template <typename BaseT> struct o_change_log;
-
-    enum class StorageOptions : std::uint16_t
-    {
-        // Prevents loading any data into memory (e.g. when opening for copying)
-        NO_LOAD = 0x0001,
-    };
-
-    using StorageFlags = FlagSet<StorageOptions>;
-
+    
     /**
      * Defines the file-oriented storage interface
     */

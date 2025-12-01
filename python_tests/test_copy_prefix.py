@@ -1,3 +1,4 @@
+import pytest
 import dbzero as db0
 import os
 import time
@@ -139,3 +140,43 @@ def test_copy_prefix_being_actively_modified(db0_fixture):
     for item in root.value:
         assert item.value == "b" * 1024
     assert len(root.value) >= 150
+
+
+def test_copy_prefix_fails_if_no_active_prefix(db0_fixture):
+    file_name = "./test-copy.db0"
+    # remove file if it exists
+    if os.path.exists(file_name):
+        os.remove(file_name)
+    
+    px_name = db0.get_current_prefix().name
+    root = MemoTestSingleton([])
+    for _ in range(5):
+        root.value.append(MemoTestClass("a" * 1024))  # 1 KB string
+    db0.commit()
+    db0.close()
+    
+    # init dbzero without opening the prefix
+    db0.init(DB0_DIR)
+    with pytest.raises(RuntimeError):    
+        db0.copy_prefix(file_name)
+
+
+def test_copy_prefix_without_opening_it(db0_fixture):
+    file_name = "./test-copy.db0"
+    # remove file if it exists
+    if os.path.exists(file_name):
+        os.remove(file_name)
+
+    px_name = db0.get_current_prefix().name
+    root = MemoTestSingleton([])
+    for _ in range(5):
+        root.value.append(MemoTestClass("a" * 1024))  # 1 KB string
+    db0.commit()
+    db0.close()
+    
+    # init dbzero without opening the prefix
+    db0.init(DB0_DIR)    
+    # copy existing prefix without opening it
+    db0.copy_prefix(file_name, prefix = px_name)
+    assert os.path.exists(file_name)
+    os.remove(file_name)    

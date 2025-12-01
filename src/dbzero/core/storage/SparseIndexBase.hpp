@@ -56,7 +56,7 @@ namespace db0
          * @param address pass 0 to use the first assigned address
         */
         SparseIndexBase(DRAM_Pair, AccessType, Address address = {}, 
-            std::vector<std::uint64_t> *change_log_ptr = nullptr);
+            std::vector<std::uint64_t> *change_log_ptr = nullptr, StorageFlags= {});
         
         // Create a new empty sparse index
         struct tag_create {};
@@ -107,6 +107,8 @@ namespace db0
 
         void commit();
 
+        bool operator!() const;
+
         struct BlockHeader
         {
             // number of the 1st page in a data block / node (high order bits)
@@ -129,7 +131,7 @@ namespace db0
             std::string toString(const CompressedItemT &) const;
             std::string toString() const;
         };
-
+        
     protected:
         friend class SparsePair;
 
@@ -182,10 +184,10 @@ DB0_PACKED_END
         // first element is the state number
         std::vector<std::uint64_t> *m_change_log_ptr = nullptr;
         
-        IndexT openIndex(Address, AccessType access_type);
+        IndexT openIndex(Address, AccessType access_type, StorageFlags);
         IndexT createIndex();
     };
-
+    
     template <typename ItemT, typename CompressedItemT>
     SparseIndexBase<ItemT, CompressedItemT>::SparseIndexBase(std::size_t node_size, std::vector<std::uint64_t> *change_log_ptr)
         : m_dram_space(DRAMSpace::create(node_size, [this](DRAM_Pair dram_pair) {
@@ -200,14 +202,15 @@ DB0_PACKED_END
 
     template <typename ItemT, typename CompressedItemT>
     SparseIndexBase<ItemT, CompressedItemT>::SparseIndexBase(DRAM_Pair dram_pair, AccessType access_type, Address address,
-        std::vector<std::uint64_t> *change_log_ptr)
+        std::vector<std::uint64_t> *change_log_ptr, StorageFlags flags)
         : m_dram_prefix(dram_pair.first)
         , m_dram_allocator(dram_pair.second)
         , m_dram_space(DRAMSpace::create(dram_pair))
         , m_access_type(access_type)
-        , m_index(openIndex(address, access_type))        
-        , m_next_page_num(m_index.treeHeader().m_next_page_num)
-        , m_max_state_num(m_index.treeHeader().m_max_state_num)
+        , m_index(openIndex(address, access_type, flags))
+        // NOTE: index may NOT be loaded
+        , m_next_page_num(!!m_index ? m_index.treeHeader().m_next_page_num : 0)
+        , m_max_state_num(!!m_index ? m_index.treeHeader().m_max_state_num : 0)
         , m_change_log_ptr(change_log_ptr)
     {
     }
@@ -259,13 +262,20 @@ DB0_PACKED_END
     
     template <typename ItemT, typename CompressedItemT>
     typename SparseIndexBase<ItemT, CompressedItemT>::IndexT
-    SparseIndexBase<ItemT, CompressedItemT>::openIndex(Address address, AccessType access_type)
+    SparseIndexBase<ItemT, CompressedItemT>::openIndex(Address address, AccessType access_type, StorageFlags flags)
     {
-        assert(!m_dram_prefix->empty() && "SparseIndexBase::openIndex: DRAM prefix is empty");
-        if (!address.isValid()) {
-            address = m_dram_allocator->firstAlloc();
+        assert((!m_dram_prefix->empty() || flags[StorageOptions::NO_LOAD])
+            && "SparseIndexBase::openIndex: DRAM prefix is empty"
+        );
+        // NOTE: Index NOT opened if NO_LOAD flag is set
+        if (flags[StorageOptions::NO_LOAD]) {
+            return {};
+        } else {
+            if (!address.isValid()) {
+                address = m_dram_allocator->firstAlloc();
+            }
+            return IndexT(m_dram_space.myPtr(address), m_dram_prefix->getPageSize(), access_type);
         }
-        return IndexT(m_dram_space.myPtr(address), m_dram_prefix->getPageSize(), access_type);
     }
     
     template <typename ItemT, typename CompressedItemT>
@@ -426,6 +436,11 @@ DB0_PACKED_END
     template <typename ItemT, typename CompressedItemT>
     void SparseIndexBase<ItemT, CompressedItemT>::commit() {
         m_index.commit();        
+    }
+    
+    template <typename ItemT, typename CompressedItemT>
+    bool SparseIndexBase<ItemT, CompressedItemT>::operator!() const {
+        return !m_index;
     }
     
 }

@@ -69,7 +69,7 @@ DB0_PACKED_END
         static constexpr std::size_t DEFAULT_META_IO_STEP_SIZE = 16 << 20;
         using DRAM_ChangeLogStreamT = ChangeLogIOStream<>;
         using DP_ChangeLogStreamT = ChangeLogIOStream<DP_ChangeLogT>;
-
+        
         /**
          * Opens BDevStorage over an existing file
          * @param meta_io_step_size - the size of the step in the MetaIOStream (16MB by default)
@@ -207,6 +207,8 @@ DB0_PACKED_END
         */
         std::uint64_t getBlockCount(std::uint64_t file_size) const;
 
+        std::uint64_t getNextStoragePageNum() const;
+
         BlockIOStream getBlockIOStream(std::uint64_t first_block_pos, AccessType);
         
         DRAM_IOStream getDRAMIOStream(std::uint64_t first_block_pos, std::uint32_t dram_page_size, AccessType);
@@ -234,7 +236,7 @@ DB0_PACKED_END
 
         MetaIOStream getMetaIOStream(std::uint64_t first_block_pos, std::size_t step_size, AccessType);
         
-        Diff_IO getPage_IO(std::uint64_t next_page_hint, std::uint32_t step_size, AccessType);
+        Diff_IO getPage_IO(std::uint64_t next_page_hint, std::uint32_t step_size);
         
         o_prefix_config readConfig() const;
         

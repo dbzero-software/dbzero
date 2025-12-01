@@ -189,12 +189,7 @@ namespace db0
     {
         auto result = super_t::lower_equal_bound(rel_page_num);
         if (!result) {
-            // FIXME: log
-            std::cout << "REL index size: " << super_t::size() << std::endl;
-            std::cout << "last storage page num: " << m_last_storage_page_num << std::endl;
-            std::cout << "rel page num: " << m_rel_page_num << std::endl;
-            std::cout << "max rel page num: " << m_max_rel_page_num << std::endl;
-            THROWF(db0::InternalException) << "REL_Index: page lookup failed on: " << rel_page_num;            
+            THROWF(db0::InternalException) << "REL_Index: page lookup failed on: " << rel_page_num;
         }
         // translate to absolute storage page number
         return result->m_storage_page_num + (rel_page_num - result->m_rel_page_num);        

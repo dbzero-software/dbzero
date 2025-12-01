@@ -5,6 +5,7 @@
 #include "DiffIndex.hpp"
 #include "BaseStorage.hpp"
 #include "ChangeLogIOStream.hpp"
+#include "StorageFlags.hpp"
 
 namespace db0
 
@@ -20,8 +21,8 @@ namespace db0
         using DP_ChangeLogT = BaseStorage::DP_ChangeLogT;
         using DP_ChangeLogStreamT = db0::ChangeLogIOStream<DP_ChangeLogT>;
         
-        SparsePair(std::size_t node_size);
-        SparsePair(DRAM_Pair, AccessType);
+        SparsePair(std::size_t node_size);        
+        SparsePair(DRAM_Pair, AccessType, StorageFlags = {});
         SparsePair(tag_create, DRAM_Pair);
         
         ~SparsePair();
@@ -67,6 +68,8 @@ namespace db0
         std::vector<std::uint64_t> m_change_log;
         SparseIndex m_sparse_index;
         DiffIndex m_diff_index;
+        
+        static Address getDiffIndexAddress(const SparseIndex &, StorageFlags);
     };
     
 }

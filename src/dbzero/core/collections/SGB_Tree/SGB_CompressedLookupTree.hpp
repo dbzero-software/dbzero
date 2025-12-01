@@ -224,6 +224,9 @@ DB0_PACKED_END
         using NodeItemCompT = typename super_t::NodeItemCompT;
         using NodeItemEqualT = typename super_t::NodeItemEqualT;
 
+        // as null / invalid
+        SGB_CompressedLookupTree() = default;
+        
         SGB_CompressedLookupTree(Memspace &memspace, std::size_t node_capacity,
             AccessType access_type, const CompT &comp = {}, const NodeItemCompT &item_cmp = {}, const NodeItemEqualT &item_eq = {},
             unsigned int sort_thr = super_t::DEFAULT_SORT_THRESHOLD)
@@ -406,6 +409,10 @@ DB0_PACKED_END
 
         void detach() const {
             super_t::detach();
+        }
+
+        bool operator!() const {
+            return super_t::operator!();
         }
 
     private:

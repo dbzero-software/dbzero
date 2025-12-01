@@ -4,6 +4,7 @@
 #include "Page_IO.hpp"
 #include "Diff_IO.hpp"
 #include "DRAM_IOStream.hpp"
+#include "ChangeLogTypes.hpp"
 #include "ChangeLogIOStream.hpp"
 #include "BaseStorage.hpp"
 
@@ -26,8 +27,8 @@ namespace db0
     std::vector<char> copyStream(BlockIOStream &in, BlockIOStream &out);
     
     // DP-changelog specialization
-    // @return the end storage page number (if anything copied)
-    std::optional<std::uint64_t> copyDPStream(DP_ChangeLogStreamT &in, DP_ChangeLogStreamT &out);
+    // @return the last chunk's header (if anything copied)
+    std::optional<o_dp_changelog_header> copyDPStream(DP_ChangeLogStreamT &in, DP_ChangeLogStreamT &out);
     
     // Copy raw contents of a specific Page_IO up to a specific storage page number
     // @param in the input (source) Page_IO (must NOT define ext-space - i.e. absolute / relative mapping)
