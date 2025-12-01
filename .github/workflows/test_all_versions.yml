@@ -126,6 +126,8 @@ jobs:
           - python-version: "3.14"
             python-tag: "314"
             architecture: "AMD64"
+    env:
+      REQUIREMENTS_FILE: ${{ matrix.python-version == '3.9' && 'requirements.3.9.txt' || 'requirements.txt' }}
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
@@ -140,7 +142,7 @@ jobs:
       - name: Install wheel and dependencies
         run: |
           pip install pytest
-          pip install -r requirements.txt
+          pip install -r $env:REQUIREMENTS_FILE
           Get-ChildItem -Path "./wheels/*.whl" | ForEach-Object { pip install $_.FullName }
         shell: powershell
       - name: Run tests
@@ -154,6 +156,8 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+    env:
+      REQUIREMENTS_FILE: ${{ matrix.python-version == '3.9' && 'requirements.3.9.txt' || 'requirements.txt' }}
     
     steps:
       - uses: actions/checkout@v4
@@ -169,7 +173,7 @@ jobs:
       - name: Install wheel and dependencies
         run: |
           pip install pytest
-          pip install -r requirements.txt
+          pip install -r $REQUIREMENTS_FILE
           pip install ./wheels/*.whl
       - name: Run tests
         run: |

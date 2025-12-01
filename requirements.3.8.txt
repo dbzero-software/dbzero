@@ -1,0 +1,7 @@
+pytest==8.3.5
+pytest-asyncio==0.24.0
+build==0.10.0
+meson==1.9.1
+meson-python==0.18.0
+fasteners==0.19
+psutil==7.0.0

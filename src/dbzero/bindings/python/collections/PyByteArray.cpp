@@ -40,12 +40,19 @@ namespace db0::python
     {
         auto py_obj = Py_OWN(asPyObject(object_inst));
         auto function = Py_OWN(PyObject_GetAttrString(*py_obj, name));
+        if (!function) {
+            PyErr_Format(PyExc_AttributeError, "ByteArray object has no attribute '%s'", name);
+            return NULL;
+        }
         return PyObject_Call(*function, args, kwargs);
     }
     
     PyObject *ByteArray_CallMethod(const char * name, ByteArrayObject *object_inst, PyObject* args, PyObject* kwargs)
     {
         auto py_obj = callMethod(name, object_inst, args, kwargs);
+        if (!py_obj) {
+            return NULL;
+        }
         auto bytearray_object = ByteArrayObject_new(&ByteArrayObjectType, NULL, NULL);
         db0::FixtureLock lock(PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture());
         makeByteArrayFromPyBytes(*lock, bytearray_object, py_obj);
