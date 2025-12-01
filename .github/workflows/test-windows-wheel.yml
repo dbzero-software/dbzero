@@ -13,6 +13,7 @@ on:
         required: true
         type: choice
         options:
+          - '3.9'
           - '3.10'
           - '3.11'
           - '3.12'
@@ -23,6 +24,8 @@ on:
 jobs:
   test-windows:
     runs-on: windows-latest
+    env:
+      REQUIREMENTS_FILE: ${{ inputs.python-version == '3.9' && 'requirements.3.9.txt' || 'requirements.txt' }}
     steps:
       - uses: actions/checkout@v4
       
@@ -40,7 +43,7 @@ jobs:
       - name: Install wheel and dependencies
         run: |
           pip install pytest
-          pip install -r requirements.txt
+          pip install -r $env:REQUIREMENTS_FILE
           Get-ChildItem -Path "./wheels/*.whl" | ForEach-Object { pip install $_.FullName }
         shell: powershell
       

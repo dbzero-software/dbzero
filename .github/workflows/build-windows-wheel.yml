@@ -19,6 +19,7 @@ on:
         required: true
         type: choice
         options:
+          - '3.9'
           - '3.10'
           - '3.11'
           - '3.12'
@@ -30,6 +31,7 @@ on:
         required: true
         type: choice
         options:
+          - '39'
           - '310'
           - '311'
           - '312'

@@ -71,7 +71,7 @@ class Client():
             return client_id_str.zfill(3)
         return [client_id_str[:3], client_id_str[-3:]]
     
-    def get_tags(self) -> Iterator[str|object]:
+    def get_tags(self) -> Iterator:
         yield from yield_tags(self.first_name)
         yield from yield_tags(self.last_name)
         yield from yield_tags(self.email)

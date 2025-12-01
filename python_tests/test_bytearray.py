@@ -1,4 +1,6 @@
 import dbzero as db0
+import pytest
+import sys
 from .memo_test_types import MemoTestClass
 
 
@@ -51,7 +53,9 @@ def test_count(db0_fixture):
     assert bytearray_2.count(b'abc') == 2
     assert bytearray_2.count(db0.bytearray(b'abc')) == 2
 
+# only Python 3.9+
 
+@pytest.mark.skipif(sys.version_info < (3, 9), reason="requires python3.9 or higher")
 def test_removeprefix(db0_fixture):
     bytearray_1 = db0.bytearray(b'abc')
     assert bytearray_1.removeprefix(b'ab') == db0.bytearray(b'c')
@@ -59,6 +63,7 @@ def test_removeprefix(db0_fixture):
     assert bytearray_1.removeprefix(b'abc') == db0.bytearray(b'')
 
 
+@pytest.mark.skipif(sys.version_info < (3, 9), reason="requires python3.9 or higher")
 def test_removesuffix(db0_fixture):
     bytearray_1 = db0.bytearray(b'abc')
     assert bytearray_1.removesuffix(b'ab') == db0.bytearray(b'abc')
