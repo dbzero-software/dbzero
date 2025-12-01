@@ -85,16 +85,21 @@ def test_copy_prefix_custom_step_size(db0_fixture):
     assert len(root.value) == 500
 
 
-def writer_process(prefix):
+def writer_process(prefix, obj_count = 50, commit_count = 50, long_run = False):
     db0.init(DB0_DIR)
     db0.open(prefix, "rw")
     root = MemoTestSingleton([])
-    for _ in range(50):
-        for _ in range(50):
+    for i in range(commit_count):
+        for _ in range(obj_count):
             root.value.append(MemoTestClass("b" * 1024))  # 1 KB string
         db0.commit()
-        time.sleep(0.1)
-    
+        if long_run:
+            print(f"Writer process: committed {i * obj_count} objects")
+        else:
+            time.sleep(0.1)
+        
+    if long_run:
+        print(db0.get_storage_stats())
     db0.commit()
     db0.close()
 
@@ -180,3 +185,86 @@ def test_copy_prefix_without_opening_it(db0_fixture):
     db0.copy_prefix(file_name, prefix = px_name)
     assert os.path.exists(file_name)
     os.remove(file_name)    
+
+
+@pytest.mark.stress_test
+def test_copy_prefix_continuous_process(db0_fixture):    
+    px_name = db0.get_current_prefix().name
+    px_path = os.path.join(DB0_DIR, px_name + ".db0")
+
+    def validate_current_prefix(expected_len = None, expected_min_len = None):
+        root = db0.fetch(MemoTestSingleton)
+        assert not expected_min_len or len(root.value) > expected_min_len
+        assert not expected_len or len(root.value) == expected_len        
+        for item in root.value:
+            assert item.value == "b" * 1024        
+        return len(root.value)
+
+    def validate_copy(copy_id, expected_len = None, expected_min_len = None):
+        file_name = f"./test-copy-{copy_id}.db0"
+        os.remove(px_path)
+        # restore the copy
+        os.rename(file_name, px_path)
+        
+        print(f"--- Validating copy {copy_id}")
+        db0.init(DB0_DIR, prefix=px_name, read_write=False)
+        result = validate_current_prefix(expected_len, expected_min_len)
+        db0.close()
+        return result
+    
+    db0.close()
+    obj_count = 5000
+    commit_count = 100
+    # start the writer process for a long run
+    p = multiprocessing.Process(target=writer_process, args=(px_name, obj_count, commit_count, True))
+    p.start()
+    
+    db0.init(DB0_DIR)
+    db0.open(px_name, "r")
+    last_len = 0
+    while True:
+        try:
+            root = db0.fetch(MemoTestSingleton)
+            if len(root.value) > 1:
+                last_len = len(root.value)
+                break
+        except Exception:
+            pass
+        time.sleep(0.1)
+    
+    copy_id = 0
+    # copy the prefix multiple times while it is being modified 
+    while True:        
+        if not p.is_alive():
+            break
+        file_name = f"./test-copy-{copy_id}.db0"
+        if os.path.exists(file_name):
+            os.remove(file_name)
+        # copy prefix without opening it, use default step size
+        print("--- Copying prefix iteration", copy_id)
+        db0.copy_prefix(file_name, prefix=px_name)
+        print("--- copy finished")
+        copy_id += 1
+        if not p.is_alive():
+            break
+        time.sleep(2.5)  # wait a bit before next copy
+    
+    p.join()
+    
+    # validate original prefix (no copy yet)
+    print("Validating final prefix ...")
+    db0.open(px_name, "r")
+    validate_current_prefix(expected_len = obj_count * commit_count)
+    
+    # make final stale copy (i.e. without active modifications)
+    final_copy = f"./test-copy-final.db0"
+    if os.path.exists(final_copy):
+        os.remove(final_copy)
+    db0.copy_prefix(final_copy, prefix=px_name)    
+    db0.close()
+    
+    print("Validating all copies")        
+    validate_copy("final", expected_len = obj_count * commit_count)
+    for i in range(copy_id):
+        last_len = validate_copy(i, expected_min_len = last_len)
+        print(f"--- Copy {i} valid with {last_len} objects")
