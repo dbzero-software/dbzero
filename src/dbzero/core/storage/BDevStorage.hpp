@@ -19,6 +19,7 @@
 #include <dbzero/core/compiler_attributes.hpp>
 #include <shared_mutex>
 #include "ExtSpace.hpp"
+#include "MemBaseStorage.hpp"
 
 namespace db0
 
@@ -167,6 +168,9 @@ DB0_PACKED_END
         ExtSpace m_ext_space;
         // the stream for storing & reading full-DPs and diff-encoded DPs
         Diff_IO m_page_io;
+#ifndef NDEBUG
+        MemBaseStorage m_data_mirror;
+#endif        
         
         bool m_refresh_pending = false;
         mutable std::shared_mutex m_mutex;

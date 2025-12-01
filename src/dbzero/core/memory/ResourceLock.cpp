@@ -136,6 +136,10 @@ namespace db0
 
     void ResourceLock::setDirty(std::uint64_t at, std::uint64_t end)
     {
+        if (m_address == 16384) {
+            std::cout << "ResourceLock::setDirty RANGE @" << m_address << std::endl;
+        }
+
         assert(at >= m_address);
         assert(end <= this->m_address + this->size());
         

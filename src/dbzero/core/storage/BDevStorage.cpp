@@ -11,7 +11,7 @@
 namespace db0
 
 {
-    
+
     o_prefix_config::o_prefix_config(std::uint32_t block_size, std::uint32_t page_size,
         std::uint32_t dram_page_size, std::uint32_t page_io_step_size)
         : m_block_size(block_size)
@@ -58,6 +58,9 @@ namespace db0
         )
         , m_ext_space(tryGetDRAMPair(m_ext_dram_io.get()), access_type)
         , m_page_io(getPage_IO(m_sparse_pair.getNextStoragePageNum(), m_config.m_page_io_step_size, access_type))
+#ifndef NDEBUG
+        , m_data_mirror(m_config.m_page_size)
+#endif        
     {
         // in read-only mode need to refresh in order to retrieve a consitent DRAM state
         // since other process might be actively modifying the underlying file
@@ -311,7 +314,10 @@ namespace db0
     }
     
     void BDevStorage::write(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer)
-    {
+    {                
+#ifndef NDEBUG
+        m_data_mirror.write(address, state_num, size, buffer);
+#endif
         assert(state_num > 0 && "BDevStorage::write: state number must be > 0");
         assert((address % m_config.m_page_size == 0) && "BDevStorage::write: address must be page-aligned");
         assert((size % m_config.m_page_size == 0) && "BDevStorage::write: size must be page-aligned");
@@ -345,17 +351,20 @@ namespace db0
                     page_io_id = m_ext_space.assignRelative(page_io_id, is_first_page);
                 }
                 m_sparse_index.emplace(page_num, state_num, page_io_id);
-                #ifndef NDEBUG
+#ifndef NDEBUG                
                 m_page_io_raw_bytes += m_config.m_page_size;
                 checkCrashFromCommit();
-                #endif
+#endif
             }
         }
     }
-    
+
     void BDevStorage::writeDiffs(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer,
         const std::vector<std::uint16_t> &diff_data, unsigned int max_len)
     {
+#ifndef NDEBUG
+        m_data_mirror.writeDiffs(address, state_num, size, buffer, diff_data, max_len);
+#endif
         assert(state_num > 0 && "BDevStorage::writeDiffs: state number must be > 0");
         assert((address % m_config.m_page_size == 0) && "BDevStorage::writeDiffs: address must be page-aligned");
         assert(size == m_config.m_page_size && "BDevStorage::writeDiffs: size must be equal to page size");
@@ -368,11 +377,11 @@ namespace db0
         // if a page has already been written as full-DP in the current transaction then
         // we cannot append as diff but need to overwrite the full page instead
         StateNumType first_state_num = 0;
-        auto storage_page_num = query.first(first_state_num);
+        auto page_io_id = query.first(first_state_num);
         if (first_state_num == state_num) {
+            assert(query.lessThan(2) && "BDevStorage::writeDiffs: unexpected chain length");
             // page already added in current transaction / update in the stream
-            // this may happen due to cache overflow and later modification of the same page
-            auto page_io_id = storage_page_num;
+            // this may happen due to cache overflow and later modification of the same page            
             if (!!m_ext_space) {
                 // convert relative page number back to absolute
                 page_io_id = m_ext_space.getAbsolute(page_io_id);
@@ -392,18 +401,18 @@ namespace db0
             }
             m_diff_index.insert(page_num, state_num, page_io_id, overflow);
         } else {
-            // full-DP write            
+            // full-DP write (chain length would exceed max_len)
             auto page_io_id = m_page_io.append(buffer, &is_first_page);
             if (!!m_ext_space) {
                 page_io_id = m_ext_space.assignRelative(page_io_id, is_first_page);
             }
             m_sparse_index.emplace(page_num, state_num, page_io_id);
         }
-        
-        #ifndef NDEBUG
+
+#ifndef NDEBUG
         m_page_io_raw_bytes += m_config.m_page_size;
         checkCrashFromCommit();
-        #endif
+#endif
     }
     
     std::size_t BDevStorage::getPageSize() const {

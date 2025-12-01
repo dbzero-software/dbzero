@@ -1,6 +1,8 @@
 #include "diff_utils.hpp"
 #include <algorithm>
 #include <cassert>
+#include <cstdint>
+#include <cstring>
 #include <dbzero/core/exception/Exceptions.hpp>
 
 namespace db0
@@ -360,6 +362,41 @@ namespace db0
             return std::max(start1, start2) < std::min(end1, end2);        
         }
         return false;
+    }
+    
+    void applyDiffs(const std::vector<std::uint16_t> &diffs, void *in_buffer,
+        std::byte *dp_result, const std::byte *dp_end)
+    {
+        std::byte *dp_in = static_cast<std::byte *>(in_buffer);
+        for (auto it = diffs.begin(); it != diffs.end(); ) {
+            auto diff_size = *it;
+            ++it;
+            if (diff_size > 0) {
+                assert(dp_result + diff_size <= dp_end);
+                std::memcpy(dp_result, dp_in, diff_size);
+                dp_result += diff_size;
+                if (dp_result > dp_end) {
+                    THROWF(db0::IOException) << "applyDiffs: diff application exceeds buffer size";
+                }
+                dp_in += diff_size;
+            }
+            if (it == diffs.end()) {
+                break;
+            }
+            // identical area
+            auto sim_size = *it;
+            if (sim_size == 0 && diff_size == 0) {
+                // zero-fill base buffer
+                std::memset(dp_result, 0, dp_end - dp_result);
+                return;
+            }
+            ++it;
+            dp_result += sim_size;
+            if (dp_result > dp_end) {
+                THROWF(db0::IOException) << "applyDiffs: diff application exceeds buffer size";
+            }
+            dp_in += sim_size;
+        }
     }
 
 }

@@ -311,9 +311,11 @@ namespace db0
     
     void MetaAllocator::Realm::commit() const
     {
-        m_slab_defs.commit();
-        m_capacity_items.commit();
+        // NOTE: slab manager must commit first (important!)
+        // this is because it may perform modifications to the slab defs and capacity items
         m_slab_manager->commit();
+        m_slab_defs.commit();
+        m_capacity_items.commit();        
     }
     
     void MetaAllocator::Realm::detach() const
@@ -340,7 +342,7 @@ namespace db0
     SlabRecycler *MetaAllocator::getSlabRecyclerPtr() const {
         return m_recycler_ptr;
     }
-        
+    
     void MetaAllocator::forAllSlabs(std::function<void(const SlabAllocator &, std::uint32_t)> f) const {
         m_realms.forAllSlabs(f);        
     }
