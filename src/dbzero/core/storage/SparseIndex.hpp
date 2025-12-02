@@ -41,9 +41,9 @@ DB0_PACKED_BEGIN
         std::uint64_t m_page_num = 0;
         // the state number (>0 for valid items)
         std::uint32_t m_state_num = 0;
-        // the physical / storage page number
+        // the physical / storage page number (possibly relative!)
         std::uint64_t m_storage_page_num = 0;
-
+        
         SI_Item() = default;
 
         SI_Item(std::uint64_t page_num, std::uint32_t state_num)
@@ -64,6 +64,8 @@ DB0_PACKED_BEGIN
         inline operator bool() const {
             return m_state_num;
         }
+        
+        std::string toString() const;
     };
 DB0_PACKED_END
 
@@ -125,5 +127,13 @@ DB0_PACKED_BEGIN
 DB0_PACKED_END
 
     using SparseIndex = SparseIndexBase<SI_Item, SI_CompressedItem>;
+
+}
+
+namespace std
+
+{
+    
+    ostream &operator<<(ostream &, const db0::SI_Item &);
 
 }

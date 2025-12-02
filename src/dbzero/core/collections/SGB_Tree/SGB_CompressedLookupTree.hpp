@@ -9,6 +9,7 @@
 #include <dbzero/core/memory/AccessOptions.hpp>
 #include <dbzero/core/compiler_attributes.hpp>
 #include <dbzero/core/metaprog/misc_utils.hpp>
+#include <dbzero/core/memory/config.hpp>
 
 namespace db0
 
@@ -93,8 +94,8 @@ DB0_PACKED_BEGIN
             // remove elements including "at"
             this->m_size -= len;
         }
-
-        template <typename op_src> void append_sorted(const o_sgb_compressed_lookup_tree_node &from, 
+        
+        template <typename op_src> void append_sorted(const o_sgb_compressed_lookup_tree_node &from,
             const_iterator begin, const_iterator end, const HeapCompT &comp)
         {
             if (this->is_reversed()) {
@@ -131,7 +132,7 @@ DB0_PACKED_BEGIN
                     *out = this_head.compress(from_head.uncompress(*begin));
                     op_src::next(begin);
                     op::next(out);
-                }
+                }                
                 this->m_size += len;
             }
         }
@@ -246,7 +247,7 @@ DB0_PACKED_END
                 return;
             }
             
-            base_t::modify().m_sgb_size++;
+            ++base_t::modify().m_sgb_size;
             // Find the node by uncompressed key / item
             auto node = base_t::lower_equal_bound(item);
             if (node == base_t::end()) {
@@ -285,7 +286,8 @@ DB0_PACKED_END
             
             // node will be sorted if needed (only if in READ/WRITE mode)
             if (this->m_access_type == AccessType::READ_WRITE) {
-                this->onNodeLookup(node);
+                // FIXME: log
+                // this->onNodeLookup(node);
             }
             
             if (node->header().canFit(key)) {
@@ -309,7 +311,8 @@ DB0_PACKED_END
             
             // node will be sorted if needed (only if opened as READ/WRITE)
             if (this->m_access_type == AccessType::READ_WRITE) {
-                this->onNodeLookup(node);
+                // FIXME: log
+                // this->onNodeLookup(node);
             }
 
             // within the node look up by compressed key
@@ -341,20 +344,21 @@ DB0_PACKED_END
             
             // node will be sorted if needed (only if opened as READ/WRITE)
             if (this->m_access_type == AccessType::READ_WRITE) {
-                this->onNodeLookup(node);
+                // FIXME: log
+                // this->onNodeLookup(node);
             }
             // within the node look up by compressed key
             const CompressedItemT *item_ptr = nullptr;     
             if (node->header().canFit(key)) {
                 item_ptr = node->upper_equal_bound(node->header().compress(key), this->m_heap_comp);
             }
-            
+
             if (!item_ptr) {
                 // pick first item from the next node otherwise
                 ++node;                
                 if (node == base_t::end()) {
                     return std::nullopt;
-                }
+                }                
                 item_ptr = node->find_min();
                 assert(item_ptr);
             }
@@ -373,7 +377,8 @@ DB0_PACKED_END
             
             // node will be sorted if needed (only if opened as READ/WRITE)
             if (this->m_access_type == AccessType::READ_WRITE) {
-                this->onNodeLookup(node);
+                // FIXME: log
+                // this->onNodeLookup(node);
             }
                     
             if (node->header().canFit(key)) {
@@ -412,9 +417,9 @@ DB0_PACKED_END
         ItemCompT m_raw_item_comp;
 
         template <typename... Args> void insert_into(sg_tree_const_iterator &node, int recursion, const ItemT &item)
-        {
+        {            
             // Split node if full or unable to fit item
-            if (node->isFull() || ((node->size() > 2) && (recursion < 2) && !node->header().canFit(item))) {
+            if (node->isFull() || ((node->size() > 2) && (recursion < 2) && !node->header().canFit(item))) {                
                 // erase the max element and create the new node
                 auto item_ptr = node.modify().find_middle(this->m_heap_comp);
                 auto new_node = super_t::insert_equal(node->header().uncompress(*item_ptr), this->m_node_capacity, this->m_heap_comp);
@@ -424,13 +429,14 @@ DB0_PACKED_END
                 if (!this->m_raw_item_comp(item, new_node->keyItem())) {
                     insert_into(new_node, recursion + 1, item);
                     return;
-                }
+                }                
             }
             
             if (!node->header().canFit(item)) {
                 // must insert a new node to be able to fit the new item
-                auto new_node = super_t::insert_equal(item, this->m_node_capacity, this->m_heap_comp);
-                new_node->begin();                
+                auto new_node = super_t::insert_equal(item, this->m_node_capacity, this->m_heap_comp);                
+                // FIXME: log, is this operationally required ??
+                // new_node->begin();
             } else {
                 node.modify().append(this->m_heap_comp, item);
             }

@@ -3,6 +3,8 @@
 #include <cstring>
 #include <cassert>
 #include <dbzero/core/storage/BaseStorage.hpp>
+// FIXME: log
+#include <dbzero/core/storage/BDevStorage.hpp>
 
 namespace db0
 
@@ -63,24 +65,32 @@ namespace db0
                     storage.write(m_address, m_state_num, this->size(), m_data.data());
                 } else {
                     assert(flush_method == FlushMethod::diff);
-                    auto cow_ptr = getCowPtr();
+                    auto cow_ptr = getCowPtr();                    
                     if (!cow_ptr) {
-                        // unable to diff-flush
+                        // unable to diff-flush                        
                         return false;
                     }
+
                     std::vector<std::uint16_t> diffs;
                     if (!this->getDiffs(cow_ptr, diffs)) {
-                        // unable to diff-flush
+                        // unable to diff-flush (too many diffs)
                         return false;
                     }
+                    
                     // NOTE: DP needs not to be flushed if there are no diffs
                     if (!diffs.empty()) {
-                        storage.writeDiffs(m_address, m_state_num, this->size(), m_data.data(), diffs);
+                        if (!storage.tryWriteDiffs(m_address, m_state_num, this->size(), m_data.data(), diffs)) {
+                            // unable to diff-flush
+                            return false;
+                        }
                     }
+                    
+                    // FIXME: log
+                    // write entire contents for validation
+                    storage.asFile().writeForValidation(m_address, m_state_num, this->size(), m_data.data());
                 }
                 
                 m_diffs.clear();
-                
                 // reset the dirty flag
                 lock.commit_reset();
             }

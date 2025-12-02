@@ -14,8 +14,8 @@ namespace db0
     class SparseIndexQuery
     {
     public:
-        SparseIndexQuery(const SparseIndex &, const DiffIndex &, std::uint64_t page_num, std::uint32_t state_num);
-
+        SparseIndexQuery(const SparseIndex &, const DiffIndex &, std::uint64_t page_num, StateNumType state_num);
+        
         // NOTE: the first returned storage page num will be full-DP
         // @return 0 if no associated DP found
         inline std::uint64_t first() const 

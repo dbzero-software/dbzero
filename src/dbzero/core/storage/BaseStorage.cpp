@@ -65,4 +65,9 @@ namespace db0
         THROWF(db0::InternalException) << "Operation not supported: fetchChangeLog";
     }
     
+    // FIXME: log
+    BDevStorage &BaseStorage::asFile() {
+        THROWF(db0::InternalException) << "file storage not available" << THROWF_END;
+    }
+
 }

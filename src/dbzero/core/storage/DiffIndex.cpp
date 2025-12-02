@@ -162,7 +162,7 @@ namespace db0
             // collect the change-log
             this->update(page_num, state_num, storage_page_num + (overflow ? 1 : 0));
         } else {
-            // create new item
+            // create new item (with no history of updates)
             super_t::emplace(page_num, state_num, storage_page_num);
             // we also need to account for the overflow
             if (overflow) {

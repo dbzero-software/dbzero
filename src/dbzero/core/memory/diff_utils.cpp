@@ -364,10 +364,10 @@ namespace db0
         return false;
     }
     
-    void applyDiffs(const std::vector<std::uint16_t> &diffs, void *in_buffer,
+    void applyDiffs(const std::vector<std::uint16_t> &diffs, const void *in_buffer,
         std::byte *dp_result, const std::byte *dp_end)
     {
-        std::byte *dp_in = static_cast<std::byte *>(in_buffer);
+        const std::byte *dp_in = static_cast<const std::byte *>(in_buffer);
         for (auto it = diffs.begin(); it != diffs.end(); ) {
             auto diff_size = *it;
             ++it;
@@ -386,9 +386,8 @@ namespace db0
             // identical area
             auto sim_size = *it;
             if (sim_size == 0 && diff_size == 0) {
-                // zero-fill base buffer
-                std::memset(dp_result, 0, dp_end - dp_result);
-                return;
+                // zero-fill base buffer (special tag)
+                std::memset(dp_result, 0, dp_end - dp_result);                
             }
             ++it;
             dp_result += sim_size;

@@ -58,9 +58,7 @@ namespace db0
         )
         , m_ext_space(tryGetDRAMPair(m_ext_dram_io.get()), access_type)
         , m_page_io(getPage_IO(m_sparse_pair.getNextStoragePageNum(), m_config.m_page_io_step_size, access_type))
-#ifndef NDEBUG
         , m_data_mirror(m_config.m_page_size)
-#endif        
     {
         // in read-only mode need to refresh in order to retrieve a consitent DRAM state
         // since other process might be actively modifying the underlying file
@@ -134,6 +132,7 @@ namespace db0
         // adjust DRAM page size to fit the block
         auto dram_page_size = block_size - BlockIOStream::sizeOfHeaders(DRAM_IOStream::ENABLE_CHECKSUMS) - 
             DRAM_IOStream::sizeOfHeader();
+
         // create a new config using placement new
         auto config = new (buffer.data()) o_prefix_config(
             block_size, *page_size, dram_page_size, getPageIOStepSize(block_size, step_size_hint)
@@ -252,7 +251,7 @@ namespace db0
     
     void BDevStorage::_read(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer,
         FlagSet<AccessOptions> flags, unsigned int *chain_len) const
-    {
+    {     
         assert(state_num > 0 && "BDevStorage::read: state number must be > 0");
         assert((address % m_config.m_page_size == 0) && "BDevStorage::read: address must be page-aligned");
         assert((size % m_config.m_page_size == 0) && "BDevStorage::read: size must be page-aligned");
@@ -267,22 +266,31 @@ namespace db0
         if (chain_len) {
             *chain_len = 0;
         }
-
+        
         std::byte *read_buf = reinterpret_cast<std::byte *>(buffer);
         // lookup sparse index and read physical pages
         for (auto page_num = begin_page; page_num != end_page; ++page_num, read_buf += m_config.m_page_size) {
             // query sparse index + diff index
             SparseIndexQuery query(m_sparse_index, m_diff_index, page_num, state_num);
             if (query.empty()) {
+
+                // FIXME: log
+                // confirm with empty query
+
                 if (flags[AccessOptions::read]) {
+                    // FIXME: log
+                    std::cout << "Page not found: " << page_num << ", state: " << state_num << std::endl;
+                    std::terminate();
                     THROWF(db0::IOException) << "BDevStorage::read: page not found: " << page_num << ", state: " << state_num;
                 }
-                 // if requested access is write-only then simply fill the misssing (new) page with 0
-                memset(read_buf, 0, m_config.m_page_size);      
+                // if requested access is write-only then simply fill the misssing (new) page with 0
+                // FIXME: log
+                // std::memset(read_buf, 0, m_config.m_page_size);
                 continue;
             }
             
             // query.first yields the full-DP (if it exists)
+            /* FIXME: log
             std::uint64_t page_io_id = query.first();
             if (page_io_id) {
                 if (!!m_ext_space) {
@@ -293,7 +301,7 @@ namespace db0
                 m_page_io.read(page_io_id, read_buf);
             } else {
                 // requesting a diff-DP only encoded page, use zero buffer as a base
-                memset(read_buf, 0, m_config.m_page_size);
+                std::memset(read_buf, 0, m_config.m_page_size);
             }
             
             // apply changes from diff-DPs
@@ -310,18 +318,26 @@ namespace db0
                     ++(*chain_len);
                 }
             }
+            */
         }
+        
+        // FIXME: log
+        m_data_mirror.read(address, state_num, size, buffer, flags);
+        // m_data_mirror.validateRead(address, state_num, size, buffer, flags);
     }
     
-    void BDevStorage::write(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer)
-    {                
-#ifndef NDEBUG
+    void BDevStorage::writeForValidation(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer)
+    {
         m_data_mirror.write(address, state_num, size, buffer);
-#endif
+    }
+
+    void BDevStorage::write(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer)
+    {                        
+        m_data_mirror.write(address, state_num, size, buffer);
         assert(state_num > 0 && "BDevStorage::write: state number must be > 0");
         assert((address % m_config.m_page_size == 0) && "BDevStorage::write: address must be page-aligned");
         assert((size % m_config.m_page_size == 0) && "BDevStorage::write: size must be page-aligned");
-                
+        
         auto begin_page = address / m_config.m_page_size;
         auto end_page = begin_page + size / m_config.m_page_size;
         
@@ -335,14 +351,17 @@ namespace db0
             if (item && item.m_state_num == state_num) {
                 // page already added in current transaction / update in the stream
                 // this may happen due to cache overflow and later modification of the same page
+                /* FIXME: log
                 auto page_io_id = item.m_storage_page_num;
                 if (!!m_ext_space) {
                     // convert relative page number back to absolute
                     page_io_id = m_ext_space.getAbsolute(page_io_id);
                 }
                 m_page_io.write(page_io_id, write_buf);
+                */
             } else {
                 // append as new page
+                /* FIXME: log
                 bool is_first_page;
                 auto page_io_id = m_page_io.append(write_buf, &is_first_page);
                 if (!!m_ext_space) {
@@ -351,6 +370,8 @@ namespace db0
                     page_io_id = m_ext_space.assignRelative(page_io_id, is_first_page);
                 }
                 m_sparse_index.emplace(page_num, state_num, page_io_id);
+                */
+                m_sparse_index.emplace(page_num, state_num, 0);
 #ifndef NDEBUG                
                 m_page_io_raw_bytes += m_config.m_page_size;
                 checkCrashFromCommit();
@@ -359,12 +380,9 @@ namespace db0
         }
     }
 
-    void BDevStorage::writeDiffs(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer,
+    bool BDevStorage::tryWriteDiffs(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer,
         const std::vector<std::uint16_t> &diff_data, unsigned int max_len)
-    {
-#ifndef NDEBUG
-        m_data_mirror.writeDiffs(address, state_num, size, buffer, diff_data, max_len);
-#endif
+    {        
         assert(state_num > 0 && "BDevStorage::writeDiffs: state number must be > 0");
         assert((address % m_config.m_page_size == 0) && "BDevStorage::writeDiffs: address must be page-aligned");
         assert(size == m_config.m_page_size && "BDevStorage::writeDiffs: size must be equal to page size");
@@ -379,20 +397,29 @@ namespace db0
         StateNumType first_state_num = 0;
         auto page_io_id = query.first(first_state_num);
         if (first_state_num == state_num) {
+            // FIXME: log
+            return false;
+
+            /*
             assert(query.lessThan(2) && "BDevStorage::writeDiffs: unexpected chain length");
-            // page already added in current transaction / update in the stream
-            // this may happen due to cache overflow and later modification of the same page            
             if (!!m_ext_space) {
                 // convert relative page number back to absolute
                 page_io_id = m_ext_space.getAbsolute(page_io_id);
             }
+            // page already added in current transaction / update in the stream
+            // this may happen due to cache overflow and later modification of the same page            
             m_page_io.write(page_io_id, buffer);
-            return;
+            m_data_mirror.write(address, state_num, size, buffer);
+            // FIXME: log
+            std::cout << "Overwrite existing page: " << page_num << " at state: " << state_num << std::endl;
+            return true;
+            */
         }
         
         bool is_first_page;
         if (query.leftLessThan(max_len)) {
-            // append as diff-page (NOTE: diff-writes are only appended)            
+            // append as diff-page (NOTE: diff-writes are only appended)
+            /* FIXME: log
             auto [page_io_id, overflow] = m_page_io.appendDiff(buffer, { page_num, state_num }, diff_data, &is_first_page);
             if (!!m_ext_space) {
                 // NOTE: first page (of each step) must be registered with REL_Index if it's maintained
@@ -400,19 +427,19 @@ namespace db0
                 page_io_id = m_ext_space.assignRelative(page_io_id, is_first_page);
             }
             m_diff_index.insert(page_num, state_num, page_io_id, overflow);
+            */
+            m_diff_index.insert(page_num, state_num, 0, false);
         } else {
             // full-DP write (chain length would exceed max_len)
-            auto page_io_id = m_page_io.append(buffer, &is_first_page);
-            if (!!m_ext_space) {
-                page_io_id = m_ext_space.assignRelative(page_io_id, is_first_page);
-            }
-            m_sparse_index.emplace(page_num, state_num, page_io_id);
+            return false;
         }
 
 #ifndef NDEBUG
         m_page_io_raw_bytes += m_config.m_page_size;
         checkCrashFromCommit();
 #endif
+        m_data_mirror.writeDiffs(address, state_num, size, buffer, diff_data, max_len);     
+        return true;
     }
     
     std::size_t BDevStorage::getPageSize() const {
@@ -431,10 +458,13 @@ namespace db0
         }
         
         // check if there're any modifications to be flushed
+        // FIXME: log
+        /**
         if (m_sparse_pair.getChangeLogSize() == 0) {
             // no modifications to be flushed
             return false;
         }
+        */
         
         if (!!m_ext_space) {
             m_ext_space.commit();
@@ -444,30 +474,40 @@ namespace db0
         // NOTE: the checkpoint is only saved after exceeding specific threshold of updates in the managed streams
         auto state_num = m_sparse_pair.getMaxStateNum();
 
+        /* FIXME: log
         m_meta_io.checkAndAppend(state_num);
         m_meta_io.flush();
+        */
         
-        m_page_io.flush();
+        // FIXME: log
+        // m_page_io.flush();
         // Extract & flush sparse index change log first (on condition of any updates)
         // we also need to collect the end storage page number (sentinel)
-        m_sparse_pair.extractChangeLog(m_dp_changelog_io, m_page_io.getEndPageNum());
-        m_dram_io.flushUpdates(state_num, m_dram_changelog_io);
-        m_dp_changelog_io.flush();
+        // FIXME: log
+        // m_sparse_pair.extractChangeLog(m_dp_changelog_io, m_page_io.getEndPageNum());
+        // FIXME: log
+        // m_dram_io.flushUpdates(state_num, m_dram_changelog_io);
+        // FIXME: log !!! - this ???
+        // m_dp_changelog_io.flush();
         // Flush ext streams
+        /* FIXME: log
         if (m_ext_dram_io) {
             assert(m_ext_dram_changelog_io);
             m_ext_dram_io->flushUpdates(state_num, *m_ext_dram_changelog_io);            
             m_ext_dram_changelog_io->flush();
         }
+        */
         // NOTE: fsync has stronger guarantees than flush in a multi-process environments
         m_file.fsync();
         // flush changelog AFTER all updates from all other streams have been flushed
-        m_dram_changelog_io.flush();
+        // FIXME: log
+        // m_dram_changelog_io.flush();
         // the last fsync finalizes the commit
         m_file.fsync();
         
         // commit to collect future updates correctly
-        m_sparse_pair.commit();
+        // FIXME: log
+        // m_sparse_pair.commit();
         return true;
     }
     

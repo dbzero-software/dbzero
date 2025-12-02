@@ -1,8 +1,0 @@
-#pragma once
-
-#include <string>
-
-namespace CMake {
-    static const std::string SOURCE_DIR{"@CMAKE_SOURCE_DIR@/"};
-}
-

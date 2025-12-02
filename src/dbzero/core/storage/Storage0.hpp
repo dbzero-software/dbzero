@@ -28,8 +28,8 @@ namespace db0
             FlagSet<AccessOptions> = { AccessOptions::read, AccessOptions::write }) const override;
         
         void write(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer) override;
-
-        void writeDiffs(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer,
+            
+        bool tryWriteDiffs(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer,
             const std::vector<std::uint16_t> &diffs, unsigned int) override;
 
         StateNumType findMutation(std::uint64_t page_num, StateNumType state_num) const override;

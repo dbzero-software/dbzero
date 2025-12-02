@@ -92,7 +92,7 @@ DB0_PACKED_END
         void write(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer) override;
         
         // @param max_len - the maximum allowed diff-sequence length (when exceeded, the full-DP will be written)
-        void writeDiffs(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer,
+        bool tryWriteDiffs(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer,
             const std::vector<std::uint16_t> &diffs, unsigned int max_len = 32) override;
         
         StateNumType findMutation(std::uint64_t page_num, StateNumType state_num) const override;
@@ -140,6 +140,15 @@ DB0_PACKED_END
         
         void checkCrashFromCommit();
 #endif
+        
+        // FIXME: log
+        // write into the validation buffer only
+        void writeForValidation(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer);
+        
+        // FIXME: log
+        BDevStorage &asFile() override {
+            return *this;
+        }
 
     protected:
         // all prefix configuration must fit into this block
@@ -168,9 +177,7 @@ DB0_PACKED_END
         ExtSpace m_ext_space;
         // the stream for storing & reading full-DPs and diff-encoded DPs
         Diff_IO m_page_io;
-#ifndef NDEBUG
         MemBaseStorage m_data_mirror;
-#endif        
         
         bool m_refresh_pending = false;
         mutable std::shared_mutex m_mutex;

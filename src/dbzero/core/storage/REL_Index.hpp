@@ -58,6 +58,7 @@ DB0_PACKED_BEGIN
         }
         
         bool operator==(const REL_Item &) const;
+        std::string toString() const;
     };
 DB0_PACKED_END
 
@@ -181,4 +182,12 @@ DB0_PACKED_END
         std::uint64_t m_max_rel_page_num = 0;
     };
     
+}
+
+namespace std
+
+{
+
+    ostream &operator<<(ostream &, const db0::REL_Item &);
+
 }

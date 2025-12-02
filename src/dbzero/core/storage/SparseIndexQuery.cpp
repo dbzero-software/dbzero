@@ -27,7 +27,7 @@ namespace db0
     bool SparseIndexQuery::empty() const {
         return !m_non_empty || lessThan(1);
     }
-
+    
     bool SparseIndexQuery::next(StateNumType &state_num, std::uint64_t &storage_page_num)
     {
         // unable to iterate past the queried state number

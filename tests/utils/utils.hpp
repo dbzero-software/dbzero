@@ -32,5 +32,8 @@ namespace db0::tests
         }
         return true;
     }
+    
+    // Load rows from a comma-separated values (CSV)
+    std::vector<std::vector<std::uint32_t> > loadArray(const std::string &file_name);
 
 }

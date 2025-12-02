@@ -12,8 +12,6 @@
 namespace db0
 
 {
-    
-#ifndef NDEBUG
 
     // In-memory implementation of BaseStorage interface
     // the primary purpose is to be used in unit tests or debugging (e.g. as a mirror storage)
@@ -29,6 +27,8 @@ namespace db0
         void write(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer) override;
 
         void writeDiffs(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer,
+            const std::vector<std::uint16_t> &diffs, unsigned int);
+        bool tryWriteDiffs(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer,
             const std::vector<std::uint16_t> &diffs, unsigned int) override;
         
         StateNumType findMutation(std::uint64_t page_num, StateNumType state_num) const override;
@@ -44,15 +44,19 @@ namespace db0
             return m_max_state_num;
         }
         
+        // throws exception if the contents do not match
+        void validateRead(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer,
+            FlagSet<AccessOptions> = { AccessOptions::read, AccessOptions::write }) const;
+        
     private:
+        mutable std::mutex m_mutex;
         const std::size_t m_page_size;
         StateNumType m_max_state_num = 0;
-        mutable std::vector<std::vector<std::byte> > m_data_pages;
+        mutable std::unordered_map<std::uint64_t, std::vector<std::byte> > m_data_pages;
         mutable std::vector<std::byte> m_dp_null;
+        mutable std::vector<char> m_temp_buf;
         
         std::vector<std::byte> &getDataPage(std::uint64_t page_num, FlagSet<AccessOptions>) const;
     };
     
-#endif
-
 }

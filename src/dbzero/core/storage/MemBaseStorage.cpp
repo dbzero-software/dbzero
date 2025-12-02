@@ -5,17 +5,17 @@ namespace db0
 
 {
     
-#ifndef NDEBUG
-
     MemBaseStorage::MemBaseStorage(std::size_t page_size)
         : BaseStorage(AccessType::READ_WRITE)
         , m_page_size(page_size)
+        , m_temp_buf(page_size)
     {
     }
     
     void MemBaseStorage::read(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer,
         FlagSet<AccessOptions> access_mode) const
     {
+        std::unique_lock<std::mutex> lock(m_mutex);
         assert(state_num >= m_max_state_num && "MemBaseStorage::writeDiffs: state number must be >= max state number");
         assert(state_num > 0 && "BDevStorage::read: state number must be > 0");
         assert((address % m_page_size == 0) && "BDevStorage::read: address must be page-aligned");
@@ -25,7 +25,6 @@ namespace db0
         auto end_page = begin_page + size / m_page_size;
         
         std::byte *read_buf = reinterpret_cast<std::byte *>(buffer);
-        // lookup sparse index and read physical pages
         for (auto page_num = begin_page; page_num != end_page; ++page_num, read_buf += m_page_size) {
             auto &dp_data = getDataPage(page_num, access_mode);
             if (dp_data.empty()) {
@@ -40,8 +39,46 @@ namespace db0
         }
     }
     
+    void MemBaseStorage::validateRead(std::uint64_t address, StateNumType state_num, std::size_t size,
+        void *buffer, FlagSet<AccessOptions> access_mode) const
+    {
+        std::unique_lock<std::mutex> lock(m_mutex);
+        assert(state_num >= m_max_state_num && "MemBaseStorage::writeDiffs: state number must be >= max state number");
+        assert(state_num > 0 && "BDevStorage::read: state number must be > 0");
+        assert((address % m_page_size == 0) && "BDevStorage::read: address must be page-aligned");
+        assert((size % m_page_size == 0) && "BDevStorage::read: size must be page-aligned");
+        
+        auto begin_page = address / m_page_size;
+        auto end_page = begin_page + size / m_page_size;
+        
+        std::byte *read_buf = reinterpret_cast<std::byte *>(buffer);
+        for (auto page_num = begin_page; page_num != end_page; ++page_num, read_buf += m_page_size) {
+            auto &dp_data = getDataPage(page_num, access_mode);
+            if (dp_data.empty()) {
+                if (access_mode[AccessOptions::read]) {
+                    THROWF(db0::IOException) << "MemBaseStorage::read: page not found: " << page_num << ", state: " << state_num;
+                }
+                 // if requested access is write-only then simply fill the misssing (new) page with 0
+                std::memset(m_temp_buf.data(), 0, m_page_size);
+            } else {
+                std::memcpy(m_temp_buf.data(), dp_data.data(), m_page_size);             
+            }
+            // validate what we've just read
+            if (std::memcmp(m_temp_buf.data(), read_buf, m_page_size) != 0) {
+                assert(false && "MemBaseStorage::validateRead: data mismatch");
+                std::cout << "MemBaseStorage::validateRead: data mismatch at page: " << page_num << ", state: " << state_num << std::endl;
+                std::cout << "Expected data (hex): " << std::endl;
+                db0::showBytes(std::cout, (std::byte *)(m_temp_buf.data()), m_page_size) << std::endl;
+                std::cout << "Actual data (hex): " << std::endl;
+                db0::showBytes(std::cout, read_buf, m_page_size) << std::endl;
+                THROWF(db0::IOException) << "MemBaseStorage::validateRead: data mismatch at page: " << page_num << ", state: " << state_num;                
+            }
+        }
+    }
+    
     void MemBaseStorage::write(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer)
     {
+        std::unique_lock<std::mutex> lock(m_mutex);
         assert(state_num >= m_max_state_num && "MemBaseStorage::writeDiffs: state number must be >= max state number");
         m_max_state_num = state_num;
         
@@ -59,9 +96,17 @@ namespace db0
         }
     }
     
+    bool MemBaseStorage::tryWriteDiffs(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer,
+        const std::vector<std::uint16_t> &diffs, unsigned int)
+    {
+        writeDiffs(address, state_num, size, buffer, diffs, 0);
+        return true;
+    }
+    
     void MemBaseStorage::writeDiffs(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer,
         const std::vector<std::uint16_t> &diffs, unsigned int)
     {
+        std::unique_lock<std::mutex> lock(m_mutex);
         assert(state_num >= m_max_state_num && "MemBaseStorage::writeDiffs: state number must be >= max state number");
         m_max_state_num = state_num;
         
@@ -71,6 +116,9 @@ namespace db0
         auto page_num = address / m_page_size;
         auto &dp_data = getDataPage(page_num, { AccessOptions::write, AccessOptions::read, AccessOptions::create });
         assert(!dp_data.empty() && "MemBaseStorage::writeDiffs: data page must exist");
+        if (dp_data.empty()) {
+            THROWF(db0::IOException) << "MemBaseStorage::writeDiffs: page not found: " << page_num << ", state: " << state_num;
+        }
         
         applyDiffs(diffs, buffer, dp_data.data(), dp_data.data() + m_page_size);
     }
@@ -89,14 +137,13 @@ namespace db0
 
     std::vector<std::byte> &MemBaseStorage::getDataPage(std::uint64_t page_num, FlagSet<AccessOptions> access_flags) const
     {
-        if (page_num < m_data_pages.size()) {
-            return m_data_pages[page_num];
+        auto it = m_data_pages.find(page_num);
+        if (it != m_data_pages.end()) {
+            return it->second;
         }
 
         if (!access_flags[AccessOptions::read] || access_flags[AccessOptions::create]) {
-            while (page_num >= m_data_pages.size()) {
-                m_data_pages.emplace_back(m_page_size, std::byte{0});
-            }
+            m_data_pages[page_num] = std::vector<std::byte>(m_page_size, std::byte{0});            
             return m_data_pages[page_num];
         }
         
@@ -114,7 +161,5 @@ namespace db0
     void MemBaseStorage::close() {
         m_data_pages.clear();
     }
-
-#endif
 
 }

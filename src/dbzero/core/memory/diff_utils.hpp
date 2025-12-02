@@ -100,7 +100,7 @@ namespace db0
     // Apply diffs on to a specific buffer of a sufficient size
     // @param diffs - the diff data as produced by getDiffs() 
     // encoded as sizes of diff / identical areas interleaved, with special code 0, 0 indicating zero-fill base buffer
-    void applyDiffs(const std::vector<std::uint16_t> &diffs, void *in_buffer,
+    void applyDiffs(const std::vector<std::uint16_t> &diffs, const void *in_buffer,
         std::byte *dp_result, const std::byte *dp_end);
     
 }
