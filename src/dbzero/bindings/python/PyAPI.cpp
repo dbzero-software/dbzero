@@ -1467,8 +1467,6 @@ namespace db0::python
         }
 
         PY_API_FUNC
-        // FIXME: log
-        std::cout << "Storage validation " << (enable ? "enabled" : "disabled") << std::endl;
         db0::Settings::__storage_validation = enable;
         Py_RETURN_NONE;
     }
