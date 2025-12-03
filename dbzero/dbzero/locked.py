@@ -3,7 +3,7 @@ from typing import List, Tuple
 from .dbzero import begin_locked, _async_wait, get_config, commit
 
 
-def async_wait(prefix: str, state_num: int) -> asyncio.Future[None]:
+def async_wait(prefix: str, state_num: int) -> asyncio.Future:
     """Pause an asyncio coroutine until a specific data prefix reaches a target state number.
 
     Async variant of `dbzero.wait` function, suitable for use in coroutines.

@@ -69,3 +69,22 @@ def test_storage_utilization_without_commits(db0_fixture):
     # make sure storage overhead is < 25%
     assert dp_size_total < 1.25 * total_bytes
     assert file_size < 1.25 * total_bytes
+
+
+@pytest.mark.parametrize("db0_fixture", [{"storage_validation": True}], indirect=True)
+def test_generate_data_with_storage_validation(db0_fixture):
+    if 'D' in db0.build_flags():
+        # very small cache size to trigger lots of IO operations
+        db0.set_cache_size(128 << 10)
+        buf = db0.list()
+        
+        def rand_str():
+            return ''.join(random.choice(string.ascii_letters) for i in range(1000))    
+        
+        total_bytes = 0
+        for _ in range(50):
+            for _ in range(100):
+                str = rand_str()
+                total_bytes += len(str)
+                buf.append(MemoTestClass(str))
+            db0.commit()

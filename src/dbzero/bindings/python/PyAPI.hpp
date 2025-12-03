@@ -184,6 +184,7 @@ namespace db0::python
     PyObject *PyAPI_crashFromCommit(PyObject *self, PyObject *const *args, Py_ssize_t nargs);    
 
     PyObject *PyAPI_breakpoint(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
+    PyObject *PyAPI_enableStorageValidation(PyObject *, PyObject *args, PyObject *kwargs);
 #endif
     
     template <typename T> db0::object_model::StorageClass getStorageClass();

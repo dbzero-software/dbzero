@@ -56,8 +56,9 @@ namespace db0
          * @param diffs interleved values of diff size / identical sequence size (ignored)
          * @param max_len - the maximum allowed diff-sequence length (when exceeded, the full-DP will be written)
          * NOTE: diff areas must be evaluated page-wise
+         * @return false if unable to write diffs (i.e. full-DP write is required)
          */
-        virtual void writeDiffs(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer,
+        virtual bool tryWriteDiffs(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer,
             const std::vector<std::uint16_t> &diffs, unsigned int max_len = 32) = 0;
         
         /**
@@ -130,6 +131,8 @@ namespace db0
         // @param f function to be called for each transaction's change log
         virtual void fetchDP_ChangeLogs(StateNumType begin_state, std::optional<StateNumType> end_state,
             std::function<void(const DP_ChangeLogT &)> f) const;
+            
+        virtual BDevStorage &asFile();
         
         // Throws where this conversion is not possible
         virtual BDevStorage &asFile();

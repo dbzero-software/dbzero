@@ -531,7 +531,7 @@ namespace db0
             return m_realm_id;
         }
     }
-
+    
     std::optional<Address> SlabManager::tryAlloc(std::size_t size, std::uint32_t slot_num, bool aligned,
         bool unique, std::uint16_t &instance_id, unsigned char locality)
     {

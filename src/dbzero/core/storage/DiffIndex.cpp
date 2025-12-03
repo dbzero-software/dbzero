@@ -151,7 +151,7 @@ namespace db0
     }
     
     void DiffIndex::insert(PageNumT page_num, StateNumT state_num, PageNumT storage_page_num, bool overflow)
-    {        
+    {
         // try locating existing item first
         typename super_t::ConstNodeIterator node;
         auto item_ptr = super_t::lowerEqualBound(page_num, state_num, node);
@@ -163,7 +163,7 @@ namespace db0
             // collect the change-log
             this->update(page_num, state_num, storage_page_num + (overflow ? 1 : 0));
         } else {
-            // create new item
+            // create new item (with no history of updates)
             super_t::emplace(page_num, state_num, storage_page_num);
             // we also need to account for the overflow
             if (overflow) {

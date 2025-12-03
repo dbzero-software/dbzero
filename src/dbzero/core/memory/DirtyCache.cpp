@@ -65,7 +65,7 @@ namespace db0
         assert(m_dirty_meter_ptr);
         std::unique_lock<std::mutex> lock(m_mutex);
         std::size_t flushed = 0;
-        auto it = m_locks.begin();
+        auto it = m_locks.begin();        
         while (flushed < limit && it != m_locks.end()) {
             // only flush locks with use_count below 2 
             // i.e. - owned by the DirtyCache and possibly by the CacheRecycler

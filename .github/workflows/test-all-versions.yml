@@ -1,186 +1,232 @@
-name: Test All Versions
-
+name: Build and Deploy Packages
 on:
+  push:
+    tags:
+      - 'v[0-9]*'
+      - feature/ci_test
   workflow_dispatch:
-  schedule:
-    # Run daily at 2 AM UTC
-    - cron: '0 2 * * *'
 
 jobs:
-  build-linux-asan:
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
-    uses: ./.github/workflows/build-linux-wheel.yml
-    with:
-      python-version: ${{ matrix.python-version }}
-      build-args: '--config-setting=setup-args=-Denable_sanitizers=true'
-      timeout-minutes: 60
-
-  build-windows:
+  wheels-windows:
+    runs-on: windows-latest
     strategy:
       fail-fast: false
       matrix:
         include:
           - python-version: "3.10"
             python-tag: "310"
+            architecture: "AMD64"
           - python-version: "3.11"
             python-tag: "311"
+            architecture: "AMD64"
           - python-version: "3.12"
             python-tag: "312"
+            architecture: "AMD64"
           - python-version: "3.13"
             python-tag: "313"
+            architecture: "AMD64"
           - python-version: "3.14"
             python-tag: "314"
-    uses: ./.github/workflows/build-windows-wheel.yml
-    with:
-      python-version: ${{ matrix.python-version }}
-      python-tag: ${{ matrix.python-tag }}
-      architecture: 'AMD64'
+            architecture: "AMD64"
+            
 
-  test-linux-unit-asan:
-    needs: build-linux-asan
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
+
     steps:
       - uses: actions/checkout@v4
-      
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      
-      - name: Download wheel artifact
-        uses: actions/download-artifact@v4
+      - uses: bus1/cabuild/action/msdevshell@v1
         with:
-          name: wheels-linux-${{ matrix.python-version }}
-          path: ./wheels/
-      
-      - name: Install wheel and dependencies
+          architecture: x64
+        if: matrix.architecture == 'AMD64'
+      - uses: bus1/cabuild/action/msdevshell@v1
+        with:
+          architecture: x86
+        if: matrix.architecture == 'x86'
+      - name: Generate meson files
         run: |
-          pip install pytest
-          pip install -r requirements.txt
-          pip install ./wheels/*.whl
+          python scripts/generate_meson.py ./src/dbzero/ core
+          python scripts/generate_meson_tests.py tests/
+          python scripts/generate_meson_dbzero.py dbzero/
       
-      - name: Run unit tests with ASAN
+      - name: Configure git
         run: |
-          LD_PRELOAD=$(gcc -print-file-name=libasan.so) python -m pytest -m 'not integration_test' -m 'not stress_test' -c pytest.ini --capture=no -vv
+          git config --global user.email "ci@example.com"
+          git config --global user.name "CI Builder"
+          rm  .gitignore
+          git add . && git commit -m "Update meson files for build"  
+      
+      - run: pip3 install pipx
+      - run: pipx run cibuildwheel
+        env:
+          CIBW_BUILD: cp${{ matrix.python-tag }}-*
+          CIBW_ARCHS_WINDOWS: ${{ matrix.architecture }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-windows-${{ matrix.python-version }}
+          path: wheelhouse/*.whl
 
-  test-linux-stress-asan:
-    needs: build-linux-asan
+  wheels-linux:
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
-      
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      
-      - name: Download wheel artifact
-        uses: actions/download-artifact@v4
+      - uses: actions/checkout@v3
+      - run: python3 scripts/generate_meson.py ./src/dbzero/ core
+      - run: python3 scripts/generate_meson_tests.py tests/
+      - run: python3 scripts/generate_meson_dbzero.py dbzero/
+      - run: git config --global user.email "you@example.com"
+      - run: git config --global user.name "Your Name"
+      - run: rm .gitignore
+      - run: git add . && git commit -m "Update meson files"
+      - run: pip install build
+      - run: python3 -m build
+        env:
+          CIBW_SKIP: pp* cp36-* *-musllinux*
+          CIBW_ARCHS_MACOS: x86_64 arm64
+          CIBW_ARCHS_LINUX: x86_64 aarch64
+          CIBW_ARCHS_WINDOWS: ${{ matrix.architecture }}
+
+      - uses: actions/upload-artifact@v4
         with:
           name: wheels-linux-${{ matrix.python-version }}
-          path: ./wheels/
-      
-      - name: Install wheel and dependencies
-        run: |
-          pip install pytest
-          pip install -r requirements.txt
-          pip install ./wheels/*.whl
-      
-      - name: Run stress tests with ASAN
-        run: |
-          LD_PRELOAD=$(gcc -print-file-name=libasan.so) python -m pytest -m 'stress_test' -c pytest.ini --capture=no -vv
+          path: dist/*.whl
 
-  test-windows-unit:
-    needs: build-windows
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+  test-wheels-windows:
     runs-on: windows-latest
-    timeout-minutes: 20
+    needs: wheels-windows
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - python-version: "3.9"
+            python-tag: "39"
+            architecture: "AMD64"
+          - python-version: "3.10"
+            python-tag: "310"
+            architecture: "AMD64"
+          - python-version: "3.11"
+            python-tag: "311"
+            architecture: "AMD64"
+          - python-version: "3.12"
+            python-tag: "312"
+            architecture: "AMD64"
+          - python-version: "3.13"
+            python-tag: "313"
+            architecture: "AMD64"
+          - python-version: "3.14"
+            python-tag: "314"
+            architecture: "AMD64"
     steps:
       - uses: actions/checkout@v4
-      
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      
       - name: Download wheel artifact
         uses: actions/download-artifact@v4
         with:
           name: wheels-windows-${{ matrix.python-version }}
           path: ./wheels/
-      
       - name: Install wheel and dependencies
         run: |
           pip install pytest
           pip install -r requirements.txt
           Get-ChildItem -Path "./wheels/*.whl" | ForEach-Object { pip install $_.FullName }
         shell: powershell
-      
-      - name: Run unit tests
+      - name: Run tests
         run: |
           python -m pytest -m 'not integration_test' -m 'not stress_test' -c pytest.ini --capture=no -vv
 
-  test-windows-stress:
-    needs: build-windows
+  test-wheels-linux:
+    runs-on: ubuntu-latest
+    needs: wheels-linux
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
-    runs-on: windows-latest
-    timeout-minutes: 60
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+    
     steps:
       - uses: actions/checkout@v4
-      
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      
       - name: Download wheel artifact
         uses: actions/download-artifact@v4
         with:
-          name: wheels-windows-${{ matrix.python-version }}
+          name: wheels-linux-${{ matrix.python-version }}
           path: ./wheels/
-      
       - name: Install wheel and dependencies
         run: |
           pip install pytest
           pip install -r requirements.txt
-          Get-ChildItem -Path "./wheels/*.whl" | ForEach-Object { pip install $_.FullName }
-        shell: powershell
-      
-      - name: Run stress tests
+          pip install ./wheels/*.whl
+      - name: Run tests
         run: |
-          python -m pytest -m 'stress_test' -c pytest.ini --capture=no -vv
+          python -m pytest -m 'not integration_test' -m 'not stress_test' -c pytest.ini --capture=no -vv
 
-  summary:
-    needs: [test-linux-unit-asan, test-linux-stress-asan, test-windows-unit, test-windows-stress]
+  sdist:
     runs-on: ubuntu-latest
-    if: always()
     steps:
-      - name: Test Summary
+      - uses: actions/checkout@v4
+      - name: Generate meson files
         run: |
-          echo "## Test Results Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "All tests completed across all Python versions (3.10-3.14) on both Linux (with ASAN) and Windows." >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- Linux Unit Tests: ${{ needs.test-linux-unit-asan.result }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Linux Stress Tests: ${{ needs.test-linux-stress-asan.result }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Windows Unit Tests: ${{ needs.test-windows-unit.result }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Windows Stress Tests: ${{ needs.test-windows-stress.result }}" >> $GITHUB_STEP_SUMMARY
+          python scripts/generate_meson.py ./src/dbzero/ core
+          python scripts/generate_meson_tests.py tests/
+          python scripts/generate_meson_dbzero.py dbzero/
+      
+      - name: Configure git
+        run: |
+          git config --global user.email "ci@example.com"
+          git config --global user.name "CI Builder"
+          rm -f .gitignore
+          git add . && git commit -m "Update meson files for build"  
+      - run: python -m pip install build meson
+      - run: python -m build --sdist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: dist/*.tar.gz
+  
+  deploy-to-pypi:
+    name: Deploy to PyPI (Manual)
+    runs-on: ubuntu-latest
+    needs: [sdist, test-wheels-linux, test-wheels-windows]
+    if: github.event_name == 'workflow_dispatch'
+    environment: pypi-deployment
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./dist/
+      
+      - name: Flatten artifact structure
+        run: |
+          mkdir -p ./upload/
+          find ./dist/ -name "*.whl" -exec cp {} ./upload/ \;
+          find ./dist/ -name "*.tar.gz" -exec cp {} ./upload/ \;
+          ls -la ./upload/
+      
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://nexus.dbzero.io/repository/dbzero_hosted/
+          user: admin
+          password: ${{ secrets.PYPI_API_PASSWORD }}
+          packages-dir: ./upload/
+          verbose: true
+          skip-existing: true
+          attestations: false

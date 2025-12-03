@@ -25,6 +25,7 @@ on:
         required: true
         type: choice
         options:
+          - '3.9'
           - '3.10'
           - '3.11'
           - '3.12'
@@ -51,6 +52,8 @@ jobs:
   test-wheels-linux:
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.timeout-minutes }}
+    env:
+      REQUIREMENTS_FILE: ${{ inputs.python-version == '3.9' && 'requirements.3.9.txt' || 'requirements.txt' }}
     steps:
       - uses: actions/checkout@v4
       
@@ -68,7 +71,7 @@ jobs:
       - name: Install wheel and dependencies
         run: |
           pip install pytest
-          pip install -r requirements.txt
+          pip install -r $REQUIREMENTS_FILE
           pip install ./wheels/*.whl
       
       - name: Run tests

@@ -93,7 +93,14 @@ namespace db0
     
     // Create normalized view of the entire range
     DiffRangeView getDiffs(DiffRange &);
+    
     // Check whether the two ranges overlap
     bool overlap(const std::pair<std::uint64_t, std::size_t> &, const std::pair<std::uint64_t, std::size_t> &);
+    
+    // Apply diffs on to a specific buffer of a sufficient size
+    // @param diffs - the diff data as produced by getDiffs() 
+    // encoded as sizes of diff / identical areas interleaved, with special code 0, 0 indicating zero-fill base buffer
+    void applyDiffs(const std::vector<std::uint16_t> &diffs, const void *in_buffer,
+        std::byte *dp_result, const std::byte *dp_end);
     
 }

@@ -102,13 +102,13 @@ DB0_PACKED_BEGIN
             return const_cast<ItemT*>(this->cend());
         }
 
-        const_iterator clast() const 
+        const_iterator clast() const
         {
             if (!is_reversed()) {
                 return super_t::clast();                
             }
             // reversed last
-            return super_t::cbegin() - 1;
+            return super_t::cbegin() - 1;            
         }
         
         iterator last() {
@@ -174,7 +174,7 @@ DB0_PACKED_BEGIN
         inline int step() const {
             return this->header().m_flags[LookupHeaderFlags::reversed] ? -1 : 1;
         }
-
+        
         template <typename KeyT> const_iterator lower_equal_bound(const KeyT &key, const HeapCompT &comp) const
         {
             const_iterator result = nullptr;
@@ -295,12 +295,9 @@ DB0_PACKED_BEGIN
             return this->begin() + (this->size() >> 1) * this->step();
         }
         
-        const_iterator find_min() const
-        {
-            if (is_sorted()) {
-                return this->cbegin();
-            }
-            return super_t::find_min();
+        const_iterator find_min() const {
+            // First item is always minimum, either sorted or heap-sorted
+            return this->cbegin();
         }
         
         const_iterator find_max(const HeapCompT &comp) const
@@ -432,12 +429,12 @@ DB0_PACKED_END
             }
 
             // node will be sorted if needed (only if in READ/WRITE mode)
-            if (m_access_type == AccessType::READ_WRITE) {
+            if (m_access_type == AccessType::READ_WRITE) {                
                 this->onNodeLookup(node);
             }
             return { node->lower_equal_bound(key, this->m_heap_comp), node };
         }
-
+        
         AddressT getAddress() const {
             return base_t::getAddress();
         }

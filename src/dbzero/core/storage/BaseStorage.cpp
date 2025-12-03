@@ -65,9 +65,9 @@ namespace db0
     {
         THROWF(db0::InternalException) << "Operation not supported: fetchChangeLog";
     }
-    
+
     BDevStorage &BaseStorage::asFile() {
         THROWF(db0::InternalException) << "Storage is not file-based" << THROWF_END;
     }
-
+    
 }
