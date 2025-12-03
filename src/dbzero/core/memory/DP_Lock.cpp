@@ -3,6 +3,9 @@
 #include <cstring>
 #include <cassert>
 #include <dbzero/core/storage/BaseStorage.hpp>
+#ifndef NDEBUG
+#include <dbzero/core/storage/BDevStorage.hpp>
+#endif
 
 namespace db0
 
@@ -84,9 +87,10 @@ namespace db0
                     }
                     
 #ifndef NDEBUG                    
-                    if (Settings::)
-                    // write entire contents for validation
-                    storage.asFile().writeForValidation(m_address, m_state_num, this->size(), m_data.data());
+                    if (Settings::__storage_validation) {
+                        // write full contents for validation
+                        storage.asFile().writeForValidation(m_address, m_state_num, this->size(), m_data.data());
+                    }
 #endif                    
                 }
                 

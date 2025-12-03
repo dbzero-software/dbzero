@@ -313,7 +313,7 @@ namespace db0
             }            
         }
         
-#ifndef NDEBUG        
+#ifndef NDEBUG
         if (Settings::__storage_validation) {
             // validate read against in-memory mirror
             m_data_mirror.validateRead(address, state_num, size, buffer, flags);

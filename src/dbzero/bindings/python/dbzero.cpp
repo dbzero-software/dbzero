@@ -115,6 +115,7 @@ static PyMethodDef dbzero_methods[] =
     {"get_base_lock_usage", &py::getResourceLockUsage, METH_VARARGS, "Debug function, retrieves total memory occupied by ResourceLocks"},
     {"get_dram_io_map", (PyCFunction)&py::getDRAM_IOMap, METH_VARARGS | METH_KEYWORDS, "Get page_num -> state_num mapping related with a specific DRAM_Prefix"},    
     {"breakpoint", (PyCFunction)&py::PyAPI_breakpoint, METH_FASTCALL, "Testing & debugging function "},
+    {"enable_storage_validation", (PyCFunction)&py::PyAPI_enableStorageValidation, METH_VARARGS | METH_KEYWORDS, "Enable full storage validation for testing"},
 #endif
     {NULL} // Sentinel
 };

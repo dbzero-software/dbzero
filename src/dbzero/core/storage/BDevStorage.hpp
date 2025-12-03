@@ -138,7 +138,7 @@ DB0_PACKED_END
         void dramIOCheck(std::vector<DRAM_CheckResult> &) const override;
         void setCrashFromCommit(unsigned int *throw_op_count_ptr) override;
         
-        void checkCrashFromCommit();        #
+        void checkCrashFromCommit();
         // write into the validation buffer only
         void writeForValidation(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer);
 #endif

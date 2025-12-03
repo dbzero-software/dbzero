@@ -1457,6 +1457,21 @@ namespace db0::python
         // memo_obj->ext().getType().startDebug();
         Py_RETURN_NONE;
     }
+    
+    PyObject *PyAPI_enableStorageValidation(PyObject *, PyObject *args, PyObject *kwargs)
+    {
+        bool enable = true;
+        static const char *kwlist[] = {"enable", NULL};
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|p", const_cast<char**>(kwlist), &enable)) {            
+            return NULL;
+        }
+
+        PY_API_FUNC
+        // FIXME: log
+        std::cout << "Storage validation " << (enable ? "enabled" : "disabled") << std::endl;
+        db0::Settings::__storage_validation = enable;
+        Py_RETURN_NONE;
+    }
 #endif
 
     PyObject *PyAPI_assign(PyObject *, PyObject *args, PyObject *kwargs)

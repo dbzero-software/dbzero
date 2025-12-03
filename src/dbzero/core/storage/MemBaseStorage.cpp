@@ -17,9 +17,9 @@ namespace db0
     {
         std::unique_lock<std::mutex> lock(m_mutex);
         assert(state_num >= m_max_state_num && "MemBaseStorage::writeDiffs: state number must be >= max state number");
-        assert(state_num > 0 && "BDevStorage::read: state number must be > 0");
-        assert((address % m_page_size == 0) && "BDevStorage::read: address must be page-aligned");
-        assert((size % m_page_size == 0) && "BDevStorage::read: size must be page-aligned");
+        assert(state_num > 0 && "MemBaseStorage::read: state number must be > 0");
+        assert((address % m_page_size == 0) && "MemBaseStorage::read: address must be page-aligned");
+        assert((size % m_page_size == 0) && "MemBaseStorage::read: size must be page-aligned");
 
         auto begin_page = address / m_page_size;
         auto end_page = begin_page + size / m_page_size;
@@ -43,35 +43,37 @@ namespace db0
         void *buffer, FlagSet<AccessOptions> access_mode) const
     {
         std::unique_lock<std::mutex> lock(m_mutex);
-        assert(state_num >= m_max_state_num && "MemBaseStorage::writeDiffs: state number must be >= max state number");
-        assert(state_num > 0 && "BDevStorage::read: state number must be > 0");
-        assert((address % m_page_size == 0) && "BDevStorage::read: address must be page-aligned");
-        assert((size % m_page_size == 0) && "BDevStorage::read: size must be page-aligned");
-        
-        auto begin_page = address / m_page_size;
-        auto end_page = begin_page + size / m_page_size;
-        
-        std::byte *read_buf = reinterpret_cast<std::byte *>(buffer);
-        for (auto page_num = begin_page; page_num != end_page; ++page_num, read_buf += m_page_size) {
-            auto &dp_data = getDataPage(page_num, access_mode);
-            if (dp_data.empty()) {
-                if (access_mode[AccessOptions::read]) {
-                    THROWF(db0::IOException) << "MemBaseStorage::read: page not found: " << page_num << ", state: " << state_num;
+        // NOTE: validation only supported for the latest state
+        if (state_num >= m_max_state_num) {            
+            assert(state_num > 0 && "MemBaseStorage::read: state number must be > 0");
+            assert((address % m_page_size == 0) && "MemBaseStorage::read: address must be page-aligned");
+            assert((size % m_page_size == 0) && "MemBaseStorage::read: size must be page-aligned");
+            
+            auto begin_page = address / m_page_size;
+            auto end_page = begin_page + size / m_page_size;
+            
+            std::byte *read_buf = reinterpret_cast<std::byte *>(buffer);
+            for (auto page_num = begin_page; page_num != end_page; ++page_num, read_buf += m_page_size) {
+                auto &dp_data = getDataPage(page_num, access_mode);
+                if (dp_data.empty()) {
+                    if (access_mode[AccessOptions::read]) {
+                        THROWF(db0::IOException) << "MemBaseStorage::read: page not found: " << page_num << ", state: " << state_num;
+                    }
+                    // if requested access is write-only then simply fill the misssing (new) page with 0
+                    std::memset(m_temp_buf.data(), 0, m_page_size);
+                } else {
+                    std::memcpy(m_temp_buf.data(), dp_data.data(), m_page_size);             
                 }
-                 // if requested access is write-only then simply fill the misssing (new) page with 0
-                std::memset(m_temp_buf.data(), 0, m_page_size);
-            } else {
-                std::memcpy(m_temp_buf.data(), dp_data.data(), m_page_size);             
-            }
-            // validate what we've just read
-            if (std::memcmp(m_temp_buf.data(), read_buf, m_page_size) != 0) {
-                assert(false && "MemBaseStorage::validateRead: data mismatch");
-                std::cout << "MemBaseStorage::validateRead: data mismatch at page: " << page_num << ", state: " << state_num << std::endl;
-                std::cout << "Expected data (hex): " << std::endl;
-                db0::showBytes(std::cout, (std::byte *)(m_temp_buf.data()), m_page_size) << std::endl;
-                std::cout << "Actual data (hex): " << std::endl;
-                db0::showBytes(std::cout, read_buf, m_page_size) << std::endl;
-                THROWF(db0::IOException) << "MemBaseStorage::validateRead: data mismatch at page: " << page_num << ", state: " << state_num;                
+                // validate what we've just read
+                if (std::memcmp(m_temp_buf.data(), read_buf, m_page_size) != 0) {
+                    assert(false && "MemBaseStorage::validateRead: data mismatch");
+                    std::cout << "MemBaseStorage::validateRead: data mismatch at page: " << page_num << ", state: " << state_num << std::endl;
+                    std::cout << "Expected data (hex): " << std::endl;
+                    db0::showBytes(std::cout, (std::byte *)(m_temp_buf.data()), m_page_size) << std::endl;
+                    std::cout << "Actual data (hex): " << std::endl;
+                    db0::showBytes(std::cout, read_buf, m_page_size) << std::endl;
+                    THROWF(db0::IOException) << "MemBaseStorage::validateRead: data mismatch at page: " << page_num << ", state: " << state_num;                
+                }
             }
         }
     }
