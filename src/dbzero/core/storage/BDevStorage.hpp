@@ -161,10 +161,6 @@ DB0_PACKED_END
         void writeForValidation(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer);
 #endif
         
-        BDevStorage &asFile() override {
-            return *this;
-        }
-
     protected:
         // all prefix configuration must fit into this block
         static constexpr unsigned int CONFIG_BLOCK_SIZE = 4096;

@@ -131,8 +131,6 @@ namespace db0
         // @param f function to be called for each transaction's change log
         virtual void fetchDP_ChangeLogs(StateNumType begin_state, std::optional<StateNumType> end_state,
             std::function<void(const DP_ChangeLogT &)> f) const;
-            
-        virtual BDevStorage &asFile();
         
         // Throws where this conversion is not possible
         virtual BDevStorage &asFile();

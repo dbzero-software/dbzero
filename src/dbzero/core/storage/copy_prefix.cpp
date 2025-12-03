@@ -17,9 +17,9 @@ namespace db0
             change_log_ptr = input_dram_changelog.readChangeLogChunk();
         }
         
-        // Copy the entire DRAM_IO stream next
+        // Copy the entire DRAM_IO stream next (possibly inconsistent state)
         copyStream(input_io, output_io);
-
+        
         // Chunks loaded during  the sync step
         // NOTE: in this step we prefetch to memory to be able to catch up with changes
         std::unordered_map<std::uint64_t, std::vector<char> > chunk_buf;

@@ -485,6 +485,7 @@ namespace db0
             // convert to relative page number
             end_page_io_page_num = m_ext_space.assignRelative(end_page_io_page_num, false);
         }
+        
         m_sparse_pair.extractChangeLog(m_dp_changelog_io, end_page_io_page_num);
         m_dram_io.flushUpdates(state_num, m_dram_changelog_io);
         m_dp_changelog_io.flush();

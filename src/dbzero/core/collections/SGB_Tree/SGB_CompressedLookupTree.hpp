@@ -311,6 +311,11 @@ DB0_PACKED_END
                 return std::nullopt;
             }
             
+            // NOTE: this check is to avoid sigsegv in case of data corruption
+            if (node->empty())  {
+                THROWF(db0::InternalException) << "Corrupted SGB_CompressedLookupTree node found at " << node.getAddress();
+            }
+            
             // node will be sorted if needed (only if opened as READ/WRITE)
             if (this->m_access_type == AccessType::READ_WRITE) {                
                 this->onNodeLookup(node);
