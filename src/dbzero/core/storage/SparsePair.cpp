@@ -10,7 +10,6 @@ namespace db0
     {
     }
     
-    /* FIXME: log
     SparsePair::SparsePair(DRAM_Pair dram_pair, AccessType access_type)
         : m_sparse_index(dram_pair, access_type, {}, &m_change_log)
         , m_diff_index(dram_pair, access_type, Address::fromOffset(m_sparse_index.getExtraData()), &m_change_log)
@@ -20,23 +19,6 @@ namespace db0
     SparsePair::SparsePair(tag_create, DRAM_Pair dram_pair)
         : m_sparse_index(SparseIndex::tag_create(), dram_pair, &m_change_log)
         , m_diff_index(DiffIndex::tag_create(), dram_pair, &m_change_log)
-    {
-        // store the diff-index's address as extra data in the sparse index
-        m_sparse_index.setExtraData(m_diff_index.getIndexAddress().getOffset());
-    }
-    */
-
-    // FIXME: log
-    SparsePair::SparsePair(DRAM_Pair dram_pair, AccessType access_type)
-        : m_sparse_index(dram_pair, access_type, {})
-        , m_diff_index(dram_pair, access_type, Address::fromOffset(m_sparse_index.getExtraData()))
-    {
-    }
-    
-    // FIXME: log
-    SparsePair::SparsePair(tag_create, DRAM_Pair dram_pair)
-        : m_sparse_index(SparseIndex::tag_create(), dram_pair)
-        , m_diff_index(DiffIndex::tag_create(), dram_pair)
     {
         // store the diff-index's address as extra data in the sparse index
         m_sparse_index.setExtraData(m_diff_index.getIndexAddress().getOffset());

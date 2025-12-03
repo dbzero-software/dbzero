@@ -285,9 +285,8 @@ DB0_PACKED_END
             }
             
             // node will be sorted if needed (only if in READ/WRITE mode)
-            if (this->m_access_type == AccessType::READ_WRITE) {
-                // FIXME: log
-                // this->onNodeLookup(node);
+            if (this->m_access_type == AccessType::READ_WRITE) {                
+                this->onNodeLookup(node);
             }
             
             if (node->header().canFit(key)) {
@@ -310,9 +309,8 @@ DB0_PACKED_END
             }
             
             // node will be sorted if needed (only if opened as READ/WRITE)
-            if (this->m_access_type == AccessType::READ_WRITE) {
-                // FIXME: log
-                // this->onNodeLookup(node);
+            if (this->m_access_type == AccessType::READ_WRITE) {                
+                this->onNodeLookup(node);
             }
 
             // within the node look up by compressed key
@@ -343,9 +341,8 @@ DB0_PACKED_END
             }
             
             // node will be sorted if needed (only if opened as READ/WRITE)
-            if (this->m_access_type == AccessType::READ_WRITE) {
-                // FIXME: log
-                // this->onNodeLookup(node);
+            if (this->m_access_type == AccessType::READ_WRITE) {                
+                this->onNodeLookup(node);
             }
             // within the node look up by compressed key
             const CompressedItemT *item_ptr = nullptr;     
@@ -377,8 +374,7 @@ DB0_PACKED_END
             
             // node will be sorted if needed (only if opened as READ/WRITE)
             if (this->m_access_type == AccessType::READ_WRITE) {
-                // FIXME: log
-                // this->onNodeLookup(node);
+                this->onNodeLookup(node);
             }
                     
             if (node->header().canFit(key)) {
@@ -434,9 +430,7 @@ DB0_PACKED_END
             
             if (!node->header().canFit(item)) {
                 // must insert a new node to be able to fit the new item
-                auto new_node = super_t::insert_equal(item, this->m_node_capacity, this->m_heap_comp);                
-                // FIXME: log, is this operationally required ??
-                // new_node->begin();
+                super_t::insert_equal(item, this->m_node_capacity, this->m_heap_comp);                
             } else {
                 node.modify().append(this->m_heap_comp, item);
             }

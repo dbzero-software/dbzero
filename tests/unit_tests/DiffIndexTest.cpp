@@ -114,7 +114,7 @@ namespace tests
         unsigned int count = 0;
         
         auto run_queries = [&]() -> bool {
-            int step = queries.size() / 1000;
+            unsigned int step = queries.size() / 1000;
             for (int i = 0; i < queries.size(); i += step) {
                 auto &query = queries[i];
                 SparseIndexQuery cut(sparse_index, diff_index, query.first, query.second);

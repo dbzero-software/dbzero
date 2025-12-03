@@ -138,14 +138,11 @@ DB0_PACKED_END
         void dramIOCheck(std::vector<DRAM_CheckResult> &) const override;
         void setCrashFromCommit(unsigned int *throw_op_count_ptr) override;
         
-        void checkCrashFromCommit();
-#endif
-        
-        // FIXME: log
+        void checkCrashFromCommit();        #
         // write into the validation buffer only
         void writeForValidation(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer);
-        
-        // FIXME: log
+#endif
+                
         BDevStorage &asFile() override {
             return *this;
         }
@@ -177,7 +174,9 @@ DB0_PACKED_END
         ExtSpace m_ext_space;
         // the stream for storing & reading full-DPs and diff-encoded DPs
         Diff_IO m_page_io;
+#ifndef NDEBUG
         MemBaseStorage m_data_mirror;
+#endif
         
         bool m_refresh_pending = false;
         mutable std::shared_mutex m_mutex;

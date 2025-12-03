@@ -426,9 +426,8 @@ DB0_PACKED_END
             }
 
             // node will be sorted if needed (only if in READ/WRITE mode)
-            if (m_access_type == AccessType::READ_WRITE) {
-                // FIXME: log
-                // this->onNodeLookup(node);
+            if (m_access_type == AccessType::READ_WRITE) {                
+                this->onNodeLookup(node);
             }
             return { node->lower_equal_bound(key, this->m_heap_comp), node };
         }

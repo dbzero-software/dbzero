@@ -3,8 +3,6 @@
 #include <cstring>
 #include <cassert>
 #include <dbzero/core/storage/BaseStorage.hpp>
-// FIXME: log
-#include <dbzero/core/storage/BDevStorage.hpp>
 
 namespace db0
 
@@ -85,9 +83,11 @@ namespace db0
                         }
                     }
                     
-                    // FIXME: log
+#ifndef NDEBUG                    
+                    if (Settings::)
                     // write entire contents for validation
                     storage.asFile().writeForValidation(m_address, m_state_num, this->size(), m_data.data());
+#endif                    
                 }
                 
                 m_diffs.clear();
