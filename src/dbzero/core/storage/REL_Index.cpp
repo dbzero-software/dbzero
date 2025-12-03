@@ -5,6 +5,13 @@ namespace db0
 
 {
     
+    std::string REL_Item::toString() const 
+    {
+        std::stringstream ss;        
+        ss << "REL_Item(" << m_rel_page_num << ", " << m_storage_page_num << ")";
+        return ss.str();
+    }
+
     bool REL_ItemCompT::operator()(const REL_Item &lhs, const REL_Item &rhs) const {
         return lhs.m_rel_page_num < rhs.m_rel_page_num;
     }
@@ -113,6 +120,18 @@ namespace db0
     bool REL_IndexTypes::BlockHeader::canFit(std::uint64_t rel_page_num) const {
         return m_first_page_num == (rel_page_num >> 32);
     }
+    
+    std::string REL_IndexTypes::BlockHeader::toString(const CompressedItemT &item) const 
+    {
+        auto full_item = uncompress(item);
+        std::stringstream ss;
+        ss << full_item;        
+        return ss.str();
+    }
+
+    std::string REL_IndexTypes::BlockHeader::toString() const {
+        return "BlockHeader{ first_page_num=" + std::to_string(m_first_page_num) + " }";
+    }
 
     REL_Index::REL_Index(mptr ptr, std::size_t node_capacity, AccessType access_type)
         : super_t(ptr, node_capacity, access_type)
@@ -178,6 +197,16 @@ namespace db0
     
     std::uint64_t REL_Index::size() const {
         return super_t::size();
+    }
+    
+}
+
+namespace std
+
+{
+
+    ostream &operator<<(ostream &os, const db0::REL_Item &item) {
+        return os << item.toString();
     }
     
 }

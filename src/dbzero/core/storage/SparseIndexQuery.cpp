@@ -5,7 +5,7 @@ namespace db0
 {
 
     SparseIndexQuery::SparseIndexQuery(const SparseIndex &sparse_index, const DiffIndex &diff_index,
-        std::uint64_t page_num, std::uint32_t state_num)
+        std::uint64_t page_num, StateNumType state_num)
         : m_query_page_num(page_num)
         , m_query_state_num(state_num)
         // will be initialized with 0 if not found
@@ -27,8 +27,8 @@ namespace db0
     bool SparseIndexQuery::empty() const {
         return !m_non_empty || lessThan(1);
     }
-
-    bool SparseIndexQuery::next(std::uint32_t &state_num, std::uint64_t &storage_page_num)
+    
+    bool SparseIndexQuery::next(StateNumType &state_num, std::uint64_t &storage_page_num)
     {
         // unable to iterate past the queried state number
         if (m_state_num >= m_query_state_num) {
@@ -94,7 +94,7 @@ namespace db0
         }
         
         typename DI_Item::ConstIterator diff_it;
-        std::uint32_t last_state_num = 0;
+        StateNumType last_state_num = 0;
         return lessThanFrom(size, diff_dp, diff_it, last_state_num);
     }
     
@@ -108,7 +108,7 @@ namespace db0
     }
     
     bool SparseIndexQuery::lessThanFrom(unsigned int size, DI_Item &diff_dp, typename DI_Item::ConstIterator &diff_it,
-        std::uint32_t &last_state_num) const
+        StateNumType &last_state_num) const
     {
         assert(size > 0 && "SparseIndexQuery::lessThan: size must be > 0");
         // unable to iterate past the queried state number
@@ -116,7 +116,7 @@ namespace db0
             return true;
         }
         
-        std::uint32_t state_num = 0;
+        StateNumType state_num = 0;
         while (size > 0) {
             if (!diff_dp || diff_dp.m_state_num > m_query_state_num) {
                 return true;

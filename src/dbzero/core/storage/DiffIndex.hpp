@@ -17,7 +17,7 @@ namespace db0
     // references do diff-pages
     // Each element consists of: page num (logical) / state num + physical page num + sequence of encoded: page num / state num
     // One element can encode variable number of state updates (transactions)
-
+    
 DB0_PACKED_BEGIN
     struct DB0_PACKED_ATTR DI_Item: public SI_Item
     {

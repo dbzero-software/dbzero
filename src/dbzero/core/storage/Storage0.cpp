@@ -21,9 +21,10 @@ namespace db0
     void Storage0::write(std::uint64_t, StateNumType, std::size_t, void *) {
     }
 
-    void Storage0::writeDiffs(std::uint64_t, StateNumType, std::size_t, void *, const std::vector<std::uint16_t> &, unsigned int) {
+    bool Storage0::tryWriteDiffs(std::uint64_t, StateNumType, std::size_t, void *, const std::vector<std::uint16_t> &, unsigned int) {
+        return false;
     }
-
+    
     StateNumType Storage0::findMutation(std::uint64_t, StateNumType state_num) const {
         return state_num;
     }

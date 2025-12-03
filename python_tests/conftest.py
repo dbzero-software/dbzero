@@ -20,6 +20,9 @@ def __extract_param(request, key, default):
 
 @pytest.fixture()
 def db0_fixture(request):
+    if 'D' in db0.build_flags():
+        db0.enable_storage_validation(__extract_param(request, "storage_validation", False))
+    
     if os.path.exists(DB0_DIR):
         shutil.rmtree(DB0_DIR)    
     os.mkdir(DB0_DIR)
@@ -34,12 +37,14 @@ def db0_fixture(request):
     yield db0
     gc.collect()
     db0.close()
+    if 'D' in db0.build_flags():
+        db0.enable_storage_validation(False)
     if os.path.exists(DB0_DIR):
         shutil.rmtree(DB0_DIR)
 
 
 @pytest.fixture()
-def db0_no_default_fixture():
+def db0_no_default_fixture():        
     if os.path.exists(DB0_DIR):
         shutil.rmtree(DB0_DIR)
     # create empty directory

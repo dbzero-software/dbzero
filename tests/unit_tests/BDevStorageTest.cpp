@@ -474,11 +474,13 @@ namespace tests
             std::vector<std::uint16_t> diffs;
             dp_1[150] = (std::byte)(i + 1);
             ASSERT_TRUE(db0::getDiffs(dp_0.data(), dp_1.data(), dp_1.size(), diffs));            
-            cut.writeDiffs(0, i + 1, page_size, dp_1.data(), diffs, max_len);
+            if (!cut.tryWriteDiffs(0, i + 1, page_size, dp_1.data(), diffs, max_len)) {
+                cut.write(0, i + 1, page_size, dp_1.data());
+            }
             cut.flush();
             std::memcpy(dp_0.data(), dp_1.data(), dp_1.size());
         }
-
+        
         // now, reading the data from past transactions verify that then chain length is limited
         unsigned int last_chain_len = 0;
         for (int i = 1; i < 100; ++i) {

@@ -53,4 +53,43 @@ namespace db0::tests
         return _str.str();
     }
     
+    std::vector<std::vector<std::uint32_t>> loadArray(const std::string &file_name)
+    {
+        std::vector<std::vector<std::uint32_t>> result;
+        std::ifstream file(file_name);
+        
+        if (!file.is_open()) {
+            throw std::runtime_error("Failed to open file: " + file_name);
+        }
+        
+        std::string line;
+        while (std::getline(file, line)) {
+            // Skip empty lines
+            if (line.empty()) {
+                continue;
+            }
+            
+            std::vector<std::uint32_t> row;
+            std::stringstream ss(line);
+            std::string value;
+            
+            while (std::getline(ss, value, ',')) {
+                // Trim whitespace
+                value.erase(0, value.find_first_not_of(" \t\r\n"));
+                value.erase(value.find_last_not_of(" \t\r\n") + 1);
+                
+                if (!value.empty()) {
+                    row.push_back(std::stoul(value));
+                }
+            }
+            
+            if (!row.empty()) {
+                result.push_back(row);
+            }
+        }
+        
+        file.close();
+        return result;
+    }
+    
 }

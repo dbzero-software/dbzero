@@ -22,6 +22,7 @@ namespace tests
     {
         SparseIndex sparse_index(16 * 1024);
         DiffIndex diff_cut(16 * 1024);
+        // page num, state num, storage page num
         sparse_index.emplace(1, 1, 1);
         sparse_index.emplace(1, 3, 17);
         sparse_index.emplace(4, 7, 2343);
@@ -433,4 +434,20 @@ namespace tests
         }
     }
     
+    TEST_F( SparseIndexQueryTest , testSparseIndexStartingFromDiff )
+    {
+        SparseIndex sparse_index(16 * 1024);
+        DiffIndex diff_index(16 * 1024);
+        sparse_index.emplace(1, 1, 1);
+        sparse_index.emplace(1, 3, 17);
+        sparse_index.emplace(4, 7, 2343);
+
+        diff_index.insert(1, 2, 3);
+        diff_index.insert(7, 1, 1);
+
+        // NOTE: history of page = 7 starts with the diff-write
+        SparseIndexQuery cut(sparse_index, diff_index, 7, 1);
+        ASSERT_FALSE(cut.empty());
+    }
+
 }

@@ -129,6 +129,8 @@ namespace db0
             std::string toString(const CompressedItemT &) const;
             std::string toString() const;
         };
+        
+        Address getIndexAddress() const;
 
     protected:
         friend class SparsePair;
@@ -158,9 +160,7 @@ DB0_PACKED_END
         const CompressedItemT *lowerEqualBound(PageNumT, StateNumT, ConstNodeIterator &) const;
 
         ConstItemIterator findLower(PageNumT, StateNumT) const;
-
-        Address getIndexAddress() const;
-
+        
         void setExtraData(std::uint64_t);
 
         std::uint64_t getExtraData() const;
@@ -278,14 +278,14 @@ DB0_PACKED_END
     const DRAM_Prefix &SparseIndexBase<ItemT, CompressedItemT>::getDRAMPrefix() const {
         return *m_dram_prefix;
     }
-
+    
     template <typename ItemT, typename CompressedItemT>
     CompressedItemT SparseIndexBase<ItemT, CompressedItemT>::BlockHeader::compressFirst(const ItemT &item) 
     {
         m_first_page_num = item.m_page_num >> 24;
         return CompressedItemT(m_first_page_num, item);
     }
-
+    
     template <typename ItemT, typename CompressedItemT>
     CompressedItemT SparseIndexBase<ItemT, CompressedItemT>::BlockHeader::compress(const ItemT &item) const
     {
@@ -376,10 +376,10 @@ DB0_PACKED_END
     std::string SparseIndexBase<ItemT, CompressedItemT>::BlockHeader::toString() const 
     {
         std::stringstream _str;
-        _str << "BlockHeader{ first_page_num: " << m_first_page_num << " }";
+        _str << "BlockHeader { first_page_num: " << m_first_page_num << " }";
         return _str.str();
     }
-
+    
     template <typename ItemT, typename CompressedItemT>
     std::size_t SparseIndexBase<ItemT, CompressedItemT>::size() const {
         return m_index.size();

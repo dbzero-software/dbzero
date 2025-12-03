@@ -23,7 +23,7 @@ namespace db0
         // store the diff-index's address as extra data in the sparse index
         m_sparse_index.setExtraData(m_diff_index.getIndexAddress().getOffset());
     }
-    
+
     SparsePair::~SparsePair()
     {
     }

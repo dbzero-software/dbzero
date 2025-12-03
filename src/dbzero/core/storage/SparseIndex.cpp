@@ -11,6 +11,13 @@ namespace db0
         return m_page_num == other.m_page_num && m_state_num == other.m_state_num
             && m_storage_page_num == other.m_storage_page_num;
     }
+    
+    std::string SI_Item::toString() const
+    {
+        std::stringstream ss;        
+        ss << "SI_Item(" << m_page_num << ", " << m_state_num << ", " << m_storage_page_num << ")";
+        return ss.str();
+    }
 
     bool SI_ItemCompT::operator()(const SI_Item &lhs, const SI_Item &rhs) const
     {
@@ -110,4 +117,14 @@ namespace db0
         return ss.str();
     }
 
+}
+
+namespace std
+
+{
+
+    ostream &operator<<(ostream &os, const db0::SI_Item &item) {
+        return os << item.toString();
+    }
+    
 }

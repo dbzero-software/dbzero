@@ -129,7 +129,12 @@ namespace db0
                             }
                             // NOTE: DP needs not to be flushed if there are no diffs
                             if (!diffs.empty()) {
-                                storage.writeDiffs(m_address + (page_ptr - m_data.data()), m_state_num, page_size, page_ptr, diffs);
+                                if (!storage.tryWriteDiffs(
+                                    m_address + (page_ptr - m_data.data()), m_state_num, page_size, page_ptr, diffs)) 
+                                {
+                                    // write as full-DP if unable to write diffs
+                                    storage.write(m_address + (page_ptr - m_data.data()), m_state_num, page_size, page_ptr);                                    
+                                }
                             }
                             first_write = false;
                         } else {

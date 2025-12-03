@@ -133,7 +133,7 @@ namespace db0
     void ResourceLock::freeze() {
         atomicCheckAndSetFlags(m_resource_flags, db0::RESOURCE_FREEZE);
     }
-
+    
     void ResourceLock::setDirty(std::uint64_t at, std::uint64_t end)
     {
         assert(at >= m_address);

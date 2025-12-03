@@ -2,12 +2,16 @@
 #include <cstdint>
 #include <iostream>
 #include <utils/TestWorkspace.hpp>
+#include <dbzero/core/storage/SparseIndex.hpp>
 #include <dbzero/core/storage/DiffIndex.hpp>
 #include <dbzero/core/dram/DRAM_Prefix.hpp>
 #include <dbzero/core/dram/DRAM_Allocator.hpp>
 #include <dbzero/core/storage/ChangeLogIOStream.hpp>
+#include <dbzero/core/storage/SparseIndexQuery.hpp>
+#include <dbzero/core/memory/config.hpp>
 #include <utils/utils.hpp>
 #include <utils/diff_data_1.hpp>
+#include <filesystem>
 
 using namespace std;
 using namespace db0;
@@ -99,6 +103,82 @@ namespace tests
 
         auto item = diff_index.findUpper(4, 501);
         ASSERT_EQ(item.m_page_num, 4);
+    }
+
+    TEST_F( DiffIndexTest , testDiffIndexInsertThenQuery )
+    {   
+        auto ops = loadArray("./tests/files/diff_index_ops.csv");
+        SparseIndex sparse_index(512);
+        DiffIndex diff_index(512);
+        std::vector<std::pair<std::uint64_t, std::uint32_t>> queries;
+        unsigned int count = 0;
+        
+        auto run_queries = [&]() -> bool {
+            int step = queries.size() / 1000;
+            for (unsigned int i = 0; i < queries.size(); i += step) {
+                auto &query = queries[i];
+                SparseIndexQuery cut(sparse_index, diff_index, query.first, query.second);
+                // make sure queried item can be located
+                if (cut.empty()) {
+                    return false;
+                }
+            }
+            return true;
+        };
+        
+        for (auto &ops_item: ops) {
+            diff_index.insert(ops_item[0], ops_item[1], ops_item[2], ops_item[3]);
+            queries.emplace_back(ops_item[0], ops_item[1]);            
+            ++count;
+            
+            if (count % 5000 == 0) {
+                ASSERT_TRUE(run_queries());
+            }
+        }
+    }
+    
+    void runQueryTestWithFile(const std::string &ops_filename, std::uint64_t test_page_num,
+        std::uint32_t test_state_num)
+    {
+        // use page size same as BDevStorage (by default)
+        auto dram_page_size = 16384u;
+        auto dram_prefix = std::make_shared<DRAM_Prefix>(dram_page_size);
+        auto dram_allocator = std::make_shared<DRAM_Allocator>(dram_page_size);        
+        auto dram_pair = DRAM_Pair { dram_prefix, dram_allocator };
+        
+        auto ops = loadArray(ops_filename);
+
+        Address addr;
+        Address di_addr;
+        {
+            SparseIndex sparse_index(SparseIndex::tag_create(), dram_pair);
+            DiffIndex diff_index(DiffIndex::tag_create(), dram_pair);            
+            addr = sparse_index.getIndexAddress();
+            di_addr = diff_index.getIndexAddress();
+        }
+        
+        SparseIndex sparse_index(dram_pair, AccessType::READ_WRITE, addr);
+        DiffIndex diff_index(dram_pair, AccessType::READ_WRITE, di_addr);
+        for (auto &ops_item: ops) {
+            if (ops_item[0] == 0) {
+                sparse_index.emplace(ops_item[1], ops_item[2], ops_item[3]);
+            } else {
+                diff_index.insert(ops_item[1], ops_item[2], ops_item[3], ops_item[4]);
+            }
+        }
+        
+        SparseIndexQuery cut(sparse_index, diff_index, test_page_num, test_state_num);
+        ASSERT_FALSE(cut.empty());
+    }
+    
+    TEST_F( DiffIndexTest , testDiffIndexQueryIssue1 )
+    {
+        runQueryTestWithFile("./tests/files/sparse_pair_ops_2.csv", 1376800u, 3u);
+    }
+    
+    TEST_F( DiffIndexTest , testDiffIndexQueryIssue2 )
+    {
+        runQueryTestWithFile("./tests/files/sparse_pair_ops.csv", 7110756u, 8u);
     }
 
 }
