@@ -37,7 +37,7 @@ namespace db0
         const o_dram_chunk_header &header)
     {
         // page map = page_num / state_num
-        auto dram_page = m_page_map.find(header.m_page_num);
+        auto dram_page = m_page_map.find(header.m_page_num);        
         if (dram_page == m_page_map.end() || dram_page->second.m_state_num < header.m_state_num) {
             // update DRAM to most recent page version, page not marked as dirty
             auto result = m_prefix->update(header.m_page_num, false);
@@ -289,7 +289,7 @@ namespace db0
         }
     }
 #endif
-
+    
     void fetchDRAM_IOChanges(const DRAM_IOStream &dram_io, DRAM_IOStream::DRAM_ChangeLogStreamT &changelog_io,
         std::unordered_map<std::uint64_t, std::vector<char> > &chunks_buf)
     {
@@ -314,27 +314,21 @@ namespace db0
                     break;
                 }
                 
-                // First collect the change log to only visit each address once
-                std::unordered_set<std::uint64_t> addr_set;
+                // Visit the complete change log, reading modified pages
+                // NOTE: even if the same page appears in the log we must read if EACH time
+                // this is because: a) file writes are NOT atomic, b) DP might be modified while we process the log
+                // NOTE: this might be optimized when modifiaction timestamps are introduced                
                 while (change_log_ptr) {
                     for (auto address: *change_log_ptr) {
-                        if (addr_set.find(address) == addr_set.end()) {
-                            addr_set.insert(address);
-                        }
+                        // buffer must include BlockIOStream's chunk header and data
+                        auto &buffer = create_read_ahead_buffer(address, dram_io.getChunkSize() + o_block_io_chunk_header::sizeOf());
+                        // the address reported in changelog must already be available in the stream
+                        // it may come from a more recent update as well (and potentially may only be partially written)
+                        // therefore chunk-level checksum validation is necessary
+                        dram_io.readFromChunk(address, buffer.data(), buffer.size());
                     }
                     change_log_ptr = changelog_io.readChangeLogChunk();
-                }
-                
-                // Visit the addresses next
-                // this is important becase otherwise we might've been accessing outdated or inconsistent DPs
-                for (auto address: addr_set) {
-                    // buffer must include BlockIOStream's chunk header and data
-                    auto &buffer = create_read_ahead_buffer(address, dram_io.getChunkSize() + o_block_io_chunk_header::sizeOf());
-                    // the address reported in changelog must already be available in the stream
-                    // it may come from a more recent update as well (and potentially may only be partially written)
-                    // therefore chunk-level checksum validation is necessary
-                    dram_io.readFromChunk(address, buffer.data(), buffer.size());
-                }
+                }                
             }
 
         } catch (db0::IOException &) {

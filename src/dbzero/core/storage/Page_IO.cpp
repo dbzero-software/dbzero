@@ -53,6 +53,32 @@ namespace db0
         return m_first_page_num + (m_page_count++);
     }
     
+    std::uint64_t Page_IO::append(const void *buffer, std::uint64_t page_count)
+    {
+        assert(m_access_type == AccessType::READ_WRITE);
+        auto result = getNextPageNum().first;
+        const std::byte *byte_buffer = static_cast<const std::byte *>(buffer);        
+        while (page_count > 0) {
+            // allocate next block or step
+            if (page_count > 0 && m_page_count == m_block_capacity) {
+                allocateNextBlock();
+            }
+
+            // the number of pages remaining in the current step
+            auto step_remaining = getCurrentStepRemainingPages();
+            if (step_remaining > 0) {
+                auto to_write_pages = std::min(static_cast<std::uint32_t>(page_count), step_remaining);
+                auto to_write_bytes = to_write_pages * m_page_size;
+                m_file.write(m_address + m_page_count * m_page_size, to_write_bytes, byte_buffer);
+                byte_buffer += to_write_bytes;
+                // position at the new address (within the current step)
+                moveBy(to_write_pages);
+                page_count -= to_write_pages;
+            }
+        }
+        return result;
+    }
+    
     void Page_IO::allocateNextBlock()
     {
         if (m_block_num && *m_block_num < (m_step_size - 1)) {
@@ -74,7 +100,11 @@ namespace db0
     void Page_IO::read(std::uint64_t page_num, void *buffer) const {
         m_file.read(m_header_size + page_num * m_page_size, m_page_size, buffer);
     }
-    
+
+    void Page_IO::read(std::uint64_t page_num, void *buffer, std::uint32_t page_count) const {
+        m_file.read(m_header_size + page_num * m_page_size, page_count * m_page_size, buffer);
+    }
+
     void Page_IO::write(std::uint64_t page_num, void *buffer) {
         m_file.write(m_header_size + page_num * m_page_size, m_page_size, buffer);
     }
@@ -116,6 +146,90 @@ namespace db0
     {
         assert(m_access_type == AccessType::READ_WRITE);
         return m_first_page_num + m_page_count;        
+    }
+    
+    Page_IO::Reader::Reader(const Page_IO &page_io, std::optional<std::uint64_t> end_page_num)
+        : m_page_io(page_io)
+        , m_end_page_num(std::min(end_page_num.value_or(std::numeric_limits<std::uint64_t>::max()), page_io.getEndPageNum()))
+    {        
+    }
+    
+    std::uint32_t Page_IO::Reader::next(std::vector<std::byte> &buf, std::uint64_t &start_page_num,
+        std::size_t max_bytes)
+    {
+        std::size_t page_size = m_page_io.getPageSize();
+        auto max_pages = max_bytes / page_size;
+        if (buf.size() < max_pages * page_size) {
+            buf.resize(max_pages * page_size);
+        }
+
+        start_page_num = m_current_page_num;
+        auto to_read = std::min(max_pages, m_end_page_num - m_current_page_num);
+        if (to_read > 0) {
+            m_page_io.read(m_current_page_num, buf.data(), static_cast<std::uint32_t>(to_read));
+            m_current_page_num += to_read;
+            return static_cast<std::uint32_t>(to_read);
+        }
+        return to_read;
+    }
+    
+    std::uint64_t Page_IO::Reader::endPageNum() const
+    {
+        // calculate end page number from actual file size
+        auto file_size = m_page_io.m_file.size();
+        if (file_size < m_page_io.m_header_size) {
+            return 0;
+        }
+        return (file_size - m_page_io.m_header_size) / m_page_io.m_page_size;
+    }
+    
+    void Page_IO::moveBy(std::uint32_t page_count)
+    {
+        if (!m_block_num) {
+            THROWF(db0::InternalException) << "Page_IO::moveBy: step access not initialized";
+        }
+
+        // move by the end of the current block
+        auto count = std::min(page_count, m_block_capacity - m_page_count);
+        auto new_block_num = *m_block_num + (page_count - count) / m_block_capacity + 1;
+        if (new_block_num > m_step_size) {
+            THROWF(db0::InternalException) << "Page_IO::moveBy: attempt to move beyond the current step";
+        }
+        // positioned at the end of the step
+        if (new_block_num == m_step_size) {
+            --new_block_num;
+        }
+        
+        auto page_diff = count + (new_block_num - *m_block_num - 1) * m_block_capacity;
+        page_count -= page_diff;
+        if (page_count > m_block_capacity) {
+            THROWF(db0::InternalException) << "Page_IO::moveBy: attempt to move beyond the current step";
+        }
+
+        // set new position variables (might be end of the block / step)
+        m_first_page_num += page_diff;
+        m_address += page_diff * m_page_size;
+        m_block_num = new_block_num;
+        m_page_count = page_count;
+    }
+    
+    std::uint32_t Page_IO::getCurrentStepRemainingPages() const
+    {
+        if (!m_block_num) {
+            THROWF(db0::InternalException) << "Page_IO::getCurrentStepRemainingPages: step access not initialized";
+        }
+        
+        // end of the step reached
+        if (*m_block_num >= m_step_size) {
+            assert(*m_block_num == m_step_size);
+            assert(m_page_count == 0);            
+            return 0;
+        }
+
+        // current block excluding
+        auto blocks_remaining = m_step_size - *m_block_num - 1;
+        auto pages_remaining_in_block = m_block_capacity - m_page_count;
+        return blocks_remaining * m_block_capacity + pages_remaining_in_block;
     }
     
 }

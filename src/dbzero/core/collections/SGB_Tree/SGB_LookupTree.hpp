@@ -388,6 +388,9 @@ DB0_PACKED_END
         using HeapCompT = typename TypesT::HeapCompT;
         static constexpr unsigned int DEFAULT_SORT_THRESHOLD = 3;
 
+        // as null / invalid
+        SGB_LookupTreeBase() = default;
+
         SGB_LookupTreeBase(Memspace &memspace, std::size_t node_capacity, 
             AccessType access_type, const CompT &comp = {}, const NodeItemCompT item_cmp = {}, const NodeItemEqualT item_eq = {},
             unsigned int sort_thr = DEFAULT_SORT_THRESHOLD)
@@ -443,10 +446,10 @@ DB0_PACKED_END
         sg_tree_const_iterator cend_nodes() const {
             return super_t::cend_nodes();
         }
-
+        
     protected:
-        const unsigned int m_sort_threshold;
-        const AccessType m_access_type;
+        const unsigned int m_sort_threshold = 0;
+        const AccessType m_access_type = {};
         
         void onNodeLookup(sg_tree_const_iterator &node) const
         {

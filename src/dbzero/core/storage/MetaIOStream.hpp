@@ -83,6 +83,10 @@ DB0_PACKED_END
         // @return the meta-log or nullptr if not found
         const o_meta_log *lowerBound(StateNumType, std::vector<char> &buf) const;
         
+        std::uint64_t getStepSize() const {
+            return m_step_max_size;
+        }
+        
     private:
         const std::vector<BlockIOStream*> m_managed_streams;
         // stream sizes at the last meta log item (the last checkpoint)

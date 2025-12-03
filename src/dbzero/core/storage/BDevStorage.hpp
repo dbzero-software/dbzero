@@ -70,13 +70,13 @@ DB0_PACKED_END
         static constexpr std::size_t DEFAULT_META_IO_STEP_SIZE = 16 << 20;
         using DRAM_ChangeLogStreamT = ChangeLogIOStream<>;
         using DP_ChangeLogStreamT = ChangeLogIOStream<DP_ChangeLogT>;
-
+        
         /**
          * Opens BDevStorage over an existing file
          * @param meta_io_step_size - the size of the step in the MetaIOStream (16MB by default)
         */
         BDevStorage(const std::string &file_name, AccessType = AccessType::READ_WRITE, LockFlags lock_flags = {},
-            std::optional<std::size_t> meta_io_step_size = {});
+            std::optional<std::size_t> meta_io_step_size = {}, StorageFlags = {});
         ~BDevStorage();
         
         /**
@@ -84,7 +84,7 @@ DB0_PACKED_END
          * @param step_size_hint defines requested Page IO step size in bytes
         */
         static void create(const std::string &file_name, std::optional<std::size_t> page_size = {},
-            std::uint32_t dram_page_size_hint = 16 * 1024 - 256, std::optional<std::size_t> step_size_hint = {});
+            std::uint32_t dram_page_size_hint = (16u << 10) - 256, std::optional<std::size_t> step_size_hint = {});
         
         void read(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer,
             FlagSet<AccessOptions> = { AccessOptions::read, AccessOptions::write }) const override;
@@ -98,9 +98,9 @@ DB0_PACKED_END
         StateNumType findMutation(std::uint64_t page_num, StateNumType state_num) const override;
         
         bool tryFindMutation(std::uint64_t page_num, StateNumType state_num, StateNumType &mutation_id) const override;
-
+        
         bool beginRefresh() override;
-
+        
         std::uint64_t completeRefresh(
             std::function<void(std::uint64_t updated_page_num, StateNumType state_num)> f = {}) override;
         
@@ -113,6 +113,7 @@ DB0_PACKED_END
         void close() override;
         
         std::size_t getPageSize() const override;
+        std::size_t getDRAMPageSize() const;
 
         StateNumType getMaxStateNum() const override;
         
@@ -123,6 +124,8 @@ DB0_PACKED_END
         */
         std::uint64_t getLastUpdated() const override;
         
+        BDevStorage &asFile() override;
+
         const DRAM_IOStream &getDramIO() const {
             return m_dram_io;
         }
@@ -133,6 +136,21 @@ DB0_PACKED_END
         void fetchDP_ChangeLogs(StateNumType begin_state, std::optional<StateNumType> end_state,
             std::function<void(const DP_ChangeLogT &)> f) const override;
         
+        const Page_IO &getPageIO() const {
+            return m_page_io;
+        }
+
+        const MetaIOStream &getMetaIO() const {
+            return m_meta_io;
+        }
+        
+        std::string getFileName() const {
+            return m_file.getName();
+        }
+
+        // Copy a read-only prefix to an empty BDevStorage
+        void copyTo(BDevStorage &);
+
 #ifndef NDEBUG
         void getDRAM_IOMap(std::unordered_map<std::uint64_t, DRAM_PageInfo> &) const override;
         void dramIOCheck(std::vector<DRAM_CheckResult> &) const override;
@@ -142,11 +160,7 @@ DB0_PACKED_END
         // write into the validation buffer only
         void writeForValidation(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer);
 #endif
-                
-        BDevStorage &asFile() override {
-            return *this;
-        }
-
+        
     protected:
         // all prefix configuration must fit into this block
         static constexpr unsigned int CONFIG_BLOCK_SIZE = 4096;
@@ -188,16 +202,18 @@ DB0_PACKED_END
         unsigned int *m_throw_op_count_ptr = nullptr;
 #endif
 
-        static DRAM_IOStream init(DRAM_IOStream &&, DRAM_ChangeLogStreamT &);
-        static std::unique_ptr<DRAM_IOStream> init(std::unique_ptr<DRAM_IOStream> &&, DRAM_ChangeLogStreamT *);
+        static DRAM_IOStream init(DRAM_IOStream &&, DRAM_ChangeLogStreamT &, StorageFlags);
+        static std::unique_ptr<DRAM_IOStream> init(std::unique_ptr<DRAM_IOStream> &&, DRAM_ChangeLogStreamT *, StorageFlags);
         
-        static MetaIOStream init(MetaIOStream &&);
+        static MetaIOStream init(MetaIOStream &&, StorageFlags);
         
         /**
          * Calculates the total number of blocks stored in this file
          * note that the last block may be partially written
         */
         std::uint64_t getBlockCount(std::uint64_t file_size) const;
+
+        std::uint64_t getNextStoragePageNum() const;
 
         BlockIOStream getBlockIOStream(std::uint64_t first_block_pos, AccessType);
         
@@ -226,7 +242,7 @@ DB0_PACKED_END
 
         MetaIOStream getMetaIOStream(std::uint64_t first_block_pos, std::size_t step_size, AccessType);
         
-        Diff_IO getPage_IO(std::uint64_t next_page_hint, std::uint32_t step_size, AccessType);
+        Diff_IO getPage_IO(std::uint64_t next_page_hint, std::uint32_t step_size);
         
         o_prefix_config readConfig() const;
         
@@ -242,10 +258,14 @@ DB0_PACKED_END
         // non-virtual version of tryFindMutation
         bool tryFindMutationImpl(std::uint64_t page_num, StateNumType state_num,
             StateNumType &mutation_id) const;
-
+        
         // @param chain_len length of the diff-storage chain processed while reading
         void _read(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer,
             FlagSet<AccessOptions> = { AccessOptions::read, AccessOptions::write }, unsigned int *chain_len = nullptr) const;
+        
+        // Flush ext-space streams only (if existing)
+        bool flushExt(StateNumType max_state_num);
+        void fsync();
     };
     
 }

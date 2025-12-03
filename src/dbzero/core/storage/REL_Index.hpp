@@ -168,6 +168,11 @@ DB0_PACKED_END
         
         db0::Address getAddress() const;
         
+        // Registers a new mapping rel_page_num -> storage_page_num
+        // exception raised if unable to add the mapping
+        // the method is used by copy_prefix
+        void addMapping(std::uint64_t storage_page_num, std::uint64_t rel_page_num);
+        
         void detach() const;
         void commit() const;
         
