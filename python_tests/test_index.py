@@ -6,6 +6,7 @@ from dbzero import find
 from datetime import timedelta, datetime
 import random
 import time
+from .conftest import TEST_FILES_DIR_ROOT
 
 
 def test_index_instance_can_be_created_without_arguments(db0_fixture):
@@ -724,8 +725,80 @@ def test_insert_1M_keys_to_index(db0_no_autocommit):
     start = time.perf_counter()
     for i in range(1_000_000):
         # add random int
-        cut.add(random.randint(0, 100_000_000), random.choice(objects))        
+        cut.add(random.randint(0, 100_000_000), objects[i % 25000])
+        if i % 10_000 == 0:
+            assert len(cut) == i + 1
     result = list(cut.select(0, 1))
     end = time.perf_counter()
     assert len(cut) == 1_000_000
     print(f"Inserted 1M keys to index in {end - start:.2f} seconds")
+
+@pytest.mark.stress_test
+def test_insert_1M_fixed_keys_to_index(db0_no_autocommit):
+    cut = db0.index()
+    objects = []
+    for i in range(25000):
+        objects.append(MemoTestClass(i))
+    start = time.perf_counter()
+    numbers = []
+    with open(f"{TEST_FILES_DIR_ROOT}/index_keys.txt", "r") as f:
+        numbers = [int(line.strip()) for line in f.readlines()]
+    for i in range(1_000_000):
+        number = numbers[i]
+        cut.add(number, objects[i % 25000])
+        if i % 10_000 == 0:
+            print(f"Inserted {i} keys so far...")
+            assert len(cut) == i + 1
+    result = list(cut.select(0, 1))
+    end = time.perf_counter()
+    assert len(cut) == 1_000_000
+    print(f"Inserted 1M keys to index in {end - start:.2f} seconds")
+
+@pytest.mark.stress_test
+def test_insert_key_into_splitted_range(db0_no_autocommit):
+    cut = db0.index()
+    objects = []
+    for i in range(35000):
+        objects.append(MemoTestClass(i))
+    start = time.perf_counter()
+    elements =  257 * 1024
+    # add more items than initial max_block_size to force block splits
+    for i in range(1, elements):
+        cut.add(i, objects[i % 35000])
+        if i % 1000 == 0:
+            print(f"Inserted {i} keys so far...")
+            assert len(cut) == i
+        
+    # add an item to bounded range that has been splitted
+    cut.add(123, objects[-1])
+    end = time.perf_counter()
+    elements += 1
+    assert len(cut) == elements
+    print(f"Inserted {elements} keys to index in {end - start:.2f} seconds")
+
+@pytest.mark.stress_test
+def test_remove_keys_from_splitted_range(db0_no_autocommit):
+    cut = db0.index()
+    # add more items than initial max_block_size to force block splits
+    elems = []
+    elements =  277 * 1024
+    pre_created_elements = [MemoTestClass(i) for i in range(elements)]
+    for i in range(1, elements):
+        if i <= 227 * 1024:
+            memo_object = MemoTestClass(1000000 + i)
+        else:
+            memo_object = pre_created_elements[i % elements]
+        cut.add(1, memo_object)
+        if i % 1000 == 0:
+            assert len(cut) == i
+            if i % 100_000 == 0:
+                print(f"Inserted {i} keys so far...")
+                elems.append(memo_object)
+    len_after_inserts = len(cut)
+    for i, obj in enumerate(elems):
+        cut.remove(1, obj)
+        if i % 10 == 0:
+            assert len(cut) == len_after_inserts - (i + 1)
+    assert len(cut) == len_after_inserts - len(elems)
+    for obj in elems:
+        assert len(db0.find(cut.select(), obj)) == 0

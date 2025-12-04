@@ -128,9 +128,15 @@ DB0_PACKED_END
             using CompT = typename ItemT::HeapCompT;
             // heapify the elements (min heap)
             std::make_heap(begin, end, CompT());
+            size_t loop_counter = 0;
             while (begin != end) {
                 auto range = getRange(*begin);
+                
                 for (;;) {
+                    loop_counter += 1;
+                    if (loop_counter % 100 == 0) {
+                        std::cerr << "bulkInsert loop iteration: " << loop_counter << "\n";
+                    }
                     auto _end = end;
                     // calculate the remaining capacity in the block
                     auto block_capacity = 0;
@@ -145,6 +151,9 @@ DB0_PACKED_END
                     }
                     
                     while (block_capacity > 0 && begin != end && range.canInsert(*begin)) {
+                        if (loop_counter % 100 == 0) {
+                            std::cerr << "In Insert " << loop_counter << "\n";
+                        }
                         std::pop_heap(begin, end, CompT());
                         --end;
                         --block_capacity;
@@ -298,8 +307,29 @@ DB0_PACKED_END
             bool canInsert(ItemT item) const
             {
                 assert(m_asc);
-                // the second condition is to allow multiple range with identical element
-                return (m_is_first || !m_bounds.first || !(item < *m_bounds.first)) && (!m_bounds.second || (item < *m_bounds.second));
+
+                if (m_bounds.second) {
+                    // std::cerr << "Can insert check for item: "
+                    //           << item.m_key << ":" << item.m_value << "\n";
+                    // std::cerr << "Checking for range : ["
+                    //           << (m_bounds.first ? std::to_string((*m_bounds.first).m_key) : "null")
+                    //           << ", "
+                    //           << (m_bounds.second ? std::to_string((*m_bounds.second).m_key) : "null")
+                    //           << ")\n";
+                    // std::cerr << "m_is_first: " << m_is_first << "\n";
+                    // std::cerr << "!m_bounds.first: " << !m_bounds.first << "\n";
+                    // std::cerr << "!(item < *m_bounds.first) " << !(item < *m_bounds.first) << "\n";
+                    // std::cerr << "(!m_bounds.second: " << !m_bounds.second << "\n";
+                    // std::cerr << "(*m_bounds.second).gtByKey(item): " << (*m_bounds.second).gtByKey(item) << "\n";
+                    // std::cerr << "FINAL: " << ( (m_is_first || !m_bounds.first || !(item < *m_bounds.first)) && (!m_bounds.second || (*m_bounds.second).gtByKey(item)) ) << "\n";
+                    // std::cerr << std::endl;
+                    // try{
+                    //     throw std::runtime_error("Debug Exception");
+                    // } catch (const std::exception &e) {
+                    //     std::cerr << e.what() << "\n";
+                    // }
+                }
+                return (m_is_first || !m_bounds.first || !(*m_bounds.first).gtByKey(item)) && (!m_bounds.second || (*m_bounds.second).gtByKey(item));
             }
             
             std::pair<std::optional<KeyT>, std::optional<KeyT> > getKeyRange() const 
