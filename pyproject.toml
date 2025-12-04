@@ -8,11 +8,17 @@ version = '0.1.0'
 description = 'DBZero Community edition'
 readme = 'README.md'
 requires-python = '>=3.8'
-license = {file = 'LICENSE.txt'}
+license = {file = 'LICENSE'}
 authors = [
 ]
 dependencies = [
     'fasteners==0.19'
+]
+
+classifiers = [
+    'License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)',
+    'Programming Language :: Python :: 3',
+    'Programming Language :: Python :: 3 :: Only',
 ]
 
 [tool.semantic_release.remote]
