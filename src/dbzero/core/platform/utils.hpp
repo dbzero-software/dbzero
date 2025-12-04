@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (c) 2025 DBZero Software sp. z o.o.
+
 // Define PACKED macro that works across compilers
 #if defined(_MSC_VER)  // Microsoft Visual C++
     #define PACKED_STRUCT(definition) __pragma(pack(push, 1)) definition __pragma(pack(pop))

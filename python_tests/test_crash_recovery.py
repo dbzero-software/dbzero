@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (c) 2025 DBZero Software sp. z o.o.
+
 import dbzero as db0
 from .conftest import DB0_DIR
 from .memo_test_types import MemoTestClass, MemoTestSingleton

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (c) 2025 DBZero Software sp. z o.o.
+
 // Copyright (C) 2020-2022 Infortex.  All rights reserved.
 // The information and source code contained herein is the exclusive
 // property of Infortex sp. z o.o. ( https://itx.pl ) and may not be disclosed, examined

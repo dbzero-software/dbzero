@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (c) 2025 DBZero Software sp. z o.o.
+
 from setuptools import setup
 import sys
 
@@ -13,7 +16,6 @@ setup(
     python_requires='>=3.8',
     license='AGPL-3.0-or-later',
     classifiers=[
-        'License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3 :: Only',
     ],
