@@ -52,17 +52,20 @@ pip install dbzero
 ### Hello World Example
 
 ```python
+from dataclasses import dataclass
 import dbzero as db0
 
 @db0.memo(singleton=True)
+@dataclass
 class Root:
-    def __init__(self, greeting):
-        self.greeting = greeting
+    greeting: str
 
     def greet(self):
         print(self.greeting)
 
 if __name__ == "__main__":
+    db0.init(dbzero_root="./data")
+    
     if db0.exists(Root):
         print("Process started with data...")
         root = db0.fetch(Root)
@@ -353,9 +356,9 @@ Application Code
     ↓
 ORM Layer
     ↓
-Database Layer
-    ↓
 Caching Layer
+    ↓
+Database Layer
     ↓
 Storage
 ```
@@ -390,9 +393,9 @@ Contributions are welcome! Please contact us at **info@dbzero.io** for guideline
 
 ## Support
 
-- **Documentation**: [dbzero.io](https://dbzero.io)
+- **Documentation**: [docs.dbzero.io](https://docs.dbzero.io)
 - **Email**: info@dbzero.io
-- **Issues**: Contact us for bug reports and feature requests
+- **Issues**: https://github.com/dbzero-software/dbzero/issues
 
 ---
 
