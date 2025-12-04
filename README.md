@@ -2,6 +2,15 @@
 
 dbzero Community Edition
 
+## License
+
+This project is licensed under the GNU Affero General Public License v3.0 (AGPLv3). See `LICENSE` for the full text.
+
+- If you modify and run this software over a network, you must offer the complete corresponding source code to users interacting with it (AGPLv3 §13).
+- Redistributions must preserve copyright and license notices and provide source.
+
+For a short summary, see `COPYING`. For attribution details, see `NOTICE`.
+
 ## Getting started
 
 To make it easy for you to get started with GitLab, here's a list of recommended next steps.
