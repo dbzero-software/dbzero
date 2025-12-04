@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (c) 2025 DBZero Software sp. z o.o.
+
 from collections import namedtuple
 from typing import Iterator, Any
 from .dbzero import _get_prefixes, _get_current_prefix, _get_prefix_of, _get_mutable_prefixes

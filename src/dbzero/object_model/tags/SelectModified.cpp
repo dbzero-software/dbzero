@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (c) 2025 DBZero Software sp. z o.o.
+
 #include "SelectModified.hpp"
 #include <unordered_set>
 #include <dbzero/core/collections/full_text/FT_SpanIterator.hpp>

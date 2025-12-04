@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (c) 2025 DBZero Software sp. z o.o.
+
 #include "DictView.hpp"
 #include "DictIterator.hpp"
 #include <dbzero/object_model/tuple/Tuple.hpp>

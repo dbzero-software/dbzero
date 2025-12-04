@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (c) 2025 DBZero Software sp. z o.o.
+
 #include "Memspace.hpp"
 #include <dbzero/core/utils/ProcessTimer.hpp>
 #include <dbzero/core/memory/utils.hpp>

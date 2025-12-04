@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (c) 2025 DBZero Software sp. z o.o.
+
 #include <gtest/gtest.h>
 #include <dbzero/core/collections/pools/RC_LimitedPool.hpp>
 #include <dbzero/core/collections/pools/StringPools.hpp>

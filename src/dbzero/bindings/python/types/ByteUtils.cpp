@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (c) 2025 DBZero Software sp. z o.o.
+
 #include "ByteUtils.hpp"
 
 void set_bytes(std::uint64_t &number, int start_byte, int n_bytes, std::uint64_t value){
