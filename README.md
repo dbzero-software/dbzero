@@ -14,7 +14,7 @@ dbzero implements the **DISTIC memory** model:
 - **D**urable - Data persists automatically across application restarts
 - **I**nfinite - Work with data as if memory constraints don't exist
 - **S**hared - Multiple processes can access and share the same data
-- **T**ransactions - Full ACID transaction support for data integrity
+- **T**ransactions - Transaction support for data integrity
 - **I**solated - Operations are isolated and thread-safe
 - **C**omposable - A single process can integrate multiple memory partitions (prefixes) to suit its specific requirements
 
@@ -31,6 +31,7 @@ The result is a simplified application stack that can eliminate the need for sep
 - **Efficient Caching** - Only accessed data is loaded into memory
 - **Time Travel** - Query historical states at any transaction point
 - **Horizontal Scalability** - Built-in support for data partitioning and sharding
+- **Custom Data Models** - Unlike traditional databases, dbzero allows you to define custom data structures that match your domain's needs, enabling not just constant speedup but algorithmic speedup (e.g., O(log N) → O(1))
 
 ### Developer Experience
 - **Invisible by Design** - Minimal API surface; write regular Python code
@@ -325,7 +326,7 @@ db0.open("my-prefix", "rw", autocommit=False)
 
 ## Documentation
 
-For comprehensive documentation, visit: **[dbzero.io](https://dbzero.io)**
+For comprehensive documentation, visit: **[docs.dbzero.io](https://docs.dbzero.io)**
 
 Topics covered:
 - API Reference
