@@ -10,7 +10,15 @@
 
 **dbzero** lets you code as if you have infinite memory. Inspired by a thought experiment from *Architecture Patterns with Python* by Harry Percival and Bob Gregory, dbzero handles the complexities of data management in the background while you work with simple Python objects.
 
-The result is a simplified application stack that can eliminate the need for separate databases, ORMs, and caching layers—reducing development time by up to **80%**.
+dbzero implements the **DISTIC memory** model:
+- **D**urable - Data persists automatically across application restarts
+- **I**nfinite - Work with data as if memory constraints don't exist
+- **S**hared - Multiple processes can access and share the same data
+- **T**ransactions - Full ACID transaction support for data integrity
+- **I**solated - Operations are isolated and thread-safe
+- **C**omposable - A single process can integrate multiple memory partitions (prefixes) to suit its specific requirements
+
+The result is a simplified application stack that can eliminate the need for separate databases, ORMs, and caching layers—reducing development time by up to **80%** and, in some cases, enabling applications to run **hundreds of times faster**.
 
 ---
 
