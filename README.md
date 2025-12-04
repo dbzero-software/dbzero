@@ -388,12 +388,6 @@ For a short summary, see `COPYING`. For attribution details, see `NOTICE`.
 
 ---
 
-## Contributing
-
-Contributions are welcome! Please contact us at **info@dbzero.io** for guidelines and contribution process.
-
----
-
 ## Support
 
 - **Documentation**: [docs.dbzero.io](https://docs.dbzero.io)
