@@ -77,6 +77,8 @@ if __name__ == "__main__":
 
 When the process exits, the application state is persisted automatically. The same data will be available the next time the app starts.
 
+**Note:** All objects linked to `Root` (and any objects they reference) are automatically managed by dbzero. There's no need for explicit conversions, fetching, or saving—dbzero handles persistence transparently for the entire object graph.
+
 ---
 
 ## Core Concepts
