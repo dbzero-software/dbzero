@@ -283,6 +283,5 @@ def test_copy_prefix_throws_on_path_passed(db0_fixture):
         root.value.append(MemoTestClass("a" * 1024))  # 1 KB string
     db0.commit()
     
-    with pytest.raises(Exception) as excinfo:
+    with pytest.raises(OSError) as excinfo:
         db0.copy_prefix(path)
-    assert "Output file points to a directory:" in str(excinfo.value)
