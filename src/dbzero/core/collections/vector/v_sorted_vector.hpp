@@ -18,11 +18,10 @@
 namespace db0
 
 {
-DB0_PACKED_BEGIN
 
     /**
      * inverting comparator
-     */
+    */
     template <class T,class comp_t> struct inverted_comp_t 
     {
         comp_t _comp;
@@ -37,7 +36,7 @@ DB0_PACKED_BEGIN
         bool operator()(const T &val0,const T &val1) const {
             return _comp(val1,val0);
         }
-    };
+    };  
 
     /**
      * Sorted vector state types
@@ -53,6 +52,7 @@ DB0_PACKED_BEGIN
      * data_t - contained element type (comparable)
      * comp_t - data comparer
      */
+DB0_PACKED_BEGIN    
     template <class data_t, class comp_t = std::less<data_t> > class DB0_PACKED_ATTR o_sv_container
         : public o_base<o_sv_container<data_t,comp_t>, 0, false >
     {
@@ -666,7 +666,8 @@ DB0_PACKED_BEGIN
             return reinterpret_cast<const data_t*>(reinterpret_cast<const std::byte*>(this) + sizeof(self));
         }
     };
-    
+DB0_PACKED_END
+
     /**
      * NOTICE : destroy does not call any overlaid item destructors
      * in order to destroy items, call erase / clear first
@@ -1070,7 +1071,7 @@ DB0_PACKED_BEGIN
         /**
          * @return true on object relocated
          */
-        bool compactShrinking() 
+        bool compactShrinking()
         {
             if ((*this)->isShrinking()) {
                 return compact();
@@ -1155,5 +1156,4 @@ DB0_PACKED_BEGIN
         DestroyF m_item_destroy_func;
     };
 
-DB0_PACKED_END
 }

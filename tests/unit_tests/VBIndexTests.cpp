@@ -179,5 +179,29 @@ namespace tests
         timer.printLog(std::cout) << std::endl;
     }
 
+    TEST_F( VBIndexTests , testVBIndexBulkErase )
+    {
+        using ItemT = db0::key_value<std::uint32_t, std::uint32_t>;
+        auto memspace = getMemspace();
+        std::vector<ItemT> values(1500);
+        for (std::uint32_t i = 0; i < 1500; ++i) {
+            values[i] = { i, 0 };
+        }
+        db0::v_bindex<ItemT> cut(memspace, memspace.getPageSize());
+        cut.bulkInsert(values.begin(), values.end());
+        ASSERT_EQ(cut.size(), 1500u);
+        std::function<bool(ItemT)> selector = [&](ItemT item) {
+            return item.key < 1000;
+        };
+        cut.bulkErase(selector);
+        ASSERT_EQ(cut.size(), 500u);
+        // verify remaining items
+        auto it = cut.begin(), end = cut.end();
+        while (it != end) {
+            ASSERT_EQ((*it).key >= 1000, true);
+            ++it;
+        }
+    }
+
 }
 
