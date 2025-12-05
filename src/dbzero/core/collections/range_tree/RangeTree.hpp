@@ -310,28 +310,6 @@ DB0_PACKED_END
             bool canInsert(ItemT item) const
             {
                 assert(m_asc);
-
-                if (m_bounds.second) {
-                    // std::cerr << "Can insert check for item: "
-                    //           << item.m_key << ":" << item.m_value << "\n";
-                    // std::cerr << "Checking for range : ["
-                    //           << (m_bounds.first ? std::to_string((*m_bounds.first).m_key) : "null")
-                    //           << ", "
-                    //           << (m_bounds.second ? std::to_string((*m_bounds.second).m_key) : "null")
-                    //           << ")\n";
-                    // std::cerr << "m_is_first: " << m_is_first << "\n";
-                    // std::cerr << "!m_bounds.first: " << !m_bounds.first << "\n";
-                    // std::cerr << "!(item < *m_bounds.first) " << !(item < *m_bounds.first) << "\n";
-                    // std::cerr << "(!m_bounds.second: " << !m_bounds.second << "\n";
-                    // std::cerr << "(*m_bounds.second).gtByKey(item): " << (*m_bounds.second).gtByKey(item) << "\n";
-                    // std::cerr << "FINAL: " << ( (m_is_first || !m_bounds.first || !(item < *m_bounds.first)) && (!m_bounds.second || (*m_bounds.second).gtByKey(item)) ) << "\n";
-                    // std::cerr << std::endl;
-                    // try{
-                    //     throw std::runtime_error("Debug Exception");
-                    // } catch (const std::exception &e) {
-                    //     std::cerr << e.what() << "\n";
-                    // }
-                }
                 return (m_is_first || !m_bounds.first || !(*m_bounds.first).gtByKey(item)) && (!m_bounds.second || (*m_bounds.second).gtByKey(item));
             }
             
