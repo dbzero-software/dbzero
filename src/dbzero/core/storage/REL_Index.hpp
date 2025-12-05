@@ -75,6 +75,12 @@ DB0_PACKED_END
         bool operator()(const REL_CompressedItem &, const REL_CompressedItem &) const;
     };
     
+    // Alternative comparators, by the absolute storage page number
+    struct REL_CompressedItemAltCompT
+    {
+        bool operator()(const REL_CompressedItem &, const REL_CompressedItem &) const;
+    };
+    
     // Compressed items are actual in-memory representation
 DB0_PACKED_BEGIN
     struct DB0_PACKED_ATTR REL_CompressedItem
@@ -168,6 +174,8 @@ DB0_PACKED_END
         
         // Retrieve storage (absolute) page num for a given relative page num
         std::uint64_t getAbsolute(std::uint64_t rel_page_num) const;
+        // Retrieve relative page num for a given storage (absolute) page num
+        std::uint64_t getRelative(std::uint64_t storage_page_num) const;
         
         db0::Address getAddress() const;
         

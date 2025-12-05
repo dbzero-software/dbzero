@@ -22,7 +22,7 @@ namespace db0
         // @param file the underlying file object
         // @param page_size the size of a single page in bytes
         // @param block_size size of a unit block of pages to be pre-allocated by the stream
-        // @param address of the currently active block
+        // @param address of the currently active block (for append)
         // @param page_count the number of pages already stored in the current block
         // @param step_size number of blocks per single indivisible step (for REL_Index mapping)
         // @param tail_function a function returning current (unflushed) size of the file (Page IO excluded)
@@ -72,8 +72,14 @@ namespace db0
         // Get the number of pages remaining in the current step (for append)
         std::uint32_t getCurrentStepRemainingPages() const;
         
-        std::uint32_t getStepSize() const {
+        // @return step size in number of blocks
+        std::size_t getStepSize() const {
             return m_step_size;
+        }
+        
+        // @return block size in bytes
+        std::size_t getBlockSize() const {
+            return m_block_size;
         }
 
         // Reads entire blocks / steps sequentially

@@ -274,7 +274,11 @@ DB0_PACKED_END
         sg_tree_const_iterator cend_nodes() const {
             return base_t::end();
         }
-    
+
+        bool empty() const {
+            return super_t::empty();
+        }
+
         std::size_t size() const {
             return super_t::size();
         }
@@ -336,6 +340,33 @@ DB0_PACKED_END
             }
             
             return std::nullopt;
+        }
+
+        // Lookup by alternative comparator (e.g. secondary key with same precedence)
+        // @tparam KeyT - must be a COMPRESSED item
+        template <typename KeyT, typename AltCompT> std::optional<ItemT> 
+        lower_equal_bound(const KeyT &key, AltCompT alt_comp) const
+        {
+            auto node = base_t::lower_equal_bound(key, alt_comp);
+            if (node == base_t::end()) {
+                return std::nullopt;
+            }
+            
+            // NOTE: this check is to avoid sigsegv in case of data corruption
+            if (node->empty())  {
+                THROWF(db0::InternalException) << "Corrupted SGB_CompressedLookupTree node found at " << node.getAddress();
+            }
+            
+            // node will be sorted if needed (only if opened as READ/WRITE)
+            if (this->m_access_type == AccessType::READ_WRITE) {                
+                this->onNodeLookup(node);
+            }
+
+            // within the node look up by compressed key
+            auto item_ptr = node->lower_equal_bound(key, alt_comp);
+            assert(item_ptr);
+            // return uncompressed
+            return node->header().uncompress(*item_ptr);
         }
         
         // Locate first element which is greater or equal to the key

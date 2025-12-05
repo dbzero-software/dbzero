@@ -216,7 +216,7 @@ DB0_PACKED_END
         */
         std::uint64_t getBlockCount(std::uint64_t file_size) const;
 
-        std::uint64_t getNextStoragePageNum() const;
+        std::optional<std::uint64_t> getNextStoragePageNum() const;
 
         BlockIOStream getBlockIOStream(std::uint64_t first_block_pos, AccessType);
         
@@ -229,7 +229,7 @@ DB0_PACKED_END
         {
             return { m_file, first_block_pos, m_config.m_block_size, getTailFunction(), access_type };
         }
-
+        
         template<typename ChangeLogIOStreamT>
         std::unique_ptr<ChangeLogIOStreamT> tryGetChangeLogIOStream(std::uint64_t first_block_pos, AccessType access_type)
         {
@@ -245,7 +245,7 @@ DB0_PACKED_END
 
         MetaIOStream getMetaIOStream(std::uint64_t first_block_pos, std::size_t step_size, AccessType);
         
-        Diff_IO getPage_IO(std::uint64_t next_page_hint, std::uint32_t step_size);
+        Diff_IO getPage_IO(std::optional<std::uint64_t> next_page_hint, std::uint32_t step_size);
         
         o_prefix_config readConfig() const;
         

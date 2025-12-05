@@ -68,7 +68,13 @@ namespace db0
         std::vector<std::byte> buffer;
         std::uint64_t start_page_num = 0;
         while (auto page_count = reader.next(buffer, start_page_num)) {
+            // FIXME: log
+            std::cout << "PageIO reader start_page_num: " << start_page_num << ", page_count: " << page_count << std::endl;
             auto buf_ptr = buffer.data();
+            if (!!ext_space) {
+                // translate start_page_num to relative if the mapping exists
+                start_page_num = ext_space.getAbsolute(start_page_num);
+            }
             while (page_count > 0) {
                 // page number (absolute) in the output stream
                 auto storage_page_num = out.getNextPageNum().first;

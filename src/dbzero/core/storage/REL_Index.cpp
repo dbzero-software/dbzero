@@ -163,7 +163,7 @@ namespace db0
     }
     
     std::uint64_t REL_Index::assignRelative(std::uint64_t storage_page_num, bool is_first_in_step)
-    {        
+    {   
         if (is_first_in_step) {
             super_t::insert({ ++m_max_rel_page_num, storage_page_num });
             assert(storage_page_num > m_last_storage_page_num);
@@ -176,7 +176,7 @@ namespace db0
         if (result > m_max_rel_page_num) {
             m_max_rel_page_num = result;
         }
-    
+        
         return result;
     }
     
@@ -194,6 +194,8 @@ namespace db0
         
         // register the new mapping
         super_t::insert({ rel_page_num, storage_page_num });
+        // FIXME: log
+        std::cout << "Insert mapping " << rel_page_num << " -> " << storage_page_num << std::endl;
         m_max_rel_page_num = rel_page_num;
         m_last_storage_page_num = storage_page_num;
         m_rel_page_num = rel_page_num;
@@ -209,6 +211,8 @@ namespace db0
     
     std::uint64_t REL_Index::getAbsolute(std::uint64_t rel_page_num) const
     {
+        // FIXME: log
+        std::cout << "Query for: " << rel_page_num << std::endl;
         auto result = super_t::lower_equal_bound(rel_page_num);
         if (!result) {
             THROWF(db0::InternalException) << "REL_Index: page lookup failed on: " << rel_page_num;
@@ -217,6 +221,19 @@ namespace db0
         return result->m_storage_page_num + (rel_page_num - result->m_rel_page_num);        
     }
     
+    std::uint64_t REL_Index::getRelative(std::uint64_t storage_page_num) const
+    {
+        // Query using an alternative comparator
+        // - by storage page num which is stored preserving the same order as relative page num)
+        auto key = REL_CompressedItem(0, 0, storage_page_num);
+        auto result = super_t::lower_equal_bound(key, REL_CompressedItemAltCompT());
+        if (!result) {
+            THROWF(db0::InternalException) << "REL_Index: page lookup failed on: " << storage_page_num;
+        }
+        // translate to relative page number
+        return result->m_rel_page_num + (storage_page_num - result->m_storage_page_num);
+    }
+
     std::uint64_t REL_Index::size() const {
         return super_t::size();
     }

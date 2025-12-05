@@ -271,3 +271,93 @@ def test_copy_prefix_continuous_process(db0_fixture):
     for i in range(copy_id):
         last_len = validate_copy(i, expected_min_len = last_len)
         print(f"--- Copy {i} valid with {last_len} objects")
+
+
+def test_modify_copied_prefix(db0_fixture):
+    file_name = "./test-copy.db0"
+    # remove file if it exists
+    if os.path.exists(file_name):
+        os.remove(file_name)
+
+    px_name = db0.get_current_prefix().name
+    px_path = os.path.join(DB0_DIR, px_name + ".db0")
+    root = MemoTestSingleton([])
+    total_len = 0
+    
+    def modify_prefix():
+        append_count = 0
+        root = db0.fetch(MemoTestSingleton)
+        for _ in range(50):
+            root.value.append(MemoTestClass("a" * 1024))  # 1 KB string
+            append_count += 1
+        db0.commit()
+        return append_count
+    
+    total_len += modify_prefix()
+    db0.copy_prefix(file_name)
+    db0.close()
+    
+    # drop original file and replace with copy
+    os.remove(px_path)
+    os.rename(file_name, px_path)
+    
+    # open recovered prefix for update
+    db0.init(DB0_DIR, prefix=px_name, read_write=True)
+    total_len += modify_prefix()
+    db0.close()
+
+    # open prefix from recovered and modified copy
+    db0.init(DB0_DIR, prefix=px_name, read_write=False)
+    root = db0.fetch(MemoTestSingleton)
+    for item in root.value:
+        assert item.value == "a" * 1024
+    assert len(root.value) == total_len
+
+
+def test_copy_prefix_of_recovered_copy(db0_fixture):
+    file_name = "./test-copy.db0"
+    # remove file if it exists
+    if os.path.exists(file_name):
+        os.remove(file_name)
+
+    px_name = db0.get_current_prefix().name
+    px_path = os.path.join(DB0_DIR, px_name + ".db0")
+    root = MemoTestSingleton([])
+    total_len = 0
+    
+    def modify_prefix():
+        append_count = 0
+        root = db0.fetch(MemoTestSingleton)
+        for _ in range(50):
+            root.value.append(MemoTestClass("a" * 1024))  # 1 KB string
+            append_count += 1
+        db0.commit()
+        return append_count
+    
+    total_len += modify_prefix()
+    db0.copy_prefix(file_name)
+    db0.close()
+    
+    # drop original file and replace with copy
+    os.remove(px_path)
+    os.rename(file_name, px_path)
+    
+    # open recovered prefix for update
+    db0.init(DB0_DIR, prefix=px_name, read_write=True)
+    total_len += modify_prefix()
+    print("Before second copy")
+    db0.copy_prefix(file_name)
+    # FIXME: log
+    print("Second copy done")
+    db0.close()
+
+    # restore copy of a restored and modified copy
+    os.remove(px_path)
+    os.rename(file_name, px_path)
+    
+    # open prefix from recovered and modified copy of a copy
+    db0.init(DB0_DIR, prefix=px_name, read_write=False)
+    root = db0.fetch(MemoTestSingleton)
+    for item in root.value:
+        assert item.value == "a" * 1024
+    assert len(root.value) == total_len

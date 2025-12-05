@@ -89,7 +89,7 @@ namespace db0
         /**
          * Get next storage page number expected to be assigned
         */
-        PageNumT getNextStoragePageNum() const;
+        std::optional<PageNumT> getNextStoragePageNum() const;
         
         /**
          * Get the maximum used state number
@@ -104,7 +104,9 @@ namespace db0
         void forAll(std::function<void(const ItemT &)> callback) const {
             m_index.forAll(callback);
         }
-                
+        
+        bool empty() const;
+
         // Get the total number of data page descriptors stored in the index
         std::size_t size() const;
 
@@ -361,11 +363,15 @@ DB0_PACKED_END
     }
     
     template <typename ItemT, typename CompressedItemT>
-    typename SparseIndexBase<ItemT, CompressedItemT>::PageNumT 
-    SparseIndexBase<ItemT, CompressedItemT>::getNextStoragePageNum() const {
+    std::optional<typename SparseIndexBase<ItemT, CompressedItemT>::PageNumT> 
+    SparseIndexBase<ItemT, CompressedItemT>::getNextStoragePageNum() const 
+    {
+        if (this->empty() ) {
+            return std::nullopt;
+        }
         return m_next_page_num;
     }
-
+    
     template <typename ItemT, typename CompressedItemT>
     typename SparseIndexBase<ItemT, CompressedItemT>::StateNumT
     SparseIndexBase<ItemT, CompressedItemT>::getMaxStateNum() const {
@@ -393,6 +399,11 @@ DB0_PACKED_END
         return _str.str();
     }
     
+    template <typename ItemT, typename CompressedItemT>
+    bool SparseIndexBase<ItemT, CompressedItemT>::empty() const {
+        return m_index.empty();
+    }
+
     template <typename ItemT, typename CompressedItemT>
     std::size_t SparseIndexBase<ItemT, CompressedItemT>::size() const {
         return m_index.size();
