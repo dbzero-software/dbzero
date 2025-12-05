@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (c) 2025 DBZero Software sp. z o.o.
+
 /////////////////////////////////////////////////////////////////////////////
 //
 // (C) Copyright Joaqu�n M L�pez Mu�oz  2006-2007

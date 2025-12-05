@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (c) 2025 DBZero Software sp. z o.o.
+
 #pragma once
 
 // This module contains python specific dbzero API implementation
@@ -171,6 +174,8 @@ namespace db0::python
 
     PyObject *PyAPI_getMemoClass(PyObject *, PyObject *const *args, Py_ssize_t nargs);
     
+    PyObject *PyAPI_copyPrefix(PyObject *, PyObject *args, PyObject *kwargs);
+
 #ifndef NDEBUG
     PyObject *PyAPI_startDebugLogs(PyObject *self, PyObject *args);
 

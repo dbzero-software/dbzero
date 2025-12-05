@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (c) 2025 DBZero Software sp. z o.o.
+
 #include <gtest/gtest.h>
 #include <dbzero/bindings/python/PySafeAPI.hpp>
 #include <dbzero/bindings/python/shared_py_object.hpp>

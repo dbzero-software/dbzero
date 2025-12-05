@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (c) 2025 DBZero Software sp. z o.o.
+
 #include "SplitIterable.hpp"
 #include "SplitIterator.hpp"
 #include <dbzero/core/memory/swine_ptr.hpp>

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (c) 2025 DBZero Software sp. z o.o.
+
 #pragma once
 
 #include "BlockIOStream.hpp"
@@ -18,6 +21,8 @@ namespace db0
     class ChangeLogIOStream: public BlockIOStream
     {
     public:
+        using ChangeLogT = o_change_log_t;
+
         /**
          * Note that checksums are always enabled for the ChangeLogStream
         */
@@ -63,20 +68,32 @@ namespace db0
             std::list<std::vector<char> > m_buffers;
             std::list<std::vector<char> >::const_iterator m_it_next_buffer;
         };
-        
+
+        // Retrieves a caching reaader, which allows multiple scan over the same data
+        Reader getStreamReader();
+
         // The buffering proxy for write operations
-        // changes are only reflected with the underlying stream on "flush"
+        // changes are only reflected with the underlying stream on "flush", ignored on destroy
         class Writer
         {
         public:
+            Writer(ChangeLogIOStream &);
+
             void appendChangeLog(const o_change_log_t &);
             void flush();
 
         private:
+            ChangeLogIOStream &m_stream;
+            std::vector<std::vector<char> > m_buffers;
         };
         
-        // Retrieves a caching reaader, which allows multiple scan over the same data
-        Reader getStreamReader();
+        Writer getStreamWriter();
+
+    protected:
+        friend class Reader;
+        friend class Writer;
+
+        const o_change_log_t &appendChangeLog(const o_change_log_t &);
 
     private:
         const o_change_log_t *m_last_change_log_ptr = nullptr;

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (c) 2025 DBZero Software sp. z o.o.
+
 #include<iostream>
 #include "Memo.hpp"
 #include "PyAPI.hpp"
@@ -93,7 +96,8 @@ static PyMethodDef dbzero_methods[] =
     {"get_config", &py::PyAPI_getConfig, METH_NOARGS, "Get dbzero configuration, as passed to 'init' function"},
     {"assign", (PyCFunction)&py::PyAPI_assign, METH_VARARGS | METH_KEYWORDS, "Assign multiple attributes in a single operation (non-atomic)"},
     {"touch", (PyCFunction)&py::PyAPI_touch, METH_FASTCALL, "Mark object to appear as modified in the current transaction (without actually modifying it)"},
-    {"get_schema", (PyCFunction)&py::PyAPI_getSchema, METH_FASTCALL, "Get deduced schema of a memo object"},    
+    {"get_schema", (PyCFunction)&py::PyAPI_getSchema, METH_FASTCALL, "Get deduced schema of a memo object"},
+    {"copy_prefix", (PyCFunction)&py::PyAPI_copyPrefix, METH_VARARGS | METH_KEYWORDS, "Copy entire prefix contents to make a backup or clone"},
     {"_wrap_memo_type", (PyCFunction)&py::PyAPI_wrapPyClass, METH_VARARGS | METH_KEYWORDS, "Wraps a memo type for use with dbzero"},
     {"_get_prefixes", &py::getPrefixes, METH_NOARGS, "Get the list of prefixes accessible from the current context"},
     {"_get_mutable_prefixes", &py::PyAPI_getMutablePrefixes, METH_NOARGS, "Get the list of prefixes opened with write access"},

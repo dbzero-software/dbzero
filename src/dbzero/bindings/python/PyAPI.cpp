@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (c) 2025 DBZero Software sp. z o.o.
+
 #include "PyAPI.hpp"
 #include "PyInternalAPI.hpp"
 #include "PyTagsAPI.hpp"
@@ -1467,8 +1470,6 @@ namespace db0::python
         }
 
         PY_API_FUNC
-        // FIXME: log
-        std::cout << "Storage validation " << (enable ? "enabled" : "disabled") << std::endl;
         db0::Settings::__storage_validation = enable;
         Py_RETURN_NONE;
     }
@@ -1496,5 +1497,11 @@ namespace db0::python
         PY_API_FUNC
         return runSafe(tryTouch, args, nargs);
     }
-        
+    
+    PyObject *PyAPI_copyPrefix(PyObject *, PyObject *args, PyObject *kwargs)
+    {
+        PY_API_FUNC
+        return reinterpret_cast<PyObject*>(runSafe(tryCopyPrefix, args, kwargs));
+    }
+
 }

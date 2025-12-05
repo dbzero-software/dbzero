@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (c) 2025 DBZero Software sp. z o.o.
+
 #pragma once
 
 #include "BlockIOStream.hpp"
@@ -82,6 +85,10 @@ DB0_PACKED_END
         // @param buf a meta-log persistency buffer
         // @return the meta-log or nullptr if not found
         const o_meta_log *lowerBound(StateNumType, std::vector<char> &buf) const;
+        
+        std::uint64_t getStepSize() const {
+            return m_step_max_size;
+        }
         
     private:
         const std::vector<BlockIOStream*> m_managed_streams;

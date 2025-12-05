@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (c) 2025 DBZero Software sp. z o.o.
+
 #pragma once
 
 #include <dbzero/core/serialization/Types.hpp>
@@ -167,6 +170,11 @@ DB0_PACKED_END
         std::uint64_t getAbsolute(std::uint64_t rel_page_num) const;
         
         db0::Address getAddress() const;
+        
+        // Registers a new mapping rel_page_num -> storage_page_num
+        // exception raised if unable to add the mapping
+        // the method is used by copy_prefix
+        void addMapping(std::uint64_t storage_page_num, std::uint64_t rel_page_num);
         
         void detach() const;
         void commit() const;

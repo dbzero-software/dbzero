@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (c) 2025 DBZero Software sp. z o.o.
+
 import pytest
 import multiprocessing
 import time
@@ -416,15 +419,15 @@ def test_refresh_query_while_adding_new_objects(db0_fixture):
         db0.close()
 
 def writer_process(prefix, writer_sem, reader_sem):
-        db0.init(DB0_DIR)
-        db0.open(prefix, "rw")
-        reader_sem.release()
-        while True:
-            if not writer_sem.acquire(timeout=10.0):
-                return # Safeguard
-            time.sleep(0.1)
-            _obj = MemoTestClass(123)
-            db0.commit()
+    db0.init(DB0_DIR)
+    db0.open(prefix, "rw")
+    reader_sem.release()
+    while True:
+        if not writer_sem.acquire(timeout=10.0):
+            return # Safeguard
+        time.sleep(0.1)
+        _obj = MemoTestClass(123)
+        db0.commit()
 
 def test_wait_for_updates(db0_fixture):
     prefix = db0.get_current_prefix().name

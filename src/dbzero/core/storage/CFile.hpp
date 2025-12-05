@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (c) 2025 DBZero Software sp. z o.o.
+
 #pragma once
 
 #include <string>
@@ -33,7 +36,9 @@ namespace db0
          * Check if specific file exists
         */
         static bool exists(const std::string &file_name);
-
+        // Remove existing file
+        static void remove(const std::string &file_name);
+        
         void write(std::uint64_t address, std::size_t size, const void *buffer);
         
         void read(std::uint64_t address, std::size_t size, void *buffer) const;

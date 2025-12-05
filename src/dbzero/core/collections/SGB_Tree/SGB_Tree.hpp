@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (c) 2025 DBZero Software sp. z o.o.
+
 #pragma once
 
 #include <functional>
@@ -90,6 +93,8 @@ namespace db0
             }
 #endif            
         };
+        
+        SGB_TreeBase() = default;
         
         /**
          * Creates the 'head' node with a given capacity
@@ -552,9 +557,9 @@ namespace db0
         }
         
     protected:
-        const std::size_t m_node_capacity;
-        const NodeItemCompT m_item_comp;
-        const HeapCompT m_heap_comp;
+        const std::size_t m_node_capacity = 0;
+        const NodeItemCompT m_item_comp = {};
+        const HeapCompT m_heap_comp = {};
         
         template <typename... Args> ItemIterator emplace_to_empty(Args&&... args)
         {

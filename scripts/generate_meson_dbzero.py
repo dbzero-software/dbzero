@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (c) 2025 DBZero Software sp. z o.o.
+
 """
 Simple script for generating meson.build file for dbzero Python package.
 Based on the existing generate_meson.py script pattern.

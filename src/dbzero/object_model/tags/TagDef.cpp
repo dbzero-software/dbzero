@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (c) 2025 DBZero Software sp. z o.o.
+
 #include "TagDef.hpp"
 #include <dbzero/object_model/class/ClassFactory.hpp>
 #include <dbzero/object_model/class/Class.hpp>

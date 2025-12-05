@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (c) 2025 DBZero Software sp. z o.o.
+
 #pragma once
 
 #include <optional>
@@ -14,7 +17,6 @@ namespace db0
         LockFlags(Config py_logs_flags);
         LockFlags(bool no_lock);
         
-
         bool m_blocking = false;
         int m_timeout = 0;
         bool m_relock_on_removed_lock = false;

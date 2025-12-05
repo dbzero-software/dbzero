@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (c) 2025 DBZero Software sp. z o.o.
+
 #pragma once
 
 #include <filesystem>
@@ -77,6 +80,9 @@ namespace db0
         
         // Get all known prefix names and their UUIDs
         std::unordered_map<std::string, std::uint64_t> getData() const;
+        
+        // Locate the prefix associated existing file name
+        fs::path getPrefixFileName(const PrefixName &prefix_name) const;
 
     private:
         PrefixCatalog &m_prefix_catalog;

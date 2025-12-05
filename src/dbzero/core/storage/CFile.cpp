@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (c) 2025 DBZero Software sp. z o.o.
+
 #include "CFile.hpp"
 #include <cassert>
 #include <sys/stat.h>
@@ -234,6 +237,13 @@ namespace db0
     {
         struct stat st;
         return stat(file_name.c_str(), &st) == 0;
+    }
+
+    void CFile::remove(const std::string &file_name)
+    {
+        if (std::remove(file_name.c_str()) != 0) {
+            THROWF(db0::IOException) << "CFile::remove: unable to remove file " << file_name;
+        }
     }
 
     std::pair<std::uint64_t, std::uint64_t> CFile::getRandOps() const {

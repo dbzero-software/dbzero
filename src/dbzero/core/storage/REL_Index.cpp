@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (c) 2025 DBZero Software sp. z o.o.
+
 #include "REL_Index.hpp"
 #include <dbzero/core/memory/utils.hpp>
 
@@ -173,8 +176,27 @@ namespace db0
         if (result > m_max_rel_page_num) {
             m_max_rel_page_num = result;
         }
-
+    
         return result;
+    }
+    
+    void REL_Index::addMapping(std::uint64_t storage_page_num, std::uint64_t rel_page_num)
+    {
+        assert(storage_page_num >= m_last_storage_page_num);
+        assert(rel_page_num >= m_rel_page_num);
+        if (!this->empty()) {
+            // check if the mapping is already valid
+            if (storage_page_num - m_last_storage_page_num == rel_page_num - m_rel_page_num) {
+                // mapping already valid
+                return;
+            }
+        }
+        
+        // register the new mapping
+        super_t::insert({ rel_page_num, storage_page_num });
+        m_max_rel_page_num = rel_page_num;
+        m_last_storage_page_num = storage_page_num;
+        m_rel_page_num = rel_page_num;
     }
     
     void REL_Index::refresh()
@@ -189,7 +211,7 @@ namespace db0
     {
         auto result = super_t::lower_equal_bound(rel_page_num);
         if (!result) {
-            THROWF(db0::InternalException) << "REL_Index: page lookup failed on: " << rel_page_num;            
+            THROWF(db0::InternalException) << "REL_Index: page lookup failed on: " << rel_page_num;
         }
         // translate to absolute storage page number
         return result->m_storage_page_num + (rel_page_num - result->m_rel_page_num);        

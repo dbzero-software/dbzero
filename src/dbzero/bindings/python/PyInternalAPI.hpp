@@ -1,7 +1,11 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (c) 2025 DBZero Software sp. z o.o.
+
 #pragma once
 
 #include <Python.h>
 #include <cstdint>
+#include <optional>
 #include <dbzero/bindings/python/types/PyObjectId.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/object_model/value/ObjectId.hpp>
@@ -232,8 +236,12 @@ namespace db0::python
     // opens BDevStorage and reads DRAM_IO map directly, without opening the prefix
     PyObject *tryGetDRAM_IOMapFromFile(const char *file_name);
 #endif    
-
+    
     PyObject *tryAssign(PyObject *targets, PyObject *key_values);
+    
+    PyObject *tryCopyPrefixImpl(db0::swine_ptr<Fixture> &prefix, const std::string &output_file_name,
+        std::optional<std::uint64_t> page_io_step_size = {});
+    PyObject *tryCopyPrefix(PyObject *args, PyObject *kwargs);
     
     extern template PyObject *getMaterializedMemoObject(MemoObject *);
     extern template PyObject *getMaterializedMemoObject(MemoImmutableObject *);

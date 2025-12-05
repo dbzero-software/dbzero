@@ -1,10 +1,14 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (c) 2025 DBZero Software sp. z o.o.
+
 #include "BaseStorage.hpp"
 
 namespace db0
 {
 
-    BaseStorage::BaseStorage(AccessType access_type)
+    BaseStorage::BaseStorage(AccessType access_type, StorageFlags flags)
         : m_access_type(access_type)
+        , m_flags(flags)
     {
     }
     
@@ -64,9 +68,9 @@ namespace db0
     {
         THROWF(db0::InternalException) << "Operation not supported: fetchChangeLog";
     }
-        
-    BDevStorage &BaseStorage::asFile() {
-        THROWF(db0::InternalException) << "file storage not available" << THROWF_END;
-    }
 
+    BDevStorage &BaseStorage::asFile() {
+        THROWF(db0::InternalException) << "Storage is not file-based" << THROWF_END;
+    }
+    
 }

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (c) 2025 DBZero Software sp. z o.o.
+
 #pragma once
 
 #include <dbzero/core/utils/FlagSet.hpp>
@@ -8,6 +11,7 @@
 #include <unordered_map>
 #include <optional>
 #include "ChangeLogTypes.hpp"
+#include "StorageFlags.hpp"
 
 namespace db0
 
@@ -16,7 +20,7 @@ namespace db0
     class ProcessTimer;
     class BDevStorage;
     template <typename BaseT> struct o_change_log;
-
+    
     /**
      * Defines the file-oriented storage interface
     */
@@ -26,7 +30,7 @@ namespace db0
         using DRAM_ChangeLogT = db0::o_change_log<db0::o_fixed_null>;
         using DP_ChangeLogT = db0::o_change_log<db0::o_dp_changelog_header>;
         
-        BaseStorage(AccessType);
+        BaseStorage(AccessType, StorageFlags = {});
         virtual ~BaseStorage() = default;
         
         /**
@@ -130,7 +134,8 @@ namespace db0
         // @param f function to be called for each transaction's change log
         virtual void fetchDP_ChangeLogs(StateNumType begin_state, std::optional<StateNumType> end_state,
             std::function<void(const DP_ChangeLogT &)> f) const;
-            
+        
+        // Throws where this conversion is not possible
         virtual BDevStorage &asFile();
         
 #ifndef NDEBUG
@@ -153,6 +158,7 @@ namespace db0
     
     protected:
         AccessType m_access_type;
+        StorageFlags m_flags;
     };
            
 }

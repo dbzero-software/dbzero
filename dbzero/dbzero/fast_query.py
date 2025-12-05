@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (c) 2025 DBZero Software sp. z o.o.
+
 # This is an experimental version of a possible Query Engine
 # implementation for dbzero
 from typing import Union, Callable, Tuple, Dict

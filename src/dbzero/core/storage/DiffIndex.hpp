@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (c) 2025 DBZero Software sp. z o.o.
+
 #pragma once
 
 #include <cstdint>
@@ -7,6 +10,7 @@
 #include <dbzero/core/serialization/packed_int_pair.hpp>
 #include <dbzero/core/serialization/packed_array.hpp>
 #include <dbzero/core/compiler_attributes.hpp>
+#include "StorageFlags.hpp"
 
 namespace db0
 
@@ -119,8 +123,8 @@ DB0_PACKED_END
         using StateNumT = typename super_t::StateNumT;
         
         DiffIndex(std::size_t node_size, std::vector<std::uint64_t> *change_log_ptr = nullptr);
-        DiffIndex(DRAM_Pair, AccessType, Address, std::vector<std::uint64_t> *change_log_ptr = nullptr);
-
+        DiffIndex(DRAM_Pair, AccessType, Address, std::vector<std::uint64_t> *change_log_ptr = nullptr, StorageFlags = {});
+        
         struct tag_create {};
         DiffIndex(tag_create, DRAM_Pair, std::vector<std::uint64_t> *change_log_ptr = nullptr);
         

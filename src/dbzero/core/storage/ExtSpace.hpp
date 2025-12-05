@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (c) 2025 DBZero Software sp. z o.o.
+
 #pragma once
 
 #include "BaseStorage.hpp"
@@ -64,6 +67,13 @@ DB0_PACKED_END
         std::uint64_t getAbsolute(std::uint64_t rel_page_num) const {
             assert(m_rel_index);
             return m_rel_index->getAbsolute(rel_page_num);
+        }
+        
+        // Registers a new mapping rel_page_num -> storage_page_num
+        // exception raised if unable to add the mapping
+        void addMapping(std::uint64_t storage_page_num, std::uint64_t rel_page_num) {
+            assert(m_rel_index);
+            m_rel_index->addMapping(storage_page_num, rel_page_num);
         }
         
         void refresh();

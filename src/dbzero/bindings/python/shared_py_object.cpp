@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (c) 2025 DBZero Software sp. z o.o.
+
 #include "shared_py_object.hpp"
 #include <dbzero/bindings/python/Memo.hpp>
 #include <dbzero/object_model/object/Object.hpp>
