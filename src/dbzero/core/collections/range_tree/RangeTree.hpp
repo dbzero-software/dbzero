@@ -133,6 +133,7 @@ DB0_PACKED_END
             std::make_heap(begin, end, CompT());
             while (begin != end) {
                 auto range = getRange(*begin);
+                
                 for (;;) {
                     auto _end = end;
                     // calculate the remaining capacity in the block
@@ -301,8 +302,7 @@ DB0_PACKED_END
             bool canInsert(ItemT item) const
             {
                 assert(m_asc);
-                // the second condition is to allow multiple range with identical element
-                return (m_is_first || !m_bounds.first || !(item < *m_bounds.first)) && (!m_bounds.second || (item < *m_bounds.second));
+                return (m_is_first || !m_bounds.first || !(*m_bounds.first).gtByKey(item)) && (!m_bounds.second || (*m_bounds.second).gtByKey(item));
             }
             
             std::pair<std::optional<KeyT>, std::optional<KeyT> > getKeyRange() const 
