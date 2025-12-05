@@ -860,9 +860,12 @@ namespace db0
                     // this is safe as order not violated
                     m_it_node.modify().m_data.lo_bound = m_data_buf->front();
                 }
-
+                
                 // move on to the next node
                 ++m_it_node;
+                if (m_it_node != m_ref.m_index.end()) {
+                    m_data_buf = data_vector(m_ref.getMemspace().myPtr(m_it_node->m_data.ptr_b_data), m_ref.m_item_destroy_func);                
+                }
                 return erase_count;
             }
             
