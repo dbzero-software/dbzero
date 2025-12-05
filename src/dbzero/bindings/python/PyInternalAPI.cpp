@@ -936,9 +936,15 @@ namespace db0::python
     PyObject *tryCopyPrefixImpl(BDevStorage &src_storage, const std::string &output_file_name,
         std::optional<std::uint64_t> page_io_step_size, std::optional<std::uint64_t> meta_io_step_size) 
     {
+        // make sure output is file doesn't point to a directory
+        if (output_file_name.back() == std::filesystem::path::preferred_separator) {
+            PyErr_Format(PyExc_OSError, "Output file points to a directory:  '%s'", output_file_name);
+            return nullptr;
+        }
         // make sure output file does not exist
         if (db0::CFile::exists(output_file_name)) {
-            THROWF(db0::IOException) << "Output file already exists: " << output_file_name;
+            PyErr_Format(PyExc_OSError, "Output file already exists:  '%s'", output_file_name);
+            return nullptr;
         }
                 
         // use either explicit step size, input step size (if > 1) or default = 4MB
@@ -1033,6 +1039,9 @@ namespace db0::python
             auto result = Py_OWN(tryCopyPrefixImpl(*storage, output_file_name, page_io_step_size, meta_io_step_size));
             storage->close();
             return result.steal();
+            if (!result) {
+                return nullptr;
+            }
         } catch (...) {
             if (storage) {
                 storage->close();

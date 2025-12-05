@@ -190,7 +190,7 @@ namespace tests
         db0::v_bindex<ItemT> cut(memspace, memspace.getPageSize());
         cut.bulkInsert(values.begin(), values.end());
         ASSERT_EQ(cut.size(), 1500u);
-        std::function<bool(ItemT)> selector = [](ItemT item) {
+        std::function<bool(ItemT)> selector = [&](ItemT item) {
             return item.key < 1000;
         };
         cut.bulkErase(selector);
