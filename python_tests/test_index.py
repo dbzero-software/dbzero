@@ -736,8 +736,9 @@ def test_insert_1M_keys_to_index(db0_no_autocommit):
     assert len(cut) == 1_000_000
     print(f"Inserted 1M keys to index in {end - start:.2f} seconds")
 
+
 @pytest.mark.stress_test
-def test_insert_key_into_splitted_range(db0_no_autocommit):
+def test_insert_key_into_split_range (db0_no_autocommit):
     cut = db0.index()
     objects = []
     for i in range(35000):
