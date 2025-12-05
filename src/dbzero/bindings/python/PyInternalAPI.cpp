@@ -936,6 +936,10 @@ namespace db0::python
     PyObject *tryCopyPrefixImpl(BDevStorage &src_storage, const std::string &output_file_name,
         std::optional<std::uint64_t> page_io_step_size, std::optional<std::uint64_t> meta_io_step_size) 
     {
+        // make sure output is file doesn't point to a directory
+        if (output_file_name.back() == '\\' || output_file_name.back() == '/') {
+            THROWF(db0::IOException) << "Output file points to a directory: " << output_file_name;
+        }
         // make sure output file does not exist
         if (db0::CFile::exists(output_file_name)) {
             THROWF(db0::IOException) << "Output file already exists: " << output_file_name;

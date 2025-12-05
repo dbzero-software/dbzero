@@ -271,3 +271,18 @@ def test_copy_prefix_continuous_process(db0_fixture):
     for i in range(copy_id):
         last_len = validate_copy(i, expected_min_len = last_len)
         print(f"--- Copy {i} valid with {last_len} objects")
+
+def test_copy_prefix_throws_on_path_passed(db0_fixture):
+    path = "./invalid-dir/nonexistent/-copy/"
+    # remove path if it exists
+    if os.path.exists(path):
+        os.rmdir(path)
+    
+    root = MemoTestSingleton([])
+    for _ in range(50):
+        root.value.append(MemoTestClass("a" * 1024))  # 1 KB string
+    db0.commit()
+    
+    with pytest.raises(Exception) as excinfo:
+        db0.copy_prefix(path)
+    assert "Output file points to a directory:" in str(excinfo.value)
