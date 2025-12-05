@@ -131,15 +131,10 @@ DB0_PACKED_END
             using CompT = typename ItemT::HeapCompT;
             // heapify the elements (min heap)
             std::make_heap(begin, end, CompT());
-            size_t loop_counter = 0;
             while (begin != end) {
                 auto range = getRange(*begin);
                 
                 for (;;) {
-                    loop_counter += 1;
-                    if (loop_counter % 100 == 0) {
-                        std::cerr << "bulkInsert loop iteration: " << loop_counter << "\n";
-                    }
                     auto _end = end;
                     // calculate the remaining capacity in the block
                     auto block_capacity = 0;
@@ -154,9 +149,6 @@ DB0_PACKED_END
                     }
                     
                     while (block_capacity > 0 && begin != end && range.canInsert(*begin)) {
-                        if (loop_counter % 100 == 0) {
-                            std::cerr << "In Insert " << loop_counter << "\n";
-                        }
                         std::pop_heap(begin, end, CompT());
                         --end;
                         --block_capacity;
