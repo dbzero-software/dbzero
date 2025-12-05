@@ -9,6 +9,7 @@ from dbzero import find
 from datetime import timedelta, datetime
 import random
 import time
+from .conftest import TEST_FILES_DIR_ROOT
 
 
 def test_index_instance_can_be_created_without_arguments(db0_fixture):
@@ -727,8 +728,33 @@ def test_insert_1M_keys_to_index(db0_no_autocommit):
     start = time.perf_counter()
     for i in range(1_000_000):
         # add random int
-        cut.add(random.randint(0, 100_000_000), random.choice(objects))        
+        cut.add(random.randint(0, 100_000_000), objects[i % 25000])
+        if i % 10_000 == 0:
+            assert len(cut) == i + 1
     result = list(cut.select(0, 1))
     end = time.perf_counter()
     assert len(cut) == 1_000_000
     print(f"Inserted 1M keys to index in {end - start:.2f} seconds")
+
+
+@pytest.mark.stress_test
+def test_insert_key_into_split_range (db0_no_autocommit):
+    cut = db0.index()
+    objects = []
+    for i in range(35000):
+        objects.append(MemoTestClass(i))
+    start = time.perf_counter()
+    elements =  257 * 1024
+    # add more items than initial max_block_size to force block splits
+    for i in range(0, elements):
+        cut.add(i, objects[i % 35000])
+        if i % 10000 == 0:
+            print(f"Inserted {i} keys so far...")
+            assert len(cut) == i + 1
+        
+    # add an item to bounded range that has been splitted
+    cut.add(127, objects[-1])
+    end = time.perf_counter()
+    elements += 1
+    assert len(cut) == elements
+    print(f"Inserted {elements} keys to index in {end - start:.2f} seconds")
