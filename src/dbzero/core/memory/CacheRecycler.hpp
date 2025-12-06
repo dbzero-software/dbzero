@@ -93,15 +93,16 @@ namespace db0
 		// number of locks to be flushed at once
 		std::size_t m_flush_size;
 		mutable std::mutex m_mutex;
-	std::function<void(std::size_t limit)> m_flush_dirty;
-	std::function<bool(bool)> m_flush_callback;
-	std::pair<bool, bool> m_last_flush_callback_result = {true, false};
-	
-	// Flush rate limiting
-	std::chrono::high_resolution_clock::time_point m_next_flush_time{};
-	std::chrono::nanoseconds m_current_flush_delay{0};
-	
-	void resize(std::unique_lock<std::mutex> &, std::size_t new_size, int priority);        /**
+		std::function<void(std::size_t limit)> m_flush_dirty;
+		std::function<bool(bool)> m_flush_callback;
+		std::pair<bool, bool> m_last_flush_callback_result = {true, false};
+		
+		// Flush rate limiting
+		std::chrono::high_resolution_clock::time_point m_next_flush_time{};
+		std::chrono::nanoseconds m_current_flush_delay{0};
+		
+		void resize(std::unique_lock<std::mutex> &, std::size_t new_size, int priority);        
+		/**
          * Adjusts cache size after updates, collect locks to unlock (can be unlocked off main thread)
          * @param released_locks locks to be released
 		 * @param release_size total number of bytes to be released
@@ -116,6 +117,8 @@ namespace db0
 		inline std::size_t getCurrentSize() const {
 			return m_current_size[0] + m_current_size[1];
 		}
+
+		std::pair<bool, bool> _flush(std::unique_lock<std::mutex> &, int priority);
 	};
 
 }
