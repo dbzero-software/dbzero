@@ -128,4 +128,11 @@ namespace db0
         CacheException();
     };
 
+    class PrefixNotFoundException: public RecoverableException
+    {
+    public:
+        static constexpr int exception_id = EXCEPTION_ID_PREFIX::BASIC | 0x10;
+        PrefixNotFoundException();
+    };
+
 }
