@@ -53,7 +53,7 @@ namespace db0
         auto file_name = getFileName(prefix_name);
         bool file_exists = CFile::exists(file_name.string());
         if (!if_exists && !file_exists) {
-            THROWF(db0::InputException) << "Prefix does not exist: " << prefix_name;
+            THROWF(db0::PrefixNotFoundException) << "Prefix does not exist: " << prefix_name;
         }        
         if (file_exists) {
             std::remove(file_name.string().c_str());
@@ -203,7 +203,7 @@ namespace db0
     fs::path FixtureCatalog::getPrefixFileName(const PrefixName &prefix_name) const 
     {
         if (!m_prefix_catalog.exists(prefix_name)) {
-            THROWF(db0::InputException) << "Prefix does not exist: " << prefix_name;
+            THROWF(db0::PrefixNotFoundException) << "Prefix does not exist: " << prefix_name;
         }
         return m_prefix_catalog.getFileName(prefix_name);
     }

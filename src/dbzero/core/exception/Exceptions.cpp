@@ -72,4 +72,9 @@ namespace db0
     {        
     }
 
+    PrefixNotFoundException::PrefixNotFoundException()
+        : RecoverableException(exception_id)
+    {
+    }
+
 }

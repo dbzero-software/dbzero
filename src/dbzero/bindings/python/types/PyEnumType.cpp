@@ -124,7 +124,7 @@ namespace db0::python
             auto prefix_name_ptr = m_enum_type_def->getPrefixNamePtr();
             if (prefix_name_ptr) {
                 // make the error message more informative
-                THROWF(db0::InputException) << "Prefix does not exist or unable to open: " << prefix_name_ptr;
+                THROWF(db0::PrefixNotFoundException) << "Prefix does not exist or unable to open: " << prefix_name_ptr;
             }
             THROWF(db0::InputException) << "Unable to resolve the scope of: " << *m_enum_type_def;
         }
