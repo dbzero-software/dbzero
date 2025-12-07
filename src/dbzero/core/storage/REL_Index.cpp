@@ -15,6 +15,14 @@ namespace db0
         return ss.str();
     }
 
+    bool REL_ItemCompT::operator()(const REL_Item &item, REL_StoragePageNum storage_page_num) const {
+        return item.m_storage_page_num < storage_page_num.m_value;
+    }
+    
+    bool REL_ItemCompT::operator()(REL_StoragePageNum storage_page_num, const REL_Item &item) const {
+        return storage_page_num.m_value < item.m_storage_page_num;
+    }
+
     bool REL_ItemCompT::operator()(const REL_Item &lhs, const REL_Item &rhs) const {
         return lhs.m_rel_page_num < rhs.m_rel_page_num;
     }
@@ -56,7 +64,15 @@ namespace db0
     bool REL_CompressedItemEqualT::operator()(const REL_CompressedItem &lhs, const REL_CompressedItem &rhs) const {
         return lhs.m_compressed_rel_page_num == rhs.m_compressed_rel_page_num;
     }
-    
+
+    bool REL_CompressedItemCompT::operator()(const REL_CompressedItem &item, REL_StoragePageNum storage_page_num) const {
+        return item.m_storage_page_num < storage_page_num.m_value;
+    }
+
+    bool REL_CompressedItemCompT::operator()(REL_StoragePageNum storage_page_num, const REL_CompressedItem &item) const {
+        return storage_page_num.m_value < item.m_storage_page_num;
+    }
+
     REL_CompressedItem::REL_CompressedItem(std::uint32_t first_rel_page_num, const REL_Item &item)
         : m_storage_page_num(item.m_storage_page_num)
         , m_flags(item.m_flags)
@@ -122,6 +138,14 @@ namespace db0
     
     bool REL_IndexTypes::BlockHeader::canFit(std::uint64_t rel_page_num) const {
         return m_first_page_num == (rel_page_num >> 32);
+    }
+    
+    bool REL_IndexTypes::BlockHeader::canFit(REL_StoragePageNum) const {
+        return true;
+    }
+
+    REL_StoragePageNum REL_IndexTypes::BlockHeader::compress(REL_StoragePageNum storage_page_num) const {
+        return storage_page_num;
     }
     
     std::string REL_IndexTypes::BlockHeader::toString(const CompressedItemT &item) const 
@@ -195,7 +219,7 @@ namespace db0
         // register the new mapping
         super_t::insert({ rel_page_num, storage_page_num });
         // FIXME: log
-        std::cout << "Insert mapping " << rel_page_num << " -> " << storage_page_num << std::endl;
+        std::cout << "Add mapping: " << rel_page_num << " -> " << storage_page_num << std::endl;
         m_max_rel_page_num = rel_page_num;
         m_last_storage_page_num = storage_page_num;
         m_rel_page_num = rel_page_num;
@@ -211,8 +235,6 @@ namespace db0
     
     std::uint64_t REL_Index::getAbsolute(std::uint64_t rel_page_num) const
     {
-        // FIXME: log
-        std::cout << "Query for: " << rel_page_num << std::endl;
         auto result = super_t::lower_equal_bound(rel_page_num);
         if (!result) {
             THROWF(db0::InternalException) << "REL_Index: page lookup failed on: " << rel_page_num;
@@ -224,20 +246,26 @@ namespace db0
     std::uint64_t REL_Index::getRelative(std::uint64_t storage_page_num) const
     {
         // Query using an alternative comparator
-        // - by storage page num which is stored preserving the same order as relative page num)
-        auto key = REL_CompressedItem(0, 0, storage_page_num);
-        auto result = super_t::lower_equal_bound(key, REL_CompressedItemAltCompT());
+        // - by storage page num only (which is stored preserving the same order as relative page num)        
+        auto result = super_t::lower_equal_bound(REL_StoragePageNum { storage_page_num});
         if (!result) {
             THROWF(db0::InternalException) << "REL_Index: page lookup failed on: " << storage_page_num;
         }
         // translate to relative page number
-        return result->m_rel_page_num + (storage_page_num - result->m_storage_page_num);
+        // FIXME: log
+        auto rel_page = result->m_rel_page_num + (storage_page_num - result->m_storage_page_num);
+        std::cout << "Get relative: " << storage_page_num << " -> " << rel_page << std::endl;
+        return rel_page;
     }
-
+    
     std::uint64_t REL_Index::size() const {
         return super_t::size();
     }
     
+    REL_Index::const_iterator REL_Index::cbegin() const {
+        return super_t::cbegin();
+    }
+
 }
 
 namespace std

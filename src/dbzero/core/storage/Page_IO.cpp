@@ -151,10 +151,18 @@ namespace db0
         return m_first_page_num + m_page_count;        
     }
     
-    Page_IO::Reader::Reader(const Page_IO &page_io, std::optional<std::uint64_t> end_page_num)
+    Page_IO::Reader::Reader(const Page_IO &page_io, const ExtSpace &ext_space,
+        std::optional<std::uint64_t> end_page_num)
         : m_page_io(page_io)
+        , m_step_pages(page_io.getStepSize() * page_io.m_block_capacity)
+        , m_ext_space(ext_space)
+        , m_step_it(ext_space.tryBegin())
         , m_end_page_num(std::min(end_page_num.value_or(std::numeric_limits<std::uint64_t>::max()), page_io.getEndPageNum()))
-    {        
+        , m_current_page_num(getFirstPageNum())
+    {
+        // FIXME: log
+        std::cout << "reader first page num: " << m_current_page_num << ", end page num: " << m_end_page_num << std::endl;
+        std::cout << "Ext space active : " << (!!m_ext_space) << std::endl;
     }
     
     std::uint32_t Page_IO::Reader::next(std::vector<std::byte> &buf, std::uint64_t &start_page_num,
@@ -168,10 +176,30 @@ namespace db0
 
         start_page_num = m_current_page_num;
         auto to_read = std::min(max_pages, m_end_page_num - m_current_page_num);
+        // align with the step size (if defined)
+        if (m_step_it) {
+            if (m_step_it->is_end()) {
+                // end of the stream reached
+                return 0;
+            }
+
+            auto step_end_page = (**m_step_it).m_storage_page_num + m_step_pages;
+            to_read = std::min(to_read, step_end_page - m_current_page_num);
+        }
         if (to_read > 0) {
             m_page_io.read(m_current_page_num, buf.data(), static_cast<std::uint32_t>(to_read));
             m_current_page_num += to_read;
-            return static_cast<std::uint32_t>(to_read);
+            // move on to the next step if end of the current step reached
+            if (m_step_it) {
+                auto step_end_page = (**m_step_it).m_storage_page_num + m_step_pages;
+                if (m_current_page_num >= step_end_page) {
+                    ++(*m_step_it);
+                    if (!m_step_it->is_end()) {
+                        // position at the beginning of the next step
+                        m_current_page_num = (**m_step_it).m_storage_page_num;
+                    }
+                }
+            }                        
         }
         return to_read;
     }
@@ -186,6 +214,19 @@ namespace db0
         return (file_size - m_page_io.m_header_size) / m_page_io.m_page_size;
     }
     
+    std::uint64_t Page_IO::Reader::getFirstPageNum() const
+    {                
+        if (!!m_ext_space) {
+            // FIXME: log
+            m_ext_space.dump();
+            auto it = m_ext_space.tryBegin();
+            if (it && !it->is_end()) {
+                return (**it).m_storage_page_num;
+            }
+        }
+        return 0;        
+    }
+
     void Page_IO::moveBy(std::uint32_t page_count)
     {
         if (!m_block_num) {

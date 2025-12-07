@@ -78,5 +78,27 @@ namespace tests
                 << "Absolute page num: " << query.first;
         }
     }
+
+    TEST_F( REL_IndexTest , testREL_IndexSortedIteration )
+    {
+        auto node_size = 16u << 10;
+        auto memspace = DRAMSpace::create(node_size);
+        REL_Index cut(memspace, 16u << 10, AccessType::READ_WRITE);
+        std::vector<REL_Item> items {
+            // relative page number, absolute page number
+            { 0, 100 }, { 50, 200 }, { 60, 210 }, { 100, 300 }, { 150, 400 }, { 160, 410 }, { 200, 500 }
+        };
+
+        for (auto &item: items) {
+            cut.addMapping(item.m_storage_page_num, item.m_rel_page_num);
+        }
+        
+        std::vector<std::uint64_t> rel_page_nums;
+        auto it = cut.cbegin();
+        while (!it.is_end()) {
+            rel_page_nums.push_back((*it).m_rel_page_num);
+            ++it;
+        }
+    }
     
 }

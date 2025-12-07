@@ -178,7 +178,8 @@ DB0_PACKED_BEGIN
             return this->header().m_flags[LookupHeaderFlags::reversed] ? -1 : 1;
         }
         
-        template <typename KeyT> const_iterator lower_equal_bound(const KeyT &key, const HeapCompT &comp) const
+        template <typename KeyT, typename CompT = HeapCompT>
+        const_iterator lower_equal_bound(const KeyT &key, CompT comp) const
         {
             const_iterator result = nullptr;
             if (is_sorted()) {

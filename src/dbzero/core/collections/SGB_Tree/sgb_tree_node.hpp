@@ -44,7 +44,7 @@ DB0_PACKED_BEGIN
         using const_iterator = const ItemT *;
         using CompT = ItemCompT;
         using EqualT = ItemEqualT;
-
+        
         // tree pointers (possibly relative to slab)
         sgb_tree_ptr_set<AddressT> ptr_set;
         // total number of available (allocated) bytes
@@ -52,7 +52,7 @@ DB0_PACKED_BEGIN
         // actual number of stored elements
         CapacityT m_size = 0;
 
-        /// inverts items for the min heap
+        // Reverses items for the min heap
         struct HeapCompT
         {
             ItemCompT itemComp;
@@ -235,6 +235,24 @@ DB0_PACKED_BEGIN
                 , m_comp(comp)
             {
             }
+            
+            const_sorting_iterator(const const_sorting_iterator &other)
+                : m_items(other.m_items)                
+                // rebase items
+                , m_ptr(m_items.data() + (other.m_ptr - other.m_items.data()))
+                , m_end_ptr(m_items.data() + (other.m_end_ptr - other.m_items.data()))
+                , m_comp(other.m_comp)
+            {
+            }
+
+            const_sorting_iterator(const_sorting_iterator &&other)
+                : m_items(std::move(other.m_items))
+                // rebase items
+                , m_ptr(m_items.data() + (other.m_ptr - other.m_items.data()))
+                , m_end_ptr(m_items.data() + (other.m_end_ptr - other.m_items.data()))
+                , m_comp(other.m_comp)
+            {
+            }
 
             const_sorting_iterator &operator++()
             {
@@ -260,6 +278,18 @@ DB0_PACKED_BEGIN
                 return m_ptr;
             }
 
+            const_sorting_iterator &operator=(const const_sorting_iterator &other)
+            {
+                if (this != &other) {
+                    m_items = other.m_items;
+                    // rebase items
+                    m_ptr = m_items.data() + (other.m_ptr - other.m_items.data());
+                    m_end_ptr = m_items.data() + (other.m_end_ptr - other.m_items.data());
+                    m_comp = other.m_comp;
+                }
+                return *this;
+            }
+            
         private:
             std::vector<ItemT> m_items;
             ItemT *m_ptr = nullptr, *m_end_ptr = nullptr;

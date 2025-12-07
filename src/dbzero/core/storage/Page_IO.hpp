@@ -4,6 +4,7 @@
 #pragma once
 
 #include "CFile.hpp"
+#include "ExtSpace.hpp"
 #include <functional>
 
 namespace db0
@@ -87,20 +88,31 @@ namespace db0
         class Reader
         {
         public:
-            Reader(const Page_IO &page_io, std::optional<std::uint64_t> end_page_num = {});
+            // @param ext_space optional ExtSpace for locating data "steps" and
+            // for translating into relative page numbers
+            Reader(const Page_IO &page_io, const ExtSpace &ext_space,
+                std::optional<std::uint64_t> end_page_num = {});
             
             // Reads up to max_bytes of data
+            // @param start_page_num the first storage page number read in this call
             // @return number of pages read, 0 if end-of-stream reached
             std::uint32_t next(std::vector<std::byte> &, std::uint64_t &start_page_num,
                 std::size_t max_bytes = 64u << 20);
             
         private:
             const Page_IO &m_page_io;
+            // step size as the number of pages
+            const std::size_t m_step_pages;
+            const ExtSpace &m_ext_space;
+            std::unique_ptr<typename ExtSpace::const_iterator> m_step_it;
             std::uint64_t m_end_page_num;
+            // current storage page number
             std::uint64_t m_current_page_num = 0;
             
             // Calculate end page number from actual file size
             std::uint64_t endPageNum() const;
+            // First storage page number to read from
+            std::uint64_t getFirstPageNum() const;
         };
         
     protected:

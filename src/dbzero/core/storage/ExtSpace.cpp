@@ -87,4 +87,12 @@ namespace db0
         );
     }
     
+    std::unique_ptr<ExtSpace::const_iterator> ExtSpace::tryBegin() const
+    {
+        if (!(*this) || !m_rel_index) {
+            return {};
+        }
+        return std::make_unique<const_iterator>(m_rel_index->cbegin());
+    }
+    
 }

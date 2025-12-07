@@ -35,11 +35,13 @@ namespace db0
     
     // Copy raw contents of a specific Page_IO up to a specific storage page number
     // @param in the input (source) Page_IO (must NOT define ext-space - i.e. absolute / relative mapping)
+    // @param src_ext_space the source ExtSpace (to retrieve relative mappings if any)
     // @param out the output Page_IO
     // @param end_page_num the storage page number (not to be exceeded on copy)
     // @param ext_space the ExtSpace to assign new relative page numbers on copy
     // NOTE: after copy the source "absolute" page numbers will be corresponding do destination's relative page numbers
     // therefore we have no need to translate the source DRAM_IO
-    void copyPageIO(const Page_IO &in, Page_IO &out, std::uint64_t end_page_num, ExtSpace &ext_space);
+    void copyPageIO(const Page_IO &in, const ExtSpace &src_ext_space, Page_IO &out, 
+        std::uint64_t end_page_num, ExtSpace &ext_space);
     
 }

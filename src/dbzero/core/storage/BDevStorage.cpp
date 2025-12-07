@@ -547,8 +547,6 @@ namespace db0
             std::uint32_t dram_page_size, AccessType access_type)
     {
         if (!first_block_pos) {
-            // FIXME: log
-            std::cout << "BDevStorage::tryGetDRAMIOStream: no ext DRAM IO stream configured" << std::endl;
             return nullptr;
         }
         return std::make_unique<DRAM_IOStream>(m_file, first_block_pos, m_config.m_block_size, 
@@ -875,7 +873,7 @@ namespace db0
             if (!!m_ext_space) {
                 end_page_num = m_ext_space.getAbsolute(end_page_num);
             }
-            copyPageIO(m_page_io, out.m_page_io, end_page_num, out.m_ext_space);
+            copyPageIO(m_page_io, m_ext_space, out.m_page_io, end_page_num, out.m_ext_space);
         }
         
         copyStream(m_meta_io, out.m_meta_io);

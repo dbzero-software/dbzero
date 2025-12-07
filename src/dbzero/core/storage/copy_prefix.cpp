@@ -57,23 +57,26 @@ namespace db0
         return o_change_log_t::__const_ref(last_chunk_buf.data());        
     }
     
-    void copyPageIO(const Page_IO &in, Page_IO &out, std::uint64_t end_page_num, ExtSpace &ext_space)
+    void copyPageIO(const Page_IO &in, const ExtSpace &src_ext_space, Page_IO &out,
+        std::uint64_t end_page_num, ExtSpace &ext_space)
     {
         std::size_t page_size = in.getPageSize();
         if (page_size != out.getPageSize()) {
             THROWF(db0::IOException) << "copyPageIO: page size mismatch between input and output streams";
         }
-         
-        Page_IO::Reader reader(in, end_page_num);
+        
+        Page_IO::Reader reader(in, src_ext_space, end_page_num);
         std::vector<std::byte> buffer;
         std::uint64_t start_page_num = 0;
         while (auto page_count = reader.next(buffer, start_page_num)) {
-            // FIXME: log
-            std::cout << "PageIO reader start_page_num: " << start_page_num << ", page_count: " << page_count << std::endl;
             auto buf_ptr = buffer.data();
-            if (!!ext_space) {
-                // translate start_page_num to relative if the mapping exists
-                start_page_num = ext_space.getAbsolute(start_page_num);
+            if (!!src_ext_space) {
+                // FIXME: log
+                std::cout << "Before translating to relative: " << start_page_num << std::endl;
+                // translate to relative page number
+                start_page_num = src_ext_space.getRelative(start_page_num);
+                // FIXME: log
+                std::cout << "Relative: " << start_page_num << std::endl;
             }
             while (page_count > 0) {
                 // page number (absolute) in the output stream
