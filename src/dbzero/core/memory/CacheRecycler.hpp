@@ -10,6 +10,7 @@
 #include <functional>
 #include <optional>
 #include <atomic>
+#include <chrono>
 #include <dbzero/core/memory/ResourceLock.hpp>
 #include <dbzero/core/utils/FixedList.hpp>
 
@@ -21,6 +22,8 @@ namespace db0
     {
 	public:
 		static constexpr std::size_t DEFAULT_FLUSH_SIZE = 256u << 20;
+		static constexpr std::int64_t INITIAL_FLUSH_DELAY_NS = 1'000; // 1us
+		static constexpr std::int64_t MAX_FLUSH_DELAY_NS = 1'000'000'000; // 1 second
 		
 		/**
 		 * Holds resource locks and recycles based on LRU policy
@@ -94,9 +97,12 @@ namespace db0
 		std::function<bool(bool)> m_flush_callback;
 		std::pair<bool, bool> m_last_flush_callback_result = {true, false};
 		
-		void resize(std::unique_lock<std::mutex> &, std::size_t new_size, int priority);
-
-        /**
+		// Flush rate limiting
+		std::chrono::high_resolution_clock::time_point m_next_flush_time{};
+		std::chrono::nanoseconds m_current_flush_delay{0};
+		
+		void resize(std::unique_lock<std::mutex> &, std::size_t new_size, int priority);        
+		/**
          * Adjusts cache size after updates, collect locks to unlock (can be unlocked off main thread)
          * @param released_locks locks to be released
 		 * @param release_size total number of bytes to be released
@@ -111,6 +117,8 @@ namespace db0
 		inline std::size_t getCurrentSize() const {
 			return m_current_size[0] + m_current_size[1];
 		}
+
+		std::pair<bool, bool> _flush(std::unique_lock<std::mutex> &, int priority);
 	};
 
 }
