@@ -218,8 +218,6 @@ namespace db0
         
         // register the new mapping
         super_t::insert({ rel_page_num, storage_page_num });
-        // FIXME: log
-        std::cout << "Add mapping: " << rel_page_num << " -> " << storage_page_num << std::endl;
         m_max_rel_page_num = rel_page_num;
         m_last_storage_page_num = storage_page_num;
         m_rel_page_num = rel_page_num;
@@ -251,11 +249,8 @@ namespace db0
         if (!result) {
             THROWF(db0::InternalException) << "REL_Index: page lookup failed on: " << storage_page_num;
         }
-        // translate to relative page number
-        // FIXME: log
-        auto rel_page = result->m_rel_page_num + (storage_page_num - result->m_storage_page_num);
-        std::cout << "Get relative: " << storage_page_num << " -> " << rel_page << std::endl;
-        return rel_page;
+        // translate to relative page number        
+        return result->m_rel_page_num + (storage_page_num - result->m_storage_page_num);
     }
     
     std::uint64_t REL_Index::size() const {

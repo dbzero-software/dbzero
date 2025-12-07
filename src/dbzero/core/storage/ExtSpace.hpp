@@ -89,18 +89,6 @@ DB0_PACKED_END
         void refresh();
         void commit();
         
-        // FIXME: log
-        void dump() const
-        {
-            // FIXME: log
-            std::cout << "Before ext-space dump:" << std::endl;
-            auto it = m_rel_index->cbegin();
-            while (!it.is_end()) {
-                std::cout << "next item: " << (*it).toString() << std::endl;
-                ++it;
-            }
-        }
-
     private:
         std::shared_ptr<DRAM_Prefix> m_dram_prefix;
         std::shared_ptr<DRAM_Allocator> m_dram_allocator;

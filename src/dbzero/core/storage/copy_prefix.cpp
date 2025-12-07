@@ -71,12 +71,8 @@ namespace db0
         while (auto page_count = reader.next(buffer, start_page_num)) {
             auto buf_ptr = buffer.data();
             if (!!src_ext_space) {
-                // FIXME: log
-                std::cout << "Before translating to relative: " << start_page_num << std::endl;
                 // translate to relative page number
                 start_page_num = src_ext_space.getRelative(start_page_num);
-                // FIXME: log
-                std::cout << "Relative: " << start_page_num << std::endl;
             }
             while (page_count > 0) {
                 // page number (absolute) in the output stream

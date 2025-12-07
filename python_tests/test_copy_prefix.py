@@ -344,13 +344,10 @@ def test_copy_prefix_of_recovered_copy(db0_fixture):
     
     # open recovered prefix for update
     db0.init(DB0_DIR, prefix=px_name, read_write=True)
-    total_len += modify_prefix()
-    print("Before second copy")
+    total_len += modify_prefix()    
     db0.copy_prefix(file_name)
-    # FIXME: log
-    print("Second copy done")
     db0.close()
-
+    
     # restore copy of a restored and modified copy
     os.remove(px_path)
     os.rename(file_name, px_path)

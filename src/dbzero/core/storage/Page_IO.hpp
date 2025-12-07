@@ -83,6 +83,28 @@ namespace db0
             return m_block_size;
         }
 
+        class StepIterator
+        {
+        public:
+            StepIterator(const Page_IO &page_io, const ExtSpace &ext_space);
+            
+            bool operator!() const;
+
+            bool is_end() const;
+            // @retrun storage page number of the current step
+            std::uint64_t operator*() const;
+
+            StepIterator &operator++();
+            std::size_t getStepPages() const;
+
+        private:
+            // step size as the number of pages
+            const std::size_t m_step_pages;
+            std::optional<std::uint64_t> m_current_page_num;
+            // next step's iterator (may be end)
+            std::unique_ptr<typename ExtSpace::const_iterator> m_next_it;
+        };
+
         // Reads entire blocks / steps sequentially
         // until reaching the end_page_num or end-of-stream whichever comes first
         class Reader
@@ -101,10 +123,7 @@ namespace db0
             
         private:
             const Page_IO &m_page_io;
-            // step size as the number of pages
-            const std::size_t m_step_pages;
-            const ExtSpace &m_ext_space;
-            std::unique_ptr<typename ExtSpace::const_iterator> m_step_it;
+            StepIterator m_step_it;
             std::uint64_t m_end_page_num;
             // current storage page number
             std::uint64_t m_current_page_num = 0;
@@ -112,7 +131,7 @@ namespace db0
             // Calculate end page number from actual file size
             std::uint64_t endPageNum() const;
             // First storage page number to read from
-            std::uint64_t getFirstPageNum() const;
+            std::uint64_t getFirstPageNum(const ExtSpace &) const;
         };
         
     protected:

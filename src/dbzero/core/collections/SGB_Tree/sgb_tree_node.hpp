@@ -244,14 +244,9 @@ DB0_PACKED_BEGIN
                 , m_comp(other.m_comp)
             {
             }
-
-            const_sorting_iterator(const_sorting_iterator &&other)
-                : m_items(std::move(other.m_items))
-                // rebase items
-                , m_ptr(m_items.data() + (other.m_ptr - other.m_items.data()))
-                , m_end_ptr(m_items.data() + (other.m_end_ptr - other.m_items.data()))
-                , m_comp(other.m_comp)
-            {
+            
+            const_sorting_iterator(const_sorting_iterator &&other) {
+                (*this) = std::move(other);
             }
 
             const_sorting_iterator &operator++()
@@ -285,6 +280,20 @@ DB0_PACKED_BEGIN
                     // rebase items
                     m_ptr = m_items.data() + (other.m_ptr - other.m_items.data());
                     m_end_ptr = m_items.data() + (other.m_end_ptr - other.m_items.data());
+                    m_comp = other.m_comp;
+                }
+                return *this;
+            }
+
+            const_sorting_iterator &operator=(const_sorting_iterator &&other)
+            {
+                if (this != &other) {
+                    auto ptr_diff = other.m_ptr - other.m_items.data();
+                    auto end_ptr_diff = other.m_end_ptr - other.m_items.data();
+                    m_items = std::move(other.m_items);
+                    // rebase items
+                    m_ptr = m_items.data() + ptr_diff;
+                    m_end_ptr = m_items.data() + end_ptr_diff;
                     m_comp = other.m_comp;
                 }
                 return *this;
