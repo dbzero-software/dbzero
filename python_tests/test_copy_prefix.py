@@ -91,7 +91,10 @@ def test_copy_prefix_custom_step_size(db0_fixture):
 def writer_process(prefix, obj_count = 50, commit_count = 50, long_run = False):
     db0.init(DB0_DIR)
     db0.open(prefix, "rw")
+    # create new or open an existing root object
     root = MemoTestSingleton([])
+    if (len(root.value) > 0):
+        print(f"Writer process: opened existing prefix with {len(root.value)} objects")
     for i in range(commit_count):
         for _ in range(obj_count):
             root.value.append(MemoTestClass("b" * 1024))  # 1 KB string
@@ -100,7 +103,7 @@ def writer_process(prefix, obj_count = 50, commit_count = 50, long_run = False):
             print(f"Writer process: committed {i * obj_count} objects")
         else:
             time.sleep(0.1)
-        
+    
     if long_run:
         print(db0.get_storage_stats())
     db0.commit()
@@ -216,61 +219,71 @@ def test_copy_prefix_continuous_process(db0_fixture):
         return result
     
     db0.close()
-    obj_count = 5000
-    commit_count = 100
-    # start the writer process for a long run
-    p = multiprocessing.Process(target=writer_process, args=(px_name, obj_count, commit_count, True))
-    p.start()
     
-    db0.init(DB0_DIR)
-    db0.open(px_name, "r")
-    last_len = 0
-    while True:
-        try:
-            root = db0.fetch(MemoTestSingleton)
-            if len(root.value) > 1:
-                last_len = len(root.value)
+    # in each 'epoch' we modify prefix while making copies
+    # then drop the original prefix and restore if from the last copy
+    epoch_count = 2
+    for epoch in range(epoch_count):
+        print(f"=== Epoch {epoch} ===")
+        # obj_count = 5000
+        # commit_count = 100
+        obj_count = 500
+        commit_count = 100
+        # start the writer process for a long run
+        p = multiprocessing.Process(target=writer_process, args=(px_name, obj_count, commit_count, True))
+        p.start()
+        
+        db0.init(DB0_DIR)
+        db0.open(px_name, "r")
+        last_len = 0
+        while True:
+            try:
+                root = db0.fetch(MemoTestSingleton)
+                if len(root.value) > 1:
+                    last_len = len(root.value)
+                    break
+            except Exception:
+                pass
+            time.sleep(0.1)
+        
+        copy_id = 0
+        # copy the prefix multiple times while it is being modified 
+        while True:        
+            if not p.is_alive():
                 break
-        except Exception:
-            pass
-        time.sleep(0.1)
-    
-    copy_id = 0
-    # copy the prefix multiple times while it is being modified 
-    while True:        
-        if not p.is_alive():
-            break
-        file_name = f"./test-copy-{copy_id}.db0"
-        if os.path.exists(file_name):
-            os.remove(file_name)
-        # copy prefix without opening it, use default step size
-        print("--- Copying prefix iteration", copy_id)
-        db0.copy_prefix(file_name, prefix=px_name)
-        print("--- copy finished")
-        copy_id += 1
-        if not p.is_alive():
-            break
-        time.sleep(2.5)  # wait a bit before next copy
-    
-    p.join()
-    
-    # validate original prefix (no copy yet)
-    print("Validating final prefix ...")
-    db0.open(px_name, "r")
-    validate_current_prefix(expected_len = obj_count * commit_count)
-    
-    # make final stale copy (i.e. without active modifications)
-    final_copy = f"./test-copy-final.db0"
-    if os.path.exists(final_copy):
-        os.remove(final_copy)
-    db0.copy_prefix(final_copy, prefix=px_name)    
-    db0.close()
-    
-    print("Validating all copies")        
-    validate_copy("final", expected_len = obj_count * commit_count)
-    for i in range(copy_id):
-        last_len = validate_copy(i, expected_min_len = last_len)
-        print(f"--- Copy {i} valid with {last_len} objects")
+            file_name = f"./test-copy-{copy_id}.db0"
+            if os.path.exists(file_name):
+                os.remove(file_name)
+            # copy prefix without opening it, use default step size
+            print("--- Copying prefix iteration", copy_id)
+            db0.copy_prefix(file_name, prefix=px_name)
+            print("--- copy finished")
+            copy_id += 1
+            if not p.is_alive():
+                break
+            time.sleep(2.5)  # wait a bit before next copy
+        
+        p.join()
+        
+        # validate original prefix (no copy yet)
+        print("Validating final prefix ...")
+        db0.open(px_name, "r")
+        validate_current_prefix(expected_len = obj_count * commit_count)
+        
+        # make final stale copy (i.e. without active modifications)
+        final_copy = f"./test-copy-final.db0"
+        if os.path.exists(final_copy):
+            os.remove(final_copy)
+        db0.copy_prefix(final_copy, prefix=px_name)    
+        db0.close()
+        
+        print("Validating all copies")
+        validate_copy("final", expected_len = obj_count * commit_count)        
+        for i in range(copy_id):
+            last_len = validate_copy(i, expected_min_len = last_len)
+            print(f"--- Copy {i} valid with {last_len} objects")
+        
+        # now, continue modifications starting from the last restored copy (making new copies)
 
 
 def test_modify_copied_prefix(db0_fixture):
