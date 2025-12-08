@@ -82,11 +82,11 @@ DB0_PACKED_BEGIN
 
         const_iterator cbegin() const
         {
-            if (!is_reversed()) {
-                return super_t::cbegin();
+            if (is_reversed()) {
+                // reversed begin
+                return super_t::cbegin() + this->maxItems() - 1;
             }
-            // reversed begin
-            return super_t::cbegin() + this->maxItems() - 1;
+            return super_t::cbegin();
         }
 
         iterator begin() const {
@@ -95,10 +95,10 @@ DB0_PACKED_BEGIN
 
         const_iterator cend() const
         {
-            if (!is_reversed()) {
-                return super_t::cend();    
+            if (is_reversed()) {
+                return this->cbegin() - this->m_size;
             }
-            return this->cbegin() - this->m_size;
+            return super_t::cend();            
         }
         
         iterator end() {
@@ -107,11 +107,11 @@ DB0_PACKED_BEGIN
 
         const_iterator clast() const
         {
-            if (!is_reversed()) {
-                return super_t::clast();                
-            }
-            // reversed last
-            return super_t::cbegin() - 1;            
+            if (is_reversed()) {
+                // reversed last
+                return super_t::cbegin() - 1;
+            } 
+            return super_t::clast();            
         }
         
         iterator last() {
@@ -119,7 +119,7 @@ DB0_PACKED_BEGIN
         }
 
         const ItemT &keyItem() const {
-            // key item is the first heap item
+            // key item is the first heap item (or first sorted item)
             return *this->cbegin();
         }
 
@@ -153,7 +153,8 @@ DB0_PACKED_BEGIN
          * 
          * @return true if item was erased
         */
-        template <typename KeyT> bool erase(const KeyT &key, const HeapCompT &comp)
+        template <typename KeyT> 
+        bool erase(const KeyT &key, const HeapCompT &comp)
         {            
             if (this->is_reversed()) {
                 auto item_ptr = dheap::rfind<D>(this->begin(), this->end(), key, comp.itemEqual);
@@ -207,7 +208,8 @@ DB0_PACKED_BEGIN
             return result;
         }
         
-        template <typename KeyT> const_iterator upper_equal_bound(const KeyT &key, const HeapCompT &comp) const
+        template <typename KeyT> 
+        const_iterator upper_equal_bound(const KeyT &key, const HeapCompT &comp) const
         {
             const_iterator result = nullptr;
             if (is_sorted()) {
@@ -320,6 +322,85 @@ DB0_PACKED_BEGIN
             return this->erase_existing(this->itemAt(at), comp);
         }
         
+        class const_sorting_iterator
+        {    
+        public:
+            const_sorting_iterator() = default;
+            const_sorting_iterator(const ItemT *ptr, const ItemT *end_ptr, const HeapCompT &comp,
+                bool is_sorted, bool is_reversed)
+                : m_ptr(is_sorted ? ptr : nullptr)
+                , m_end_ptr(is_sorted ? end_ptr : nullptr)
+                , m_is_sorted(is_sorted)
+                , m_is_reversed(is_reversed)
+                , m_step(is_reversed ? -1 : 1)
+            {
+                if (!is_sorted) {
+                    if (is_reversed) {
+                        // NOTE: pointers are reversed as well
+                        assert(!(ptr <= end_ptr));
+                        // copy items in reversed heap order
+                        std::vector<ItemT> items;
+                        items.reserve(std::distance(end_ptr, ptr));
+                        while (ptr != end_ptr) {
+                            items.push_back(*ptr);
+                            --ptr;
+                        }
+                        m_it = { std::move(items), comp };
+                    } else {
+                        m_it = { ptr, end_ptr, comp };
+                    }
+                }
+            }
+
+            const_sorting_iterator &operator++()
+            {
+                assert(!is_end());
+                if (m_is_sorted) {
+                    m_ptr += m_step;                    
+                } else {
+                    assert(!!m_it);
+                    ++m_it;
+                }
+                return *this;
+            }
+
+            // Check if the instance is valid
+            bool operator!() const {
+                return !(m_ptr || !!m_it);
+            }
+            
+            bool is_end() const 
+            {
+                if (m_is_sorted) {
+                    return m_ptr == m_end_ptr;
+                } else {
+                    return m_it.is_end();
+                }
+            }
+
+            ItemT operator*() const
+            {
+                assert(!is_end());
+                if (m_is_sorted) {
+                    return *m_ptr;
+                } else {
+                    return *m_it;
+                }            
+            }
+
+        private:
+            typename super_t::const_sorting_iterator m_it;
+            const ItemT *m_ptr = nullptr;
+            const ItemT *m_end_ptr = nullptr;
+            bool m_is_sorted = false;
+            bool m_is_reversed = false;
+            int m_step;
+        };
+
+        const_sorting_iterator cbegin_sorted(const HeapCompT &comp) const {
+            return { this->cbegin(), this->cend(), comp, is_sorted(), is_reversed() };
+        }
+
     private:
 
         /**

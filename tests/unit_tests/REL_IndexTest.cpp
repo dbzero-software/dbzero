@@ -100,5 +100,24 @@ namespace tests
             ++it;
         }
     }
-    
+
+    TEST_F( REL_IndexTest , testREL_IndexIteratorIssue1 )
+    {
+        auto node_size = 16u << 10;
+        auto memspace = DRAMSpace::create(node_size);
+        REL_Index cut(memspace, 16u << 10, AccessType::READ_WRITE);
+        cut.addMapping(32, 0);
+        cut.addMapping(64, 14);
+        cut.assignRelative(128, true);
+        cut.assignRelative(144, true);
+        
+        std::vector<std::uint64_t> rel_page_nums;
+        auto it = cut.cbegin();
+        while (!it.is_end()) {            
+            rel_page_nums.push_back((*it).m_storage_page_num);
+            ++it;
+        }
+        ASSERT_EQ(rel_page_nums, (std::vector<std::uint64_t>{32, 64, 128, 144}));
+    }
+
 }

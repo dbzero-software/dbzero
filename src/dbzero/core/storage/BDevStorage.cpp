@@ -78,6 +78,17 @@ namespace db0
         if (m_access_type == AccessType::READ_ONLY && !m_flags.test(StorageOptions::NO_LOAD)) {
             refresh();
         }
+
+        // FIXME: log
+        if (!!m_ext_space) {
+            std::cout << "ExtSpace after open ***:" << std::endl;
+            auto it = m_ext_space.tryBegin();
+            while (!it->is_end()) {
+                std::cout << "ext item: " << **it << std::endl;
+                ++(*it);
+            }
+            std::cout << "---" << std::endl;
+        }
     }
     
     BDevStorage::~BDevStorage()
@@ -458,6 +469,17 @@ namespace db0
     
     bool BDevStorage::flush(ProcessTimer *parent_timer)
     {
+        // FIXME: log
+        if (!!m_ext_space) {
+            std::cout << "ExtSpace before flush ***:" << std::endl;
+            auto it = m_ext_space.tryBegin();
+            while (!it->is_end()) {
+                std::cout << "ext item: " << **it << std::endl;
+                ++(*it);
+            }
+            std::cout << "---" << std::endl;
+        }
+
         std::unique_lock<std::shared_mutex> lock(m_mutex);
         std::unique_ptr<ProcessTimer> timer;
         if (parent_timer) {

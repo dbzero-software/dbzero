@@ -60,6 +60,16 @@ namespace db0
     void copyPageIO(const Page_IO &in, const ExtSpace &src_ext_space, Page_IO &out,
         std::uint64_t end_page_num, ExtSpace &ext_space)
     {
+        // FIXME: log
+        if (!!src_ext_space) {
+            auto it = src_ext_space.tryBegin();
+            while (!it->is_end()) {
+                std::cout << "ext item: " << **it << std::endl;
+                ++(*it);
+            }
+            std::cout << "---" << std::endl;
+        }
+
         std::size_t page_size = in.getPageSize();
         if (page_size != out.getPageSize()) {
             THROWF(db0::IOException) << "copyPageIO: page size mismatch between input and output streams";
@@ -70,6 +80,8 @@ namespace db0
         std::uint64_t start_page_num = 0;
         while (auto page_count = reader.next(buffer, start_page_num)) {
             auto buf_ptr = buffer.data();
+            // FIXME: log
+            std::cout << "Copying: " << start_page_num << " count: " << page_count << std::endl;
             if (!!src_ext_space) {
                 // translate to relative page number
                 start_page_num = src_ext_space.getRelative(start_page_num);

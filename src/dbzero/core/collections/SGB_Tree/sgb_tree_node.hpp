@@ -223,10 +223,12 @@ DB0_PACKED_BEGIN
 
         /**
          * const_sorting_iterator uses additional memory to sort items on-the-fly
+         * from the heap order to the sorted order
         */
         class const_sorting_iterator
         {    
         public:
+            // as null / invalid
             const_sorting_iterator() = default;
             const_sorting_iterator(const ItemT *ptr, const ItemT *end_ptr, const HeapCompT &comp)
                 : m_items(ptr, end_ptr)
@@ -234,10 +236,11 @@ DB0_PACKED_BEGIN
                 , m_end_ptr(m_items.data() + m_items.size())
                 , m_comp(comp)
             {
+                assert(ptr <= end_ptr);
             }
             
             const_sorting_iterator(const const_sorting_iterator &other)
-                : m_items(other.m_items)                
+                : m_items(other.m_items)
                 // rebase items
                 , m_ptr(m_items.data() + (other.m_ptr - other.m_items.data()))
                 , m_end_ptr(m_items.data() + (other.m_end_ptr - other.m_items.data()))
@@ -249,12 +252,25 @@ DB0_PACKED_BEGIN
                 (*this) = std::move(other);
             }
 
+            const_sorting_iterator(std::vector<ItemT> &&items, const HeapCompT &comp)
+                : m_items(std::move(items))
+                , m_ptr(m_items.data())
+                , m_end_ptr(m_items.data() + m_items.size())
+                , m_comp(comp)
+            {                
+            }
+            
             const_sorting_iterator &operator++()
             {
                 assert(!is_end());
                 dheap::pop<D>(m_ptr, m_end_ptr, m_comp);
                 --m_end_ptr;
                 return *this;
+            }
+
+            // Check if the instance is valid
+            bool operator!() const {
+                return !m_ptr || !m_end_ptr;
             }
 
             bool is_end() const {
@@ -301,12 +317,13 @@ DB0_PACKED_BEGIN
             
         private:
             std::vector<ItemT> m_items;
-            ItemT *m_ptr = nullptr, *m_end_ptr = nullptr;
+            ItemT *m_ptr = nullptr;
+            ItemT *m_end_ptr = nullptr;
             HeapCompT m_comp;
         };
         
         const_sorting_iterator cbegin_sorted(const HeapCompT &comp) const {
-            return const_sorting_iterator(cbegin(), cend(), comp);
+            return { cbegin(), cend(), comp };
         }
 
         const_iterator find_max(const HeapCompT &comp) const {

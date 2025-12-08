@@ -100,13 +100,15 @@ DB0_PACKED_BEGIN
     {
         using CompT = REL_CompressedItemCompT;
         using EqualT = REL_CompressedItemEqualT;
+
+        REL_CompressedItem() = default;
         // construct REL-compressed item relative to the specific page number - i.e. first_page_num
         REL_CompressedItem(std::uint32_t first_rel_page_num, const REL_Item &);
         REL_CompressedItem(std::uint32_t first_rel_page_num, std::uint64_t rel_page_num, 
             std::uint64_t storage_page_num, REL_Flags flags = {});
         
-        std::uint32_t m_compressed_rel_page_num;
-        std::uint64_t m_storage_page_num;
+        std::uint32_t m_compressed_rel_page_num = 0;
+        std::uint64_t m_storage_page_num = 0;
         REL_Flags m_flags;
         
         // uncompress relative to a specific page number

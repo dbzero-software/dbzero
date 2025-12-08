@@ -187,14 +187,16 @@ namespace db0
     }
     
     std::uint64_t REL_Index::assignRelative(std::uint64_t storage_page_num, bool is_first_in_step)
-    {   
-        if (is_first_in_step) {
+    {
+        if (is_first_in_step) {    
             super_t::insert({ ++m_max_rel_page_num, storage_page_num });
+            // FIXME: log
+            std::cout << "Add relative" << m_max_rel_page_num << " -> " << storage_page_num << std::endl;            
             assert(storage_page_num > m_last_storage_page_num);
             m_last_storage_page_num = storage_page_num;
             m_rel_page_num = m_max_rel_page_num;
         }
-
+        
         assert(storage_page_num >= m_last_storage_page_num);
         auto result = m_rel_page_num + (storage_page_num - m_last_storage_page_num);
         if (result > m_max_rel_page_num) {
@@ -218,6 +220,8 @@ namespace db0
         
         // register the new mapping
         super_t::insert({ rel_page_num, storage_page_num });
+        // FIXME: log
+        std::cout << "Add mapping: " << rel_page_num << " -> " << storage_page_num << std::endl;
         m_max_rel_page_num = rel_page_num;
         m_last_storage_page_num = storage_page_num;
         m_rel_page_num = rel_page_num;

@@ -338,17 +338,21 @@ def test_copy_prefix_of_recovered_copy(db0_fixture):
     root = MemoTestSingleton([])
     total_len = 0
     
-    def modify_prefix():
+    def modify_prefix(op_count = 50):
         append_count = 0
         root = db0.fetch(MemoTestSingleton)
-        for _ in range(50):
+        for _ in range(op_count):
             root.value.append(MemoTestClass("a" * 1024))  # 1 KB string
             append_count += 1
         db0.commit()
         return append_count
     
-    total_len += modify_prefix()
-    db0.copy_prefix(file_name)
+    # FIXME: log change op_count to default
+    # FIXME: log change to default step size
+    total_len += modify_prefix(150)
+    db0.copy_prefix(file_name, page_io_step_size=64 << 10)
+    # FIXME: log
+    print("--First copy done")
     db0.close()
     
     # drop original file and replace with copy
@@ -357,8 +361,15 @@ def test_copy_prefix_of_recovered_copy(db0_fixture):
     
     # open recovered prefix for update
     db0.init(DB0_DIR, prefix=px_name, read_write=True)
-    total_len += modify_prefix()    
+    # FIXME: log change op_count to default
+    print("--Before modifying recovered copy")
+    total_len += modify_prefix(100)
+    # FIXME: log
+    print("--Modifications to recovered copy done")
+    print("--Before second copy")
     db0.copy_prefix(file_name)
+    # FIXME: log
+    print("--Second copy done")
     db0.close()
     
     # restore copy of a restored and modified copy
