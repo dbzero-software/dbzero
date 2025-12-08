@@ -52,8 +52,14 @@ namespace db0
             *is_first_page_ptr = (m_page_count == 0) && (m_block_num && *m_block_num == 0);
         }
 
-        m_file.write(m_address + m_page_count * m_page_size, m_page_size, buffer);        
-        return m_first_page_num + (m_page_count++);
+        m_file.write(m_address + m_page_count * m_page_size, m_page_size, buffer);
+        // FIXME: log
+        auto result = m_first_page_num + (m_page_count++);
+        // FIXME: log
+        std::cout << "Append page: " << result << std::endl;
+        return result;
+        // FIXME: log
+        // return m_first_page_num + (m_page_count++);
     }
     
     std::uint64_t Page_IO::append(const void *buffer, std::uint64_t page_count)
@@ -73,6 +79,11 @@ namespace db0
                 auto to_write_pages = std::min(static_cast<std::uint32_t>(page_count), step_remaining);
                 auto to_write_bytes = to_write_pages * m_page_size;
                 m_file.write(m_address + m_page_count * m_page_size, to_write_bytes, byte_buffer);
+                // FIXME: log
+                {
+                    auto first_page_num = (m_address / m_page_size) + m_page_count;
+                    std::cout << "Append pages: " << first_page_num << " ... " << first_page_num + to_write_pages << std::endl;
+                }
                 byte_buffer += to_write_bytes;
                 // position at the new address (within the current step)
                 moveBy(to_write_pages);
@@ -110,6 +121,8 @@ namespace db0
 
     void Page_IO::write(std::uint64_t page_num, void *buffer) {
         m_file.write(m_header_size + page_num * m_page_size, m_page_size, buffer);
+        // FIXME: log
+        std::cout << "Write page: " << page_num << std::endl;
     }
     
     std::uint64_t Page_IO::getPageNum(std::uint64_t address) const {
@@ -123,7 +136,7 @@ namespace db0
             // reserve space up to end of the step
             return m_address + (m_step_size - *m_block_num) * m_block_size;
         } else {
-            // step not known, return end of current block
+            // step not known, return end of the current block
             return m_address + m_block_size;
         }
     }
@@ -145,18 +158,22 @@ namespace db0
         return { m_first_page_num + m_page_count, m_block_capacity - m_page_count };
     }
     
-    std::uint64_t Page_IO::getEndPageNum() const
+    std::uint64_t Page_IO::getEndPageNum(bool *is_first_page_ptr) const
     {
         assert(m_access_type == AccessType::READ_WRITE);
-        return m_first_page_num + m_page_count;        
+        if (is_first_page_ptr) {
+            // first page of the first block in the step
+            *is_first_page_ptr = (m_page_count == 0) && (m_block_num && *m_block_num == 0);
+        }
+        return m_first_page_num + m_page_count;
     }
     
-    Page_IO::StepIterator::StepIterator(const Page_IO &page_io, const ExtSpace &ext_space)        
-        : m_step_pages(page_io.getStepSize() * page_io.m_block_capacity)        
-        , m_next_it(ext_space.tryBegin())
+    Page_IO::StepIterator::StepIterator(const ExtSpace &ext_space)
+        : m_next_it(ext_space.tryBegin())
     {
         if (m_next_it && !m_next_it->is_end()) {
             m_current_page_num = (**m_next_it).m_storage_page_num;
+            m_current_rel_page_num = (**m_next_it).m_rel_page_num;
             ++(*m_next_it);
         }
     }
@@ -177,31 +194,36 @@ namespace db0
     {
         if (m_next_it && !m_next_it->is_end()) {
             m_current_page_num = (**m_next_it).m_storage_page_num;
+            m_current_rel_page_num = (**m_next_it).m_rel_page_num;
             ++(*m_next_it);
         } else {
             m_current_page_num = std::nullopt;
+            m_current_rel_page_num = std::nullopt;
         }
         return *this;
     }
-
-    std::size_t Page_IO::StepIterator::getStepPages() const
-    {
-        auto result = m_step_pages;
+    
+    std::optional<std::size_t> Page_IO::StepIterator::tryGetStepPages() const
+    {        
         if (m_next_it && !m_next_it->is_end()) {
-            // adjust for the size stored in the ext-space
-            auto step_size = (**m_next_it).m_storage_page_num - *m_current_page_num;
-            result = std::min(result, step_size);   
+            // step size may not be larger the the distance between the 2 consecutive ext-space entries
+            // NOTE: the distance is measure between relative page numbers
+            return (**m_next_it).m_rel_page_num - *m_current_rel_page_num;
         }
-        return result;
+        return std::nullopt;
     }
 
     Page_IO::Reader::Reader(const Page_IO &page_io, const ExtSpace &ext_space,
         std::optional<std::uint64_t> end_page_num)
         : m_page_io(page_io)
-        , m_step_it(page_io, ext_space)
+        , m_step_it(ext_space)
+        // FIXME: log
+        // , m_end_page_num(page_io.getEndPageNum())
         , m_end_page_num(std::min(end_page_num.value_or(std::numeric_limits<std::uint64_t>::max()), page_io.getEndPageNum()))
         , m_current_page_num(getFirstPageNum(ext_space))
     {
+        // FIXME: log
+        std::cout << "Reader end page: " << m_end_page_num << std::endl;
     }
     
     std::uint32_t Page_IO::Reader::next(std::vector<std::byte> &buf, std::uint64_t &start_page_num,
@@ -214,31 +236,40 @@ namespace db0
         }
 
         start_page_num = m_current_page_num;
+        // FIXME: log
+        std::cout << "max_pages: " << max_pages << std::endl;
         auto to_read = std::min(max_pages, m_end_page_num - m_current_page_num);
+        std::cout << "to read: " << to_read << std::endl;
         // align with the step size (if defined)
         if (!!m_step_it) {
-            if (m_step_it.is_end()) {
-                // end of the stream reached
-                return 0;
+            if (!m_step_it.is_end()) {
+                auto step_pages = m_step_it.tryGetStepPages();
+                if (step_pages) {
+                    auto step_end_page = *m_step_it + *step_pages;
+                    to_read = std::min(to_read, step_end_page - m_current_page_num);
+                    // FIXME: log
+                    std::cout << "to read (step aligned): " << to_read << std::endl;
+                }
             }
-
-            auto step_end_page = *m_step_it + m_step_it.getStepPages();
-            to_read = std::min(to_read, step_end_page - m_current_page_num);
         }
+
         if (to_read > 0) {
             m_page_io.read(m_current_page_num, buf.data(), static_cast<std::uint32_t>(to_read));
             m_current_page_num += to_read;
             // move on to the next step if end of the current step reached
             if (!!m_step_it) {
-                auto step_end_page = *m_step_it + m_step_it.getStepPages();
-                if (m_current_page_num >= step_end_page) {
-                    ++m_step_it;
-                    if (!m_step_it.is_end()) {
-                        // position at the beginning of the next step
-                        m_current_page_num = *m_step_it;
+                auto step_pages = m_step_it.tryGetStepPages();
+                if (step_pages) {
+                    auto step_end_page = *m_step_it + *step_pages;
+                    if (m_current_page_num >= step_end_page) {
+                        ++m_step_it;
+                        if (!m_step_it.is_end()) {
+                            // position at the beginning of the next step
+                            m_current_page_num = *m_step_it;
+                        }
                     }
                 }
-            }                        
+            }
         }
         return to_read;
     }

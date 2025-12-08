@@ -64,7 +64,7 @@ namespace db0
         // Get the page number which is > all pages currently stored
         // This value can act as a "sentinel" for end-of-stream (at the moment of the call)
         // NOTE: the member is only available in read/write mode
-        std::uint64_t getEndPageNum() const;
+        std::uint64_t getEndPageNum(bool *is_first_page = nullptr) const;
         
         // Get the next page number to be assigned by the "append" method (first)
         // and the number of consecutive pages available in the current block
@@ -86,7 +86,7 @@ namespace db0
         class StepIterator
         {
         public:
-            StepIterator(const Page_IO &page_io, const ExtSpace &ext_space);
+            StepIterator(const ExtSpace &);
             
             bool operator!() const;
 
@@ -95,12 +95,11 @@ namespace db0
             std::uint64_t operator*() const;
 
             StepIterator &operator++();
-            std::size_t getStepPages() const;
+            std::optional<std::size_t> tryGetStepPages() const;
 
         private:
-            // step size as the number of pages
-            const std::size_t m_step_pages;
             std::optional<std::uint64_t> m_current_page_num;
+            std::optional<std::uint64_t> m_current_rel_page_num;
             // next step's iterator (may be end)
             std::unique_ptr<typename ExtSpace::const_iterator> m_next_it;
         };
