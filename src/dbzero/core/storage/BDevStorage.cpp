@@ -78,17 +78,6 @@ namespace db0
         if (m_access_type == AccessType::READ_ONLY && !m_flags.test(StorageOptions::NO_LOAD)) {
             refresh();
         }
-
-        // FIXME: log
-        if (!!m_ext_space) {
-            std::cout << "ExtSpace after open ***:" << std::endl;
-            auto it = m_ext_space.tryBegin();
-            while (!it->is_end()) {
-                std::cout << "ext item: " << **it << std::endl;
-                ++(*it);
-            }
-            std::cout << "---" << std::endl;
-        }
     }
     
     BDevStorage::~BDevStorage()
@@ -311,21 +300,13 @@ namespace db0
             
             // query.first yields the full-DP (if it exists)            
             std::uint64_t page_io_id = query.first();
-            if (page_io_id) {
-                // FIXME: log
-                std::cout << "Read relative: " << page_io_id << std::endl;
-                bool dump = (page_io_id == 68);
+            if (page_io_id) {                
                 if (!!m_ext_space) {
                     // convert relative page number back to absolute
                     page_io_id = m_ext_space.getAbsolute(page_io_id);
                 }
                 // read full DP          
                 m_page_io.read(page_io_id, read_buf);
-                // FIXME: log
-                if (dump) {
-                    std::cout << "--- page bytes: (absolute = " << page_io_id << ")" << std::endl;
-                    db0::showBytes(std::cout, read_buf, m_config.m_page_size) << std::endl;
-                }
             } else {
                 // requesting a diff-DP only encoded page, use zero buffer as a base
                 std::memset(read_buf, 0, m_config.m_page_size);
@@ -334,8 +315,6 @@ namespace db0
             // apply changes from diff-DPs
             std::uint32_t diff_state_num;
             while (query.next(diff_state_num, page_io_id)) {
-                // FIXME: log
-                std::cout << "Read DIFF relative: " << page_io_id << std::endl;
                 if (!!m_ext_space) {
                     // convert relative page number back to absolute
                     page_io_id = m_ext_space.getAbsolute(page_io_id);
@@ -397,11 +376,6 @@ namespace db0
                 // append as new page                
                 bool is_first_page;
                 auto page_io_id = m_page_io.append(write_buf, &is_first_page);
-                // FIXME: log
-                if (page_io_id == 128) {
-                    std::cout << "--- Written page 68 bytes, absolute: " << page_io_id << std::endl;
-                    db0::showBytes(std::cout, write_buf, m_config.m_page_size) << std::endl;
-                }
                 if (!!m_ext_space) {
                     // NOTE: first page (of each step) must be registered with REL_Index if it's maintained
                     // assign a relative page number
@@ -484,17 +458,6 @@ namespace db0
     
     bool BDevStorage::flush(ProcessTimer *parent_timer)
     {
-        // FIXME: log
-        if (!!m_ext_space) {
-            std::cout << "ExtSpace before flush ***:" << std::endl;
-            auto it = m_ext_space.tryBegin();
-            while (!it->is_end()) {
-                std::cout << "ext item: " << **it << std::endl;
-                ++(*it);
-            }
-            std::cout << "---" << std::endl;
-        }
-
         std::unique_lock<std::shared_mutex> lock(m_mutex);
         std::unique_ptr<ProcessTimer> timer;
         if (parent_timer) {
@@ -522,8 +485,6 @@ namespace db0
         // we also need to collect the end storage page number, possibly relative (sentinel)
         bool is_first = false;
         auto end_page_io_page_num = m_page_io.getEndPageNum(&is_first);
-        // FIXME: log
-        std::cout << "End page num (absolute): " << end_page_io_page_num << ", is_first: " << is_first << std::endl;
         if (!!m_ext_space) {
             // convert to relative page number
             end_page_io_page_num = m_ext_space.assignRelative(end_page_io_page_num, is_first);
@@ -619,8 +580,6 @@ namespace db0
         std::uint32_t page_count = 0;
         
         if (next_page_hint) {
-            // FIXME: log
-            std::cout << "*** Next page hint: " << *next_page_hint << std::endl;
             auto block_id = (*next_page_hint * m_config.m_page_size) / m_config.m_block_size;
             address = CONFIG_BLOCK_SIZE + block_id * m_config.m_block_size;
             page_count = static_cast<std::uint32_t>(*next_page_hint % block_capacity);

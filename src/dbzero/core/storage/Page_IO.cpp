@@ -26,6 +26,7 @@ namespace db0
         , m_block_num(block_num)
     {
         assert(block_size % page_size == 0);
+        assert(m_address == m_header_size + m_first_page_num * m_page_size);
     }
     
     Page_IO::Page_IO(std::size_t header_size, CFile &file, std::uint32_t page_size)
@@ -53,13 +54,7 @@ namespace db0
         }
 
         m_file.write(m_address + m_page_count * m_page_size, m_page_size, buffer);
-        // FIXME: log
-        auto result = m_first_page_num + (m_page_count++);
-        // FIXME: log
-        std::cout << "Append page: " << result << std::endl;
-        return result;
-        // FIXME: log
-        // return m_first_page_num + (m_page_count++);
+        return m_first_page_num + (m_page_count++);
     }
     
     std::uint64_t Page_IO::append(const void *buffer, std::uint64_t page_count)
@@ -79,11 +74,6 @@ namespace db0
                 auto to_write_pages = std::min(static_cast<std::uint32_t>(page_count), step_remaining);
                 auto to_write_bytes = to_write_pages * m_page_size;
                 m_file.write(m_address + m_page_count * m_page_size, to_write_bytes, byte_buffer);
-                // FIXME: log
-                {
-                    auto first_page_num = (m_address / m_page_size) + m_page_count;
-                    std::cout << "Append pages: " << first_page_num << " ... " << first_page_num + to_write_pages << std::endl;
-                }
                 byte_buffer += to_write_bytes;
                 // position at the new address (within the current step)
                 moveBy(to_write_pages);
@@ -99,12 +89,14 @@ namespace db0
             // allocate next block within the step
             m_address += m_block_size;
             m_first_page_num += m_block_capacity;
+            assert(m_address == m_header_size + m_first_page_num * m_page_size);
             m_page_count = 0;
             ++(*m_block_num);
         } else {
             // allocate the next step / block by appending it to the file            
             m_address = std::max(this->tail(), m_tail_function());
             m_first_page_num = getPageNum(m_address);
+            assert(m_address == m_header_size + m_first_page_num * m_page_size);
             m_page_count = 0;
             // initiate the next full step
             m_block_num = 0;
@@ -121,12 +113,10 @@ namespace db0
 
     void Page_IO::write(std::uint64_t page_num, void *buffer) {
         m_file.write(m_header_size + page_num * m_page_size, m_page_size, buffer);
-        // FIXME: log
-        std::cout << "Write page: " << page_num << std::endl;
     }
     
     std::uint64_t Page_IO::getPageNum(std::uint64_t address) const {
-        return ((address - m_header_size) / m_block_size) * m_block_capacity;
+        return (address - m_header_size) / m_page_size;
     }
     
     std::uint64_t Page_IO::tail() const
@@ -217,13 +207,9 @@ namespace db0
         std::optional<std::uint64_t> end_page_num)
         : m_page_io(page_io)
         , m_step_it(ext_space)
-        // FIXME: log
-        // , m_end_page_num(page_io.getEndPageNum())
         , m_end_page_num(std::min(end_page_num.value_or(std::numeric_limits<std::uint64_t>::max()), page_io.getEndPageNum()))
         , m_current_page_num(getFirstPageNum(ext_space))
     {
-        // FIXME: log
-        std::cout << "Reader end page: " << m_end_page_num << std::endl;
     }
     
     std::uint32_t Page_IO::Reader::next(std::vector<std::byte> &buf, std::uint64_t &start_page_num,
@@ -236,10 +222,7 @@ namespace db0
         }
 
         start_page_num = m_current_page_num;
-        // FIXME: log
-        std::cout << "max_pages: " << max_pages << std::endl;
         auto to_read = std::min(max_pages, m_end_page_num - m_current_page_num);
-        std::cout << "to read: " << to_read << std::endl;
         // align with the step size (if defined)
         if (!!m_step_it) {
             if (!m_step_it.is_end()) {
@@ -247,12 +230,10 @@ namespace db0
                 if (step_pages) {
                     auto step_end_page = *m_step_it + *step_pages;
                     to_read = std::min(to_read, step_end_page - m_current_page_num);
-                    // FIXME: log
-                    std::cout << "to read (step aligned): " << to_read << std::endl;
                 }
             }
         }
-
+        
         if (to_read > 0) {
             m_page_io.read(m_current_page_num, buf.data(), static_cast<std::uint32_t>(to_read));
             m_current_page_num += to_read;
@@ -321,6 +302,7 @@ namespace db0
         // set new position variables (might be end of the block / step)
         m_first_page_num += page_diff;
         m_address += page_diff * m_page_size;
+        assert(m_address == m_header_size + m_first_page_num * m_page_size);
         m_block_num = new_block_num;
         m_page_count = page_count;
     }

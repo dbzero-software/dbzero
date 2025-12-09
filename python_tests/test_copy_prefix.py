@@ -350,47 +350,34 @@ def test_copy_prefix_of_recovered_copy(db0_fixture):
         return append_count
 
     def validate(expected_len):
-        print("Start validation ...", flush=True)
         root = db0.fetch(MemoTestSingleton)
         for i, item in enumerate(root.value):
             c = charset[i % len(charset)]
             assert item.value == c * 1024
         assert len(root.value) == expected_len
-        # FIXME: log
-        print(f"--- Validation done: {expected_len} objects present", flush=True)
-        print("End validation", flush=True)
-        
-    # FIXME: log change to default step size
+
     total_len += modify_prefix(150)
     db0.copy_prefix(file_name, page_io_step_size=64 << 10)
-    # FIXME: log
-    print("--First copy done")
     db0.close()
 
     # drop original file and replace with copy
     os.remove(px_path)
     os.rename(file_name, px_path)
     
-    # open recovered prefix for update
-    print("*** before modifications ***", flush=True)
+    # open recovered prefix for update    
     db0.init(DB0_DIR, prefix=px_name, read_write=True)
     total_len += modify_prefix(100)
     
     db0.close()
     db0.init(DB0_DIR, prefix=px_name, read_write=True)
     validate(total_len)
-    # FIXME: log
-    print("--Modifications to recovered copy done", flush=True)
-    print("--Before second copy", flush=True)
     db0.copy_prefix(file_name)
-    # FIXME: log
-    print("--Second copy done", flush=True)
     db0.close()
     
     # restore copy of a restored and modified copy
     os.remove(px_path)
     os.rename(file_name, px_path)
-    
+        
     # open prefix from recovered and modified copy of a copy
     db0.init(DB0_DIR, prefix=px_name, read_write=False)
     validate(total_len)

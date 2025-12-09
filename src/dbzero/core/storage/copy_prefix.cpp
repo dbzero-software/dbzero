@@ -81,29 +81,12 @@ namespace db0
         first.read(page_num_1, buf_1.data());
         std::vector<std::byte> buf_2(page_size);
         second.read(page_num_2, buf_2.data());
-        // FIXME: log
-        std::cout << "Validating page: " << rel_page_num << std::endl;
-        // FIXME: log
-        if (rel_page_num == 68) {
-            std::cout << "--- page 68 bytes, absolutes : " << page_num_1 << " / " << page_num_2 << std::endl;
-            db0::showBytes(std::cout, buf_1.data(), page_size) << std::endl;
-        }
         return memcmp(buf_1.data(), buf_2.data(), page_size) == 0;
     }
     
     void copyPageIO(const Page_IO &in, const ExtSpace &src_ext_space, Page_IO &out,
         std::uint64_t end_page_num, ExtSpace &ext_space)
     {
-        // FIXME: log
-        if (!!src_ext_space) {
-            auto it = src_ext_space.tryBegin();
-            while (!it->is_end()) {
-                std::cout << "ext item: " << **it << std::endl;
-                ++(*it);
-            }
-            std::cout << "---" << std::endl;
-        }
-
         std::size_t page_size = in.getPageSize();
         if (page_size != out.getPageSize()) {
             THROWF(db0::IOException) << "copyPageIO: page size mismatch between input and output streams";
@@ -114,27 +97,10 @@ namespace db0
         std::uint64_t start_page_num = 0;
         while (auto page_count = reader.next(buffer, start_page_num)) {
             auto buf_ptr = buffer.data();
-            // FIXME: log
-            std::cout << "Copying: " << start_page_num << " ... " << start_page_num + page_count << std::endl;
             if (!!src_ext_space) {
                 // translate to relative page number
-                // FIXME: log
-                // relative validation
-                {
-                    auto rel_num = src_ext_space.getRelative(start_page_num);
-                    for (unsigned int i = 0; i < page_count; ++i) {
-                        if (src_ext_space.getRelative(start_page_num + i) != rel_num + i) {
-                            THROWF(db0::IOException) << "copyPageIO: non-consecutive pages in source ExtSpace";
-                        }
-                    }
-                }
-
                 start_page_num = src_ext_space.getRelative(start_page_num);
-                // FIXME: log
-                std::cout << "Relative start page num: " << start_page_num << std::endl;
             }
-            // FIXME: log
-            std::cout << "Absolute (destination) start page num: " << start_page_num << std::endl;
             while (page_count > 0) {
                 // page number (absolute) in the output stream
                 auto storage_page_num = out.getNextPageNum().first;
@@ -146,18 +112,6 @@ namespace db0
                 // note each step might require its own mapping (unless stored as consecutive pages)
                 // the de-duplication logic is handled by ExtSpace
                 ext_space.addMapping(storage_page_num, start_page_num);
-
-                // FIXME: log
-                // compare copied ranges
-                {
-                    for (std::uint32_t i = 0; i < count; ++i) {
-                        if (!comparePages(in, src_ext_space, out, ext_space, start_page_num + i)) {
-                            THROWF(db0::IOException) << "copyPageIO: data mismatch after copying at relative page num "
-                                << (start_page_num + i);
-                        }
-                    }
-                }
-
                 page_count -= count;
                 start_page_num += count;
             }
