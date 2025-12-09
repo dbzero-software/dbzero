@@ -9,6 +9,7 @@
 #include "config.hpp"
 #include "Address.hpp"
 #include <dbzero/core/exception/Exceptions.hpp>
+#include <optional>
 
 namespace db0
 
