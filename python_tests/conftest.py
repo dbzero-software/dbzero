@@ -35,7 +35,8 @@ def db0_fixture(request):
     db0.open(
         "my-test-prefix",
         # use custom page_io_step_size if specified in request.param
-        page_io_step_size=__extract_param(request, "page_io_step_size", None)
+        page_io_step_size=__extract_param(request, "page_io_step_size", None),
+        autocommit=__extract_param(request, "autocommit", True)
     )
     yield db0
     gc.collect()

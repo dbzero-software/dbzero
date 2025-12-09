@@ -225,9 +225,7 @@ def test_copy_prefix_continuous_process(db0_fixture):
     epoch_count = 2
     for epoch in range(epoch_count):
         print(f"=== Epoch {epoch} ===")
-        # obj_count = 5000
-        # commit_count = 100
-        obj_count = 500
+        obj_count = 5000
         commit_count = 100
         # start the writer process for a long run
         p = multiprocessing.Process(target=writer_process, args=(px_name, obj_count, commit_count, True))
@@ -327,12 +325,13 @@ def test_modify_copied_prefix(db0_fixture):
     assert len(root.value) == total_len
 
 
+@pytest.mark.parametrize("db0_fixture", [{"autocommit": False}], indirect=True)
 def test_copy_prefix_of_recovered_copy(db0_fixture):
     file_name = "./test-copy.db0"
     # remove file if it exists
     if os.path.exists(file_name):
         os.remove(file_name)
-
+    
     px_name = db0.get_current_prefix().name
     px_path = os.path.join(DB0_DIR, px_name + ".db0")
     root = MemoTestSingleton([])
@@ -355,8 +354,8 @@ def test_copy_prefix_of_recovered_copy(db0_fixture):
             c = charset[i % len(charset)]
             assert item.value == c * 1024
         assert len(root.value) == expected_len
-
-    total_len += modify_prefix(150)
+    
+    total_len += modify_prefix(5150)
     db0.copy_prefix(file_name, page_io_step_size=64 << 10)
     db0.close()
 
@@ -364,11 +363,13 @@ def test_copy_prefix_of_recovered_copy(db0_fixture):
     os.remove(px_path)
     os.rename(file_name, px_path)
     
-    # open recovered prefix for update    
+    # open recovered prefix for update
     db0.init(DB0_DIR, prefix=px_name, read_write=True)
-    total_len += modify_prefix(100)
+    total_len += modify_prefix(1350)
     
     db0.close()
+    # FIXME: log
+    print("*** dbzero close ***", flush=True)
     db0.init(DB0_DIR, prefix=px_name, read_write=True)
     validate(total_len)
     db0.copy_prefix(file_name)
@@ -377,7 +378,7 @@ def test_copy_prefix_of_recovered_copy(db0_fixture):
     # restore copy of a restored and modified copy
     os.remove(px_path)
     os.rename(file_name, px_path)
-        
+    
     # open prefix from recovered and modified copy of a copy
     db0.init(DB0_DIR, prefix=px_name, read_write=False)
     validate(total_len)

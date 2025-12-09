@@ -300,12 +300,12 @@ namespace db0
             
             // query.first yields the full-DP (if it exists)            
             std::uint64_t page_io_id = query.first();
-            if (page_io_id) {                
+            if (page_io_id) {
                 if (!!m_ext_space) {
                     // convert relative page number back to absolute
                     page_io_id = m_ext_space.getAbsolute(page_io_id);
                 }
-                // read full DP          
+                // read full DP
                 m_page_io.read(page_io_id, read_buf);
             } else {
                 // requesting a diff-DP only encoded page, use zero buffer as a base
@@ -485,6 +485,8 @@ namespace db0
         // we also need to collect the end storage page number, possibly relative (sentinel)
         bool is_first = false;
         auto end_page_io_page_num = m_page_io.getEndPageNum(&is_first);
+        // FIXME: log
+        std::cout << "End page num (absolute): " << end_page_io_page_num << std::endl;
         if (!!m_ext_space) {
             // convert to relative page number
             end_page_io_page_num = m_ext_space.assignRelative(end_page_io_page_num, is_first);

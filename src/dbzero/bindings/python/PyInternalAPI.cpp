@@ -1040,9 +1040,6 @@ namespace db0::python
             auto result = Py_OWN(tryCopyPrefixImpl(*storage, output_file_name, page_io_step_size, meta_io_step_size));
             storage->close();
             return result.steal();
-            if (!result) {
-                return nullptr;
-            }
         } catch (...) {
             if (storage) {
                 storage->close();
