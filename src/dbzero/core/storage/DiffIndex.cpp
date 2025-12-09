@@ -149,6 +149,10 @@ namespace db0
     {
     }
 
+    bool DiffIndex::empty() const {
+        return super_t::empty();
+    }
+    
     std::size_t DiffIndex::size() const {
         return super_t::size();
     }
@@ -190,8 +194,8 @@ namespace db0
     Address DiffIndex::getIndexAddress() const {
         return super_t::getIndexAddress();
     }
-
-    typename DiffIndex::PageNumT DiffIndex::getNextStoragePageNum() const {
+    
+    std::optional<typename DiffIndex::PageNumT> DiffIndex::getNextStoragePageNum() const {
         return super_t::getNextStoragePageNum();
     }
     

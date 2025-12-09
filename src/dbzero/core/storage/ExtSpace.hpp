@@ -46,6 +46,8 @@ DB0_PACKED_END
     public:
         using DP_ChangeLogT = BaseStorage::DP_ChangeLogT;
         using DP_ChangeLogStreamT = db0::ChangeLogIOStream<DP_ChangeLogT>;
+        using const_iterator = REL_Index::const_iterator;
+
         struct tag_create {};
         
         // NOTE: dram pair may be nullptr (for a null ExtSpace)
@@ -69,12 +71,20 @@ DB0_PACKED_END
             return m_rel_index->getAbsolute(rel_page_num);
         }
         
+        std::uint64_t getRelative(std::uint64_t storage_page_num) const {
+            assert(m_rel_index);
+            return m_rel_index->getRelative(storage_page_num);
+        }
+
         // Registers a new mapping rel_page_num -> storage_page_num
         // exception raised if unable to add the mapping
         void addMapping(std::uint64_t storage_page_num, std::uint64_t rel_page_num) {
             assert(m_rel_index);
             m_rel_index->addMapping(storage_page_num, rel_page_num);
         }
+        
+        // Begins the iterator over sorted elements (on condition that ExtSpace is valid)
+        std::unique_ptr<const_iterator> tryBegin() const;
         
         void refresh();
         void commit();

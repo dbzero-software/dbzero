@@ -15,7 +15,7 @@ DB0_PACKED_BEGIN
         // state number this change log corresponds to
         StateNumType m_state_num;
         // sentinel storage page number for this transaction (see Page_IO::getEndPageNum())
-        // always the ABSOLUTE storage page number
+        // NOTE: this value might be relative if the mapping is active
         std::uint64_t m_end_storage_page_num;
         
         o_dp_changelog_header(StateNumType state_num, std::uint64_t end_storage_page_num)

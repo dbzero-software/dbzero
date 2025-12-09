@@ -532,3 +532,11 @@ const char* AbstractException::what() const throw() {
 string AbstractException::getName() const {
 	return typeid(*this).name();
 }
+
+std::ostream &db0::showStackTrace(std::ostream &os, unsigned int pruneTop, bool omitLastNotDemangled)
+{
+    TraceInfo ti;
+    ti.generateInfo();
+    os << ti.getPrintableInfo(pruneTop, omitLastNotDemangled);
+    return os;
+}

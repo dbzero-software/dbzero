@@ -350,11 +350,11 @@ DB0_PACKED_END
         template <class KeyT> iterator lower_bound(const KeyT &key) const {
             return SG_Tree::lower_bound(this->head(), key, _comp);
         }
-
+        
         template <class KeyT> iterator lower_equal_bound(const KeyT &key) const {
             return SG_Tree::lower_equal_bound(this->head(), key, _comp);
         }
-
+                
         /**
          * Find upper-bound node by initializer / key
          */

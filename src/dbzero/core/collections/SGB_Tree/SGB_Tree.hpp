@@ -209,11 +209,13 @@ namespace db0
             item.first = nullptr;
 #endif                        
         }
-
+        
+        // Sorted order iterator
         class const_iterator
         {
         public:
-            const_iterator(const sg_tree_const_iterator &tree_it, const sg_tree_const_iterator &tree_end, const HeapCompT &comp)
+            const_iterator(const sg_tree_const_iterator &tree_it, const sg_tree_const_iterator &tree_end,
+                const HeapCompT &comp)
                 : m_tree_it(tree_it)
                 , m_tree_end(tree_end)
                 , m_comp(comp)
@@ -236,11 +238,11 @@ namespace db0
                 return *this;
             }
 
-            ItemT operator*() const {
+            auto operator*() const {
                 return *m_node_it;
             }
 
-            const ItemT *operator->() const {
+            auto operator->() const {
                 return m_node_it.get_ptr();
             }
 
@@ -248,12 +250,12 @@ namespace db0
                 return m_tree_it == m_tree_end || m_node_it.is_end();
             }
 
-        private:
+        protected:
             sg_tree_const_iterator m_tree_it, m_tree_end;
             sgb_node_const_sorting_iterator m_node_it;
             HeapCompT m_comp;
         };
-
+        
         const_iterator cbegin() const {
             return const_iterator(super_t::begin(), super_t::end(), m_heap_comp);
         }
@@ -582,7 +584,7 @@ namespace db0
             );
             return { new_node->begin(), new_node };
         }
-                
+        
     };
 
     /**

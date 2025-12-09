@@ -946,13 +946,14 @@ namespace db0::python
             PyErr_Format(PyExc_OSError, "Output file already exists:  '%s'", output_file_name);
             return nullptr;
         }
-                
+        
         // use either explicit step size, input step size (if > 1) or default = 4MB
         if (!page_io_step_size) {
-            auto in_step_size = src_storage.getPageIO().getStepSize();
-            page_io_step_size = in_step_size > 1 ? in_step_size : (4u << 20);
+            auto &page_io = src_storage.getPageIO();
+            auto in_step_size =  page_io.getStepSize();
+            page_io_step_size = in_step_size > 1 ? (in_step_size * page_io.getBlockSize()) : (4u << 20);
         }
-
+        
         if (!meta_io_step_size) {
             auto in_meta_step_size = src_storage.getMetaIO().getStepSize();
             meta_io_step_size = in_meta_step_size > 1 ? in_meta_step_size : (1u << 20);

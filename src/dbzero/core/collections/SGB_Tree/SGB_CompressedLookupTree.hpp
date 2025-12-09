@@ -227,6 +227,7 @@ DB0_PACKED_END
         using CompT = typename super_t::CompT;
         using NodeItemCompT = typename super_t::NodeItemCompT;
         using NodeItemEqualT = typename super_t::NodeItemEqualT;
+        using const_iterator = typename super_t::const_iterator;
 
         // as null / invalid
         SGB_CompressedLookupTree() = default;
@@ -274,7 +275,11 @@ DB0_PACKED_END
         sg_tree_const_iterator cend_nodes() const {
             return base_t::end();
         }
-    
+
+        bool empty() const {
+            return super_t::empty();
+        }
+
         std::size_t size() const {
             return super_t::size();
         }
@@ -337,7 +342,7 @@ DB0_PACKED_END
             
             return std::nullopt;
         }
-        
+           
         // Locate first element which is greater or equal to the key
         template <typename KeyT> std::optional<ItemT> upper_equal_bound(const KeyT &key) const
         {
@@ -422,6 +427,35 @@ DB0_PACKED_END
 
         bool operator!() const {
             return super_t::operator!();
+        }
+        
+        class uncompressed_const_iterator: protected super_t::const_iterator
+        {            
+        public:
+            uncompressed_const_iterator(const const_iterator &iterator)
+                : super_t::const_iterator(iterator)                
+            {
+            }
+            
+            bool is_end() const {
+                return super_t::const_iterator::is_end();
+            }
+
+            uncompressed_const_iterator &operator++() 
+            {
+                super_t::const_iterator::operator++();
+                return *this;
+            }
+
+            ItemT operator*() const {
+                // return uncompressed item from the underlying iterator
+                return this->m_tree_it->header().uncompress(super_t::const_iterator::operator*());
+            }
+        };
+        
+        // Begin sorted iteration over all items (uncompressed)
+        uncompressed_const_iterator cbegin() const {
+            return super_t::cbegin();
         }
 
     private:

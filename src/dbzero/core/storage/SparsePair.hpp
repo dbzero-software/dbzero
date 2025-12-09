@@ -47,11 +47,12 @@ namespace db0
         }        
 
         // combine from both underlyig indexes
-        PageNumT getNextStoragePageNum() const;
+        std::optional<PageNumT> getNextStoragePageNum() const;
         
         // combine from both underlyig indexes
         StateNumT getMaxStateNum() const;
         
+        bool empty() const;
         std::size_t size() const;
 
         void refresh();

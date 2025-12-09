@@ -2,6 +2,7 @@
 // Copyright (c) 2025 DBZero Software sp. z o.o.
 
 #include "SparsePair.hpp"
+#include <dbzero/core/memory/utils.hpp>
 
 namespace db0
 
@@ -31,8 +32,8 @@ namespace db0
     {
     }
     
-    typename SparsePair::PageNumT SparsePair::getNextStoragePageNum() const {
-        return std::max(m_sparse_index.getNextStoragePageNum(), m_diff_index.getNextStoragePageNum());
+    std::optional<typename SparsePair::PageNumT> SparsePair::getNextStoragePageNum() const {
+        return optional_max(m_sparse_index.getNextStoragePageNum(), m_diff_index.getNextStoragePageNum());
     }
 
     typename SparsePair::StateNumT SparsePair::getMaxStateNum() const {
@@ -47,6 +48,10 @@ namespace db0
     
     std::size_t SparsePair::size() const {
         return m_sparse_index.size() + m_diff_index.size();
+    }
+    
+    bool SparsePair::empty() const {
+        return m_sparse_index.empty() && m_diff_index.empty();
     }
     
     const SparsePair::DP_ChangeLogT &SparsePair::extractChangeLog(DP_ChangeLogStreamT &changelog_io, 

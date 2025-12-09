@@ -154,7 +154,7 @@ namespace db0
         auto config = new (buffer.data()) o_prefix_config(
             block_size, *page_size, dram_page_size, getPageIOStepSize(block_size, step_size_hint)
         );
-
+        
         std::uint64_t offset = CONFIG_BLOCK_SIZE;
         auto next_block_offset = [&]() 
         {
@@ -300,12 +300,12 @@ namespace db0
             
             // query.first yields the full-DP (if it exists)            
             std::uint64_t page_io_id = query.first();
-            if (page_io_id) {
+            if (page_io_id) {                
                 if (!!m_ext_space) {
                     // convert relative page number back to absolute
                     page_io_id = m_ext_space.getAbsolute(page_io_id);
                 }
-                // read full DP
+                // read full DP          
                 m_page_io.read(page_io_id, read_buf);
             } else {
                 // requesting a diff-DP only encoded page, use zero buffer as a base
@@ -406,7 +406,7 @@ namespace db0
         // we cannot append as diff but need to overwrite the full page instead
         if (state_num != query.firstStateNum() && query.leftLessThan(max_len)) {
             bool is_first_page;
-            // append as diff-page (NOTE: diff-writes are only appended)            
+            // append as diff-page (NOTE: diff-writes are only appended)
             auto [page_io_id, overflow] = m_page_io.appendDiff(buffer, { page_num, state_num }, diff_data, &is_first_page);
             if (!!m_ext_space) {
                 // NOTE: first page (of each step) must be registered with REL_Index if it's maintained
@@ -455,7 +455,7 @@ namespace db0
         m_ext_dram_changelog_io->flush();
         return true;
     }
-
+    
     bool BDevStorage::flush(ProcessTimer *parent_timer)
     {
         std::unique_lock<std::shared_mutex> lock(m_mutex);
@@ -483,10 +483,11 @@ namespace db0
         m_page_io.flush();
         // Extract & flush sparse index change log first (on condition of any updates)
         // we also need to collect the end storage page number, possibly relative (sentinel)
-        auto end_page_io_page_num = m_page_io.getEndPageNum();
+        bool is_first = false;
+        auto end_page_io_page_num = m_page_io.getEndPageNum(&is_first);
         if (!!m_ext_space) {
             // convert to relative page number
-            end_page_io_page_num = m_ext_space.assignRelative(end_page_io_page_num, false);
+            end_page_io_page_num = m_ext_space.assignRelative(end_page_io_page_num, is_first);
         }
         
         m_sparse_pair.extractChangeLog(m_dp_changelog_io, end_page_io_page_num);
@@ -570,15 +571,25 @@ namespace db0
         return result;
     }
     
-    Diff_IO BDevStorage::getPage_IO(std::uint64_t next_page_hint, std::uint32_t step_size)
-    {
-        auto block_id = (next_page_hint * m_config.m_page_size) / m_config.m_block_size;
+    Diff_IO BDevStorage::getPage_IO(std::optional<std::uint64_t> next_page_hint, std::uint32_t step_size)
+    {        
         auto block_capacity = m_config.m_block_size / m_config.m_page_size;
         
         std::optional<std::uint32_t> block_num;
         std::uint64_t address = 0;
         std::uint32_t page_count = 0;
-        if (next_page_hint == 0) {
+        
+        if (next_page_hint) {
+            auto block_id = (*next_page_hint * m_config.m_page_size) / m_config.m_block_size;
+            address = CONFIG_BLOCK_SIZE + block_id * m_config.m_block_size;
+            page_count = static_cast<std::uint32_t>(*next_page_hint % block_capacity);
+            
+            // position at the end of the last existing block
+            if (page_count == 0) {
+                address -= m_config.m_block_size;
+                page_count = block_capacity;
+            }
+        } else {        
             // assign first page
             address = std::max(m_dram_io.tail(), m_meta_io.tail());
             address = std::max(address, m_dram_changelog_io.tail());
@@ -591,15 +602,6 @@ namespace db0
 
             // NOTE: initialize with a known block num = 0 (first block of the first step)
             block_num = 0;
-        } else {
-            address = CONFIG_BLOCK_SIZE + block_id * m_config.m_block_size;
-            page_count = static_cast<std::uint32_t>(next_page_hint % block_capacity);
-        
-            // position at the end of the last existing block
-            if (page_count == 0) {
-                address -= m_config.m_block_size;
-                page_count = block_capacity;
-            }
         }
 
         // NOTE: block num is unknown in this case
@@ -872,7 +874,7 @@ namespace db0
             if (!!m_ext_space) {
                 end_page_num = m_ext_space.getAbsolute(end_page_num);
             }
-            copyPageIO(m_page_io, out.m_page_io, end_page_num, out.m_ext_space);
+            copyPageIO(m_page_io, m_ext_space, out.m_page_io, end_page_num, out.m_ext_space);
         }
         
         copyStream(m_meta_io, out.m_meta_io);
@@ -890,14 +892,20 @@ namespace db0
         return *this;
     }
     
-    std::uint64_t BDevStorage::getNextStoragePageNum() const
-    {
+    std::optional<std::uint64_t> BDevStorage::getNextStoragePageNum() const
+    {        
         // NOTE: in no-load mode we cannot use sparse_pair
-        // therefore will calculate end page bound from the file size
+        // therefore will calculate end page bound from the file size (absolute page number)
         if (m_flags[StorageOptions::NO_LOAD]) {
             return (m_file.size() - CONFIG_BLOCK_SIZE) / m_config.m_page_size;
         }
-        return m_sparse_pair.getNextStoragePageNum();
+        
+        auto page_io_id = m_sparse_pair.getNextStoragePageNum();
+        if (!!m_ext_space && page_io_id) {
+            // convert to absolute page number
+            page_io_id = m_ext_space.getAbsolute(*page_io_id);
+        }
+        return page_io_id;
     }
-    
+
 }
