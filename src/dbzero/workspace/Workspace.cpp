@@ -51,7 +51,7 @@ namespace db0
         if (!m_prefix_catalog.exists(prefix_name)) {
             // create new file if READ-WRITE access permitted
             if (access_type == AccessType::READ_ONLY) {
-                THROWF(db0::InputException) << "Prefix does not exist: " << prefix_name;
+                THROWF(db0::PrefixNotFoundException) << "Prefix does not exist: " << prefix_name;
             }
                         
             BDevStorage::create(file_name, *page_size, *sparse_index_node_size, page_io_step_size);
@@ -390,13 +390,19 @@ namespace db0
                     m_on_open_callback(it->second, file_created);
                 }
             }
-        } catch (std::exception &ex) {
+        } catch (db0::PrefixNotFoundException &ex) {
             if (file_created) {
                 // remove incomplete file
                 m_fixture_catalog.drop(prefix_name);                
             }
-            std::cerr << "Error opening prefix '" << prefix_name << "': " << ex.what() << std::endl;
-            return nullptr;            
+            return nullptr;         
+        }
+        catch (std::exception &ex) {
+            if (file_created) {
+                // remove incomplete file
+                m_fixture_catalog.drop(prefix_name);                
+            }
+            throw;         
         }
         
         // Validate access type

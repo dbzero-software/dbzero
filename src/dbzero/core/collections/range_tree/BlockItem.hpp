@@ -51,6 +51,15 @@ DB0_PACKED_BEGIN
             return m_key < other.m_key;
         }
 
+        // by-key + value comparison
+        inline bool gtByKey(const BlockItemT& other) const
+        {
+            if (m_key == other.m_key) {
+                return m_value > other.m_value;
+            }
+            return m_key > other.m_key;
+        }
+
         inline bool operator!=(const BlockItemT& other) const {
             return (m_key != other.m_key) || (m_value != other.m_value);
         }
