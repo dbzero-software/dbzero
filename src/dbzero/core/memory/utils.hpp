@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <cstdint>
 #include <cassert>
+#include <optional>
 #include "config.hpp"
 #include "Address.hpp"
 #include <dbzero/core/exception/Exceptions.hpp>
