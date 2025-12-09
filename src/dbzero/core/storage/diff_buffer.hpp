@@ -9,8 +9,8 @@
 namespace db0
 
 {
-DB0_PACKED_BEGIN
 
+DB0_PACKED_BEGIN
     class DB0_PACKED_ATTR o_diff_buffer: public o_base<o_diff_buffer, 0, false>
     {
     protected:
@@ -41,7 +41,7 @@ DB0_PACKED_BEGIN
         static std::size_t sizeOfHeader() {
             return sizeof(o_diff_buffer);
         }
-    };
-    
+    };    
 DB0_PACKED_END
+    
 }

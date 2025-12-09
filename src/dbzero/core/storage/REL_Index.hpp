@@ -213,11 +213,11 @@ DB0_PACKED_END
         std::uint64_t size() const;
         
         const_iterator cbegin() const;
-
+        
     private:
         // values maintained in-sync with the tree
-        std::uint64_t m_last_storage_page_num = 0;            
-        std::uint64_t m_rel_page_num = 0;        
+        std::uint64_t m_last_storage_page_num = 0;
+        std::uint64_t m_rel_page_num = 0; // key of the last inserted item
         std::uint64_t m_max_rel_page_num = 0;
     };
     
