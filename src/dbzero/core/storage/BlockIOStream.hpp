@@ -96,7 +96,7 @@ DB0_PACKED_END
         
         BlockIOStream(const BlockIOStream &) = delete;
         
-        ~BlockIOStream();
+        virtual ~BlockIOStream();
         
         /**
          * Add a new chunk with a specific header
@@ -122,6 +122,10 @@ DB0_PACKED_END
          * @return the number of bytes read or 0 if EOF
         */
         std::size_t readChunk(std::vector<char> &buffer, std::size_t expected_size = 0, std::uint64_t *address = nullptr);
+        
+        // Reach the next chunk into the internal buffer (where available)
+        // The default implementation throws
+        virtual std::size_t readChunk();
         
         /**
          * Refresh method re-reads the tail block from disk.

@@ -5,6 +5,7 @@
 #include <dbzero/core/serialization/packed_int_pair.hpp>
 #include <dbzero/core/exception/Exceptions.hpp>
 #include <dbzero/core/compiler_attributes.hpp>
+#include <dbzero/core/memory/config.hpp>
 
 namespace db0
 
@@ -65,8 +66,7 @@ DB0_PACKED_END
     {
     public:
         // buffer is 2 pages long
-        DiffReader(Page_IO &, std::uint64_t page_num, std::byte *begin, std::byte *end,
-            const std::function<void()> &decode_fault);
+        DiffReader(Page_IO &, std::uint64_t page_num, std::byte *begin, std::byte *end);
         
         // appy diffs from a specific page / state number into a provided data buffer
         // if underflow occurs then next page needs to be fetched and apply repeated
@@ -84,8 +84,7 @@ DB0_PACKED_END
         const std::byte *m_current;
         std::byte const *m_end;
         // the number of objects remaining to be read
-        unsigned int m_size = 0;
-        const std::function<void()> &m_decode_fault;
+        unsigned int m_size = 0;        
     };
     
     DiffWriter::DiffWriter(Page_IO &page_io, std::byte *begin, std::byte *end)
@@ -168,22 +167,20 @@ DB0_PACKED_END
         return m_header.m_size == 0 && m_header.m_offset == 0;
     }
     
-    DiffReader::DiffReader(Page_IO &page_io, std::uint64_t page_num, std::byte *begin, std::byte *end, 
-        const std::function<void()> &decode_fault)
+    DiffReader::DiffReader(Page_IO &page_io, std::uint64_t page_num, std::byte *begin, std::byte *end)
         : m_page_io(page_io)
         , m_page_size(page_io.getPageSize())
         , m_page_num(page_num)
         , m_begin(begin)
         , m_current(begin + m_page_size)
-        , m_end(end)
-        , m_decode_fault(decode_fault)
+        , m_end(end)        
     {
         page_io.read(page_num, m_begin + m_page_size);
         m_size = o_diff_header::__const_ref(m_current).m_size;
         // position at the first diff block
         m_current += o_diff_header::sizeOf() + o_diff_header::__const_ref(m_current).m_offset;
         if (m_current > m_end) {
-            m_decode_fault();
+            Settings::m_decode_error();   
         }
     }
     
@@ -206,7 +203,7 @@ DB0_PACKED_END
                 }
                 
                 auto &diff_buf = o_diff_buffer::__safe_const_ref(
-                    const_bounded_buf_t(m_decode_fault, m_current, m_end)
+                    const_bounded_buf_t(Settings::m_decode_error, m_current, m_end)
                 );
                 diff_buf.apply(dp_data, dp_data + m_page_size);
                 m_current += diff_buf_size;
@@ -244,18 +241,12 @@ DB0_PACKED_END
         , m_writer(std::make_unique<DiffWriter>(
             reinterpret_cast<Page_IO&>(*this), m_write_buf.data(), m_write_buf.data() + m_write_buf.size())
         )
-        , m_decode_fault([]() {
-            THROWF(db0::IOException) << "Diff_IO: decode fault - corrupt diff data";
-        })
     {
     }
     
     Diff_IO::Diff_IO(std::size_t header_size, CFile &file, std::uint32_t page_size)
         : Page_IO(header_size, file, page_size)
         , m_read_buf(page_size * 2)
-        , m_decode_fault([]() {
-            THROWF(db0::IOException) << "Diff_IO: decode fault - corrupt diff data";
-        })
     {
     }
     
@@ -310,7 +301,7 @@ DB0_PACKED_END
     {
         // must lock because the read-buffer is shared
         std::unique_lock<std::mutex> lock(m_mx_read);
-        DiffReader reader((Page_IO&)*this, page_num, m_read_buf.data(), m_read_buf.data() + m_read_buf.size(), m_decode_fault);
+        DiffReader reader((Page_IO&)*this, page_num, m_read_buf.data(), m_read_buf.data() + m_read_buf.size());
         for (;;) {
             bool underflow = false;
             if (reader.apply((std::byte*)buffer, page_and_state, underflow)) {

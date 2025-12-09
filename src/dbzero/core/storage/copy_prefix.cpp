@@ -111,7 +111,7 @@ namespace db0
                 // note start_page_num must be registered as relative to storage_page_num
                 // note each step might require its own mapping (unless stored as consecutive pages)
                 // the de-duplication logic is handled by ExtSpace
-                ext_space.addMapping(storage_page_num, start_page_num);
+                ext_space.addMapping(storage_page_num, start_page_num, count);
                 page_count -= count;
                 start_page_num += count;
             }

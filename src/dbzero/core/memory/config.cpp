@@ -2,6 +2,7 @@
 // Copyright (c) 2025 DBZero Software sp. z o.o.
 
 #include "config.hpp"
+#include <dbzero/core/exception/Exceptions.hpp>
 
 namespace db0
 
@@ -12,4 +13,8 @@ namespace db0
     bool Settings::__storage_validation = false;
 #endif 
     
+    std::function<void()> Settings::m_decode_error = []() {
+        THROWF(db0::IOException) << "Data decoding error: corrupt data detected";
+    };
+
 }

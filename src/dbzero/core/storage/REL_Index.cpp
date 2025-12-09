@@ -162,7 +162,7 @@ namespace db0
 
     REL_Index::REL_Index(mptr ptr, std::size_t node_capacity, AccessType access_type)
         : super_t(ptr, node_capacity, access_type)
-        , m_last_storage_page_num(this->treeHeader().m_last_storage_page_num)
+        , m_storage_page_num(this->treeHeader().m_storage_page_num)
         , m_rel_page_num(this->treeHeader().m_rel_page_num)
         , m_max_rel_page_num(this->treeHeader().m_max_rel_page_num)        
     {        
@@ -180,7 +180,7 @@ namespace db0
     {
         // flush locally cached value
         auto &self = const_cast<REL_Index&>(*this);
-        self.modifyTreeHeader().m_last_storage_page_num = m_last_storage_page_num;
+        self.modifyTreeHeader().m_storage_page_num = m_storage_page_num;
         self.modifyTreeHeader().m_rel_page_num = m_rel_page_num;
         self.modifyTreeHeader().m_max_rel_page_num = m_max_rel_page_num;        
         super_t::commit();
@@ -188,16 +188,16 @@ namespace db0
     
     std::uint64_t REL_Index::assignRelative(std::uint64_t storage_page_num, bool is_first_in_step)
     {
-        assert(storage_page_num >= m_last_storage_page_num);
-        // prevent adding duplicate mapping (e.g. might be called multiple times after appendDiff)
-        if (is_first_in_step && (storage_page_num != m_last_storage_page_num)) {            
+        assert(storage_page_num >= m_storage_page_num);
+        // prevent adding a duplicate mapping (e.g. might be called multiple times after appendDiff)
+        if (is_first_in_step && (storage_page_num != m_storage_page_num)) {
             super_t::insert({ ++m_max_rel_page_num, storage_page_num });
-            assert(storage_page_num > m_last_storage_page_num);
-            m_last_storage_page_num = storage_page_num;
+            assert(storage_page_num > m_storage_page_num);
+            m_storage_page_num = storage_page_num;
             m_rel_page_num = m_max_rel_page_num;
         }
         
-        auto result = m_rel_page_num + (storage_page_num - m_last_storage_page_num);
+        auto result = m_rel_page_num + (storage_page_num - m_storage_page_num);
         if (result > m_max_rel_page_num) {
             m_max_rel_page_num = result;
         }
@@ -205,17 +205,17 @@ namespace db0
         return result;
     }
     
-    void REL_Index::addMapping(std::uint64_t storage_page_num, std::uint64_t rel_page_num)
+    void REL_Index::addMapping(std::uint64_t storage_page_num, std::uint64_t rel_page_num, std::uint32_t count)
     {
-        assert(storage_page_num >= m_last_storage_page_num);
-        assert(rel_page_num >= m_rel_page_num);
+        assert(count > 0);
+        assert(storage_page_num >= m_storage_page_num);
+        assert(rel_page_num >= m_max_rel_page_num);
 
-        m_max_rel_page_num = rel_page_num;
-        m_last_storage_page_num = storage_page_num;
+        m_max_rel_page_num = rel_page_num + count - 1;
         if (!this->empty()) {
             // check if the mapping is already valid
-            if (storage_page_num - m_last_storage_page_num == rel_page_num - m_rel_page_num) {
-                // mapping already valid
+            if (storage_page_num - m_storage_page_num == rel_page_num - m_rel_page_num) {
+                // mapping already valid, no need for registering another entry
                 return;
             }
         }
@@ -223,12 +223,13 @@ namespace db0
         // register the new mapping
         super_t::insert({ rel_page_num, storage_page_num });
         m_rel_page_num = rel_page_num;
+        m_storage_page_num = storage_page_num;
     }
     
     void REL_Index::refresh()
     {
         detach();
-        m_last_storage_page_num = this->treeHeader().m_last_storage_page_num;
+        m_storage_page_num = this->treeHeader().m_storage_page_num;
         m_rel_page_num = this->treeHeader().m_rel_page_num;
         m_max_rel_page_num = this->treeHeader().m_max_rel_page_num;        
     }

@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <cstddef>
+#include <functional>
 
 namespace db0
 
@@ -27,6 +28,8 @@ namespace db0
         // performs storage full read / write validation (with in-memory mirroring)
         static bool __storage_validation;
 #endif
+        // Function to throw the data decoding error (i.e. corrupt data detected)
+        static std::function<void()> m_decode_error;
     };
     
 }

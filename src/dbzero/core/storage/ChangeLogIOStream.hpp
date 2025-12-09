@@ -46,7 +46,9 @@ namespace db0
         const o_change_log_t *readChangeLogChunk();
         
         // Read chunk, bring your own buffer
-        const o_change_log_t *readChangeLogChunk(std::vector<char> &buffer);
+        // @return pointer to the change-log chunk or nullptr if EOF (from an internal buffer)
+        const o_change_log_t *readChangeLogChunk(std::vector<char> &buffer);        
+        std::size_t readChunk() override;
         
         /**
          * Get last read or written change log chunk
