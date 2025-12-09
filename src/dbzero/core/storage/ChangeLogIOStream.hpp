@@ -48,6 +48,10 @@ namespace db0
         // Read chunk, bring your own buffer
         // @return pointer to the change-log chunk or nullptr if EOF (from an internal buffer)
         const o_change_log_t *readChangeLogChunk(std::vector<char> &buffer);        
+        
+        std::size_t readChunk(std::vector<char> &buffer, std::size_t expected_size = 0,
+            std::uint64_t *address = nullptr) override;
+        
         std::size_t readChunk() override;
         
         /**

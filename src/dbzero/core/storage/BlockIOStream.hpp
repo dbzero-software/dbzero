@@ -121,7 +121,8 @@ DB0_PACKED_END
          * @param address if not null, the absolute address of the chunk is stored here
          * @return the number of bytes read or 0 if EOF
         */
-        std::size_t readChunk(std::vector<char> &buffer, std::size_t expected_size = 0, std::uint64_t *address = nullptr);
+        virtual std::size_t readChunk(std::vector<char> &buffer, std::size_t expected_size = 0, 
+            std::uint64_t *address = nullptr);
         
         // Reach the next chunk into the internal buffer (where available)
         // The default implementation throws

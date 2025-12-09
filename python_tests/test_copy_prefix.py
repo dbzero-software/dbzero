@@ -193,8 +193,6 @@ def test_copy_prefix_without_opening_it(db0_fixture):
 
 
 @pytest.mark.stress_test
-# FIXME: log
-@pytest.mark.parametrize("db0_fixture", [{"autocommit": False}], indirect=True)
 def test_copy_prefix_continuous_process(db0_fixture):
     px_name = db0.get_current_prefix().name
     px_path = os.path.join(DB0_DIR, px_name + ".db0")
