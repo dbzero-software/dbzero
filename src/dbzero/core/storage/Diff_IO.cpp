@@ -280,11 +280,6 @@ DB0_PACKED_END
                         continue;
                     }
                 }
-                // FIXME: log
-                if (next_page_num.first == 1431) {
-                    std::cout << "--- Appended diff: " << next_page_num << "page_and_state: " << page_and_state.first << ", "
-                        << page_and_state.second << ", overflow: " << overflow << std::endl;
-                }
                 return { next_page_num.first, overflow };
             } else {
                 // continue with a fresh buffer                
@@ -306,16 +301,11 @@ DB0_PACKED_END
                 return;
             }
             if (underflow) {
-                // FIXME: log
-                std::cout << "Load next" << std::endl;
                 // repeat after fetching the next page
                 reader.loadNext();
                 continue;
             }
-            // FIXME: log
-            std::cout << "Diff block not found: page_num=" << page_num << ", page_and_state=("
-                << page_and_state.first << ", " << page_and_state.second << ")" << std::endl;
-            THROWF(db0::InternalException) << "Diff block not found";            
+            THROWF(db0::InternalException) << "Diff block not found";
         }
     }
     

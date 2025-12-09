@@ -368,8 +368,6 @@ def test_copy_prefix_of_recovered_copy(db0_fixture):
     total_len += modify_prefix(1350)
     
     db0.close()
-    # FIXME: log
-    print("*** dbzero close ***", flush=True)
     db0.init(DB0_DIR, prefix=px_name, read_write=True)
     validate(total_len)
     db0.copy_prefix(file_name)

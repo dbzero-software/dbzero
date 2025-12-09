@@ -485,8 +485,6 @@ namespace db0
         // we also need to collect the end storage page number, possibly relative (sentinel)
         bool is_first = false;
         auto end_page_io_page_num = m_page_io.getEndPageNum(&is_first);
-        // FIXME: log
-        std::cout << "End page num (absolute): " << end_page_io_page_num << std::endl;
         if (!!m_ext_space) {
             // convert to relative page number
             end_page_io_page_num = m_ext_space.assignRelative(end_page_io_page_num, is_first);

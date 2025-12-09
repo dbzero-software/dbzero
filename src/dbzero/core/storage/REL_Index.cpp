@@ -188,14 +188,15 @@ namespace db0
     
     std::uint64_t REL_Index::assignRelative(std::uint64_t storage_page_num, bool is_first_in_step)
     {
-        if (is_first_in_step) {    
+        assert(storage_page_num >= m_last_storage_page_num);
+        // prevent adding duplicate mapping (e.g. might be called multiple times after appendDiff)
+        if (is_first_in_step && (storage_page_num != m_last_storage_page_num)) {            
             super_t::insert({ ++m_max_rel_page_num, storage_page_num });
             assert(storage_page_num > m_last_storage_page_num);
             m_last_storage_page_num = storage_page_num;
             m_rel_page_num = m_max_rel_page_num;
         }
         
-        assert(storage_page_num >= m_last_storage_page_num);
         auto result = m_rel_page_num + (storage_page_num - m_last_storage_page_num);
         if (result > m_max_rel_page_num) {
             m_max_rel_page_num = result;
@@ -208,6 +209,9 @@ namespace db0
     {
         assert(storage_page_num >= m_last_storage_page_num);
         assert(rel_page_num >= m_rel_page_num);
+
+        m_max_rel_page_num = rel_page_num;
+        m_last_storage_page_num = storage_page_num;
         if (!this->empty()) {
             // check if the mapping is already valid
             if (storage_page_num - m_last_storage_page_num == rel_page_num - m_rel_page_num) {
@@ -218,8 +222,6 @@ namespace db0
         
         // register the new mapping
         super_t::insert({ rel_page_num, storage_page_num });
-        m_max_rel_page_num = rel_page_num;
-        m_last_storage_page_num = storage_page_num;
         m_rel_page_num = rel_page_num;
     }
     
