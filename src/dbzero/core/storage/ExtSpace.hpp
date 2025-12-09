@@ -75,12 +75,12 @@ DB0_PACKED_END
             assert(m_rel_index);
             return m_rel_index->getRelative(storage_page_num);
         }
-
+        
         // Registers a new mapping rel_page_num -> storage_page_num
         // exception raised if unable to add the mapping
-        void addMapping(std::uint64_t storage_page_num, std::uint64_t rel_page_num) {
+        void addMapping(std::uint64_t storage_page_num, std::uint64_t rel_page_num, std::uint32_t count) {
             assert(m_rel_index);
-            m_rel_index->addMapping(storage_page_num, rel_page_num);
+            m_rel_index->addMapping(storage_page_num, rel_page_num, count);
         }
         
         // Begins the iterator over sorted elements (on condition that ExtSpace is valid)

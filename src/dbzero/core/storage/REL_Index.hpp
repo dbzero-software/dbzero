@@ -124,7 +124,7 @@ DB0_PACKED_END
         struct DB0_PACKED_ATTR o_rel_index_header: o_fixed_versioned<o_rel_index_header>
         {
             // the largest registered mapping from absolute page number
-            std::uint64_t m_last_storage_page_num = 0;
+            std::uint64_t m_storage_page_num = 0;
             // relative page number associated with the 
             std::uint64_t m_rel_page_num = 0;
             // the maximum assigned relative page number
@@ -191,6 +191,7 @@ DB0_PACKED_END
         
         // Assign (append) a mapping from an absolute to relative page number
         // NOTE: the mapping needs to be persisted for each "first_in_step" page
+        // This member is called for EACH newly written data page
         std::uint64_t assignRelative(std::uint64_t storage_page_num, bool is_first_in_step);
         
         // Retrieve storage (absolute) page num for a given relative page num
@@ -203,7 +204,8 @@ DB0_PACKED_END
         // Registers a new mapping rel_page_num -> storage_page_num
         // exception raised if unable to add the mapping
         // the method is used by copy_prefix
-        void addMapping(std::uint64_t storage_page_num, std::uint64_t rel_page_num);
+        // @param count the number of consecutive pages mapped from rel_page_num
+        void addMapping(std::uint64_t storage_page_num, std::uint64_t rel_page_num, std::uint32_t count);
         
         void detach() const;
         void commit() const;
@@ -216,7 +218,7 @@ DB0_PACKED_END
         
     private:
         // values maintained in-sync with the tree
-        std::uint64_t m_last_storage_page_num = 0;
+        std::uint64_t m_storage_page_num = 0; // key of the last inserted item
         std::uint64_t m_rel_page_num = 0; // key of the last inserted item
         std::uint64_t m_max_rel_page_num = 0;
     };

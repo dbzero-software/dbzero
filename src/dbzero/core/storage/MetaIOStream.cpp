@@ -101,7 +101,7 @@ namespace db0
         return m_last_meta_log;
     }
     
-    void MetaIOStream::setTailAll() 
+    void MetaIOStream::setTailAll()
     {
         auto tail_log = tailMetaLog();
         if (tail_log) {
@@ -112,20 +112,17 @@ namespace db0
                 }
                 m_managed_streams[i]->setStreamPos(it->m_address, it->m_stream_pos);
                 // exhaust the stream after setting the position
-                std::vector<char> tmp_buf;
-                // exhaust the stream
-                while (m_managed_streams[i]->readChunk(tmp_buf));
+                while (m_managed_streams[i]->readChunk());
             }
         } else {
             // no tail item available, in such case simple exhaust all streams
-            for (std::size_t i = 0; i < m_managed_streams.size(); ++i) {
-                std::vector<char> tmp_buf;
+            for (std::size_t i = 0; i < m_managed_streams.size(); ++i) {                
                 // exhaust the stream
-                while (m_managed_streams[i]->readChunk(tmp_buf));
+                while (m_managed_streams[i]->readChunk());
             }
         }
     }
-
+    
     const o_meta_log *MetaIOStream::lowerBound(StateNumType state_num, std::vector<char> &buf) const
     {
         State state;

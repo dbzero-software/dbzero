@@ -557,4 +557,8 @@ namespace db0
         }
     }
     
+    std::size_t BlockIOStream::readChunk() {
+        THROWF(db0::InternalException) << "BlockIOStream::readChunk() operation not supported" << THROWF_END;
+    }
+
 }

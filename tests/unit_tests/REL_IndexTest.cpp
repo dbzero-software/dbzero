@@ -36,7 +36,7 @@ namespace tests
         };
 
         for (auto &item: items) {
-            cut.addMapping(item.m_storage_page_num, item.m_rel_page_num);
+            cut.addMapping(item.m_storage_page_num, item.m_rel_page_num, 50);
         }
 
         // relative -> absolute queries
@@ -63,7 +63,7 @@ namespace tests
         };
 
         for (auto &item: items) {
-            cut.addMapping(item.m_storage_page_num, item.m_rel_page_num);
+            cut.addMapping(item.m_storage_page_num, item.m_rel_page_num, 50);
         }
         
         // absolute -> relative queries
@@ -90,7 +90,7 @@ namespace tests
         };
 
         for (auto &item: items) {
-            cut.addMapping(item.m_storage_page_num, item.m_rel_page_num);
+            cut.addMapping(item.m_storage_page_num, item.m_rel_page_num, 50);
         }
         
         std::vector<std::uint64_t> rel_page_nums;
@@ -106,8 +106,9 @@ namespace tests
         auto node_size = 16u << 10;
         auto memspace = DRAMSpace::create(node_size);
         REL_Index cut(memspace, 16u << 10, AccessType::READ_WRITE);
-        cut.addMapping(32, 0);
-        cut.addMapping(64, 14);
+        // storage page num, relative page num, count
+        cut.addMapping(32, 0, 14);
+        cut.addMapping(64, 14, 64);
         cut.assignRelative(128, true);
         cut.assignRelative(144, true);
         

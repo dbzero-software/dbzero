@@ -25,12 +25,36 @@ namespace db0
     template <typename o_change_log_t>
     const o_change_log_t *ChangeLogIOStream<o_change_log_t>::readChangeLogChunk(std::vector<char> &buffer)
     {
-        if (BlockIOStream::readChunk(buffer)) {
-            m_last_change_log_ptr = &o_change_log_t::__const_ref(buffer.data());
-            return m_last_change_log_ptr;
-        } else {
+        if (!this->readChunk(buffer)) {
             return nullptr;
         }
+        return m_last_change_log_ptr;
+    }
+    
+    template <typename o_change_log_t>
+    std::size_t ChangeLogIOStream<o_change_log_t>::readChunk(std::vector<char> &buffer, std::size_t expected_size, 
+        std::uint64_t *address)
+    {
+        auto result = BlockIOStream::readChunk(buffer, expected_size, address);
+        if (result) {
+            // map to a local buffer
+            if (buffer.data() != m_buffer.data()) {
+                m_buffer.resize(buffer.size());
+                std::copy(buffer.data(), buffer.data() + buffer.size(), m_buffer.data());
+            }
+
+            // reference with bounds validation
+            const_bounded_buf_t const_buf(Settings::m_decode_error, reinterpret_cast<std::byte*>(m_buffer.data()),
+                reinterpret_cast<std::byte*>(m_buffer.data() + m_buffer.size())
+            );
+            m_last_change_log_ptr = &o_change_log_t::__safe_const_ref(const_buf);
+        }
+        return result;
+    }
+    
+    template <typename o_change_log_t>
+    std::size_t ChangeLogIOStream<o_change_log_t>::readChunk() {
+        return this->readChunk(m_buffer);
     }
 
     template <typename o_change_log_t>

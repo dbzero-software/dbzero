@@ -67,8 +67,6 @@ namespace db0
         std::size_t m_full_dp_bytes_written = 0;
         // total bytes written using the diff mechanism
         std::size_t m_diff_bytes_written = 0;
-        // function throwing an exception on decode fault (corrupt diff data)
-        std::function<void()> m_decode_fault;
     };
     
 }

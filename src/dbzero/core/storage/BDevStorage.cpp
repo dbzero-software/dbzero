@@ -78,6 +78,17 @@ namespace db0
         if (m_access_type == AccessType::READ_ONLY && !m_flags.test(StorageOptions::NO_LOAD)) {
             refresh();
         }
+        
+        // Validate state consistency
+        // The state number reported by DRAM IO must match the one in the DP changelog IO
+        if (auto chunk_ptr = m_dp_changelog_io.getLastChangeLogChunk()) {
+            auto dp_state_num = chunk_ptr->m_state_num;
+            auto dram_state_num = m_sparse_pair.getMaxStateNum();            
+            if (dram_state_num != dp_state_num) {
+                THROWF(db0::IOException) << "Inconsistent state: DRAM IO max state number " << dram_state_num
+                    << " does not match DP changelog last state number " << dp_state_num;
+            }
+        }
     }
     
     BDevStorage::~BDevStorage()
