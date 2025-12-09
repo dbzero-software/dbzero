@@ -190,7 +190,7 @@ namespace db0
     }
     
     void CFile::write(std::uint64_t address, std::size_t size, const void *buffer)
-    {
+    {        
         std::unique_lock<std::mutex> lock(m_mutex);
         assert(m_access_type != AccessType::READ_ONLY);
         if (address != m_file_pos) {

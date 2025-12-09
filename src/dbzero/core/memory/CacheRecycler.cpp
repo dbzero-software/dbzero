@@ -129,11 +129,9 @@ namespace db0
                 }
                 m_current_size[priority] += lock_size;
                 if (getCurrentSize() > m_capacity) {
-                    // try reducing cache utilization to capacity minus flush size
-                    auto flush_size = std::min(m_capacity >> 1, m_flush_size);
-                    updateSize(lock, m_capacity - flush_size);
-                    flushed = true;
-                    flush_result = m_current_size[priority] <= (m_capacity - flush_size);              
+                    auto flush_returned_values = _flush(lock, priority);
+                    flushed = flush_returned_values.first;
+                    flush_result = flush_returned_values.second;
                 }
                 // resize is a costly operation but cannot be avoided if the number of locked
                 // resources exceeds the assumed limit
@@ -247,5 +245,30 @@ namespace db0
         std::unique_lock<std::mutex> lock(m_mutex);
         return { m_current_size[0], m_current_size[1] };
     }
-    
+
+    std::pair<bool, bool> CacheRecycler::_flush(std::unique_lock<std::mutex> &lock, int priority)
+    {
+        auto now = std::chrono::high_resolution_clock::now();
+        if (now >= m_next_flush_time) {
+            // try reducing cache utilization to capacity minus flush size
+            auto flush_size = std::min(m_capacity >> 1, m_flush_size);
+            auto size_before_flush = getCurrentSize();
+            updateSize(lock, m_capacity - flush_size);
+            // Update backoff state based on flush result(need to flush more than 10 % of flush size)
+            if ((size_before_flush - getCurrentSize()) > (flush_size/10)) {
+                // Success: reset delay
+                m_current_flush_delay = std::chrono::nanoseconds{0};
+                m_next_flush_time = std::chrono::high_resolution_clock::time_point{};
+            } else {
+                // Failure: apply exponential backoff
+                // adding +1 to avoid condition for zero delay
+                auto new_delay = std::min(m_current_flush_delay.count() * 2 + 1 , MAX_FLUSH_DELAY_NS);
+                m_current_flush_delay = std::chrono::nanoseconds{new_delay};
+                now = std::chrono::high_resolution_clock::now();
+                m_next_flush_time = now + m_current_flush_delay;
+            }
+            return { true, m_current_size[priority] <= (m_capacity - flush_size) };
+        }
+        return { false, false };
+    }
 }

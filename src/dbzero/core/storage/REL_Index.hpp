@@ -25,11 +25,21 @@ namespace db0
 
     using REL_Flags = FlagSet<REL_Options>;
 
+    // Type to enable comparing by storage page number only
+    struct REL_StoragePageNum
+    {
+        std::uint64_t m_value;
+    };
+
     struct REL_ItemCompT
     {
         bool operator()(const REL_Item &lhs, const REL_Item &rhs) const;
         bool operator()(const REL_Item &lhs, std::uint64_t rhs) const;
         bool operator()(std::uint64_t lhs, const REL_Item &rhs) const;
+
+        // Comparison by storage page number only
+        bool operator()(const REL_Item &, REL_StoragePageNum) const;
+        bool operator()(REL_StoragePageNum, const REL_Item &) const;
     };
 
     struct REL_ItemEqualT
@@ -68,6 +78,9 @@ DB0_PACKED_END
     struct REL_CompressedItemCompT
     {
         bool operator()(const REL_CompressedItem &, const REL_CompressedItem &) const;
+        // compare by absolute storage page number
+        bool operator()(const REL_CompressedItem &, REL_StoragePageNum) const;
+        bool operator()(REL_StoragePageNum, const REL_CompressedItem &) const;
     };
     
     struct REL_CompressedItemEqualT
@@ -75,19 +88,27 @@ DB0_PACKED_END
         bool operator()(const REL_CompressedItem &, const REL_CompressedItem &) const;
     };
     
+    // Alternative comparators, by the absolute storage page number
+    struct REL_CompressedItemAltCompT
+    {
+        bool operator()(const REL_CompressedItem &, const REL_CompressedItem &) const;
+    };
+
     // Compressed items are actual in-memory representation
 DB0_PACKED_BEGIN
     struct DB0_PACKED_ATTR REL_CompressedItem
     {
         using CompT = REL_CompressedItemCompT;
         using EqualT = REL_CompressedItemEqualT;
+
+        REL_CompressedItem() = default;
         // construct REL-compressed item relative to the specific page number - i.e. first_page_num
         REL_CompressedItem(std::uint32_t first_rel_page_num, const REL_Item &);
         REL_CompressedItem(std::uint32_t first_rel_page_num, std::uint64_t rel_page_num, 
             std::uint64_t storage_page_num, REL_Flags flags = {});
         
-        std::uint32_t m_compressed_rel_page_num;
-        std::uint64_t m_storage_page_num;
+        std::uint32_t m_compressed_rel_page_num = 0;
+        std::uint64_t m_storage_page_num = 0;
         REL_Flags m_flags;
         
         // uncompress relative to a specific page number
@@ -132,12 +153,16 @@ DB0_PACKED_END
             std::uint64_t getRelPageNum(const CompressedItemT &) const;
             
             bool canFit(const ItemT &) const;
-            bool canFit(std::uint64_t rel_page_num) const;
+            bool canFit(std::uint64_t rel_page_num) const;            
 
             std::string toString(const CompressedItemT &) const;
             std::string toString() const;
-        };
 
+            // members added for type compatibility            
+            bool canFit(REL_StoragePageNum) const;
+            REL_StoragePageNum compress(REL_StoragePageNum) const;
+        };
+        
         // DRAM space deployed REL-index (in-memory)
         using IndexT = SGB_CompressedLookupTree<
             REL_Item, REL_CompressedItem, BlockHeader,
@@ -146,6 +171,7 @@ DB0_PACKED_END
         
         using ConstNodeIterator = typename IndexT::sg_tree_const_iterator;
         using ConstItemIterator = typename IndexT::ConstItemIterator;
+        using const_iterator = typename IndexT::uncompressed_const_iterator;
     };
 
     // REL_Index holds a complete mapping from relative to absolute Page IO addresses
@@ -155,6 +181,7 @@ DB0_PACKED_END
     {
     public:
         using super_t = REL_IndexTypes::IndexT;
+        using const_iterator = REL_IndexTypes::const_iterator;
         
         // as null
         REL_Index() = default;
@@ -168,6 +195,8 @@ DB0_PACKED_END
         
         // Retrieve storage (absolute) page num for a given relative page num
         std::uint64_t getAbsolute(std::uint64_t rel_page_num) const;
+        // Retrieve relative page num for a given storage (absolute) page num
+        std::uint64_t getRelative(std::uint64_t storage_page_num) const;
         
         db0::Address getAddress() const;
         
@@ -182,6 +211,8 @@ DB0_PACKED_END
         void refresh();
 
         std::uint64_t size() const;
+        
+        const_iterator cbegin() const;
 
     private:
         // values maintained in-sync with the tree

@@ -133,6 +133,7 @@ DB0_PACKED_END
         // been written witn an "overflow" - in which case actually 2 DPs were written
         void insert(PageNumT page_num, StateNumT state_num, PageNumT storage_page_num, bool overflow = false);
         
+        bool empty() const;
         std::size_t size() const;
         
         // Find mutation of page_num where state >= state_num
@@ -140,7 +141,7 @@ DB0_PACKED_END
         // Find mutation ID of page_num where state <= state_num
         StateNumT findLower(PageNumT page_num, StateNumT state_num) const;
         
-        PageNumT getNextStoragePageNum() const;
+        std::optional<PageNumT> getNextStoragePageNum() const;
         
         StateNumT getMaxStateNum() const;
 

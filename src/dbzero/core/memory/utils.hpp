@@ -73,5 +73,18 @@ namespace db0
         }
         return has_mutation;
     }
+    
+    template <typename T>
+    std::optional<T> optional_max(const std::optional<T> &a, const std::optional<T> &b) 
+    {
+        if (a && b) {
+            return std::max(*a, *b);
+        } else if (a) {
+            return a;
+        } else {
+            return b;
+        }
+        return {};
+    }
 
 }

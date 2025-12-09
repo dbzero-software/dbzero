@@ -267,4 +267,6 @@ namespace db0
         mutable std::string formattedMsg;	
     };
     
+    std::ostream &showStackTrace(std::ostream &os, unsigned int pruneTop = 0, bool omitLastNotDemangled = true);
+    
 }

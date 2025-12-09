@@ -418,6 +418,7 @@ namespace db0
     std::uint64_t BlockIOStream::tail() const
     {
         if (!m_eos) {
+            assert(false);
             THROWF(db0::InternalException) << "BlockIOStream::tail: Failed (must be EOS)";
         }
         return m_address + m_block_size;
