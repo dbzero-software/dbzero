@@ -371,16 +371,16 @@ namespace db0
         std::byte *dp_result, const std::byte *dp_end)
     {
         const std::byte *dp_in = static_cast<const std::byte *>(in_buffer);
-        for (auto it = diffs.begin(); it != diffs.end(); ) {
+        for (auto it = diffs.begin(); it != diffs.end();) {
             auto diff_size = *it;
             ++it;
             if (diff_size > 0) {
                 assert(dp_result + diff_size <= dp_end);
-                std::memcpy(dp_result, dp_in, diff_size);
-                dp_result += diff_size;
-                if (dp_result > dp_end) {
+                if (dp_result + diff_size > dp_end) {
                     THROWF(db0::IOException) << "applyDiffs: diff application exceeds buffer size";
                 }
+                std::memcpy(dp_result, dp_in, diff_size);
+                dp_result += diff_size;
                 dp_in += diff_size;
             }
             if (it == diffs.end()) {
