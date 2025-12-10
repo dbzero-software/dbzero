@@ -18,7 +18,7 @@ dbzero implements the **DISTIC memory** model:
 - **I**solated - Operations are isolated and thread-safe
 - **C**omposable - A single process can integrate multiple memory partitions (prefixes) to suit its specific requirements
 
-The result is a simplified application stack that can eliminate the need for separate databases, ORMs, and caching layers—reducing development time by up to **80%** and, in some cases, enabling applications to run **hundreds of times faster**.
+The result is a simplified application stack that eliminate the need for separate databases, ORMs and caching layers. This reduces architectural complexity and development time, while offering significant performance benefits in some cases, due to reduced serialization overhead and cache locality.
 
 ---
 
@@ -30,8 +30,8 @@ The result is a simplified application stack that can eliminate the need for sep
 - **Automatic Persistence** - Objects are automatically saved to disk
 - **Efficient Caching** - Only accessed data is loaded into memory
 - **Time Travel** - Query historical states at any transaction point
-- **Horizontal Scalability** - Built-in support for data partitioning and sharding
-- **Custom Data Models** - Unlike traditional databases, dbzero allows you to define custom data structures that match your domain's needs, enabling not just constant speedup but algorithmic speedup (e.g., O(log N) → O(1))
+- **Data Partitioning** - Build distributed architectures using prefixes and distributed transactions
+- **Custom Data Models** - Unlike traditional databases, dbzero allows you to define custom data structures that match your domain's needs
 
 ### Developer Experience
 - **Invisible by Design** - Minimal API surface; write regular Python code
@@ -39,6 +39,15 @@ The result is a simplified application stack that can eliminate the need for sep
 - **AI-Friendly** - Works exceptionally well with AI coding agents
 - **Type Support** - Full support for Python's built-in types and collections
 - **Reference Counting** - Automatic garbage collection of unused objects
+
+---
+
+## Requirements
+
+- **Python**: 3.9+
+- **Operating Systems**: Linux, macOS, Windows
+- **Storage**: Local filesystem or network-attached storage
+- **Memory**: Varies by workload; active working set should fit in RAM for best performance
 
 ---
 
@@ -78,7 +87,7 @@ if __name__ == "__main__":
 
 When the process exits, the application state is persisted automatically. The same data will be available the next time the app starts.
 
-**Note:** All objects linked to `Root` (and any objects they reference) are automatically managed by dbzero. There's no need for explicit conversions, fetching, or saving—dbzero handles persistence transparently for the entire object graph.
+**Note:** All objects linked to `Root` (and any objects they reference) are automatically managed by dbzero. There's no need for explicit conversions, fetching, or saving — dbzero handles persistence transparently for the entire object graph.
 
 ---
 
@@ -263,31 +272,17 @@ deleted_items = db0.select_deleted(query, snap_before, snap_after)
 modified_items = db0.select_modified(query, snap_before, snap_after)
 ```
 
-### Singleton Pattern
-
-Create unique instances per prefix:
-
-```python
-@db0.memo(singleton=True)
-class AppConfig:
-    def __init__(self, version: str):
-        self.version = version
-
-# Only one instance can exist per prefix
-config = AppConfig("1.0.0")
-config_ref = db0.fetch(AppConfig)  # Same instance
-assert config is config_ref
-```
-
 ---
 
 ## Scalability
 
-dbzero is built for horizontal scalability using proven distributed systems patterns:
+dbzero provides tools to build scalable applications:
 
-- **Data Partitioning** - Automatic sharding across multiple prefixes
-- **Multiple-Handshake Transactions** - Ensures data integrity across distributed systems
-- **Cache Locality** - Indexes can be bound to specific contexts for optimal performance
+- **Data Partitioning** - Split data across independent partitions (prefixes) to distribute workload
+- **Distributed Transactions** - Coordinate transactions across multiple partitions for data consistency
+- **Multi-Process Support** - Multiple processes can work with shared or separate data simultaneously, enabling horizontal scaling
+
+These features give you the flexibility to design distributed architectures that fit your needs.
 
 ---
 
@@ -319,35 +314,7 @@ db0.open("my-prefix", "rw", autocommit=False)
 - **Web Applications** - Unified state management for backend services
 - **Data Processing Pipelines** - Efficient batch operations with transaction support
 - **Event-Driven Systems** - Change data capture and time travel for auditing
-- **Distributed Systems** - Built-in support for multi-process synchronization
 - **AI Applications** - Simplified state management for AI agents and workflows
-
----
-
-## Documentation
-
-For comprehensive documentation, visit: **[docs.dbzero.io](https://docs.dbzero.io)**
-
-Topics covered:
-- API Reference
-- Tutorials
-- Data Modeling Patterns
-- Performance Optimization
-- Migration Guides
-
----
-
-## Commercial Support
-
-Need help building large-scale solutions with dbzero?
-
-We offer:
-- Custom UI and admin tools
-- System integrations
-- Expert consulting and architectural reviews
-- Performance tuning
-
-Contact us at: **info@dbzero.io**
 
 ---
 
@@ -377,6 +344,19 @@ By eliminating intermediate layers, dbzero reduces complexity, improves performa
 
 ---
 
+## Documentation
+
+For comprehensive documentation, visit: **[docs.dbzero.io](https://docs.dbzero.io)**
+
+Topics covered:
+- API Reference
+- Tutorials
+- Data Modeling Patterns
+- Performance Optimization
+- Other Guides
+
+---
+
 ## License
 
 This project is licensed under the GNU Affero General Public License v3.0 (AGPLv3). See `LICENSE` for the full text.
@@ -384,7 +364,21 @@ This project is licensed under the GNU Affero General Public License v3.0 (AGPLv
 - If you modify and run this software over a network, you must offer the complete corresponding source code to users interacting with it (AGPLv3 §13).
 - Redistributions must preserve copyright and license notices and provide source.
 
-For a short summary, see `COPYING`. For attribution details, see `NOTICE`.
+For attribution details, see `NOTICE`.
+
+---
+
+## Commercial Support
+
+Need help building large-scale solutions with dbzero?
+
+We offer:
+- Custom UI and admin tools
+- System integrations
+- Expert consulting and architectural reviews
+- Performance tuning
+
+Contact us at: **info@dbzero.io**
 
 ---
 
