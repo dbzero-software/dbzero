@@ -1,16 +1,15 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright (c) 2025 DBZero Software sp. z o.o.
-
 /////////////////////////////////////////////////////////////////////////////
-//
-// (C) Copyright Ion Gaztanaga  2007.
-//
+// Original work:
+// (C) Copyright Ion Gaztanaga 2007
 // Distributed under the Boost Software License, Version 1.0.
-//    (See accompanying file LICENSE_1_0.txt or copy at
-//          http://www.boost.org/LICENSE_1_0.txt)
+//    (See THIRD_PARTY_LICENSES/BOOST_LICENSE_1_0 or
+//     http://www.boost.org/LICENSE_1_0.txt)
 //
-// See http://www.boost.org/libs/intrusive for documentation.
+// This file may contain modifications by DBZero Software sp. z o.o.
+// Any modifications are Copyright (c) 2025 DBZero Software sp. z o.o.
+// and licensed under AGPL-3.0-or-later.
 //
+// SPDX-License-Identifier: BSL-1.0 AND AGPL-3.0-or-later
 /////////////////////////////////////////////////////////////////////////////
 	
 #pragma once
