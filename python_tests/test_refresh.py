@@ -6,6 +6,7 @@ import multiprocessing
 import time
 import asyncio
 import dbzero as db0
+import os
 from .conftest import DB0_DIR
 from .memo_test_types import DynamicDataClass, DynamicDataSingleton, MemoTestClass, MemoTestSingleton
 
@@ -552,3 +553,143 @@ async def test_async_wait_for_updates(db0_fixture):
 
     p.terminate()
     p.join()
+
+
+def writer_process(prefix, obj_count = 50, commit_count = 50, long_run = False):
+    db0.init(DB0_DIR)
+    db0.open(prefix, "rw")
+    # create new or open an existing root object
+    root = MemoTestSingleton([])
+    if (len(root.value) > 0):
+        print(f"Writer process: opened existing prefix with {len(root.value)} objects")
+    for i in range(commit_count):
+        for _ in range(obj_count):
+            root.value.append(MemoTestClass("b" * 1024))  # 1 KB string
+        db0.commit()
+        if long_run:
+            print(f"Writer process: committed {(i + 1) * obj_count} objects", flush=True)
+        else:
+            time.sleep(0.1)
+    
+    if long_run:
+        print(db0.get_storage_stats(), flush=True)    
+    db0.close()    
+
+
+@pytest.mark.stress_test
+def test_refresh_prefix_continuous_process_with_snapshot(db0_fixture):
+    px_name = db0.get_current_prefix().name
+
+    def validate_current_prefix(expected_len = None, expected_min_len = None):
+        snap = db0.snapshot()
+        root = snap.fetch(MemoTestSingleton)
+        assert not expected_min_len or len(root.value) >= expected_min_len
+        assert not expected_len or len(root.value) == expected_len        
+        for item in root.value:
+            assert item.value == "b" * 1024        
+        return len(root.value)
+    
+    db0.close()
+    
+    # in each 'epoch' we modify prefix while making copies
+    # then drop the original prefix and restore if from the last copy
+    epoch_count = 2
+    total_len = 0
+    for epoch in range(epoch_count):
+        print(f"=== Epoch {epoch} ===")
+        obj_count = 5000
+        commit_count = 100
+        # start the writer process for a long run
+        p = multiprocessing.Process(target=writer_process, args=(px_name, obj_count, commit_count, True))
+        p.start()
+        
+        db0.init(DB0_DIR)
+        db0.open(px_name, "r")
+        last_len = 0
+        while True:
+            try:
+                root = db0.fetch(MemoTestSingleton)
+                if len(root.value) > 1:
+                    last_len = len(root.value)
+                    break
+            except Exception:
+                pass
+            time.sleep(0.1)
+        
+        # validate prefix while writer is actively modifying it
+        while True:        
+            if not p.is_alive():
+                break
+            print("--- Validate  prefix iteration", flush=True)
+            last_len = validate_current_prefix(expected_min_len = last_len)
+            print(f"--- Prefix valid with {last_len} objects", flush=True)
+            if not p.is_alive():
+                break
+            time.sleep(2.5)  # wait a bit before next copy
+        
+        p.join()
+        total_len += obj_count * commit_count
+        
+        print("Validating final prefix ...", flush=True) 
+        validate_current_prefix(expected_len = total_len)
+        db0.close()
+
+
+@pytest.mark.stress_test
+@pytest.mark.skip(reason="Test disabled due to issue #605")
+# test failing due to issue: https://github.com/dbzero-software/dbzero/issues/605
+def test_refresh_prefix_continuous_process(db0_fixture):
+    px_name = db0.get_current_prefix().name
+
+    def validate_current_prefix(expected_len = None, expected_min_len = None):
+        root = db0.fetch(MemoTestSingleton)
+        assert not expected_min_len or len(root.value) >= expected_min_len
+        assert not expected_len or len(root.value) == expected_len        
+        for item in root.value:
+            assert item.value == "b" * 1024        
+        return len(root.value)
+    
+    db0.close()
+    
+    # in each 'epoch' we modify prefix while making copies
+    # then drop the original prefix and restore if from the last copy
+    epoch_count = 2
+    total_len = 0
+    for epoch in range(epoch_count):
+        print(f"=== Epoch {epoch} ===")
+        obj_count = 5000
+        commit_count = 100
+        # start the writer process for a long run
+        p = multiprocessing.Process(target=writer_process, args=(px_name, obj_count, commit_count, True))
+        p.start()
+        
+        db0.init(DB0_DIR)
+        db0.open(px_name, "r")
+        last_len = 0
+        while True:
+            try:
+                root = db0.fetch(MemoTestSingleton)
+                if len(root.value) > 1:
+                    last_len = len(root.value)
+                    break
+            except Exception:
+                pass
+            time.sleep(0.1)
+        
+        # validate prefix while writer is actively modifying it
+        while True:        
+            if not p.is_alive():
+                break
+            print("--- Validate  prefix iteration", flush=True)
+            last_len = validate_current_prefix(expected_min_len = last_len)
+            print(f"--- Prefix valid with {last_len} objects", flush=True)
+            if not p.is_alive():
+                break
+            time.sleep(2.5)  # wait a bit before next copy
+        
+        p.join()
+        total_len += obj_count * commit_count
+
+        print("Validating final prefix ...", flush=True) 
+        validate_current_prefix(expected_len = total_len)
+        db0.close()

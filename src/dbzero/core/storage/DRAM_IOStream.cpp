@@ -39,14 +39,22 @@ namespace db0
     void *DRAM_IOStream::updateDRAMPage(std::uint64_t address, std::unordered_set<std::size_t> *allocs_ptr,
         const o_dram_chunk_header &header, StateNumType max_state_num)
     {
+        // FIXME: log
+        // std::cout << "updateDRAMPage: address=" << address
+        //           << " page_num=" << header.m_page_num
+        //           << " state_num=" << header.m_state_num << std::endl;
         if (header.m_state_num > max_state_num) {
+            // FIXME: log
+            // std::cout << "Rejected (too new)" << std::endl;
             // ignore changes beyond the last known consistent state number
             return nullptr;
         }
-
+        
         // page map = page_num / state_num
         auto dram_page = m_page_map.find(header.m_page_num);
-        if (dram_page == m_page_map.end() || dram_page->second.m_state_num < header.m_state_num) {
+        // NOTE: even if the same state number is encountered, the page is updated
+        // (the previous version might've been incomplete!!)
+        if (dram_page == m_page_map.end() || header.m_state_num >= dram_page->second.m_state_num) {
             // update DRAM to most recent page version, page not marked as dirty
             auto result = m_prefix->update(header.m_page_num, false);
             if (dram_page == m_page_map.end()) {
@@ -72,6 +80,8 @@ namespace db0
             }
             return result;
         } else {
+            // FIXME: log
+            // std::cout << "Rejected (older version)" << std::endl;
             // mark block as reusable (read/write mode only)
             if (m_access_type == AccessType::READ_WRITE) {
                 m_reusable_chunks.insert(address);
@@ -190,6 +200,9 @@ namespace db0
                 dram_changelog.push_back(*reusable_addr);
                 // update to the last known page location, collect previous location as reusable
                 update_page_location(page_num, *reusable_addr);
+                // FIXME: log
+                // std::cout << this << ":writeDRAM page " << page_num << " to reusable address " << *reusable_addr 
+                //     << ", state_num=" << state_num << std::endl;
             } else {
                 // make sure all chunks are block-aligned
                 assert(tellBlock().second == 0);
@@ -202,6 +215,9 @@ namespace db0
                 dram_changelog.push_back(chunk_addr);
                 // update to the last known page location, collect previous location as reusable
                 update_page_location(page_num, chunk_addr);
+                // FIXME: log
+                // std::cout << this << ":writeDRAM page " << page_num << " to new address " << chunk_addr 
+                //     << ", state_num=" << state_num << std::endl;
             }
         });
         
@@ -363,12 +379,21 @@ namespace db0
     }
 
     void flushDRAM_IOChanges(DRAM_IOStream &dram_io,
-        std::unordered_map<std::uint64_t, std::vector<char> > &chunks_buf)
+        const std::unordered_map<std::uint64_t, std::vector<char> > &chunks_buf)
     {
         for (const auto &item: chunks_buf) {
             auto address = item.first;
             const auto &buffer = item.second;
             dram_io.writeToChunk(address, buffer.data(), buffer.size());
+        }
+    }
+    
+    void appendDRAM_IOChunks(DRAM_IOStream &dram_io, const std::vector<std::vector<char> > &chunks_buf)
+    {
+        for (const auto &buffer : chunks_buf) {
+            dram_io.addChunk(buffer.size());
+            // NOTE: the buffer already includes chunk header
+            dram_io.appendToChunk(buffer.data(), buffer.size());
         }
     }
 

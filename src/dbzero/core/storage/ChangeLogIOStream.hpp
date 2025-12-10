@@ -86,6 +86,16 @@ namespace db0
             Writer(ChangeLogIOStream &);
 
             void appendChangeLog(const o_change_log_t &);
+            
+            template <typename... Args>
+            void appendChangeLog(const ChangeLogData &data, Args&&... args)
+            {
+                auto size_of = o_change_log_t::measure(data, std::forward<Args>(args)...);
+                std::vector<char> buffer(size_of);
+                auto &change_log = o_change_log_t::__new(buffer.data(), data, std::forward<Args>(args)...);
+                appendChangeLog(change_log);
+            }
+
             void flush();
 
         private:

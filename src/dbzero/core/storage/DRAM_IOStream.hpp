@@ -184,6 +184,10 @@ DB0_PACKED_END
     
     // Flush changes from the buffer
     void flushDRAM_IOChanges(DRAM_IOStream &dram_io,
-        std::unordered_map<std::uint64_t, std::vector<char> > &chunks_buf);
+        const std::unordered_map<std::uint64_t, std::vector<char> > &chunks_buf);
+    
+    // Append all chunks from the buffer
+    void appendDRAM_IOChunks(DRAM_IOStream &dram_io,
+        const std::vector<std::vector<char> > &chunks_buf);
     
 }

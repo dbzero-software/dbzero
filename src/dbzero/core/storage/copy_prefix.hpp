@@ -26,8 +26,10 @@ namespace db0
         DRAM_IOStream &output_io, DRAM_ChangeLogStreamT::Writer &output_dram_changelog);
     
     // Copy entire contents from one BlockIOStream to another (type agnostic)
+    // @param addr_map optional map to receive address translation (from source to destination)
     // @return the last copied chunk data
-    std::vector<char> copyStream(BlockIOStream &in, BlockIOStream &out);
+    std::vector<char> copyStream(BlockIOStream &in, BlockIOStream &out, 
+        std::unordered_map<std::uint64_t, std::uint64_t> *addr_map = nullptr);
     
     // DP-changelog specialization
     // @return the last chunk's header (if anything copied)

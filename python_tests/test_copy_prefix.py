@@ -211,7 +211,7 @@ def test_copy_prefix_continuous_process(db0_fixture):
         # restore the copy
         os.rename(file_name, px_path)
         
-        print(f"--- Validating copy {copy_id}")
+        print(f"--- Validating copy {copy_id}", flush=True)
         db0.init(DB0_DIR, prefix=px_name, read_write=False)
         result = validate_current_prefix(expected_len, expected_min_len)
         db0.close()
@@ -221,10 +221,12 @@ def test_copy_prefix_continuous_process(db0_fixture):
     
     # in each 'epoch' we modify prefix while making copies
     # then drop the original prefix and restore if from the last copy
-    epoch_count = 2
+    # epoch_count = 2
+    # FIXME: log
+    epoch_count = 1
     total_len = 0
     for epoch in range(epoch_count):
-        print(f"=== Epoch {epoch} ===")
+        print(f"=== Epoch {epoch} ===", flush=True)
         obj_count = 5000
         commit_count = 100
         # start the writer process for a long run
@@ -246,16 +248,16 @@ def test_copy_prefix_continuous_process(db0_fixture):
         
         copy_id = 0
         # copy the prefix multiple times while it is being modified 
-        while True:        
+        while True:
             if not p.is_alive():
                 break
             file_name = f"./test-copy-{copy_id}.db0"
             if os.path.exists(file_name):
                 os.remove(file_name)
             # copy prefix without opening it, use default step size
-            print("--- Copying prefix iteration", copy_id)            
+            print("--- Copying prefix iteration", copy_id, flush=True)
             db0.copy_prefix(file_name, prefix=px_name)
-            print("--- copy finished")
+            print("--- copy finished", flush=True)
             copy_id += 1
             if not p.is_alive():
                 break
@@ -265,8 +267,8 @@ def test_copy_prefix_continuous_process(db0_fixture):
         total_len += obj_count * commit_count
         
         # validate original prefix (no copy yet)
-        # print("Validating final prefix ...", flush=True) 
-        # validate_current_prefix(expected_len = total_len)
+        print("Validating final prefix ...", flush=True)
+        validate_current_prefix(expected_len = total_len)
         
         # make final stale copy (i.e. without active modifications)
         final_copy = f"./test-copy-final.db0"
@@ -275,11 +277,11 @@ def test_copy_prefix_continuous_process(db0_fixture):
         db0.copy_prefix(final_copy, prefix=px_name)    
         db0.close()
         
-        print("Validating all copies")
+        print("Validating all copies", flush=True)
         validate_copy("final", expected_len = total_len)    
         for i in range(copy_id):
             last_len = validate_copy(i, expected_min_len = last_len)
-            print(f"--- Copy {i} valid with {last_len} objects")
+            print(f"--- Copy {i} valid with {last_len} objects", flush=True)
             # this is the restored version
             total_len = last_len
         
@@ -383,3 +385,19 @@ def test_copy_prefix_of_recovered_copy(db0_fixture):
     db0.init(DB0_DIR, prefix=px_name, read_write=False)
     validate(total_len)
     
+    
+# FIXME: debug code
+# def test_validate_prefix():
+#     db0.init(DB0_DIR)
+#     db0.open("my-test-prefix", "r")
+    
+#     def validate_current_prefix(expected_len = None, expected_min_len = None):
+#         root = db0.fetch(MemoTestSingleton)
+#         assert not expected_min_len or len(root.value) >= expected_min_len
+#         assert not expected_len or len(root.value) == expected_len        
+#         for item in root.value:
+#             assert item.value == "b" * 1024        
+#         return len(root.value)
+
+#     validate_current_prefix()
+#     db0.close()

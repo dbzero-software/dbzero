@@ -184,9 +184,9 @@ namespace db0
         if (timer_ptr) {
             timer = std::make_unique<ProcessTimer>("Fixture::close", timer_ptr);
         }
-                        
+        
         // clear cache to destroy object instances supported by the cache
-        // this has to be done before commit (to not commit unrefereced objects)
+        // this has to be done before commit (to not commit unrefereced objects)        
         m_lang_cache.clear(true, as_defunct);
         
         // auto-commit before closing
@@ -201,7 +201,8 @@ namespace db0
                 }
                 
                 // clear lang cache again since flush might've released some Python instances
-                m_lang_cache.clear(true);
+                // FIXME: log
+                // m_lang_cache.clear(true);
 
                 // lock for exclusive access
                 std::unique_lock<std::shared_mutex> lock(m_commit_mutex);
@@ -315,7 +316,8 @@ namespace db0
         }
         
         // Clear Python-side expired instances from cache so that they're not persisted
-        m_lang_cache.clear(true);
+        // FIXME: log
+        // m_lang_cache.clear(true);
         std::unique_lock<std::shared_mutex> lock(m_commit_mutex);
         bool result = tryCommit(lock, process_timer.get());
         m_updated = false;
@@ -388,7 +390,8 @@ namespace db0
             for (auto &handler: m_flush_handlers) {
                 handler();
             }
-            m_lang_cache.clear(true);
+            // FIXME: log
+            // m_lang_cache.clear(true);
             // lock for exclusive access
             {
                 std::unique_lock<std::shared_mutex> lock(m_commit_mutex);
