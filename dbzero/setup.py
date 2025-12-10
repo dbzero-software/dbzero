@@ -13,7 +13,7 @@ setup(
     version='0.1.0',
     description='DBZero community edition',
     packages=['dbzero'],
-    python_requires='>=3.8',
+    python_requires='>=3.9',
     license='AGPL-3.0-or-later',
     classifiers=[
         'Programming Language :: Python :: 3',

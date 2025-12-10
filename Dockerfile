@@ -1,7 +1,6 @@
 FROM gcc:13
 # Install dependencies and clean up
 RUN apt-get update && apt-get install -y \
-    cmake \
     psmisc \
     python3.11 \
     python3-pip \

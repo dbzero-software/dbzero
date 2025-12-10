@@ -15,7 +15,8 @@ Thank you for your interest in contributing to dbzero! We welcome contributions 
 - [Reporting Bugs](#reporting-bugs)
 - [Suggesting Enhancements](#suggesting-enhancements)
 - [Documentation](#documentation)
-- [Community](#community)
+- [Contributor License Agreement](#contributor-license-agreement)
+- [License](#license)
 
 ## Code of Conduct
 
@@ -38,11 +39,11 @@ This project adheres to a code of conduct that all contributors are expected to 
 
 ### Prerequisites
 
-- C++ compiler (GCC 9+ or Microsoft C/C++ Optimizing Compiler 19.41+)
-- Meson 0.55 or higher
+- C++ compiler (GCC 13+ or Microsoft C/C++ Optimizing Compiler 19.41+)
+- Meson
 - Ninja build system
 - Git
-- Python 3.8 or higher (for Python components and tooling)
+- Python 3.9 or higher (for Python components and tooling)
 - A virtual environment tool (venv, virtualenv, or conda) for Python dependencies
 
 ### Setting Up Your Environment
@@ -76,7 +77,7 @@ This project adheres to a code of conduct that all contributors are expected to 
 
 3. **Install Python dependencies**:
    ```bash
-   pip install -e ".[dev]"  # Install in editable mode with dev dependencies
+   pip install -r requirements.txt  # Install dependencies
    ```
 
 4. **Verify the installation**:
@@ -129,7 +130,7 @@ We welcome various types of contributions:
 
 Since the project is predominantly C++ (85%), these are our primary coding standards:
 
-- Follow **Modern C++ (C++17/20)** best practices
+- Follow **Modern C++** best practices
 - Use **meaningful variable and function names** with clear intent
 - Follow **RAII principles** for resource management
 - Prefer **smart pointers** over raw pointers
@@ -141,7 +142,7 @@ Since the project is predominantly C++ (85%), these are our primary coding stand
 
 - **Naming Conventions**:
   - Classes/Structs: `PascalCase`
-  - Functions/Methods: `camelCase` or `snake_case` (be consistent within modules)
+  - Functions/Methods: `camelCase`
   - Variables: `snake_case`
   - Constants: `UPPER_SNAKE_CASE`
   - Namespaces: `lowercase`
@@ -155,22 +156,9 @@ Since the project is predominantly C++ (85%), these are our primary coding stand
    */
   ```
 
-- **Error Handling**: Use exceptions for exceptional cases, return codes for expected errors
+- **Error Handling**: Use exceptions for exceptional cases, return values for expected errors
 - **Comments**: Write clear comments for complex logic, algorithms, and non-obvious decisions
 - **DRY Principle**: Extract common code into reusable functions and templates
-
-#### C++ Formatting Tools
-
-```bash
-# Format C++ code
-clang-format -i $(find . -name '*.cpp' -o -name '*.h')
-
-# Static analysis
-clang-tidy src/*.cpp -- -std=c++17
-
-# Check for common issues
-cppcheck --enable=all --suppress=missingInclude .
-```
 
 ### Python Style Guide (Additional)
 
@@ -184,25 +172,9 @@ For the Python components (~15% of the project):
 #### Python Code Quality
 
 - **Type hints**: Use type annotations where appropriate
-- **Docstrings**: Document all public modules, functions, classes, and methods using Google or NumPy style
+- **Docstrings**: Document all public modules, functions, classes, and methods using NumPy style
 - **Comments**: Write clear comments for complex logic
 - **DRY principle**: Extract common code into reusable functions
-
-#### Python Formatting Tools
-
-```bash
-# Format Python code
-black .
-
-# Sort imports
-isort .
-
-# Lint code
-flake8 .
-
-# Type checking
-mypy .
-```
 
 ## Testing Guidelines
 
@@ -233,48 +205,8 @@ TEST(TestSuiteName, TestName) {
 
 ## Commit Message Guidelines
 
-Write clear and meaningful commit messages following these conventions:
-
-### Format
-
-```
-<type>(<scope>): <subject>
-
-<body>
-
-<footer>
-```
-
-### Types
-
-- **feat**: A new feature
-- **fix**: A bug fix
-- **docs**: Documentation changes
-- **style**: Code style changes (formatting, missing semicolons, etc.)
-- **refactor**: Code refactoring without changing functionality
-- **perf**: Performance improvements
-- **test**: Adding or updating tests
-- **chore**: Maintenance tasks, dependency updates
-
-### Examples
-
-```
-feat(transactions): add support for nested transactions
-
-Implement nested transaction handling with proper rollback
-support for inner transactions.
-
-Closes #123
-```
-
-```
-fix(cache): prevent memory leak in object cache
-
-The cache was not properly releasing references to deleted
-objects, causing memory growth over time.
-
-Fixes #456
-```
+Write clear and meaningful commit messages explaining scope and purpose of changes you are making.
+If your contributions are related to a submitted issue on the github repository, please include issue number(s) at the beginning of the commit message.
 
 ## Pull Request Process
 
@@ -308,7 +240,7 @@ Fixes #456
 
 2. **Open a Pull Request** on GitHub with:
    - Clear title describing the change
-   - Detailed description of what and why
+   - Description of what and why
    - Reference to related issues (e.g., "Closes #123")
    - Screenshots or examples if applicable
 
@@ -342,8 +274,7 @@ When reporting bugs, please include:
 - **Expected Behavior**: What you expected to happen
 - **Actual Behavior**: What actually happened
 - **Environment**:
-  - C++ compiler and version (e.g., GCC 11.2)
-  - CMake version
+  - C++ compiler and version (e.g., GCC 13.3.0)
   - dbzero version
   - Operating system
   - Python version (if relevant)
@@ -388,30 +319,49 @@ Good documentation is crucial. When contributing:
 - Explain both the "how" and the "why"
 - Keep formatting consistent
 
-## Community
+## Contributor License Agreement
 
-### Getting Help
+**Important**: Before your start contributing please make sure you read and agree to our Contributor License Agreement (CLA): [CLA.md](./CLA.md)
 
-- Open an issue for bugs or questions
-- Check existing documentation and issues first
-- Be specific and provide context
+### Why We Have a CLA
 
-### Staying Updated
+dbzero is primarily licensed under AGPL-3.0, but we want to reserve the right to offer the software under alternative licenses to support different use cases and our business model.
 
-- Watch the repository for updates
-- Follow project announcements
-- Participate in discussions
+To enable this flexible licensing approach while maintaining our commitment to open source, we need contributors to grant us additional rights to use their contributions.
 
-### Recognition
+### What You're Agreeing To
 
-Contributors are recognized in:
-- The project's contributors list
-- Release notes for significant contributions
-- Special mentions for exceptional contributions
+By contributing to dbzero, you agree that:
+
+1. **Your contribution will be licensed under AGPL-3.0** in the open-source dbzero Community Edition
+2. **You grant the dbzero project maintainers** a perpetual, worldwide, non-exclusive, royalty-free, irrevocable license to:
+   - Use, modify, and distribute your contributions in any form
+   - Include your contributions in the open-source project and any alternative licensing options we may offer
+   - Sublicense your contributions under different license terms, including proprietary licenses
+   - Create derivative works based on your contributions
+3. **You retain full copyright** to your contributions and can use them in your own projects
+4. **You confirm** that:
+   - You have the legal right to grant this license
+   - Your contribution is your original work (or properly attributed if based on others' work)
+   - Your contribution doesn't violate any third-party intellectual property rights
+
+### How It Works
+
+When you submit your first pull request:
+1. Our CLA Assistant bot will prompt you to review and accept the CLA
+2. Your acceptance is recorded (this is a one-time process)
+3. Your PR will be marked as ready for review
+4. All future contributions will be covered under the same agreement
+
+### Questions About the CLA?
+
+If you have questions or concerns about the CLA, please open an issue to discuss before contributing. We're happy to clarify any points.
 
 ## License
 
-By contributing to dbzero, you agree that your contributions will be licensed under the same license as the project (AGPL v3).
+By contributing to dbzero, you agree that your contributions will be:
+- Licensed under the **GNU Affero General Public License v3.0** (AGPL-3.0) for the open-source dbzero Community Edition
+- Subject to the additional rights grant specified in our Contributor License Agreement: [CLA.md](./CLA.md)
 
 ---
 

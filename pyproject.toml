@@ -7,7 +7,7 @@ name = 'dbzero'
 version = '0.1.0'
 description = 'DBZero Community Edition'
 readme = 'README.md'
-requires-python = '>=3.8'
+requires-python = '>=3.9'
 license = {file = 'LICENSE'}
 authors = [
 ]
