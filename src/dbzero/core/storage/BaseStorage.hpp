@@ -27,7 +27,7 @@ namespace db0
     class BaseStorage
     {
     public:    
-        using DRAM_ChangeLogT = db0::o_change_log<db0::o_fixed_null>;
+        using DRAM_ChangeLogT = db0::o_change_log<db0::o_dram_changelog_header>;
         using DP_ChangeLogT = db0::o_change_log<db0::o_dp_changelog_header>;
         
         BaseStorage(AccessType, StorageFlags = {});

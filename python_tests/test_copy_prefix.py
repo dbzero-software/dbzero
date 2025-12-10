@@ -382,3 +382,4 @@ def test_copy_prefix_of_recovered_copy(db0_fixture):
     # open prefix from recovered and modified copy of a copy
     db0.init(DB0_DIR, prefix=px_name, read_write=False)
     validate(total_len)
+    

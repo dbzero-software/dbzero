@@ -108,7 +108,8 @@ namespace db0
         return rleCompressed().value();
     }
     
-    template class o_change_log<db0::o_fixed_null>;
+    template class o_change_log<>;
+    template class o_change_log<o_dram_changelog_header>;
     template class o_change_log<o_dp_changelog_header>;
     
 }

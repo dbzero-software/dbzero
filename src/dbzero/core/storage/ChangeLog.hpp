@@ -137,7 +137,7 @@ DB0_PACKED_END
                 (o_list<o_simple<std::uint64_t> >::type(), data.m_change_log);
         }
     }
-        
-    extern template class o_change_log<db0::o_fixed_null>;
+    
+    extern template class o_change_log<>;
 
 }

@@ -13,6 +13,8 @@
 #include <unordered_set>
 #include <unordered_map>
 #include <atomic>
+#include <functional>
+#include <optional>
 #include <dbzero/core/compiler_attributes.hpp>
 #include "BaseStorage.hpp"
 #include "ChangeLogIOStream.hpp"
@@ -79,15 +81,16 @@ DB0_PACKED_END
          * @param state_num the state number under which the modifications are to be stored
          * @param dram_changelog_io the stream to receive DRAM IO "changelog" chunks        
         */
-        void flushUpdates(std::uint64_t state_num, DRAM_ChangeLogStreamT &);
+        void flushUpdates(StateNumType state_num, DRAM_ChangeLogStreamT &);
         
         // The purpose of this operation is allowing atomic application of changes
         // this call may end with an IOException without affecting internal state (except populating temporary buffers)
         // @return the latest state number of available changes
-        void beginApplyChanges(DRAM_ChangeLogStreamT &) const;
+        std::optional<StateNumType> beginApplyChanges(DRAM_ChangeLogStreamT &) const;
         
         // Apply buffered changes (allowed on condition beginApplyChanges succeeded)
-        bool completeApplyChanges();
+        // @param max_state_num the last known consistent state number
+        bool completeApplyChanges(StateNumType max_state_num);
     
         /**
          * Get the underlying DRAM pair (prefix and allocator)
@@ -159,19 +162,25 @@ DB0_PACKED_END
         std::shared_ptr<DRAM_Allocator> m_allocator;
         // chunks buffer for the beginApplyChanges / completeApplyChanges operations
         mutable std::unordered_map<std::uint64_t, std::vector<char> > m_read_ahead_chunks;
-
+        
+        // @param max_state_num the last known consistent state number
+        // data pages with higher state numbers are ignored
         void *updateDRAMPage(std::uint64_t address, std::unordered_set<std::size_t> *allocs_ptr, 
-            const o_dram_chunk_header &header);
+            const o_dram_chunk_header &header, StateNumType max_state_num);
         void updateDRAMPage(std::uint64_t address, std::unordered_set<std::size_t> *allocs_ptr, 
-            const o_dram_chunk_header &header, const void *bytes);
+            const o_dram_chunk_header &header, const void *bytes, StateNumType max_state_num);
         
         // the number of random write operations performed while flushing updates
         std::uint64_t m_rand_ops = 0;        
     };
     
     // Pre-fetch changes into the chunks buffer
-    void fetchDRAM_IOChanges(const DRAM_IOStream &dram_io, DRAM_IOStream::DRAM_ChangeLogStreamT &changelog_io,
-        std::unordered_map<std::uint64_t, std::vector<char> > &chunks_buf);
+    // @param callback optional function to be called for each changelog chunk read
+    // @return the latest state number of available changes
+    std::optional<StateNumType> fetchDRAM_IOChanges(const DRAM_IOStream &dram_io, 
+        DRAM_IOStream::DRAM_ChangeLogStreamT &changelog_io,
+        std::unordered_map<std::uint64_t, std::vector<char> > &chunks_buf, 
+        std::function<void(const DRAM_IOStream::DRAM_ChangeLogT &)> callback = {});
     
     // Flush changes from the buffer
     void flushDRAM_IOChanges(DRAM_IOStream &dram_io,

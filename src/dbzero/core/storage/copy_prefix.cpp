@@ -11,6 +11,8 @@ namespace db0
     void copyDRAM_IO(DRAM_IOStream &input_io, DRAM_ChangeLogStreamT &input_dram_changelog,
         DRAM_IOStream &output_io, DRAM_ChangeLogStreamT::Writer &output_dram_changelog)
     {
+        using DRAM_ChangeLogT = DRAM_IOStream::DRAM_ChangeLogT;
+
         // Exhaust the input_dram_changelog first
         input_dram_changelog.setStreamPosHead();
         auto change_log_ptr = input_dram_changelog.readChangeLogChunk();
@@ -23,10 +25,15 @@ namespace db0
         // Copy the entire DRAM_IO stream next (possibly inconsistent state)
         copyStream(input_io, output_io);
         
+        // Callback to copy additional changelog chunks retrieved on post-sync
+        auto copy_callback = [&](const DRAM_ChangeLogT &change_log) {
+            output_dram_changelog.appendChangeLog(change_log);
+        };
+
         // Chunks loaded during  the sync step
         // NOTE: in this step we prefetch to memory to be able to catch up with changes
         std::unordered_map<std::uint64_t, std::vector<char> > chunk_buf;
-        fetchDRAM_IOChanges(input_io, input_dram_changelog, chunk_buf);
+        fetchDRAM_IOChanges(input_io, input_dram_changelog, chunk_buf, copy_callback);
         flushDRAM_IOChanges(output_io, chunk_buf);
     }
     
