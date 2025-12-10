@@ -18,7 +18,7 @@ dbzero implements the **DISTIC memory** model:
 - **I**solated - Operations are isolated and thread-safe
 - **C**omposable - A single process can integrate multiple memory partitions (prefixes) to suit its specific requirements
 
-The result is a simplified application stack that eliminate the need for separate databases, ORMs and caching layers. This reduces architectural complexity and development time, while offering significant performance benefits is some cases, due to reduced serialization overhead and cache locality.
+The result is a simplified application stack that eliminate the need for separate databases, ORMs and caching layers. This reduces architectural complexity and development time, while offering significant performance benefits in some cases, due to reduced serialization overhead and cache locality.
 
 ---
 
