@@ -121,3 +121,16 @@ py3avlw = py3_inst.extension_module('dbzero',
     install: true,
     subdir: 'dbzero',
 )
+
+# License and notice files
+license_files = [
+    './LICENSE',
+    './NOTICE',
+    './THIRD_PARTY_LICENSES/GOOGLETEST_LICENSE',
+    './THIRD_PARTY_LICENSES/BOOST_LICENSE_1_0',
+]
+
+py3_inst.install_sources(
+  license_files,
+  subdir: 'dbzero'
+)

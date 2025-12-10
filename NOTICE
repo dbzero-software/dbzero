@@ -1,13 +1,70 @@
 dbzero — Community Edition
 
 Copyright (c) 2025 DBZero Software sp. z o.o.
+All rights reserved.
 
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+================================================================================
+LICENSE
+================================================================================
 
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU Affero General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option) any
+later version.
 
-You should have received a copy of the GNU Affero General Public License along with this program. If not, see https://www.gnu.org/licenses/.
+This program is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for more
+details.
 
-Additional notices for distributions:
-- Preserve this NOTICE file in redistributions.
-- If offered over a network, provide users a clear link to the complete corresponding source code (AGPLv3 Section 13).
+You should have received a copy of the GNU Affero General Public License along
+with this program. If not, see <https://www.gnu.org/licenses/>.
+
+================================================================================
+AGPL-3.0 NETWORK USE REQUIREMENT
+================================================================================
+
+If you modify and run this software over a network (e.g., as a web service,
+API, or SaaS), you MUST offer the complete corresponding source code to users
+interacting with it remotely (AGPL Section 13).
+
+================================================================================
+DISTRIBUTION REQUIREMENTS
+================================================================================
+
+When redistributing this software:
+- Preserve this NOTICE file
+- Include the full LICENSE file
+- If offered over a network, provide users a clear link to the complete
+  corresponding source code (AGPLv3 Section 13)
+
+================================================================================
+THIRD-PARTY COMPONENTS
+================================================================================
+
+This software includes the following third-party components:
+
+Google Test
+-----------
+Repository: https://github.com/google/googletest
+Copyright:  2008, Google Inc.
+License:    BSD-3-Clause
+Purpose:    Unit testing framework
+License File: THIRD_PARTY_LICENSES/GOOGLETEST_LICENSE
+
+Boost Intrusive Containers
+---------------------------
+Repository: https://www.boost.org/
+Copyright:  Ion Gaztanaga and other Boost contributors
+License:    Boost Software License 1.0
+Purpose:    Intrusive containers implementations
+Location:   src/dbzero/core/intrusive/
+License File: THIRD_PARTY_LICENSES/BOOST_LICENSE_1_0
+
+Note: Files in src/dbzero/core/intrusive/ are derived from Boost.Intrusive
+      and retain their original Boost Software License 1.0 with full copyright
+      notices. Some files may contain modifications by DBZero Software sp. z o.o.,
+      which are licensed under AGPL-3.0-or-later. See individual file headers
+      for specific copyright and licensing information.
+
+================================================================================
