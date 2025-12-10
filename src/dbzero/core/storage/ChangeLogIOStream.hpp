@@ -126,6 +126,7 @@ namespace db0
     }
     
     extern template class ChangeLogIOStream<>;
+    extern template class ChangeLogIOStream<db0::o_change_log<db0::o_dram_changelog_header> >;
     extern template class ChangeLogIOStream<db0::o_change_log<db0::o_dp_changelog_header> >;
     
 }

@@ -80,13 +80,13 @@ namespace db0
         }
         
         // Validate state consistency
-        // The state number reported by DRAM IO must match the one in the DP changelog IO
+        // The state number reported by DRAM IO must NOT superseed the last state number recorded in DP changelog
         if (auto chunk_ptr = m_dp_changelog_io.getLastChangeLogChunk()) {
             auto dp_state_num = chunk_ptr->m_state_num;
             auto dram_state_num = m_sparse_pair.getMaxStateNum();            
-            if (dram_state_num != dp_state_num) {
-                THROWF(db0::IOException) << "Inconsistent state: DRAM IO max state number " << dram_state_num
-                    << " does not match DP changelog last state number " << dp_state_num;
+            if (dram_state_num > dp_state_num) {
+                THROWF(db0::IOException) << "Inconsistent state: DRAM state number " << dram_state_num
+                    << " exceeds DP changelog state number " << dp_state_num;
             }
         }
     }
@@ -676,14 +676,30 @@ namespace db0
                 ext_dram_changelog_io_pos = m_ext_dram_changelog_io->getStreamPos();
             }
             auto dp_changelog_io_pos = m_dp_changelog_io.getStreamPos();
+            std::optional<StateNumType> dram_state_num;
+            // NOTE: ext DRAM updates have incremental nature so they might preceed DRAM updates
+            // without breaking the consistency
+            std::optional<StateNumType> ext_dram_state_num;
+
+            // reverts streams to previous positions
+            auto revert_streams = [&]() {
+                m_dram_changelog_io.setStreamPos(dram_changelog_io_pos);
+                m_dp_changelog_io.setStreamPos(dp_changelog_io_pos);
+                if (!!m_ext_space) {
+                    assert(m_ext_dram_changelog_io);
+                    m_ext_dram_changelog_io->setStreamPos(ext_dram_changelog_io_pos);
+                }
+            };
+            
             try {
-                m_dram_io.beginApplyChanges(m_dram_changelog_io);
+                dram_state_num = m_dram_io.beginApplyChanges(m_dram_changelog_io);
                 dram_changelog_io_pos = m_dram_changelog_io.getStreamPos();
                 if (!!m_ext_space) {
                     assert(m_ext_dram_changelog_io);
-                    m_ext_dram_io->beginApplyChanges(*m_ext_dram_changelog_io);
+                    ext_dram_state_num = m_ext_dram_io->beginApplyChanges(*m_ext_dram_changelog_io);
                     ext_dram_changelog_io_pos = m_ext_dram_changelog_io->getStreamPos();
                 }
+                
                 // send all page-update notifications to the provided handler
                 if (on_page_updated) {
                     StateNumType updated_state_num = 0;
@@ -712,15 +728,8 @@ namespace db0
                 }
                 
             } catch (db0::IOException &) {
-                // NOTE: this exception may appear on distributed filesystems
-                // where changes are not guaranteed to be written sequentially
-                // need to revert the refresh operation to the point where it originally started
-                m_dram_changelog_io.setStreamPos(dram_changelog_io_pos);
-                m_dp_changelog_io.setStreamPos(dp_changelog_io_pos);
-                if (!!m_ext_space) {
-                    assert(m_ext_dram_changelog_io);
-                    m_ext_dram_changelog_io->setStreamPos(ext_dram_changelog_io_pos);
-                }
+                revert_streams();
+                // NOTE: this may be a temporary problem, refresh needs repeating
                 break;
             }
             
@@ -728,11 +737,11 @@ namespace db0
                 result = m_file.getLastModifiedTime();
             }
             
-            if (m_dram_io.completeApplyChanges()) {
+            if (dram_state_num && m_dram_io.completeApplyChanges(*dram_state_num)) {
                 // refresh underlying sparse index / diff index after DRAM update
                 m_sparse_pair.refresh();
             }
-            if (!!m_ext_space && m_ext_dram_io->completeApplyChanges()) {
+            if (!!m_ext_space && ext_dram_state_num && m_ext_dram_io->completeApplyChanges(*ext_dram_state_num)) {
                 m_ext_space.refresh();
             }
             m_meta_io.refresh();

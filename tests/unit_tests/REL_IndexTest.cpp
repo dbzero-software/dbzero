@@ -88,9 +88,9 @@ namespace tests
             // relative page number, absolute page number
             { 0, 100 }, { 50, 200 }, { 60, 210 }, { 100, 300 }, { 150, 400 }, { 160, 410 }, { 200, 500 }
         };
-
+        
         for (auto &item: items) {
-            cut.addMapping(item.m_storage_page_num, item.m_rel_page_num, 50);
+            cut.addMapping(item.m_storage_page_num, item.m_rel_page_num, 10);
         }
         
         std::vector<std::uint64_t> rel_page_nums;

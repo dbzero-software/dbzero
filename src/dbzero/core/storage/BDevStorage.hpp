@@ -71,7 +71,7 @@ DB0_PACKED_END
     public:
         static constexpr std::uint32_t DEFAULT_PAGE_SIZE = 4096;
         static constexpr std::size_t DEFAULT_META_IO_STEP_SIZE = 16 << 20;
-        using DRAM_ChangeLogStreamT = ChangeLogIOStream<>;
+        using DRAM_ChangeLogStreamT = ChangeLogIOStream<DRAM_ChangeLogT>;
         using DP_ChangeLogStreamT = ChangeLogIOStream<DP_ChangeLogT>;
         
         /**

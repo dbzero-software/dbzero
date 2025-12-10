@@ -154,6 +154,7 @@ namespace db0
     }
 
     template class ChangeLogIOStream<>;
+    template class ChangeLogIOStream<db0::o_change_log<db0::o_dram_changelog_header> >;
     template class ChangeLogIOStream<db0::o_change_log<db0::o_dp_changelog_header> >;
     
 }

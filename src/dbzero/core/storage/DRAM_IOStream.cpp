@@ -14,7 +14,7 @@
 namespace db0
 
 {
-
+    
     DRAM_IOStream::DRAM_IOStream(CFile &m_file, std::uint64_t begin, std::uint32_t block_size,
         std::function<std::uint64_t()> tail_function, AccessType access_type, std::uint32_t dram_page_size)
         : BlockIOStream(m_file, begin, block_size, tail_function, access_type, DRAM_IOStream::ENABLE_CHECKSUMS)
@@ -37,10 +37,15 @@ namespace db0
     }
     
     void *DRAM_IOStream::updateDRAMPage(std::uint64_t address, std::unordered_set<std::size_t> *allocs_ptr,
-        const o_dram_chunk_header &header)
+        const o_dram_chunk_header &header, StateNumType max_state_num)
     {
+        if (header.m_state_num > max_state_num) {
+            // ignore changes beyond the last known consistent state number
+            return nullptr;
+        }
+
         // page map = page_num / state_num
-        auto dram_page = m_page_map.find(header.m_page_num);        
+        auto dram_page = m_page_map.find(header.m_page_num);
         if (dram_page == m_page_map.end() || dram_page->second.m_state_num < header.m_state_num) {
             // update DRAM to most recent page version, page not marked as dirty
             auto result = m_prefix->update(header.m_page_num, false);
@@ -76,9 +81,9 @@ namespace db0
     }
     
     void DRAM_IOStream::updateDRAMPage(std::uint64_t address, std::unordered_set<std::size_t> *allocs_ptr,
-        const o_dram_chunk_header &header, const void *bytes)
+        const o_dram_chunk_header &header, const void *bytes, StateNumType max_state_num)
     {
-        auto result = updateDRAMPage(address, allocs_ptr, header);
+        auto result = updateDRAMPage(address, allocs_ptr, header, max_state_num);
         if (result) {
             std::memcpy(result, bytes, m_dram_page_size);
         }
@@ -86,7 +91,7 @@ namespace db0
     
     void DRAM_IOStream::load(DRAM_ChangeLogStreamT &changelog_io)
     {
-        // simply exhaust the change-log stream
+        // Exhaust the change-log stream first and retrieve the last valid state number
         // its position marks the synchronization point
         while (changelog_io.readChangeLogChunk());
 
@@ -94,8 +99,14 @@ namespace db0
         const auto &header = o_dram_chunk_header::__ref(buffer.data());
         auto bytes = buffer.data() + header.sizeOf();
         
-        // maximum known state number by page
-        // this is required to only select the maximum state per page (discard older mutations)        
+        auto last_chunk_ptr = changelog_io.getLastChangeLogChunk();
+        if (!last_chunk_ptr) {
+            // no changes to load
+            return;
+        }
+
+        // The last known consistent state number
+        auto max_state_num = last_chunk_ptr->m_state_num;
         std::unordered_set<std::size_t> allocs;
         for (;;) {
             auto block_id = tellBlock();
@@ -110,12 +121,12 @@ namespace db0
                 THROWF(db0::IOException) << "DRAM_IOStream::load error: unaligned block";
             }
             
-            updateDRAMPage(chunk_addr, &allocs, header, bytes);
+            updateDRAMPage(chunk_addr, &allocs, header, bytes, max_state_num);
         }
         m_allocator->update(allocs);
     }
     
-    void DRAM_IOStream::flushUpdates(std::uint64_t state_num, DRAM_ChangeLogStreamT &dram_changelog_io)
+    void DRAM_IOStream::flushUpdates(StateNumType state_num, DRAM_ChangeLogStreamT &dram_changelog_io)
     {
         if (m_access_type == AccessType::READ_ONLY) {
             THROWF(db0::IOException) << "DRAM_IOStream::flushUpdates error: read-only stream";
@@ -198,7 +209,7 @@ namespace db0
         BlockIOStream::flush();
         // output changelog, no RLE encoding, no duplicates
         ChangeLogData cl_data(std::move(dram_changelog), false, false, false);
-        dram_changelog_io.appendChangeLog(std::move(cl_data));
+        dram_changelog_io.appendChangeLog(std::move(cl_data), state_num);
     }
     
 #ifndef NDEBUG
@@ -222,24 +233,24 @@ namespace db0
         return { m_prefix, m_allocator };
     }
     
-    void DRAM_IOStream::beginApplyChanges(DRAM_ChangeLogStreamT &changelog_io) const
+    std::optional<StateNumType> DRAM_IOStream::beginApplyChanges(DRAM_ChangeLogStreamT &changelog_io) const
     {
         assert(m_read_ahead_chunks.empty());
         if (m_access_type == AccessType::READ_WRITE) {
             THROWF(db0::InternalException) << "DRAM_IOStream::applyChanges require read-only stream";
         }
         
-        fetchDRAM_IOChanges(*this, changelog_io, m_read_ahead_chunks);
+        return fetchDRAM_IOChanges(*this, changelog_io, m_read_ahead_chunks);
     }
     
-    bool DRAM_IOStream::completeApplyChanges()
+    bool DRAM_IOStream::completeApplyChanges(StateNumType max_state_num)
     {
         bool result = false;
         for (const auto &item: m_read_ahead_chunks) {
             auto address = item.first;
             const auto &buffer = item.second;
             const auto &header = o_dram_chunk_header::__const_ref(buffer.data() + o_block_io_chunk_header::sizeOf());
-            updateDRAMPage(address, nullptr, header, header.getData());
+            updateDRAMPage(address, nullptr, header, header.getData(), max_state_num);
             result = true;
         }
         m_read_ahead_chunks.clear();        
@@ -293,8 +304,10 @@ namespace db0
     }
 #endif
     
-    void fetchDRAM_IOChanges(const DRAM_IOStream &dram_io, DRAM_IOStream::DRAM_ChangeLogStreamT &changelog_io,
-        std::unordered_map<std::uint64_t, std::vector<char> > &chunks_buf)
+    std::optional<StateNumType> fetchDRAM_IOChanges(const DRAM_IOStream &dram_io,
+        DRAM_IOStream::DRAM_ChangeLogStreamT &changelog_io,
+        std::unordered_map<std::uint64_t, std::vector<char> > &chunks_buf,
+        std::function<void(const DRAM_IOStream::DRAM_ChangeLogT &)> callback)
     {
         auto create_read_ahead_buffer = [&](std::uint64_t address, std::size_t size) -> std::vector<char> & 
         {
@@ -306,6 +319,7 @@ namespace db0
         };
 
         auto stream_pos = changelog_io.getStreamPos();
+        std::optional<StateNumType> max_state_num;
         try {
             // Must continue until exhausting the change-log
             for (;;) {
@@ -322,6 +336,11 @@ namespace db0
                 // this is because: a) file writes are NOT atomic, b) DP might be modified while we process the log
                 // NOTE: this might be optimized when modifiaction timestamps are introduced                
                 while (change_log_ptr) {
+                    if (callback) {
+                        callback(*change_log_ptr);
+                    }
+                    
+                    max_state_num = change_log_ptr->m_state_num;
                     for (auto address: *change_log_ptr) {
                         // buffer must include BlockIOStream's chunk header and data
                         auto &buffer = create_read_ahead_buffer(address, dram_io.getChunkSize() + o_block_io_chunk_header::sizeOf());
@@ -333,6 +352,8 @@ namespace db0
                     change_log_ptr = changelog_io.readChangeLogChunk();
                 }                
             }
+
+            return max_state_num;
 
         } catch (db0::IOException &) {
             changelog_io.setStreamPos(stream_pos);
