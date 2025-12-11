@@ -35,12 +35,15 @@ DB0_PACKED_BEGIN
         StateNumType m_state_num = 0;
         std::uint64_t m_page_num = 0;
         
+        // as invalid
         o_dram_chunk_header() = default;
         o_dram_chunk_header(StateNumType state_num, std::uint64_t page_num = 0)
             : m_state_num(state_num)
             , m_page_num(page_num)
         {
         }
+
+        bool operator!() const;
 
         // Calculate hash from the entire block's data (including header)
         std::uint64_t calculateHash(const void *data, std::size_t data_size) const;
@@ -193,6 +196,9 @@ DB0_PACKED_END
     bool isDRAM_ChunkValid(std::uint32_t dram_page_size, const std::vector<char> &chunk_data);
     bool isDRAM_ChunkValid(std::uint32_t dram_page_size, const o_dram_chunk_header &header, const void *data_begin,
         const void *data_end);
+    
+    // Extract state number from a valid DRAM chunk
+    StateNumType getDRAM_ChunkStateNum(const std::vector<char> &chunk_data);
     
     // Pre-fetch changes into the chunks buffer
     // @param callback optional function to be called for each changelog chunk read

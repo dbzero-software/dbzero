@@ -31,6 +31,25 @@ namespace db0
         return result;
     }
     
+    std::unordered_map<std::uint64_t, std::vector<char> > filterDRAM_Chunks(
+        std::unordered_map<std::uint64_t, std::vector<char> > &&chunk_buf, DRAM_FilterT filter)
+    {
+        auto it = chunk_buf.begin();
+        while (it != chunk_buf.end()) {
+            // NOTE: this buffer also contains the block IO header at the beginning
+            const auto &buffer = it->second;
+            const auto &header = o_dram_chunk_header::__const_ref(buffer.data() + o_block_io_chunk_header::sizeOf());
+            if (!filter(header, buffer.data() + buffer.size())) {
+                // discard this chunk
+                it = chunk_buf.erase(it);
+            } else {
+                ++it;
+            }
+        }
+
+        return chunk_buf;
+    }
+
     void copyDRAM_IO(DRAM_IOStream &input_io, DRAM_ChangeLogStreamT &input_dram_changelog,
         DRAM_IOStream &output_io, DRAM_ChangeLogStreamT::Writer &output_dram_changelog)
     {
@@ -38,7 +57,7 @@ namespace db0
 
         // Exhaust the input_dram_changelog first
         // NOTE: we don't need to copy the changelog, just insert an empty item with the latest state number
-        input_dram_changelog.setStreamPosHead();        
+        input_dram_changelog.setStreamPosHead();
         for (;;) {
             while (input_dram_changelog.readChangeLogChunk());
             // continue refreshing until reaching the most recent state
@@ -46,11 +65,41 @@ namespace db0
                 break;
             }
         }
-        
+
+        auto last_chunk_ptr = input_dram_changelog.getLastChangeLogChunk();
+        if (!last_chunk_ptr) {
+            // looks like the DRAM IO is empty
+            return;
+        }
+
+        // retrieve the state number candidate
+        auto state_num = last_chunk_ptr->m_state_num;
+        // FIXME: log
+        std::cout << "Copied state num candidate: " << state_num << std::endl;
+
         // Copy the entire DRAM_IO stream next (possibly inconsistent state)
         // collecting the mapping of chunk addresses
+        // NOTE: when copying we ignore: a) incomplete pages (hash mismatch), b) pages beyond the last consistent state number
+        // they will be processed later when following up with the changelog
         std::unordered_map<std::uint64_t, std::uint64_t> chunk_addr_map;
-        copyStream(input_io, output_io, &chunk_addr_map);
+        auto dram_page_size = input_io.getDRAMPageSize();
+        auto dram_filter = [&](const o_dram_chunk_header &header, const void *data_end)
+        {
+            if (!isDRAM_ChunkValid(dram_page_size, header, header.getData(), data_end)) {
+                // FIXME: log
+                std::cout << "*** rejected due to bad hash " << std::endl;
+                return false;
+            }
+            // reject chunks beyond the last consistent state number
+            if (header.m_state_num > state_num) {
+                // FIXME: log
+                std::cout << "*** rejected due to state num " << header.m_state_num << " > " << state_num << std::endl;
+                return false;
+            }
+            return true;
+        };
+
+        copyStream(input_io, output_io, &chunk_addr_map, dram_filter);
         
         // Chunks loaded during  the sync step
         // NOTE: in this step we prefetch to memory to be able to catch up with changes
@@ -58,14 +107,23 @@ namespace db0
         while (input_dram_changelog.refresh()) {
             fetchDRAM_IOChanges(input_io, input_dram_changelog, chunk_buf);
         }
-        auto last_chunk_ptr = input_dram_changelog.getLastChangeLogChunk();
-        if (!last_chunk_ptr) {
-            // looks like the DRAM IO is empty
-            return;
-        }
-        
+
+        last_chunk_ptr = input_dram_changelog.getLastChangeLogChunk();
+        assert(last_chunk_ptr);
+
         // this is the actually copied last consistent state number
-        auto state_num = last_chunk_ptr->m_state_num;
+        state_num = last_chunk_ptr->m_state_num;
+
+        // FIXME: log
+        std::cout << "Final copied state num: " << state_num << std::endl;
+
+        // NOTE: at this stage we might also encounter incomplete
+        // or new chunks beyond the copied stream which needs to be discarded
+        // FIXME: log
+        std::cout << "Chunks before filter: " << chunk_buf.size() << std::endl;
+        chunk_buf = filterDRAM_Chunks(std::move(chunk_buf), dram_filter);
+        // FIXME: log
+        std::cout << "Chunks after filter: " << chunk_buf.size() << std::endl;
         
         // NOTE: flush must be done under translated addresses (or appended to stream if translation not present)
         auto bufs_pair = translateDRAM_Chunks(std::move(chunk_buf), chunk_addr_map);
@@ -76,8 +134,8 @@ namespace db0
         output_dram_changelog.appendChangeLog({}, state_num);
     }
     
-    std::vector<char> copyStream(BlockIOStream &in, BlockIOStream &out, 
-        std::unordered_map<std::uint64_t, std::uint64_t> *addr_map)
+    std::vector<char> copyStream(BlockIOStream &in, BlockIOStream &out,
+        std::unordered_map<std::uint64_t, std::uint64_t> *addr_map, DRAM_FilterT filter)
     {
         // position at the beginning of the stream
         in.setStreamPosHead();
@@ -86,6 +144,13 @@ namespace db0
         std::uint64_t in_addr, out_addr;
         for (;;) {
             while ((chunk_size = in.readChunk(buffer, 0, &in_addr)) > 0) {
+                // NOTE: this buffer does NOT include the block IO header at the beginning
+                const auto &header = o_dram_chunk_header::__const_ref(buffer.data());
+                if (filter && !filter(header, buffer.data() + buffer.size())) {
+                    // skip this chunk
+                    continue;
+                }
+                
                 out.addChunk(chunk_size, &out_addr);
                 out.appendToChunk(buffer.data(), chunk_size);
                 // register the mapping

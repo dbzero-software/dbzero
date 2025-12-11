@@ -40,46 +40,45 @@ namespace db0
     void *DRAM_IOStream::updateDRAMPage(std::uint64_t address, std::unordered_set<std::size_t> *allocs_ptr,
         const o_dram_chunk_header &header, StateNumType max_state_num)
     {
-        if (header.m_state_num > max_state_num) {
-            // ignore changes beyond the last known consistent state number
-            return nullptr;
-        }
-        
-        // page map = page_num / state_num
-        auto dram_page = m_page_map.find(header.m_page_num);
-        // NOTE: even if the same state number is encountered, the page is updated
-        // (the previous version might've been incomplete!!)
-        if (dram_page == m_page_map.end() || header.m_state_num >= dram_page->second.m_state_num) {
-            // update DRAM to most recent page version, page not marked as dirty
-            auto result = m_prefix->update(header.m_page_num, false);
-            if (dram_page == m_page_map.end()) {
-                // mark address as taken
-                if (allocs_ptr) {
-                    allocs_ptr->insert(header.m_page_num * m_dram_page_size);
+        // NOTE: header may be invalid (i.e. copied chunk marked as invalid on copy post-processing)
+        // NOTE: ignore changes beyond the last known consistent state number
+        if (!!header && header.m_state_num <= max_state_num) {
+            // page map = page_num / state_num
+            auto dram_page = m_page_map.find(header.m_page_num);
+            // NOTE: even if the same state number is encountered, the page is updated
+            // (the previous version might've been incomplete!!)
+            if (dram_page == m_page_map.end() || header.m_state_num >= dram_page->second.m_state_num) {
+                // update DRAM to most recent page version, page not marked as dirty
+                auto result = m_prefix->update(header.m_page_num, false);
+                if (dram_page == m_page_map.end()) {
+                    // mark address as taken
+                    if (allocs_ptr) {
+                        allocs_ptr->insert(header.m_page_num * m_dram_page_size);
+                    }
+                } else {
+                    // mark previously occupied block as reusable (read/write mode only)
+                    if (m_access_type == AccessType::READ_WRITE) {
+                        m_reusable_chunks.insert(dram_page->second.m_address);
+                    }
                 }
-            } else {
-                // mark previously occupied block as reusable (read/write mode only)
-                if (m_access_type == AccessType::READ_WRITE) {
-                    m_reusable_chunks.insert(dram_page->second.m_address);
+                
+                // update DRAM page info
+                m_page_map[header.m_page_num] = { header.m_state_num, address };
+                // remove address from reusables
+                {
+                    auto it = m_reusable_chunks.find(address);
+                    if (it != m_reusable_chunks.end()) {
+                        m_reusable_chunks.erase(it);
+                    }
                 }
-            }
-            
-            // update DRAM page info
-            m_page_map[header.m_page_num] = { header.m_state_num, address };
-            // remove address from reusables
-            {
-                auto it = m_reusable_chunks.find(address);
-                if (it != m_reusable_chunks.end()) {
-                    m_reusable_chunks.erase(it);
-                }
-            }
-            return result;
-        } else {
-            // mark block as reusable (read/write mode only)
-            if (m_access_type == AccessType::READ_WRITE) {
-                m_reusable_chunks.insert(address);
+                return result;
             }
         }
+
+        // mark block as reusable (read/write mode only)
+        if (m_access_type == AccessType::READ_WRITE) {
+            m_reusable_chunks.insert(address);
+        }        
         return nullptr;
     }
     
@@ -405,7 +404,13 @@ namespace db0
         const auto &header = o_dram_chunk_header::__const_ref(buffer.data() + o_block_io_chunk_header::sizeOf());
         return isDRAM_ChunkValid(dram_page_size, header, header.getData(), buffer.data() + buffer.size());
     }
-
+    
+    StateNumType getDRAM_ChunkStateNum(const std::vector<char> &chunk_data)
+    {
+        const auto &header = o_dram_chunk_header::__const_ref(chunk_data.data() + o_block_io_chunk_header::sizeOf());
+        return header.m_state_num;
+    }
+    
     void flushDRAM_IOChanges(DRAM_IOStream &dram_io,
         const std::unordered_map<std::uint64_t, std::vector<char> > &chunks_buf)
     {
@@ -435,6 +440,10 @@ namespace db0
 
     std::uint64_t o_dram_chunk_header::calculateHash(const void *data, std::size_t data_size) const {
         return db0::murmurhash64A(data, data_size, m_page_num + m_state_num);
+    }
+
+    bool o_dram_chunk_header::operator!() const {
+        return m_state_num == 0 && m_page_num == 0 && m_hash == 0;
     }
 
 }

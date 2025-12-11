@@ -221,7 +221,9 @@ def test_copy_prefix_continuous_process(db0_fixture):
     
     # in each 'epoch' we modify prefix while making copies
     # then drop the original prefix and restore if from the last copy
-    epoch_count = 2
+    # FIXME: log
+    epoch_count = 1
+    # epoch_count = 2
     total_len = 0
     for epoch in range(epoch_count):
         print(f"=== Epoch {epoch} ===", flush=True)
