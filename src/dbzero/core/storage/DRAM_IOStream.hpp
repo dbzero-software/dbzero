@@ -30,15 +30,20 @@ namespace db0
 DB0_PACKED_BEGIN
     struct DB0_PACKED_ATTR o_dram_chunk_header: public o_fixed<o_dram_chunk_header>
     {
-        std::uint64_t m_state_num = 0;
-        std::uint64_t m_page_num = 0;        
-
+        // hash from the DRAM page contents (header included)
+        std::uint64_t m_hash = 0;
+        StateNumType m_state_num = 0;
+        std::uint64_t m_page_num = 0;
+        
         o_dram_chunk_header() = default;
-        o_dram_chunk_header(std::uint64_t state_num, std::uint64_t page_num = 0)
+        o_dram_chunk_header(StateNumType state_num, std::uint64_t page_num = 0)
             : m_state_num(state_num)
             , m_page_num(page_num)
         {
         }
+
+        // Calculate hash from the entire block's data (including header)
+        std::uint64_t calculateHash(const void *data, std::size_t data_size) const;
 
         // calculate data pointer immediately following the header
         char *getData() {
@@ -47,6 +52,10 @@ DB0_PACKED_BEGIN
 
         const char *getData() const {
             return (const char*)this + sizeOf();
+        }
+
+        void setHash(const void *data, std::size_t data_size) {
+            m_hash = calculateHash(data, data_size);
         }
     };
 DB0_PACKED_END
@@ -151,6 +160,10 @@ DB0_PACKED_END
             return m_chunk_size;
         }
         
+        std::uint32_t getDRAMPageSize() const {
+            return m_dram_page_size;
+        }
+
     private:
         const std::uint32_t m_dram_page_size;
         const std::size_t m_chunk_size;
@@ -171,8 +184,15 @@ DB0_PACKED_END
             const o_dram_chunk_header &header, const void *bytes, StateNumType max_state_num);
         
         // the number of random write operations performed while flushing updates
-        std::uint64_t m_rand_ops = 0;        
+        std::uint64_t m_rand_ops = 0;
+        
+        std::ostream &dumpPageMap(std::ostream &os) const;
     };
+    
+    // Calculate hash to determine if the dram chunk is valid
+    bool isDRAM_ChunkValid(std::uint32_t dram_page_size, const std::vector<char> &chunk_data);
+    bool isDRAM_ChunkValid(std::uint32_t dram_page_size, const o_dram_chunk_header &header, const void *data_begin,
+        const void *data_end);
     
     // Pre-fetch changes into the chunks buffer
     // @param callback optional function to be called for each changelog chunk read

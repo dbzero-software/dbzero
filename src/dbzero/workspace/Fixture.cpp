@@ -200,9 +200,8 @@ namespace db0
                     getGC0().flushAllOf(Memspace::getForFlush());
                 }
                 
-                // clear lang cache again since flush might've released some Python instances
-                // FIXME: log
-                // m_lang_cache.clear(true);
+                // clear lang cache again since flush might've released some Python instances                
+                m_lang_cache.clear(true);
 
                 // lock for exclusive access
                 std::unique_lock<std::shared_mutex> lock(m_commit_mutex);
@@ -316,8 +315,7 @@ namespace db0
         }
         
         // Clear Python-side expired instances from cache so that they're not persisted
-        // FIXME: log
-        // m_lang_cache.clear(true);
+        m_lang_cache.clear(true);
         std::unique_lock<std::shared_mutex> lock(m_commit_mutex);
         bool result = tryCommit(lock, process_timer.get());
         m_updated = false;
@@ -389,9 +387,8 @@ namespace db0
             // Flush using registered flush handlers
             for (auto &handler: m_flush_handlers) {
                 handler();
-            }
-            // FIXME: log
-            // m_lang_cache.clear(true);
+            }            
+            m_lang_cache.clear(true);
             // lock for exclusive access
             {
                 std::unique_lock<std::shared_mutex> lock(m_commit_mutex);

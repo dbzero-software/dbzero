@@ -10,6 +10,7 @@
 #include <dbzero/core/dram/DRAM_Prefix.hpp>
 #include <dbzero/core/dram/DRAM_Allocator.hpp>
 #include "ChangeLogIOStream.hpp"
+#include <dbzero/core/utils/hash_func.hpp>
 
 namespace db0
 
@@ -39,13 +40,7 @@ namespace db0
     void *DRAM_IOStream::updateDRAMPage(std::uint64_t address, std::unordered_set<std::size_t> *allocs_ptr,
         const o_dram_chunk_header &header, StateNumType max_state_num)
     {
-        // FIXME: log
-        // std::cout << "updateDRAMPage: address=" << address
-        //           << " page_num=" << header.m_page_num
-        //           << " state_num=" << header.m_state_num << std::endl;
         if (header.m_state_num > max_state_num) {
-            // FIXME: log
-            // std::cout << "Rejected (too new)" << std::endl;
             // ignore changes beyond the last known consistent state number
             return nullptr;
         }
@@ -80,8 +75,6 @@ namespace db0
             }
             return result;
         } else {
-            // FIXME: log
-            // std::cout << "Rejected (older version)" << std::endl;
             // mark block as reusable (read/write mode only)
             if (m_access_type == AccessType::READ_WRITE) {
                 m_reusable_chunks.insert(address);
@@ -131,9 +124,27 @@ namespace db0
                 THROWF(db0::IOException) << "DRAM_IOStream::load error: unaligned block";
             }
             
+            // NOTE: ignore invalid or incomplete DRAM chunks
+            // this is fine since filesystem writes are not assumed atomic - this chunk is too fresh to be included
+            if (!isDRAM_ChunkValid(m_dram_page_size, header, bytes, buffer.data() + buffer.size())) {
+                continue;
+            }
             updateDRAMPage(chunk_addr, &allocs, header, bytes, max_state_num);
         }
         m_allocator->update(allocs);
+    }
+    
+    std::ostream &DRAM_IOStream::dumpPageMap(std::ostream &os) const
+    {
+        std::vector<std::pair<std::uint32_t, DRAM_PageInfo> > sorted_pages(m_page_map.begin(), m_page_map.end());
+        std::sort(sorted_pages.begin(), sorted_pages.end(), [](const auto &a, const auto &b) {
+            return a.first < b.first;
+        });
+        for (const auto &item: sorted_pages) {
+            std::cout << "(" << item.first << ": state_num=" << item.second.m_state_num
+                      << ", address=" << item.second.m_address << "),";
+        }
+        return os;
     }
     
     void DRAM_IOStream::flushUpdates(StateNumType state_num, DRAM_ChangeLogStreamT &dram_changelog_io)
@@ -182,7 +193,7 @@ namespace db0
                 // add the old page location to reusable addresses
                 m_reusable_chunks.insert(dram_page->second.m_address);
             }
-            // update to most recent location
+            // update to most recent location (and state number)
             m_page_map[page_num] = { state_num, address };
         };
         
@@ -194,15 +205,13 @@ namespace db0
             if (reusable_addr) {
                 reusable_header.m_page_num = page_num;
                 std::memcpy(reusable_header.getData(), page_buffer, m_dram_page_size);
+                reusable_header.setHash(page_buffer, m_dram_page_size);
                 // overwrite chunk in the reusable block
                 writeToChunk(*reusable_addr, raw_block.data(), raw_block.size());
                 ++m_rand_ops;
                 dram_changelog.push_back(*reusable_addr);
                 // update to the last known page location, collect previous location as reusable
                 update_page_location(page_num, *reusable_addr);
-                // FIXME: log
-                // std::cout << this << ":writeDRAM page " << page_num << " to reusable address " << *reusable_addr 
-                //     << ", state_num=" << state_num << std::endl;
             } else {
                 // make sure all chunks are block-aligned
                 assert(tellBlock().second == 0);
@@ -210,14 +219,12 @@ namespace db0
                 // append data into a new chunk / block
                 addChunk(m_chunk_size, &chunk_addr);
                 o_dram_chunk_header header(state_num, page_num);
+                header.setHash(page_buffer, m_dram_page_size);
                 appendToChunk(&header, sizeof(header));
                 appendToChunk(page_buffer, m_dram_page_size);
                 dram_changelog.push_back(chunk_addr);
                 // update to the last known page location, collect previous location as reusable
                 update_page_location(page_num, chunk_addr);
-                // FIXME: log
-                // std::cout << this << ":writeDRAM page " << page_num << " to new address " << chunk_addr 
-                //     << ", state_num=" << state_num << std::endl;
             }
         });
         
@@ -225,7 +232,7 @@ namespace db0
         BlockIOStream::flush();
         // output changelog, no RLE encoding, no duplicates
         ChangeLogData cl_data(std::move(dram_changelog), false, false, false);
-        dram_changelog_io.appendChangeLog(std::move(cl_data), state_num);
+        dram_changelog_io.appendChangeLog(std::move(cl_data), state_num);        
     }
     
 #ifndef NDEBUG
@@ -266,10 +273,14 @@ namespace db0
             auto address = item.first;
             const auto &buffer = item.second;
             const auto &header = o_dram_chunk_header::__const_ref(buffer.data() + o_block_io_chunk_header::sizeOf());
+            // NOTE: ignore invalid or incomplete DRAM chunks (too fresh to be included)
+            if (!isDRAM_ChunkValid(m_dram_page_size, header, header.getData(), buffer.data() + buffer.size())) {
+                continue;
+            }
             updateDRAMPage(address, nullptr, header, header.getData(), max_state_num);
             result = true;
         }
-        m_read_ahead_chunks.clear();        
+        m_read_ahead_chunks.clear();
         return result;
     }
     
@@ -366,7 +377,7 @@ namespace db0
                         dram_io.readFromChunk(address, buffer.data(), buffer.size());
                     }
                     change_log_ptr = changelog_io.readChangeLogChunk();
-                }                
+                }
             }
 
             return max_state_num;
@@ -377,24 +388,53 @@ namespace db0
             throw;
         }
     }
+    
+    bool isDRAM_ChunkValid(std::uint32_t dram_page_size, const o_dram_chunk_header &header,
+        const void *data_begin, const void *data_end)
+    {
+        if (static_cast<const char*>(data_begin) + dram_page_size > static_cast<const char*>(data_end)) {
+            THROWF(db0::IOException) << "isDRAM_ChunkValid: invalid chunk size";
+        }
+        // determine if valid by comparing header hash values (calculated vs stored)
+        return header.calculateHash(data_begin, dram_page_size) == header.m_hash;
+    }
+    
+    bool isDRAM_ChunkValid(std::uint32_t dram_page_size, const std::vector<char> &buffer)
+    {
+        // NOTE: the buffer already includes chunk header
+        const auto &header = o_dram_chunk_header::__const_ref(buffer.data() + o_block_io_chunk_header::sizeOf());
+        return isDRAM_ChunkValid(dram_page_size, header, header.getData(), buffer.data() + buffer.size());
+    }
 
     void flushDRAM_IOChanges(DRAM_IOStream &dram_io,
         const std::unordered_map<std::uint64_t, std::vector<char> > &chunks_buf)
     {
+        auto dram_page_size = dram_io.getDRAMPrefix().getPageSize();
         for (const auto &item: chunks_buf) {
             auto address = item.first;
             const auto &buffer = item.second;
-            dram_io.writeToChunk(address, buffer.data(), buffer.size());
+            // NOTE: we don't flush inconsistent / incomplete chunks
+            if (!isDRAM_ChunkValid(dram_page_size, buffer)) {
+                continue;
+            }
+            dram_io.writeToChunk(address, buffer.data(), buffer.size());            
         }
     }
     
     void appendDRAM_IOChunks(DRAM_IOStream &dram_io, const std::vector<std::vector<char> > &chunks_buf)
     {
+        auto dram_page_size = dram_io.getDRAMPrefix().getPageSize();
         for (const auto &buffer : chunks_buf) {
+            if (!isDRAM_ChunkValid(dram_page_size, buffer)) {
+                continue;
+            }
             dram_io.addChunk(buffer.size());
-            // NOTE: the buffer already includes chunk header
-            dram_io.appendToChunk(buffer.data(), buffer.size());
+            dram_io.appendToChunk(buffer.data(), buffer.size());            
         }
+    }
+
+    std::uint64_t o_dram_chunk_header::calculateHash(const void *data, std::size_t data_size) const {
+        return db0::murmurhash64A(data, data_size, m_page_num + m_state_num);
     }
 
 }

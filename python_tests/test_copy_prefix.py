@@ -221,9 +221,7 @@ def test_copy_prefix_continuous_process(db0_fixture):
     
     # in each 'epoch' we modify prefix while making copies
     # then drop the original prefix and restore if from the last copy
-    # epoch_count = 2
-    # FIXME: log
-    epoch_count = 1
+    epoch_count = 2
     total_len = 0
     for epoch in range(epoch_count):
         print(f"=== Epoch {epoch} ===", flush=True)
@@ -385,19 +383,3 @@ def test_copy_prefix_of_recovered_copy(db0_fixture):
     db0.init(DB0_DIR, prefix=px_name, read_write=False)
     validate(total_len)
     
-    
-# FIXME: debug code
-# def test_validate_prefix():
-#     db0.init(DB0_DIR)
-#     db0.open("my-test-prefix", "r")
-    
-#     def validate_current_prefix(expected_len = None, expected_min_len = None):
-#         root = db0.fetch(MemoTestSingleton)
-#         assert not expected_min_len or len(root.value) >= expected_min_len
-#         assert not expected_len or len(root.value) == expected_len        
-#         for item in root.value:
-#             assert item.value == "b" * 1024        
-#         return len(root.value)
-
-#     validate_current_prefix()
-#     db0.close()

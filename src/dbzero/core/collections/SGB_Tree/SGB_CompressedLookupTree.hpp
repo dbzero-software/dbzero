@@ -321,8 +321,6 @@ DB0_PACKED_END
             
             // NOTE: this check is to avoid sigsegv in case of data corruption
             if (node->empty())  {
-                // FIXME: log
-                std::terminate();
                 THROWF(db0::InternalException) << "Corrupted SGB_CompressedLookupTree node found at " << node.getAddress();
             }
             

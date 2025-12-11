@@ -38,8 +38,14 @@ namespace db0
 
         // Exhaust the input_dram_changelog first
         // NOTE: we don't need to copy the changelog, just insert an empty item with the latest state number
-        input_dram_changelog.setStreamPosHead();
-        while (input_dram_changelog.readChangeLogChunk());
+        input_dram_changelog.setStreamPosHead();        
+        for (;;) {
+            while (input_dram_changelog.readChangeLogChunk());
+            // continue refreshing until reaching the most recent state
+            if (!input_dram_changelog.refresh()) {
+                break;
+            }
+        }
         
         // Copy the entire DRAM_IO stream next (possibly inconsistent state)
         // collecting the mapping of chunk addresses
@@ -49,7 +55,9 @@ namespace db0
         // Chunks loaded during  the sync step
         // NOTE: in this step we prefetch to memory to be able to catch up with changes
         std::unordered_map<std::uint64_t, std::vector<char> > chunk_buf;
-        fetchDRAM_IOChanges(input_io, input_dram_changelog, chunk_buf);
+        while (input_dram_changelog.refresh()) {
+            fetchDRAM_IOChanges(input_io, input_dram_changelog, chunk_buf);
+        }
         auto last_chunk_ptr = input_dram_changelog.getLastChangeLogChunk();
         if (!last_chunk_ptr) {
             // looks like the DRAM IO is empty
@@ -58,9 +66,9 @@ namespace db0
         
         // this is the actually copied last consistent state number
         auto state_num = last_chunk_ptr->m_state_num;
-
+        
         // NOTE: flush must be done under translated addresses (or appended to stream if translation not present)
-        auto bufs_pair = translateDRAM_Chunks(std::move(chunk_buf), chunk_addr_map);        
+        auto bufs_pair = translateDRAM_Chunks(std::move(chunk_buf), chunk_addr_map);
         flushDRAM_IOChanges(output_io, bufs_pair.first);
         // append new chuks which were not present during the initial copy
         appendDRAM_IOChunks(output_io, bufs_pair.second);
@@ -76,12 +84,18 @@ namespace db0
         std::vector<char> buffer;
         std::size_t chunk_size = 0;
         std::uint64_t in_addr, out_addr;
-        while ((chunk_size = in.readChunk(buffer, 0, &in_addr)) > 0) {
-            out.addChunk(chunk_size, &out_addr);
-            out.appendToChunk(buffer.data(), chunk_size);
-            // register the mapping
-            if (addr_map) {
-                addr_map->emplace(in_addr, out_addr);
+        for (;;) {
+            while ((chunk_size = in.readChunk(buffer, 0, &in_addr)) > 0) {
+                out.addChunk(chunk_size, &out_addr);
+                out.appendToChunk(buffer.data(), chunk_size);
+                // register the mapping
+                if (addr_map) {
+                    addr_map->emplace(in_addr, out_addr);
+                }
+            }
+            if (!in.refresh()) {
+                // continue refreshing until reaching the most recent state
+                break;
             }
         }
         out.flush();

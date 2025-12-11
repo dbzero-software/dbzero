@@ -555,7 +555,7 @@ async def test_async_wait_for_updates(db0_fixture):
     p.join()
 
 
-def writer_process(prefix, obj_count = 50, commit_count = 50, long_run = False):
+def append_to_prefix(prefix, obj_count = 50, commit_count = 50, long_run = False):
     db0.init(DB0_DIR)
     db0.open(prefix, "rw")
     # create new or open an existing root object
@@ -600,7 +600,7 @@ def test_refresh_prefix_continuous_process_with_snapshot(db0_fixture):
         obj_count = 5000
         commit_count = 100
         # start the writer process for a long run
-        p = multiprocessing.Process(target=writer_process, args=(px_name, obj_count, commit_count, True))
+        p = multiprocessing.Process(target=append_to_prefix, args=(px_name, obj_count, commit_count, True))
         p.start()
         
         db0.init(DB0_DIR)
