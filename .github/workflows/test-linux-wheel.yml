@@ -6,10 +6,6 @@ on:
       python-version:
         required: true
         type: string
-      distribution:
-        required: false
-        type: string
-        default: 'ubuntu'
       ld-preload:
         required: false
         type: string
@@ -67,36 +63,12 @@ jobs:
   test-wheels-linux:
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.timeout-minutes }}
-    container:
-      image: ${{ 
-        inputs.distribution == 'ubuntu' && 'ubuntu:latest' ||
-        inputs.distribution == 'debian' && 'debian:latest' ||
-        inputs.distribution == 'arch' && 'archlinux:latest' ||
-        inputs.distribution == 'fedora' && 'fedora:latest' ||
-        inputs.distribution == 'opensuse' && 'opensuse/leap:latest' ||
-        'ubuntu:latest'
-      }}
     env:
       REQUIREMENTS_FILE: ${{ inputs.python-version == '3.9' && 'requirements.3.9.txt' || 'requirements.txt' }}
     steps:
-      - name: Install system dependencies
-        run: |
-          if [ "${{ inputs.distribution }}" = "ubuntu" ] || [ "${{ inputs.distribution }}" = "debian" ]; then
-            apt-get update
-            apt-get install -y python${{ inputs.python-version }} python3-pip git curl
-          elif [ "${{ inputs.distribution }}" = "arch" ]; then
-            pacman -Syu --noconfirm python python-pip git curl
-          elif [ "${{ inputs.distribution }}" = "fedora" ]; then
-            dnf install -y python${{ inputs.python-version }} python3-pip git curl
-          elif [ "${{ inputs.distribution }}" = "opensuse" ]; then
-            zypper refresh
-            zypper install -y python3 python3-pip git curl
-          fi
-      
       - uses: actions/checkout@v4
       
       - name: Set up Python ${{ inputs.python-version }}
-        if: ${{ inputs.distribution == 'ubuntu' }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ inputs.python-version }}
