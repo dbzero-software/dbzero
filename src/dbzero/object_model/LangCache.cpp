@@ -297,32 +297,23 @@ namespace db0
     
     void LangCacheView::clear(bool expired_only, bool as_defunct)
     {
+        // copy for erase safety
+        auto objects = std::move(m_objects);
+        m_objects = {};
+        
         // erase expired objects only
         if (expired_only) {
-            // optimized clear when lang cache view size >> cache size
-            if (m_objects.size() > m_cache.size() * 4) {                
-                std::unordered_set<Address> non_expired_objects;
-                for (auto addr: m_objects) {
-                    if (!m_cache.erase(m_fixture_id, addr, true, as_defunct)) {
-                        non_expired_objects.insert(addr);
-                    }
-                }
-                m_objects = std::move(non_expired_objects);
-            } else {
-                auto it = m_objects.begin();
-                while (it != m_objects.end()) {
-                    if (m_cache.erase(m_fixture_id, *it, true, as_defunct)) {
-                        it = m_objects.erase(it);
-                    } else {
-                        ++it;
-                    }                    
+            std::unordered_set<Address> non_expired_objects;
+            for (auto addr: objects) {
+                if (!m_cache.erase(m_fixture_id, addr, true, as_defunct)) {
+                    non_expired_objects.insert(addr);
                 }
             }
+            m_objects = std::move(non_expired_objects);
         } else {
-            for (auto addr: m_objects) {
+            for (auto addr: objects) {
                 m_cache.erase(m_fixture_id, addr, false, as_defunct);
-            }
-            m_objects.clear();
+            }            
         }
     }
     

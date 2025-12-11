@@ -387,7 +387,7 @@ namespace db0
             // Flush using registered flush handlers
             for (auto &handler: m_flush_handlers) {
                 handler();
-            }            
+            }              
             m_lang_cache.clear(true);
             // lock for exclusive access
             {

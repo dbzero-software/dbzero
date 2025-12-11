@@ -283,5 +283,6 @@ namespace db0
     
     std::unique_ptr<GC0::CommitContext> GC0::beginCommit() {
         return std::make_unique<CommitContext>(*this);
-    }    
+    }
+
 }

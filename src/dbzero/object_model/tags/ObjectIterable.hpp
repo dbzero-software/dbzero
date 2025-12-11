@@ -128,7 +128,7 @@ namespace db0::object_model
         TypeObjectPtr getLangType() const;
         
         // NOTE: ObjectIterable might be related with a specific context / scope (e.g. snapshot)
-        // to prevend context deletion before the query, it's important to attach it
+        // to prevent context deletion before the query, it's important to attach it
         // otherwise a segfault might happen when query iterated over, after closing the context
         void attachContext(ObjectPtr) const;
 
