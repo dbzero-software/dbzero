@@ -6,6 +6,10 @@ on:
       python-version:
         required: true
         type: string
+      distribution:
+        required: false
+        type: string
+        default: 'ubuntu'
       build-args:
         required: false
         type: string
@@ -28,6 +32,17 @@ on:
           - '3.13'
           - '3.14'
         default: '3.12'
+      distribution:
+        description: 'Linux distribution'
+        required: true
+        type: choice
+        options:
+          - 'ubuntu'
+          - 'debian'
+          - 'arch'
+          - 'fedora'
+          - 'opensuse'
+        default: 'ubuntu'
       build-args:
         description: 'Additional build arguments (e.g., --config-setting=setup-args=-Denable_sanitizers=true)'
         required: false
