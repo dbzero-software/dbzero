@@ -184,9 +184,9 @@ namespace db0
         if (timer_ptr) {
             timer = std::make_unique<ProcessTimer>("Fixture::close", timer_ptr);
         }
-                        
+        
         // clear cache to destroy object instances supported by the cache
-        // this has to be done before commit (to not commit unrefereced objects)
+        // this has to be done before commit (to not commit unrefereced objects)        
         m_lang_cache.clear(true, as_defunct);
         
         // auto-commit before closing
@@ -200,7 +200,7 @@ namespace db0
                     getGC0().flushAllOf(Memspace::getForFlush());
                 }
                 
-                // clear lang cache again since flush might've released some Python instances
+                // clear lang cache again since flush might've released some Python instances                
                 m_lang_cache.clear(true);
 
                 // lock for exclusive access
@@ -387,7 +387,7 @@ namespace db0
             // Flush using registered flush handlers
             for (auto &handler: m_flush_handlers) {
                 handler();
-            }
+            }            
             m_lang_cache.clear(true);
             // lock for exclusive access
             {

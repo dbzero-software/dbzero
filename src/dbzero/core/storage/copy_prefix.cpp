@@ -8,44 +8,95 @@ namespace db0
 
 {
     
+    // chunk buffer + append buffer
+    using ChunkBufPair = std::pair<
+        std::unordered_map<std::uint64_t, std::vector<char> >,
+        std::vector<std::vector<char> > >;
+    
+    ChunkBufPair translateDRAM_Chunks(
+        const std::unordered_map<std::uint64_t, std::vector<char> > &&chunk_buf,
+        const std::unordered_map<std::uint64_t, std::uint64_t> &addr_map)
+    {
+        ChunkBufPair result;        
+        for (const auto &pair : chunk_buf) {
+            auto it_addr = addr_map.find(pair.first);
+            if (it_addr == addr_map.end()) {
+                // not present in the copied stream, must be appended
+                result.second.emplace_back(std::move(pair.second));
+            } else {
+                // register under translated address
+                result.first.emplace(it_addr->second, std::move(pair.second));
+            }
+        }
+        return result;
+    }
+    
     void copyDRAM_IO(DRAM_IOStream &input_io, DRAM_ChangeLogStreamT &input_dram_changelog,
         DRAM_IOStream &output_io, DRAM_ChangeLogStreamT::Writer &output_dram_changelog)
     {
         using DRAM_ChangeLogT = DRAM_IOStream::DRAM_ChangeLogT;
 
         // Exhaust the input_dram_changelog first
-        input_dram_changelog.setStreamPosHead();
-        auto change_log_ptr = input_dram_changelog.readChangeLogChunk();
-        
-        while (change_log_ptr) {
-            output_dram_changelog.appendChangeLog(*change_log_ptr);
-            change_log_ptr = input_dram_changelog.readChangeLogChunk();
+        // NOTE: we don't need to copy the changelog, just insert an empty item with the latest state number
+        input_dram_changelog.setStreamPosHead();        
+        for (;;) {
+            while (input_dram_changelog.readChangeLogChunk());
+            // continue refreshing until reaching the most recent state
+            if (!input_dram_changelog.refresh()) {
+                break;
+            }
         }
         
         // Copy the entire DRAM_IO stream next (possibly inconsistent state)
-        copyStream(input_io, output_io);
+        // collecting the mapping of chunk addresses
+        std::unordered_map<std::uint64_t, std::uint64_t> chunk_addr_map;
+        copyStream(input_io, output_io, &chunk_addr_map);
         
-        // Callback to copy additional changelog chunks retrieved on post-sync
-        auto copy_callback = [&](const DRAM_ChangeLogT &change_log) {
-            output_dram_changelog.appendChangeLog(change_log);
-        };
-
         // Chunks loaded during  the sync step
         // NOTE: in this step we prefetch to memory to be able to catch up with changes
         std::unordered_map<std::uint64_t, std::vector<char> > chunk_buf;
-        fetchDRAM_IOChanges(input_io, input_dram_changelog, chunk_buf, copy_callback);
-        flushDRAM_IOChanges(output_io, chunk_buf);
+        while (input_dram_changelog.refresh()) {
+            fetchDRAM_IOChanges(input_io, input_dram_changelog, chunk_buf);
+        }
+        auto last_chunk_ptr = input_dram_changelog.getLastChangeLogChunk();
+        if (!last_chunk_ptr) {
+            // looks like the DRAM IO is empty
+            return;
+        }
+        
+        // this is the actually copied last consistent state number
+        auto state_num = last_chunk_ptr->m_state_num;
+        
+        // NOTE: flush must be done under translated addresses (or appended to stream if translation not present)
+        auto bufs_pair = translateDRAM_Chunks(std::move(chunk_buf), chunk_addr_map);
+        flushDRAM_IOChanges(output_io, bufs_pair.first);
+        // append new chuks which were not present during the initial copy
+        appendDRAM_IOChunks(output_io, bufs_pair.second);
+        // append the sentinel entry with state number only (i.e. empty changelog)
+        output_dram_changelog.appendChangeLog({}, state_num);
     }
     
-    std::vector<char> copyStream(BlockIOStream &in, BlockIOStream &out)
+    std::vector<char> copyStream(BlockIOStream &in, BlockIOStream &out, 
+        std::unordered_map<std::uint64_t, std::uint64_t> *addr_map)
     {
         // position at the beginning of the stream
         in.setStreamPosHead();
         std::vector<char> buffer;
         std::size_t chunk_size = 0;
-        while ((chunk_size = in.readChunk(buffer)) > 0) {
-            out.addChunk(chunk_size);
-            out.appendToChunk(buffer.data(), chunk_size);
+        std::uint64_t in_addr, out_addr;
+        for (;;) {
+            while ((chunk_size = in.readChunk(buffer, 0, &in_addr)) > 0) {
+                out.addChunk(chunk_size, &out_addr);
+                out.appendToChunk(buffer.data(), chunk_size);
+                // register the mapping
+                if (addr_map) {
+                    addr_map->emplace(in_addr, out_addr);
+                }
+            }
+            if (!in.refresh()) {
+                // continue refreshing until reaching the most recent state
+                break;
+            }
         }
         out.flush();
         return buffer;

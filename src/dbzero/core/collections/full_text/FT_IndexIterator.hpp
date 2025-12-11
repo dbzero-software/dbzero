@@ -243,7 +243,7 @@ namespace db0
 		*/
     }
 	
-    template <typename bindex_t, typename key_t, typename IndexKeyT> 
+    template <typename bindex_t, typename key_t, typename IndexKeyT>
 	typename FT_IndexIterator<bindex_t, key_t, IndexKeyT>::iterator &FT_IndexIterator<bindex_t, key_t, IndexKeyT>::getIterator()
     {
         if (m_is_detached) {            
