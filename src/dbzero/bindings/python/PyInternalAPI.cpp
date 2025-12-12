@@ -232,11 +232,11 @@ namespace db0::python
     {        
         auto &class_factory = fixture->get<db0::object_model::ClassFactory>();
         // find type associated class with the ClassFactory
-        auto type = class_factory.getExistingType(py_type);
-        if (!type->isSingleton()) {
+        auto type = class_factory.tryGetExistingType(py_type);
+        if (!type || !type->isSingleton()) {
             return false;
         }
-
+        
         return type->isExistingSingleton();
     }
 

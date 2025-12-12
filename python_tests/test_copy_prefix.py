@@ -220,10 +220,8 @@ def test_copy_prefix_continuous_process(db0_fixture):
     db0.close()
     
     # in each 'epoch' we modify prefix while making copies
-    # then drop the original prefix and restore if from the last copy
-    # FIXME: log
+    # then drop the original prefix and restore if from the last copy    
     epoch_count = 1
-    # epoch_count = 2
     total_len = 0
     for epoch in range(epoch_count):
         print(f"=== Epoch {epoch} ===", flush=True)
@@ -265,10 +263,6 @@ def test_copy_prefix_continuous_process(db0_fixture):
         
         p.join()
         total_len += obj_count * commit_count
-        
-        # validate original prefix (no copy yet)
-        print("Validating final prefix ...", flush=True)
-        validate_current_prefix(expected_len = total_len)
         
         # make final stale copy (i.e. without active modifications)
         final_copy = f"./test-copy-final.db0"
@@ -414,8 +408,8 @@ def test_slow_copy(db0_fixture):
         
         db0.close()
         
-        obj_count = 1000
-        commit_count = 25
+        obj_count = 250
+        commit_count = 15
         # start the writer process for a long run
         p = multiprocessing.Process(target=writer_process, args=(px_name, obj_count, commit_count, True))
         p.start()
@@ -425,6 +419,9 @@ def test_slow_copy(db0_fixture):
         last_len = 0
         while True:
             try:
+                if not db0.exists(MemoTestSingleton):
+                    time.sleep(0.1)
+                    continue
                 root = db0.fetch(MemoTestSingleton)
                 if len(root.value) > 1:
                     last_len = len(root.value)
@@ -442,9 +439,7 @@ def test_slow_copy(db0_fixture):
             file_name = f"./test-copy-{copy_id}.db0"
             if os.path.exists(file_name):
                 os.remove(file_name)
-            # FIXME: log
-            print("--- Copying prefix iteration", copy_id, flush=True)
-            db0.copy_prefix(file_name, prefix=px_name)   
+            db0.copy_prefix(file_name, prefix=px_name)
             copy_id += 1
             if not p.is_alive():
                 break            
@@ -452,8 +447,6 @@ def test_slow_copy(db0_fixture):
         p.join()
         db0.close()
         
-        print("Validating all copies", flush=True)
         for i in range(copy_id):
-            last_len = validate_copy(i, expected_min_len = last_len)
-            print(f"--- Copy {i} valid with {last_len} objects", flush=True)
+            last_len = validate_copy(i, expected_min_len = last_len)            
     

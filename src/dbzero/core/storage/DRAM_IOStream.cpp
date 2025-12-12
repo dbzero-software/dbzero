@@ -232,7 +232,7 @@ namespace db0
         BlockIOStream::flush();
         // output changelog, no RLE encoding, no duplicates
         ChangeLogData cl_data(std::move(dram_changelog), false, false, false);
-        dram_changelog_io.appendChangeLog(std::move(cl_data), state_num);        
+        dram_changelog_io.appendChangeLog(std::move(cl_data), state_num);
     }
     
 #ifndef NDEBUG
@@ -424,7 +424,7 @@ namespace db0
         const std::unordered_map<std::uint64_t, std::vector<char> > &chunks_buf)
     {
         auto dram_page_size = dram_io.getDRAMPrefix().getPageSize();
-        for (const auto &item: chunks_buf) {
+        for (const auto &item: chunks_buf) {                
             auto address = item.first;
             const auto &buffer = item.second;
             // NOTE: we don't flush inconsistent / incomplete chunks
@@ -443,10 +443,10 @@ namespace db0
                 continue;
             }
             // NOTE: buffer already includes BlockIOStream's chunk header
-            const auto &header = o_dram_chunk_header::__const_ref(buffer.data() + o_block_io_chunk_header::sizeOf());
             auto chunk_size = buffer.size() - o_block_io_chunk_header::sizeOf();
+            auto chunk_data = buffer.data() + o_block_io_chunk_header::sizeOf();
             dram_io.addChunk(chunk_size);
-            dram_io.appendToChunk(header.getData(), chunk_size);
+            dram_io.appendToChunk(chunk_data, chunk_size);
         }
     }
     

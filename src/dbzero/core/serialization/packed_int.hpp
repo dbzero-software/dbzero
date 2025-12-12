@@ -7,12 +7,14 @@
 #include "Types.hpp"
 #include <dbzero/core/exception/Exceptions.hpp>
 #include <dbzero/core/compiler_attributes.hpp>
+#include <dbzero/core/serialization/bounded_buf_t.hpp>
+#include <dbzero/core/memory/config.hpp>
 
 namespace db0
 
 {
-DB0_PACKED_BEGIN
 
+DB0_PACKED_BEGIN
     /**
      * @tparam IntT - underlying encoded unsigned integer type
      * @tparam is_nullable flag indicating if this type can be null-ed
@@ -64,6 +66,21 @@ DB0_PACKED_BEGIN
             }
         }
 
+        // read with bounds validation
+        static IntT read(const std::byte *&at, const std::byte *end)
+        {
+            const_bounded_buf_t safe_buf(Settings::m_decode_error, at, end);
+            if constexpr (is_nullable) {
+                auto result = decodeNullable(safe_buf);
+                at = safe_buf;
+                return result;
+            } else {
+                auto result = decode(safe_buf);
+                at = safe_buf;
+                return result;
+            }
+        }
+        
         static void write(std::byte *&at, IntT value)
         {
             auto size_of = measure(value);
@@ -191,7 +208,7 @@ DB0_PACKED_BEGIN
             return value;
         }
         
-        template <class buf_t> static IntT decodeNullable(buf_t &buf) 
+        template <class buf_t> static IntT decodeNullable(buf_t &buf)
         {
             // test for null value
             if (static_cast<std::uint8_t>(*buf) == 0x7f) {
@@ -201,11 +218,11 @@ DB0_PACKED_BEGIN
             return decode(buf);
         }
     };
-    
+DB0_PACKED_END
+
     using packed_int32 = o_packed_int<std::uint32_t>;
     using packed_int64 = o_packed_int<std::uint64_t>;
     using nullable_packed_int32 = o_packed_int<std::uint32_t, true>;
     using nullable_packed_int64 = o_packed_int<std::uint64_t, true>;
-
-DB0_PACKED_END
+    
 }
