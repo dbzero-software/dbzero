@@ -5,9 +5,16 @@
 
 #include <Python.h>
 
+
+/*
 #define PY_API_FUNC PyThreadState *__save = PyEval_SaveThread(); \
 auto __api_lock = db0::python::PyToolkit::lockApi(); \
 PyEval_RestoreThread(__save);
+*/
+
+// FIXME: log
+#define PY_API_FUNC auto __api_lock = db0::python::PyToolkit::lockPyApi();
+
 
 namespace db0::python
 

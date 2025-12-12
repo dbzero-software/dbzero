@@ -4,6 +4,7 @@
 #include "PyLocks.hpp"
 
 namespace db0::python
+
 {
 
     GIL_Lock::GIL_Lock()
