@@ -385,3 +385,75 @@ def test_copy_prefix_of_recovered_copy(db0_fixture):
     db0.init(DB0_DIR, prefix=px_name, read_write=False)
     validate(total_len)
     
+    
+def test_slow_copy(db0_fixture):
+    """
+    Test simulating fast writer and slow copy/reader process (debug mode only)
+    """
+    if 'D' in db0.build_flags():        
+        px_name = db0.get_current_prefix().name
+        px_path = os.path.join(DB0_DIR, px_name + ".db0")
+
+        def validate_current_prefix(expected_len = None, expected_min_len = None):
+            root = db0.fetch(MemoTestSingleton)
+            assert not expected_min_len or len(root.value) >= expected_min_len
+            assert not expected_len or len(root.value) == expected_len        
+            for item in root.value:
+                assert item.value == "b" * 1024        
+            return len(root.value)
+
+        def validate_copy(copy_id, expected_len = None, expected_min_len = None):
+            file_name = f"./test-copy-{copy_id}.db0"
+            os.remove(px_path)
+            # restore the copy
+            os.rename(file_name, px_path)                        
+            db0.init(DB0_DIR, prefix=px_name, read_write=False)
+            result = validate_current_prefix(expected_len, expected_min_len)
+            db0.close()
+            return result
+        
+        db0.close()
+        
+        obj_count = 1000
+        commit_count = 25
+        # start the writer process for a long run
+        p = multiprocessing.Process(target=writer_process, args=(px_name, obj_count, commit_count, True))
+        p.start()
+        
+        db0.init(DB0_DIR)
+        db0.open(px_name, "r")
+        last_len = 0
+        while True:
+            try:
+                root = db0.fetch(MemoTestSingleton)
+                if len(root.value) > 1:
+                    last_len = len(root.value)
+                    break
+            except Exception:
+                pass
+            time.sleep(0.1)
+        
+        copy_id = 0
+        # copy the prefix multiple times while it is being modified 
+        db0.set_test_params(sleep_interval = 50)
+        while True:
+            if not p.is_alive():
+                break
+            file_name = f"./test-copy-{copy_id}.db0"
+            if os.path.exists(file_name):
+                os.remove(file_name)
+            # FIXME: log
+            print("--- Copying prefix iteration", copy_id, flush=True)
+            db0.copy_prefix(file_name, prefix=px_name)   
+            copy_id += 1
+            if not p.is_alive():
+                break            
+        
+        p.join()
+        db0.close()
+        
+        print("Validating all copies", flush=True)
+        for i in range(copy_id):
+            last_len = validate_copy(i, expected_min_len = last_len)
+            print(f"--- Copy {i} valid with {last_len} objects", flush=True)
+    

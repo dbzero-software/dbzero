@@ -11,10 +11,20 @@ namespace db0
 #ifndef NDEBUG
     bool Settings::__dbg_logs = false;
     bool Settings::__storage_validation = false;
+    unsigned long long Settings::__sleep_interval = 0;
 #endif 
     
     std::function<void()> Settings::m_decode_error = []() {
         THROWF(db0::IOException) << "Data decoding error: corrupt data detected";
     };
+    
+    void Settings::reset()
+    {
+#ifndef NDEBUG        
+        __dbg_logs = false;
+        __storage_validation = false;
+        __sleep_interval = 0;
+#endif
+    }
 
 }

@@ -24,6 +24,7 @@
 #include <dbzero/core/serialization/Serializable.hpp>
 #include <dbzero/core/memory/SlabAllocator.hpp>
 #include <dbzero/core/storage/BDevStorage.hpp>
+#include <dbzero/workspace/Config.hpp>
 #include <dbzero/bindings/python/collections/PyTuple.hpp>
 #include <dbzero/bindings/python/collections/PyList.hpp>
 #include <dbzero/bindings/python/collections/PyDict.hpp>
@@ -1048,6 +1049,21 @@ namespace db0::python
         }
     }
     
+#ifndef NDEBUG
+    PyObject *trySetTestParams(PyObject *py_dict)
+    {
+        db0::Config config(py_dict);
+        db0::Settings::__sleep_interval = config.get<unsigned long long>("sleep_interval", 0);
+        Py_RETURN_NONE;
+    }
+     
+    PyObject *tryResetTestParams()
+    {        
+        db0::Settings::reset();
+        Py_RETURN_NONE;
+    }
+#endif
+
     template PyObject *getMaterializedMemoObject(MemoObject *);
     template PyObject *getMaterializedMemoObject(MemoImmutableObject *);
     

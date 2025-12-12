@@ -24,8 +24,9 @@ def __extract_param(request, key, default):
 @pytest.fixture()
 def db0_fixture(request):
     if 'D' in db0.build_flags():
-        db0.enable_storage_validation(__extract_param(request, "storage_validation", False))
-    
+        db0.reset_test_params() # reset to defaults
+        db0.enable_storage_validation(__extract_param(request, "storage_validation", False))        
+        
     if os.path.exists(DB0_DIR):
         shutil.rmtree(DB0_DIR)    
     os.mkdir(DB0_DIR)
@@ -41,14 +42,15 @@ def db0_fixture(request):
     yield db0
     gc.collect()
     db0.close()
-    if 'D' in db0.build_flags():
-        db0.enable_storage_validation(False)
     if os.path.exists(DB0_DIR):
         shutil.rmtree(DB0_DIR)
 
 
 @pytest.fixture()
-def db0_no_default_fixture():        
+def db0_no_default_fixture():  
+    if 'D' in db0.build_flags():
+        db0.reset_test_params() # reset to defaults
+
     if os.path.exists(DB0_DIR):
         shutil.rmtree(DB0_DIR)
     # create empty directory
@@ -63,9 +65,9 @@ def db0_no_default_fixture():
 
 @pytest.fixture
 def db0_slab_size(request):
-    """
-    DB0 scope with a very short autocommit interval
-    """    
+    if 'D' in db0.build_flags():
+        db0.reset_test_params() # reset to defaults
+    
     if os.path.exists(DB0_DIR):
         shutil.rmtree(DB0_DIR)
     # create empty directory
@@ -86,8 +88,11 @@ def db0_slab_size(request):
 @pytest.fixture
 def db0_autocommit_fixture(request):
     """
-    DB0 scope with a very short autocommit interval
+    dbzero scope with a very short autocommit interval
     """    
+    if 'D' in db0.build_flags():
+        db0.reset_test_params() # reset to defaults
+
     if os.path.exists(DB0_DIR):
         shutil.rmtree(DB0_DIR)
     # create empty directory
@@ -103,9 +108,9 @@ def db0_autocommit_fixture(request):
 
 @pytest.fixture()
 def db0_no_autocommit():
-    """
-    DB0 scope with a very short autocommit interval
-    """
+    if 'D' in db0.build_flags():
+        db0.reset_test_params() # reset to defaults
+
     if os.path.exists(DB0_DIR):
         shutil.rmtree(DB0_DIR)
     # create empty directory
@@ -174,8 +179,8 @@ def memo_scoped_enum_tags():
 @pytest.fixture()
 def db0_metaio_fixture():
     """
-    DB0 scope for testing metaio (very small step size)
-    """    
+    dbzero scope for testing metaio (very small step size)
+    """ 
     if os.path.exists(DB0_DIR):
         shutil.rmtree(DB0_DIR)
     # create empty directory
@@ -192,8 +197,11 @@ def db0_metaio_fixture():
 @pytest.fixture()
 def db0_large_lang_cache_no_autocommit():
     """
-    DB0 scope for testing large language cache (no autocommit)
-    """    
+    dbzero scope for testing large language cache (no autocommit)
+    """
+    if 'D' in db0.build_flags():
+        db0.reset_test_params() # reset to defaults
+
     if os.path.exists(DB0_DIR):
         shutil.rmtree(DB0_DIR)
     # create empty directory

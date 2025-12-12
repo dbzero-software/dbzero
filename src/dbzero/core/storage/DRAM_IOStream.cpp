@@ -11,6 +11,7 @@
 #include <dbzero/core/dram/DRAM_Allocator.hpp>
 #include "ChangeLogIOStream.hpp"
 #include <dbzero/core/utils/hash_func.hpp>
+#include <dbzero/core/memory/config.hpp>
 
 namespace db0
 
@@ -374,6 +375,14 @@ namespace db0
                         // it may come from a more recent update as well (and potentially may only be partially written)
                         // therefore chunk-level checksum validation is necessary
                         dram_io.readFromChunk(address, buffer.data(), buffer.size());
+
+#ifndef NDEBUG
+                        // Optional sleep for time-sensitive tests (e.g. copy_prefix)
+                        if (db0::Settings::__sleep_interval > 0) {
+                            std::this_thread::sleep_for(
+                                std::chrono::milliseconds(db0::Settings::__sleep_interval));
+                        }                
+#endif                
                     }
                     change_log_ptr = changelog_io.readChangeLogChunk();
                 }
@@ -422,7 +431,7 @@ namespace db0
             if (!isDRAM_ChunkValid(dram_page_size, buffer)) {
                 continue;
             }
-            dram_io.writeToChunk(address, buffer.data(), buffer.size());            
+            dram_io.writeToChunk(address, buffer.data(), buffer.size());
         }
     }
     
@@ -433,11 +442,14 @@ namespace db0
             if (!isDRAM_ChunkValid(dram_page_size, buffer)) {
                 continue;
             }
-            dram_io.addChunk(buffer.size());
-            dram_io.appendToChunk(buffer.data(), buffer.size());            
+            // NOTE: buffer already includes BlockIOStream's chunk header
+            const auto &header = o_dram_chunk_header::__const_ref(buffer.data() + o_block_io_chunk_header::sizeOf());
+            auto chunk_size = buffer.size() - o_block_io_chunk_header::sizeOf();
+            dram_io.addChunk(chunk_size);
+            dram_io.appendToChunk(header.getData(), chunk_size);
         }
     }
-
+    
     std::uint64_t o_dram_chunk_header::calculateHash(const void *data, std::size_t data_size) const {
         return db0::murmurhash64A(data, data_size, m_page_num + m_state_num);
     }

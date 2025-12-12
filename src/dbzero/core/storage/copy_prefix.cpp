@@ -157,6 +157,13 @@ namespace db0
                 if (addr_map) {
                     addr_map->emplace(in_addr, out_addr);
                 }
+
+#ifndef NDEBUG
+                if (db0::Settings::__sleep_interval > 0) {
+                    std::this_thread::sleep_for(
+                        std::chrono::milliseconds(db0::Settings::__sleep_interval));
+                }                
+#endif                
             }
             if (!in.refresh()) {
                 // continue refreshing until reaching the most recent state

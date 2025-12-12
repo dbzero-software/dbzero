@@ -235,6 +235,8 @@ namespace db0::python
     PyObject *tryGetDRAM_IOMap(const Fixture &);
     // opens BDevStorage and reads DRAM_IO map directly, without opening the prefix
     PyObject *tryGetDRAM_IOMapFromFile(const char *file_name);
+    PyObject *trySetTestParams(PyObject *py_dict);
+    PyObject *tryResetTestParams();
 #endif    
     
     PyObject *tryAssign(PyObject *targets, PyObject *key_values);
