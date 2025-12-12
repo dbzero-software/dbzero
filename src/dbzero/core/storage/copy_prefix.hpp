@@ -25,11 +25,15 @@ namespace db0
     void copyDRAM_IO(DRAM_IOStream &input_io, DRAM_ChangeLogStreamT &input_dram_changelog,
         DRAM_IOStream &output_io, DRAM_ChangeLogStreamT::Writer &output_dram_changelog);
     
+    using DRAM_FilterT = std::function<bool(const o_dram_chunk_header &, const void *data_end)>;
+    
     // Copy entire contents from one BlockIOStream to another (type agnostic)
     // @param addr_map optional map to receive address translation (from source to destination)
+    // @param chunk_filter optional filter to decide whether a specific chunk is to be copied
     // @return the last copied chunk data
     std::vector<char> copyStream(BlockIOStream &in, BlockIOStream &out, 
-        std::unordered_map<std::uint64_t, std::uint64_t> *addr_map = nullptr);
+        std::unordered_map<std::uint64_t, std::uint64_t> *addr_map = nullptr, 
+        DRAM_FilterT chunk_filter = {});
     
     // DP-changelog specialization
     // @return the last chunk's header (if anything copied)

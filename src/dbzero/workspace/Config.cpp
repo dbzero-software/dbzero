@@ -33,8 +33,8 @@ namespace db0
         }
         return LangToolkit::getLong(lang_dict, key);
     }
-
-    // long specialization
+    
+    // unsigned long long specialization
     template <> std::optional<unsigned long long> get<unsigned long long>(
         typename LangToolkit::ObjectPtr lang_dict, const std::string &key)
     {

@@ -207,7 +207,7 @@ namespace db0
         std::optional<std::uint64_t> end_page_num)
         : m_page_io(page_io)
         , m_step_it(ext_space)
-        , m_end_page_num(std::min(end_page_num.value_or(std::numeric_limits<std::uint64_t>::max()), page_io.getEndPageNum()))
+        , m_end_page_num(std::min(end_page_num.value_or(std::numeric_limits<std::uint64_t>::max()), endPageNum()))
         , m_current_page_num(getFirstPageNum(ext_space))
     {
     }
@@ -258,6 +258,7 @@ namespace db0
     std::uint64_t Page_IO::Reader::endPageNum() const
     {
         // calculate end page number from actual file size
+        m_page_io.m_file.refresh();
         auto file_size = m_page_io.m_file.size();
         if (file_size < m_page_io.m_header_size) {
             return 0;

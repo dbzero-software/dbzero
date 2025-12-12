@@ -1473,6 +1473,18 @@ namespace db0::python
         db0::Settings::__storage_validation = enable;
         Py_RETURN_NONE;
     }
+    
+    PyObject *PyAPI_setTestParams(PyObject *, PyObject *, PyObject *kwargs)
+    {
+        PY_API_FUNC
+        return runSafe(trySetTestParams, kwargs);        
+    }
+    
+    PyObject *PyAPI_resetTestParams(PyObject *, PyObject *) 
+    {
+        PY_API_FUNC
+        return runSafe(tryResetTestParams);        
+    }
 #endif
 
     PyObject *PyAPI_assign(PyObject *, PyObject *args, PyObject *kwargs)

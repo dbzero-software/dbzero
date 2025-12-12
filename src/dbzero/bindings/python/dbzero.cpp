@@ -120,6 +120,8 @@ static PyMethodDef dbzero_methods[] =
     {"get_dram_io_map", (PyCFunction)&py::getDRAM_IOMap, METH_VARARGS | METH_KEYWORDS, "Get page_num -> state_num mapping related with a specific DRAM_Prefix"},    
     {"breakpoint", (PyCFunction)&py::PyAPI_breakpoint, METH_FASTCALL, "Testing & debugging function "},
     {"enable_storage_validation", (PyCFunction)&py::PyAPI_enableStorageValidation, METH_VARARGS | METH_KEYWORDS, "Enable full storage validation for testing"},
+    {"set_test_params", (PyCFunction)&py::PyAPI_setTestParams, METH_VARARGS | METH_KEYWORDS, "Test keyword parameters"},
+    {"reset_test_params", (PyCFunction)&py::PyAPI_resetTestParams, METH_NOARGS, "Restore default test parameters"},
 #endif
     {NULL} // Sentinel
 };

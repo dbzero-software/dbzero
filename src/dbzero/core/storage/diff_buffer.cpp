@@ -58,7 +58,7 @@ namespace db0
         const std::byte *at = (std::byte*)this + sizeof(o_diff_buffer);
         auto end = (std::byte*)this + m_size;
         while (at < end) {
-            auto diff_size = o_packed_int<std::uint16_t>::read(at);
+            auto diff_size = o_packed_int<std::uint16_t>::read(at, end);
             if (diff_size > 0) {
                 assert(dp_result + diff_size <= dp_end);
                 // this check prevents processing of corrupt diff data
@@ -70,7 +70,7 @@ namespace db0
                 at += diff_size;
             }
             if (at < end) {
-                auto identical_size = o_packed_int<std::uint16_t>::read(at);
+                auto identical_size = o_packed_int<std::uint16_t>::read(at, end);
                 dp_result += identical_size;
                 if (dp_result > dp_end) {
                     THROWF(db0::IOException) << "o_diff_buffer::apply: corrupt diff data";

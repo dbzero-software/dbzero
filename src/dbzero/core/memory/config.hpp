@@ -27,9 +27,14 @@ namespace db0
         static bool __dbg_logs;
         // performs storage full read / write validation (with in-memory mirroring)
         static bool __storage_validation;
+        // sleep interval for time-sensitive tests (e.g. copy_prefix) in milliseconds
+        static unsigned long long __sleep_interval;
 #endif
         // Function to throw the data decoding error (i.e. corrupt data detected)
         static std::function<void()> m_decode_error;
+
+        // reset all settings to default values
+        static void reset();
     };
     
 }

@@ -384,7 +384,7 @@ namespace db0
                 }
                 m_page_io.write(page_io_id, write_buf);
             } else {
-                // append as new page                
+                // append as new page
                 bool is_first_page;
                 auto page_io_id = m_page_io.append(write_buf, &is_first_page);
                 if (!!m_ext_space) {

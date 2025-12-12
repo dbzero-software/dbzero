@@ -32,11 +32,7 @@ namespace db0
 
 		void init(const std::vector<std::byte> &);
 		
-		inline const std::byte *get() const
-		{
-			if (begin >= end) {
-				m_throw_func();
-			}
+		inline const std::byte *get() const {
 			return begin;
 		}
 
