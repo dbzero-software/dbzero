@@ -4,7 +4,6 @@
 #include "FixtureThreads.hpp"
 #include <dbzero/core/memory/Prefix.hpp>
 #include <dbzero/object_model/LangConfig.hpp>
-#include <dbzero/core/threading/ThreadTracker.hpp>
 #include "AtomicContext.hpp"
 #include "LockedContext.hpp"
 
@@ -206,25 +205,19 @@ namespace db0
     void AutoCommitThread::onUpdate(Fixture &fixture)
     {
         using LangToolkit = db0::object_model::LangConfig::LangToolkit;
-
+        
         // need to lock the language API first
         // otherwise it may deadlock on trying to invoke API calls from auto-commit 
         // (e.g. instance destruction triggered by LangCache::clear)
         auto __api_lock = LangToolkit::lockApi();
-        // NOTE: since this a separate thread, we must acuire the language interpreter's lock (where required)
+        // // NOTE: since this a separate thread, we must acuire the language interpreter's lock (where required)
         auto lang_lock = LangToolkit::ensureLocked();
-#ifndef NDEBUG
-        ThreadTracker::beginUnique();
-#endif
         auto callbacks = fixture.onAutoCommit();
         if (!callbacks.empty()) {
             assert(m_context && "AutoSaveContext must exist here!");
             // These callbacks have to be executed when 'everything' is unlocked. Otherwise we are risking a deadlock.
             m_context->appendCallbacks(std::move(callbacks));
         }
-#ifndef NDEBUG
-        ThreadTracker::end();
-#endif
     }
 
     void AutoCommitThread::prepareContext()

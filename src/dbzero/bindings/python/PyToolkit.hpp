@@ -13,10 +13,7 @@
 #include "PyLocks.hpp"
 #include <dbzero/core/collections/pools/StringPools.hpp>
 #include <dbzero/core/memory/swine_ptr.hpp>
-
-#define PY_API_FUNC PyThreadState *__save = PyEval_SaveThread(); \
-auto __api_lock = db0::python::PyToolkit::lockApi(); \
-PyEval_RestoreThread(__save);
+#include <dbzero/core/threading/SafeRMutex.hpp>
 
 namespace db0
 
@@ -240,8 +237,10 @@ namespace db0::python
         static std::optional<bool> getBool(ObjectPtr py_object, const std::string &key);
         static std::optional<std::string> getString(ObjectPtr py_object, const std::string &key);
 
-        // block until lock acquired
-        static std::unique_lock<std::recursive_mutex> lockApi();
+        // Blocks until lock acquired
+        static SafeRLock lockApi();
+        // locks API from a Python context (releases GIL while waiting for the lock)
+        static SafeRLock lockPyApi();
 
         // return base type of TypeObject
         static TypeObjectPtr getBaseType(TypeObjectPtr py_object);
@@ -259,10 +258,10 @@ namespace db0::python
         // decRef operation for memo objects
         // @return true if reference count was decremented to zero (!hasRefs)
         static bool decRefMemo(bool is_tag, ObjectPtr py_object);
-
+        
     private:
         static PyWorkspace m_py_workspace;
-        static std::recursive_mutex m_api_mutex;        
+        static SafeRMutex m_api_mutex;
     };
     
 }

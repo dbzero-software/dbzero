@@ -37,7 +37,7 @@ namespace db0::python
     
 
     PyToolkit::PyWorkspace PyToolkit::m_py_workspace;
-    std::recursive_mutex PyToolkit::m_api_mutex;
+    SafeRMutex PyToolkit::m_api_mutex;
     
     std::string PyToolkit::getTypeName(ObjectPtr py_object) {
         return getTypeName(Py_TYPE(py_object));
@@ -709,10 +709,25 @@ namespace db0::python
         return PyClassObject_Check(py_object);
     }
     
-    std::unique_lock<std::recursive_mutex> PyToolkit::lockApi() {
-        return std::unique_lock<std::recursive_mutex>(m_api_mutex);
+    SafeRLock PyToolkit::lockApi() {
+        return { m_api_mutex };        
     }
     
+    SafeRLock PyToolkit::lockPyApi()
+    {
+        if (m_api_mutex.isOwnedByThisThread()) {            
+            // already locked by this thread
+            return {};            
+        } 
+
+        // unlock GIL while waiting for the API mutex
+        PyThreadState *__save = PyEval_SaveThread();
+        auto result = SafeRLock(m_api_mutex);
+        // restore GIL
+        PyEval_RestoreThread(__save);
+        return result;
+    }
+
     PyToolkit::TypeObjectPtr PyToolkit::getBaseType(TypeObjectPtr py_object) {
         return py_object->tp_base;
     }

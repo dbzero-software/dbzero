@@ -38,6 +38,7 @@
 #include <dbzero/core/dram/DRAM_Prefix.hpp>
 #include <dbzero/core/vspace/v_object.hpp>
 #include <dbzero/core/serialization/Types.hpp>
+#include <dbzero/core/threading/SafeRMutex.hpp>
 
 namespace db0::python
 
@@ -1146,7 +1147,7 @@ namespace db0::python
     
     PyObject *tryWait(const char *prefix, long state, long timeout)
     {
-        std::unique_lock<std::recursive_mutex> api_lock;
+        db0::SafeRLock api_lock;
         {
             // GIL have to be released to safely lock API
             db0::python::WithGIL_Unlocked no_gil;
