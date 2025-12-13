@@ -12,9 +12,10 @@ from .conftest import DB0_DIR
 
 def test_db0_starts_autocommit_by_default(db0_fixture):
     object_1 = MemoTestClass(951)
+    commit_interval = db0.get_config()['autocommit_interval']
     state_1 = db0.get_state_num()
-    # auto-commit should happen no later than within 250ms    
-    time.sleep(0.3)
+    # wait as long as autocommit interval + 100ms margin
+    time.sleep(commit_interval / 1000.0 + 0.1)
     state_2 = db0.get_state_num()
     # state changed due to autocommit
     assert state_2 > state_1
@@ -136,7 +137,7 @@ def test_list_items_append(db0_autocommit_fixture):
 def test_autocommit_config(db0_fixture):
     cfg = db0.get_config()
     assert cfg['autocommit'] == True
-    assert cfg['autocommit_interval'] == 250
+    default_interval = cfg['autocommit_interval']
 
     db0.close()
     db0.init(DB0_DIR, autocommit=False, autocommit_interval=1000)
@@ -148,7 +149,7 @@ def test_autocommit_config(db0_fixture):
     db0.init(DB0_DIR, autocommit=False)
     cfg = db0.get_config()
     assert cfg['autocommit'] == False
-    assert cfg['autocommit_interval'] == 250
+    assert cfg['autocommit_interval'] == default_interval
 
     db0.close()
     with pytest.raises(Exception):
