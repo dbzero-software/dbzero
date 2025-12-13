@@ -156,8 +156,9 @@ DB0_PACKED_END
         /**
          * Exhaust the entire change-log (to mark synchronization point)
          * then load entire contents from stream into the DRAM Storage
+         * @param max_state_num optional state number to sync up to
         */
-        void load(DRAM_ChangeLogStreamT &);
+        void load(DRAM_ChangeLogStreamT &, std::optional<StateNumType> max_state_num = std::nullopt);
         
         std::size_t getChunkSize() const {
             return m_chunk_size;
@@ -186,9 +187,13 @@ DB0_PACKED_END
         void updateDRAMPage(std::uint64_t address, std::unordered_set<std::size_t> *allocs_ptr, 
             const o_dram_chunk_header &header, const void *bytes, StateNumType max_state_num);
         
+        // Overwrite invalid or corrupted DRAM page with null data
+        void trashDRAMPage(std::uint64_t address);
+        
         // the number of random write operations performed while flushing updates
         std::uint64_t m_rand_ops = 0;
         
+        std::vector<char> getTrashDRAMPage() const;
         std::ostream &dumpPageMap(std::ostream &os) const;
     };
     

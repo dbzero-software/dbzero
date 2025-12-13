@@ -234,8 +234,11 @@ namespace db0::python
         // Extract keys (if present) from a Python dict object
         static std::optional<long> getLong(ObjectPtr py_object, const std::string &key);
         static std::optional<unsigned long long> getUnsignedLongLong(ObjectPtr py_object, const std::string &key);
+        static std::optional<unsigned int> getUnsignedInt(ObjectPtr py_object, const std::string &key);
         static std::optional<bool> getBool(ObjectPtr py_object, const std::string &key);
         static std::optional<std::string> getString(ObjectPtr py_object, const std::string &key);
+        // Check if key exists in a Python dict object
+        static bool hasKey(ObjectPtr py_object, const std::string &key);
 
         // Blocks until lock acquired
         static SafeRLock lockApi();

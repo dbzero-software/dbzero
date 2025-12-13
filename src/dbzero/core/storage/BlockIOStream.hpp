@@ -135,9 +135,10 @@ DB0_PACKED_END
          * @return true if the tail block's contents changed
         */
         bool refresh();
-
-        void flush();
-
+        
+        // @param no_fsync if true then skip fsync after flush (required only in rare cases)
+        void flush(bool no_fsync = true);
+        
         void close();
         
         /**

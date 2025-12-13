@@ -292,11 +292,11 @@ Configure dbzero during initialization:
 
 ```python
 db0.init(
-    storage_dir="/path/to/data",
+    dbzero_root="/path/to/data",
     config={
         'autocommit': True,
-        'autocommit_interval': 1000,  # milliseconds
-        'cache_size': 1024 * 1024 * 100  # 100MB
+        'autocommit_interval': 367,  # milliseconds
+        'cache_size': 8 << 30 # 8GiB
     }
 )
 ```

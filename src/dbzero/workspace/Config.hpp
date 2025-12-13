@@ -33,7 +33,9 @@ namespace db0
             auto value = get<T>(key);
             return value ? *value : default_value;
         }
-    
+        
+        bool hasKey(const std::string &key) const;
+        
     private:
         ObjectSharedPtr m_lang_config;
     };

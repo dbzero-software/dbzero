@@ -48,5 +48,14 @@ namespace db0
         }
         std::cout << std::endl;
     }
+    
+    void checkPoisonedOp(unsigned int &counter)
+    {
+        if (counter > 0) {            
+            if (--counter == 0) {
+                std::abort();
+            }
+        }
+    }
 
 }

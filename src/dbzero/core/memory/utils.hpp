@@ -88,4 +88,7 @@ namespace db0
         return {};
     }
 
+    // std::abort or decrement the counter (nothing if counter is 0)
+    void checkPoisonedOp(unsigned int &counter);
+    
 }

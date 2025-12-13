@@ -10,6 +10,7 @@
 #include <dbzero/core/dram/DRAM_Allocator.hpp>
 #include <dbzero/core/memory/AccessOptions.hpp>
 #include <dbzero/core/utils/ProcessTimer.hpp>
+#include <dbzero/core/memory/utils.hpp>
 #include "copy_prefix.hpp"
 
 namespace db0
@@ -57,11 +58,13 @@ namespace db0
         , m_ext_dram_changelog_io(tryGetChangeLogIOStream<DRAM_ChangeLogStreamT>(
             m_config.m_ext_dram_changelog_io_offset, access_type)
         )
-        , m_ext_dram_io(init(tryGetDRAMIOStream(
+        , m_ext_dram_io(initExt(tryGetDRAMIOStream(
             m_config.m_ext_dram_io_offset, m_config.m_ext_dram_page_size, access_type), 
             m_ext_dram_changelog_io.get(), 
             // NOTE: the NO_LOAD flag is not applicable to ext DRAM IO since it's created on-demand
-            flags & ~ StorageFlags {StorageOptions::NO_LOAD })
+            flags & ~ StorageFlags {StorageOptions::NO_LOAD },
+            // NOTE: we synchronize up to the maximum state number from DRAM IO (in read/write mode)
+            this->getMaxExtStateNum())
         )
         , m_ext_space(tryGetDRAMPair(m_ext_dram_io.get()), access_type)
         , m_page_io(getPage_IO(getNextStoragePageNum(), m_config.m_page_io_step_size))
@@ -103,12 +106,12 @@ namespace db0
         return std::move(dram_io);
     }
     
-    std::unique_ptr<DRAM_IOStream> BDevStorage::init(std::unique_ptr<DRAM_IOStream> &&dram_io,
-        DRAM_ChangeLogStreamT *dram_change_log, StorageFlags flags)
+    std::unique_ptr<DRAM_IOStream> BDevStorage::initExt(std::unique_ptr<DRAM_IOStream> &&dram_io,
+        DRAM_ChangeLogStreamT *dram_change_log, StorageFlags flags, std::optional<StateNumType> max_state_num)
     {
         if (dram_io && !flags[StorageOptions::NO_LOAD]) {
             assert(dram_change_log);
-            dram_io->load(*dram_change_log);
+            dram_io->load(*dram_change_log, max_state_num);
         }
         return std::move(dram_io);
     }
@@ -395,7 +398,7 @@ namespace db0
                 m_sparse_index.emplace(page_num, state_num, page_io_id);
 #ifndef NDEBUG                
                 m_page_io_raw_bytes += m_config.m_page_size;
-                checkCrashFromCommit();
+                checkPoisonedOp(Settings::__write_poison);
 #endif
             }
         }
@@ -435,7 +438,7 @@ namespace db0
 
 #ifndef NDEBUG
         m_page_io_raw_bytes += m_config.m_page_size;
-        checkCrashFromCommit();
+        checkPoisonedOp(Settings::__write_poison);
 #endif
 
 #ifndef NDEBUG
@@ -791,23 +794,9 @@ namespace db0
     void BDevStorage::getDRAM_IOMap(std::unordered_map<std::uint64_t, DRAM_PageInfo> &io_map) const {
         m_dram_io.getDRAM_IOMap(io_map);
     }
-
+    
     void BDevStorage::dramIOCheck(std::vector<DRAM_CheckResult> &check_result) const {
         m_dram_io.dramIOCheck(check_result);
-    }
-
-    void BDevStorage::setCrashFromCommit(unsigned int *throw_op_count_ptr) {
-        this->m_throw_op_count_ptr = throw_op_count_ptr;
-    }
-    
-    void BDevStorage::checkCrashFromCommit()
-    {
-        if (m_throw_op_count_ptr && *m_throw_op_count_ptr > 0) {
-            if (!--(*m_throw_op_count_ptr)) {
-                // terminate the process abruptly
-                std::terminate();
-            }
-        }
     }
 #endif
     
@@ -884,20 +873,34 @@ namespace db0
         }
         
         auto writer = out.m_dram_changelog_io.getStreamWriter();
-        copyDRAM_IO(m_dram_io, m_dram_changelog_io, out.m_dram_io, writer);
-        auto dp_header = copyDPStream(m_dp_changelog_io, out.m_dp_changelog_io);        
-        StateNumType max_state_num = 0;
-        if (dp_header) {
-            max_state_num = dp_header->m_state_num;
-            std::uint64_t end_page_num = dp_header->m_end_storage_page_num;
-            // NOTE: end_page_num may be relative, need to translate to absolute
-            if (!!m_ext_space) {
-                end_page_num = m_ext_space.getAbsolute(end_page_num);
-            }
-            copyPageIO(m_page_io, m_ext_space, out.m_page_io, end_page_num, out.m_ext_space);
+        auto maybe_max_state_num = copyDRAM_IO(m_dram_io, m_dram_changelog_io, out.m_dram_io, writer);
+        if (!maybe_max_state_num) {
+            // nothing to copy
+            return;
+        }
+
+        auto max_state_num = *maybe_max_state_num;
+        // copy up to the max_state_num (inclusive)
+        auto dp_header = copyDPStream(m_dp_changelog_io, out.m_dp_changelog_io, max_state_num);
+        if (!dp_header) {
+            THROWF(db0::IOException) << "BDevStorage::copyTo: failed to copy DP changelog";
         }
         
-        copyStream(m_meta_io, out.m_meta_io);
+        // assure copied streams are consistent
+        if (dp_header->m_state_num != max_state_num) {
+            THROWF(db0::IOException) << "BDevStorage::copyTo: inconsistent max_state_num in DP changelog";
+        }
+        std::uint64_t end_page_num = dp_header->m_end_storage_page_num;
+        // NOTE: end_page_num may be relative, need to translate to absolute
+        if (!!m_ext_space) {
+            end_page_num = m_ext_space.getAbsolute(end_page_num);
+        }
+        copyPageIO(m_page_io, m_ext_space, out.m_page_io, end_page_num, out.m_ext_space);
+        
+        // NOTE: meta_is stream can't be copied since it's structure depends on the managed streams
+        // NOTE: for simplicity we don't generate the entire meta-io, just save the last checkpoint
+        out.m_meta_io.checkAndAppend(max_state_num);
+
         // flush ext-space only, the other streams are already flushed by copy operators
         // NOTE: we need to use max state num from the source storage since the desination
         // did not load the sparse index (it was only copied)
@@ -928,4 +931,14 @@ namespace db0
         return page_io_id;
     }
 
+    std::optional<StateNumType> BDevStorage::getMaxExtStateNum() const
+    {
+        if (m_access_type == AccessType::READ_ONLY) {
+            // no synchronization required in read-only mode
+            return std::nullopt;
+        }
+        // synchronize to the same state as the DRAM IO
+        return getMaxStateNum();
+    }
+    
 }

@@ -153,13 +153,11 @@ DB0_PACKED_END
 
         // Copy a read-only prefix to an empty BDevStorage
         void copyTo(BDevStorage &);
-
+        
 #ifndef NDEBUG
         void getDRAM_IOMap(std::unordered_map<std::uint64_t, DRAM_PageInfo> &) const override;
-        void dramIOCheck(std::vector<DRAM_CheckResult> &) const override;
-        void setCrashFromCommit(unsigned int *throw_op_count_ptr) override;
-        
-        void checkCrashFromCommit();
+        void dramIOCheck(std::vector<DRAM_CheckResult> &) const override;        
+                
         // write into the validation buffer only
         void writeForValidation(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer);
 #endif
@@ -206,7 +204,8 @@ DB0_PACKED_END
 #endif
 
         static DRAM_IOStream init(DRAM_IOStream &&, DRAM_ChangeLogStreamT &, StorageFlags);
-        static std::unique_ptr<DRAM_IOStream> init(std::unique_ptr<DRAM_IOStream> &&, DRAM_ChangeLogStreamT *, StorageFlags);
+        static std::unique_ptr<DRAM_IOStream> initExt(std::unique_ptr<DRAM_IOStream> &&, DRAM_ChangeLogStreamT *, 
+            StorageFlags, std::optional<StateNumType> max_state_num);
         
         static MetaIOStream init(MetaIOStream &&, StorageFlags);
         
@@ -269,6 +268,9 @@ DB0_PACKED_END
         // Flush ext-space streams only (if existing)
         bool flushExt(StateNumType max_state_num);
         void fsync();
+        
+        // Synchronization state number for ext-space
+        std::optional<StateNumType> getMaxExtStateNum() const;
     };
     
 }

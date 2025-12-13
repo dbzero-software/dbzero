@@ -24,7 +24,7 @@ def init(dbzero_root: str, **kwargs) -> None:
         
         Configure global dbzero behavior:
         * autocommit (bool, default True) to enable automatic commits
-        * autocommit_interval (int, default 250) for commit interval in milliseconds  
+        * autocommit_interval (int, default 367) for commit interval in milliseconds
         * cache_size (int, default 2 GiB) for main object cache size in bytes
         * lang_cache_size (int, default 1024) for language model data cache size
         * lock_flags (dict) to configure locking behavior when opening the prefix in read-write mode
