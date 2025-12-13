@@ -671,6 +671,20 @@ namespace db0::python
         }
         return PyLong_AsUnsignedLongLong(*py_value);
     }
+    
+    std::optional<unsigned int> PyToolkit::getUnsignedInt(ObjectPtr py_object, const std::string &key)
+    {
+        auto py_value = Py_OWN(getValue(py_object, key));
+        if (!py_value) {
+            return std::nullopt;
+        }        
+        
+        if (!PyLong_Check(*py_value)) {
+            THROWF(db0::InputException) << "Invalid type of: " << key << ". Integer expected but got: " 
+                << Py_TYPE(*py_value)->tp_name << THROWF_END;
+        }
+        return PyLong_AsUnsignedLong(*py_value);
+    }
 
     std::optional<bool> PyToolkit::getBool(ObjectPtr py_object, const std::string &key)
     {
@@ -696,7 +710,14 @@ namespace db0::python
         return std::string(PyUnicode_AsUTF8(*py_value));
     }
     
-    bool PyToolkit::compare(ObjectPtr py_object1, ObjectPtr py_object2) {
+    bool PyToolkit::hasKey(ObjectPtr py_object, const std::string &key)
+    {
+        auto py_value = Py_OWN(getValue(py_object, key));
+        return py_value.get() != nullptr;
+    }
+    
+    bool PyToolkit::compare(ObjectPtr py_object1, ObjectPtr py_object2)
+    {
         auto result = PyObject_RichCompareBool(py_object1, py_object2, Py_EQ);
         if (result < 0) {
             // comparison failed

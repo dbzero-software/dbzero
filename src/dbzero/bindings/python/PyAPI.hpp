@@ -183,9 +183,7 @@ namespace db0::python
 
     // For a specific prefix, extract page num -> state num mapping related with its DRAM_Prefix
     PyObject *getDRAM_IOMap(PyObject *, PyObject *args, PyObject *kwargs);
-
-    PyObject *PyAPI_crashFromCommit(PyObject *self, PyObject *const *args, Py_ssize_t nargs);    
-    
+        
     PyObject *PyAPI_breakpoint(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
     PyObject *PyAPI_enableStorageValidation(PyObject *, PyObject *args, PyObject *kwargs);
     PyObject *PyAPI_setTestParams(PyObject *, PyObject *args, PyObject *kwargs);

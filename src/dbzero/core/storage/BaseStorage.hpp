@@ -150,10 +150,7 @@ namespace db0
         };
         
         virtual void getDRAM_IOMap(std::unordered_map<std::uint64_t, DRAM_PageInfo> &) const;
-        virtual void dramIOCheck(std::vector<DRAM_CheckResult> &) const;
-                
-        // Activate throw from commit after specific number of operations (for testing purposes)
-        virtual void setCrashFromCommit(unsigned int *op_count_ref);
+        virtual void dramIOCheck(std::vector<DRAM_CheckResult> &) const;                
 #endif
     
     protected:

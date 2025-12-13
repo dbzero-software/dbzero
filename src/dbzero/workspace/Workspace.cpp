@@ -801,17 +801,7 @@ namespace db0
     bool Workspace::isMutable() const {
         return true;
     }
-
-#ifndef NDEBUG    
-    void Workspace::setCrashFromCommit(unsigned int op_count) 
-    {
-        m_throw_op_count = op_count;
-        for (auto &item: m_fixtures) {
-            item.second->getPrefix().getStorage().setCrashFromCommit(&m_throw_op_count);
-        }
-    }
-#endif    
-    
+        
     std::size_t Workspace::size() const {
         return m_fixtures.size();
     }

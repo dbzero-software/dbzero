@@ -64,7 +64,7 @@ DB0_PACKED_END
             std::uint32_t block_size, std::function<std::uint64_t()> tail_function = {}, AccessType = AccessType::READ_WRITE, 
             bool maintain_checksums = false, std::size_t step_size = 16 << 20);
         
-        // Check the underlying managed streams and append the meta log if needed (step size is reached)
+        // Check the underlying managed streams and append the meta log if needed (i.e. if step size is reached)
         void checkAndAppend(StateNumType state_num);
         
         /**

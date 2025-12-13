@@ -25,6 +25,10 @@ namespace db0
         return m_lang_config;
     }
     
+    bool Config::hasKey(const std::string &key) const {
+        return LangToolkit::hasKey(m_lang_config.get(), key);
+    }
+
     // long specialization
     template <> std::optional<long> get<long>(typename LangToolkit::ObjectPtr lang_dict, const std::string &key)
     {
@@ -42,6 +46,16 @@ namespace db0
             return std::nullopt;
         }
         return LangToolkit::getUnsignedLongLong(lang_dict, key);
+    }
+    
+    // unsigned int specialization
+    template <> std::optional<unsigned int> get<unsigned int>(
+        typename LangToolkit::ObjectPtr lang_dict, const std::string &key)
+    {
+        if (!lang_dict) {
+            return std::nullopt;
+        }
+        return LangToolkit::getUnsignedInt(lang_dict, key);
     }
 
     // bool specialization

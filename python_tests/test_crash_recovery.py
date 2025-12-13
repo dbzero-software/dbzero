@@ -26,14 +26,18 @@ def test_recover_after_crash_during_commit(db0_fixture):
         db0.init(DB0_DIR, autocommit=False)
         db0.open(px_name, "rw")
         root = MemoTestSingleton()
-        next_id = len(root.value)    
+        next_id = len(root.value)
         for i in range(op_count):
             for _ in range(op_size):
                 root.value.append(MemoTestClass(next_id))                
                 root.value_2.append(expected_values[next_id])
                 next_id += 1
-            if crash_after is not None and i == crash_after:
-                db0.dbg_crash_from_commit(3)
+            if crash_after is not None and i == crash_after[0]:
+                # activate the write poison to simulate a crash
+                if crash_after[1]:
+                    db0.set_test_params(dram_io_flush_poison = crash_after[1])
+                else:
+                    db0.set_test_params(write_poison = 3)
             db0.commit()
         # NOTE: db0.close is not called if the process crashes
         db0.close()
@@ -43,18 +47,20 @@ def test_recover_after_crash_during_commit(db0_fixture):
     db0.close()
     
     # NOTE: the 2nd process will crash during the 3rd commit
-    crash_after = [None, 3, None]
+    # the 3rd process will be killed during DRAM IO flush
+    crash_after = [None, (3, None), (2, 2), None]
     op_size = 50
     op_count = 5
-    for i in range(3):
-        p = multiprocessing.Process(target=generator_process, args=(op_size, op_count, crash_after[i]))
+    for poison in crash_after:
+        p = multiprocessing.Process(target=generator_process, args=(op_size, op_count, poison))
         p.start()
         p.join()
     
     db0.init(DB0_DIR)
     db0.open(px_name, "r")
-    # NOTE: we expect the 2 transactions to be discarded
-    expected_len = op_size * op_count * 3 - (2 * op_size)
+    # NOTE: we expect the 2 cycles to be fully completed
+    # and 2 to be partially completed
+    expected_len = op_size * op_count * 2 + (5 * op_size)
     assert len(MemoTestSingleton().value) == expected_len
     assert len(MemoTestSingleton().value_2) == expected_len
 

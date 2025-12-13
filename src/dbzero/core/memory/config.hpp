@@ -29,6 +29,10 @@ namespace db0
         static bool __storage_validation;
         // sleep interval for time-sensitive tests (e.g. copy_prefix) in milliseconds
         static unsigned long long __sleep_interval;
+        // the number of allowed writes before std::abort (or 0 = disabled)
+        static unsigned int __write_poison;
+        // the number of allowed DRAM_IO flush operations before std::abort (or 0 = disabled)
+        static unsigned int __dram_io_flush_poison;
 #endif
         // Function to throw the data decoding error (i.e. corrupt data detected)
         static std::function<void()> m_decode_error;

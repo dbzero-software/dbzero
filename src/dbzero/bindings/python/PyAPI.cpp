@@ -1424,30 +1424,7 @@ namespace db0::python
         db0::Settings::__dbg_logs = true;
         Py_RETURN_NONE;
     }
-    
-    PyObject *tryCrashFromCommit(unsigned int op_count)
-    {
-        PyToolkit::getPyWorkspace().getWorkspace().setCrashFromCommit(op_count);
-        Py_RETURN_NONE;
-    }
-    
-    PyObject *PyAPI_crashFromCommit(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
-    {
-        PY_API_FUNC
-        if (nargs != 1) {
-            PyErr_SetString(PyExc_TypeError, "Function requires exactly 1 argument");
-            return NULL;
-        }
-
-        if (!PyLong_Check(args[0])) {
-            PyErr_SetString(PyExc_TypeError, "Argument must be an integer");
-            return NULL;
-        }
-
-        auto op_count = PyLong_AsUnsignedLong(args[0]);
-        return runSafe(tryCrashFromCommit, op_count);
-    }
-    
+        
     PyObject *PyAPI_breakpoint(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
         PY_API_FUNC

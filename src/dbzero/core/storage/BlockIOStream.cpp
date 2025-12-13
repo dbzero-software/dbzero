@@ -376,12 +376,15 @@ namespace db0
         return false;
     }
 
-    void BlockIOStream::flush()
+    void BlockIOStream::flush(bool no_fsync)
     {
         // flush modified block to disk
         if (flushModified()) {
             assert(m_access_type == AccessType::READ_WRITE);
             m_file.flush();
+            if (!no_fsync) {
+                m_file.fsync();
+            }
         }
     }
     

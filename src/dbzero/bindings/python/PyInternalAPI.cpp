@@ -1053,10 +1053,18 @@ namespace db0::python
     PyObject *trySetTestParams(PyObject *py_dict)
     {
         db0::Config config(py_dict);
-        db0::Settings::__sleep_interval = config.get<unsigned long long>("sleep_interval", 0);
+        if (config.hasKey("sleep_interval")) {
+            db0::Settings::__sleep_interval = config.get<unsigned long long>("sleep_interval", 0);            
+        }
+        if (config.hasKey("write_poison")) {
+            db0::Settings::__write_poison = config.get<unsigned int>("write_poison", 0);
+        }
+        if (config.hasKey("dram_io_flush_poison")) {
+            db0::Settings::__dram_io_flush_poison = config.get<unsigned int>("dram_io_flush_poison", 0);   
+        }
         Py_RETURN_NONE;
     }
-     
+    
     PyObject *tryResetTestParams()
     {        
         db0::Settings::reset();

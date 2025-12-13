@@ -50,7 +50,7 @@ namespace db0
         return chunk_buf;
     }
 
-    void copyDRAM_IO(DRAM_IOStream &input_io, DRAM_ChangeLogStreamT &input_dram_changelog,
+    std::optional<StateNumType> copyDRAM_IO(DRAM_IOStream &input_io, DRAM_ChangeLogStreamT &input_dram_changelog,
         DRAM_IOStream &output_io, DRAM_ChangeLogStreamT::Writer &output_dram_changelog)
     {
         using DRAM_ChangeLogT = DRAM_IOStream::DRAM_ChangeLogT;
@@ -69,7 +69,7 @@ namespace db0
         auto last_chunk_ptr = input_dram_changelog.getLastChangeLogChunk();
         if (!last_chunk_ptr) {
             // looks like the DRAM IO is empty
-            return;
+            return {};
         }
 
         // retrieve the state number candidate
@@ -81,7 +81,7 @@ namespace db0
         // they will be processed later when following up with the changelog
         std::unordered_map<std::uint64_t, std::uint64_t> chunk_addr_map;
         auto dram_page_size = input_io.getDRAMPageSize();
-        auto dram_filter = [&](const o_dram_chunk_header &header, const void *data_end)
+        auto dram_filter = [&](const o_dram_chunk_header &header, const void *data_end) -> bool
         {
             if (!isDRAM_ChunkValid(dram_page_size, header, header.getData(), data_end)) {
                 return false;
@@ -93,7 +93,13 @@ namespace db0
             return true;
         };
 
-        copyStream(input_io, output_io, &chunk_addr_map, dram_filter);
+        auto chunk_filter = [&](const std::vector<char> &buffer, const void *data_end) -> bool
+        {
+            const auto &header = o_dram_chunk_header::__const_ref(buffer.data());
+            return dram_filter(header, data_end);
+        };
+
+        copyStream(input_io, output_io, &chunk_addr_map, chunk_filter);
         
         // Chunks loaded during  the sync step
         // NOTE: in this step we prefetch to memory to be able to catch up with changes
@@ -119,10 +125,11 @@ namespace db0
         // append the sentinel entry with state number only (i.e. empty changelog)
         output_dram_changelog.appendChangeLog({}, state_num);
         output_io.close();
+        return state_num;
     }
     
     std::vector<char> copyStream(BlockIOStream &in, BlockIOStream &out,
-        std::unordered_map<std::uint64_t, std::uint64_t> *addr_map, DRAM_FilterT filter)
+        std::unordered_map<std::uint64_t, std::uint64_t> *addr_map, ChunkFilterT filter, bool copy_all)
     {
         // position at the beginning of the stream
         in.setStreamPosHead();
@@ -131,10 +138,13 @@ namespace db0
         std::uint64_t in_addr, out_addr;
         for (;;) {
             while ((chunk_size = in.readChunk(buffer, 0, &in_addr)) > 0) {
-                // NOTE: this buffer does NOT include the block IO header at the beginning
-                const auto &header = o_dram_chunk_header::__const_ref(buffer.data());
-                if (filter && !filter(header, buffer.data() + buffer.size())) {
-                    // skip this chunk
+                // NOTE: this buffer does NOT include the block IO header at the beginning                
+                if (filter && !filter(buffer, buffer.data() + chunk_size)) {
+                    // stop copying entirely
+                    if (!copy_all) {
+                        break;
+                    }
+                    // skip this chunk only
                     continue;
                 }
                 
@@ -149,8 +159,8 @@ namespace db0
                 if (db0::Settings::__sleep_interval > 0) {
                     std::this_thread::sleep_for(
                         std::chrono::milliseconds(db0::Settings::__sleep_interval));
-                }                
-#endif                
+                }
+#endif
             }
             if (!in.refresh()) {
                 // continue refreshing until reaching the most recent state
@@ -161,9 +171,28 @@ namespace db0
         return buffer;
     }
     
-    std::optional<o_dp_changelog_header> copyDPStream(DP_ChangeLogStreamT &in, DP_ChangeLogStreamT &out)
+    std::optional<o_dp_changelog_header> copyDPStream(DP_ChangeLogStreamT &in, DP_ChangeLogStreamT &out,
+        StateNumType max_state_num)
     {
-        auto last_chunk_buf = copyStream(in, out);
+        using DP_ChangeLogT = DP_ChangeLogStreamT::ChangeLogT;
+        auto chunk_filter = [&](const std::vector<char> &buffer, const void *data_end) -> bool
+        {
+            const auto &header = DP_ChangeLogT::__const_ref(buffer.data());
+            // only include chunks up to max_state_num
+            if (header.m_state_num == max_state_num) {
+                // NOTE: this is the last chunk, we include it and stop further copying
+                auto chunk_size = (char*)data_end - buffer.data();
+                out.addChunk(chunk_size);
+                out.appendToChunk(buffer.data(), chunk_size);
+                return false;
+            }
+
+            return header.m_state_num < max_state_num;
+        };
+        
+        // NOTE: we use copy_all = false to stop on the first non-matching chunk
+        // since chunks are ordered by state number
+        auto last_chunk_buf = copyStream(in, out, nullptr, chunk_filter, false);
         // we can retrieve the end page number from the last appended chunk        
         if (last_chunk_buf.empty()) {            
             // nothing copied

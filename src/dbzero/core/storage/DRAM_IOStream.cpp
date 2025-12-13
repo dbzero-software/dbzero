@@ -12,6 +12,7 @@
 #include "ChangeLogIOStream.hpp"
 #include <dbzero/core/utils/hash_func.hpp>
 #include <dbzero/core/memory/config.hpp>
+#include <dbzero/core/memory/utils.hpp>
 
 namespace db0
 
@@ -23,7 +24,7 @@ namespace db0
         , m_dram_page_size(dram_page_size)
         , m_chunk_size(dram_page_size + o_dram_chunk_header::sizeOf())
         , m_prefix(std::make_shared<DRAM_Prefix>(m_dram_page_size))
-        , m_allocator(std::make_shared<DRAM_Allocator>(m_dram_page_size))
+        , m_allocator(std::make_shared<DRAM_Allocator>(m_dram_page_size))        
     {
     }
     
@@ -34,8 +35,18 @@ namespace db0
         , m_reusable_chunks(std::move(other.m_reusable_chunks))
         , m_page_map(std::move(other.m_page_map))
         , m_prefix(other.m_prefix)
-        , m_allocator(other.m_allocator)
+        , m_allocator(other.m_allocator)        
     {
+    }
+    
+    void DRAM_IOStream::trashDRAMPage(std::uint64_t address)
+    {
+        assert(m_access_type == AccessType::READ_WRITE);
+        // mark as reusable
+        m_reusable_chunks.insert(address);
+        auto raw_block = getTrashDRAMPage();
+        writeToChunk(address, raw_block.data(), raw_block.size());
+        ++m_rand_ops;        
     }
     
     void *DRAM_IOStream::updateDRAMPage(std::uint64_t address, std::unordered_set<std::size_t> *allocs_ptr,
@@ -92,7 +103,7 @@ namespace db0
         }
     }
     
-    void DRAM_IOStream::load(DRAM_ChangeLogStreamT &changelog_io)
+    void DRAM_IOStream::load(DRAM_ChangeLogStreamT &changelog_io, std::optional<StateNumType> max_state_num)
     {
         // Exhaust the change-log stream first and retrieve the last valid state number
         // its position marks the synchronization point
@@ -104,12 +115,14 @@ namespace db0
         
         auto last_chunk_ptr = changelog_io.getLastChangeLogChunk();
         if (!last_chunk_ptr) {
-            // no changes to load
+            // no data to load
             return;
         }
-
-        // The last known consistent state number
-        auto max_state_num = last_chunk_ptr->m_state_num;
+        
+        // The last known consistent state number (unless explicitly provided)
+        if (!max_state_num) {
+            max_state_num = last_chunk_ptr->m_state_num;
+        }
         std::unordered_set<std::size_t> allocs;
         for (;;) {
             auto block_id = tellBlock();
@@ -125,11 +138,21 @@ namespace db0
             }
             
             // NOTE: ignore invalid or incomplete DRAM chunks
-            // this is fine since filesystem writes are not assumed atomic - this chunk is too fresh to be included
-            if (!isDRAM_ChunkValid(m_dram_page_size, header, bytes, buffer.data() + buffer.size())) {
+            // this does not automatically indicate any error - it may occur filesystem writes are not assumed atomic 
+            // - this chunk might simply be too fresh to be included
+            // NOTE: also pages from future (abruptly terminated) transactions are reverted
+            if (!isDRAM_ChunkValid(m_dram_page_size, header, bytes, buffer.data() + buffer.size())
+                || header.m_state_num > *max_state_num)
+            {
+                // overwrite the page to prevent from being included in the future
+                // this is only permitted in read/write mode !!
+                if (m_access_type == AccessType::READ_WRITE) {
+                    trashDRAMPage(chunk_addr);
+                }
                 continue;
             }
-            updateDRAMPage(chunk_addr, &allocs, header, bytes, max_state_num);
+
+            updateDRAMPage(chunk_addr, &allocs, header, bytes, *max_state_num);
         }
         m_allocator->update(allocs);
     }
@@ -226,6 +249,13 @@ namespace db0
                 // update to the last known page location, collect previous location as reusable
                 update_page_location(page_num, chunk_addr);
             }
+#ifndef NDEBUG                
+            if (Settings::__dram_io_flush_poison == 1) {
+                // flush / fsync before poisoned op (to purpusefully corrupt data)
+                BlockIOStream::flush(false);
+            }
+            checkPoisonedOp(Settings::__dram_io_flush_poison);
+#endif
         });
         
         // flush all DRAM data updates before changelog updates
@@ -322,6 +352,15 @@ namespace db0
         BlockIOStream::close();
     }
     
+    std::vector<char> DRAM_IOStream::getTrashDRAMPage() const
+    {
+        std::vector<char> raw_block;
+        auto buffer = prepareChunk(m_chunk_size, raw_block);
+        // initialize header as invalid
+        o_dram_chunk_header::__new(buffer);
+        return raw_block;
+    }
+
 #ifndef NDEBUG 
     void DRAM_IOStream::getDRAM_IOMap(std::unordered_map<std::uint64_t, std::pair<std::uint64_t, std::uint64_t> > &io_map) const
     {
@@ -404,7 +443,7 @@ namespace db0
             THROWF(db0::IOException) << "isDRAM_ChunkValid: invalid chunk size";
         }
         // determine if valid by comparing header hash values (calculated vs stored)
-        return header.calculateHash(data_begin, dram_page_size) == header.m_hash;
+        return !!header && header.calculateHash(data_begin, dram_page_size) == header.m_hash;
     }
     
     bool isDRAM_ChunkValid(std::uint32_t dram_page_size, const std::vector<char> &buffer)
@@ -457,5 +496,5 @@ namespace db0
     bool o_dram_chunk_header::operator!() const {
         return m_state_num == 0 && m_page_num == 0 && m_hash == 0;
     }
-
+    
 }

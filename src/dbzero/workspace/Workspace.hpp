@@ -146,9 +146,10 @@ namespace db0
     class Workspace: protected BaseWorkspace, public Snapshot
     {
     public:        
-        static constexpr std::uint32_t DEFAULT_AUTOCOMMIT_INTERVAL_MS = 250;
+        // NOTE: the default autocommit intarval (367ms) allows 50 years of continuous operation with 32-bit state numbers
+        static constexpr std::uint32_t DEFAULT_AUTOCOMMIT_INTERVAL_MS = 367;
         static constexpr std::size_t DEFAULT_VOBJECT_CACHE_SIZE = 16384;
-
+        
         Workspace(const std::string &root_path = "", std::optional<std::size_t> cache_size = {},
             std::optional<std::size_t> slab_cache_size = {}, std::optional<std::size_t> flush_size = {},
             std::optional<std::size_t> vobject_cache_size = {},
@@ -300,12 +301,7 @@ namespace db0
         
         // End a specific locked section, callback will be notified with all mutated fixtures
         void endLocked(unsigned int, std::function<void(const std::string &prefix_name, std::uint64_t state_num)> callback);
-        
-#ifndef NDEBUG
-        // Activate throw from Storage::commit after specific number of operations (for testing purposes)
-        void setCrashFromCommit(unsigned int op_count);
-#endif
-        
+                
     protected:
         friend class WorkspaceView;
         
@@ -337,10 +333,6 @@ namespace db0
         std::unordered_map<unsigned int, std::vector<std::pair<std::string, std::uint64_t> > > m_locked_section_log;
         // this is to prevent recursive cleanups (which might result in a deadlock)
         mutable std::atomic<bool> m_cleanup_pending = false;
-#ifndef NDEBUG
-        // see setCrashFromCommit
-        unsigned int m_throw_op_count = 0;
-#endif                
         
         void forEachMemspace(std::function<bool(Memspace &)> callback) override;
         
