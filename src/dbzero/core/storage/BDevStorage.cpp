@@ -699,8 +699,7 @@ namespace db0
                 dram_changelog_io_pos = m_dram_changelog_io.getStreamPos();
                 if (!!m_ext_space) {
                     assert(m_ext_dram_changelog_io);
-                    // FIXME: log
-                    // m_ext_dram_changelog_io->refresh();
+                    m_ext_dram_changelog_io->refresh();
                     ext_dram_state_num = m_ext_dram_io->beginApplyChanges(*m_ext_dram_changelog_io);
                     ext_dram_changelog_io_pos = m_ext_dram_changelog_io->getStreamPos();
                 }
