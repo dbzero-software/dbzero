@@ -136,12 +136,14 @@ namespace db0
         std::vector<char> buffer;
         std::size_t chunk_size = 0;
         std::uint64_t in_addr, out_addr;
-        for (;;) {
+        bool stop_copying = false;
+        while (!stop_copying) {
             while ((chunk_size = in.readChunk(buffer, 0, &in_addr)) > 0) {
                 // NOTE: this buffer does NOT include the block IO header at the beginning                
                 if (filter && !filter(buffer, buffer.data() + chunk_size)) {
                     // stop copying entirely
                     if (!copy_all) {
+                        stop_copying = true;
                         break;
                     }
                     // skip this chunk only

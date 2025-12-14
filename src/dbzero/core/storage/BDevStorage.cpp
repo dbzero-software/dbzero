@@ -699,10 +699,21 @@ namespace db0
                 dram_changelog_io_pos = m_dram_changelog_io.getStreamPos();
                 if (!!m_ext_space) {
                     assert(m_ext_dram_changelog_io);
+                    m_ext_dram_changelog_io->refresh();
                     ext_dram_state_num = m_ext_dram_io->beginApplyChanges(*m_ext_dram_changelog_io);
                     ext_dram_changelog_io_pos = m_ext_dram_changelog_io->getStreamPos();
                 }
                 
+                if (dram_state_num && m_dram_io.completeApplyChanges(*dram_state_num)) {
+                    // refresh underlying sparse index / diff index after DRAM update
+                    m_sparse_pair.refresh();
+                }
+                if (!!m_ext_space && ext_dram_state_num && m_ext_dram_io->completeApplyChanges(*ext_dram_state_num)) {
+                    m_ext_space.refresh();
+                }
+                
+                // this is the state number to sync-up to
+                auto max_state_num = m_sparse_pair.getMaxStateNum();
                 // send all page-update notifications to the provided handler
                 if (on_page_updated) {
                     StateNumType updated_state_num = 0;
@@ -711,22 +722,33 @@ namespace db0
                     auto reader = m_dp_changelog_io.getStreamReader();
                     // feed the reader with all available chunks, in case of IOException the stream is getting reverted
                     // this is to make the operation atomic
-                    while (reader.readChangeLogChunk());
+                    while (auto chunk_ptr = reader.readChangeLogChunk()) {
+                        if (chunk_ptr->m_state_num == max_state_num) {
+                            // stop at the max known state number
+                            break;
+                        }
+                        if (chunk_ptr->m_state_num > max_state_num) {
+                            // NOTE: this critical and irrecoverable error indicates corruption of the DP changelog stream
+                            THROWF(db0::InternalException) << "Inconsistent state: DP changelog state number "
+                                << chunk_ptr->m_state_num << " exceeds max known state number " << max_state_num;   
+                        }
+                    }
                     
                     // reset to read all updates again
                     reader.reset();
                     for (;;) {
                         auto dp_change_log_ptr = reader.readChangeLogChunk();
-                        if (!dp_change_log_ptr) {
+                        if (!dp_change_log_ptr || dp_change_log_ptr->m_state_num > max_state_num) {
+                            // end of the stream or the max known state number reached
                             break;
                         }
                         
                         assert(dp_change_log_ptr->m_state_num != updated_state_num);
                         updated_state_num = dp_change_log_ptr->m_state_num;
-                        // Elements are storage page numbers (mutated in that transaction)
-                        for (auto storage_page_num: *dp_change_log_ptr) {
-                            on_page_updated(storage_page_num, updated_state_num);
-                        }
+                        // Elements are logical page numbers (mutated in that transaction)
+                        for (auto page_num: *dp_change_log_ptr) {
+                            on_page_updated(page_num, updated_state_num);                            
+                        }                        
                     }
                 }
                 
@@ -740,13 +762,6 @@ namespace db0
                 result = m_file.getLastModifiedTime();
             }
             
-            if (dram_state_num && m_dram_io.completeApplyChanges(*dram_state_num)) {
-                // refresh underlying sparse index / diff index after DRAM update
-                m_sparse_pair.refresh();
-            }
-            if (!!m_ext_space && ext_dram_state_num && m_ext_dram_io->completeApplyChanges(*ext_dram_state_num)) {
-                m_ext_space.refresh();
-            }
             m_meta_io.refresh();
             // refresh cycle complete
             m_refresh_pending = false;
@@ -888,7 +903,9 @@ namespace db0
         
         // assure copied streams are consistent
         if (dp_header->m_state_num != max_state_num) {
-            THROWF(db0::IOException) << "BDevStorage::copyTo: inconsistent max_state_num in DP changelog";
+            THROWF(db0::IOException) 
+                << "BDevStorage::copyTo: inconsistent max_state_num in DP changelog: "
+                << (StateNumType)(dp_header->m_state_num) << " != " << max_state_num;
         }
         std::uint64_t end_page_num = dp_header->m_end_storage_page_num;
         // NOTE: end_page_num may be relative, need to translate to absolute
