@@ -263,7 +263,7 @@ def test_copy_prefix_continuous_process(db0_fixture):
         
         p.join()
         total_len += obj_count * commit_count
-        
+                
         # make final stale copy (i.e. without active modifications)
         final_copy = f"./test-copy-final.db0"
         if os.path.exists(final_copy):
@@ -272,7 +272,7 @@ def test_copy_prefix_continuous_process(db0_fixture):
         db0.close()
         
         print("Validating all copies", flush=True)
-        validate_copy("final", expected_len = total_len)    
+        validate_copy("final", expected_len = total_len)
         for i in range(copy_id):
             last_len = validate_copy(i, expected_min_len = last_len)
             print(f"--- Copy {i} valid with {last_len} objects", flush=True)

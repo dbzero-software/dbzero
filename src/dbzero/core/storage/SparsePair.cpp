@@ -59,7 +59,7 @@ namespace db0
     {
         std::sort(m_change_log.begin(), m_change_log.end());        
         ChangeLogData cl_data;
-        // add page numbers with deduplication
+        // add page numbers (logical) with deduplication
         for (auto page_num : m_change_log) {
             cl_data.m_rle_builder.append(page_num, false);            
         }

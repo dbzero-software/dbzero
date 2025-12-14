@@ -50,13 +50,13 @@ namespace db0
     }
     
     void ExtSpace::refresh()
-    {
+    {        
         m_ext_space_root.detach();
         if (m_rel_index) {
             m_rel_index->refresh();
         }
     }
-
+    
     void ExtSpace::commit()
     {
         if (!!m_ext_space_root) {
