@@ -21,7 +21,8 @@ namespace db0::object_model
     protected:
         friend class Set;
         SetIterator(Set::const_iterator iterator, const Set * ptr, ObjectPtr lang_set_ptr);
-        void restore();
+        
+        void restore() override;
 
     private:
         SetIndex m_index;

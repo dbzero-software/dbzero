@@ -221,4 +221,13 @@ namespace db0::object_model
         });
     }
     
+    void List::detach() const
+    {
+        // detach object and the associated iterators
+        m_iterators.forEach([](ListIterator &iter) {
+            iter.detach();
+        });
+        super_t::detach();
+    }
+
 }

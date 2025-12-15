@@ -20,6 +20,7 @@ namespace db0::python
     
     void PyObjectIterable_del(PyObjectIterable* self)
     {
+        PY_API_FUNC
         // destroy associated db0 instance
         self->destroy();
         Py_TYPE(self)->tp_free((PyObject*)self);
@@ -28,7 +29,7 @@ namespace db0::python
     shared_py_object<PyObjectIterable*> PyObjectIterableDefault_new() {
         return { PyObjectIterable_new(&PyObjectIterableType, NULL, NULL), false };
     }
-
+    
     PyObject *tryPyObjectIterable_compare(PyObject *self, PyObject* const *args, Py_ssize_t nargs) 
     {
         if (nargs != 1) {
