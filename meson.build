@@ -1,15 +1,20 @@
 project('DBZero', 'cpp', default_options :['buildtype=release', 'b_ndebug=if-release'])
 
-if build_machine.system() == 'linux'
-    add_project_arguments('-Wno-unused-result',
+cc = meson.get_compiler('cpp')
+compiler_id = cc.get_id()
+
+message('Compiler ID: ' + compiler_id)
+message('Build system: ' + build_machine.system())
+
+if build_machine.system() == 'linux' or  build_machine.system() == 'darwin'
+    # Common flags for both GCC and Clang on Linux/Darwin
+    common_args = [
+        '-Wno-unused-result',
         '-Wno-unused-local-typedefs',
         '-Wno-deprecated-declarations',
-        '-Wno-address-of-packed-member',
         '-Werror=switch',
         '-Werror=return-type',
         '-fPIC',
-        '-no-pie',
-        '-ftemplate-backtrace-limit=0',
         '-fno-omit-frame-pointer',
         '-ldl',
         '-lm',
@@ -74,16 +79,16 @@ py3_inst = import('python').find_installation('python3', pure: false)
 install_dir = py3_inst.get_install_dir() / 'dbzero' / 'libs'
 deps = []
 
-if build_machine.system() == 'linux'
-    python_embed_dep = dependency('python3-embed', main:true, required: true)
-endif
+# if build_machine.system() == 'linux'
+#     python_embed_dep = dependency('python3-embed', main:true, required: true)
+# endif
 python_deps = py3_inst.dependency()
 
 
 deps += python_deps
-if build_machine.system() == 'linux'
-    deps += python_embed_dep
-endif
+# if build_machine.system() == 'linux'
+#     deps += python_embed_dep
+# endif
 
 all_srcs = []
 subdir('src/dbzero')

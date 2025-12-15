@@ -260,7 +260,7 @@ DB0_PACKED_END
     
     template <unsigned int SizeOf>
     typename lofi_store<SizeOf>::const_iterator lofi_store<SizeOf>::begin() const {
-        return { m_data, 0, this->size() };
+        return { m_data, 0, static_cast<unsigned int>(this->size()) };
     }
     
     template <unsigned int SizeOf>

@@ -939,12 +939,12 @@ namespace db0::python
     {
         // make sure output is file doesn't point to a directory
         if (output_file_name.back() == std::filesystem::path::preferred_separator) {
-            PyErr_Format(PyExc_OSError, "Output file points to a directory:  '%s'", output_file_name);
+            PyErr_Format(PyExc_OSError, "Output file points to a directory:  '%s'", output_file_name.c_str());
             return nullptr;
         }
         // make sure output file does not exist
         if (db0::CFile::exists(output_file_name)) {
-            PyErr_Format(PyExc_OSError, "Output file already exists:  '%s'", output_file_name);
+            PyErr_Format(PyExc_OSError, "Output file already exists:  '%s'", output_file_name.c_str());
             return nullptr;
         }
         

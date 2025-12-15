@@ -55,7 +55,7 @@ namespace db0::python
             : m_py_object(other.m_py_object)
         {
             static_assert(!ExtRef, "Member only available for non-ExtRef conversion");
-            static_assert(other.hasExtRefs, "Source object must have ExtRef");
+            //static_assert(other.hasExtRefs, "Source object must have ExtRef");
             if (m_py_object) {
                 PyEXT_DECREF(m_py_object);
             }

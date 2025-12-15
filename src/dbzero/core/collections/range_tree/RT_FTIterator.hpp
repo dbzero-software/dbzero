@@ -41,7 +41,7 @@ namespace db0
         
     private:
         const std::uint64_t m_fixture_uuid = 0;
-        const Address m_index_addr = 0;
+        const Address m_index_addr = {};
         const RT_Range<KeyT> m_range;
 
         std::list<std::unique_ptr<FT_Iterator<ValueT> > > makeQuery(SharedPtrWrapper<RT_TreeT> tree_ptr, std::optional<KeyT> min,
