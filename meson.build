@@ -100,19 +100,21 @@ link_tests_with = link_with
 tests_sources = []
 
 
-gtest_proj = subproject('gtest') 
 
-
-gtest_dep = gtest_proj.get_variable('gtest_dep') 
-gmock_dep = gtest_proj.get_variable('gmock_dep') 
-gtest_dep = gtest_proj.get_variable('gtest_dep') 
-gtest_dep = dependency('gtest', main : true, required : false) 
-gmock_dep = dependency('gmock', main : true, required : false) 
 
 dbzero_lib = static_library('pyzero', [all_srcs], include_directories:include_dirs, dependencies: [deps], install : true, install_dir: install_dir)
-
+all_deps = [deps]
 build_tests = get_option('build_tests')
 if build_tests
+    gtest_proj = subproject('gtest') 
+
+    gtest_dep = gtest_proj.get_variable('gtest_dep') 
+    gmock_dep = gtest_proj.get_variable('gmock_dep') 
+    gtest_dep = gtest_proj.get_variable('gtest_dep') 
+    gtest_dep = dependency('gtest', main : true, required : false) 
+    gmock_dep = dependency('gmock', main : true, required : false)
+    all_deps += gtest_dep
+    all_deps += gmock_dep
     message('Building C++ tests')
     subdir('tests')
     e = executable('tests' + build_suffix + '.x', [all_srcs,tests_sources], dependencies: [deps, gtest_dep, gmock_dep], 
@@ -124,7 +126,7 @@ endif
 
 py3avlw = py3_inst.extension_module('dbzero',
     sources: ['src/dbzero/bindings/python/dbzero.cpp'], 
-    dependencies : [deps, gtest_dep, gmock_dep],
+    dependencies : all_deps,
     include_directories:include_dirs,
     link_with:[dbzero_lib, link_with],
     link_language : 'cpp',
