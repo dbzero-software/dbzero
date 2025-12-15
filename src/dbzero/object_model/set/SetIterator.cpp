@@ -17,6 +17,7 @@ namespace db0::object_model
 
     void SetIterator::setJoinIterator()
     {
+        assureAttached();
         if (m_iterator != m_collection->end()) {
             auto [key, address] = *m_iterator;
             m_current_hash = key;
@@ -32,6 +33,7 @@ namespace db0::object_model
     
     SetIterator::ObjectSharedPtr SetIterator::next()
     {
+        assureAttached();
         auto fixture = m_collection->getFixture();
         auto item = *m_join_iterator;
         auto [storage_class, value] = item;
@@ -70,5 +72,5 @@ namespace db0::object_model
             setJoinIterator();
         }
     }
-
+    
 }

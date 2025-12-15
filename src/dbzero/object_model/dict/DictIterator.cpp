@@ -23,6 +23,7 @@ namespace db0::object_model
     
     void DictIterator::setJoinIterator()
     {    
+        assureAttached();
         if (m_iterator != m_collection->end()) {
             auto [key, address] = *m_iterator;
             m_current_hash = key;
@@ -38,6 +39,7 @@ namespace db0::object_model
     
     void DictIterator::iterNext()
     {
+        assureAttached();
         ++m_join_iterator;
         if (m_join_iterator.is_end()) {
             ++m_iterator;
@@ -49,6 +51,7 @@ namespace db0::object_model
     
     DictIterator::DictItem DictIterator::nextItem()
     {
+        assureAttached();
         auto fixture = m_collection->getFixture();
         auto [key, value] = *m_join_iterator;
         
@@ -61,14 +64,16 @@ namespace db0::object_model
     
     DictIterator::ObjectSharedPtr DictIterator::nextValue()
     {        
+        assureAttached();
         auto value = (*m_join_iterator).m_second;        
         iterNext();
         auto fixture = m_collection->getFixture();
         return unloadMember<LangToolkit>(fixture, value, 0, m_member_flags);
     }
-
+    
     DictIterator::ObjectSharedPtr DictIterator::nextKey()
     {
+        assureAttached();
         auto key = (*m_join_iterator).m_first;
         iterNext();
         auto fixture = m_collection->getFixture();

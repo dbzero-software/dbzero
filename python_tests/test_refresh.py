@@ -606,6 +606,7 @@ def test_refresh_prefix_continuous_process_with_snapshot(db0_fixture):
         db0.init(DB0_DIR)
         db0.open(px_name, "r")
         last_len = 0
+        time.sleep(2.0)
         while True:
             try:
                 root = db0.fetch(MemoTestSingleton)
@@ -636,11 +637,11 @@ def test_refresh_prefix_continuous_process_with_snapshot(db0_fixture):
 
 
 @pytest.mark.stress_test
-@pytest.mark.skip(reason="Test disabled due to issue #605")
+# @pytest.mark.skip(reason="Test disabled due to issue #605")
 # test failing due to issue: https://github.com/dbzero-software/dbzero/issues/605
 def test_refresh_prefix_continuous_process(db0_fixture):
     px_name = db0.get_current_prefix().name
-
+    
     def validate_current_prefix(expected_len = None, expected_min_len = None):
         root = db0.fetch(MemoTestSingleton)
         assert not expected_min_len or len(root.value) >= expected_min_len
@@ -668,6 +669,9 @@ def test_refresh_prefix_continuous_process(db0_fixture):
         last_len = 0
         while True:
             try:
+                if not db0.exists(MemoTestSingleton):
+                    time.sleep(0.1)
+                    continue
                 root = db0.fetch(MemoTestSingleton)
                 if len(root.value) > 1:
                     last_len = len(root.value)

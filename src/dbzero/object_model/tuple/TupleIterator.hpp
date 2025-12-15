@@ -16,9 +16,13 @@ namespace db0::object_model
     class TupleIterator : public BaseIterator<TupleIterator, Tuple>
     {
     public:
-        ObjectSharedPtr next() override;        
+        ObjectSharedPtr next() override;
 
         bool is_end() const;
+        
+        void restore() override {
+            // does nothing, tuple is immutable
+        }
 
     protected:
         friend class Tuple;

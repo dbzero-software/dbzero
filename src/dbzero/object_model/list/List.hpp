@@ -73,6 +73,8 @@ namespace db0::object_model
 
         std::shared_ptr<ListIterator> getIterator(ObjectPtr lang_list) const;
         
+        void detach() const;
+        
     private:        
         // the associated iterator
         // which must be invalidated / refreshed on any collection modification
