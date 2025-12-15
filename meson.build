@@ -16,15 +16,28 @@ if build_machine.system() == 'linux'
         '-lpthread',
         '-fuse-ld=gold',
         language : 'cpp')
-        add_project_arguments('-std=c++17', language : 'cpp')   
- else 
+        add_project_arguments('-std=c++17', language : 'cpp')
+elif build_machine.system() == 'darwin'
+    add_project_arguments('-Wno-unused-result',
+        '-Wno-unused-local-typedefs',
+        '-Wno-deprecated-declarations',
+        '-Wno-address-of-packed-member',
+        '-Werror=switch',
+        '-Werror=return-type',
+        '-fPIC',
+        '-ftemplate-backtrace-limit=0',
+        '-fno-omit-frame-pointer',
+        '-Wno-unqualified-std-cast-call',
+        language : 'cpp')
+    add_project_arguments('-std=c++17', language : 'cpp')   
+else 
     add_project_arguments(
         '-ldl',
         '-lm',
         '-lpthread',
         language : 'cpp')
     add_project_arguments('-std:c++20', language : 'cpp')
- endif
+endif
 
 enable_debug_exceptions = get_option('enable_debug_exceptions')
 
