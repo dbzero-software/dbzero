@@ -19,22 +19,50 @@ if build_machine.system() == 'linux' or  build_machine.system() == 'darwin'
         '-ldl',
         '-lm',
         '-lpthread',
-        '-fuse-ld=gold',
-        language : 'cpp')
-        add_project_arguments('-std=c++17', language : 'cpp')
-elif build_machine.system() == 'darwin'
-    add_project_arguments('-Wno-unused-result',
-        '-Wno-unused-local-typedefs',
-        '-Wno-deprecated-declarations',
-        '-Wno-address-of-packed-member',
-        '-Werror=switch',
-        '-Werror=return-type',
-        '-fPIC',
-        '-ftemplate-backtrace-limit=0',
-        '-fno-omit-frame-pointer',
-        '-Wno-unqualified-std-cast-call',
-        language : 'cpp')
-    add_project_arguments('-std=c++17', language : 'cpp')   
+    ]
+    
+    add_project_arguments(common_args, language : 'cpp')
+    
+    # GCC-specific options
+    if compiler_id == 'gcc'
+        message('Using GCC-specific options')
+        gcc_args = [
+            '-no-pie',
+            '-ftemplate-backtrace-limit=0',
+            '-fuse-ld=gold',
+        ]
+        add_project_arguments(gcc_args, language : 'cpp')
+    endif
+    
+    # Clang-specific options
+    if compiler_id == 'clang'
+        message('Using Clang-specific options')
+        clang_args = [
+            '-ftemplate-backtrace-limit=0',
+            # REMOVE BEFORE COMMIT,
+            '-Wno-inconsistent-missing-override',
+            '-Wno-unused-private-field',
+            '-Wno-mismatched-tags',
+            '-Wno-overloaded-virtual',
+            '-Wno-class-memaccess'
+        ]
+        add_project_arguments(clang_args, language : 'cpp')
+        # Clang on Linux might support gold linker
+        if build_machine.system() == 'linux'
+            add_project_arguments('-fuse-ld=lld', language : 'cpp')
+        endif
+    endif
+    
+    # Darwin-specific adjustments
+    if build_machine.system() == 'darwin'
+        message('Using Darwin-specific options')
+        # Remove -Wno-address-of-packed-member as it might not be available on all Darwin compilers
+    else
+        # Linux-specific: add address-of-packed-member warning suppression
+        add_project_arguments('-Wno-address-of-packed-member', language : 'cpp')
+    endif
+    
+    add_project_arguments('-std=c++17', language : 'cpp')  
 else 
     add_project_arguments(
         '-ldl',
