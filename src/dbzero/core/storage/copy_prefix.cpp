@@ -49,7 +49,7 @@ namespace db0
 
         return chunk_buf;
     }
-
+    
     std::optional<StateNumType> copyDRAM_IO(DRAM_IOStream &input_io, DRAM_ChangeLogStreamT &input_dram_changelog,
         DRAM_IOStream &output_io, DRAM_ChangeLogStreamT::Writer &output_dram_changelog)
     {
@@ -87,43 +87,53 @@ namespace db0
                 return false;
             }
             // reject chunks beyond the last consistent state number
-            if (header.m_state_num > state_num) {
-                return false;
-            }
-            return true;
+            return header.m_state_num <= state_num;
         };
-
+        
         auto chunk_filter = [&](const std::vector<char> &buffer, const void *data_end) -> bool
         {
             const auto &header = o_dram_chunk_header::__const_ref(buffer.data());
             return dram_filter(header, data_end);
         };
-
-        copyStream(input_io, output_io, &chunk_addr_map, chunk_filter);
         
-        // Chunks loaded during  the sync step
-        // NOTE: in this step we prefetch to memory to be able to catch up with changes
-        std::unordered_map<std::uint64_t, std::vector<char> > chunk_buf;
-        while (input_dram_changelog.refresh()) {
-            fetchDRAM_IOChanges(input_io, input_dram_changelog, chunk_buf);
+        copyStream(input_io, output_io, &chunk_addr_map, chunk_filter);
+
+        // NOTE: the operation might need to be repeated multiple times
+        // if unable to reach a consistent state in one pass (this might be due to a very slow reader process)
+        for (;;) {
+            // Chunks loaded during  the sync step
+            // NOTE: in this step we prefetch to memory to be able to catch up with changes
+            std::unordered_map<std::uint64_t, std::vector<char> > chunk_buf;
+            while (input_dram_changelog.refresh()) {
+                fetchDRAM_IOChanges(input_io, input_dram_changelog, chunk_buf);
+            }
+
+            last_chunk_ptr = input_dram_changelog.getLastChangeLogChunk();
+            assert(last_chunk_ptr);
+
+            // this is the actually copied last consistent state number
+            state_num = last_chunk_ptr->m_state_num;
+
+            // NOTE: at this stage we might also encounter incomplete
+            // or new chunks beyond the copied stream which needs to be discarded
+            chunk_buf = filterDRAM_Chunks(std::move(chunk_buf), dram_filter);
+
+            // NOTE: flush must be done under translated addresses (or appended to stream if translation not present)
+            auto bufs_pair = translateDRAM_Chunks(std::move(chunk_buf), chunk_addr_map);
+            flushDRAM_IOChanges(output_io, bufs_pair.first);
+            // append new chuks which were not present during the initial copy
+            appendDRAM_IOChunks(output_io, bufs_pair.second);                
+            // append the sentinel entry with state number only (i.e. empty changelog)
+            output_dram_changelog.appendChangeLog({}, state_num);
+            
+            // this operation needs to be continued until exhausting the entire changelog
+            if (input_dram_changelog.refresh()) {
+               continue;
+            } else {
+                break;
+            }
         }
 
-        last_chunk_ptr = input_dram_changelog.getLastChangeLogChunk();
-        assert(last_chunk_ptr);
-
-        // this is the actually copied last consistent state number
-        state_num = last_chunk_ptr->m_state_num;
-
-        // NOTE: at this stage we might also encounter incomplete
-        // or new chunks beyond the copied stream which needs to be discarded
-        chunk_buf = filterDRAM_Chunks(std::move(chunk_buf), dram_filter);
-        // NOTE: flush must be done under translated addresses (or appended to stream if translation not present)
-        auto bufs_pair = translateDRAM_Chunks(std::move(chunk_buf), chunk_addr_map);
-        flushDRAM_IOChanges(output_io, bufs_pair.first);
-        // append new chuks which were not present during the initial copy
-        appendDRAM_IOChunks(output_io, bufs_pair.second);                
-        // append the sentinel entry with state number only (i.e. empty changelog)
-        output_dram_changelog.appendChangeLog({}, state_num);
         output_io.close();
         return state_num;
     }

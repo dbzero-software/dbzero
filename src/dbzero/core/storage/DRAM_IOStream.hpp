@@ -102,8 +102,9 @@ DB0_PACKED_END
         
         // Apply buffered changes (allowed on condition beginApplyChanges succeeded)
         // @param max_state_num the last known consistent state number
+        // @return false if the applied changes were INCONSISTENT (refresh must be repeated)
         bool completeApplyChanges(StateNumType max_state_num);
-    
+        
         /**
          * Get the underlying DRAM pair (prefix and allocator)
         */
@@ -181,11 +182,12 @@ DB0_PACKED_END
         mutable std::unordered_map<std::uint64_t, std::vector<char> > m_read_ahead_chunks;
         
         // @param max_state_num the last known consistent state number
+        // @param is_consistent flag set to false if the resulting state cannot be assumed consistent
         // data pages with higher state numbers are ignored
         void *updateDRAMPage(std::uint64_t address, std::unordered_set<std::size_t> *allocs_ptr, 
-            const o_dram_chunk_header &header, StateNumType max_state_num);
+            const o_dram_chunk_header &header, StateNumType max_state_num, bool *is_consistent = nullptr);
         void updateDRAMPage(std::uint64_t address, std::unordered_set<std::size_t> *allocs_ptr, 
-            const o_dram_chunk_header &header, const void *bytes, StateNumType max_state_num);
+            const o_dram_chunk_header &header, const void *bytes, StateNumType max_state_num, bool *is_consistent = nullptr);
         
         // Overwrite invalid or corrupted DRAM page with null data
         void trashDRAMPage(std::uint64_t address);

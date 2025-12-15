@@ -50,11 +50,14 @@ namespace db0
     }
     
     void *DRAM_IOStream::updateDRAMPage(std::uint64_t address, std::unordered_set<std::size_t> *allocs_ptr,
-        const o_dram_chunk_header &header, StateNumType max_state_num)
+        const o_dram_chunk_header &header, StateNumType max_state_num, bool *is_consistent)
     {
         // NOTE: header may be invalid (i.e. copied chunk marked as invalid on copy post-processing)
         // NOTE: ignore changes beyond the last known consistent state number
         if (!!header && header.m_state_num <= max_state_num) {
+            if (is_consistent) {
+                *is_consistent = true;
+            }
             // page map = page_num / state_num
             auto dram_page = m_page_map.find(header.m_page_num);
             // NOTE: even if the same state number is encountered, the page is updated
@@ -87,17 +90,23 @@ namespace db0
             }
         }
 
+        if (is_consistent) {
+            // NOTE: null header is assumed as not violating consistency
+            // NOTE: we allow up to +1 state number to differ (from the transaction being synced to)
+            *is_consistent = !header || header.m_state_num <= max_state_num + 1;
+        }
+
         // mark block as reusable (read/write mode only)
         if (m_access_type == AccessType::READ_WRITE) {
             m_reusable_chunks.insert(address);
-        }        
+        }
         return nullptr;
     }
     
     void DRAM_IOStream::updateDRAMPage(std::uint64_t address, std::unordered_set<std::size_t> *allocs_ptr,
-        const o_dram_chunk_header &header, const void *bytes, StateNumType max_state_num)
+        const o_dram_chunk_header &header, const void *bytes, StateNumType max_state_num, bool *is_consistent)
     {
-        auto result = updateDRAMPage(address, allocs_ptr, header, max_state_num);
+        auto result = updateDRAMPage(address, allocs_ptr, header, max_state_num, is_consistent);
         if (result) {
             std::memcpy(result, bytes, m_dram_page_size);
         }
@@ -298,20 +307,23 @@ namespace db0
     
     bool DRAM_IOStream::completeApplyChanges(StateNumType max_state_num)
     {
-        bool result = false;
+        bool is_consistent = true;
         for (const auto &item: m_read_ahead_chunks) {
             auto address = item.first;
             const auto &buffer = item.second;
             const auto &header = o_dram_chunk_header::__const_ref(buffer.data() + o_block_io_chunk_header::sizeOf());
             // NOTE: ignore invalid or incomplete DRAM chunks (too fresh to be included)
             if (!isDRAM_ChunkValid(m_dram_page_size, header, header.getData(), buffer.data() + buffer.size())) {
+                // NOTE: since we don't know chunk's actual status, must assume inconsistency
+                is_consistent = false;
                 continue;
             }
-            updateDRAMPage(address, nullptr, header, header.getData(), max_state_num);
-            result = true;
+            bool consistent_update;
+            updateDRAMPage(address, nullptr, header, header.getData(), max_state_num, &consistent_update);
+            is_consistent &= consistent_update;
         }
         m_read_ahead_chunks.clear();
-        return result;
+        return is_consistent;
     }
     
     void DRAM_IOStream::flush() {
@@ -414,7 +426,6 @@ namespace db0
                         // it may come from a more recent update as well (and potentially may only be partially written)
                         // therefore chunk-level checksum validation is necessary
                         dram_io.readFromChunk(address, buffer.data(), buffer.size());
-
 #ifndef NDEBUG
                         // Optional sleep for time-sensitive tests (e.g. copy_prefix)
                         if (db0::Settings::__sleep_interval > 0) {
