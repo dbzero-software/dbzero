@@ -258,7 +258,7 @@ namespace db0::bindex::interface
 
     template <typename item_t, typename... T> struct SizeFunctor<item_t, db0::v_bindex<T...> > 
     {
-        static std::size_t execute(const void *this_ptr) {
+        static std::uint64_t execute(const void *this_ptr) {
             const db0::v_bindex<T...> &index = *reinterpret_cast<const db0::v_bindex<T...>*>(this_ptr);
             return index.size();
         }
@@ -369,7 +369,7 @@ namespace db0::bindex::interface
 
     template <typename item_t, int N, typename... T> struct SizeFunctor<item_t, db0::v_sorted_sequence<item_t, N, T...> > 
     {
-        static size_t execute(const void *) {
+        static std::uint64_t execute(const void *) {
             return N;
         }
     };
@@ -527,7 +527,7 @@ namespace db0::bindex::interface
     };
 
     template <typename item_t, typename... T> struct SizeFunctor<item_t, db0::v_sorted_vector<item_t, T...> > {
-        static size_t execute(const void *this_ptr) {
+        static std::uint64_t execute(const void *this_ptr) {
             const db0::v_sorted_vector<item_t, T...> &index =
                     *reinterpret_cast<const db0::v_sorted_vector<item_t, T...>*>(this_ptr);
             return index.size();
@@ -683,7 +683,7 @@ namespace db0::bindex::interface
 
     template <typename item_t, typename... T> struct SizeFunctor<item_t, db0::IttyIndex<item_t, T...> > 
     {
-        static std::size_t execute(const void *) {
+        static std::uint64_t execute(const void *) {
             return 1;
         }
     };
@@ -837,7 +837,7 @@ namespace db0::bindex::interface
     };
 
     template <typename item_t, typename... T> struct SizeFunctor<item_t, db0::empty_index<T...> > {
-        static std::size_t execute(const void *) {
+        static std::uint64_t execute(const void *) {
             return 0;
         }
     };

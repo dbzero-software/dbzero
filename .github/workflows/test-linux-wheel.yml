@@ -32,17 +32,6 @@ on:
           - '3.13'
           - '3.14'
         default: '3.12'
-      distribution:
-        description: 'Linux distribution'
-        required: true
-        type: choice
-        options:
-          - 'ubuntu'
-          - 'debian'
-          - 'arch'
-          - 'fedora'
-          - 'opensuse'
-        default: 'ubuntu'
       ld-preload:
         description: 'LD_PRELOAD value (for ASAN: LD_PRELOAD=$(gcc -print-file-name=libasan.so))'
         required: false

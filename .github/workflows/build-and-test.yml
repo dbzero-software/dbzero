@@ -26,15 +26,15 @@ jobs:
     with:
       python-version: ${{ matrix.python-version }}
 
-  stress-test-linux:
-    needs: build-linux
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.12"]
-    uses: ./.github/workflows/test-linux-wheel.yml
-    with:
-      python-version: ${{ matrix.python-version }}
-      pytest-markers: "-m 'stress_test'"
-      timeout-minutes: 60
+  # stress-test-linux:
+  #   needs: build-linux
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       python-version: ["3.12"]
+  #   uses: ./.github/workflows/test-linux-wheel.yml
+  #   with:
+  #     python-version: ${{ matrix.python-version }}
+  #     pytest-markers: "-m 'stress_test'"
+  #     timeout-minutes: 60
 

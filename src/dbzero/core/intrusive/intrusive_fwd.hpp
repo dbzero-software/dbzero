@@ -19,17 +19,6 @@
 
 /// @cond
 
-//std predeclarations
-namespace std {
-
-template<class T>
-struct equal_to;
-
-template<class T>
-struct less;
-
-}  //namespace std{
-
 //Hash predeclaration
 template<class T>
 struct hash;
