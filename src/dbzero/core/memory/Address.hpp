@@ -68,14 +68,23 @@ DB0_PACKED_BEGIN
             return m_value;
         }
 
+        inline AddressType operator+(offset_t offset) const {
+            return AddressType(m_value + offset);
+        }
+
+        inline AddressType operator-(offset_t offset) const {
+           return AddressType(m_value - offset);
+        }
+
+        template <typename T = offset_t, typename = std::enable_if_t<!std::is_same_v<T, std::size_t>>>
         inline AddressType operator+(std::size_t offset) const {
             return AddressType(m_value + offset);
         }
 
+        template <typename T = offset_t, typename = std::enable_if_t<!std::is_same_v<T, std::size_t>>>
         inline AddressType operator-(std::size_t offset) const {
-           return AddressType(m_value - offset);
+            return AddressType(m_value - offset);
         }
-
 
         
     private:
