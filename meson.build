@@ -1,4 +1,4 @@
-project('DBZero', 'cpp', default_options :['buildtype=release', 'b_ndebug=if-release'])
+project('dbzero', 'cpp', default_options :['buildtype=release', 'b_ndebug=if-release'])
 
 cc = meson.get_compiler('cpp')
 compiler_id = cc.get_id()

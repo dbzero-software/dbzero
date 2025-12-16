@@ -5,7 +5,7 @@ requires = ['meson-python']
 [project]
 name = 'dbzero'
 version = '0.1.0'
-description = 'DBZero Community Edition'
+description = 'A state management system for Python 3.x that unifies your application's business logic, data persistence, and caching into a single, efficient layer.'
 readme = 'README.md'
 requires-python = '>=3.9'
 license = {file = 'LICENSE'}
