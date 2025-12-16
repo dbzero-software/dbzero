@@ -1,4 +1,4 @@
-name: Test Linux Wheel
+name: Test macOS Wheel
 
 on:
   workflow_call:
@@ -6,10 +6,6 @@ on:
       python-version:
         required: true
         type: string
-      ld-preload:
-        required: false
-        type: string
-        default: ''
       timeout-minutes:
         required: false
         type: number
@@ -32,11 +28,6 @@ on:
           - '3.13'
           - '3.14'
         default: '3.12'
-      ld-preload:
-        description: 'LD_PRELOAD value (for ASAN: LD_PRELOAD=$(gcc -print-file-name=libasan.so))'
-        required: false
-        type: string
-        default: ''
       timeout-minutes:
         description: 'Timeout in minutes'
         required: false
@@ -49,8 +40,8 @@ on:
         default: "-m 'not integration_test' -m 'not stress_test'"
 
 jobs:
-  test-wheels-linux:
-    runs-on: ubuntu-latest
+  test-wheels-macos:
+    runs-on: macos-latest
     timeout-minutes: ${{ fromJSON(inputs.timeout-minutes) }}
     env:
       REQUIREMENTS_FILE: ${{ inputs.python-version == '3.9' && 'requirements.3.9.txt' || 'requirements.txt' }}
@@ -65,7 +56,7 @@ jobs:
       - name: Download wheel artifact
         uses: actions/download-artifact@v4
         with:
-          name: wheels-linux-${{ inputs.python-version }}
+          name: wheels-macos-${{ inputs.python-version }}
           path: ./wheels/
       
       - name: Install wheel and dependencies
@@ -76,4 +67,4 @@ jobs:
       
       - name: Run tests
         run: |
-          ${{ inputs.ld-preload }} python -m pytest ${{ inputs.pytest-markers }} -c pytest.ini --capture=no -vv
+          python -m pytest ${{ inputs.pytest-markers }} -c pytest.ini --capture=no -vv
