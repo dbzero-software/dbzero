@@ -222,7 +222,7 @@ namespace db0
         }
 
         start_page_num = m_current_page_num;
-        auto to_read = std::min(max_pages, m_end_page_num - m_current_page_num);
+        auto to_read = std::min(std::uint64_t(max_pages), m_end_page_num - m_current_page_num);
         // align with the step size (if defined)
         if (!!m_step_it) {
             if (!m_step_it.is_end()) {

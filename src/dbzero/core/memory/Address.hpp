@@ -73,8 +73,18 @@ DB0_PACKED_BEGIN
         }
 
         inline AddressType operator-(std::uint64_t offset) const {
-            return AddressType(m_value - offset);
+           return AddressType(m_value - offset);
         }
+
+        inline AddressType operator+(unsigned long offset) const {
+            return AddressType(m_value + offset);
+        }
+
+        inline AddressType operator-(unsigned long offset) const {
+           return AddressType(m_value - offset);
+        }
+
+
         
     private:
         store_t m_value = 0;

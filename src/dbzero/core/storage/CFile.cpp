@@ -51,6 +51,12 @@ namespace db0
             auto tp = fs::last_write_time(fs::path(file_name));
             auto duration = tp.time_since_epoch();
             return std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count();
+        #elif defined(__APPLE__)
+            struct stat st;
+            if (stat(file_name, &st)) {
+                THROWF(db0::IOException) << "CFile::getLastModifiedTime: stat failed";
+            };
+            return st.st_mtimespec.tv_sec * 1000000000 + st.st_mtimespec.tv_nsec;
         #else
             struct stat st;
             if (stat(file_name, &st)) {
