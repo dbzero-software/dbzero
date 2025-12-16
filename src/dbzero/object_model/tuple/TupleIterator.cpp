@@ -21,7 +21,8 @@ namespace db0::object_model
         return unloadMember<LangToolkit>(fixture, storage_class, value, 0, m_member_flags);
     }
     
-    bool TupleIterator::is_end() const {
+    bool TupleIterator::is_end() const
+    {        
         return m_iterator == m_collection->getData()->items().end();
     }
     

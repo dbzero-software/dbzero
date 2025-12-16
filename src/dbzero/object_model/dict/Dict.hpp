@@ -85,9 +85,8 @@ DB0_PACKED_END
         std::size_t size() const;
 
         void clear();
-
+        
         void commit() const;
-
         void detach() const;
 
         void unrefMembers() const;

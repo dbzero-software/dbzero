@@ -261,6 +261,10 @@ namespace db0::object_model
         // FIXME: can be removed when GC0 calls commit-op
         commit();
         m_index.detach();
+        // detach all associated iterators
+        m_iterators.forEach([](DictIterator &iter) {
+            iter.detach();
+        });
         super_t::detach();
     }
     

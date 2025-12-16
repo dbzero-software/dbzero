@@ -669,6 +669,11 @@ namespace db0
     {
         assert(m_access_type == AccessType::READ_ONLY);
         std::uint64_t result = 0;
+        // NOTE: in some situations (e.g. very slow reader) we might not be able
+        // to grab the consistent snapshot of the DRAM prefix, in such case the operation
+        // needs to be retried until successful
+        // WARNING: if the reader is much slower that the writer (~100x slower) then this loop might not terminate
+        bool is_consistent = true;
         // continue refreshing until all updates are retrieved to guarantee a consistent state
         do {
             // safe stream positions for rollback on file read failure
@@ -678,7 +683,7 @@ namespace db0
                 assert(m_ext_dram_changelog_io);
                 ext_dram_changelog_io_pos = m_ext_dram_changelog_io->getStreamPos();
             }
-            auto dp_changelog_io_pos = m_dp_changelog_io.getStreamPos();            
+            auto dp_changelog_io_pos = m_dp_changelog_io.getStreamPos();
             // reverts streams to previous positions
             auto revert_streams = [&]() {
                 m_dram_changelog_io.setStreamPos(dram_changelog_io_pos);
@@ -693,7 +698,7 @@ namespace db0
                 auto dram_state_num = m_dram_io.beginApplyChanges(m_dram_changelog_io);
                 if (!dram_state_num) {
                     // no updates to process
-                    break;                    
+                    break;
                 }
                 dram_changelog_io_pos = m_dram_changelog_io.getStreamPos();
                 // NOTE: ext DRAM updates have incremental nature so they might preceed DRAM updates
@@ -707,13 +712,20 @@ namespace db0
                 }
                 
                 assert(dram_state_num);
-                if (m_dram_io.completeApplyChanges(*dram_state_num)) {
-                    // refresh underlying sparse index / diff index after DRAM update
-                    m_sparse_pair.refresh();
-                }
-                if (!!m_ext_space && ext_dram_state_num && m_ext_dram_io->completeApplyChanges(*ext_dram_state_num)) {
+                is_consistent = m_dram_io.completeApplyChanges(*dram_state_num);
+                if (!!m_ext_space && ext_dram_state_num) {
+                    is_consistent &= m_ext_dram_io->completeApplyChanges(*ext_dram_state_num);
                     m_ext_space.refresh();
                 }
+                
+                if (!is_consistent) {
+                    // must continue with the refresh until getting a consistent state
+                    m_dram_changelog_io.refresh();
+                    continue;
+                }
+                
+                // refresh underlying sparse index / diff index after DRAM update
+                m_sparse_pair.refresh();
                 
                 // this is the state number to sync-up to (which must be identical as dram_state_num)
                 auto max_state_num = m_sparse_pair.getMaxStateNum();
@@ -775,7 +787,7 @@ namespace db0
             // refresh cycle complete
             m_refresh_pending = false;
         }
-        while (beginRefresh());
+        while (beginRefresh() || !is_consistent);
         return result;
     }
     

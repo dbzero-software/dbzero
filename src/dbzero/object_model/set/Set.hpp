@@ -79,9 +79,8 @@ DB0_PACKED_END
         void moveTo(db0::swine_ptr<Fixture> &);
 
         std::size_t size() const;
-
+        
         void commit() const;
-
         void detach() const;
 
         // drop underlying dbzero representation

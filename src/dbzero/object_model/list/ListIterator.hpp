@@ -17,10 +17,10 @@ namespace db0::object_model
     {
     public:
         ObjectSharedPtr next() override;
-        
+                
         // try restoring the iterator after the related collection is modified
         // NOTE: may render the iterator as end
-        void restore();
+        void restore() override;
 
     protected:
         friend class List;

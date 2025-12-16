@@ -35,7 +35,7 @@ namespace db0::object_model
         ObjectSharedPtr nextKey();
         
         // Restore the iterator after related collection was modified
-        void restore();
+        void restore() override;
 
     protected: 
         friend class Dict;
