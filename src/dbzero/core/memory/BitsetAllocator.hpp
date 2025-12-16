@@ -145,6 +145,8 @@ namespace db0
         auto inner_offset = address % m_alloc_size;
         auto index = indexOf(address - inner_offset);
         if (index >= m_bitset.npos || !m_bitset->get(index)) {
+            // FIXME: log
+            std::abort();
             THROWF(db0::BadAddressException) << "BitsetAllocator " << this << " invalid address: " << address;
         }
         // handle inner offset to allow resolution of sub-addresses

@@ -111,7 +111,7 @@ namespace db0
         m_fixture_status[uuid] = FixtureUpdateStatus{fixture.getPrefix().getLastUpdated(), ClockType::now()};
     }
     
-    void RefreshThread::prepareContext() 
+    void RefreshThread::prepareContext()
     {
         assert(!m_context && "Only one FixtureThreadCallbacksContext should exist at the time!");
         m_context = std::make_shared<FixtureThreadCallbacksContext>();
@@ -127,11 +127,11 @@ namespace db0
     void RefreshThread::onUpdate(Fixture &fixture)
     {
         auto prefix_ptr = fixture.getPrefixPtr();
-        // prefix_ptr may not exist a fixture has already been closed
+        // prefix_ptr may not exist if fixture has already been closed
         if (!prefix_ptr) {
             return;
         }
-
+        
         std::uint64_t uuid = fixture.getUUID();
         auto last_updated = prefix_ptr->getLastUpdated();
         auto now = ClockType::now();

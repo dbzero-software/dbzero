@@ -16,6 +16,7 @@ namespace db0::object_model
     ListIterator::ObjectSharedPtr ListIterator::next()
     {
         assureAttached();
+        assert(!is_end());
         auto fixture = m_collection->getFixture();
         auto [storage_class, value] = *m_iterator;
         ++m_iterator;

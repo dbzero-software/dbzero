@@ -175,6 +175,8 @@ namespace db0
     {
         // Get allocation size under a specific address or throw exception
         if (!isAllocated(address)) {
+            // FIXME: log
+            std::abort();
             THROWF(db0::BadAddressException) << "Invalid address: " << address << THROWF_END;
         }
         return m_stride;
