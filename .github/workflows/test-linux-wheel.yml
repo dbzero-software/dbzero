@@ -54,7 +54,7 @@ jobs:
     uses: ./.github/workflows/build-linux-wheel.yml
     with:
       python-version: ${{ inputs.python-version }}
-      timeout-minutes: ${{ inputs.timeout-minutes }}
+      timeout-minutes: ${{ fromJSON(inputs.timeout-minutes) }}
 
   test-wheels-linux:
     runs-on: ubuntu-latest

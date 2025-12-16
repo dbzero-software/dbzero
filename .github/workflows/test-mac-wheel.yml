@@ -45,7 +45,7 @@ jobs:
     uses: ./.github/workflows/build-mac-wheel.yml
     with:
       python-version: ${{ inputs.python-version }}
-      timeout-minutes: ${{ inputs.timeout-minutes }}
+      timeout-minutes: ${{ fromJSON(inputs.timeout-minutes) }}
 
   test-wheels-macos:
     runs-on: macos-latest
