@@ -1,0 +1,80 @@
+name: Build macOS Wheel
+
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        required: true
+        type: string
+      build-args:
+        required: false
+        type: string
+        default: ''
+      timeout-minutes:
+        required: false
+        type: number
+        default: 60
+  workflow_dispatch:
+    inputs:
+      python-version:
+        description: 'Python version to build'
+        required: true
+        type: choice
+        options:
+          - '3.9'
+          - '3.10'
+          - '3.11'
+          - '3.12'
+          - '3.13'
+          - '3.14'
+        default: '3.12'
+      build-args:
+        description: 'Additional build arguments (e.g., --config-setting=setup-args=-Denable_sanitizers=true)'
+        required: false
+        type: string
+        default: ''
+      timeout-minutes:
+        description: 'Timeout in minutes'
+        required: false
+        type: number
+        default: 60
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python ${{ inputs.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python-version }}
+      
+      - name: Generate meson files
+        run: |
+          python3 scripts/generate_meson.py ./src/dbzero/ core
+          python3 scripts/generate_meson_tests.py tests/
+          python3 scripts/generate_meson_dbzero.py dbzero/
+      
+      - name: Configure git
+        run: |
+          git config --global user.email "ci@example.com"
+          git config --global user.name "CI Builder"
+          rm -f .gitignore
+          git add . && git commit -m "Update meson files"
+      
+      - name: Install build tools
+        run: pip install build
+      
+      - name: Build wheel
+        run: python3 -m build ${{ inputs.build-args }}
+        env:
+          CIBW_SKIP: pp* cp36-* *-musllinux*
+          CIBW_ARCHS_MACOS: x86_64 arm64
+          CIBW_ARCHS_LINUX: x86_64 aarch64
+      
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-macos-${{ inputs.python-version }}
+          path: dist/*.whl
