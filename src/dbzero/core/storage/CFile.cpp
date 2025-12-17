@@ -112,10 +112,6 @@ namespace db0
         if (_commit(fileno(m_file)) == -1) {
             THROWF(db0::IOException) << "CFile::fsync: failed to sync file " << m_path;
         }
-#elif defined(__APPLE__)
-        if (_commit(fileno(m_file)) == -1) {
-            THROWF(db0::IOException) << "CFile::fsync: failed to sync file " << m_path;
-        }
 #else
         if (::fsync(fileno(m_file)) == -1) {
             THROWF(db0::IOException) << "CFile::fsync: failed to sync file " << m_path;
