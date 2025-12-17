@@ -528,7 +528,7 @@ async def test_async_wait_for_updates(db0_fixture):
     current_num = db0.get_state_num(prefix)
     make_trasaction(writer_sem, 2)
     time.sleep(0.5)
-    assert await with_timeout(db0.async_wait(prefix, current_num + 1), 1)
+    assert await with_timeout(db0.async_wait(prefix, current_num + 2), 1)
 
     current_num = db0.get_state_num(prefix)
     # Wait current state
