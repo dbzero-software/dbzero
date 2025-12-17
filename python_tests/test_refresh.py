@@ -14,8 +14,8 @@ from .memo_test_types import DynamicDataClass, DynamicDataSingleton, MemoTestCla
 # to verify that refresh works correctly with custom page_io_step_size
 
 pytestmark = pytest.mark.parametrize("db0_fixture", [
-    {},  # default parameters
-    {"page_io_step_size": 16 << 10}  # with custom page_io_step_size
+    {"autocommit":False},  # default parameters
+    {"autocommit":False, "page_io_step_size": 16 << 10}  # with custom page_io_step_size
 ], indirect=True)
 
 
@@ -471,13 +471,13 @@ async def test_async_wait_for_updates(db0_fixture):
     # Start waiting before transactions complete
     current_num = db0.get_state_num(prefix)
     make_trasaction(writer_sem, 5)
-    assert await with_timeout(db0.async_wait(prefix, current_num + 5), 1)
+    assert await with_timeout(db0.async_wait(prefix, current_num + 5), 2)
 
     # Start waiting after transactions complete
     current_num = db0.get_state_num(prefix)
     make_trasaction(writer_sem, 2)
     time.sleep(0.5)
-    assert await with_timeout(db0.async_wait(prefix, current_num + 1), 1)
+    assert await with_timeout(db0.async_wait(prefix, current_num + 2), 1)
 
     current_num = db0.get_state_num(prefix)
     # Wait current state

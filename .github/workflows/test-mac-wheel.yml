@@ -40,8 +40,17 @@ on:
         default: "-m 'not integration_test' -m 'not stress_test'"
 
 jobs:
+  build-wheel:
+    if: github.event_name == 'workflow_dispatch'
+    uses: ./.github/workflows/build-mac-wheel.yml
+    with:
+      python-version: ${{ inputs.python-version }}
+      timeout-minutes: ${{ fromJSON(inputs.timeout-minutes) }}
+
   test-wheels-macos:
     runs-on: macos-latest
+    needs: [build-wheel]
+    if: always() && (needs.build-wheel.result == 'success' || needs.build-wheel.result == 'skipped')
     timeout-minutes: ${{ fromJSON(inputs.timeout-minutes) }}
     env:
       REQUIREMENTS_FILE: ${{ inputs.python-version == '3.9' && 'requirements.3.9.txt' || 'requirements.txt' }}
