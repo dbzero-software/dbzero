@@ -128,31 +128,11 @@ namespace db0::python
     shared_py_object<PyObject*> tryFetch(PyObject *py_id, PyTypeObject *type, const char *prefix_name) {
         return tryFetchFrom(PyToolkit::getPyWorkspace().getWorkspace(), py_id, type, prefix_name);
     }
-
+    
     PyObject* tryExists(PyObject *py_id, PyTypeObject *type, const char *prefix_name) {
         return PyBool_fromBool(tryExistsIn(PyToolkit::getPyWorkspace().getWorkspace(), py_id, type, prefix_name));
     }
-    
-    bool tryParseFetchArgs(PyObject *args, PyObject *kwargs, PyObject *&py_id,
-        PyObject *&py_type, const char *&prefix_name)
-    {
-        static const char *kwlist[] = { "identifier", "expected_type", "prefix", NULL };
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|Os", const_cast<char**>(kwlist), &py_id, &py_type, &prefix_name)) {
-            return false;
-        }
-
-        // NOTE: for backwards compatibility, swap parameters if one is a type and the other is UUID
-        if (py_id && py_type && PyType_Check(py_id) && PyUnicode_Check(py_type)) {
-            std::swap(py_id, py_type);
-        }
-
-        if (py_type && !PyType_Check(py_type)) {
-            PyErr_SetString(PyExc_TypeError, "Invalid argument type: type");
-            return false;
-        }
-        return true;
-    }
-    
+        
     PyObject *PyAPI_fetch(PyObject *, PyObject *args, PyObject *kwargs)
     {
         PyObject *py_id = nullptr;

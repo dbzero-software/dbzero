@@ -210,6 +210,26 @@ namespace db0::python
         THROWF(db0::InputException) << "Invalid object ID" << THROWF_END;
     }
     
+    bool tryParseFetchArgs(PyObject *args, PyObject *kwargs, PyObject *&py_id,
+        PyObject *&py_type, const char *&prefix_name)
+    {
+        static const char *kwlist[] = { "identifier", "expected_type", "prefix", NULL };
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|Os", const_cast<char**>(kwlist), &py_id, &py_type, &prefix_name)) {
+            return false;
+        }
+
+        // NOTE: for backwards compatibility, swap parameters if one is a type and the other is UUID
+        if (py_id && py_type && PyType_Check(py_id) && PyUnicode_Check(py_type)) {
+            std::swap(py_id, py_type);
+        }
+
+        if (py_type && !PyType_Check(py_type)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid argument type: type");
+            return false;
+        }
+        return true;
+    }
+    
     PyObject *fetchSingletonObject(db0::swine_ptr<Fixture> &fixture, PyTypeObject *py_type)
     {        
         auto &class_factory = fixture->get<db0::object_model::ClassFactory>();

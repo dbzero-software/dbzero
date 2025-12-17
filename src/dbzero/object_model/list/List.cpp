@@ -223,10 +223,12 @@ namespace db0::object_model
     
     void List::detach() const
     {
-        // detach object and the associated iterators
-        m_iterators.forEach([](ListIterator &iter) {
-            iter.detach();
-        });
+        // FIXME: detaching iterators is not safe, need to investigate why
+        // NOTE: this is not necessary as long as developers properly use the "snapshot" mechanism
+        // // detach object and the associated iterators
+        // m_iterators.forEach([](ListIterator &iter) {
+        //     iter.detach();
+        // });
         super_t::detach();
     }
 

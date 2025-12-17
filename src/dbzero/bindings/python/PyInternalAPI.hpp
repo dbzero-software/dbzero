@@ -164,6 +164,9 @@ namespace db0::python
     bool isExistingObject(db0::Snapshot &, ObjectId object_id,
         PyTypeObject *py_expected_type = nullptr);
     
+    bool tryParseFetchArgs(PyObject *args, PyObject *kwargs, PyObject *&py_id,
+        PyObject *&py_type, const char *&prefix_name);
+    
     /**
      * Open dbzero singleton by its corresponding Python type
     */

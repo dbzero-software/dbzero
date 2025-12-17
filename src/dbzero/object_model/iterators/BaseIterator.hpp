@@ -54,10 +54,10 @@ namespace db0::object_model
             assureAttached();
             return m_iterator.is_end();
         }
-         
+        
         void detach() const
         {
-            // NOTE: this needs to be reimplemented to save key + iterator invalidation            
+            // NOTE: this needs to be reimplemented to save key + iterator invalidation
             m_detached = true;
         }
         
