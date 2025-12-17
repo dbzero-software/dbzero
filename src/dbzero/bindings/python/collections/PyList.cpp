@@ -108,6 +108,48 @@ namespace db0::python
             return py_src_list->ext().getItem(index).steal();            
         }
 
+        // check for tuple of indices
+        if (PyTuple_Check(elem)) {
+            Py_ssize_t num_items = PyTuple_Size(elem);
+            std::vector<std::uint64_t> indices;
+            indices.reserve(num_items);
+            
+            // Extract indices from tuple
+            for (Py_ssize_t i = 0; i < num_items; ++i) {
+                PyObject *py_item = PyTuple_GetItem(elem, i);
+                if (!PyLong_Check(py_item)) {
+                    THROWF(db0::InputException) << "Expected integer indexes in the tuple";
+                }
+                auto index = PyLong_AsLongLong(py_item);
+                // Handle negative indices
+                if (index < 0) {
+                    index += py_src_list->ext().size();
+                }
+                if (index < 0 || static_cast<std::size_t>(index) >= py_src_list->ext().size()) {
+                    PyErr_SetString(PyExc_IndexError, "list index out of range");
+                    return nullptr;
+                }
+                indices.push_back(static_cast<std::uint64_t>(index));
+            }
+            
+            // Create result list
+            auto py_result = Py_OWN(PyList_New(num_items));
+            if (!py_result) {
+                return nullptr;
+            }
+            
+            // Fetch items at specified indices
+            for (std::size_t i = 0; i < indices.size(); ++i) {
+                auto item = py_src_list->ext().getItem(indices[i]);
+                if (!item) {
+                    return nullptr;
+                }
+                PySafeList_SetItem(*py_result, i, item);
+            }
+            
+            return py_result.steal();
+        }
+
         // Check if the key is a slice object
         if (PySlice_Check(elem)) {
             // Parse slice object to get start, stop, step
