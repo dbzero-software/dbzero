@@ -52,11 +52,9 @@ namespace db0
             auto duration = tp.time_since_epoch();
             return std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count();
         #elif defined(__APPLE__)
-            struct stat st;
-            if (stat(file_name, &st)) {
-                THROWF(db0::IOException) << "CFile::getLastModifiedTime: stat failed";
-            };
-            return st.st_mtimespec.tv_sec * 1000000000 + st.st_mtimespec.tv_nsec;
+            auto tp = fs::last_write_time(fs::path(file_name));
+            auto duration = tp.time_since_epoch();
+            return std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count();
         #else
             struct stat st;
             if (stat(file_name, &st)) {
@@ -111,6 +109,10 @@ namespace db0
                   << " (" << strerror(errno) << ")\n";
         }
 #ifdef _WIN32
+        if (_commit(fileno(m_file)) == -1) {
+            THROWF(db0::IOException) << "CFile::fsync: failed to sync file " << m_path;
+        }
+#elif defined(__APPLE__)
         if (_commit(fileno(m_file)) == -1) {
             THROWF(db0::IOException) << "CFile::fsync: failed to sync file " << m_path;
         }
