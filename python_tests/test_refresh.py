@@ -504,7 +504,8 @@ async def with_timeout(future, timeout):
     return True if done else False
 
 
-async def test_async_wait_for_updates(db0_fixture):
+@pyte
+async def test_async_wait_for_updates(db0_no_autocommit):
     prefix = db0.get_current_prefix().name
     db0.commit()
     db0.close()
