@@ -124,6 +124,17 @@ namespace db0::python
         return tryFetchFrom(snapshot, py_id, type, prefix_name).steal();
     }
     
+    PyObject* tryPySnapshot_exists(PyObject *self, PyObject *py_id, PyTypeObject *type, const char *prefix_name)
+    {
+        if (!PySnapshot_Check(self)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+            return NULL;
+        }
+
+        auto &snapshot = reinterpret_cast<PySnapshotObject*>(self)->modifyExt();
+        return PyBool_fromBool(tryExistsIn(snapshot, py_id, type, prefix_name));
+    }
+
     PyObject *tryPySnapshot_find(PyObject *self, PyObject *args, PyObject *kwargs)
     {
         if (!PySnapshot_Check(self)) {
@@ -170,6 +181,21 @@ namespace db0::python
         auto &snapshot = reinterpret_cast<PySnapshotObject*>(self)->modifyExt();
         PY_API_FUNC
         return runSafe(tryGetStateNum, snapshot, args, kwargs);
+    }
+
+    PyObject *PyAPI_PySnapshot_exists(PyObject *self, PyObject *args, PyObject *kwargs)
+    {
+        PyObject *py_id = nullptr;
+        PyObject *py_type = nullptr;
+        const char *prefix_name = nullptr;
+        // takes same arguments as fetch
+        if (!tryParseFetchArgs(args, kwargs, py_id, py_type, prefix_name)) {
+            // error already set in tryParseFetchArgs
+            return NULL;
+        }
+        
+        PY_API_FUNC
+        return runSafe(tryPySnapshot_exists, self, py_id, reinterpret_cast<PyTypeObject*>(py_type), prefix_name);
     }
 
     PyObject *PyAPI_PySnapshot_fetch(PyObject *self, PyObject *args, PyObject *kwargs)
@@ -294,9 +320,10 @@ namespace db0::python
         // check if a specific prefix belongs to the snapshot
         .sq_contains = (objobjproc)PyAPI_PySnapshot_HasItem
     };
-
+    
     static PyMethodDef PySnapshot_methods[] = 
     {
+        {"exists", (PyCFunction)&PyAPI_PySnapshot_exists, METH_VARARGS | METH_KEYWORDS, "Check if a specific UUID points to a valid dbzero object instance or if singleton of a given type exists"},
         {"fetch", (PyCFunction)&PyAPI_PySnapshot_fetch, METH_VARARGS | METH_KEYWORDS, "Fetch dbzero object instance by its ID or type (in case of a singleton)"},
         {"find", (PyCFunction)&PyAPI_PySnapshot_find, METH_VARARGS | METH_KEYWORDS, ""},
         {"deserialize", (PyCFunction)&PyAPI_PySnapshot_deserialize, METH_FASTCALL, "Deserialize from bytes within the snapshot's context"},

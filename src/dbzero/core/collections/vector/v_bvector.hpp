@@ -514,8 +514,6 @@ DB0_PACKED_END
             // invalidate objects' b-class
             m_b_class = {};
             super_t::detach();
-            // FIXME: log
-            std::cout << "!!! Detaching b-vector" << std::endl;
         }
         
         void commit() const

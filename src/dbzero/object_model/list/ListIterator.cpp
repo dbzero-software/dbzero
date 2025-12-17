@@ -26,9 +26,12 @@ namespace db0::object_model
     
     void ListIterator::restore()
     {
-        m_index = std::min(m_index, this->m_collection->size());
-        // NOTE: may set the iterator as end
-        m_iterator = this->m_collection->begin(m_index);
+        if (m_index <this->m_collection->size()) {
+            m_iterator = this->m_collection->begin(m_index);
+        } else {
+            // restore as end iterator
+            m_iterator = this->m_collection->end();
+        }
     }
     
 }
