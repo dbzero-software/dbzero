@@ -22,7 +22,7 @@ namespace db0
             this->cleanup();
             m_data.emplace_back(ptr);
         }
-
+        
         // remove expired weak pointers
         // @return true if the vector is empty after cleanup
         bool cleanup()
@@ -47,8 +47,8 @@ namespace db0
         void forEach(std::function<void(const T &)> f) const
         {
             for (const auto &ptr : m_data) {
-                if (auto p = ptr.lock()) {
-                    f(*p);
+                if (auto p = ptr.lock()) {                    
+                    f(*p);                    
                 }
             }
         }
@@ -56,8 +56,8 @@ namespace db0
         void forEach(std::function<void(T &)> f)
         {
             for (const auto &ptr : m_data) {
-                if (auto p = ptr.lock()) {
-                    f(*p);
+                if (auto p = ptr.lock()) {                    
+                    f(*p);                    
                 }
             }
         }
