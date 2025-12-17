@@ -7,6 +7,7 @@ namespace db0
 
 {
 
+    // MurmurHash algorithm by Austin Appleby
     std::uint64_t murmurhash64A(const void* key, std::size_t len, std::uint64_t seed)
     {
         const std::uint64_t m = 0xc6a4a7935bd1e995ULL;

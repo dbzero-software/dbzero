@@ -321,7 +321,7 @@ def group_by(group_defs: Union[Callable, Tag, Tuple], query: QueryObject, ops: T
 
     Parameters
     ----------
-    group_defs : lambda | Iterable[EnumValue] | str | tuple
+    group_defs : lambda | Tag | tuple
         The criteria used to group the objects. This can be:
         
         * A lambda function: Applied to each object to determine its grouping key.
@@ -330,8 +330,8 @@ def group_by(group_defs: Union[Callable, Tag, Tuple], query: QueryObject, ops: T
           The group keys will be the string names of the enum members.
         * A tuple of the above: For multi-level grouping. The resulting dictionary keys 
           will be tuples.
-    query : Any
-        A dbzero QueryObject to be grouped.
+    query : QueryObject
+        A dbzero query to be grouped.
     ops : tuple of callable, default (count_op,)
         A tuple of aggregation operations to perform on each group.
 

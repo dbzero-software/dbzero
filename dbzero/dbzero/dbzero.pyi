@@ -85,7 +85,7 @@ def close(prefix_name: Optional[str] = None) -> None:
     ...
 
 def commit(prefix_name: Optional[str] = None) -> None:
-    """Save all in-memory object changes to persistent storage.
+    """Persist all pending data changes.
 
     Finalizes the current open transaction, ensuring data is durable and consistent.
 
@@ -115,7 +115,7 @@ def commit(prefix_name: Optional[str] = None) -> None:
 # Object retrieval and management
 
 def fetch(identifier: Union[str, type], expected_type: Optional[type] = None, prefix: Optional[str] = None) -> Memo:
-    """Retrieve a single object directly from memory using its unique identifier.
+    """Retrieve a dbzero object instance by its UUID or type (for singletons).
 
     The fastest way to access an object, operating in constant time O(1).
     It is guaranteed that only one instance of an object exists in memory for a given UUID.
@@ -132,7 +132,7 @@ def fetch(identifier: Union[str, type], expected_type: Optional[type] = None, pr
         Raises exception if the fetched object is not an instance of this type.
     prefix : str, optional
         Optional name of the data prefix to fetch the object from.
-        Useful for retrieving singletons from non-default prefixes.
+        Used for retrieving singletons from non-default prefixes.
 
     Returns
     -------
@@ -169,7 +169,7 @@ def fetch(identifier: Union[str, type], expected_type: Optional[type] = None, pr
     ...
 
 def exists(identifier: Union[str, type], expected_type: Optional[type] = None, prefix: Optional[str] = None) -> bool:
-    """Check if a dbzero object exists.
+    """Check if an identifier points to a valid dbzero object or an existing singleton instance
 
     Can check by UUID or by singleton type.
     Allows to verify if an object is still available before trying to retrieve it.
@@ -218,15 +218,15 @@ def exists(identifier: Union[str, type], expected_type: Optional[type] = None, p
     ...
 
 def uuid(obj: Memo, /) -> str:
-    """Get the unique, persistent identifier (UUID) for a dbzero-managed object.
+    """Get the unique object ID (UUID) of a memo instance.
 
     Returns a stable handle that allows the object to be reliably fetched
     with dbzero.fetch() across sessions. The UUID is a base-32 encoded string.
 
     Parameters
     ----------
-    obj : Any
-        A dbzero-managed object or weak proxy to get the UUID of.
+    obj : Memo
+        A memo instance or weak proxy to get the UUID of.
 
     Returns
     -------
@@ -253,7 +253,7 @@ def uuid(obj: Memo, /) -> str:
     ...
 
 def load(obj: Any, /, *, exclude: Optional[Union[List[str], Tuple[str, ...]]] = None, **kwargs: Any) -> Any:
-    """Recursively convert any object into its equivalent native Python representation.
+    """Load a dbzero instance recursively into memory as its equivalent native Python representation
 
     Useful for exporting application state for APIs or functions expecting standard Python types, 
     like JSON serialization. Intelligently handles both standard Python and dbzero types.
@@ -276,7 +276,7 @@ def load(obj: Any, /, *, exclude: Optional[Union[List[str], Tuple[str, ...]]] = 
         
         * Native types: Returned as-is
         * dbzero collections: Converted to built-in counterparts (list, tuple, set, dict)
-        * dbzero.enum values: Converted to string representation
+        * @dbzero.enum values: Converted to string representation
         * @dbzero.memo instances: Converted to dictionaries (or using custom __load__ method)
 
     Raises
@@ -378,7 +378,7 @@ def hash(obj: Any, /) -> int:
     """
     ...
 
-def set_prefix(object: Memo, prefix: Optional[str]) -> None:
+def set_prefix(object: Memo, prefix: Optional[str] = None) -> None:
     """Set the persistence prefix for a Memo instance dynamically at runtime.
 
     Allows to control which data prefix an object belongs to.
@@ -554,7 +554,7 @@ def rename_field(class_obj: type, from_name: str, to_name: str) -> None:
 # Cache management
 
 def clear_cache() -> None:
-    """Manually evicts all objects from the in-memory cache.
+    """Manually evict all objects from the in-memory cache.
 
     Examples
     --------
@@ -856,7 +856,7 @@ def bytearray(source: Union[bytes, Iterable[int]] = b'', /) -> ByteArrayObject:
 # Tag and query functions
 
 def tags(*objects: Memo) -> ObjectTagManager:
-    """Get a tag manager instance for Memo objects.
+    """Get a tag manager interface for given Memo objects.
 
     Parameters
     ----------
@@ -866,7 +866,7 @@ def tags(*objects: Memo) -> ObjectTagManager:
     Returns
     -------
     ObjectTagManager
-        A ObjectTagManager instance for given Memo objects.
+        A ObjectTagManager interface for given Memo objects.
 
     Examples
     --------
@@ -900,7 +900,7 @@ def find(*query_criteria: Union[Tag, List[Tag], Tuple[Tag], QueryObject, TagSet]
 
     Parameters
     ----------
-    *query_criteria : Union[Tag, List[Tag], Tuple[Tag], Query, TagSet]
+    *query_criteria : Union[Tag, List[Tag], Tuple[Tag], QueryObject, TagSet]
         Variable number of criteria to filter objects:
         
         * Type: A class to filter by type (includes subclasses)
@@ -908,7 +908,7 @@ def find(*query_criteria: Union[Tag, List[Tag], Tuple[Tag], QueryObject, TagSet]
         * Object tag: Any memo object used as a tag
         * List of tags (OR): Objects with at least one of the specified tags
         * Tuple of tags (AND): Objects with all of the specified tags
-        * Query: Result of another query
+        * QueryObject: Result of another query
         * TagSet: Set logical operation.
     prefix : str, optional
         Optional data prefix to run the query on.
@@ -916,7 +916,7 @@ def find(*query_criteria: Union[Tag, List[Tag], Tuple[Tag], QueryObject, TagSet]
 
     Returns
     -------
-    Query
+    QueryObject
         An iterable query object.
 
     Examples
@@ -964,7 +964,7 @@ def no(predicate: Union[str, QueryObject], /) -> TagSet:
 
     Parameters
     ----------
-    predicate : str or Query
+    predicate : str or QueryObject
         The condition to negate.
 
     Returns
@@ -979,6 +979,12 @@ def no(predicate: Union[str, QueryObject], /) -> TagSet:
     >>> # Find active projects but exclude those on hold
     >>> active_not_on_hold = dbzero.find("active-project", dbzero.no("on-hold"))
 
+    Complex exclusions:
+
+    >>> # Find objects with tag1 but not in a specific result set
+    >>> excluded_set = dbzero.find("excluded-group")
+    >>> filtered = dbzero.find("tag1", dbzero.no(excluded_set))
+
     Calculate query deltas (find differences):
     
     >>> # Compare snapshots to find changes
@@ -987,20 +993,11 @@ def no(predicate: Union[str, QueryObject], /) -> TagSet:
     >>>
     >>> # Find newly added (in query_2 but NOT in query_1)
     >>> newly_added = snap2.find(query_2, dbzero.no(query_1))  # Objects 3, 4
-
-    Complex exclusions:
-    
-    >>> # Find users who are active but not administrators
-    >>> regular_users = dbzero.find("active", dbzero.no("admin"))
-    >>>
-    >>> # Find objects with tag1 but not in a specific result set
-    >>> excluded_set = dbzero.find("excluded-group")
-    >>> filtered = dbzero.find("tag1", dbzero.no(excluded_set))
     """
     ...
 
 def as_tag(obj: Union[Memo, MemoWeakProxy, type]) -> Tag:
-    """Create a searchable Tag object from a Memo instance or class.
+    """Make a searchable Tag from a Memo instance or class.
 
     Allows to use Memo object or class as a label for other objects.
     Tags created from objects are stable identifiers that will
@@ -1049,7 +1046,7 @@ def split_by(tags: List[Tag], query: QueryObject, exclusive: bool = True) -> Que
     ----------
     tags : List[Tag]
         A list of tags to split results by.
-    query : Query
+    query : QueryObject
         The input query whose result set will be categorized.
     exclusive : bool, default True
         Controls handling of items belonging to multiple groups:
@@ -1059,9 +1056,9 @@ def split_by(tags: List[Tag], query: QueryObject, exclusive: bool = True) -> Que
 
     Returns
     -------
-    Query
+    QueryObject
         A new query yielding (item, decorator) tuples where item is from
-        the original query and decorator is the matched tag/enum group.
+        the original query and decorator is the matched group.
 
     Examples
     --------
@@ -1108,12 +1105,12 @@ def filter(filter: Callable[[Any], bool], query: QueryObject) -> QueryObject:
     filter : Callable[[Any], bool]
         A function or lambda that takes a single object as argument.
         Must return True to include the object, False to exclude it.
-    query : Query
+    query : QueryObject
         A query to filter.
 
     Returns
     -------
-    Query
+    QueryObject
         A query that only yields items for which filter function returned True.
 
     Examples
@@ -1144,21 +1141,13 @@ def filter(filter: Callable[[Any], bool], query: QueryObject) -> QueryObject:
     ...         lambda city: match_tokens_in_order(city.name, search_phrase),
     ...         results
     ...     )
-
-    Complex conditions:
-    
-    >>> # Filter users by multiple criteria
-    >>> active_adults = dbzero.filter(
-    ...     lambda user: user.age >= 18 and user.status == "active",
-    ...     dbzero.find(User)
-    ... )
     """
     ...
 
 # State and statistics functions
 
 def get_state_num(prefix: Optional[str] = None, finalized: bool = False) -> int:
-    """Return the state number for a given data prefix as a version identifier.
+    """Return the state number for a given data prefix.
 
     The state number increments with each transaction commit, crucial for tracking
     changes, creating snapshots of specific states, and synchronization tasks.
@@ -1205,7 +1194,7 @@ def get_state_num(prefix: Optional[str] = None, finalized: bool = False) -> int:
 # Snapshot functions
 
 def snapshot(state_spec: Optional[Union[int, Dict[str, int]]] = None) -> Snapshot:
-    """Create a read-only, point-in-time view of the prefix for time-travel queries.
+    """Get a read-only snapshot view of dbzero state.
 
     Essential for isolating long-running queries from concurrent writes, analyzing
     past states, or ensuring consistent state for complex operations.
@@ -1252,7 +1241,7 @@ def snapshot(state_spec: Optional[Union[int, Dict[str, int]]] = None) -> Snapsho
     ...
 
 def get_snapshot_of(obj: Memo, /) -> Snapshot:
-    """Retrieve the Snapshot instance from which a given object originates.
+    """Get the Snapshot instance from which a given object originates.
 
     Parameters
     ----------
@@ -1281,7 +1270,7 @@ def get_snapshot_of(obj: Memo, /) -> Snapshot:
     ...
 
 def is_memo(obj: Any, /) -> bool:
-    """Check if a given object is a dbzero memo class or instance of one.
+    """Check if a given object is a dbzero memo class or memo instance.
 
     Parameters
     ----------
@@ -1300,29 +1289,29 @@ def is_memo(obj: Any, /) -> bool:
     Check memo class and instance:
     
     >>> @dbzero.memo
-    ... class MemoizedClass:
+    ... class MemoClass:
     ...     def __init__(self, value):
     ...         self.value = value
     >>>
-    >>> memo_instance = MemoizedClass(42)
-    >>> assert dbzero.is_memo(MemoizedClass) == True      # Class type
-    >>> assert dbzero.is_memo(memo_instance) == True      # Instance
+    >>> memo_instance = MemoClass(42)
+    >>> assert dbzero.is_memo(MemoClass) is True      # Class type
+    >>> assert dbzero.is_memo(memo_instance) is True  # Instance
 
     Check non-memo objects:
     
     >>> class RegularClass:
     ...     pass
-    >>> assert dbzero.is_memo(RegularClass) == False
-    >>> assert dbzero.is_memo(123) == False
-    >>> assert dbzero.is_memo("hello") == False
-    >>> assert dbzero.is_memo([1, 2, 3]) == False
+    >>> assert dbzero.is_memo(RegularClass) is False
+    >>> assert dbzero.is_memo(123) is False
+    >>> assert dbzero.is_memo("hello") is False
+    >>> assert dbzero.is_memo([1, 2, 3]) is False
 
     Check other dbzero types:
     
     >>> Colors = dbzero.enum("Colors", ["RED", "GREEN", "BLUE"])
     >>> managed_list = dbzero.list([1, 2, 3])
-    >>> assert dbzero.is_memo(Colors.RED) == False
-    >>> assert dbzero.is_memo(managed_list) == False
+    >>> assert dbzero.is_memo(Colors.RED) is False
+    >>> assert dbzero.is_memo(managed_list) is False
     """
     ...
 
@@ -1355,8 +1344,8 @@ def is_singleton(obj: Any, /) -> bool:
 
     Check singleton status:
     
-    >>> assert dbzero.is_singleton(user_alice) == False
-    >>> assert dbzero.is_singleton(app_settings) == True
+    >>> assert dbzero.is_singleton(user_alice) is False
+    >>> assert dbzero.is_singleton(app_settings) is True
     """
     ...
 
@@ -1420,7 +1409,7 @@ def is_enum_value(value: Any, /) -> bool:
     ...
 
 def get_schema(cls: type, /) -> Dict[str, Dict[str, Any]]:
-    """Introspect all in-memory instances of a @dbzero.memo class to generate dynamic schema.
+    """Introspect all in-memory instances of a @dbzero.memo class to deduce dynamic schema.
 
     Provides current overview of attributes and their most common data types
     across all objects of the class. Schema adapts to runtime changes.
@@ -1474,7 +1463,7 @@ def get_schema(cls: type, /) -> Dict[str, Dict[str, Any]]:
     ...
 
 def get_config() -> Dict[str, Any]:
-    """Retrieve the active configuration settings for the dbzero instance.
+    """Retrieve the active configuration settings for dbzero.
 
     Get the configuration currently in use, including both parameters
     provided during dbzero.init() and default values for unspecified parameters.
@@ -1490,7 +1479,7 @@ def get_config() -> Dict[str, Any]:
     Raises
     ------
     Exception
-        If called after the dbzero instance has been closed with dbzero.close().
+        If called after the dbzero has been closed with dbzero.close().
 
     Examples
     --------
@@ -1756,7 +1745,7 @@ def weak_proxy(obj: Memo) -> MemoWeakProxy:
     ...
 
 def expired(proxy_object: MemoWeakProxy) -> bool:
-    """Check if the target object of a dbzero.weak_proxy has been garbage-collected.
+    """Check if a weak reference proxy has expired (the object was garbage collected)
 
     Used to determine if the original object still exists and can be accessed.
 
