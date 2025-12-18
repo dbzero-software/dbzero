@@ -22,18 +22,8 @@ on:
         default: '3.12'
 
 jobs:
-  build-wheel:
-    if: github.event_name == 'workflow_dispatch'
-    uses: ./.github/workflows/build-windows-wheel.yml
-    with:
-      python-version: ${{ inputs.python-version }}
-      python-tag: ${{ inputs.python-version == '3.9' && '39' || inputs.python-version == '3.10' && '310' || inputs.python-version == '3.11' && '311' || inputs.python-version == '3.12' && '312' || inputs.python-version == '3.13' && '313' || '314' }}
-      architecture: "AMD64"
-
   test-windows:
     runs-on: windows-latest
-    needs: [build-wheel]
-    if: always() && (needs.build-wheel.result == 'success' || needs.build-wheel.result == 'skipped')
     env:
       REQUIREMENTS_FILE: ${{ inputs.python-version == '3.9' && 'requirements.3.9.txt' || 'requirements.txt' }}
     steps:
