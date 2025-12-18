@@ -147,13 +147,15 @@ jobs:
           find ./dist/ -name "*.tar.gz" -exec cp {} ./upload/ \;
           ls -la ./upload/
       
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          repository-url: https://nexus.dbzero.io/repository/dbzero_hosted/
-          user: ${{ secrets.PYPI_API_USERNAME }}
-          password: ${{ secrets.PYPI_API_PASSWORD }}
-          packages-dir: ./upload/
-          verbose: true
-          skip-existing: true
-          attestations: false
+      - name: Install push tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install twine
+
+
+      - name: Upload to PyPI
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+        run: |
+          twine upload dist/*
