@@ -14,27 +14,27 @@
 
 dbzero implements the **DISTIC memory** model:
 - **D**urable - Data persists across application restarts
-- **I**nfinite - Work with data as if memory constraints don't exist
+- **I**nfinite - Work with data as if memory constraints don't exist (e.g. create lists, dicts or sets with billions of elements)
 - **S**hared - Multiple processes can access and share the same data
 - **T**ransactions - Transaction support for data integrity
 - **I**solated - Reads execute against a consistent point-in-time snapshot
 - **C**omposable - Plug in multiple prefixes (memory partitions) on demand and access other apps’ data by simply attaching their prefix.
 
-With dbzero, you don’t need separate pieces like a database, ORM, or cache layer. Your app becomes easier to build and it runs faster, because there are no trips to a database at all, memory is used better, and you can shape your data to fit your problem.
+With dbzero, you don’t need separate pieces like a database, ORM, or cache layer. Your app becomes easier to build and it runs faster, because there are no roundtrips to a database, memory is used better, and you can shape your data to fit your problem.
 
 ## Key Platform Features
 
 **dbzero** provides the reliability of a traditional database system with modern capabilities and extra features on top.
 
-- **Persistence**: Application objects (classes and common structures like `list`, `dict`, `set`, etc.) are automatically persisted to the underlying storage medium (e.g. a local file).
+- **Persistence**: Application objects (classes and common structures like `list`, `dict`, `set`, etc.) are automatically persisted (e.g. to a local or network-attached file)
 - **Efficient caching**: Only the data actually accessed is retrieved and cached. For example, if a list has 1 million elements but only 10 are accessed, only those 10 are loaded.
 - **Constrained memory usage**: You can define memory limits for the process to control RAM consumption.
-- **Serializable consistency**: Data changes are immediately visible to readers, maintaining a consistent view.
-- **Transactions**: Make atomic changes using the `with dbzero.atomic():` context manager.
+- **Serializable consistency**: Data changes can be read immediately, maintaining a consistent view.
+- **Transactions**: Make atomic, exception-safe changes using the `with dbzero.atomic():` context manager.
 - **Snapshots & Time Travel**: Query data as it existed at a specific point in the past. This enables tracking of data changes and simplify auditing.
 - **Tags**: Tag objects and use tags to filter or retrieve data.
-- **Indexing**: Define imperative indexes that can be dynamically created and updated.
-- **Data composability**: Combine data from different apps, processes, or servers and access it through a unified interface.
+- **Indexing**: Define lightweight, imperative indexes that can be dynamically created and updated.
+- **Data composability**: Combine data from different apps, processes, or servers and access it through a unified interface - i.e. your application’s objects, methods and functions.
 - **UUID support**: All objects are automatically assigned a universally unique identifier, allowing to always reference them directly.
 - **Custom data models** - Unlike traditional databases, dbzero allows you to define custom data structures to match your domain's needs.
 
