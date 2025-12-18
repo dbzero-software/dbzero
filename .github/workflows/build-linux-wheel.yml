@@ -79,15 +79,14 @@ jobs:
           rm -f .gitignore
           git add . && git commit -m "Update meson files"
       
-      - name: Install build tools
-        run: pip install build
-      
-      - name: Build wheel
-        run: python3 -m build ${{ inputs.build-args }}
+      - name: Build manylinux wheels
+        uses: pypa/cibuildwheel@v2.21
         env:
+          CIBW_BUILD: cp${{ inputs.python-version }}-manylinux_x86_64
           CIBW_SKIP: pp* cp36-* *-musllinux*
-          CIBW_ARCHS_MACOS: x86_64 arm64
-          CIBW_ARCHS_LINUX: x86_64 aarch64
+          CIBW_ARCHS_LINUX: x86_64
+          CIBW_MANYLINUX_X86_64_IMAGE: manylinux2014
+          CIBW_BUILD_VERBOSITY: 1
       
       - uses: actions/upload-artifact@v4
         with:
