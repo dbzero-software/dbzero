@@ -6,6 +6,10 @@
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
+> "If we had infinite memory in our laptop, we'd have no need for clumsy databases. Instead, we could just use our objects whenever we liked."
+> 
+> — Harry Percival and Bob Gregory, *Architecture Patterns with Python*
+
 ## Overview
 
 **dbzero** lets you code as if you have infinite memory. Inspired by a thought experiment from *Architecture Patterns with Python* by Harry Percival and Bob Gregory, dbzero handles the complexities of data management in the background while you work with simple Python objects.
