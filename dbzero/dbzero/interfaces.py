@@ -201,6 +201,35 @@ class Snapshot:
         -------
         Memo
             The requested Memo object instance.
+
+        Raises
+        ------
+        Exception
+            If the object cannot be found or type validation fails.
+        """
+        ...
+
+    def exists(identifier: Union[str, type], expected_type: Optional[type] = None, prefix: Optional[str] = None) -> bool:
+        """Check if an identifier points to a valid dbzero object or an existing singleton instance
+
+        Parameters
+        ----------
+        identifier : str or type
+            The identifier for object to check for.
+            
+            * str: Check for object with its unique identifier
+            * type: Check for instance of this singleton type
+        expected_type : type, optional
+            Optional expected type when checking by UUID.
+            Verifies the found object is an instance of this type.
+        prefix : str, optional
+            Optional prefix name to search within. Defaults to currently active prefix.
+            Only used when checking singleton types.
+
+        Returns
+        -------
+        bool
+            True if the object exists (and matches type if specified), False otherwise.
         """
         ...
 
