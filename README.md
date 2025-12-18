@@ -306,6 +306,18 @@ This project is licensed under the GNU Affero General Public License v3.0 (AGPLv
 
 For attribution details, see [NOTICE](./NOTICE).
 
+## Support
+
+- **Documentation**: [docs.dbzero.io](https://docs.dbzero.io)
+- **Email**: info@dbzero.io
+- **Issues**: https://github.com/dbzero-software/dbzero/issues
+
+## Feedback
+
+We'd love to hear how you're using dbzero and what features you'd like to see! Your input helps us make dbzero better for everyone.
+
+The best way to share your thoughts is through our **Discord server**: [Join us on Discord](https://discord.gg/9Wn8TAYEPu)
+
 ## Commercial Support
 
 Need help building large-scale solutions with dbzero?
@@ -318,12 +330,6 @@ We offer:
 - Performance tuning
 
 Contact us at: **info@dbzero.io**
-
-## Support
-
-- **Documentation**: [docs.dbzero.io](https://docs.dbzero.io)
-- **Email**: info@dbzero.io
-- **Issues**: https://github.com/dbzero-software/dbzero/issues
 
 ---
 
