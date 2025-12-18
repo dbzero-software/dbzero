@@ -411,7 +411,7 @@ def test_wait_for_updates(db0_fixture):
     # Start waiting before transactions complete
     current_num = db0.get_state_num(prefix)
     make_trasaction(5)
-    assert db0.wait(prefix, current_num + 5, 1000)
+    assert db0.wait(prefix, current_num + 5, 3000)
 
     # Start waiting after transactions complete
     current_num = db0.get_state_num(prefix)

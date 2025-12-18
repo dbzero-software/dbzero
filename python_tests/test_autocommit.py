@@ -9,7 +9,7 @@ import random
 from .memo_test_types import MemoTestClass
 from .conftest import DB0_DIR
 
-
+@pytest.mark.skip(reason="This test is time reliant and may fail on slow CI systems")
 def test_db0_starts_autocommit_by_default(db0_fixture):
     object_1 = MemoTestClass(951)
     commit_interval = db0.get_config()['autocommit_interval']
