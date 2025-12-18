@@ -82,7 +82,7 @@ jobs:
       - name: Build manylinux wheels
         uses: pypa/cibuildwheel@v2.21
         env:
-          CIBW_BUILD: cp${{ inputs.python-version }}-manylinux_x86_64
+          CIBW_BUILD: cp${{ replace(inputs.python-version, '.', '') }}-manylinux_x86_64
           CIBW_SKIP: pp* cp36-* *-musllinux*
           CIBW_ARCHS_LINUX: x86_64
           CIBW_MANYLINUX_X86_64_IMAGE: manylinux2014
