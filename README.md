@@ -18,7 +18,7 @@ dbzero implements the **DISTIC memory** model:
 - **D**urable - Data persists across application restarts
 - **I**nfinite - Work with data as if memory constraints don't exist (e.g. create lists, dicts or sets with billions of elements)
 - **S**hared - Multiple processes can access and share the same data
-- **T**ransactions - Transaction support for data integrity
+- **T**ransactional - Transaction support for data integrity
 - **I**solated - Reads execute against a consistent point-in-time snapshot
 - **C**omposable - Plug in multiple prefixes (memory partitions) on demand and access other apps’ data by simply attaching their prefix.
 
