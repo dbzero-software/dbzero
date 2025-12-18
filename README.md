@@ -1,8 +1,14 @@
-# dbzero
+<p align="center">
+  <img src="assets/dbzero-logo.png" alt="dbzero logo" width="400"/>
+</p>
 
 **A state management system for Python 3.x that unifies your application's business logic, data persistence, and caching into a single, efficient layer.**
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+
+> "If we had infinite memory in our laptop, we'd have no need for clumsy databases. Instead, we could just use our objects whenever we liked."
+> 
+> — Harry Percival and Bob Gregory, *Architecture Patterns with Python*
 
 ## Overview
 
@@ -10,27 +16,27 @@
 
 dbzero implements the **DISTIC memory** model:
 - **D**urable - Data persists across application restarts
-- **I**nfinite - Work with data as if memory constraints don't exist
+- **I**nfinite - Work with data as if memory constraints don't exist (e.g. create lists, dicts or sets with billions of elements)
 - **S**hared - Multiple processes can access and share the same data
-- **T**ransactions - Transaction support for data integrity
-- **I**solated - Operations are isolated and thread-safe
-- **C**omposable - A single process can integrate multiple memory partitions (prefixes) to suit its specific requirements
+- **T**ransactional - Transaction support for data integrity
+- **I**solated - Reads performed against a consistent point-in-time snapshot
+- **C**omposable - Plug in multiple prefixes (memory partitions) on demand and access other apps’ data by simply attaching their prefix.
 
-The result is a simplified application stack that eliminates the need for separate databases, ORMs and caching layers. This reduces architectural complexity and development time, while offering significant performance benefits, due to reduced serialization overhead and cache locality.
+With dbzero, you don’t need separate pieces like a database, ORM, or cache layer. Your app becomes easier to build and it runs faster, because there are no roundtrips to a database, memory is used better, and you can shape your data to fit your problem.
 
 ## Key Platform Features
 
 **dbzero** provides the reliability of a traditional database system with modern capabilities and extra features on top.
 
-- **Persistence**: Application objects (classes and common structures like `list`, `dict`, `set`, etc.) are automatically persisted to the underlying storage medium (e.g. a local file).
+- **Persistence**: Application objects (classes and common structures like `list`, `dict`, `set`, etc.) are automatically persisted (e.g. to a local or network-attached file)
 - **Efficient caching**: Only the data actually accessed is retrieved and cached. For example, if a list has 1 million elements but only 10 are accessed, only those 10 are loaded.
 - **Constrained memory usage**: You can define memory limits for the process to control RAM consumption.
-- **Serializable consistency**: Data changes are immediately visible to readers, maintaining a consistent view.
-- **Transactions**: Make atomic changes using the `with dbzero.atomic():` context manager.
+- **Serializable consistency**: Data changes can be read immediately, maintaining a consistent view.
+- **Transactions**: Make atomic, exception-safe changes using the `with dbzero.atomic():` context manager.
 - **Snapshots & Time Travel**: Query data as it existed at a specific point in the past. This enables tracking of data changes and simplify auditing.
 - **Tags**: Tag objects and use tags to filter or retrieve data.
-- **Indexing**: Define imperative indexes that can be dynamically created and updated.
-- **Data composability**: Combine data from different apps, processes, or servers and access it through a unified interface.
+- **Indexing**: Define lightweight, imperative indexes that can be dynamically created and updated.
+- **Data composability**: Combine data from different apps, processes, or servers and access it through a unified interface - i.e. your application’s objects, methods and functions.
 - **UUID support**: All objects are automatically assigned a universally unique identifier, allowing to always reference them directly.
 - **Custom data models** - Unlike traditional databases, dbzero allows you to define custom data structures to match your domain's needs.
 
@@ -187,18 +193,18 @@ with db0.snapshot(state) as snap:
 Organize data into independent, isolated partitions:
 
 ```python
-@db0.memo(singleton=True, prefix="settings-prefix")
+@db0.memo(singleton=True, prefix="/my-org/my-app/settings")
 class AppSettings:
     def __init__(self, theme: str):
         self.theme = theme
 
-@db0.memo(prefix="app-data-prefix"))
+@db0.memo(prefix="/my-org/my-app/data")
 class Note:
     def __init__(self, content: str):
         self.content = content
 
-settings = AppSettings(theme="dark") # Data goes to "settings-prefix.db0"
-note = Note("Hello dbzero!")         # Data goes to "app-data-prefix.db0"
+settings = AppSettings(theme="dark") # Data goes to "settings.db0"
+note = Note("Hello dbzero!")         # Data goes to "data.db0"
 ```
 
 ### Indexes
@@ -300,23 +306,30 @@ This project is licensed under the GNU Affero General Public License v3.0 (AGPLv
 
 For attribution details, see [NOTICE](./NOTICE).
 
-## Commercial Support
-
-Need help building large-scale solutions with dbzero?
-
-We offer:
-- Custom UI and admin tools
-- System integrations
-- Expert consulting and architectural reviews
-- Performance tuning
-
-Contact us at: **info@dbzero.io**
-
 ## Support
 
 - **Documentation**: [docs.dbzero.io](https://docs.dbzero.io)
 - **Email**: info@dbzero.io
 - **Issues**: https://github.com/dbzero-software/dbzero/issues
+
+## Feedback
+
+We'd love to hear how you're using dbzero and what features you'd like to see! Your input helps us make dbzero better for everyone.
+
+The best way to share your thoughts is through our **Discord server**: [Join us on Discord](https://discord.gg/9Wn8TAYEPu)
+
+## Commercial Support
+
+Need help building large-scale solutions with dbzero?
+
+We offer:
+- Tools for data export and manipulation
+- Tools for hosting rich UI applications on top of your existing dbzero codebase
+- System integrations
+- Expert consulting and architectural reviews
+- Performance tuning
+
+Contact us at: **info@dbzero.io**
 
 ---
 
