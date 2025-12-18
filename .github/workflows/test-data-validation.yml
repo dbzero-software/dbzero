@@ -75,13 +75,7 @@ jobs:
           $wheel = Get-ChildItem -Path dist/*.whl | Select-Object -First 1
           pip install $wheel.FullName
       
-      - name: Create test data (Linux/macOS)
-        if: runner.os != 'Windows'
-        run: |
-          python python_tests/scripts/create_test_data.py --out_dir ./test-data-${{ matrix.os-name }}
-      
-      - name: Create test data (Windows)
-        if: runner.os == 'Windows'
+      - name: Create test data
         run: |
           python python_tests/scripts/create_test_data.py --out_dir ./test-data-${{ matrix.os-name }}
       
@@ -139,16 +133,10 @@ jobs:
           name: test-data-${{ matrix.data-source }}
           path: test-data-${{ matrix.data-source }}/
       
-      - name: Validate test data (Linux/macOS)
-        if: runner.os != 'Windows'
+      - name: Validate test data
         run: |
-          python -m dbzero_ce.python_tests.validate_test_data --input_dir ./test-data-${{ matrix.data-source }}
+          python python_tests/scripts/validate_test_data.py --input_dir ./test-data-${{ matrix.data-source }}
       
-      - name: Validate test data (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          python -m dbzero_ce.python_tests.validate_test_data --input_dir ./test-data-${{ matrix.data-source }}
-
   cleanup:
     needs: validate-test-data
     if: always()
