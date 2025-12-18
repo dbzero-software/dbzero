@@ -311,7 +311,8 @@ For attribution details, see [NOTICE](./NOTICE).
 Need help building large-scale solutions with dbzero?
 
 We offer:
-- Custom UI and admin tools
+- Tools for data export and manipulation
+- Tools for hosting rich UI applications on top of your existing dbzero codebase
 - System integrations
 - Expert consulting and architectural reviews
 - Performance tuning
