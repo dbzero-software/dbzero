@@ -1,5 +1,7 @@
 <p align="center">
-  <img src="assets/dbzero-logo.png" alt="dbzero logo" width="400"/>
+  <a href="https://dbzero.io">
+    <img src="assets/dbzero-logo.png" alt="dbzero logo" width="400"/>
+  </a>
 </p>
 
 **A state management system for Python 3.x that unifies your application's business logic, data persistence, and caching into a single, efficient layer.**
@@ -260,6 +262,7 @@ Our experience has proven that **dbzero** fits many real-life use cases, which i
 - **Data Processing Pipelines** - Efficient and simple data preparation
 - **Event-Driven Systems** - Capturing data changes and time travel for auditing
 - **AI Applications** - Simplified state management for AI agents and workflows
+- **Something Else?** - Built something cool with dbzero? We'd love to see what you're working on—share it on our [Discord server](https://discord.gg/9Wn8TAYEPu)!
 
 ## Why dbzero?
 
