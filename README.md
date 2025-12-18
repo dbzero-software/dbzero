@@ -260,6 +260,7 @@ Our experience has proven that **dbzero** fits many real-life use cases, which i
 - **Data Processing Pipelines** - Efficient and simple data preparation
 - **Event-Driven Systems** - Capturing data changes and time travel for auditing
 - **AI Applications** - Simplified state management for AI agents and workflows
+- **Something Else?** - Built something cool with dbzero? We'd love to see what you're working on—share it on our [Discord server](https://discord.gg/9Wn8TAYEPu)!
 
 ## Why dbzero?
 
