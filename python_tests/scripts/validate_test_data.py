@@ -18,7 +18,7 @@ def validate_test_data(test_data):
     elif len(test_data.list) != 10:
         errors.append(f"list has {len(test_data.list)} elements, expected 10")
     else:
-        print("✓ list: 10 elements")
+        print("list: 10 elements")
         # Check for mixed types
         has_int = any(isinstance(item, int) for item in test_data.list)
         has_str = any(isinstance(item, str) for item in test_data.list)
@@ -32,7 +32,7 @@ def validate_test_data(test_data):
     elif len(test_data.dict) != 10:
         errors.append(f"dict has {len(test_data.dict)} elements, expected 10")
     else:
-        print("✓ dict: 10 elements")
+        print("dict: 10 elements")
         expected_keys = [f"key{i}" for i in range(1, 11)]
         missing_keys = [k for k in expected_keys if k not in test_data.dict]
         if missing_keys:
@@ -44,7 +44,7 @@ def validate_test_data(test_data):
     elif len(test_data.set) != 10:
         errors.append(f"set has {len(test_data.set)} elements, expected 10")
     else:
-        print("✓ set: 10 elements")
+        print("set: 10 elements")
     
     # Validate tuple
     if not hasattr(test_data, 'tuple'):
@@ -52,7 +52,7 @@ def validate_test_data(test_data):
     elif len(test_data.tuple) != 10:
         errors.append(f"tuple has {len(test_data.tuple)} elements, expected 10")
     else:
-        print("✓ tuple: 10 elements")
+        print("tuple: 10 elements")
     
     # Validate byte_array
     if not hasattr(test_data, 'byte_array'):
@@ -60,7 +60,7 @@ def validate_test_data(test_data):
     elif len(test_data.byte_array) != 10:
         errors.append(f"byte_array has {len(test_data.byte_array)} bytes, expected 10")
     else:
-        print("✓ byte_array: 10 bytes")
+        print("byte_array: 10 bytes")
     
     # Validate large_list
     if not hasattr(test_data, 'large_list'):
@@ -68,7 +68,7 @@ def validate_test_data(test_data):
     elif len(test_data.large_list) != 10000:
         errors.append(f"large_list has {len(test_data.large_list)} elements, expected 10000")
     else:
-        print("✓ large_list: 10000 elements")
+        print("large_list: 10000 elements")
         
         # Check first few objects in large_list
         sample_size = min(10, len(test_data.large_list))
@@ -86,7 +86,7 @@ def validate_test_data(test_data):
                 warnings.append(f"large_list[{i}] missing 'timestamp' attribute")
         
         if not warnings or len([w for w in warnings if 'large_list' in w]) == 0:
-            print(f"  ✓ Sample validation of first {sample_size} objects passed")
+            print(f"  Sample validation of first {sample_size} objects passed")
     
     return errors, warnings
 
@@ -154,16 +154,16 @@ if __name__ == "__main__":
     # Report results
     print("\n" + "="*50)
     if errors:
-        print(f"\n❌ VALIDATION FAILED with {len(errors)} error(s):")
+        print(f"\nVALIDATION FAILED with {len(errors)} error(s):")
         for error in errors:
             print(f"  - {error}")
         exit_code = 1
     else:
-        print("\n✓ VALIDATION PASSED - All required data present")
+        print("\nVALIDATION PASSED - All required data present")
         exit_code = 0
     
     if warnings:
-        print(f"\n⚠ {len(warnings)} warning(s):")
+        print(f"\n{len(warnings)} warning(s):")
         for warning in warnings:
             print(f"  - {warning}")
     
