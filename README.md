@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/dbzero-logo.png" alt="dbzero logo" width="400"/>
+</p>
+
 # dbzero
 
 **A state management system for Python 3.x that unifies your application's business logic, data persistence, and caching into a single, efficient layer.**
@@ -13,10 +17,10 @@ dbzero implements the **DISTIC memory** model:
 - **I**nfinite - Work with data as if memory constraints don't exist
 - **S**hared - Multiple processes can access and share the same data
 - **T**ransactions - Transaction support for data integrity
-- **I**solated - Operations are isolated and thread-safe
-- **C**omposable - A single process can integrate multiple memory partitions (prefixes) to suit its specific requirements
+- **I**solated - Reads execute against a consistent point-in-time snapshot
+- **C**omposable - Plug in multiple prefixes (memory partitions) on demand and access other apps’ data by simply attaching their prefix.
 
-The result is a simplified application stack that eliminates the need for separate databases, ORMs and caching layers. This reduces architectural complexity and development time, while offering significant performance benefits, due to reduced serialization overhead and cache locality.
+With dbzero, you don’t need separate pieces like a database, ORM, or cache layer. Your app becomes easier to build and it runs faster, because there are no trips to a database at all, memory is used better, and you can shape your data to fit your problem.
 
 ## Key Platform Features
 
