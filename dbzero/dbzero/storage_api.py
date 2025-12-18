@@ -9,7 +9,7 @@ from .dbzero import _get_prefixes, _get_current_prefix, _get_prefix_of, _get_mut
 PrefixMetaData = namedtuple("PrefixMetaData", ["name", "uuid"])
 
 def get_prefixes() -> Iterator[PrefixMetaData]:
-    """Discover and return all available prefixes from the configured dbzero storage location.
+    """Return all prefixes accessible from the current context.
 
     Returns
     -------
@@ -39,7 +39,7 @@ def get_prefixes() -> Iterator[PrefixMetaData]:
 
 
 def get_mutable_prefixes() -> Iterator[PrefixMetaData]:
-    """Return all currently open prefixes that can be modified (read-write mode).
+    """Return prefixes currently open in read-write mode.
 
     Returns
     -------

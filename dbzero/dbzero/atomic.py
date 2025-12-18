@@ -50,7 +50,7 @@ class AtomicManager:
 
 
 def atomic() -> AtomicManager:
-    """Create a context manager to group multiple mutating operations into a single indivisible transaction.
+    """Open a context manager to group multiple mutating operations into a single indivisible transaction.
 
     This function ensures that all modifications within  the `with` block are applied together, or none are applied at all.
     If the block completes successfully, all changes are merged into the current 

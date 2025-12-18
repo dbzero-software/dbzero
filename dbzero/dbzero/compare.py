@@ -53,18 +53,18 @@ def compare(obj_1: Memo, obj_2: Memo, tags: Optional[List[Tag]] = None) -> bool:
     >>> 
     >>> # Default comparison ignores tags and returns True
     >>> # because their content is the same.
-    >>> assert dbzero.compare(obj_A, obj_B) == True
+    >>> assert dbzero.compare(obj_A, obj_B) is True
     >>> 
     >>> # Including the 'featured' tag in the comparison
     >>> # returns False because obj_A lacks the tag.
-    >>> assert dbzero.compare(obj_A, obj_B, tags=['featured']) == False
+    >>> assert dbzero.compare(obj_A, obj_B, tags=['featured']) is False
     >>> 
     >>> # Now add the tag to obj_A as well
     >>> dbzero.tags(obj_A).add("featured")
     >>> dbzero.commit()
     >>> 
     >>> # The comparison now returns True
-    >>> assert dbzero.compare(obj_A, obj_B, tags=['featured']) == True
+    >>> assert dbzero.compare(obj_A, obj_B, tags=['featured']) is True
     """
     if _compare(obj_1, obj_2):
         # if objects are identical then also compare tags

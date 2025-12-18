@@ -541,3 +541,8 @@ def test_append_to_random_lists(db0_autocommit_fixture):
             print(f"Prefix size = {db0.get_storage_stats()['prefix_size']} bytes")
     
     db0.commit()
+
+
+def test_list_tuple_indexed_access(db0_fixture):
+    db0_list = db0.list([1, 2, 3, 5, 6, 7, 8])
+    assert db0_list[(1, 3, 4)] == [2, 5, 6]
