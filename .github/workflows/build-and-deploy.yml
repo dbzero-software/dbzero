@@ -118,7 +118,7 @@ jobs:
           git config --global user.name "CI Builder"
           rm -f .gitignore
           git add . && git commit -m "Update meson files for build"  
-      - run: python -m pip install build meson  test-wheels-macos
+      - run: python -m pip install build meson
       - run: python -m build --sdist
       - uses: actions/upload-artifact@v4
         with:
