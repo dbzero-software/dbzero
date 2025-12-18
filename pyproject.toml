@@ -10,6 +10,7 @@ readme = 'README.md'
 requires-python = '>=3.9'
 license = {file = 'LICENSE'}
 authors = [
+     { name = 'DBZero Software sp. z o.o', email='info@dbzer.io' },
 ]
 dependencies = [
     'fasteners==0.19'
@@ -18,10 +19,19 @@ dependencies = [
 classifiers = [
     'Programming Language :: Python :: 3',
     'Programming Language :: Python :: 3 :: Only',
+    'Programming Language :: Python :: 3.09',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
+    'Programming Language :: Python :: 3.12',
+    'Programming Language :: Python :: 3.13',
+    'Programming Language :: Python :: 3.14',
 ]
 
-[tool.semantic_release.remote]
-password = { env = "GH_TOKEN" }
+[project.urls]
+homepage = 'https://dbzero.io/'
+documentation = 'https://docs.dbzero.io/'
+repository = 'https://github.com/dbzero-software/dbzero'
+
 
 [tool.pytest.ini_options]
 testpaths = ["python_tests"]

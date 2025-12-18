@@ -151,7 +151,7 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           repository-url: https://nexus.dbzero.io/repository/dbzero_hosted/
-          user: admin
+          user: ${{ secrets.PYPI_API_USERNAME }}
           password: ${{ secrets.PYPI_API_PASSWORD }}
           packages-dir: ./upload/
           verbose: true
