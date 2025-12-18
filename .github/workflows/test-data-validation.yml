@@ -1,0 +1,192 @@
+name: Test Data Validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      python-version:
+        description: 'Python version to test'
+        required: true
+        type: choice
+        options:
+          - '3.9'
+          - '3.10'
+          - '3.11'
+          - '3.12'
+          - '3.13'
+        default: '3.12'
+
+jobs:
+  build-wheels:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python ${{ inputs.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python-version }}
+      
+      - name: Generate meson files (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          python3 scripts/generate_meson.py ./src/dbzero/ core
+          python3 scripts/generate_meson_tests.py tests/
+          python3 scripts/generate_meson_dbzero.py dbzero/
+      
+      - name: Generate meson files (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          python scripts/generate_meson.py ./src/dbzero/ core
+          python scripts/generate_meson_tests.py tests/
+          python scripts/generate_meson_dbzero.py dbzero/
+      
+      - name: Configure git (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          git config --global user.email "ci@example.com"
+          git config --global user.name "CI Builder"
+          rm -f .gitignore
+          git add . && git commit -m "Update meson files"
+      
+      - name: Configure git (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          git config --global user.email "ci@example.com"
+          git config --global user.name "CI Builder"
+          if (Test-Path .gitignore) { Remove-Item .gitignore }
+          git add . && git commit -m "Update meson files"
+      
+      - name: Install build tools
+        run: pip install build
+      
+      - name: Build wheel
+        run: python -m build
+      
+      - name: Upload wheel
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheel-${{ runner.os }}
+          path: dist/*.whl
+          retention-days: 1
+
+  create-test-data:
+    needs: build-wheels
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python ${{ inputs.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python-version }}
+      
+      - name: Download wheel
+        uses: actions/download-artifact@v4
+        with:
+          name: wheel-${{ runner.os }}
+          path: dist/
+      
+      - name: Install wheel (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          pip install dist/*.whl
+      
+      - name: Install wheel (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          $wheel = Get-ChildItem -Path dist/*.whl | Select-Object -First 1
+          pip install $wheel.FullName
+      
+      - name: Create test data (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          python python_tests/scripts/create_test_data.py --out_dir ./test-data-${{ runner.os }}
+      
+      - name: Create test data (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          python python_tests/scripts/create_test_data.py --out_dir ./test-data-${{ runner.os }}
+      
+      - name: Upload test data
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-data-${{ runner.os }}
+          path: test-data-${{ runner.os }}/
+          retention-days: 1
+
+  validate-test-data:
+    needs: create-test-data
+    strategy:
+      matrix:
+        validator-os: [ubuntu-latest, macos-latest, windows-latest]
+        data-source: [Linux, macOS, Windows]
+    runs-on: ${{ matrix.validator-os }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python ${{ inputs.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python-version }}
+      
+      - name: Download wheel for validator OS
+        uses: actions/download-artifact@v4
+        with:
+          name: wheel-${{ matrix.validator-os }}
+          path: dist/
+      
+      - name: Install wheel (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          pip install dist/*.whl
+      
+      - name: Install wheel (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          $wheel = Get-ChildItem -Path dist/*.whl | Select-Object -First 1
+          pip install $wheel.FullName
+      
+      - name: Download test data from ${{ matrix.data-source }}
+        uses: actions/download-artifact@v4
+        with:
+          name: test-data-${{ matrix.data-source }}
+          path: test-data-${{ matrix.data-source }}/
+      
+      - name: Validate test data (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          python -m dbzero_ce.python_tests.validate_test_data --input_dir ./test-data-${{ matrix.data-source }}
+      
+      - name: Validate test data (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          python -m dbzero_ce.python_tests.validate_test_data --input_dir ./test-data-${{ matrix.data-source }}
+
+  cleanup:
+    needs: validate-test-data
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete wheel artifacts
+        uses: geekyeggo/delete-artifact@v5
+        with:
+          name: |
+            wheel-Linux
+            wheel-macOS
+            wheel-Windows
+          failOnError: false
+      
+      - name: Delete test data artifacts
+        uses: geekyeggo/delete-artifact@v5
+        with:
+          name: |
+            test-data-Linux
+            test-data-macOS
+            test-data-Windows
+          failOnError: false
