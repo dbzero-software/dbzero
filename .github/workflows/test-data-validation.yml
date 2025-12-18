@@ -16,67 +16,39 @@ on:
         default: '3.12'
 
 jobs:
-  build-wheels:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Python ${{ inputs.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ inputs.python-version }}
-      
-      - name: Generate meson files (Linux/macOS)
-        if: runner.os != 'Windows'
-        run: |
-          python3 scripts/generate_meson.py ./src/dbzero/ core
-          python3 scripts/generate_meson_tests.py tests/
-          python3 scripts/generate_meson_dbzero.py dbzero/
-      
-      - name: Generate meson files (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          python scripts/generate_meson.py ./src/dbzero/ core
-          python scripts/generate_meson_tests.py tests/
-          python scripts/generate_meson_dbzero.py dbzero/
-      
-      - name: Configure git (Linux/macOS)
-        if: runner.os != 'Windows'
-        run: |
-          git config --global user.email "ci@example.com"
-          git config --global user.name "CI Builder"
-          rm -f .gitignore
-          git add . && git commit -m "Update meson files"
-      
-      - name: Configure git (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          git config --global user.email "ci@example.com"
-          git config --global user.name "CI Builder"
-          if (Test-Path .gitignore) { Remove-Item .gitignore }
-          git add . && git commit -m "Update meson files"
-      
-      - name: Install build tools
-        run: pip install build
-      
-      - name: Build wheel
-        run: python -m build
-      
-      - name: Upload wheel
-        uses: actions/upload-artifact@v4
-        with:
-          name: wheel-${{ runner.os }}
-          path: dist/*.whl
-          retention-days: 1
+  build-linux-wheel:
+    uses: ./.github/workflows/build-linux-wheel.yml
+    with:
+      python-version: ${{ inputs.python-version }}
+      timeout-minutes: 60
+
+  build-macos-wheel:
+    uses: ./.github/workflows/build-mac-wheel.yml
+    with:
+      python-version: ${{ inputs.python-version }}
+      timeout-minutes: 60
+
+  build-windows-wheel:
+    uses: ./.github/workflows/build-windows-wheel.yml
+    with:
+      python-version: ${{ inputs.python-version }}
+      python-tag: ${{ inputs.python-version == '3.9' && '39' || inputs.python-version == '3.10' && '310' || inputs.python-version == '3.11' && '311' || inputs.python-version == '3.12' && '312' || '313' }}
+      architecture: 'AMD64'
 
   create-test-data:
-    needs: build-wheels
+    needs: [build-linux-wheel, build-macos-wheel, build-windows-wheel]
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            os-name: Linux
+            wheel-artifact: wheels-linux-${{ inputs.python-version }}
+          - os: macos-latest
+            os-name: macOS
+            wheel-artifact: wheels-macos-${{ inputs.python-version }}
+          - os: windows-latest
+            os-name: Windows
+            wheel-artifact: wheels-windows-${{ inputs.python-version }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -89,7 +61,7 @@ jobs:
       - name: Download wheel
         uses: actions/download-artifact@v4
         with:
-          name: wheel-${{ runner.os }}
+          name: ${{ matrix.wheel-artifact }}
           path: dist/
       
       - name: Install wheel (Linux/macOS)
@@ -106,27 +78,36 @@ jobs:
       - name: Create test data (Linux/macOS)
         if: runner.os != 'Windows'
         run: |
-          python python_tests/scripts/create_test_data.py --out_dir ./test-data-${{ runner.os }}
+          python python_tests/scripts/create_test_data.py --out_dir ./test-data-${{ matrix.os-name }}
       
       - name: Create test data (Windows)
         if: runner.os == 'Windows'
         run: |
-          python python_tests/scripts/create_test_data.py --out_dir ./test-data-${{ runner.os }}
+          python python_tests/scripts/create_test_data.py --out_dir ./test-data-${{ matrix.os-name }}
       
       - name: Upload test data
         uses: actions/upload-artifact@v4
         with:
-          name: test-data-${{ runner.os }}
-          path: test-data-${{ runner.os }}/
+          name: test-data-${{ matrix.os-name }}
+          path: test-data-${{ matrix.os-name }}/
           retention-days: 1
 
   validate-test-data:
     needs: create-test-data
     strategy:
       matrix:
-        validator-os: [ubuntu-latest, macos-latest, windows-latest]
+        validator:
+          - os: ubuntu-latest
+            os-name: Linux
+            wheel-artifact: wheels-linux-${{ inputs.python-version }}
+          - os: macos-latest
+            os-name: macOS
+            wheel-artifact: wheels-macos-${{ inputs.python-version }}
+          - os: windows-latest
+            os-name: Windows
+            wheel-artifact: wheels-windows-${{ inputs.python-version }}
         data-source: [Linux, macOS, Windows]
-    runs-on: ${{ matrix.validator-os }}
+    runs-on: ${{ matrix.validator.os }}
     steps:
       - uses: actions/checkout@v4
       
@@ -138,7 +119,7 @@ jobs:
       - name: Download wheel for validator OS
         uses: actions/download-artifact@v4
         with:
-          name: wheel-${{ matrix.validator-os }}
+          name: ${{ matrix.validator.wheel-artifact }}
           path: dist/
       
       - name: Install wheel (Linux/macOS)
@@ -177,9 +158,9 @@ jobs:
         uses: geekyeggo/delete-artifact@v5
         with:
           name: |
-            wheel-Linux
-            wheel-macOS
-            wheel-Windows
+            wheels-linux-${{ inputs.python-version }}
+            wheels-macos-${{ inputs.python-version }}
+            wheels-windows-${{ inputs.python-version }}
           failOnError: false
       
       - name: Delete test data artifacts
