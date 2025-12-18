@@ -51,16 +51,16 @@ This project adheres to a code of conduct that all contributors are expected to 
 1. **Build the C++ components**:
    ```bash
    # Build debug version without tests
-   ./build.sh
+   ./scripts/build.sh
    
    # Build debug version with tests
-   ./build.sh -t
+   ./scripts/build.sh -t
    
    # Build release version
-   ./build.sh -r
+   ./scripts/build.sh -r
    
    # Build release version with tests
-   ./build.sh -r -t
+   ./scripts/build.sh -r -t
    ```
    
    Alternatively, you can use Meson directly:
@@ -92,16 +92,16 @@ This project adheres to a code of conduct that all contributors are expected to 
    meson test -C build
    
    # Run Python tests (excludes stress tests)
-   ./run_tests.sh
+   ./scripts/run_tests.sh
    
    # Run specific Python test
-   ./run_tests.sh -k=test_name
+   ./scripts/run_tests.sh -k=test_name
    
    # Run stress tests only (takes longer)
-   ./run_stress_tests.sh
+   ./scripts/run_stress_tests.sh
    
    # Run specific stress test
-   ./run_stress_tests.sh -k=test_name
+   ./scripts/run_stress_tests.sh -k=test_name
    ```
 
 ## How to Contribute
