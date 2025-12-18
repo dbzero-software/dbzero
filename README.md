@@ -19,7 +19,7 @@ dbzero implements the **DISTIC memory** model:
 - **I**nfinite - Work with data as if memory constraints don't exist (e.g. create lists, dicts or sets with billions of elements)
 - **S**hared - Multiple processes can access and share the same data
 - **T**ransactional - Transaction support for data integrity
-- **I**solated - Reads execute against a consistent point-in-time snapshot
+- **I**solated - Reads performed against a consistent point-in-time snapshot
 - **C**omposable - Plug in multiple prefixes (memory partitions) on demand and access other apps’ data by simply attaching their prefix.
 
 With dbzero, you don’t need separate pieces like a database, ORM, or cache layer. Your app becomes easier to build and it runs faster, because there are no roundtrips to a database, memory is used better, and you can shape your data to fit your problem.
