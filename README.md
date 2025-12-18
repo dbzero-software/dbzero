@@ -2,8 +2,6 @@
   <img src="assets/dbzero-logo.png" alt="dbzero logo" width="400"/>
 </p>
 
-# dbzero
-
 **A state management system for Python 3.x that unifies your application's business logic, data persistence, and caching into a single, efficient layer.**
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
