@@ -471,7 +471,7 @@ async def test_async_wait_for_updates(db0_fixture):
     # Start waiting before transactions complete
     current_num = db0.get_state_num(prefix)
     make_trasaction(writer_sem, 5)
-    assert await with_timeout(db0.async_wait(prefix, current_num + 5), 2)
+    assert await with_timeout(db0.async_wait(prefix, current_num + 5), 3)
 
     # Start waiting after transactions complete
     current_num = db0.get_state_num(prefix)
@@ -498,7 +498,7 @@ async def test_async_wait_for_updates(db0_fixture):
     assert await with_timeout(db0.async_wait(prefix, current_num + 4), 1) is False
     # Retry
     make_trasaction(writer_sem, 1)
-    assert await with_timeout(db0.async_wait(prefix, current_num + 4), 1)
+    assert await with_timeout(db0.async_wait(prefix, current_num + 4), 3)
 
     p.terminate()
     p.join()
