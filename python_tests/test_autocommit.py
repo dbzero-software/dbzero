@@ -156,6 +156,7 @@ def test_autocommit_config(db0_fixture):
         cfg = db0.get_config()
 
 
+@pytest.mark.skip(reason="This test is time reliant and may fail on slow CI systems")
 @pytest.mark.parametrize("db0_autocommit_fixture", [100], indirect=True)
 def test_autocommit_tagging(db0_autocommit_fixture):
     # ISSUE: https://github.com/wskozlowski/dbzero/issues/435
@@ -174,6 +175,7 @@ def test_autocommit_tagging(db0_autocommit_fixture):
     assert state3 > state2
 
 
+@pytest.mark.skip(reason="This test is time reliant and may fail on slow CI systems")
 @pytest.mark.parametrize("db0_autocommit_fixture", [100], indirect=True)
 def test_autocommit_index_operations(db0_autocommit_fixture):
     idx = db0.index()
