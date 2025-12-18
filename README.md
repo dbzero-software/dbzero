@@ -193,18 +193,18 @@ with db0.snapshot(state) as snap:
 Organize data into independent, isolated partitions:
 
 ```python
-@db0.memo(singleton=True, prefix="settings-prefix")
+@db0.memo(singleton=True, prefix="/my-org/my-app/settings")
 class AppSettings:
     def __init__(self, theme: str):
         self.theme = theme
 
-@db0.memo(prefix="app-data-prefix"))
+@db0.memo(prefix="/my-org/my-app/data")
 class Note:
     def __init__(self, content: str):
         self.content = content
 
-settings = AppSettings(theme="dark") # Data goes to "settings-prefix.db0"
-note = Note("Hello dbzero!")         # Data goes to "app-data-prefix.db0"
+settings = AppSettings(theme="dark") # Data goes to "settings.db0"
+note = Note("Hello dbzero!")         # Data goes to "data.db0"
 ```
 
 ### Indexes
