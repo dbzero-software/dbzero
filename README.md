@@ -1,8 +1,8 @@
-<p align="center">
-  <a href="https://dbzero.io">
-    <img src="assets/dbzero-logo.png" alt="dbzero logo" width="400"/>
-  </a>
-</p>
+<picture align="center">
+  <source media="(prefers-color-scheme: dark)" srcset="https://dbzero.io/images/white-01.svg">
+  <img alt="Dbzero logo" src="https://dbzero.io/images/dbzero-logo.png">
+</picture>
+
 
 **A state management system for Python 3.x that unifies your application's business logic, data persistence, and caching into a single, efficient layer.**
 
