@@ -10,7 +10,7 @@ readme = 'README.md'
 requires-python = '>=3.9'
 license = {file = 'LICENSE'}
 authors = [
-     { name = 'DBZero Software sp. z o.o', email='info@dbzer.io' },
+     { name = 'DBZero Software sp. z o.o', email='info@dbzero.io' },
 ]
 dependencies = [
     'fasteners==0.19'
