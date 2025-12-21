@@ -69,12 +69,12 @@ jobs:
         run: echo "py_tag=$(echo ${{ inputs.python-version }} | tr -d '.')" >> $GITHUB_OUTPUT
       
       - name: Build manylinux wheels
-        uses: quay.io/pypa/manylinux_2_28_x86_64
+        uses: pypa/cibuildwheel@v2.21
         env:
           CIBW_BUILD: cp${{ steps.py-version.outputs.py_tag }}-manylinux_x86_64
           CIBW_SKIP: pp* cp36-* *-musllinux*
           CIBW_ARCHS_LINUX: x86_64
-          CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28_x86_64
+          CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
           CIBW_BUILD_VERBOSITY: 1
       
       - uses: actions/upload-artifact@v4
