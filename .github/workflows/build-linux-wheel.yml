@@ -1,12 +1,12 @@
 name: Build Linux Wheel
 
-on:
+on: 
   workflow_call:
     inputs:
-      python-version:
+      python-version: 
         required: true
         type: string
-      build-args:
+      build-args: 
         required: false
         type: string
         default: ''
@@ -15,7 +15,7 @@ on:
         type: number
         default: 60
   workflow_dispatch:
-    inputs:
+    inputs: 
       python-version:
         description: 'Python version to build'
         required: true
@@ -39,7 +39,7 @@ on:
         type: number
         default: 60
 
-jobs:
+jobs: 
   build-linux:
     runs-on: ubuntu-latest
     timeout-minutes: ${{ fromJSON(inputs.timeout-minutes) }}
@@ -49,7 +49,7 @@ jobs:
       - name: Set up Python ${{ inputs.python-version }}
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ inputs.python-version }}
+          python-version:  ${{ inputs.python-version }}
       
       - name: Generate meson files
         run: |
@@ -58,7 +58,7 @@ jobs:
           python3 scripts/generate_meson_dbzero.py dbzero/
       
       - name: Configure git
-        run: |
+        run:  |
           git config --global user.email "ci@example.com"
           git config --global user.name "CI Builder"
           rm -f .gitignore
@@ -76,6 +76,7 @@ jobs:
           CIBW_ARCHS_LINUX: x86_64
           CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
           CIBW_BUILD_VERBOSITY: 1
+          CIBW_PRERELEASE_PYTHONS: true
       
       - uses: actions/upload-artifact@v4
         with:
