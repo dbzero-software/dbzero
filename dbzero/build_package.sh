@@ -23,14 +23,14 @@ cp LICENSE .build/LICENSE
 cp README.md .build/README.md
 cd .build
 python3 setup.py sdist
-
+install "$(ls dbzero_package/dist/*.whl | sort | tail -n 1)" --break-system-packages
 # Get the current Python3 version
 PYTHON3_VERSION=$(python3 -c 'import sys; print(f"{sys.version_info.minor}")')
 if [ "${INSTALL}" ] ; then
     if [ "$PYTHON3_VERSION" -ge 11 ]; then
-        pip3 install ./dist/dbzero-0.1.0.tar.gz --break-system-packages
+        pip3 install "$(ls ./dist/*.tar.gz | sort | tail -n 1)" --break-system-packages
     else
-        pip3 install ./dist/dbzero-0.1.0.tar.gz
+        pip3 install "$(ls ./dist/*.tar.gz | sort | tail -n 1)" 
     fi
 fi
 
