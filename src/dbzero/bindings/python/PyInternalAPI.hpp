@@ -199,11 +199,12 @@ namespace db0::python
     PyObject *tryGetMemoClass(PyObject *py_obj);
     
     PyObject *tryTouch(PyObject *const *args, Py_ssize_t nargs);
-        
+    
     // Load dbzero object to memory
     // @param load_stack_ptr - required to track and avoid circular references
+    // @param load_all_depth - if > 0, load all references up to the specified depth without calling __load__ methods
     PyObject *tryLoad(PyObject *, PyObject*, PyObject *py_exlude = nullptr, 
-        std::unordered_set<const void*> *load_stack_ptr = nullptr);
+        std::unordered_set<const void*> *load_stack_ptr = nullptr, bool load_all = false);
     
     template <typename MemoImplT>
     PyObject *getMaterializedMemoObject(MemoImplT *py_obj);

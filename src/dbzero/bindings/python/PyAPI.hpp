@@ -150,6 +150,8 @@ namespace db0::python
     
     PyObject *PyAPI_load(PyObject *self, PyObject *args, PyObject *kwargs);
 
+    PyObject *PyAPI_loadAll(PyObject *self, PyObject *args, PyObject *kwargs);
+
     PyObject *PyAPI_hash(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
 
     PyObject *PyAPI_materialized(PyObject *self, PyObject *const *args, Py_ssize_t nargs);

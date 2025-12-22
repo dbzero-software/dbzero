@@ -289,3 +289,34 @@ def test_load_with_inheritance_and_mutations(db0_fixture):
     assert db0.load(obj) == {"value": "a", "other_value": "b", "extra": "c", "more_extra": None}
     obj.more_extra = "d"
     assert db0.load(obj) == {"value": "a", "other_value": "b", "extra": "c", "more_extra": "d"}
+
+
+@db0.memo
+class ObjectWithCustomLoad:
+    __test__ = False
+    
+    def __init__(self, first, second, third):
+        self.first = first
+        self.second = second
+        self.third = third        
+
+    def __load__(self, **kwargs):
+        """ Overloaded custom load only returns first attribute """
+        return {
+            "first": self.first,            
+        }
+
+
+def test_load_all_shallow(db0_fixture):
+    obj = ObjectWithCustomLoad("one", "two", "three")
+    loaded = db0.load_all(obj)
+    # NOTE: load_all ignores custom __load__ method at the topmost level
+    assert loaded == {"first": "one", "second": "two", "third": "three"}
+    
+    
+def test_load_all_deep(db0_fixture):
+    obj = ObjectWithCustomLoad("one", "two", ObjectWithCustomLoad("three", "four", "five"))
+    loaded = db0.load_all(obj)
+    # NOTE: load_all ignores custom __load__ method at the topmost level only
+    assert loaded == {"first": "one", "second": "two", "third": {"first": "three"}}
+    

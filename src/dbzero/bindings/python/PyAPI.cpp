@@ -1079,9 +1079,21 @@ namespace db0::python
         }
         
         PY_API_FUNC
-        // laod stack to detect circular references
+        // load stack to detect circular references
         std::unordered_set<const void*> load_stack;
-        return runSafe(tryLoad, py_object, kwargs, py_exclude, &load_stack);
+        return runSafe(tryLoad, py_object, kwargs, py_exclude, &load_stack, false);
+    }
+    
+    PyObject *PyAPI_loadAll(PyObject *self, PyObject *args, PyObject *kwargs)
+    {
+        // extract object / prefix name (can be None)
+        PyObject *py_object = nullptr;
+        if (!PyArg_ParseTuple(args,  "O", &py_object)) {
+            return NULL;
+        }
+        PY_API_FUNC
+        std::unordered_set<const void*> load_stack;
+        return runSafe(tryLoad, py_object, kwargs, nullptr, &load_stack, true);
     }
     
     PyObject *tryHash(PyObject *obj_ptr)
