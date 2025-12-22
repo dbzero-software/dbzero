@@ -24,6 +24,8 @@
 #include <dbzero/bindings/python/iter/PyObjectIterator.hpp>
 #include <dbzero/bindings/python/iter/PyJoinIterable.hpp>
 #include <dbzero/bindings/python/iter/PyJoinIterator.hpp>
+#include <dbzero/bindings/python/Pandas/PandasBlock.hpp>
+#include <dbzero/bindings/python/Pandas/PandasDataFrame.hpp>
 #include <dbzero/bindings/python/types/PyClassFields.hpp>
 #include <dbzero/bindings/python/types/PyClass.hpp>
 #include <dbzero/bindings/python/types/PyEnum.hpp>
@@ -50,7 +52,9 @@ static PyMethodDef dbzero_methods[] =
     {"tuple", (PyCFunction)&py::PyAPI_makeTuple, METH_FASTCALL, "Create a new dbzero tuple instance"},
     {"set", (PyCFunction)&py::PyAPI_makeSet, METH_FASTCALL, "Create a new dbzero set instance"},
     {"dict", (PyCFunction)&py::PyAPI_makeDict, METH_VARARGS | METH_KEYWORDS, "Create a new dbzero dict instance"},
-    {"bytearray", (PyCFunction)&py::PyAPI_makeByteArray, METH_FASTCALL, "Create a new dbzero bytearray instance"},        
+    {"block", (PyCFunction)&py::makeBlock, METH_VARARGS | METH_KEYWORDS, "Create a new dbzero pandas block instance"},
+    {"dataframe", (PyCFunction)&py::makeDataFrame, METH_VARARGS | METH_KEYWORDS, "Create a new dbzero pandas dataframe instance"},
+    {"bytearray", (PyCFunction)&py::PyAPI_makeByteArray, METH_FASTCALL, "Create a new dbzero bytearray instance"},      
     {"tags", (PyCFunction)&py::makeObjectTagManager, METH_FASTCALL, ""},
     {"find", (PyCFunction)&py::PyAPI_find, METH_VARARGS | METH_KEYWORDS, "Find memo instances by tags with optional filtering"},
     {"join", (PyCFunction)&py::PyAPI_join, METH_VARARGS | METH_KEYWORDS, "Join memo collections by common tags with optional filtering"},
@@ -189,6 +193,8 @@ PyMODINIT_FUNC PyInit_dbzero(void)
         &py::DictObjectType,
         &py::PyObjectTagManagerType, 
         &py::PySnapshotObjectType, 
+        &py::PandasBlockObjectType,
+        &py::PandasDataFrameObjectType,
         &py::PyObjectIterableType,
         &py::PyObjectIteratorType,
         &py::PyJoinIterableType,

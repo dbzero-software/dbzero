@@ -42,6 +42,8 @@ namespace db0::bindings
         DB0_DICT = 102,
         DB0_TUPLE = 103,
         DB0_SET = 104,
+        DB0_BLOCK = 105,
+        DB0_PANDAS_DATAFRAME = 106,
         DB0_TAG_SET = 107,
         DB0_INDEX = 108,
         DB0_BYTES_ARRAY = 109,

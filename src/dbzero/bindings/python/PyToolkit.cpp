@@ -17,6 +17,8 @@
 #include <dbzero/object_model/class.hpp>
 #include <dbzero/object_model/object.hpp>
 #include <dbzero/workspace/Fixture.hpp>
+#include <dbzero/object_model/pandas/Block.hpp>
+#include <dbzero/bindings/python/Pandas/PandasBlock.hpp>
 #include <dbzero/bindings/python/types/DateTime.hpp>
 #include <dbzero/bindings/python/iter/PyObjectIterable.hpp>
 #include <dbzero/bindings/python/iter/PyObjectIterator.hpp>
@@ -240,6 +242,27 @@ namespace db0::python
         return unloadExpiredRef(fixture, weak_ref.getAddress(), weak_ref->m_fixture_uuid, weak_ref->m_address);
     }
     
+
+    PyToolkit::ObjectSharedPtr PyToolkit::unloadBlock(db0::swine_ptr<Fixture>fixture, Address address, 
+        std::uint16_t, AccessFlags = {})
+    {
+        // try pulling from cache first
+        auto &lang_cache = fixture->getLangCache();
+        auto object_ptr = lang_cache.get(address);
+        if (object_ptr.get()) {
+            // return from cache
+            return object_ptr;
+        }
+
+        auto block_object = BlockDefaultObject_new();
+        // retrieve actual dbzero instance        
+        block_object->unload(fixture, address, access_mode);
+        if (!block_object->ext().isNoCache()) {
+            lang_cache.add(address, block_object.get());
+        }
+        return shared_py_cast<PyObject*>(std::move(block_object));
+    }
+
     PyToolkit::ObjectSharedPtr PyToolkit::unloadList(db0::swine_ptr<Fixture> fixture, Address address, 
         std::uint16_t, AccessFlags access_mode)
     {

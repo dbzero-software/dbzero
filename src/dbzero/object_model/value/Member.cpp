@@ -70,6 +70,16 @@ namespace db0::object_model
         return obj.getAddress();
     }
 
+    // BLOCK specialization
+    template <> Value createMember<TypeId::DB0_BLOCK, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
+        PyObjectPtr obj_ptr, StorageClass)
+    {
+        auto &block = PyToolkit::getTypeManager().extractMutableBlock(obj_ptr);
+        assureSameFixture(fixture, block);
+        block.modify().incRef();
+        return block.getAddress();
+    }
+
     // LIST specialization
     template <> Value createMember<TypeId::DB0_LIST, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
         PyObjectPtr obj_ptr, StorageClass, AccessFlags)
@@ -345,6 +355,7 @@ namespace db0::object_model
         functions[static_cast<int>(TypeId::STRING)] = createMember<TypeId::STRING, PyToolkit>;
         functions[static_cast<int>(TypeId::MEMO_OBJECT)] = createObjectMember<MemoObject>;
         functions[static_cast<int>(TypeId::MEMO_IMMUTABLE_OBJECT)] = createObjectMember<MemoImmutableObject>;
+        functions[static_cast<int>(TypeId::DB0_BLOCK)] = createMember<TypeId::DB0_BLOCK, PyToolkit>;
         functions[static_cast<int>(TypeId::DB0_LIST)] = createMember<TypeId::DB0_LIST, PyToolkit>;
         functions[static_cast<int>(TypeId::DB0_INDEX)] = createMember<TypeId::DB0_INDEX, PyToolkit>;
         functions[static_cast<int>(TypeId::DB0_SET)] = createMember<TypeId::DB0_SET, PyToolkit>;
@@ -410,6 +421,13 @@ namespace db0::object_model
         db0::swine_ptr<Fixture> &fixture, Value value, unsigned int, AccessFlags access_mode)
     {
         return PyToolkit::unloadList(fixture, value.asAddress(), 0, access_mode);
+    }
+
+    // DB0_BLOCK specialization
+    template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DB0_BLOCK, PyToolkit>(
+        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
+    {
+        return PyToolkit::unloadBlock(fixture, value.cast<std::uint64_t>());
     }
     
     // DB0_INDEX specialization
@@ -626,6 +644,7 @@ namespace db0::object_model
         functions[static_cast<int>(StorageClass::FP_NUMERIC64)] = unloadMember<StorageClass::FP_NUMERIC64, PyToolkit>;
         functions[static_cast<int>(StorageClass::STRING_REF)] = unloadMember<StorageClass::STRING_REF, PyToolkit>;
         functions[static_cast<int>(StorageClass::OBJECT_REF)] = unloadMember<StorageClass::OBJECT_REF, PyToolkit>;
+        functions[static_cast<int>(StorageClass::DB0_BLOCK)] = unloadMember<StorageClass::DB0_BLOCK, PyToolkit>;
         functions[static_cast<int>(StorageClass::DB0_LIST)] = unloadMember<StorageClass::DB0_LIST, PyToolkit>;
         functions[static_cast<int>(StorageClass::DB0_INDEX)] = unloadMember<StorageClass::DB0_INDEX, PyToolkit>;
         functions[static_cast<int>(StorageClass::DB0_SET)] = unloadMember<StorageClass::DB0_SET, PyToolkit>;
@@ -688,6 +707,12 @@ namespace db0::object_model
         unrefObjectBase<List, PyToolkit>(fixture, value.asAddress());
     }
 
+    template <> void unrefMember<StorageClass::DB0_BLOCK, PyToolkit>(
+        db0::swine_ptr<Fixture> &fixture, Value value) 
+    {
+        unrefObjectBase<db0::object_model::pandas::Block, PyToolkit>(fixture, value.cast<std::uint64_t>());
+    }
+
     template <> void unrefMember<StorageClass::DB0_INDEX, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value) 
     {
@@ -744,6 +769,7 @@ namespace db0::object_model
         functions.resize(static_cast<int>(StorageClass::COUNT));
         std::fill(functions.begin(), functions.end(), nullptr);
         functions[static_cast<int>(StorageClass::OBJECT_REF)] = unrefMember<StorageClass::OBJECT_REF, PyToolkit>;
+        functions[static_cast<int>(StorageClass::DB0_BLOCK)] = unrefMember<StorageClass::DB0_BLOCK, PyToolkit>;
         functions[static_cast<int>(StorageClass::DB0_LIST)] = unrefMember<StorageClass::DB0_LIST, PyToolkit>;
         functions[static_cast<int>(StorageClass::DB0_INDEX)] = unrefMember<StorageClass::DB0_INDEX, PyToolkit>;
         functions[static_cast<int>(StorageClass::DB0_SET)] = unrefMember<StorageClass::DB0_SET, PyToolkit>;

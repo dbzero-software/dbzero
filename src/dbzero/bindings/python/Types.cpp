@@ -85,6 +85,9 @@ namespace db0::python
         functions[static_cast<int>(TypeId::DB0_ENUM_VALUE)] = getFixtureOf<TypeId::DB0_ENUM_VALUE>;
         functions[static_cast<int>(TypeId::OBJECT_ITERABLE)] = getFixtureOf<TypeId::OBJECT_ITERABLE>;
         functions[static_cast<int>(TypeId::OBJECT_ITERATOR)] = getFixtureOf<TypeId::OBJECT_ITERATOR>;
+        /**
+        functions[static_cast<int>(TypeId::DB0_BLOCK)] = createMember<TypeId::DB0_BLOCK, PyToolkit>;
+        */
     }
     
     db0::swine_ptr<Fixture> getFixtureOf(PyObject *object)
@@ -169,6 +172,7 @@ namespace db0::python
         functions[static_cast<int>(TypeId::OBJECT_ITERABLE)] = tryGetUUID<TypeId::OBJECT_ITERABLE>;
         // for expired refs UUIDs are still available
         functions[static_cast<int>(TypeId::MEMO_EXPIRED_REF)] = tryGetUUID<TypeId::MEMO_EXPIRED_REF>;
+
     }
     
     PyObject *tryGetUUID(PyObject *py_value)

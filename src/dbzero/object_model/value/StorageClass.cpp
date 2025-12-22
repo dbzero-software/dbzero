@@ -40,7 +40,9 @@ namespace db0::object_model
         addMapping(TypeId::DB0_DICT, PreStorageClass::DB0_DICT);
         addMapping(TypeId::DB0_SET, PreStorageClass::DB0_SET);
         addMapping(TypeId::DB0_TUPLE, PreStorageClass::DB0_TUPLE);
+        addMapping(TypeId::DB0_BLOCK, PreStorageClass::DB0_BLOCK);
         addMapping(TypeId::DB0_INDEX, PreStorageClass::DB0_INDEX);
+        addMapping(TypeId::DB0_PANDAS_DATAFRAME, PreStorageClass::DB0_PANDAS_DATAFRAME);
         addMapping(TypeId::OBJECT_ITERABLE, PreStorageClass::DB0_SERIALIZED);
         addMapping(TypeId::DB0_ENUM_VALUE, PreStorageClass::DB0_ENUM_VALUE);
         // NOTE: enum value-reprs are converted to materialized enums on storage
@@ -151,6 +153,8 @@ namespace std
             case StorageClass::DB0_SET: return os << "DB0_SET";
             case StorageClass::DB0_TUPLE: return os << "DB0_TUPLE";
             case StorageClass::STR64: return os << "STR64";
+            case StorageClass::DB0_BLOCK: return os << "DB0_BLOCK";
+            case StorageClass::DB0_PANDAS_DATAFRAME: return os << "DB0_PANDAS_DATAFRAME";
             case StorageClass::DB0_CLASS: return os << "DB0_CLASS";
             case StorageClass::DB0_INDEX: return os << "DB0_INDEX";        
             case StorageClass::DB0_SERIALIZED: return os << "DB0_SERIALIZED";
