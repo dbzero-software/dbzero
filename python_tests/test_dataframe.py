@@ -1,4 +1,4 @@
-import dbzero_ce as db0
+import dbzero as db0
 import numpy as np
 import pandas as pd
 from pandas.core.api import StringDtype, Int64Dtype
@@ -10,14 +10,13 @@ def test_db0_dataframe_can_be_created(db0_fixture):
     assert df_1 is not None    
 
 
-# FIXME: test failing due to object lifecycle issue (multiple instances of v_bvector)
-# def test_db0_dataframe_can_add_blocks(db0_fixture):
-#     df_1 = db0.dataframe()    
-#     assert df_1 is not None
-#     df_1.append_block(db0.block())
-#     # df_1.append_block(db0.block())
-#     assert df_1.get_block(0) is not None
-#     # assert df_1.get_block(1) is not None
+#FIXME: test failing due to object lifecycle issue (multiple instances of v_bvector)
+def test_db0_dataframe_can_add_blocks(db0_fixture):
+    df_1 = db0.dataframe()    
+    assert df_1 is not None
+    df_1.append_block(db0.block())
+    df_1.get_block(0)
+    # assert df_1.get_block(1) is not None
 
 
 def test_db0_can_create_dataframe(db0_fixture):
@@ -34,15 +33,16 @@ def test_db0_can_filter_dataframe(db0_fixture):
     df2 = df[df.a < 4]
     assert df2.shape == (3, 2)
     assert isinstance(df2._mgr.arrays[0], db0.pandas.BlockInterface)
-    # df2 = df[df.a > 4]
-    # assert df2.shape == (2, 2)
-    # assert isinstance(df2._mgr.arrays[0], db0.pandas.BlockInterface)
-    # df2 = df[df.a <= 4]
-    # assert df2.shape == (4, 2)
-    # assert isinstance(df2._mgr.arrays[0], db0.pandas.BlockInterface)
-    # df2 = df[df.a >= 4]
-    # assert df2.shape == (3, 2)
-    # assert isinstance(df2._mgr.arrays[0], db0.pandas.BlockInterface)
+    df2 = df[df.a > 4]
+    assert df2.shape == (2, 2)
+    assert isinstance(df2._mgr.arrays[0], db0.pandas.BlockInterface)
+    df2 = df[df.a <= 4]
+    assert df2.shape == (4, 2)
+    assert isinstance(df2._mgr.arrays[0], db0.pandas.BlockInterface)
+    df2 = df[df.a >= 4]
+    assert df2.shape == (3, 2)
+    assert isinstance(df2._mgr.arrays[0], db0.pandas.BlockInterface)
+
 
 
 # def test_db0_dataframe_numerical_operations_on_columns(db0_fixture):
@@ -79,7 +79,10 @@ def test_db0_can_filter_dataframe(db0_fixture):
 #     # Create a DataFrame with random integers
 #     # df = pd.DataFrame(np.random.randint(0, 100, size=(num_rows, num_columns)), columns=[f'col{i}' for i in range(num_columns)])
 #     db0.set_cache_size(target_memory)
-#     df = db0.pandas.DB0DataFrame({f'col{i}': np.random.randint(0, 100, size=num_rows) for i in range(num_columns)})
+#     iterations = num_rows // 1000
+#     df = db0.pandas.DB0DataFrame({f'col{i}': np.random.randint(0, 100, size=1000).tolist() for i in range(num_columns)})
+#     for i in range(iterations + 10):
+#         df = pd.concat([df, db0.pandas.DB0DataFrame({f'col{i}': np.random.randint(0, 100, size=1000).tolist() for i in range(num_columns)})], ignore_index=True)
 
 #     memory_usage = df.memory_usage(deep=True).sum()
 #     # compare memory usage to set cache size + margin 

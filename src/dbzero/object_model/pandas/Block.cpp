@@ -16,8 +16,8 @@ namespace db0::object_model::pandas
     {
     }
     
-    Block::Block(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
-        : super_t(super_t::tag_from_address(), fixture, address)
+    Block::Block(db0::swine_ptr<Fixture> &fixture, Address address, AccessFlags access_mode)
+        : super_t(super_t::tag_from_address(), fixture, address, access_mode)
     {
     }
     
@@ -35,14 +35,14 @@ namespace db0::object_model::pandas
         auto type_id = LangToolkit::getTypeManager().getTypeId(lang_value);
         // first element defines storage class
         if (size() == 0) {
-            auto pre_storage_class = TypeUtils::m_storage_class_mapper.getPreStorageClass(type_id);
+            auto pre_storage_class = TypeUtils::m_storage_class_mapper.getPreStorageClass(type_id, false);
             if (pre_storage_class == PreStorageClass::OBJECT_WEAK_REF) {
                 m_storage_class = db0::getStorageClass(pre_storage_class, *fixture, lang_value);
             } else {
                 m_storage_class = db0::getStorageClass(pre_storage_class);
             }
         } else {
-            auto pre_storage_class = TypeUtils::m_storage_class_mapper.getPreStorageClass(type_id);
+            auto pre_storage_class = TypeUtils::m_storage_class_mapper.getPreStorageClass(type_id, false);
             if (pre_storage_class == PreStorageClass::OBJECT_WEAK_REF) {
                 if (m_storage_class != db0::getStorageClass(pre_storage_class, *fixture, lang_value)) {
                     throw std::runtime_error("Storage class shoud be same for all Block elements");    
@@ -53,7 +53,7 @@ namespace db0::object_model::pandas
                 }
             }
         }        
-        v_bvector::push_back(createMember<LangToolkit>(*fixture, type_id, m_storage_class, lang_value));
+        v_bvector::push_back(createMember<LangToolkit>(*fixture, type_id, m_storage_class, lang_value, getMemberFlags()));
     }
     
     Block::ObjectSharedPtr Block::getStorageClass() const {
@@ -78,15 +78,11 @@ namespace db0::object_model::pandas
 
         // recognize type ID from language specific object
         auto type_id = LangToolkit::getTypeManager().getTypeId(lang_value);
-        v_bvector::setItem(i, createMember<LangToolkit>(*fixture, type_id, m_storage_class, lang_value));
+        v_bvector::setItem(i, createMember<LangToolkit>(*fixture, type_id, m_storage_class, lang_value, getMemberFlags()));
     }
     
     Block *Block::makeNew(void *at_ptr, db0::swine_ptr<Fixture> &fixture) {
         return new (at_ptr) Block(fixture);
-    }
-    
-    Block *Block::unload(void *at_ptr, db0::swine_ptr<Fixture> &fixture, std::uint64_t address) {
-        return new (at_ptr) Block(fixture, address);
     }
 
     void Block::moveTo(db0::swine_ptr<Fixture> &) {

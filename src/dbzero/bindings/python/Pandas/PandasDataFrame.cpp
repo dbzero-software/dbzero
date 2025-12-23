@@ -58,7 +58,7 @@ namespace db0::python
 
     PyTypeObject PandasDataFrameObjectType = {
         PyVarObject_HEAD_INIT(NULL, 0)
-        .tp_name = "dbzero_ce.dataframe",
+        .tp_name = "dbzero.dataframe",
         .tp_basicsize = PandasDataFrameObject::sizeOf(),
         .tp_itemsize = 0,
         .tp_dealloc = (destructor)PandasDataFrameObject_del,

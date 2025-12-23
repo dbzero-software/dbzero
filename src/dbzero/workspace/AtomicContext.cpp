@@ -57,6 +57,12 @@ namespace db0
         detachExisting(PyToolkit::getTypeManager().extractTuple(obj_ptr));
     }
     
+     // DB0_BLOCK specialization
+    template <> void detachObject<TypeId::DB0_BLOCK, PyToolkit>(PyObjectPtr obj_ptr) {
+        detachExisting(PyToolkit::getTypeManager().extractBlock(obj_ptr));
+    }
+    
+
     template <> void registerDetachFunctions<PyToolkit>(std::vector<void (*)(PyObjectPtr)> &functions)
     {
         functions.resize(static_cast<int>(TypeId::COUNT));
@@ -68,6 +74,7 @@ namespace db0
         functions[static_cast<int>(TypeId::DB0_SET)] = detachObject<TypeId::DB0_SET, PyToolkit>;
         functions[static_cast<int>(TypeId::DB0_DICT)] = detachObject<TypeId::DB0_DICT, PyToolkit>;
         functions[static_cast<int>(TypeId::DB0_TUPLE)] = detachObject<TypeId::DB0_TUPLE, PyToolkit>;
+        functions[static_cast<int>(TypeId::DB0_BLOCK)] = detachObject<TypeId::DB0_BLOCK, PyToolkit>;
     }
     
     AtomicContext::AtomicContext(std::shared_ptr<Workspace> &workspace, std::unique_lock<std::mutex> &&lock)

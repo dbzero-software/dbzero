@@ -244,7 +244,7 @@ namespace db0::python
     
 
     PyToolkit::ObjectSharedPtr PyToolkit::unloadBlock(db0::swine_ptr<Fixture>fixture, Address address, 
-        std::uint16_t, AccessFlags = {})
+        std::uint16_t, AccessFlags access_mode)
     {
         // try pulling from cache first
         auto &lang_cache = fixture->getLangCache();

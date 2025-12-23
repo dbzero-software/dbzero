@@ -28,15 +28,16 @@ namespace db0::object_model::pandas
         using ObjectPtr = typename LangToolkit::ObjectPtr;
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
         
+        // as null placeholder
+        Block() = default;
         Block(db0::swine_ptr<Fixture> &);
-        Block(db0::swine_ptr<Fixture> &, std::uint64_t address);
+        Block(db0::swine_ptr<Fixture> &, Address address, AccessFlags = {});
         ~Block();
                 
         ObjectSharedPtr getItem(std::size_t i) const;
         void setItem(FixtureLock &, std::size_t i, ObjectPtr lang_value);
 
         static Block *makeNew(void *at_ptr, db0::swine_ptr<Fixture> &);
-        static Block *unload(void *at_ptr, db0::swine_ptr<Fixture> &fixture, std::uint64_t address);
         void append(FixtureLock &, ObjectPtr lang_value);
         
         ObjectSharedPtr getStorageClass() const;

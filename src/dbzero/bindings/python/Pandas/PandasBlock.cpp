@@ -59,7 +59,7 @@ namespace db0::python
 
     PyTypeObject PandasBlockObjectType = {
         PyVarObject_HEAD_INIT(NULL, 0)
-        .tp_name = "dbzero_ce.block",
+        .tp_name = "dbzero.block",
         .tp_basicsize = PandasBlockObject::sizeOf(),
         .tp_itemsize = 0,
         .tp_dealloc = (destructor)PandasBlockObject_del,

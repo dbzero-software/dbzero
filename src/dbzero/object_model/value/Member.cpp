@@ -72,11 +72,11 @@ namespace db0::object_model
 
     // BLOCK specialization
     template <> Value createMember<TypeId::DB0_BLOCK, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
-        PyObjectPtr obj_ptr, StorageClass)
+        PyObjectPtr obj_ptr, StorageClass, AccessFlags)
     {
         auto &block = PyToolkit::getTypeManager().extractMutableBlock(obj_ptr);
         assureSameFixture(fixture, block);
-        block.modify().incRef();
+        block.modify().incRef(false);
         return block.getAddress();
     }
 
@@ -425,9 +425,9 @@ namespace db0::object_model
 
     // DB0_BLOCK specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DB0_BLOCK, PyToolkit>(
-        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
+        db0::swine_ptr<Fixture> &fixture, Value value,  unsigned int, AccessFlags access_mode)
     {
-        return PyToolkit::unloadBlock(fixture, value.cast<std::uint64_t>());
+        return PyToolkit::unloadBlock(fixture, value.asAddress(), 0, access_mode);
     }
     
     // DB0_INDEX specialization
@@ -710,7 +710,7 @@ namespace db0::object_model
     template <> void unrefMember<StorageClass::DB0_BLOCK, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value) 
     {
-        unrefObjectBase<db0::object_model::pandas::Block, PyToolkit>(fixture, value.cast<std::uint64_t>());
+        unrefObjectBase<db0::object_model::pandas::Block, PyToolkit>(fixture, value.asAddress());
     }
 
     template <> void unrefMember<StorageClass::DB0_INDEX, PyToolkit>(

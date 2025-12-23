@@ -21,7 +21,7 @@ namespace db0::object_model::pandas
     {
     }
     
-    DataFrame::DataFrame(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
+    DataFrame::DataFrame(db0::swine_ptr<Fixture> &fixture, Address address)
         : super_t(super_t::tag_from_address(), fixture, address)
         , m_frame_index(fixture->myPtr((*this)->m_indexes.getAddress()))
         , m_blocks(fixture->myPtr((*this)->m_blocks.getAddress()))
@@ -50,6 +50,7 @@ namespace db0::object_model::pandas
 
     void DataFrame::appendBlock(ObjectPtr block)
     {
+        Py_INCREF(block);
         m_blocks.push_back(LangToolkit::getTypeManager().extractBlock(block).getAddress());
     }
 
@@ -65,7 +66,7 @@ namespace db0::object_model::pandas
         }
         auto fixture = tryGetFixture();
         if (fixture) {
-            return LangToolkit::unloadBlock(fixture, m_blocks[i].cast<std::uint64_t>());
+            return LangToolkit::unloadBlock(fixture, m_blocks[i].asAddress());
         } else {
             throw std::runtime_error("Cannot get fixture");
         }        

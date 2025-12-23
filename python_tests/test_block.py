@@ -1,5 +1,5 @@
 import pytest
-import dbzero_ce as db0
+import dbzero as db0
 
 
 def test_db0_block_can_be_created(db0_fixture):
