@@ -65,7 +65,7 @@ namespace db0::object_model
         using TypeManager = typename LangToolkit::TypeManager;
         using ObjectStem = ObjectVType<T>;
         using TypeInitializer = ObjectInitializer::TypeInitializer;
-
+        
         db0::swine_ptr<Fixture> tryGetFixture() const;
         db0::swine_ptr<Fixture> getFixture() const;
 

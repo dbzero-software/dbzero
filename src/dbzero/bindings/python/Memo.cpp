@@ -406,7 +406,7 @@ namespace db0::python
             }
             return 0;
         } else {
-            // Handle the non-persistent (_X__***) attribute assignment
+            // Handle the non-persistent (_X__three underscores) attribute assignment
             auto py_type = Py_TYPE(self);
             if (!py_type->tp_base) {
                 PyErr_SetString(PyExc_AttributeError, "Cannot set non-persistent attribute");
@@ -610,8 +610,12 @@ namespace db0::python
         (*tp_result)->tp_dict = copyDict(base_class->tp_dict);
         // disable weak-refs (important for Python 3.11.x)
         (*tp_result)->tp_weaklistoffset = 0;
-        // explicitly disable instance dict to prevent segfault in Python 3.10
+#if PY_VERSION_HEX < 0x030B0000  // Python < 3.11
+        (*tp_result)->tp_dictoffset = MemoImplT::getDictOffset();        
+#else
+        // will use managed dict for Python 3.11+
         (*tp_result)->tp_dictoffset = 0;
+#endif
         
         // replace default __str__ and __repr__ implementations
         if (base_class->tp_str == PyType_Type.tp_str) {

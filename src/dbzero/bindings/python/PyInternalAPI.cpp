@@ -417,7 +417,7 @@ namespace db0::python
     
     // MEMO_OBJECT specialization
     template <> void dropInstance<TypeId::MEMO_OBJECT>(PyObject *py_wrapper) {
-        MemoObject_drop(reinterpret_cast<MemoObject*>(py_wrapper));                
+        MemoObject_drop(reinterpret_cast<MemoObject*>(py_wrapper));
     }
 
     // DB0_INDEX specialization

@@ -11,6 +11,7 @@
 #include "PyWorkspace.hpp"
 #include "PyTypes.hpp"
 #include "PyLocks.hpp"
+#include "MemoObject.hpp"
 #include <dbzero/core/collections/pools/StringPools.hpp>
 #include <dbzero/core/memory/swine_ptr.hpp>
 #include <dbzero/core/threading/SafeRMutex.hpp>
@@ -72,7 +73,7 @@ namespace db0::python
         template <typename T> inline static PyWrapper<T> *getWrapperTypeOf(ObjectPtr ptr) {
             return static_cast<PyWrapper<T> *>(ptr);
         }
-
+        
         /**
          * Construct shared type from raw pointer (shared ownership)         
         */
@@ -218,9 +219,6 @@ namespace db0::python
         // indicate failed operation with a specific value/code
         static void setError(ObjectPtr err_obj, std::uint64_t err_value);
         
-        // Check if the object has reference from other dbzero objects or tags
-        // NOTE!!! this only works for CommonBase/PyWrapper objects (e.g. all LangCache objects)
-        static bool hasRefs(ObjectPtr);
         // Check if the object has references from other language objects (other than LangCache)
         static bool hasLangRefs(ObjectPtr);
         // Check if there exist any references except specific number of external references
@@ -266,5 +264,5 @@ namespace db0::python
         static PyWorkspace m_py_workspace;
         static SafeRMutex m_api_mutex;
     };
-    
+        
 }

@@ -12,27 +12,26 @@
 namespace db0::python 
 
 {
-
-    struct __PyTypeMould {
-        PyObject_HEAD
-    };
-    
+        
     /**
      * Adds a mixed-in (but dynamically initialized)
      * member of type T into the PyObject struct.
      **/
-    template <typename T, bool is_object_base=true> struct PyWrapper: public PyObject
+    template <typename T, bool is_object_base=true, typename BaseT = PyObject>
+    struct PyWrapper: public BaseT
     {
+        // placeholder for the actual instance (since we're unable to calculate sizeof at compile time)
+        std::array<char, 1u> m_ext_storage;
         using ExtT = T;
 
         inline const T &ext() const {
-            return *reinterpret_cast<const T*>((char*)this + sizeof(__PyTypeMould));
+            return *reinterpret_cast<const T*>(&m_ext_storage);
         }
         
         inline T &modifyExt()
         {
             // calculate instance offset
-            auto &result = *reinterpret_cast<T*>((char*)this + sizeof(__PyTypeMould));
+            auto &result = *reinterpret_cast<T*>(&m_ext_storage);
             // only for ObjectBase derived classes
             if constexpr (is_object_base) {
                 // the implementation registers the underlying object for detach (on rollback)
@@ -43,7 +42,8 @@ namespace db0::python
         }
 
         static constexpr std::size_t sizeOf() {
-            return sizeof(__PyTypeMould) + sizeof(T);
+            // adjust size to include actual T size 
+            return sizeof(PyWrapper<T, is_object_base, BaseT>) + sizeof(T) - sizeof(m_ext_storage);
         }
         
         void destroy() {
@@ -66,6 +66,24 @@ namespace db0::python
             new ((void*)&ext) T(std::forward<Args>(args)...);
             return ext;
         }
+    };
+    
+    struct PyObjectWithDict: public PyObject
+    {        
+        PyObject *m_py_dict = nullptr;
+    };
+    
+    // This is a wrapper with additional __dict__ slot
+    // which is required for Python versions before 3.11 (before managed dicts were introduced)
+    template <typename T, bool is_object_base=true>    
+    struct PyWrapperWithDict: public PyWrapper<T, is_object_base, PyObjectWithDict>    
+    {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Winvalid-offsetof"
+        static constexpr std::size_t getDictOffset() {
+            return offsetof(PyObjectWithDict, m_py_dict);
+        }
+#pragma GCC diagnostic pop
     };
     
     template <typename T> struct Shared

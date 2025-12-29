@@ -12,6 +12,7 @@
 #include "PyWrapper.hpp"
 #include <dbzero/core/memory/AccessOptions.hpp>
 #include <dbzero/core/memory/swine_ptr.hpp>
+#include "MemoObject.hpp"
 
 namespace db0 {
     
@@ -34,8 +35,6 @@ namespace db0::object_model
 namespace db0::python
 
 {
-
-    using MemoObject = PyWrapper<db0::object_model::Object>;
 
     /**
      * The class to track python module / fixture associations

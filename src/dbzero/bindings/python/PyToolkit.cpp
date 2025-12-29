@@ -29,7 +29,6 @@
 #include <dbzero/bindings/python/types/PyEnum.hpp>
 #include <dbzero/bindings/python/types/PyTag.hpp>
 #include <dbzero/bindings/python/PySafeAPI.hpp>
-#include <dbzero/bindings/python/PyCommonBase.hpp>
 
 namespace db0::python
 
@@ -801,11 +800,7 @@ namespace db0::python
     bool PyToolkit::isValid() {
         return Py_IsInitialized();
     }
-    
-    bool PyToolkit::hasRefs(ObjectPtr obj_ptr) {
-        return reinterpret_cast<PyCommonBase*>(obj_ptr)->ext().hasRefs();
-    }
-    
+        
     bool PyToolkit::hasTagRefs(ObjectPtr obj_ptr)
     {
         assert(PyAnyMemo_Check(obj_ptr));
