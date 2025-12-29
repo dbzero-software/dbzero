@@ -406,7 +406,7 @@ namespace db0::python
             }
             return 0;
         } else {
-            // Handle the non-persistent (three underscores) attribute assignment
+            // Handle the non-persistent (_X__***) attribute assignment
             auto py_type = Py_TYPE(self);
             if (!py_type->tp_base) {
                 PyErr_SetString(PyExc_AttributeError, "Cannot set non-persistent attribute");
