@@ -20,10 +20,16 @@ on:
           - '3.13'
           - '3.14'
         default: '3.12'
+      timeout-minutes:
+        description: 'Timeout in minutes'
+        required: false
+        type: number
+        default: 15
 
 jobs:
   test-windows:
     runs-on: windows-latest
+    timeout-minutes: ${{ fromJSON(inputs.timeout-minutes) }}
     env:
       REQUIREMENTS_FILE: ${{ inputs.python-version == '3.9' && 'requirements.3.9.txt' || 'requirements.txt' }}
     steps:
