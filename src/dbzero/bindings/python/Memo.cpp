@@ -328,6 +328,11 @@ namespace db0::python
         }        
     }
     
+    bool isPersistentAttrName(const char *attr_name) {
+        // non-persistent attribute names start with _X__ prefix
+        return !(attr_name[0] == '_' && attr_name[1] == 'X' && attr_name[2] == '_' && attr_name[3] == '_');
+    }
+
     template <typename MemoImplT>
     PyObject *tryMemoObject_getattro(MemoImplT *memo_obj, PyObject *attr)
     {
@@ -336,14 +341,21 @@ namespace db0::python
         // 2. db0 object extension methods
         // 3. db0 object members (attributes)
         // 4. User instance members (e.g. attributes set during __postinit__)
-                
-        memo_obj->ext().getFixture()->refreshIfUpdated();
-        auto member = memo_obj->ext().tryGet(PyUnicode_AsUTF8(attr));
-        
-        if (member.get()) {
-            return member.steal();
+        const char *attr_name = PyUnicode_AsUTF8(attr);
+        if (!attr_name) {
+            PyErr_SetString(PyExc_AttributeError, "Invalid attribute name");
+            return nullptr;
         }
-                
+
+        if (isPersistentAttrName(attr_name)) {
+            memo_obj->ext().getFixture()->refreshIfUpdated();
+            auto member = memo_obj->ext().tryGet(PyUnicode_AsUTF8(attr));
+            
+            if (member.get()) {
+                return member.steal();
+            }
+        }
+        
         // Fallback to type-level attribute lookup only (no instance dict)
         return PyObject_GenericGetAttr(reinterpret_cast<PyObject*>(memo_obj), attr);
     }
@@ -362,33 +374,50 @@ namespace db0::python
     template <>
     int PyAPI_MemoObject_setattro<MemoObject>(MemoObject *self, PyObject *attr, PyObject *value)
     {
-        PY_API_FUNC
+        PY_API_FUNC        
+
         // assign value to a dbzero attribute
-        try {
-            // must materialize the object before setting as an attribute
-            if (value && !db0::object_model::isMaterialized(value)) {
-                db0::FixtureLock lock(self->ext().getFixture());
-                db0::object_model::materialize(lock, value);
+        const char* attr_name = PyUnicode_AsUTF8(attr);
+        if (!attr_name) {
+            return -1;
+        }
+        
+        if (isPersistentAttrName(attr_name)) {
+            try {
+                // must materialize the object before setting as an attribute
+                if (value && !db0::object_model::isMaterialized(value)) {
+                    db0::FixtureLock lock(self->ext().getFixture());
+                    db0::object_model::materialize(lock, value);
+                }
+                
+                if (self->ext().hasInstance()) {
+                    db0::FixtureLock lock(self->ext().getFixture());
+                    self->modifyExt().set(lock, attr_name, value);
+                } else {
+                    // considered as a non-mutating operation
+                    self->ext().setPreInit(attr_name, value);
+                }
+            } catch (const std::exception &e) {
+                PyErr_SetString(PyExc_AttributeError, e.what());
+                return -1;
+            } catch (...) {            
+                PyErr_SetString(PyExc_AttributeError, "Unknown exception");
+                return -1;
+            }
+            return 0;
+        } else {
+            // Handle the non-persistent (three underscores) attribute assignment
+            auto py_type = Py_TYPE(self);
+            if (!py_type->tp_base) {
+                PyErr_SetString(PyExc_AttributeError, "Cannot set non-persistent attribute");
+                return -1;
             }
             
-            if (self->ext().hasInstance()) {
-                db0::FixtureLock lock(self->ext().getFixture());
-                self->modifyExt().set(lock, PyUnicode_AsUTF8(attr), value);
-            } else {
-                // considered as a non-mutating operation
-                self->ext().setPreInit(PyUnicode_AsUTF8(attr), value);
-            }
-        } catch (const std::exception &e) {
-            PyErr_SetString(PyExc_AttributeError, e.what());
-            return -1;
-        } catch (...) {            
-            PyErr_SetString(PyExc_AttributeError, "Unknown exception");
-            return -1;
-        }        
-        
-        return 0;
+            // Forward to base class setattro
+            return py_type->tp_base->tp_setattro((PyObject*)self, attr, value);
+        }                
     }
-
+    
     // immutable memo object specialization
     template <>
     int PyAPI_MemoObject_setattro<MemoImmutableObject>(MemoImmutableObject *self, PyObject *attr, PyObject *value)
