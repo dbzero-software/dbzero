@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (c) 2025 DBZero Software sp. z o.o.
 
 #include "Memo.hpp"
@@ -406,7 +406,7 @@ namespace db0::python
             }
             return 0;
         } else {
-            // Handle the non-persistent (_X__three underscores) attribute assignment
+            // Handle the non-persistent (_X__***) attribute assignment
             auto py_type = Py_TYPE(self);
             if (!py_type->tp_base) {
                 PyErr_SetString(PyExc_AttributeError, "Cannot set non-persistent attribute");

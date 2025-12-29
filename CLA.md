@@ -28,7 +28,7 @@ If any entity institutes patent litigation against You, Us, or any other entity 
 
 #### 2.3 Outbound License
 Based on the grants of rights in Sections 2.1 and 2.2, if We include Your Contribution in the dbzero project:
-- Your Contribution will be licensed to the public under the GNU Affero General Public License v3.0 (AGPL-3.0) as part of the dbzero project
+- Your Contribution will be licensed to the public under the Apache License 2.0 as part of the dbzero project
 - We reserve the right to also license Your Contribution under alternative licenses without any additional compensation to You, including proprietary licenses for commercial or other purposes
 
 #### 2.4 Moral Rights
@@ -129,5 +129,5 @@ By accepting this Agreement, you acknowledge that you have read, understood, and
 ---
 
 **Version:** 1.0  
-**Last Updated:** December 9, 2025  
+**Last Updated:** December 29, 2025
 **Maintained by:** DBZero Software sp. z o.o.

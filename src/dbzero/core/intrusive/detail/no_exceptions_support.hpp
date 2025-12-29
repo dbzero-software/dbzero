@@ -7,9 +7,9 @@
 //
 // This file may contain modifications by DBZero Software sp. z o.o.
 // Any modifications are Copyright (c) 2025 DBZero Software sp. z o.o.
-// and licensed under AGPL-3.0-or-later.
+// and licensed under LGPL-2.1.
 //
-// SPDX-License-Identifier: BSL-1.0 AND AGPL-3.0-or-later
+// SPDX-License-Identifier: BSL-1.0 AND LGPL-2.1
 /////////////////////////////////////////////////////////////////////////////
 
 #ifndef BOOST_VSO_INTRUSIVE_NO_EXCEPTION_SUPPORT_HPP

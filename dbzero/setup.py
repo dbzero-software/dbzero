@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-License-Identifier: LGPL-2.1-or-later
 # Copyright (c) 2025 DBZero Software sp. z o.o.
 
 from setuptools import setup
@@ -10,11 +10,11 @@ if sys.byteorder == 'big':
 
 setup(
     name='dbzero',
-    version='0.1.1-alpha',
+    version='0.1.2-alpha',
     description='DBZero community edition',
     packages=['dbzero'],
     python_requires='>=3.9',
-    license='AGPL-3.0-or-later',
+    license='LGPL-2.1-or-later',
     classifiers=[
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3 :: Only',
