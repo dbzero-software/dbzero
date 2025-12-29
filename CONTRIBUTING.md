@@ -325,7 +325,7 @@ Good documentation is crucial. When contributing:
 
 ### Why We Have a CLA
 
-dbzero is primarily licensed under AGPL-3.0, but we want to reserve the right to offer the software under alternative licenses to support different use cases and our business model.
+dbzero is primarily licensed under LGPL-2.1, but we want to reserve the right to offer the software under alternative licenses to support different use cases and our business model.
 
 To enable this flexible licensing approach while maintaining our commitment to open source, we need contributors to grant us additional rights to use their contributions.
 
@@ -333,7 +333,7 @@ To enable this flexible licensing approach while maintaining our commitment to o
 
 By contributing to dbzero, you agree that:
 
-1. **Your contribution will be licensed under AGPL-3.0** in the open-source dbzero Community Edition
+1. **Your contribution will be licensed under LGPL-2.1** in the open-source dbzero Community Edition
 2. **You grant the dbzero project maintainers** a perpetual, worldwide, non-exclusive, royalty-free, irrevocable license to:
    - Use, modify, and distribute your contributions in any form
    - Include your contributions in the open-source project and any alternative licensing options we may offer
@@ -360,7 +360,7 @@ If you have questions or concerns about the CLA, please open an issue to discuss
 ## License
 
 By contributing to dbzero, you agree that your contributions will be:
-- Licensed under the **GNU Affero General Public License v3.0** (AGPL-3.0) for the open-source dbzero Community Edition
+- Licensed under the **GNU Lesser General Public License v2.1** (LGPL-2.1) for the open-source dbzero Community Edition
 - Subject to the additional rights grant specified in our Contributor License Agreement: [CLA.md](./CLA.md)
 
 ---
