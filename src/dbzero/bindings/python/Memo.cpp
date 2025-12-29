@@ -938,39 +938,42 @@ namespace db0::python
         
         return py_result.steal();
     }
-
+    
     PyObject* executeLoadFunction(PyObject * load_method, PyObject *kwargs, PyObject *py_exclude,
-                                  std::unordered_set<const void*> *load_stack_ptr)
+        std::unordered_set<const void*> *load_stack_ptr)
     {
         if (py_exclude != nullptr && py_exclude != Py_None && PySequence_Check(py_exclude)) {
-                PyErr_SetString(PyExc_AttributeError, "Cannot exclude values when __load__ is implemented");
+            PyErr_SetString(PyExc_AttributeError, "Cannot exclude values when __load__ is implemented");
+            return nullptr;
+        }
+        
+        ObjectSharedPtr result;
+        if (kwargs != nullptr) {
+            auto method_kwargs = Py_OWN(getKwargsForMethod(load_method, kwargs));
+            if (!method_kwargs) {
                 return nullptr;
             }
-            
-            ObjectSharedPtr result;
-            if (kwargs != nullptr) {
-                auto method_kwargs = Py_OWN(getKwargsForMethod(load_method, kwargs));
-                if (!method_kwargs) {
-                    return nullptr;
-                }
-                auto args = Py_OWN(PyTuple_New(0));
-                result = Py_OWN(PyObject_Call(load_method, *args, *method_kwargs));
-            } else {
-                result = Py_OWN(PyObject_CallObject(load_method, nullptr));
-            }
-            if (!result) {
-                return nullptr;
-            }
-            return tryLoad(*result, kwargs, nullptr, load_stack_ptr);
+            auto args = Py_OWN(PyTuple_New(0));
+            result = Py_OWN(PyObject_Call(load_method, *args, *method_kwargs));
+        } else {
+            result = Py_OWN(PyObject_CallObject(load_method, nullptr));
+        }
+        if (!result) {
+            return nullptr;
+        }
+        return tryLoad(*result, kwargs, nullptr, load_stack_ptr);
     }
     
     template <typename MemoImplT>
     PyObject *tryLoadMemo(MemoImplT *memo_obj, PyObject *kwargs, PyObject *py_exclude,
-        std::unordered_set<const void*> *load_stack_ptr)
+        std::unordered_set<const void*> *load_stack_ptr, bool load_all)
     {
-        auto load_method = Py_OWN(tryMemoObject_getattro(memo_obj, *Py_OWN(PyUnicode_FromString("__load__"))));
-        if (load_method.get()) {
-            return executeLoadFunction(*load_method, kwargs, py_exclude, load_stack_ptr);
+        if (!load_all) {
+            // Find custom __load__ method (unless load all requested)
+            auto load_method = Py_OWN(tryMemoObject_getattro(memo_obj, *Py_OWN(PyUnicode_FromString("__load__"))));
+            if (load_method.get()) {
+                return executeLoadFunction(*load_method, kwargs, py_exclude, load_stack_ptr);
+            }
         }
         
         // reset Python error
@@ -990,7 +993,7 @@ namespace db0::python
             }
             
             if (py_exclude == nullptr || py_exclude == Py_None || PySequence_Contains(py_exclude, *key_obj) == 0) {
-                auto res = Py_OWN(tryLoad(*attr, kwargs, nullptr, load_stack_ptr));
+                auto res = Py_OWN(tryLoad(*attr, kwargs, nullptr, load_stack_ptr, false));
                 if (!res) {
                     has_error = true;
                 } else {
@@ -1106,8 +1109,8 @@ namespace db0::python
     template PyObject *tryGetAttrAs<MemoObject>(MemoObject *, PyObject *, PyTypeObject *);
     template PyObject *tryGetAttrAs<MemoImmutableObject>(MemoImmutableObject *, PyObject *, PyTypeObject *);
     template PyObject *tryLoadMemo<MemoObject>(MemoObject *, PyObject*, PyObject*,
-        std::unordered_set<const void*> *);
+        std::unordered_set<const void*> *, bool load_all = false);
     template PyObject *tryLoadMemo<MemoImmutableObject>(MemoImmutableObject *, PyObject*, PyObject*,
-        std::unordered_set<const void*> *);
+        std::unordered_set<const void*> *, bool load_all = false);
     
 }

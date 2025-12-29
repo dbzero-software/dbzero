@@ -332,6 +332,62 @@ def load(obj: Any, /, *, exclude: Optional[Union[List[str], Tuple[str, ...]]] = 
     """
     ...
 
+
+def load_all(obj: Any, /, *, exclude: Optional[Union[List[str], Tuple[str, ...]]] = None, **kwargs: Any) -> Any:
+    """Load a dbzero instance recursively into memory, ignoring the top-level custom __load__ method.
+    
+    It works similarly to load() but ignores custom __load__ implementations
+    for the top-level object. This is useful for implementing custom __load__ methods where
+    we want to retrieve all fields along with additional data (e.g., all fields + UUID).
+
+    Parameters
+    ----------
+    obj : Any
+        The object to convert. Can be native Python type, dbzero object,
+        or @dbzero.memo class instance.
+    exclude : list of str or tuple of str, optional
+        Optional list of attribute names to exclude when loading
+        @dbzero.memo class instances. Only works with default serialization.
+    **kwargs : dict
+        Additional keyword arguments passed to custom __load__ methods.
+
+    Returns
+    -------
+    Any
+        Converted object with the following behavior:
+        
+        * Native types: Returned as-is
+        * dbzero collections: Converted to built-in counterparts (list, tuple, set, dict)
+        * @dbzero.enum values: Converted to string representation
+        * @dbzero.memo instances: Converted to dictionaries (or using custom __load__ method)
+
+    Raises
+    ------
+    RecursionError
+        If the object contains cyclic references.
+    AttributeError
+        If exclude is used with custom __load__ methods.
+
+    Examples
+    --------
+    Loading all fields + UUID:
+    
+    >>> @db0.memo
+    ... @dataclass
+    ... class User:
+    ...     first_name: str
+    ...     last_name: str
+    ...     email: str
+    ...
+    ...     def __load__(self):
+    ...         return {
+    ...             "uuid": db0..uuid(self),
+    ...             **db0.load_all(self)
+    ...         }
+    """
+    ...
+
+
 def hash(obj: Any, /) -> int:
     """Compute a deterministic 64-bit integer hash for any object.
 
