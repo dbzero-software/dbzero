@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (c) 2025 DBZero Software sp. z o.o.
 
 #include "PyAPI.hpp"

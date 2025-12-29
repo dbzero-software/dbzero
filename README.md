@@ -6,7 +6,7 @@
 
 **A state management system for Python 3.x that unifies your application's business logic, data persistence, and caching into a single, efficient layer.**
 
-[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+[![License: LGPL 2.1](https://img.shields.io/badge/License-LGPL%202.1-blue.svg)](https://www.gnu.org/licenses/lgpl-2.1)
 
 > "If we had infinite memory in our laptop, we'd have no need for clumsy databases. Instead, we could just use our objects whenever we liked."
 > 
@@ -302,9 +302,10 @@ There you can find:
 
 ## License
 
-This project is licensed under the GNU Affero General Public License v3.0 (AGPLv3). See [LICENSE](./LICENSE) for the full text.
+This project is licensed under the GNU Lesser General Public License v2.1 (LGPL 2.1). See [LICENSE](./LICENSE) for the full text.
 
-- If you modify and run this software over a network, you must offer the complete corresponding source code to users interacting with it (AGPLv3 §13).
+- This library can be linked with proprietary software.
+- Modifications to the library itself must be released under LGPL 2.1.
 - Redistributions must preserve copyright and license notices and provide source.
 
 For attribution details, see [NOTICE](./NOTICE).

@@ -7,36 +7,28 @@ All rights reserved.
 LICENSE
 ================================================================================
 
-This program is free software: you can redistribute it and/or modify it under
-the terms of the GNU Affero General Public License as published by the Free
+This library is free software: you can redistribute it and/or modify it under
+the terms of the GNU Lesser General Public License as published by the Free
 Software Foundation, either version 3 of the License, or (at your option) any
 later version.
 
-This program is distributed in the hope that it will be useful, but WITHOUT
+This library is distributed in the hope that it will be useful, but WITHOUT
 ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for more
+FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License for more
 details.
 
-You should have received a copy of the GNU Affero General Public License along
-with this program. If not, see <https://www.gnu.org/licenses/>.
+You should have received a copy of the GNU Lesser General Public License along
+with this library. If not, see <https://www.gnu.org/licenses/>.
 
 ================================================================================
-AGPL-3.0 NETWORK USE REQUIREMENT
-================================================================================
 
-If you modify and run this software over a network (e.g., as a web service,
-API, or SaaS), you MUST offer the complete corresponding source code to users
-interacting with it remotely (AGPL Section 13).
-
-================================================================================
 DISTRIBUTION REQUIREMENTS
 ================================================================================
 
-When redistributing this software:
+When redistributing this library:
 - Preserve this NOTICE file
 - Include the full LICENSE file
-- If offered over a network, provide users a clear link to the complete
-  corresponding source code (AGPLv3 Section 13)
+- Retain all copyright and license notices
 
 ================================================================================
 THIRD-PARTY COMPONENTS
@@ -64,7 +56,7 @@ License File: THIRD_PARTY_LICENSES/BOOST_LICENSE_1_0
 Note: Files in src/dbzero/core/intrusive/ are derived from Boost.Intrusive
       and retain their original Boost Software License 1.0 with full copyright
       notices. Some files may contain modifications by DBZero Software sp. z o.o.,
-      which are licensed under AGPL-3.0-or-later. See individual file headers
+      which are licensed under LGPL-3.0-or-later. See individual file headers
       for specific copyright and licensing information.
 
 ================================================================================
