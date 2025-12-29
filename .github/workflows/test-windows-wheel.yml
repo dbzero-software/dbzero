@@ -6,6 +6,14 @@ on:
       python-version:
         required: true
         type: string
+      timeout-minutes:
+        required: false
+        type: number
+        default: 15
+      pytest-markers:
+        required: false
+        type: string
+        default: "-m 'not integration_test' -m 'not stress_test'"
   workflow_dispatch:
     inputs:
       python-version:
@@ -25,6 +33,11 @@ on:
         required: false
         type: number
         default: 15
+      pytest-markers:
+        description: 'Pytest markers (e.g., -m stress_test)'
+        required: false
+        type: string
+        default: "-m 'not integration_test' -m 'not stress_test'"
 
 jobs:
   test-windows:
@@ -55,4 +68,4 @@ jobs:
       
       - name: Run tests
         run: |
-          python -m pytest -m 'not integration_test' -m 'not stress_test' -c pytest.ini --capture=no -vv
+          python -m pytest ${{ inputs.pytest-markers }} -c pytest.ini --capture=no -vv
