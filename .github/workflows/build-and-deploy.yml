@@ -129,7 +129,6 @@ jobs:
     name: Deploy to PyPI (Manual)
     runs-on: ubuntu-latest
     needs: [sdist, test-wheels-linux, test-wheels-windows, test-wheels-macos]
-    if: github.event_name == 'workflow_dispatch'
     environment: pypi-deployment
     permissions:
       id-token: write
