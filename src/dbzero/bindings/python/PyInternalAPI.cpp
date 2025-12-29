@@ -739,7 +739,7 @@ namespace db0::python
     }
     
     PyObject *tryLoad(PyObject *py_obj, PyObject* kwargs, PyObject *py_exclude,
-        std::unordered_set<const void*> *load_stack_ptr)
+        std::unordered_set<const void*> *load_stack_ptr, bool load_all)
     {
         LoadGuard _load_guard(load_stack_ptr, py_obj);
         if (!_load_guard) {
@@ -751,13 +751,17 @@ namespace db0::python
         auto &type_manager = PyToolkit::getTypeManager();
         auto type_id_result = type_manager.tryGetTypeId(py_obj);
         if (!type_id_result.has_value() || type_id_result.value() == TypeId::UNKNOWN) {
-        auto load_func = Py_OWN(PyObject_GetAttrString(py_obj, "__load__"));
-            if (load_func.get()) {
-                if (PyCallable_Check(*load_func)) {
-                    return executeLoadFunction(*load_func, kwargs, py_exclude, load_stack_ptr);
-                }
+            if (!load_all) {
+                auto load_func = Py_OWN(PyObject_GetAttrString(py_obj, "__load__"));
+                if (load_func.get()) {
+                    if (PyCallable_Check(*load_func)) {
+                        return executeLoadFunction(*load_func, kwargs, py_exclude, load_stack_ptr);
+                    }
+                }                
             }
-            THROWF(db0::InputException) << "cannot recognize type and __load__ not implemented for: " << Py_TYPE(py_obj)->tp_name << THROWF_END;    
+            // return unknown types as-is (it's not a dbzero object)
+            Py_INCREF(py_obj);
+            return py_obj;
         }
         auto type_id = type_id_result.value();
         if (type_manager.isSimplePyTypeId(type_id)) {
@@ -782,9 +786,9 @@ namespace db0::python
         } else if (type_id == TypeId::DB0_ENUM_VALUE) {
             return tryLoadEnumValue(reinterpret_cast<PyEnumValue*>(py_obj));
         } else if (type_id == TypeId::MEMO_OBJECT) {
-            return tryLoadMemo(reinterpret_cast<MemoObject*>(py_obj), kwargs, py_exclude, load_stack_ptr);
+            return tryLoadMemo(reinterpret_cast<MemoObject*>(py_obj), kwargs, py_exclude, load_stack_ptr, load_all);
         } else if (type_id == TypeId::MEMO_IMMUTABLE_OBJECT) {
-            return tryLoadMemo(reinterpret_cast<MemoImmutableObject*>(py_obj), kwargs, py_exclude, load_stack_ptr);
+            return tryLoadMemo(reinterpret_cast<MemoImmutableObject*>(py_obj), kwargs, py_exclude, load_stack_ptr, load_all);
         } else {
             THROWF(db0::InputException) << "__load__ not implemented for type: " 
                 << Py_TYPE(py_obj)->tp_name << THROWF_END;
