@@ -648,6 +648,34 @@ namespace db0::object_model
         functions[static_cast<int>(StorageClass::PACK_2)] = unloadMember<StorageClass::PACK_2, PyToolkit>;
     }
     
+    template <typename T, typename MemoImplT, typename LangToolkit>
+    void unrefMemoObject(db0::swine_ptr<Fixture> &fixture, Address address)
+    {
+        auto obj_ptr = fixture->getLangCache().get(address);
+        if (obj_ptr.get()) {
+            db0::FixtureLock lock(fixture);
+            // decref cached instance via language specific wrapper type
+            auto lang_wrapper = reinterpret_cast<MemoImplT*>(obj_ptr.get());
+            auto &object = lang_wrapper->modifyExt();
+            object.decRef(false);
+            if (!object.hasRefs()) {
+                // NOTE: we'll drop the object immediately on condition it has no language references
+                if (!LangToolkit::hasLangRefs(*obj_ptr)) {
+                    auto unique_addr = object.getUniqueAddress();                    
+                    // drop dbzero instance, replacing it with a "null" placeholder
+                    object.dropInstance(lock);
+                    // might also be removed from lang cache                    
+                    fixture->getLangCache().erase(unique_addr);                    
+                }
+            }
+        } else {
+            T object(fixture, address);
+            object.decRef(false);
+            // member will be deleted by GC0 if its ref-count = 0
+        }
+    }
+
+    // Unreference any ObjectBase-derived type (except Memo types)
     template <typename T, typename LangToolkit>
     void unrefObjectBase(db0::swine_ptr<Fixture> &fixture, Address address)
     {
@@ -675,11 +703,12 @@ namespace db0::object_model
         }
     }
     
-    // OBJECT_REF specialization
+    // OBJECT_REF specialization (MemoAnyImpl)
     template <> void unrefMember<StorageClass::OBJECT_REF, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value)
     {
-        unrefObjectBase<Object, PyToolkit>(fixture, value.asAddress());
+        using MemoObject = PyToolkit::TypeManager::MemoObject;
+        unrefMemoObject<Object, MemoObject, PyToolkit>(fixture, value.asAddress());
     }
     
     template <> void unrefMember<StorageClass::DB0_LIST, PyToolkit>(

@@ -12,26 +12,16 @@
 #include <dbzero/core/memory/AccessOptions.hpp>
 #include "Migration.hpp"
 #include "MemoTypeDecoration.hpp"
+#include "MemoObject.hpp"
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/object_model/object/ObjectImmutableImpl.hpp>
 #include <dbzero/object_model/object/ObjectAnyImpl.hpp>
-
-namespace db0::object_model
-
-{
-    
-    class Object;
-    
-}
 
 namespace db0::python
 
 {
     
     using AccessType = db0::AccessType;
-    using MemoObject = PyWrapper<db0::object_model::Object>;
-    using MemoImmutableObject = PyWrapper<db0::object_model::ObjectImmutableImpl>;
-    using MemoAnyObject = PyWrapper<db0::object_model::ObjectAnyImpl>;
     
     PyObject *PyAPI_wrapPyClass(PyObject *self, PyObject *, PyObject *kwargs);
     // create a memo object stub

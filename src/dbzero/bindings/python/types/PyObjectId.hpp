@@ -9,6 +9,7 @@
 #include <dbzero/bindings/python/WhichType.hpp>
 #include <dbzero/bindings/python/PyWrapper.hpp>
 #include <dbzero/object_model/value/ObjectId.hpp>
+#include <dbzero/bindings/python/MemoObject.hpp>
 
 namespace db0::object_model
 
@@ -23,8 +24,7 @@ namespace db0::object_model
 namespace db0::python
 
 {
-
-    using MemoObject = PyWrapper<db0::object_model::Object>;
+    
     using ListObject = PyWrapper<db0::object_model::List>;
     using IndexObject = PyWrapper<db0::object_model::Index>;
     using ObjectId = db0::object_model::ObjectId;

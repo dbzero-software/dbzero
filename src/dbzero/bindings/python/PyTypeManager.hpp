@@ -13,6 +13,7 @@
 #include "PyTypes.hpp"
 #include <dbzero/bindings/python/types/PyEnumType.hpp>
 #include <dbzero/bindings/python/MemoTypeDecoration.hpp>
+#include "MemoObject.hpp"
 
 namespace db0
 
@@ -53,8 +54,6 @@ namespace db0::python
 {
     
     class MemoTypeDecoration;
-    using MemoObject = PyWrapper<db0::object_model::Object>;
-    using MemoImmutableObject = PyWrapper<db0::object_model::ObjectImmutableImpl>;
     
     /**
      * The class dedicated to recognition of Python types
@@ -69,6 +68,7 @@ namespace db0::python
         using TypeObjectSharedPtr = typename PyTypes::TypeObjectSharedPtr;
         using MemoObject = db0::python::MemoObject;
         using MemoImmutableObject = db0::python::MemoImmutableObject;
+        using MemoAnyObject = db0::python::MemoAnyObject;
         using Object = db0::object_model::Object;
         using ObjectImmutableImpl = db0::object_model::ObjectImmutableImpl;
         using ObjectAnyImpl = db0::object_model::ObjectAnyImpl;

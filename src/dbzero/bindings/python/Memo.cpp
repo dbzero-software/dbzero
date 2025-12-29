@@ -610,8 +610,12 @@ namespace db0::python
         (*tp_result)->tp_dict = copyDict(base_class->tp_dict);
         // disable weak-refs (important for Python 3.11.x)
         (*tp_result)->tp_weaklistoffset = 0;
-        // explicitly disable instance dict to prevent segfault in Python 3.10
+#if PY_VERSION_HEX < 0x030B0000  // Python < 3.11
+        (*tp_result)->tp_dictoffset = MemoImplT::getDictOffset();        
+#else
+        // will use managed dict for Python 3.11+
         (*tp_result)->tp_dictoffset = 0;
+#endif
         
         // replace default __str__ and __repr__ implementations
         if (base_class->tp_str == PyType_Type.tp_str) {
