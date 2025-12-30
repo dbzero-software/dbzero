@@ -71,7 +71,7 @@ namespace db0
     private:
         // the normalized diff ranges
         const std::vector<std::pair<std::uint16_t, std::uint16_t>> *m_diff_ranges = nullptr;
-        std::size_t m_size;
+        std::size_t m_size = 0;
         std::size_t m_offset = 0;
         std::uint16_t m_begin = 0;
         std::uint16_t m_end = std::numeric_limits<std::uint16_t>::max();
