@@ -206,7 +206,12 @@ namespace db0::python
         PY_API_FUNC
         // destroy associated db0 Object instance
         memo_obj->destroy();
-        Py_TYPE(memo_obj)->tp_free((PyObject*)memo_obj);
+        if (Py_IsInitialized())
+        {
+            // Skip deallocation during/after Python finalization
+            // Python Garbage Collector might be finalized (i.e. destroyed) at this point
+            Py_TYPE(memo_obj)->tp_free((PyObject*)memo_obj);
+        }
     }
 
     template <typename MemoImplT>
