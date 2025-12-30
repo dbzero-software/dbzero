@@ -78,7 +78,8 @@ namespace db0::object_model
     {
         // create member function pointer
         using UnloadMemberFunc = typename LangToolkit::ObjectSharedPtr (*)(db0::swine_ptr<Fixture> &, Value, unsigned int, AccessFlags);
-        static std::vector<UnloadMemberFunc> unload_member_functions;
+        static auto *unload_member_functions_ptr = new std::vector<UnloadMemberFunc>();
+        auto &unload_member_functions = *unload_member_functions_ptr;
         if (unload_member_functions.empty()) {
             registerUnloadMemberFunctions<LangToolkit>(unload_member_functions);
         }
@@ -101,7 +102,8 @@ namespace db0::object_model
     {
         // create member function pointer
         using UnrefMemberFunc = void (*)(db0::swine_ptr<Fixture> &, Value);
-        static std::vector<UnrefMemberFunc> unref_member_functions;
+        static auto *unref_member_functions_ptr = new std::vector<UnrefMemberFunc>();
+        auto &unref_member_functions = *unref_member_functions_ptr;
         if (unref_member_functions.empty()) {
             registerUnrefMemberFunctions<LangToolkit>(unref_member_functions);
         }
