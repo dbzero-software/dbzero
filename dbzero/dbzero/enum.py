@@ -7,10 +7,10 @@ from .dbzero import _make_enum
 
 
 @overload
-def enum(cls: str, values: List[str], *, prefix: Optional[str] = None) -> EnumType: ...
+def enum(cls: str, values: List[str]) -> EnumType: ...
 
 @overload 
-def enum(*, values: List[str], prefix: Optional[str] = None) -> EnumType: ...
+def enum(*, values: List[str]) -> EnumType: ...
 
 @overload
 def enum(cls: type) -> EnumType: ...
@@ -30,10 +30,6 @@ def enum(cls: Optional[Union[str, type]] = None, *args: Any, **kwargs: Any) -> E
     values : list of str
         A list of unique string names for the enum members. The order of values 
         is preserved.
-    prefix : str, optional
-        Scopes the enum definition to a specific data prefix. If None (default), 
-        the enum is defined in the prefix that is active at the time of creation. 
-        This allows for creating data-model-specific enums.
 
     Returns
     -------

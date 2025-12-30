@@ -740,6 +740,12 @@ namespace db0::python
             return {};            
         } 
 
+        if (!Py_IsInitialized()) {
+            // Simply return the lock after python instance was finalized
+            // This is safe because fixture threads should be stopped at this point
+            return SafeRLock(m_api_mutex);
+        }
+
         // unlock GIL while waiting for the API mutex
         PyThreadState *__save = PyEval_SaveThread();
         auto result = SafeRLock(m_api_mutex);
