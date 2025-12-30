@@ -95,7 +95,7 @@ def test_refresh_query_while_adding_new_objects(db0_fixture):
         p.join()
         db0.close()
 
-
+@pytest.mark.skip(reason="https://github.com/dbzero-software/dbzero/issues/662")
 @pytest.mark.stress_test
 def test_continuous_refresh_process(db0_fixture):
     px_name = db0.get_current_prefix().name

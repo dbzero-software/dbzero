@@ -14,6 +14,13 @@
 #  include <unistd.h>
 #endif
 
+
+#ifdef _WIN32
+#define FSEEK _fseeki64
+#else
+#define FSEEK fseek
+#endif
+
 #include <dbzero/core/exception/Exceptions.hpp>
 
 namespace db0
@@ -24,12 +31,12 @@ namespace db0
     
     std::uint64_t getFileSize(FILE *file, std::uint64_t file_pos)
     {
-        if (fseek(file, 0L, SEEK_END)) {
+        if (FSEEK(file, 0L, SEEK_END)) {
             THROWF(db0::IOException) << "CFile::getFileSize: fseek failed";
         }
         auto result = ftell(file);
         // return to original position
-        if (fseek(file, file_pos, SEEK_SET)) {
+        if (FSEEK(file, file_pos, SEEK_SET)) {
             THROWF(db0::IOException) << "CFile::getFileSize: fseek failed";
         }
         return result;
@@ -163,7 +170,7 @@ namespace db0
         FILE *file = fopen(file_name.c_str(), "ab+");
         try {
             // check file size
-            fseek(file, 0, SEEK_END);
+            FSEEK(file, 0, SEEK_END);
             auto file_size = ftell(file);
             if (file_size != 0) {
                 THROWF(db0::IOException) << "File already exists: " << file_name;
@@ -186,8 +193,10 @@ namespace db0
             if (m_dirty) {
                 flush(lock);
             }
-            if (fseek(m_file, address, SEEK_SET)) {
-                THROWF(db0::IOException) << "CFile::write: fseek failed";
+            auto err_code = FSEEK(m_file, address, SEEK_SET);
+            if (err_code != 0) {
+                int err = errno;
+                THROWF(db0::IOException) << "CFile::write: fseek failed with error code " << strerror(err);
             }
             m_file_pos = address;
         }
