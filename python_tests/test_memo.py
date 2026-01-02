@@ -211,3 +211,11 @@ def test_selective_assign_members(db0_fixture):
     # too spread apart, only some fraction of slots to be allocated to pos-vt
     assert len(db0.describe(obj_5)["field_layout"]["pos_vt"]) < 3
     
+    
+@pytest.mark.skip(reason="Missing feature: https://github.com/dbzero-software/dbzero/issues/682")
+def test_memo_setattr(db0_fixture):
+    obj_1 = MemoTestClass(1)
+    obj_1.__setattr__("value", 10)
+    assert obj_1.value == 10
+    obj_1.__setattr__("new_field", 20)
+    assert obj_1.new_field == 20
