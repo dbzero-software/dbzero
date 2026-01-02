@@ -99,3 +99,10 @@ def test_destroying_objects_with_multiple_bases_when_untagged(db0_fixture):
     db0.tags(next(iter(db0.find(DerivedClass, "tag-1")))).remove("tag-1")
     db0.commit()
     assert not db0.exists(uuid)
+
+
+def test_issubclass_for_memo_types(db0_fixture):
+    assert issubclass(DerivedClass, BaseClass)
+    assert issubclass(MemoWithColor, HasColor)
+    assert issubclass(MultipleDerivedClass, DerivedClass)
+    assert issubclass(MultipleDerivedClass, HasColor)

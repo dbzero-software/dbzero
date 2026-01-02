@@ -204,16 +204,16 @@ namespace db0::python
     void PyAPI_MemoObject_del(MemoImplT *memo_obj)
     {
         PY_API_FUNC
-        // destroy associated db0 Object instance
-        memo_obj->destroy();
         if (Py_IsInitialized())
         {
+            // destroy associated db0 Object instance
+            memo_obj->destroy();
             // Skip deallocation during/after Python finalization
             // Python Garbage Collector might be finalized (i.e. destroyed) at this point
             Py_TYPE(memo_obj)->tp_free((PyObject*)memo_obj);
         }
     }
-
+    
     template <typename MemoImplT>
     int MemoObject_traverse(MemoImplT *self, visitproc visit, void *arg)
     {
@@ -379,7 +379,7 @@ namespace db0::python
     template <>
     int PyAPI_MemoObject_setattro<MemoObject>(MemoObject *self, PyObject *attr, PyObject *value)
     {
-        PY_API_FUNC        
+        PY_API_FUNC
 
         // assign value to a dbzero attribute
         const char* attr_name = PyUnicode_AsUTF8(attr);
@@ -427,7 +427,7 @@ namespace db0::python
     template <>
     int PyAPI_MemoObject_setattro<MemoImmutableObject>(MemoImmutableObject *self, PyObject *attr, PyObject *value)
     {
-        PY_API_FUNC
+        PY_API_FUNC    
         // assign value to a dbzero attribute
         try {
             // must materialize the object before setting as an attribute
@@ -514,18 +514,29 @@ namespace db0::python
     }
     
     // Copy a python dict
-    PyObject *copyDict(PyObject *dict)
+    PyObject *copyDict(PyObject *dict, std::unordered_set<std::string> exclude_keys = {})
     {
         PyObject *key, *value;
         Py_ssize_t pos = 0;
         auto new_dict = Py_OWN(PyDict_New());
 
         while (PyDict_Next(dict, &pos, &key, &value)) {
+            if (exclude_keys.find(PyUnicode_AsUTF8(key)) != exclude_keys.end()) {
+                continue;
+            }
             PySafeDict_SetItem(*new_dict, Py_BORROW(key), Py_BORROW(value));
         }
         
         return new_dict.steal();
     }
+
+    static PyMethodDef MemoObject_methods[] = {
+        {NULL}  /* Sentinel */
+    };
+
+    static PyMethodDef MemoImmutableObject_methods[] = {
+        {NULL}  /* Sentinel */
+    };
     
     // Regular memo slots
     static PyType_Slot MemoObject_common_slots[] = {
@@ -534,6 +545,7 @@ namespace db0::python
         {Py_tp_init, (void *)PyAPI_MemoObject_init<MemoObject>},
         {Py_tp_getattro, (void *)PyAPI_MemoObject_getattro<MemoObject>},
         {Py_tp_setattro, (void *)PyAPI_MemoObject_setattro<MemoObject>},
+        {Py_tp_methods, (void *)MemoObject_methods},
         {Py_tp_richcompare, (void *)PyAPI_MemoObject_rq<MemoObject>},
         {Py_tp_hash, (void *)PyAPI_MemoHash},
         {Py_tp_traverse, (void *)MemoObject_traverse<MemoObject>},
@@ -549,6 +561,7 @@ namespace db0::python
         {Py_tp_getattro, (void *)PyAPI_MemoObject_getattro<MemoImmutableObject>},
         // set available only on pre-initialized objects
         {Py_tp_setattro, (void *)PyAPI_MemoObject_setattro<MemoImmutableObject>},
+        {Py_tp_methods, (void *)MemoImmutableObject_methods},
         {Py_tp_richcompare, (void *)PyAPI_MemoObject_rq<MemoImmutableObject>},
         {Py_tp_hash, (void *)PyAPI_MemoHash},
         {Py_tp_traverse, (void *)MemoObject_traverse<MemoImmutableObject>},
@@ -694,7 +707,7 @@ namespace db0::python
         // register new type with the module where the original type was located
         PySafeModule_AddObject(*py_module, type_name.c_str(), new_type);
         
-        // add class fields class member to access memo type information
+        // add class fields class member to access memo type information        
         auto py_class_fields = Py_OWN(PyClassFields_create(*new_type));
         if (PySafeDict_SetItemString((*new_type)->tp_dict, "__fields__", py_class_fields) < 0) {
             PyErr_SetString(PyExc_RuntimeError, "Failed to set __fields__");
