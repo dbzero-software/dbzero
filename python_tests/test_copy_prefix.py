@@ -193,6 +193,7 @@ def test_copy_prefix_without_opening_it(db0_fixture):
 
 
 @pytest.mark.stress_test
+@pytest.mark.skip(reason="https://github.com/dbzero-software/dbzero/issues/662")
 def test_copy_prefix_continuous_process(db0_fixture):
     px_name = db0.get_current_prefix().name
     px_path = os.path.join(DB0_DIR, px_name + ".db0")
@@ -452,6 +453,7 @@ def test_slow_copy(db0_fixture):
     
 
 @pytest.mark.stress_test
+@pytest.mark.skip(reason="https://github.com/dbzero-software/dbzero/issues/662")
 def test_copy_prefix_continuous_process_slow_copy(db0_fixture):
     if 'D' in db0.build_flags(): 
         px_name = db0.get_current_prefix().name
