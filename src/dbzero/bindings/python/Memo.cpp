@@ -211,7 +211,7 @@ namespace db0::python
             Py_TYPE(memo_obj)->tp_free((PyObject*)memo_obj);
         }
     }
-
+    
     template <typename MemoImplT>
     int MemoObject_traverse(MemoImplT *self, visitproc visit, void *arg)
     {
