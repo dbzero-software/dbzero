@@ -55,9 +55,11 @@ jobs:
           path: ./wheels/
       
       - name: Clone external CRM repository
-        run: |
-          git clone https://${{ secrets.PAT_TOKEN }}@github.com/wskozlowski/crm.git
-          cd crm
+        uses: actions/checkout@v4
+        with:
+          repository: wskozlowski/crm
+          token: ${{ secrets.PAT_TOKEN }}
+          path: crm
       
       - name: Install requirements and wheel
         run: |
