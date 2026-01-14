@@ -70,5 +70,5 @@ jobs:
       - name: Run tests
         run: |
           cd crm
-          ./run_tests.sh > /dev/null 2>&1
+          ./run_tests.sh
 
