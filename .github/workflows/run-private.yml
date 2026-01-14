@@ -30,7 +30,7 @@ jobs:
 
       # Call private action in same org
       - name: Call private action
-        uses: dbzero-software/mini_app/actions/private-action.yml@main
+        uses: dbzero-software/mini_app/actions/@main
         with:
           input_message: "Hello from workflow!"
           artifact_name: "public-artifact"
