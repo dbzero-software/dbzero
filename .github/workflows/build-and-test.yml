@@ -66,6 +66,7 @@ jobs:
           cd crm
           pip install -r requirements.txt
           pip install --force-reinstall ../wheels/*.whl
+          pip install --force-reinstall packages/*.whl 
       
       - name: Run tests
         run: |
