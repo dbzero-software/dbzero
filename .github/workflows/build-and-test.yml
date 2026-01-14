@@ -57,7 +57,7 @@ jobs:
       - name: Clone external CRM repository
         uses: actions/checkout@v4
         with:
-          repository: wskozlowski/crm
+          repository: adrian-zawadzki/crm
           token: ${{ secrets.PAT_TOKEN }}
           path: crm
       
