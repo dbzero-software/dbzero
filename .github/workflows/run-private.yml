@@ -1,0 +1,36 @@
+name: Call Private Action
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read    # Needed to access private repos in same org
+
+jobs:
+  call_private_action:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout the public repo
+      - name: Checkout public repo
+        uses: actions/checkout@v4
+
+      # Optional: create an artifact to pass
+      - name: Create artifact
+        run: echo "Hello from public repo!" > message.txt
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-artifact
+          path: message.txt
+
+      # Call private action in same org
+      - name: Call private action
+        uses: dbzero-software/mini_app/actions/private-action.yml@main
+        with:
+          input_message: "Hello from workflow!"
+          artifact_name: "public-artifact"
