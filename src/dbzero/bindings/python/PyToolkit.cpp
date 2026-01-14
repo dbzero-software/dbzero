@@ -38,6 +38,117 @@ namespace db0::python
     PyToolkit::PyWorkspace PyToolkit::m_py_workspace;
     SafeRMutex PyToolkit::m_api_mutex;
     
+    void PyToolkit::throwErrorWithPyErrorCheck(const std::string& message, const std::string& error_detail) {
+        if (PyErr_Occurred()) {
+            PyObject *ptype, *pvalue, *ptraceback;
+            PyErr_Fetch(&ptype, &pvalue, &ptraceback);
+            PyObject* str_repr = PyObject_Str(pvalue);
+            const char* error_msg = str_repr ? PyUnicode_AsUTF8(str_repr) : "Unknown Python error";
+            std::string error_str(error_msg);
+            Py_XDECREF(str_repr);
+            Py_XDECREF(ptype);
+            Py_XDECREF(pvalue);
+            Py_XDECREF(ptraceback);
+            THROWF(db0::InputException) << message << error_str << THROWF_END;
+        } else {
+            THROWF(db0::InputException) << message << error_detail << THROWF_END;
+        }
+    }
+    
+    std::string PyToolkit::getFullyQualifiedName(ObjectPtr func_obj) {
+        if (!func_obj) {
+            THROWF(db0::InputException) << "Null function object" << THROWF_END;
+        }
+
+        // Reject bound/unbound methods
+        if (PyMethod_Check(func_obj)) {
+            THROWF(db0::InputException) << "Methods are not allowed as FUNCTION members" << THROWF_END;
+        }
+
+        // Reject built-in C functions
+        if (PyCFunction_Check(func_obj)) {
+            THROWF(db0::InputException) << "Built-in C functions are not allowed as FUNCTION members" << THROWF_END;
+        }
+
+        // Get function's __name__, __qualname__, and __module__
+        auto name_obj   = Py_OWN(PyObject_GetAttrString(func_obj, "__name__"));
+        auto qualname   = Py_OWN(PyObject_GetAttrString(func_obj, "__qualname__"));
+        auto module_obj = Py_OWN(PyObject_GetAttrString(func_obj, "__module__"));
+
+        if (!name_obj || !qualname || !module_obj) {
+            THROWF(db0::InputException) << "Failed to get function name, qualname, or module" << THROWF_END;
+        }
+
+        // Decode UTF-8 strings
+        const char* name_cstr   = PyUnicode_AsUTF8(*name_obj);
+        const char* qual_cstr   = PyUnicode_AsUTF8(*qualname);
+        const char* module_cstr = PyUnicode_AsUTF8(*module_obj);
+
+        if (!name_cstr || !qual_cstr || !module_cstr) {
+            THROWF(db0::InputException) << "Failed to decode function attributes as UTF-8" << THROWF_END;
+        }
+
+        // Reject lambdas
+        if (strcmp(name_cstr, "<lambda>") == 0) {
+            THROWF(db0::InputException) << "Lambda functions are not allowed as FUNCTION members" << THROWF_END;
+        }
+
+        // Reject decorated or nested functions (qualname contains <locals>)
+        if (strstr(qual_cstr, "<locals>") != nullptr) {
+            THROWF(db0::InputException) << "Decorated or nested functions are not allowed as FUNCTION members" << THROWF_END;
+        }
+
+        // Construct fully qualified name: module.qualname
+        std::stringstream fqn_ss;
+        fqn_ss << module_cstr << "." << qual_cstr;
+        return fqn_ss.str();
+    }
+    
+    typename PyToolkit::ObjectSharedPtr PyToolkit::getFunctionFromFullyQualifiedName(const char* fqn, size_t size) {
+        // Make a copy to tokenize
+        char* copy = strndup(fqn, size);
+        if (!copy) {
+            THROWF(db0::InputException) << "Failed to unload CALLABLE: memory allocation failed" << THROWF_END;
+        }
+
+        // First token is the module root
+        char* p = strchr(copy, '.');
+        if (!p) {  // No dot = not fully qualified
+            free(copy);
+            THROWF(db0::InputException) << "Failed to unload CALLABLE: not a fully qualified name" << THROWF_END;
+        }
+        *p = '\0';
+        const char* root = copy;
+
+        // Import the module
+        auto module = Py_OWN(PyImport_ImportModule(root));
+        if (!module) {
+            free(copy);
+            throwErrorWithPyErrorCheck("Failed to unload CALLABLE: ", 
+                "could not import module");
+        }
+
+        auto obj = module;            // Start walking attributes
+
+        char* attr = p + 1;
+        while (attr && *attr) {
+            char* dot = strchr(attr, '.');
+            if (dot) *dot = '\0';
+
+            auto next = Py_OWN(PyObject_GetAttrString(obj.get(), attr));
+
+            if (!next) {                   // Attribute missing
+                free(copy);
+                throwErrorWithPyErrorCheck("Failed to unload CALLABLE: ", 
+                    "attribute missing");
+            }
+            obj = next;
+            attr = dot ? dot + 1 : NULL;
+        }
+        free(copy);
+        return obj;    // New ref; caller DECREFs
+    }
+    
     std::string PyToolkit::getTypeName(ObjectPtr py_object) {
         return getTypeName(Py_TYPE(py_object));
     }

@@ -330,6 +330,20 @@ namespace db0::object_model
         type->incRef(false);        
         return type->getUniqueAddress();
     }
+
+    // FUNCTION specialization
+    template <> Value createMember<TypeId::FUNCTION, PyToolkit>(
+    db0::swine_ptr<Fixture> &fixture,
+    PyObjectPtr obj_ptr,
+    StorageClass,
+    AccessFlags access_mode)
+    {
+        // Get and validate fully qualified name
+        auto fqn_str = PyToolkit::getFullyQualifiedName(obj_ptr);
+
+        // Store in your fixture
+        return db0::v_object<db0::o_string>(*fixture, fqn_str, access_mode).getAddress();
+    }
     
     template <> void registerCreateMemberFunctions<PyToolkit>(
         std::vector<Value (*)(db0::swine_ptr<Fixture> &, PyObjectPtr, StorageClass, AccessFlags)> &functions)
@@ -368,6 +382,7 @@ namespace db0::object_model
         functions[static_cast<int>(TypeId::DB0_BYTES_ARRAY)] = createMember<TypeId::DB0_BYTES_ARRAY, PyToolkit>;
         functions[static_cast<int>(TypeId::DB0_WEAK_PROXY)] = createMember<TypeId::DB0_WEAK_PROXY, PyToolkit>;
         functions[static_cast<int>(TypeId::MEMO_TYPE)] = createMember<TypeId::MEMO_TYPE, PyToolkit>;
+        functions[static_cast<int>(TypeId::FUNCTION)] = createMember<TypeId::FUNCTION, PyToolkit>;
     }
     
     // STRING_REF specialization
@@ -616,6 +631,18 @@ namespace db0::object_model
         return PyToolkit::getTypeManager().getLangConstant(val_code);
     }
     
+    // CALLABLE specialization
+    template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::CALLABLE, PyToolkit>(
+        db0::swine_ptr<Fixture> &fixture, Value value, unsigned int, AccessFlags access_mode)
+    {
+        db0::v_object<db0::o_string> string_ref(fixture->myPtr(value.asAddress()), access_mode);
+        auto str_ptr = string_ref->get();
+        
+        // Reconstruct function from its qualified name
+        return PyToolkit::getFunctionFromFullyQualifiedName(str_ptr.get_raw(), str_ptr.size());
+    }
+    
+
     template <> void registerUnloadMemberFunctions<PyToolkit>(
         std::vector<typename PyToolkit::ObjectSharedPtr (*)(db0::swine_ptr<Fixture> &, Value, unsigned int, AccessFlags)> &functions)
     {
@@ -646,6 +673,7 @@ namespace db0::object_model
         functions[static_cast<int>(StorageClass::OBJECT_WEAK_REF)] = unloadMember<StorageClass::OBJECT_WEAK_REF, PyToolkit>;
         functions[static_cast<int>(StorageClass::OBJECT_LONG_WEAK_REF)] = unloadMember<StorageClass::OBJECT_LONG_WEAK_REF, PyToolkit>;
         functions[static_cast<int>(StorageClass::PACK_2)] = unloadMember<StorageClass::PACK_2, PyToolkit>;
+        functions[static_cast<int>(StorageClass::CALLABLE)] = unloadMember<StorageClass::CALLABLE, PyToolkit>;
     }
     
     template <typename T, typename MemoImplT, typename LangToolkit>
