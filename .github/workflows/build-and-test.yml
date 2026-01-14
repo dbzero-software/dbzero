@@ -56,7 +56,7 @@ jobs:
       
       - name: Clone external CRM repository
         run: |
-          git clone https://${{ secrets.GITHUB_PAT }}@github.com/wskozlowski/crm.git
+          git clone https://${{ secrets.PAT_TOKEN }}@github.com/wskozlowski/crm.git
           cd crm
       
       - name: Install requirements and wheel
