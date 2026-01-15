@@ -219,6 +219,15 @@ namespace db0::python
         // indicate failed operation with a specific value/code
         static void setError(ObjectPtr err_obj, std::uint64_t err_value);
         
+        // Throw exception with Python error details if available
+        static void throwErrorWithPyErrorCheck(const std::string& message, const std::string& error_detail = "");
+        
+        // Get fully qualified name of a Python function (validates and rejects invalid function types)
+        static std::string getFullyQualifiedName(ObjectPtr func_obj);
+        
+        // Reconstruct a Python function from its fully qualified name
+        static ObjectSharedPtr getFunctionFromFullyQualifiedName(const char* fqn, size_t size);
+        
         // Check if the object has references from other language objects (other than LangCache)
         static bool hasLangRefs(ObjectPtr);
         // Check if there exist any references except specific number of external references

@@ -51,6 +51,7 @@ namespace db0::object_model
         addMapping(TypeId::DB0_BYTES_ARRAY, PreStorageClass::DB0_BYTES_ARRAY);
         // Note: DB0_WEAK_PROXY by default maps to OBJECT_WEAK_REF but can also be OBJECT_LONG_WEAK_REF which needs to be checked
         addMapping(TypeId::DB0_WEAK_PROXY, PreStorageClass::OBJECT_WEAK_REF);
+        addMapping(TypeId::FUNCTION, PreStorageClass::CALLABLE);
     }
     
     PreStorageClass StorageClassMapper::getPreStorageClass(TypeId type_id, bool allow_packed) const

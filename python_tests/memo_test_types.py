@@ -234,3 +234,6 @@ class MemoBlob:
     def __init__(self, size_bytes: int):
         assert size_bytes <= len(RANDOM_BYTES)
         self.data = RANDOM_BYTES[:size_bytes]
+
+def func(x):
+    return x * 2
