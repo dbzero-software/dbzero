@@ -92,10 +92,11 @@ namespace db0::object_model
         
         // Assign field of an uninitialized instance (assumed as a non-mutating operation)
         // NOTE: if lang_value is nullptr then the member is removed
+        void setPreInit(const char *field_name, TypeId type_id, ObjectPtr lang_value) const;
         void setPreInit(const char *field_name, ObjectPtr lang_value) const;
         void removePreInit(const char *field_name) const;
         
-        ObjectSharedPtr tryGet(const char *field_name) const;
+        ObjectSharedPtr tryGet(const char *field_name, bool *is_auto_generated = nullptr) const;
         ObjectSharedPtr tryGetAs(const char *field_name, TypeObjectPtr) const;
         ObjectSharedPtr get(const char *field_name) const;
                 
@@ -154,8 +155,9 @@ namespace db0::object_model
             std::pair<bool, bool> &find_result) const;
         std::pair<bool, bool> tryGetMemberAt(std::pair<FieldID, unsigned int>, 
             std::pair<StorageClass, Value> &) const;
-        FieldID tryGetMember(const char *field_name, std::pair<StorageClass, Value> &, bool &is_init_var) const;
-
+        FieldID tryGetMember(const char *field_name, std::pair<StorageClass, Value> &,
+            bool &is_init_var, bool *is_auto_generated = nullptr) const;
+        
         // Try resolving field ID of an existing (or deleted) member and also its storage location
         // @param pos the member's position in the containing collection
         // @return FieldID + containing collection (e.g. pos_vt())
@@ -179,7 +181,7 @@ namespace db0::object_model
         void unrefMember(db0::swine_ptr<Fixture> &, XValue) const;
         
         using TypeId = db0::bindings::TypeId;
-        std::pair<TypeId, StorageClass> recognizeType(Fixture &, ObjectPtr lang_value) const;
+        StorageClass recognizeType(Fixture &, TypeId, ObjectPtr lang_value) const;
         
         // Unload associated type
         std::shared_ptr<Class> unloadType() const;

@@ -228,3 +228,12 @@ def test_memo_setattr(db0_fixture):
 def test_memo_derived_no_init(db0_fixture):
     obj_1 = MemoDerivedClassNoInit(123)
     assert obj_1.value == 123
+    
+    
+class UnsupportedType:
+    def __init__(self, data):
+        self.data = data
+
+def test_unsupported_types_can_be_stored_as_regular_members(db0_fixture):
+    obj = MemoTestClass(UnsupportedType("data"))
+    assert isinstance(obj.value, UnsupportedType)

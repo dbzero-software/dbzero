@@ -125,7 +125,7 @@ namespace db0::object_model
         return false;
     }
 
-    void Object::set(FixtureLock &fixture, const char *field_name, ObjectPtr lang_value)
+    void Object::set(FixtureLock &fixture, const char *field_name, TypeId type_id, ObjectPtr lang_value)
     {        
         assert(hasInstance());
         // attribute delete operation
@@ -133,8 +133,8 @@ namespace db0::object_model
             remove(fixture, field_name);
             return;
         }
-
-        auto [type_id, storage_class] = recognizeType(**fixture, lang_value);
+        
+        auto storage_class = recognizeType(**fixture, type_id, lang_value);
         
         if (this->span() > 1) {
             // NOTE: large objects i.e. with span > 1 must always be marked with a silent mutation flag
@@ -195,6 +195,12 @@ namespace db0::object_model
         }        
     }
     
+    void Object::set(FixtureLock &fixture, const char *field_name, ObjectPtr lang_value)    
+    {
+        auto type_id = LangToolkit::getTypeManager().getTypeId(lang_value);
+        set(fixture, field_name, type_id, lang_value);
+    }
+
     void Object::remove(FixtureLock &fixture, const char *field_name)
     {
         assert(hasInstance());

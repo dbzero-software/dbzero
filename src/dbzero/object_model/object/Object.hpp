@@ -31,6 +31,7 @@ namespace db0::object_model
         // Assign language specific value as a field (to already initialized or uninitialized instance)
         // NOTE: if lang_value is nullptr then the member is removed
         void set(FixtureLock &, const char *field_name, ObjectPtr lang_value);
+        void set(FixtureLock &, const char *field_name, TypeId, ObjectPtr lang_value);
         void remove(FixtureLock &, const char *field_name);
         
         // Destroys an existing instance and constructs a "null" placeholder
