@@ -106,10 +106,12 @@ namespace db0::python
     
     typename PyToolkit::ObjectSharedPtr PyToolkit::getFunctionFromFullyQualifiedName(const char* fqn, size_t size) {
         // Make a copy to tokenize
-        char* copy = strndup(fqn, size);
+        char* copy = static_cast<char*>(malloc(size + 1));
         if (!copy) {
             THROWF(db0::InputException) << "Failed to unload CALLABLE: memory allocation failed" << THROWF_END;
         }
+        memcpy(copy, fqn, size);
+        copy[size] = '\0';
 
         // First token is the module root
         char* p = strchr(copy, '.');
