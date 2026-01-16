@@ -481,6 +481,13 @@ namespace db0
             // flush the boundary area only, since parent lock will be flushed either as DP or wide locks
             lock.flushBoundary();
         });
+        
+        // NOTE: since linear scan is required, we limit the boundary map size
+        // to avoid performance degradation
+        if (m_boundary_map.size() > 512) {
+            m_boundary_map.clear();
+        }
+
         // NOTE: only commit operation can use the FlushMethod::diff method
         // NOTE: we first flush using the diff-method and then again using full-write method
         // this is to reduce the number of interleaved diff / full writes
