@@ -26,15 +26,50 @@ jobs:
     with:
       python-version: ${{ matrix.python-version }}
 
-  # stress-test-linux:
-  #   needs: build-linux
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       python-version: ["3.12"]
-  #   uses: ./.github/workflows/test-linux-wheel.yml
-  #   with:
-  #     python-version: ${{ matrix.python-version }}
-  #     pytest-markers: "-m 'stress_test'"
-  #     timeout-minutes: 60
+  stress-test-linux:
+    needs: build-linux
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+    uses: ./.github/workflows/test-linux-wheel.yml
+    with:
+      python-version: ${{ matrix.python-version }}
+      pytest-markers: "-m 'stress_test'"
+      timeout-minutes: 60
+
+  test-external-crm:
+    needs: build-linux
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Download wheel artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: wheels-linux-3.11
+          path: ./wheels/
+      
+      - name: Clone external CRM repository
+        uses: actions/checkout@v4
+        with:
+          repository: adrian-zawadzki/crm
+          token: ${{ secrets.PAT_TOKEN }}
+          path: crm
+      
+      - name: Install requirements and wheel
+        run: |
+          cd crm
+          pip install -r requirements.txt
+          pip install --force-reinstall ../wheels/*.whl
+          pip install --force-reinstall packages/*.whl 
+      
+      - name: Run tests
+        run: |
+          cd crm
+          ./run_tests.sh > /dev/null 2>&1
 
