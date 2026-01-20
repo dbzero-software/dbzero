@@ -31,7 +31,9 @@ namespace db0::python
     PyObject *PyAPI_DictObject_values(DictObject *dict_obj);
     PyObject *PyAPI_DictObject_items(DictObject *dict_obj);
     void PyAPI_DictObject_del(DictObject* dict_obj);
+
     extern PyTypeObject DictObjectType;
+    extern PyTypeObject DictIteratorObjectType;
     
     shared_py_object<DictObject*> tryMake_DB0Dict(db0::swine_ptr<Fixture> &, PyObject *args,
         PyObject *kwargs, AccessFlags

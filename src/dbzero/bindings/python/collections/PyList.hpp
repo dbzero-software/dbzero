@@ -27,6 +27,7 @@ namespace db0::python
     PyObject *PyAPI_ListObject_multiply(ListObject *list_obj, PyObject *elem);
     
     extern PyTypeObject ListObjectType;
+    extern PyTypeObject ListIteratorObjectType;
     
     // construct from a Python list (or empty)
     shared_py_object<ListObject*> tryMake_DB0List(db0::swine_ptr<Fixture> &, PyObject *const *args, Py_ssize_t nargs, AccessFlags);
