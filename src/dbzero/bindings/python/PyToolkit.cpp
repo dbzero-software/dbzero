@@ -104,7 +104,7 @@ namespace db0::python
         return fqn_ss.str();
     }
     
-    typename PyToolkit::ObjectSharedPtr PyToolkit::(const char* fqn, size_t size) {
+    typename PyToolkit::ObjectSharedPtr PyToolkit::getFunctionFromFullyQualifiedName(const char* fqn, size_t size) {
         // Make a copy to tokenize
         char* copy = static_cast<char*>(malloc(size + 1));
         if (!copy) {
