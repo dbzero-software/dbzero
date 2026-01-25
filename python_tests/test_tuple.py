@@ -147,3 +147,8 @@ def test_db0_tuple_compare_with_other_types(db0_fixture):
     python_set = {1, 2, 3}
     assert db0_tuple != python_list
     assert db0_tuple != python_set
+
+def test_db0_tuple_iterator_type_valid(db0_fixture):
+    t = db0.tuple()
+    it = iter(t)
+    assert type(type(it)) is type

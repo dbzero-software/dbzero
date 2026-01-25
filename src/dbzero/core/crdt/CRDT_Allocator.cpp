@@ -389,9 +389,11 @@ namespace db0
             }
             
             // try raclaiming aligned space (at least size + 1DP - 1)
-            if (!tryReclaimSpaceFromStripes(std::max(size, static_cast<std::size_t>(size * m_page_size - 1)))) {
-                break;
-            }
+            // FIXME: blocked due to performance issues
+            // if (!tryReclaimSpaceFromStripes(std::max(size, static_cast<std::size_t>(size * m_page_size - 1)))) {
+            //     break;
+            // }
+            break;
         }
         
         // out of memory
@@ -449,9 +451,11 @@ namespace db0
                 }
             }
             
-            if (!tryReclaimSpaceFromStripes(size)) {
-                break;
-            }
+            // FIXME: blocked due to performance issues
+            // if (!tryReclaimSpaceFromStripes(size)) {
+            //     break;
+            // }
+            break;;
         }
 
         // out of memory

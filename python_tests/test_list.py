@@ -567,3 +567,8 @@ def test_list_delitem(db0_fixture):
     with pytest.raises(Exception):
         obj = db0.fetch(obj_uuid)
 
+
+def test_list_iterator_type_valid(db0_fixture):
+    l = db0.list()
+    it = iter(l)
+    assert type(type(it)) is type

@@ -34,6 +34,7 @@ namespace db0::python
     PyObject *PyAPI_SetObject_clear(SetObject *set_obj, PyObject *const *args, Py_ssize_t nargs);
 
     extern PyTypeObject SetObjectType;
+    extern PyTypeObject SetIteratorObjectType;
     
     // as number
     PyObject *PyAPI_SetObject_intersection_binary(SetObject *self, PyObject * obj);
