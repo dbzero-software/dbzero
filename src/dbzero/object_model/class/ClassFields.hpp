@@ -4,6 +4,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include "Class.hpp"
 #include <dbzero/object_model/LangConfig.hpp>
 
@@ -38,8 +39,13 @@ namespace db0::object_model
 
         // Get existing member by name or throw exception
         FieldDef get(const char *field_name) const;
+
+        // Try get existing member by name
+        std::optional<FieldDef> try_get(const char *field_name) const;
         
     private:
+        const std::shared_ptr<Class>& get_type() const;
+
         TypeObjectSharedPtr m_lang_type;
         // cached DBZ class
         mutable std::shared_ptr<Class> m_type;
