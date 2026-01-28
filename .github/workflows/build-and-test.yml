@@ -112,4 +112,4 @@ jobs:
       - name: Run C++ tests
         run: |
           cd build/release
-          meson test --verbose --print-errorlogs
+          ./tests.x

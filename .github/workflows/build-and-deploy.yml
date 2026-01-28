@@ -196,7 +196,7 @@ jobs:
       - name: Run C++ tests
         run: |
           cd build/release
-          meson test --verbose --print-errorlogs
+          ./test.x
 
   sdist:
     runs-on: ubuntu-latest
