@@ -145,6 +145,10 @@ DB0_PACKED_END
         std::size_t size() const {            
             return m_index.size();
         }
+
+        std::optional<Member> tryGetMember(FieldID) const;
+        std::optional<Member> tryGetMember(std::pair<std::uint32_t, std::uint32_t> loc) const;
+        std::optional<Member> tryGetMember(const char *name) const;
         
         Member getMember(FieldID) const;
         Member getMember(std::pair<std::uint32_t, std::uint32_t> loc) const;
@@ -282,10 +286,6 @@ DB0_PACKED_END
             
         // Get unique class identifier within its fixture
         std::uint32_t fetchUID() const;
-        
-        std::optional<Member> tryGetMember(FieldID) const;
-        std::optional<Member> tryGetMember(std::pair<std::uint32_t, std::uint32_t> loc) const;
-        std::optional<Member> tryGetMember(const char *name) const;
         
     private:
         const std::pair<std::uint64_t, std::uint64_t> m_type_slot_addr_range;
