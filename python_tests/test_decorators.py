@@ -158,3 +158,26 @@ def test_complete_with():
     assert db0.has_complete_action(InnerClass.query)
     with pytest.raises(RuntimeError):
         db0.get_complete_action(InnerClass.query)
+
+
+def test_table_view_with_operator():
+    def my_operator(row_id, col_id, new_value):
+        return f"Updated {row_id}, {col_id} to {new_value}"
+    
+    @db0.table_view(operator=my_operator)
+    def my_table_view_with_op():
+        return [("header1", "header2"), ("row1", "row2")]
+    
+    assert db0.is_table_view(my_table_view_with_op)
+    assert hasattr(my_table_view_with_op, '__db0_table_view')
+    assert my_table_view_with_op.__db0_table_view == True
+    assert hasattr(my_table_view_with_op, '__db0_table_view_operator')
+    assert my_table_view_with_op.__db0_table_view_operator == my_operator
+    
+    # Test the decorator preserves function behavior
+    result = my_table_view_with_op()
+    assert result == [("header1", "header2"), ("row1", "row2")]
+    
+    # Test the operator works correctly
+    assert my_table_view_with_op.__db0_table_view_operator("row1", "col1", "new_val") == "Updated row1, col1 to new_val"
+
