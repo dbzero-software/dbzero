@@ -107,16 +107,12 @@ py3_inst = import('python').find_installation('python3', pure: false)
 install_dir = py3_inst.get_install_dir() / 'dbzero' / 'libs'
 deps = []
 
-# if build_machine.system() == 'linux'
-#     python_embed_dep = dependency('python3-embed', main:true, required: true)
-# endif
+
 python_deps = py3_inst.dependency()
 
 
 deps += python_deps
-# if build_machine.system() == 'linux'
-#     deps += python_embed_dep
-# endif
+
 
 all_srcs = []
 subdir('src/dbzero')
@@ -139,6 +135,12 @@ dbzero_lib = static_library('pyzero', [all_srcs], include_directories:include_di
 all_deps = [deps]
 build_tests = get_option('build_tests')
 if build_tests
+    if build_machine.system() == 'linux'
+        python_embed_dep = dependency('python3-embed', main:true, required: true)
+    endif
+    if build_machine.system() == 'linux'
+        deps += python_embed_dep
+    endif
     gtest_proj = subproject('gtest') 
 
     gtest_dep = gtest_proj.get_variable('gtest_dep') 

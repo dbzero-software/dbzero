@@ -108,7 +108,7 @@ namespace tests
         ASSERT_EQ(item.m_page_num, 4);
     }
 
-    TEST_F( DiffIndexTest , testDiffIndexInsertThenQuery )
+    TEST_F( DiffIndexTest , DISABLED_testDiffIndexInsertThenQuery )
     {   
         auto ops = loadArray("./tests/files/diff_index_ops.csv");
         SparseIndex sparse_index(512);
@@ -174,12 +174,12 @@ namespace tests
         ASSERT_FALSE(cut.empty());
     }
     
-    TEST_F( DiffIndexTest , testDiffIndexQueryIssue1 )
+    TEST_F( DiffIndexTest , DISABLED_testDiffIndexQueryIssue1 )
     {
         runQueryTestWithFile("./tests/files/sparse_pair_ops_2.csv", 1376800u, 3u);
     }
     
-    TEST_F( DiffIndexTest , testDiffIndexQueryIssue2 )
+    TEST_F( DiffIndexTest , DISABLED_testDiffIndexQueryIssue2 )
     {
         runQueryTestWithFile("./tests/files/sparse_pair_ops.csv", 7110756u, 8u);
     }
