@@ -50,14 +50,14 @@ jobs:
       
       - name: Configure build with tests enabled
         run: |
-          meson setup --buildtype=debug -Dbuild_tests=true build/debug
+          meson setup --buildtype=release -Dbuild_tests=true build/debug
       
       - name: Build project
         run: |
-          cd build/debug
+          cd build/release
           ninja
       
       - name: Run C++ tests
         run: |
-          cd build/debug
+          cd build/release
           meson test --verbose --print-errorlogs
