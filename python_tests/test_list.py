@@ -546,3 +546,29 @@ def test_append_to_random_lists(db0_autocommit_fixture):
 def test_list_tuple_indexed_access(db0_fixture):
     db0_list = db0.list([1, 2, 3, 5, 6, 7, 8])
     assert db0_list[(1, 3, 4)] == [2, 5, 6]
+
+
+def test_list_delitem(db0_fixture):
+    l = db0.list(range(10))
+    del l[0]
+    assert l == [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    del l[-1]
+    assert l == [1, 2, 3, 4, 5, 6, 7, 8]
+    del l[2]
+    assert l == [1, 2, 4, 5, 6, 7, 8]
+
+    # Check del unrefs objects 
+    obj = MemoTestClass(123)
+    obj_uuid = db0.uuid(obj)
+    l[0] = obj
+    del l[0]
+    del obj
+    db0.commit()
+    with pytest.raises(Exception):
+        obj = db0.fetch(obj_uuid)
+
+
+def test_list_iterator_type_valid(db0_fixture):
+    l = db0.list()
+    it = iter(l)
+    assert type(type(it)) is type

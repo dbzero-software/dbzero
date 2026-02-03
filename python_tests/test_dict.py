@@ -595,3 +595,8 @@ def test_db0_dict_str_with_nested_memo_objects(db0_fixture):
     memo_str = repr(inner_memo)
     assert memo_str in db0_dict_str
     assert memo_str in py_dict_str
+
+def test_db0_dict_iterator_type_valid(db0_fixture):
+    d = db0.dict()
+    it = iter(d)
+    assert type(type(it)) is type

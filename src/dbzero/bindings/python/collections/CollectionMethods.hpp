@@ -146,6 +146,9 @@ namespace db0::python
             index = py_obj->ext().size() -1;
         } else if (nargs == 1) {
             index = PyLong_AsLong(args[0]);
+            if (PyErr_Occurred()) {
+                return nullptr;
+            }
         } else {
             PyErr_SetString(PyExc_TypeError, "pop() takes zero or one argument.");
             return NULL;

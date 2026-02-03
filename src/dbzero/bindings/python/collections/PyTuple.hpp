@@ -25,6 +25,7 @@ namespace db0::python
     PyObject *PyAPI_TupleObject_GetItem(TupleObject *tuple_obj, Py_ssize_t i);
     
     extern PyTypeObject TupleObjectType;
+    extern PyTypeObject TupleIteratorObjectType;
         
     shared_py_object<TupleObject*> tryMake_DB0Tuple(db0::swine_ptr<Fixture> &, PyObject *const *args,
         Py_ssize_t nargs, AccessFlags

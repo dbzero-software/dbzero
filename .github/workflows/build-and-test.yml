@@ -26,15 +26,92 @@ jobs:
     with:
       python-version: ${{ matrix.python-version }}
 
-  # stress-test-linux:
-  #   needs: build-linux
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       python-version: ["3.12"]
-  #   uses: ./.github/workflows/test-linux-wheel.yml
-  #   with:
-  #     python-version: ${{ matrix.python-version }}
-  #     pytest-markers: "-m 'stress_test'"
-  #     timeout-minutes: 60
+  stress-test-linux:
+    needs: build-linux
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+    uses: ./.github/workflows/test-linux-wheel.yml
+    with:
+      python-version: ${{ matrix.python-version }}
+      pytest-markers: "-m 'stress_test'"
+      timeout-minutes: 60
 
+  test-external-crm:
+    needs: build-linux
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Download wheel artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: wheels-linux-3.11
+          path: ./wheels/
+      
+      - name: Clone external CRM repository
+        uses: actions/checkout@v4
+        with:
+          repository: adrian-zawadzki/crm
+          token: ${{ secrets.PAT_TOKEN }}
+          path: crm
+      
+      - name: Install requirements and wheel
+        run: |
+          cd crm
+          pip install -r requirements.txt
+          pip install --force-reinstall ../wheels/*.whl
+          pip install --force-reinstall packages/*.whl 
+      
+      - name: Run tests
+        run: |
+          cd crm
+          ./run_tests.sh > /dev/null 2>&1
+  build-and-test-cpp:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ${{ github.event_name == 'workflow_dispatch' && fromJSON(format('["{0}"]', inputs.python-version)) || fromJSON('["3.9", "3.10", "3.11", "3.12", "3.13"]') }}
+    env:
+      REQUIREMENTS_FILE: ${{ matrix.python-version == '3.9' && 'requirements.3.9.txt' || 'requirements.txt' }}
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y meson ninja-build
+          pip install -r $REQUIREMENTS_FILE
+      
+      - name: Generate meson files
+        run: |
+          python3 scripts/generate_meson.py ./src/dbzero/ core
+          python3 scripts/generate_meson_tests.py tests/
+          python3 scripts/generate_meson_dbzero.py dbzero/
+      
+      - name: Configure build with tests enabled
+        run: |
+          meson setup --buildtype=release -Dbuild_tests=true build/release
+      
+      - name: Build project
+        run: |
+          cd build/release
+          ninja
+      
+      - name: Run C++ tests
+        run: |
+          cd build/release
+          ./tests.x

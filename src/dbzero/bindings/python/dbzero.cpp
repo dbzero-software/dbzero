@@ -183,11 +183,15 @@ PyMODINIT_FUNC PyInit_dbzero(void)
     
     std::vector<PyTypeObject*> types = {
         &py::ObjectIdType, 
-        &py::ListObjectType, 
+        &py::ListObjectType,
+        &py::ListIteratorObjectType,
         &py::IndexObjectType, 
         &py::SetObjectType, 
-        &py::TupleObjectType, 
+        &py::SetIteratorObjectType,
+        &py::TupleObjectType,
+        &py::TupleIteratorObjectType,
         &py::DictObjectType,
+        &py::DictIteratorObjectType,
         &py::PyObjectTagManagerType, 
         &py::PySnapshotObjectType, 
         &py::PyObjectIterableType,
