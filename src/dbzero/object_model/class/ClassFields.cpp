@@ -26,8 +26,8 @@ namespace db0::object_model
         }
         m_lang_type = lang_type;
     }
-    
-    FieldDef ClassFields::get(const char *field_name) const
+
+    const std::shared_ptr<Class>& ClassFields::get_type() const
     {
         if (!m_type) {
             auto fixture = LangToolkit::getPyWorkspace().getWorkspace().getFixture(
@@ -37,9 +37,23 @@ namespace db0::object_model
             // find py type associated dbzero class with the ClassFactory
             m_type = class_factory.getOrCreateType(m_lang_type.get());
         }
-        
-        auto field_id = std::get<0>(m_type->findField(field_name)).primary().first;
-        return { m_type->getUID(), m_type->getMember(field_id) };
+        return m_type;
     }
     
+    FieldDef ClassFields::get(const char *field_name) const
+    {
+        auto &type = get_type();
+        return {type->getUID(), type->getMember(field_name)};
+    }
+
+    std::optional<FieldDef> ClassFields::try_get(const char *field_name) const
+    {
+        auto &type = get_type();
+        auto member = type->tryGetMember(field_name);
+        if (!member) {
+            return std::nullopt;
+        }
+        return std::make_optional<FieldDef>({type->getUID(), *member});
+    }
+
 }
