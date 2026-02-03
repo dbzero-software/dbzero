@@ -4,7 +4,7 @@
 """dbzero initialization functions"""
 from .dbzero import _init, open as dbzero_open
 
-def init(dbzero_root: str, **kwargs) -> None:
+def init(dbzero_root: str, **kwargs: Any) -> None:
     """Initialize the dbzero environment in a specified directory and apply global configurations.
 
     This function sets up the underlying state management engine.
