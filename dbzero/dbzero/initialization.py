@@ -2,6 +2,7 @@
 # Copyright (c) 2025 DBZero Software sp. z o.o.
 
 """dbzero initialization functions"""
+from typing import Any
 from .dbzero import _init, open as dbzero_open
 
 def init(dbzero_root: str, **kwargs: Any) -> None:
