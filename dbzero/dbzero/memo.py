@@ -257,11 +257,18 @@ def memo(cls: Optional[type] = None, **kwargs) -> type:
                 if hasattr(attr, '_db0_migration'):
                     yield (attr, list(dis_assig(attr)))
     
-    def wrap(cls_):
-        # note that we use the __dyn_prefix mechanism only for singletons
+    def wrap(cls_):        
         is_singleton = kwargs.get("singleton", False)
-        return _wrap_memo_type(cls_, py_file = getfile(cls_), py_init_vars = list(dis_init_assig(cls_)), \
-            py_dyn_prefix = __dyn_prefix(cls_) if is_singleton else None, \
+        # note that we use the __dyn_prefix mechanism only for singletons
+        try:
+            dyn_prefix = __dyn_prefix(cls_) if is_singleton else None
+            init_vars = list(dis_init_assig(cls_))
+        except TypeError:
+            # unable to process the __init__ function (e.g. wrapper_descriptor)
+            dyn_prefix = None
+            init_vars = []
+        
+        return _wrap_memo_type(cls_, py_file = getfile(cls_), py_init_vars = init_vars, py_dyn_prefix = dyn_prefix, \
             py_migrations = list(find_migrations(cls_)) if is_singleton else None, **kwargs
         )
     

@@ -33,6 +33,11 @@ class MemoClassWithSetter:
     def value(self, new_value):
         self._value = new_value + 1
 
+
+@db0.memo
+class MemoDerivedClassNoInit(MemoTestClass):
+    pass
+    
     
 def test_memo_is_instance_operator(db0_fixture):
     obj_1 = MemoTestClass(999)    
@@ -210,12 +215,16 @@ def test_selective_assign_members(db0_fixture):
     obj_5 = MemoAnyAttrs(f4 = False, f6 = 1, f9 = 11)
     # too spread apart, only some fraction of slots to be allocated to pos-vt
     assert len(db0.describe(obj_5)["field_layout"]["pos_vt"]) < 3
+
     
-    
-@pytest.mark.skip(reason="Missing feature: https://github.com/dbzero-software/dbzero/issues/682")
 def test_memo_setattr(db0_fixture):
-    obj_1 = MemoTestClass(1)
+    obj_1 = MemoTestClass(1)    
     obj_1.__setattr__("value", 10)
     assert obj_1.value == 10
     obj_1.__setattr__("new_field", 20)
     assert obj_1.new_field == 20
+    
+    
+def test_memo_derived_no_init(db0_fixture):
+    obj_1 = MemoDerivedClassNoInit(123)
+    assert obj_1.value == 123
