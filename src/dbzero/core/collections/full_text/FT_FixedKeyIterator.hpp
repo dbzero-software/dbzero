@@ -4,6 +4,7 @@
 #include "FT_Iterator.hpp"
 #include <dbzero/core/utils/SortedArray.hpp>
 #include <dbzero/core/memory/Address.hpp>
+#include <dbzero/workspace/Snapshot.hpp>
 
 namespace db0
 
@@ -55,6 +56,10 @@ namespace db0
         std::ostream &dump(std::ostream &os) const override;
 
         std::size_t size() const;
+
+        static std::unique_ptr<FT_FixedKeyIterator<KeyT>> deserialize(
+            Snapshot &workspace, std::vector<std::byte>::const_iterator &iter,
+            std::vector<std::byte>::const_iterator end);
 
     protected:
         void serializeFTIterator(std::vector<std::byte> &) const override;

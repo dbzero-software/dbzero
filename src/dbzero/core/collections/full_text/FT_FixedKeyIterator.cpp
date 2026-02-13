@@ -202,12 +202,37 @@ namespace db0
     {
 		using TypeIdType = decltype(db0::serial::typeId<void>());
 
-        db0::serial::write<std::int8_t>(v, m_direction);
         db0::serial::write<TypeIdType>(v, db0::serial::typeId<KeyT>());
+        db0::serial::write<std::int8_t>(v, m_direction);
         db0::serial::write<std::uint32_t>(v, m_sorted_keys.size());
         for (const auto &key : m_sorted_keys) {
             db0::serial::write(v, key);
         }        
+    }
+
+    template <typename KeyT>
+    std::unique_ptr<FT_FixedKeyIterator<KeyT>> FT_FixedKeyIterator<KeyT>::deserialize(
+        Snapshot &/*workspace*/, std::vector<std::byte>::const_iterator &iter,
+        std::vector<std::byte>::const_iterator end)
+    {
+        using TypeIdType = decltype(db0::serial::typeId<void>());
+
+        auto key_type_id = db0::serial::read<TypeIdType>(iter, end);
+        if (key_type_id != db0::serial::typeId<KeyT>()) {
+            THROWF(db0::InternalException) << "Key type mismatch: " << key_type_id
+                << " != " << db0::serial::typeId<KeyT>() << THROWF_END;
+        }
+
+        int direction = db0::serial::read<std::int8_t>(iter, end);
+        std::uint32_t size = db0::serial::read<std::uint32_t>(iter, end);
+        std::vector<KeyT> keys;
+        keys.reserve(size);
+        for (std::uint32_t i = 0; i < size; ++i) {
+            keys.push_back(db0::serial::read<KeyT>(iter, end));
+        }
+
+        return std::make_unique<FT_FixedKeyIterator<KeyT>>(keys.data(), keys.data() + keys.size(),
+            direction, true);
     }
 
     template class FT_FixedKeyIterator<std::uint64_t>;

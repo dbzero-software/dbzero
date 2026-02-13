@@ -198,7 +198,7 @@ namespace db0::python
                 return result;
             } else {
                 // unload without type validation
-                return PyToolkit::unloadObject(fixture, addr, class_factory, nullptr, addr.getInstanceId());
+                return PyToolkit::unloadObject(fixture, addr, class_factory, py_expected_type, addr.getInstanceId());
             }
         } else if (storage_class == db0::object_model::StorageClass::DB0_CLASS) {
             auto &class_factory = db0::object_model::getClassFactory(*fixture);

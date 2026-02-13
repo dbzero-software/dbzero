@@ -1,11 +1,73 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 # Copyright (c) 2025 DBZero Software sp. z o.o.
 
+from contextlib import ExitStack
 from typing import Optional, Callable, Iterable, Tuple
 from .interfaces import Memo, QueryObject, Snapshot
 import dbzero as db0
 from .dbzero import _select_mod_candidates, _split_by_snapshots
 
+
+class SnapshotWindow:
+    """A context manager that opens two snapshots spanning a range of states.
+
+    Creates a pair of snapshots representing the state at ``from_state``
+    and the state at ``to_state``. This is useful for comparing database state across a
+    window of commits, e.g. with :func:`select_new`, :func:`select_deleted`, or
+    :func:`select_modified`.
+
+    Parameters
+    ----------
+    from_state : int or None
+        The state number for the pre-snapshot. When using a prefix and ``from_state``
+        is None or less than 2, a snapshot at state 1 is created. Without a prefix
+        and ``from_state`` is 1 or less, the pre-snapshot is ``None``.
+    to_state : int, optional
+        The state number for the post-snapshot.
+    prefix : str, optional
+        If provided, snapshots are scoped to the given prefix.
+
+    Yields
+    ------
+    pre_snapshot : Snapshot or None
+        The snapshot representing the state at ``from_state``. ``None`` when
+        no prefix is used and ``from_state`` is 1 or less.
+    last_snapshot : Snapshot
+        The snapshot representing the state at ``to_state``.
+
+    Examples
+    --------
+    Watch a prefix for modifications between two known states:
+
+    >>> prefix = dbzero.get_prefix_of(obj).name
+    >>> state_1 = dbzero.get_state_num(prefix, True)
+    >>>
+    >>> # ... wait for changes ...
+
+    >>> state_2 = dbzero.get_state_num(prefix, True)
+    >>>
+    >>> with SnapshotWindow(state_1, state_2, prefix) as (pre_snap, last_snap):
+    ...     modified = dbzero.select_modified(dbzero.find(MyType), pre_snap, last_snap)
+    ...     for old_ver, new_ver in modified:
+    ...         print(f"Changed: {old_ver} -> {new_ver}")
+
+    """
+    def __init__(self, from_state, to_state = None, prefix = None):
+        if prefix:
+            self.pre_context = db0.snapshot({prefix: from_state}) if from_state and from_state > 1 else db0.snapshot({prefix: 1})
+            self.last_context = db0.snapshot({prefix: to_state})
+        else:
+            self.pre_context = db0.snapshot(from_state) if from_state > 1 else None
+            self.last_context = db0.snapshot(to_state)
+        self._exit_stack = ExitStack()
+
+    def __enter__(self):
+        pre_snapshot = self._exit_stack.enter_context(self.pre_context)
+        last_snapshot = self._exit_stack.enter_context(self.last_context)
+        return pre_snapshot, last_snapshot
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        return self._exit_stack.__exit__(exc_type, exc_value, traceback)
 
 def select_new(query: QueryObject, pre_snapshot: Optional[Snapshot], last_snapshot: Snapshot) -> QueryObject:
     """Refine the query to only include objects that were created between two snapshots.
@@ -160,6 +222,8 @@ class ModIterable:
                 break
         return size
     
+
+
 
 def select_modified(query: QueryObject, pre_snapshot: Optional[Snapshot], last_snapshot: Snapshot, compare_with: Optional[Callable] = None) -> Iterable[Tuple[Memo, Memo]]:
     """Refines the query to include only objects which were modified between two snapshots,
