@@ -284,17 +284,11 @@ def memo(cls: Optional[type] = None, **kwargs) -> type:
                 init_subclass = base.__dict__['__init_subclass__']
                 if hasattr(init_subclass, '__func__'):
                     # Python classmethod - call the underlying function
-                    # FIXME: log
-                    print(f"Memo Calling __init_subclass__ of {base.__name__} for wrapped class {wrapped.__name__}")
-                    print(f"Wrapped type: {wrapped} ")
                     init_subclass.__func__(wrapped)
                 else:
                     # Built-in or descriptor - get it bound to the wrapped class and call
                     bound_method = getattr(wrapped, '__init_subclass__', None)
                     if bound_method is not None:
-                        # FIXME: log
-                        print(f"Memo Calling __init_subclass__ of {base.__name__} for wrapped class {wrapped.__name__}")
-                        print(f"Wrapped type: {wrapped} - via bound method")
                         bound_method()
                 break  # Only call the first (most derived) __init_subclass__
         

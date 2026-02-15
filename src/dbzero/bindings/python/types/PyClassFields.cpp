@@ -47,10 +47,16 @@ namespace db0::python
 
     PyObject *tryPyClassFields_getattro(PyClassFields *self, PyObject *field_name)
     {
-        auto field_def = self->ext().get(PyUnicode_AsUTF8(field_name));
-        PyFieldDef *py_field_def = PyFieldDefDefault_new();
-        py_field_def->modifyExt() = field_def;
-        return (PyObject *)py_field_def;
+        auto field_def = self->ext().try_get(PyUnicode_AsUTF8(field_name));
+        if (field_def) {
+            PyFieldDef *py_field_def = PyFieldDefDefault_new();
+            py_field_def->modifyExt() = *field_def;
+            return (PyObject *)py_field_def;
+        }
+
+        // Try to get the attribute using the default mechanism
+        // This handles __class__, __dict__, and other standard Python attributes
+        return PyObject_GenericGetAttr((PyObject*)self, field_name);
     }
 
     PyObject *PyClassFields_getattro(PyClassFields *self, PyObject *attr) {

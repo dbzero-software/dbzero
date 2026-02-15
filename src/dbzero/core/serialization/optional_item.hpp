@@ -17,7 +17,7 @@ DB0_PACKED_BEGIN
     struct DB0_PACKED_ATTR o_optional_item
     {
         // the item value (valid only if m_present != 0)
-        ItemT m_value;
+        ItemT m_value = {};
         // indicates if the item is present (1) or not (0)
         std::uint8_t m_present = 0;
 

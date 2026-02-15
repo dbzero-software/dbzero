@@ -321,9 +321,7 @@ namespace db0::python
     
     PyObject *PyAPI_init(PyObject *self, PyObject *args, PyObject *kwargs)
     {
-        // FIXME: log
-        std::cout << "--- initialized version 1.0.0 ---" << std::endl;
-        PY_API_FUNC        
+        PY_API_FUNC
         return runSafe(tryInit, self, args, kwargs);
     }
     

@@ -81,9 +81,6 @@ namespace db0::object_model
 
     List::ObjectSharedPtr List::pop(FixtureLock &fixture, std::size_t i)
     {
-        if (size() == 0) {
-            THROWF(db0::InputException) << "Cannot pop from empty container ";
-        }
         if (i >= size()) {
             THROWF(db0::IndexException) << "Index out of range: " << i;
         }
@@ -100,19 +97,25 @@ namespace db0::object_model
             THROWF(db0::IndexException) << "Index out of range: " << i;
         }
 
-        // recognize type ID from language specific object
-        auto type_id = LangToolkit::getTypeManager().getTypeId(lang_value);
-        // NOTE: packed storage not supported for list items
-        auto pre_storage_class = TypeUtils::m_storage_class_mapper.getPreStorageClass(type_id, false);
-        StorageClass storage_class;
-        if (pre_storage_class == PreStorageClass::OBJECT_WEAK_REF) {
-            storage_class = db0::getStorageClass(pre_storage_class, *fixture, lang_value);
-        } else {
-            storage_class = db0::getStorageClass(pre_storage_class);
-        }
-        
         auto [storage_class_value, value] = (*this)[i];
-        v_bvector::setItem(i, createListItem<LangToolkit>(*fixture, type_id, lang_value, storage_class, getMemberFlags()));
+        if (lang_value) {
+            // recognize type ID from language specific object
+            auto type_id = LangToolkit::getTypeManager().getTypeId(lang_value);
+            // NOTE: packed storage not supported for list items
+            auto pre_storage_class = TypeUtils::m_storage_class_mapper.getPreStorageClass(type_id, false);
+            StorageClass storage_class;
+            if (pre_storage_class == PreStorageClass::OBJECT_WEAK_REF) {
+                storage_class = db0::getStorageClass(pre_storage_class, *fixture, lang_value);
+            } else {
+                storage_class = db0::getStorageClass(pre_storage_class);
+            }
+            
+            v_bvector::setItem(i, createListItem<LangToolkit>(*fixture, type_id, lang_value, storage_class, getMemberFlags()));
+        }
+        else {
+            // del operator used
+            this->erase(i);
+        }
         unrefMember<LangToolkit>(*fixture, storage_class_value, value);
     }
     

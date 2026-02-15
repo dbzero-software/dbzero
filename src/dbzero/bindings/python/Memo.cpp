@@ -218,7 +218,7 @@ namespace db0::python
             Py_TYPE(memo_obj)->tp_free((PyObject*)memo_obj);
         }
     }
-
+    
     template <typename MemoImplT>
     int MemoObject_traverse(MemoImplT *self, visitproc visit, void *arg)
     {
@@ -431,35 +431,22 @@ namespace db0::python
                         self->ext().setPreInit(attr_name, *maybe_type_id, value);
                     }
                     return 0;
+                } else {
+                    PyErr_SetString(PyExc_AttributeError, "Unsupported attribute type");
+                    return -1;
                 }
             } catch (const std::exception &e) {
                 PyErr_SetString(PyExc_AttributeError, e.what());
                 return -1;
-            } catch (...) {            
+            } catch (...) {
                 PyErr_SetString(PyExc_AttributeError, "Unknown exception");
                 return -1;
             }            
         }
-
+        
         // Fallback logic for unsupported types
         // Handle the non-persistent (_X__***) attribute assignment  
         return PyObject_GenericSetAttr((PyObject*)self, attr, value);
-
-        // FIXME: log
-        // auto py_type = Py_TYPE(self);
-        // if (!py_type->tp_base) {
-        //     PyErr_SetString(PyExc_AttributeError, "Cannot set non-persistent attribute");
-        //     return -1;
-        // }
-        
-        // FIXME: log
-        // // Avoid infinite recursion if base class tp_setattro is the same as ours
-        // if (py_type->tp_base->tp_setattro == (setattrofunc)PyAPI_MemoObject_setattro<MemoObject>) {
-        //     return PyObject_GenericSetAttr((PyObject*)self, attr, value);
-        // }
-
-        // // Forward to base class setattro
-        // return py_type->tp_base->tp_setattro((PyObject*)self, attr, value);
     }
     
     // immutable memo object specialization
@@ -836,15 +823,13 @@ namespace db0::python
         PyToolkit::getTypeManager().addMemoType(*new_type, type_id, std::move(type_info));
         // register new type with the module where the original type was located
         PySafeModule_AddObject(*py_module, type_name.c_str(), new_type);
-                
-        // add class fields class member to access memo type information 
-        // FIXME: log
-        // auto py_class_fields = Py_OWN(PyClassFields_create(*new_type));
-        // if (PySafeDict_SetItemString((*new_type)->tp_dict, "__fields__", py_class_fields) < 0) {
-        //     PyErr_SetString(PyExc_RuntimeError, "Failed to set __fields__");
-        //     return nullptr;
-        // }
-            
+        // add class fields class member to access memo type information        
+        auto py_class_fields = Py_OWN(PyClassFields_create(*new_type));
+        if (PySafeDict_SetItemString((*new_type)->tp_dict, "__fields__", py_class_fields) < 0) {
+            PyErr_SetString(PyExc_RuntimeError, "Failed to set __fields__");
+            return nullptr;
+        }
+        
         return (PyObject*)new_type.steal();
     }
     
