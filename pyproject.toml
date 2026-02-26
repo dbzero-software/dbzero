@@ -4,7 +4,7 @@ requires = ['meson-python']
 
 [project]
 name = 'dbzero'
-version = '0.1.4'
+version = '0.1.5'
 description = 'A state management system for Python 3.x that unifies your applications business logic, data persistence, and caching into a single, efficient layer.'
 readme = 'README.md'
 requires-python = '>=3.9'

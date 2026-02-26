@@ -58,7 +58,8 @@ namespace db0::python
         addStaticSimpleType(&PyBool_Type, TypeId::BOOLEAN);
         addStaticSimpleType(Py_TYPE(Py_None), TypeId::NONE);
         addStaticSimpleType(&PyUnicode_Type, TypeId::STRING);
-        addStaticSimpleType(&PyFunction_Type, TypeId::FUNCTION);
+        addStaticSimpleType(&PyFunction_Type, TypeId::CALLABLE);
+        addStaticSimpleType(&PyType_Type, TypeId::CALLABLE);
 
         // add python list type
         addStaticType(&PyList_Type, TypeId::LIST);
