@@ -204,3 +204,19 @@ def test_callable_function_with_annotations(db0_fixture):
     obj = MemoTestClass(annotated_func)
     value = obj.value(7)
     assert value == 8
+
+
+from datetime import datetime
+
+def test_store_python_type(db0_fixture):
+    """Test storing function with type annotations"""
+    obj = MemoTestClass(datetime)
+    value = obj.value(2024, 1, 1)
+    assert value == datetime(2024, 1, 1)
+
+def test_store_db0_type(db0_fixture):
+    """Test storing function with type annotations"""
+    obj = MemoTestClass(MemoTestClass)
+    value = obj.value(5)
+    assert value.value == 5
+    assert isinstance(value, MemoTestClass)

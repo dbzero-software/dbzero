@@ -62,12 +62,12 @@ namespace db0::python
 
         // Reject bound/unbound methods
         if (PyMethod_Check(func_obj)) {
-            THROWF(db0::InputException) << "Methods are not allowed as FUNCTION members" << THROWF_END;
+            THROWF(db0::InputException) << "Methods are not allowed as CALLABLE members" << THROWF_END;
         }
 
         // Reject built-in C functions
         if (PyCFunction_Check(func_obj)) {
-            THROWF(db0::InputException) << "Built-in C functions are not allowed as FUNCTION members" << THROWF_END;
+            THROWF(db0::InputException) << "Built-in C functions are not allowed as CALLABLE members" << THROWF_END;
         }
 
         // Get function's __name__, __qualname__, and __module__
@@ -90,12 +90,12 @@ namespace db0::python
 
         // Reject lambdas
         if (strcmp(name_cstr, "<lambda>") == 0) {
-            THROWF(db0::InputException) << "Lambda functions are not allowed as FUNCTION members" << THROWF_END;
+            THROWF(db0::InputException) << "Lambda functions are not allowed as CALLABLE members" << THROWF_END;
         }
 
         // Reject decorated or nested functions (qualname contains <locals>)
         if (strstr(qual_cstr, "<locals>") != nullptr) {
-            THROWF(db0::InputException) << "Decorated or nested functions are not allowed as FUNCTION members" << THROWF_END;
+            THROWF(db0::InputException) << "Decorated or nested functions are not allowed as CALLABLE members" << THROWF_END;
         }
 
         // Construct fully qualified name: module.qualname

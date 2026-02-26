@@ -332,7 +332,7 @@ namespace db0::object_model
     }
 
     // FUNCTION specialization
-    template <> Value createMember<TypeId::FUNCTION, PyToolkit>(
+    template <> Value createMember<TypeId::CALLABLE, PyToolkit>(
     db0::swine_ptr<Fixture> &fixture,
     PyObjectPtr obj_ptr,
     StorageClass,
@@ -344,7 +344,7 @@ namespace db0::object_model
         // Store in your fixture
         return db0::v_object<db0::o_string>(*fixture, fqn_str, access_mode).getAddress();
     }
-    
+
     template <> void registerCreateMemberFunctions<PyToolkit>(
         std::vector<Value (*)(db0::swine_ptr<Fixture> &, PyObjectPtr, StorageClass, AccessFlags)> &functions)
     {
@@ -382,7 +382,7 @@ namespace db0::object_model
         functions[static_cast<int>(TypeId::DB0_BYTES_ARRAY)] = createMember<TypeId::DB0_BYTES_ARRAY, PyToolkit>;
         functions[static_cast<int>(TypeId::DB0_WEAK_PROXY)] = createMember<TypeId::DB0_WEAK_PROXY, PyToolkit>;
         functions[static_cast<int>(TypeId::MEMO_TYPE)] = createMember<TypeId::MEMO_TYPE, PyToolkit>;
-        functions[static_cast<int>(TypeId::FUNCTION)] = createMember<TypeId::FUNCTION, PyToolkit>;
+        functions[static_cast<int>(TypeId::CALLABLE)] = createMember<TypeId::CALLABLE, PyToolkit>;
     }
     
     // STRING_REF specialization
