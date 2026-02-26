@@ -237,7 +237,7 @@ def memo(cls: Optional[type] = None, **kwargs) -> type:
             # argval is a tuple, check if 'self' is the second element (target for STORE_ATTR)
             if isinstance(inst.argval, tuple) and len(inst.argval) == 2:
                 return inst.argval[1] == 'self'
-        return False   
+        return False
     
     def dis_init_assig(from_type):
         """
@@ -257,7 +257,7 @@ def memo(cls: Optional[type] = None, **kwargs) -> type:
                 if hasattr(attr, '_db0_migration'):
                     yield (attr, list(dis_assig(attr)))
     
-    def wrap(cls_):        
+    def wrap(cls_):
         is_singleton = kwargs.get("singleton", False)
         # note that we use the __dyn_prefix mechanism only for singletons
         try:
@@ -268,9 +268,31 @@ def memo(cls: Optional[type] = None, **kwargs) -> type:
             dyn_prefix = None
             init_vars = []
         
-        return _wrap_memo_type(cls_, py_file = getfile(cls_), py_init_vars = init_vars, py_dyn_prefix = dyn_prefix, \
+        wrapped = _wrap_memo_type(cls_, py_file = getfile(cls_), py_init_vars = init_vars, py_dyn_prefix = dyn_prefix, \
             py_migrations = list(find_migrations(cls_)) if is_singleton else None, **kwargs
         )
+        
+        # Call __init_subclass__ on the wrapped class for any base that defines it.
+        # Python normally calls __init_subclass__ before the decorator runs, so the 
+        # base class sees the unwrapped class. We call it again with the wrapped class.
+        for base in cls_.__mro__[1:]:
+            if base is object:
+                # Skip object's default __init_subclass__
+                continue
+            if '__init_subclass__' in base.__dict__:
+                # Call the base's __init_subclass__ with the wrapped class
+                init_subclass = base.__dict__['__init_subclass__']
+                if hasattr(init_subclass, '__func__'):
+                    # Python classmethod - call the underlying function
+                    init_subclass.__func__(wrapped)
+                else:
+                    # Built-in or descriptor - get it bound to the wrapped class and call
+                    bound_method = getattr(wrapped, '__init_subclass__', None)
+                    if bound_method is not None:
+                        bound_method()
+                break  # Only call the first (most derived) __init_subclass__
+        
+        return wrapped
     
     # See if we're being called as @memo or @memo().
     if cls is None:
@@ -281,6 +303,6 @@ def memo(cls: Optional[type] = None, **kwargs) -> type:
     return wrap(cls, **kwargs)
 
 
-@memo(id="Division By Zero/dbzero/MemoBase")
+@memo(id="dbzero-software/dbzero/MemoBase")
 class MemoBase:
     pass

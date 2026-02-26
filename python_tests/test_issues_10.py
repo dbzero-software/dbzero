@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 # Copyright (c) 2025 DBZero Software sp. z o.o.
 
+import pytest
+
 import dbzero as db0
 from .conftest import DB0_DIR
 from datetime import datetime
@@ -75,5 +77,7 @@ def test_shopping_cart_secret_issue(db0_fixture):
     cart_1 = ShoppingCart(as_temp=True)
     assert cart_1.secret is not None
     cart_2 = ShoppingCart(as_temp=False)
-    assert cart_2.secret is None
+    # The secret attribute not be created for cart_2, so accessing it should raise an AttributeError
+    with pytest.raises(AttributeError):
+        assert cart_2.secret is None
     

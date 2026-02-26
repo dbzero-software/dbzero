@@ -165,10 +165,8 @@ namespace db0::object_model
     }
     
     template <typename T, typename ImplT>
-    std::pair<db0::bindings::TypeId, StorageClass>
-    ObjectImplBase<T, ImplT>::recognizeType(Fixture &fixture, ObjectPtr lang_value) const
-    {
-        auto type_id = LangToolkit::getTypeManager().getTypeId(lang_value);
+    StorageClass ObjectImplBase<T, ImplT>::recognizeType(Fixture &fixture, TypeId type_id, ObjectPtr lang_value) const
+    {        
         // NOTE: allow storage as PACK_2
         auto pre_storage_class = TypeUtils::m_storage_class_mapper.getPreStorageClass(type_id, true);
         if (type_id == TypeId::MEMO_OBJECT || type_id == TypeId::MEMO_IMMUTABLE_OBJECT) {
@@ -187,8 +185,8 @@ namespace db0::object_model
             storage_class = db0::getStorageClass(pre_storage_class);
         }
         
-        return { type_id, storage_class };
-    }    
+        return storage_class;
+    }
     
     template <typename T, typename ImplT>
     void ObjectImplBase<T, ImplT>::removePreInit(const char *field_name) const
@@ -222,7 +220,7 @@ namespace db0::object_model
     }
     
     template <typename T, typename ImplT>
-    void ObjectImplBase<T, ImplT>::setPreInit(const char *field_name, ObjectPtr obj_ptr) const
+    void ObjectImplBase<T, ImplT>::setPreInit(const char *field_name, TypeId type_id, ObjectPtr obj_ptr) const
     {
         assert(!this->hasInstance());
         if (!LangToolkit::isValid(obj_ptr)) {
@@ -233,7 +231,7 @@ namespace db0::object_model
         auto &initializer = InitManager::instance.getInitializer(*this);
         auto fixture = initializer.getFixture();
         auto &type = initializer.getClass();
-        auto [type_id, storage_class] = recognizeType(*fixture, obj_ptr);
+        auto storage_class = recognizeType(*fixture, type_id, obj_ptr);
         auto storage_fidelity = getStorageFidelity(storage_class);
         
         // Find an already existing field index
@@ -274,6 +272,13 @@ namespace db0::object_model
         }
     }
     
+    template <typename T, typename ImplT>
+    void ObjectImplBase<T, ImplT>::setPreInit(const char *field_name, ObjectPtr obj_ptr) const
+    {
+        auto type_id = LangToolkit::getTypeManager().getTypeId(obj_ptr);
+        setPreInit(field_name, type_id, obj_ptr);
+    }
+
     template <typename T, typename ImplT>
     void ObjectImplBase<T, ImplT>::unrefPosVT(FixtureLock &fixture, FieldID field_id, unsigned int pos, 
         StorageClass storage_class, unsigned int fidelity)
@@ -439,11 +444,14 @@ namespace db0::object_model
 
     template <typename T, typename ImplT>
     FieldID ObjectImplBase<T, ImplT>::tryGetMember(const char *field_name, std::pair<StorageClass, Value> &member,
-        bool &is_init_var) const
+        bool &is_init_var, bool *is_auto_generated) const
     {
         MemberID member_id;
         std::tie(member_id, is_init_var) = this->findField(field_name);        
         bool exists, deleted = false;
+        if (is_auto_generated) {
+            *is_auto_generated = false;
+        }
         if (member_id) {
             std::tie(exists, deleted) = tryGetMemberAt(member_id.primary(), member);
             if (exists) {
@@ -464,8 +472,11 @@ namespace db0::object_model
         
         if (is_init_var) {
             // unless explicitly deleted, 
-            // report as None even if the field_id has not been assigned yet
+            // report as None even if the field_id has not been assigned yet            
             member = { deleted ? StorageClass::DELETED : StorageClass::NONE, Value() };
+            if (is_auto_generated) {
+                *is_auto_generated = true;
+            }
         }
 
         // member not found
@@ -505,11 +516,12 @@ namespace db0::object_model
     }
 
     template <typename T, typename ImplT>
-    typename ObjectImplBase<T, ImplT>::ObjectSharedPtr ObjectImplBase<T, ImplT>::tryGet(const char *field_name) const
+    typename ObjectImplBase<T, ImplT>::ObjectSharedPtr 
+    ObjectImplBase<T, ImplT>::tryGet(const char *field_name, bool *is_auto_generated) const
     {
         std::pair<StorageClass, Value> member;
         bool is_init_var = false;
-        auto field_id = tryGetMember(field_name, member, is_init_var);
+        auto field_id = tryGetMember(field_name, member, is_init_var, is_auto_generated);
         // NOTE: init vars are always reported as None if not explicitly set nor explicitly deleted
         if (field_id || (is_init_var && member.first != StorageClass::DELETED)) {
             auto fixture = this->getFixture();

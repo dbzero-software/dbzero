@@ -5,6 +5,7 @@ import pytest
 import dbzero as db0
 from .conftest import DB0_DIR
 from dbzero import memo
+from dataclasses import dataclass, field
 
 
 @memo
@@ -106,3 +107,33 @@ def test_issubclass_for_memo_types(db0_fixture):
     assert issubclass(MemoWithColor, HasColor)
     assert issubclass(MultipleDerivedClass, DerivedClass)
     assert issubclass(MultipleDerivedClass, HasColor)
+    
+    
+class BaseClassWithInitSubclass:
+    __last_subclass = None
+    
+    def __init_subclass__(cls, **kwargs):
+        """
+        __init_subclass__ is called twice since @memo adds another subclassing layer.
+        """
+        BaseClassWithInitSubclass.__last_subclass = cls
+    
+    @classmethod
+    def make_instance(cls, *args, **kwargs):
+        return cls.__last_subclass(*args, **kwargs)
+    
+@db0.memo
+class MemoWithInitSubclass(BaseClassWithInitSubclass):
+    pass
+    
+def test_init_subclass_with_memo(db0_fixture):
+    obj = BaseClassWithInitSubclass.make_instance()
+    print(f"obj: {type(obj)}")
+    assert isinstance(obj, MemoWithInitSubclass) 
+    assert db0.is_memo(obj)
+
+
+def test_memo_setattr_derived_from_python_type(db0_fixture):
+    obj = MemoWithInitSubclass()
+    obj.__setattr__('new_attr', 123)
+    assert obj.new_attr == 123

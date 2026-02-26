@@ -378,7 +378,7 @@ namespace db0::python
         }
         
         // identify the MemoBase Type
-        if (type_id && std::string(type_id) == "Division By Zero/dbzero/MemoBase") {
+        if (type_id && std::string(type_id) == "dbzero-software/dbzero/MemoBase") {
             m_memo_base_type = type;
             // register the type with mappings
             addStaticdbzeroType(m_memo_base_type, TypeId::MEMO_OBJECT);

@@ -73,9 +73,10 @@ namespace db0::python
         {"discard", (PyCFunction)PyAPI_SetObject_discard, METH_FASTCALL, "Discar an item to the set."},
         {"pop", (PyCFunction)PyAPI_SetObject_pop, METH_FASTCALL, "Pop an element from set."},
         {"clear", (PyCFunction)PyAPI_SetObject_clear, METH_FASTCALL, "Clear all items from set."},
+        {"update", (PyCFunction)PyAPI_SetObject_update, METH_O, "Update set, adding elements from all others."},
         {NULL}
     };
-
+    
     static PyNumberMethods SetObject_as_num = 
     {
         .nb_subtract = (binaryfunc)PyAPI_SetObject_difference_binary,

@@ -36,11 +36,18 @@ namespace db0::python
     using ObjectSharedPtr = PyTypes::ObjectSharedPtr;
     using TypeObjectSharedPtr = PyTypes::TypeObjectSharedPtr;
     
-    // @return type name / full type name (tp_name)
-    std::string getMemoTypeName(shared_py_object<PyTypeObject*> py_class)
+    // @return fully qualified memo type name: <module>.<type>
+    std::string getMemoTypeName(PyObject *py_module, shared_py_object<PyTypeObject*> py_class)
     {
         std::stringstream str;
-        str << "Memo_" << (*py_class)->tp_name;
+        // module name + type name
+        if (py_module && py_module != Py_None) {
+            auto py_module_name = Py_OWN(PyObject_GetAttrString(py_module, "__name__"));
+            if (!!py_module_name) {
+                str << PyUnicode_AsUTF8(*py_module_name) << ".";
+            }
+        }
+        str << (*py_class)->tp_name;
         return str.str();
     }
     
@@ -357,23 +364,31 @@ namespace db0::python
         // 2. db0 object extension methods
         // 3. db0 object members (attributes)
         // 4. User instance members (e.g. attributes set during __postinit__)
+        // 5. Fallback members have precedence over auto-generated values (e.g. after object migration)
         const char *attr_name = PyUnicode_AsUTF8(attr);
         if (!attr_name) {
             PyErr_SetString(PyExc_AttributeError, "Invalid attribute name");
             return nullptr;
         }
-
+        
+        bool is_auto_generated = false;
+        ObjectSharedPtr member;
         if (isPersistentAttrName(attr_name)) {
             memo_obj->ext().getFixture()->refreshIfUpdated();
-            auto member = memo_obj->ext().tryGet(PyUnicode_AsUTF8(attr));
+            member = memo_obj->ext().tryGet(PyUnicode_AsUTF8(attr), &is_auto_generated);
             
-            if (member.get()) {
+            if (member.get() && !is_auto_generated) {
                 return member.steal();
             }
         }
         
         // Fallback to type-level attribute lookup only (no instance dict)
-        return PyObject_GenericGetAttr(reinterpret_cast<PyObject*>(memo_obj), attr);
+        auto py_result = PyObject_GenericGetAttr(reinterpret_cast<PyObject*>(memo_obj), attr);
+        if (py_result) {
+            return py_result;
+        }
+
+        return member.steal();
     }
     
     template <typename MemoImplT>
@@ -406,37 +421,32 @@ namespace db0::python
                     db0::object_model::materialize(lock, value);
                 }
                 
-                if (self->ext().hasInstance()) {
-                    db0::FixtureLock lock(self->ext().getFixture());
-                    self->modifyExt().set(lock, attr_name, value);
+                auto maybe_type_id = PyToolkit::getTypeManager().tryGetTypeId(value);
+                if (maybe_type_id) {
+                    if (self->ext().hasInstance()) {
+                        db0::FixtureLock lock(self->ext().getFixture());
+                        self->modifyExt().set(lock, attr_name, *maybe_type_id, value);
+                    } else {
+                        // considered as a non-mutating operation
+                        self->ext().setPreInit(attr_name, *maybe_type_id, value);
+                    }
+                    return 0;
                 } else {
-                    // considered as a non-mutating operation
-                    self->ext().setPreInit(attr_name, value);
+                    PyErr_SetString(PyExc_AttributeError, "Unsupported attribute type");
+                    return -1;
                 }
             } catch (const std::exception &e) {
                 PyErr_SetString(PyExc_AttributeError, e.what());
                 return -1;
-            } catch (...) {            
+            } catch (...) {
                 PyErr_SetString(PyExc_AttributeError, "Unknown exception");
                 return -1;
-            }
-            return 0;
-        } else {
-            // Handle the non-persistent (_X__***) attribute assignment
-            auto py_type = Py_TYPE(self);
-            if (!py_type->tp_base) {
-                PyErr_SetString(PyExc_AttributeError, "Cannot set non-persistent attribute");
-                return -1;
-            }
-            
-            // Avoid infinite recursion if base class tp_setattro is the same as ours
-            if (py_type->tp_base->tp_setattro == (setattrofunc)PyAPI_MemoObject_setattro<MemoObject>) {
-                return PyObject_GenericSetAttr((PyObject*)self, attr, value);
             }            
-
-            // Forward to base class setattro
-            return py_type->tp_base->tp_setattro((PyObject*)self, attr, value);
-        }                
+        }
+        
+        // Fallback logic for unsupported types
+        // Handle the non-persistent (_X__***) attribute assignment  
+        return PyObject_GenericSetAttr((PyObject*)self, attr, value);
     }
     
     // immutable memo object specialization
@@ -761,7 +771,7 @@ namespace db0::python
     {
         auto py_class = Py_BORROW(base_class);
         auto py_module = Py_OWN(findModule(*Py_OWN(PyObject_GetAttrString((PyObject*)*py_class, "__module__"))));
-        if (!py_module || !PyModule_Check(*py_module)) {            
+        if (!py_module || !PyModule_Check(*py_module)) {
             THROWF(db0::InternalException) << "Type related module not found: " << (*py_class)->tp_name;
         }
         
@@ -773,7 +783,7 @@ namespace db0::python
             THROWF(db0::InternalException) << "Variable-length types not supported: " << (*py_class)->tp_name;
         }
         
-        auto type_name = getMemoTypeName(py_class);
+        auto type_name = getMemoTypeName(*py_module, py_class);
         TypeObjectSharedPtr new_type = nullptr;
         
         // For Python 3.10 compatibility: ensure tp_name string persists beyond this scope
@@ -790,11 +800,6 @@ namespace db0::python
         if (!new_type) {
             return nullptr;
         }
-
-        // FIXME:log
-        // print tp_dict["__setattr__"] of the new type
-        // PyObject *setattr_method = PyDict_GetItemString((*new_type)->tp_dict, "__setattr__");
-        // std::cout << "New type __setattr__: " << PyUnicode_AsUTF8(PyObject_Repr(setattr_method)) << std::endl;
 
         MemoFlags type_flags = no_default_tags ? MemoFlags { MemoOptions::NO_DEFAULT_TAGS } : MemoFlags();
         if (no_cache) {
@@ -818,14 +823,13 @@ namespace db0::python
         PyToolkit::getTypeManager().addMemoType(*new_type, type_id, std::move(type_info));
         // register new type with the module where the original type was located
         PySafeModule_AddObject(*py_module, type_name.c_str(), new_type);
-        
         // add class fields class member to access memo type information        
         auto py_class_fields = Py_OWN(PyClassFields_create(*new_type));
         if (PySafeDict_SetItemString((*new_type)->tp_dict, "__fields__", py_class_fields) < 0) {
             PyErr_SetString(PyExc_RuntimeError, "Failed to set __fields__");
             return nullptr;
         }
-                
+        
         return (PyObject*)new_type.steal();
     }
     

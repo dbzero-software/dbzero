@@ -321,7 +321,7 @@ namespace db0::python
     
     PyObject *PyAPI_init(PyObject *self, PyObject *args, PyObject *kwargs)
     {
-        PY_API_FUNC        
+        PY_API_FUNC
         return runSafe(tryInit, self, args, kwargs);
     }
     
