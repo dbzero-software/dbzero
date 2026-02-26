@@ -280,7 +280,8 @@ namespace db0::python
         }
         
         if (!lang_type_ptr) {
-            THROWF(db0::ClassNotFoundException) << "Could not find type: " << type->getName();
+            // set MemoBase as a fallback for objects without lang type (e.g. objects doesn't have imported class definition in the current workspace)
+            lang_type_ptr = PyToolkit::getTypeManager().getMemoBaseType().get();
         }
         
         // construct Python's memo object (placeholder for actual dbzero instance)

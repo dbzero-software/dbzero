@@ -12,6 +12,7 @@
 #include "FT_ANDIterator.hpp"
 #include "FT_ORXIterator.hpp"
 #include "FT_ANDNOTIterator.hpp"
+#include "FT_FixedKeyIterator.hpp"
 #include <dbzero/workspace/Snapshot.hpp>
 #include <dbzero/core/serialization/Serializable.hpp>
 #include <dbzero/core/collections/b_index/mb_index.hpp>
@@ -87,6 +88,15 @@ namespace db0
             if (key_type_id == db0::serial::typeId<UniqueAddress>()) {
                 if constexpr (std::is_same_v<KeyT, UniqueAddress>) {
                     return db0::FT_JoinORXIterator<UniqueAddress>::deserialize(workspace, iter, end);
+                }                
+            }
+            THROWF(db0::InternalException) << "Unsupported key type ID: " << key_type_id << THROWF_END;            
+        } else if (type_id == FTIteratorType::FixedKey) {
+            auto _iter = iter;
+            auto key_type_id = db0::serial::read<TypeIdType>(_iter, end);
+            if (key_type_id == db0::serial::typeId<UniqueAddress>()) {
+                if constexpr (std::is_same_v<KeyT, UniqueAddress>) {
+                    return db0::FT_FixedKeyIterator<UniqueAddress>::deserialize(workspace, iter, end);
                 }                
             }
             THROWF(db0::InternalException) << "Unsupported key type ID: " << key_type_id << THROWF_END;            
