@@ -234,6 +234,13 @@ class UnsupportedType:
     def __init__(self, data):
         self.data = data
 
-def test_unsupported_types_can_be_stored_as_regular_members(db0_fixture):
-    obj = MemoTestClass(UnsupportedType("data"))
-    assert isinstance(obj.value, UnsupportedType)
+def test_unsupported_types_cannot_be_stored_as_regular_members(db0_fixture):
+    """Unless explcit opt-in for unsupported non-peristent types"""
+    with pytest.raises(Exception):
+        _ = MemoTestClass(UnsupportedType("data"))    
+
+
+def test_memo_class_names_are_not_mangled(db0_fixture):
+    obj_1 = MemoTestClass(1)
+    assert type(obj_1).__name__ == "MemoTestClass" 
+    
