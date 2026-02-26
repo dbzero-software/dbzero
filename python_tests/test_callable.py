@@ -213,3 +213,10 @@ def test_store_python_type(db0_fixture):
     obj = MemoTestClass(datetime)
     value = obj.value(2024, 1, 1)
     assert value == datetime(2024, 1, 1)
+
+def test_store_db0_type(db0_fixture):
+    """Test storing function with type annotations"""
+    obj = MemoTestClass(MemoTestClass)
+    value = obj.value(5)
+    assert value.value == 5
+    assert isinstance(value, MemoTestClass)

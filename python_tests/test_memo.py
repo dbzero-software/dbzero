@@ -110,9 +110,9 @@ def test_memo_gc_issue1(db0_slab_size):
     
     
 def test_type_as_member(db0_fixture):
-    with pytest.raises(Exception):
-        # storing regular Python class not allowed
-        obj_1 = MemoTestClass(RegularPyClass)
+
+    obj_1 = MemoTestClass(RegularPyClass)
+    assert obj_1.value is RegularPyClass
     
     obj_1 = MemoTestClass(MemoTestEQClass)
     assert obj_1.value is MemoTestEQClass
