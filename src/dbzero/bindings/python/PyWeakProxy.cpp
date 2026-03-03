@@ -3,6 +3,7 @@
 
 #include "PyWeakProxy.hpp"
 #include "Memo.hpp"
+#include <dbzero/workspace/Config.hpp>
 #include "MemoExpiredRef.hpp"
 #include "PyToolkit.hpp"
 #include "PyInternalAPI.hpp"

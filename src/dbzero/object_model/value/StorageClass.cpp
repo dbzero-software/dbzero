@@ -180,25 +180,26 @@ namespace db0
     db0::object_model::StorageClass getStorageClass(db0::object_model::PreStorageClass pre_storage_class,
         db0::swine_ptr<db0::Fixture> &fixture, ObjectPtr lang_value)
     {
-        assert(pre_storage_class == PreStorageClass::OBJECT_WEAK_REF);
+        assert(pre_storage_class == PreStorageClass::OBJECT_WEAK_REF || pre_storage_class == PreStorageClass::OBJECT_REF);
         const auto &obj = LangToolkit::getTypeManager().extractAnyObject(lang_value);
         if (*obj.getFixture() != *fixture.get()) {
             // must use long weak-ref instead, since referenced object is from a foreign prefix
             return StorageClass::OBJECT_LONG_WEAK_REF;
         }
-        return StorageClass::OBJECT_WEAK_REF;
+        return getStorageClass(pre_storage_class);
     }
 
     db0::object_model::StorageClass getStorageClass(db0::object_model::PreStorageClass pre_storage_class,
         const db0::Fixture &fixture, ObjectPtr lang_value)
     {
-        assert(pre_storage_class == PreStorageClass::OBJECT_WEAK_REF);
+        
+        assert(pre_storage_class == PreStorageClass::OBJECT_WEAK_REF || pre_storage_class == PreStorageClass::OBJECT_REF);
         const auto &obj = LangToolkit::getTypeManager().extractAnyObject(lang_value);
         if (*obj.getFixture() != fixture) {
             // must use long weak-ref instead, since referenced object is from a foreign prefix
             return StorageClass::OBJECT_LONG_WEAK_REF;
         }
-        return StorageClass::OBJECT_WEAK_REF;
+        return getStorageClass(pre_storage_class);
     }    
        
 }
