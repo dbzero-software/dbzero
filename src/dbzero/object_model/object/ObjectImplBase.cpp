@@ -170,16 +170,6 @@ namespace db0::object_model
     {        
         // NOTE: allow storage as PACK_2
         auto pre_storage_class = TypeUtils::m_storage_class_mapper.getPreStorageClass(type_id, true);
-        if (type_id == TypeId::MEMO_OBJECT || type_id == TypeId::MEMO_IMMUTABLE_OBJECT) {
-            // object reference must be from the same fixture
-            auto &obj = LangToolkit::getTypeManager().extractAnyObject(lang_value);
-            if (fixture.getUUID() != obj.getFixture()->getUUID()) {
-                if (!db0::python::autoWeakProxyEnabled()) {
-                    THROWF(db0::InputException) << "Referencing objects from foreign prefixes is not allowed. Use db0.weak_proxy instead";
-                }
-            }
-        }
-
         // may need to refine the storage class (i.e. long weak ref might be needed instead)
         StorageClass storage_class;
         if (pre_storage_class == PreStorageClass::OBJECT_WEAK_REF || pre_storage_class == PreStorageClass::OBJECT_REF) {

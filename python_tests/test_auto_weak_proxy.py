@@ -1,34 +1,12 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 # Copyright (c) 2025 DBZero Software sp. z o.o.
 
-import os
-import gc
-import shutil
 import pytest
 import dbzero as db0
 from .memo_test_types import MemoTestPxClass
 
 
-DB0_DIR = os.path.join(os.getcwd(), "db0-test-data")
-
-
-# --- opt-out fixture (auto_weak_proxy=False) ---
-
-@pytest.fixture()
-def db0_no_auto_weak_proxy():
-    if os.path.exists(DB0_DIR):
-        shutil.rmtree(DB0_DIR)
-    os.mkdir(DB0_DIR)
-    db0.init(DB0_DIR, auto_weak_proxy=False)
-    db0.open("my-test-prefix")
-    yield db0
-    gc.collect()
-    db0.close()
-    if os.path.exists(DB0_DIR):
-        shutil.rmtree(DB0_DIR)
-
-
-# --- default behaviour (auto_weak_proxy enabled by default) ---
+# --- auto_weak_proxy is always active ---
 
 def test_auto_wrap_on_cross_prefix_assignment(db0_fixture):
     """Cross-prefix assignment is silently wrapped as weak_proxy by default."""
@@ -74,17 +52,6 @@ def test_auto_wrap_expires_when_source_deleted(db0_fixture):
     with pytest.raises(db0.ReferenceError):
         _ = obj_2.value.value
 
-
-# --- opt-out behaviour ---
-
-def test_cross_prefix_raises_when_opt_out(db0_no_auto_weak_proxy):
-    """With auto_weak_proxy=False, cross-prefix assignment raises an exception."""
-    px_1 = db0.get_current_prefix().name
-    px_2 = "some-other-prefix"
-    db0.open(px_2, "rw")
-    obj_1 = MemoTestPxClass(123, prefix=px_1)
-    with pytest.raises(Exception):
-        MemoTestPxClass(obj_1, prefix=px_2)
 
 
 def test_auto_wrap_on_cross_prefix_assignment(db0_fixture):

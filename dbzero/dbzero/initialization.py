@@ -38,7 +38,7 @@ def init(dbzero_root: str, **kwargs: Any) -> None:
 
     init_kwargs = {}
     
-    config_keys = ("autocommit", "autocommit_interval", "cache_size", "lang_cache_size", "auto_weak_proxy")
+    config_keys = ("autocommit", "autocommit_interval", "cache_size", "lang_cache_size")
     config = {}
     for key in config_keys:
         if key in kwargs:

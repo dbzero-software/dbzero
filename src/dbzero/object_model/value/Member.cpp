@@ -52,13 +52,10 @@ namespace db0::object_model
                 object.incRef(false);
                 return object.getAddress();
             }
-            if (db0::python::autoWeakProxyEnabled()) {
-                // auto-wrap: equivalent to the user calling db0.weak_proxy(obj) before assignment
-                auto wrapped = Py_OWN(db0::python::tryWeakProxy(obj_ptr));
-                return createMember<TypeId::DB0_WEAK_PROXY, PyToolkit>(
-                    fixture, wrapped.get(), storage_class, access_flags);
-            }
-            THROWF(db0::InputException) << "Creating strong reference failed: object from a different prefix" << THROWF_END;
+            // auto-wrap: equivalent to the user calling db0.weak_proxy(obj) before assignment
+            auto wrapped = Py_OWN(db0::python::tryWeakProxy(obj_ptr));
+            return createMember<TypeId::DB0_WEAK_PROXY, PyToolkit>(
+                fixture, wrapped.get(), storage_class, access_flags);
         }
         object.incRef(false);
         return object.getAddress();
