@@ -22,8 +22,11 @@ namespace db0::python
     
     extern PyTypeObject PyWeakProxyType;
             
-    bool PyWeakProxy_Check(PyObject *obj);    
+    bool PyWeakProxy_Check(PyObject *obj);
     PyObject *tryWeakProxy(PyObject *);
     PyObject *tryExpired(PyObject *);
+
+    // Returns true when the auto_weak_proxy config option is enabled (opt-out, default true)
+    bool autoWeakProxyEnabled();
     
 }

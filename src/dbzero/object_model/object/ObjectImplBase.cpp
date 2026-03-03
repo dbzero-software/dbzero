@@ -13,6 +13,7 @@
 #include <dbzero/object_model/list/List.hpp>
 #include <dbzero/object_model/tags/TagIndex.hpp>
 #include <dbzero/core/utils/uuid.hpp>
+#include <dbzero/bindings/python/PyWeakProxy.hpp>
 
 namespace db0::object_model
 
@@ -173,13 +174,15 @@ namespace db0::object_model
             // object reference must be from the same fixture
             auto &obj = LangToolkit::getTypeManager().extractAnyObject(lang_value);
             if (fixture.getUUID() != obj.getFixture()->getUUID()) {
-                THROWF(db0::InputException) << "Referencing objects from foreign prefixes is not allowed. Use db0.weak_proxy instead";
+                if (!db0::python::autoWeakProxyEnabled()) {
+                    THROWF(db0::InputException) << "Referencing objects from foreign prefixes is not allowed. Use db0.weak_proxy instead";
+                }
             }
         }
-        
+
         // may need to refine the storage class (i.e. long weak ref might be needed instead)
         StorageClass storage_class;
-        if (pre_storage_class == PreStorageClass::OBJECT_WEAK_REF) {
+        if (pre_storage_class == PreStorageClass::OBJECT_WEAK_REF || pre_storage_class == PreStorageClass::OBJECT_REF) {
             storage_class = db0::getStorageClass(pre_storage_class, fixture, lang_value);
         } else {
             storage_class = db0::getStorageClass(pre_storage_class);

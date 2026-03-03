@@ -15,6 +15,7 @@
 #include <dbzero/object_model/value/long_weak_ref.hpp>
 // FIXME: remove Python dependency
 #include <dbzero/bindings/python/PySafeAPI.hpp>
+#include <dbzero/bindings/python/PyWeakProxy.hpp>
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/object_model/object/ObjectAnyImpl.hpp>
 #include <dbzero/object_model/object/ObjectImmutableImpl.hpp>
@@ -22,17 +23,45 @@
 namespace db0::object_model
 
 {
-    
-    template <typename T> void assureSameFixture(db0::swine_ptr<Fixture> &fixture, T &object,
+
+    // DB0_WEAK_PROXY specialization (defined early so resolveForFixture can call it)
+    template <> Value createMember<TypeId::DB0_WEAK_PROXY, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
+        PyObjectPtr obj_ptr, StorageClass storage_class, AccessFlags)
+    {
+        // NOTE: memo object can be extracted from the weak proxy
+        using MemoObject = PyToolkit::TypeManager::MemoObject;
+        const auto &obj = PyToolkit::getTypeManager().extractObject<MemoObject>(obj_ptr);
+        if (storage_class == StorageClass::OBJECT_LONG_WEAK_REF) {
+            LongWeakRef weak_ref(fixture, obj);
+            return weak_ref.getAddress();
+        } else {
+            // short weak ref
+            return obj.getUniqueAddress();
+        }
+    }
+
+    template <typename T> Value resolveForFixture(
+        db0::swine_ptr<Fixture> &fixture, T &object,
+        PyObjectPtr obj_ptr, StorageClass storage_class, AccessFlags access_flags,
         bool auto_harden = true)
     {
         if (*fixture != *object.getFixture()) {
-            if (object.hasRefs() || !auto_harden) {
-                THROWF(db0::InputException) << "Creating strong reference failed: object from a different prefix" << THROWF_END;
+            if (!object.hasRefs() && auto_harden) {
+                // auto-harden instead of taking a weak reference
+                object.moveTo(fixture);
+                object.incRef(false);
+                return object.getAddress();
             }
-            // auto-harden instead of taking a weak reference
-            object.moveTo(fixture);
+            if (db0::python::autoWeakProxyEnabled()) {
+                // auto-wrap: equivalent to the user calling db0.weak_proxy(obj) before assignment
+                auto wrapped = Py_OWN(db0::python::tryWeakProxy(obj_ptr));
+                return createMember<TypeId::DB0_WEAK_PROXY, PyToolkit>(
+                    fixture, wrapped.get(), storage_class, access_flags);
+            }
+            THROWF(db0::InputException) << "Creating strong reference failed: object from a different prefix" << THROWF_END;
         }
+        object.incRef(false);
+        return object.getAddress();
     }
     
     // INTEGER specialization
@@ -61,63 +90,53 @@ namespace db0::object_model
     
     // OBJECT specialization (mutable or immutable)
     template <typename MemoObjectT> Value createObjectMember(db0::swine_ptr<Fixture> &fixture,
-        PyObjectPtr obj_ptr, StorageClass, AccessFlags)
-    {                
+        PyObjectPtr obj_ptr, StorageClass storage_class, AccessFlags access_flags)
+    {
         auto &obj = PyToolkit::getTypeManager().extractMutableObject<MemoObjectT>(obj_ptr);
         assert(obj.hasInstance());
-        assureSameFixture(fixture, obj);
-        obj.modify().incRef(false);
-        return obj.getAddress();
+        // auto_harden=false: moveTo is not implemented for MEMO_OBJECT types;
+        // cross-prefix objects are handled by auto-wrap (weak proxy) instead
+        return resolveForFixture(fixture, obj, obj_ptr, storage_class, access_flags, false);
     }
 
     // LIST specialization
     template <> Value createMember<TypeId::DB0_LIST, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
-        PyObjectPtr obj_ptr, StorageClass, AccessFlags)
+        PyObjectPtr obj_ptr, StorageClass storage_class, AccessFlags access_flags)
     {
         auto &list = PyToolkit::getTypeManager().extractMutableList(obj_ptr);
-        assureSameFixture(fixture, list);
-        list.modify().incRef(false);
-        return list.getAddress();
+        return resolveForFixture(fixture, list, obj_ptr, storage_class, access_flags);
     }
     
     // INDEX specialization
     template <> Value createMember<TypeId::DB0_INDEX, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
-        PyObjectPtr obj_ptr, StorageClass, AccessFlags)
+        PyObjectPtr obj_ptr, StorageClass storage_class, AccessFlags access_flags)
     {
         auto &index = PyToolkit::getTypeManager().extractMutableIndex(obj_ptr);
-        assureSameFixture(fixture, index);
-        index.incRef(false);
-        return index.getAddress();
+        return resolveForFixture(fixture, index, obj_ptr, storage_class, access_flags);
     }
     
     // SET specialization
     template <> Value createMember<TypeId::DB0_SET, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
-        PyObjectPtr obj_ptr, StorageClass, AccessFlags)
+        PyObjectPtr obj_ptr, StorageClass storage_class, AccessFlags access_flags)
     {
         auto &set = PyToolkit::getTypeManager().extractMutableSet(obj_ptr);
-        assureSameFixture(fixture, set);
-        set.incRef(false);
-        return set.getAddress();
+        return resolveForFixture(fixture, set, obj_ptr, storage_class, access_flags);
     }
 
     // DB0 DICT specialization
     template <> Value createMember<TypeId::DB0_DICT, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
-        PyObjectPtr obj_ptr, StorageClass, AccessFlags)
+        PyObjectPtr obj_ptr, StorageClass storage_class, AccessFlags access_flags)
     {
         auto &dict = PyToolkit::getTypeManager().extractMutableDict(obj_ptr);
-        assureSameFixture(fixture, dict);
-        dict.incRef(false);
-        return dict.getAddress();
+        return resolveForFixture(fixture, dict, obj_ptr, storage_class, access_flags);
     }
 
     // TUPLE specialization
     template <> Value createMember<TypeId::DB0_TUPLE, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
-        PyObjectPtr obj_ptr, StorageClass, AccessFlags)
+        PyObjectPtr obj_ptr, StorageClass storage_class, AccessFlags access_flags)
     {
         auto &tuple = PyToolkit::getTypeManager().extractMutableTuple(obj_ptr);
-        assureSameFixture(fixture, tuple);
-        tuple.incRef(false);
-        return tuple.getAddress();
+        return resolveForFixture(fixture, tuple, obj_ptr, storage_class, access_flags);
     }
     
     // LIST specialization
@@ -277,28 +296,11 @@ namespace db0::object_model
     
     // DB0_BYTES_ARRAY specialization
     template <> Value createMember<TypeId::DB0_BYTES_ARRAY, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
-        PyObjectPtr obj_ptr, StorageClass, AccessFlags)
+        PyObjectPtr obj_ptr, StorageClass storage_class, AccessFlags access_flags)
     {
         auto &byte_array = PyToolkit::getTypeManager().extractMutableByteArray(obj_ptr);
-        assureSameFixture(fixture, byte_array);
         byte_array.modify().incRef(false);
-        return byte_array.getAddress();
-    }
-    
-    // DB0_WEAK_PROXY specialization
-    template <> Value createMember<TypeId::DB0_WEAK_PROXY, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
-        PyObjectPtr obj_ptr, StorageClass storage_class, AccessFlags)
-    {
-        // NOTE: memo object can be extracted from the weak proxy
-        using MemoObject = PyToolkit::TypeManager::MemoObject;
-        const auto &obj = PyToolkit::getTypeManager().extractObject<MemoObject>(obj_ptr);
-        if (storage_class == StorageClass::OBJECT_LONG_WEAK_REF) {
-            LongWeakRef weak_ref(fixture, obj);
-            return weak_ref.getAddress();
-        } else {
-            // short weak ref
-            return obj.getUniqueAddress();
-        }
+        return resolveForFixture(fixture, byte_array, obj_ptr, storage_class, access_flags);
     }
     
     // MEMO_TYPE specialization

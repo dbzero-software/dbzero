@@ -3,6 +3,7 @@
 
 #include "PyWeakProxy.hpp"
 #include "Memo.hpp"
+#include <dbzero/workspace/Config.hpp>
 #include "MemoExpiredRef.hpp"
 #include "PyToolkit.hpp"
 #include "PyInternalAPI.hpp"
@@ -53,6 +54,13 @@ namespace db0::python
         return reinterpret_cast<PyObject *>(py_weak_proxy);
     }
     
+    bool autoWeakProxyEnabled()
+    {
+        auto config = PyToolkit::getPyWorkspace().getConfig();
+        // opt-out: enabled by default; disable with auto_weak_proxy=False
+        return !config || config->get<bool>("auto_weak_proxy", true);
+    }
+
     PyObject *tryExpired(PyObject *py_obj)
     {
         if (MemoExpiredRef_Check(py_obj)) {
