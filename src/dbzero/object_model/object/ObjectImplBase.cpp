@@ -77,16 +77,20 @@ namespace db0::object_model
 
     template <typename T, typename ImplT>
     ObjectImplBase<T, ImplT>::ObjectImplBase(db0::swine_ptr<Fixture> &fixture, Address address, std::shared_ptr<Class> type_hint,
-        with_type_hint, AccessFlags access_mode)
+        with_type_hint, AccessFlags access_mode, bool *type_hit_ptr)
         : ObjectImplBase<T, ImplT>(fixture, address, access_mode)
-    {   
+    {
         assert(*fixture == *type_hint->getFixture());
-        setTypeWithHint(type_hint);
+        bool type_hit = setTypeWithHint(type_hint);
+        if (type_hit_ptr) {
+            *type_hit_ptr = type_hit;
+        }
     }
 
     template <typename T, typename ImplT>
-    ObjectImplBase<T, ImplT>::ObjectImplBase(db0::swine_ptr<Fixture> &fixture, ObjectStem &&stem, std::shared_ptr<Class> type_hint, with_type_hint)
-        : ObjectImplBase<T, ImplT>(fixture, std::move(stem), getTypeWithHint(*fixture, stem->getClassRef(), type_hint))
+    ObjectImplBase<T, ImplT>::ObjectImplBase(
+        db0::swine_ptr<Fixture> &fixture, ObjectStem &&stem, std::shared_ptr<Class> type_hint, with_type_hint, bool *type_hit_ptr)
+        : ObjectImplBase<T, ImplT>(fixture, std::move(stem), getTypeWithHint(*fixture, stem->getClassRef(), type_hint, type_hit_ptr))
     {
     }
 
@@ -669,15 +673,17 @@ namespace db0::object_model
     }
 
     template <typename T, typename ImplT>
-    void ObjectImplBase<T, ImplT>::setTypeWithHint(std::shared_ptr<Class> type_hint)
+    bool ObjectImplBase<T, ImplT>::setTypeWithHint(std::shared_ptr<Class> type_hint)
     {
         assert(!this->m_type);
         assert(type_hint);
         assert(this->hasInstance());
         if (type_hint->getClassRef() == (*this)->getClassRef()) {
             this->m_type = type_hint;
+            return true;
         } else {
             this->m_type = unloadType();
+            return false;
         }
     }
 
@@ -1045,11 +1051,17 @@ namespace db0::object_model
 
     template <typename T, typename ImplT>
     std::shared_ptr<Class> ObjectImplBase<T, ImplT>::getTypeWithHint(const Fixture &fixture, std::uint32_t class_ref, 
-        std::shared_ptr<Class> type_hint)
+        std::shared_ptr<Class> type_hint, bool *type_hit_ptr)
     {
         assert(type_hint);
         if (type_hint->getClassRef() == class_ref) {
+            if (type_hit_ptr) {
+                *type_hit_ptr = true;
+            }
             return type_hint;
+        }
+        if (type_hit_ptr) {
+            *type_hit_ptr = false;
         }
         return getClassFactory(fixture).getTypeByClassRef(class_ref).m_class;
     }

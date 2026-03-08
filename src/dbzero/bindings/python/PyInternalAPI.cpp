@@ -192,7 +192,8 @@ namespace db0::python
                     expected_class->getInstanceFlags()
                 );
                 auto &memo = reinterpret_cast<MemoObject*>(result.get())->ext();
-                if (memo.getType() != *expected_class) {
+                // NOTE: base types should be accepted
+                if (!memo.getType().isBaseClass(*expected_class)) {
                     THROWF(db0::InputException) << "Object type mismatch";
                 }
                 return result;

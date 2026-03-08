@@ -64,12 +64,12 @@ namespace db0::object_model
         // NOTE: unload works faster if type_hint is the exact object's type
         struct with_type_hint {};
         ObjectImplBase(db0::swine_ptr<Fixture> &, Address, std::shared_ptr<Class> type_hint, 
-            with_type_hint, AccessFlags = {});
+            with_type_hint, AccessFlags = {}, bool *type_hit_ptr = nullptr);
         
         // Unload from stem with a known type (possibly a base type)
         // NOTE: unload works faster if type_hint is the exact object's type
         ObjectImplBase(db0::swine_ptr<Fixture> &, ObjectStem &&, std::shared_ptr<Class> type_hint, 
-            with_type_hint);
+            with_type_hint, bool *type_hit_ptr = nullptr);
         
         ObjectImplBase(db0::swine_ptr<Fixture> &, Address, AccessFlags = {});
         ObjectImplBase(db0::swine_ptr<Fixture> &, std::shared_ptr<Class>, std::pair<std::uint32_t, 
@@ -139,7 +139,8 @@ namespace db0::object_model
         
         void setType(std::shared_ptr<Class>);
         // adjusts to actual type if the type hint is a base class
-        void setTypeWithHint(std::shared_ptr<Class> type_hint);
+        // @return true if type was changed (type hint hit)
+        bool setTypeWithHint(std::shared_ptr<Class> type_hint);
         // @return exists / deleted
         std::pair<bool, bool> hasValueAt(Value, unsigned int fidelity, unsigned int at) const;
         // similar to hasValueAt but assume deleted slot as present
@@ -188,7 +189,7 @@ namespace db0::object_model
         
         // Retrieve a type by class-ref with a possible match (type_hint)
         static std::shared_ptr<Class> getTypeWithHint(const Fixture &, std::uint32_t class_ref, 
-            std::shared_ptr<Class> type_hint);
+            std::shared_ptr<Class> type_hint, bool *type_hint_ptr = nullptr);
         
         bool hasValidClassRef() const;
         

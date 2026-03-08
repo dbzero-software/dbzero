@@ -58,7 +58,7 @@ namespace db0::object_model
     struct ObjectId;
 
     // fidelity + slot index
-    using VFidelityVector = db0::v_bvector<std::pair<std::uint8_t, unsigned int> >;
+    using VFidelityVector = db0::v_bvector<std::pair<std::uint8_t, unsigned int> >;    
     
 DB0_PACKED_BEGIN
     struct DB0_PACKED_ATTR o_class: public db0::o_fixed_versioned<o_class>
@@ -216,6 +216,9 @@ DB0_PACKED_END
         std::shared_ptr<Class> tryGetBaseClass() const;
         // @return base class pointer or nullptr if no base class is defined
         const Class *getBaseClassPtr() const;
+        
+        // Check if other is either this class of any of its base classes (MemoBase not included)
+        bool isBaseClass(const Class &other) const;
         
         // Get initialization variables identified by static code analysis
         // note that the result includes also all base class init vars

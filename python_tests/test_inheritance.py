@@ -15,6 +15,9 @@ class BaseClass:
 
     def base_method(self):
         return self.base_value        
+    
+    def overloaded_method(self):
+        return self.base_value * 2
 
 @memo
 class DerivedClass(BaseClass):
@@ -22,6 +25,8 @@ class DerivedClass(BaseClass):
         super().__init__(base_value)
         self.value = value
 
+    def overloaded_method(self):
+        return super().overloaded_method() + self.value        
 
 class HasColor:
     def __init__(self, color):
@@ -137,3 +142,33 @@ def test_memo_setattr_derived_from_python_type(db0_fixture):
     obj = MemoWithInitSubclass()
     obj.__setattr__('new_attr', 123)
     assert obj.new_attr == 123
+
+
+def test_memo_mro_derived_class(db0_fixture):
+    obj = DerivedClass(1, 2)
+    assert obj.overloaded_method() == 4
+    
+
+def test_memo_mro_derived_class_fetched_as_base_type(db0_fixture):
+    obj = DerivedClass(1, 2)
+    px_name = db0.get_prefix_of(obj).name
+    db0.tags(obj).add("temp")
+    uuid = db0.uuid(obj)
+    db0.close()
+    db0.init(DB0_DIR)
+    db0.open(px_name, "r")
+    # fetch as base type
+    obj_2 = db0.fetch(DerivedClass, uuid)
+    assert obj_2.overloaded_method() == 4
+    
+    
+def test_memo_mro_derived_class_found_as_base_type(db0_fixture):
+    obj = DerivedClass(1, 2)
+    px_name = db0.get_prefix_of(obj).name
+    db0.tags(obj).add("temp")
+    db0.close()
+    db0.init(DB0_DIR)
+    db0.open(px_name, "r")
+    # fetch as base type
+    obj_2 = next(iter(db0.find(BaseClass)))
+    assert obj_2.overloaded_method() == 4

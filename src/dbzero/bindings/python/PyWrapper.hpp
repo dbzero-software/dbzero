@@ -66,6 +66,11 @@ namespace db0::python
             new ((void*)&ext) T(std::forward<Args>(args)...);
             return ext;
         }
+        
+        // This operation is only allowed in a limited context to upcast memo types
+        void unsafeUpcastTo(PyTypeObject *new_type) {
+            this->ob_type = new_type;
+        }
     };
     
     struct PyObjectWithDict: public PyObject
