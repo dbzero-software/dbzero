@@ -643,14 +643,76 @@ namespace db0::python
         return new_dict.steal();
     }
 
+    template <typename MemoImplT>
+    PyObject *PyAPI_MemoObject_dir(MemoImplT *self, PyObject *)
+    {
+        PY_API_FUNC
+        // object.__dir__ already includes persistent field names via our __dict__ getter.
+        auto result = Py_OWN(PyObject_CallMethod(
+            reinterpret_cast<PyObject *>(&PyBaseObject_Type), "__dir__",
+            "O", reinterpret_cast<PyObject *>(self)
+        ));
+        if (!result) {
+            return nullptr;
+        }
+
+        // Remove __dict__ — it is a descriptor, not a user-visible field
+        auto dict_key = Py_OWN(PyUnicode_FromString("__dict__"));
+        if (!dict_key) {
+            return nullptr;
+        }
+        for (Py_ssize_t i = PyList_Size(*result) - 1; i >= 0; --i) {
+            if (PyUnicode_Compare(PyList_GET_ITEM(*result, i), *dict_key) == 0) {
+                PyList_SetSlice(*result, i, i + 1, nullptr);
+                break;
+            }
+        }
+
+        return result.steal();
+    }
+
+    template <typename MemoImplT>
+    PyObject *PyAPI_MemoObject_get_dict(MemoImplT *self, void *)
+    {
+        PY_API_FUNC
+        self->ext().getFixture()->refreshIfUpdated();
+        auto result = Py_OWN(PyDict_New());
+        if (!result) {
+            return nullptr;
+        }
+        for (auto &name : self->ext().getMembers()) {
+            auto value = self->ext().tryGet(name.c_str());
+            if (!value.get()) {
+                continue;
+            }
+            auto py_name = Py_OWN(PyUnicode_FromString(name.c_str()));
+            if (!py_name || PyDict_SetItem(*result, *py_name, *value) < 0) {
+                return nullptr;
+            }
+        }
+        return result.steal();
+    }
+
     static PyMethodDef MemoObject_methods[] = {
+        {"__dir__", (PyCFunction)PyAPI_MemoObject_dir<MemoObject>, METH_NOARGS, nullptr},
         {NULL}  /* Sentinel */
     };
 
     static PyMethodDef MemoImmutableObject_methods[] = {
+        {"__dir__", (PyCFunction)PyAPI_MemoObject_dir<MemoImmutableObject>, METH_NOARGS, nullptr},
         {NULL}  /* Sentinel */
     };
-    
+
+    static PyGetSetDef MemoObject_getsets[] = {
+        {"__dict__", (getter)PyAPI_MemoObject_get_dict<MemoObject>, nullptr, nullptr, nullptr},
+        {nullptr}
+    };
+
+    static PyGetSetDef MemoImmutableObject_getsets[] = {
+        {"__dict__", (getter)PyAPI_MemoObject_get_dict<MemoImmutableObject>, nullptr, nullptr, nullptr},
+        {nullptr}
+    };
+
     // Regular memo slots
     static PyType_Slot MemoObject_common_slots[] = {
         {Py_tp_new, (void *)PyAPI_MemoObject_new<MemoObject>},
@@ -659,13 +721,14 @@ namespace db0::python
         {Py_tp_getattro, (void *)PyAPI_MemoObject_getattro<MemoObject>},
         {Py_tp_setattro, (void *)PyAPI_MemoObject_setattro<MemoObject>},
         {Py_tp_methods, (void *)MemoObject_methods},
+        {Py_tp_getset, (void *)MemoObject_getsets},
         {Py_tp_richcompare, (void *)PyAPI_MemoObject_rq<MemoObject>},
         {Py_tp_hash, (void *)PyAPI_MemoHash},
         {Py_tp_traverse, (void *)MemoObject_traverse<MemoObject>},
-        {Py_tp_clear, (void *)MemoObject_clear<MemoObject>},        
+        {Py_tp_clear, (void *)MemoObject_clear<MemoObject>},
         {0, 0}
     };
-    
+
     // Immutable memo slots
     static PyType_Slot MemoImmutableObject_common_slots[] = {
         {Py_tp_new, (void *)PyAPI_MemoObject_new<MemoImmutableObject>},
@@ -675,10 +738,11 @@ namespace db0::python
         // set available only on pre-initialized objects
         {Py_tp_setattro, (void *)PyAPI_MemoObject_setattro<MemoImmutableObject>},
         {Py_tp_methods, (void *)MemoImmutableObject_methods},
+        {Py_tp_getset, (void *)MemoImmutableObject_getsets},
         {Py_tp_richcompare, (void *)PyAPI_MemoObject_rq<MemoImmutableObject>},
         {Py_tp_hash, (void *)PyAPI_MemoHash},
         {Py_tp_traverse, (void *)MemoObject_traverse<MemoImmutableObject>},
-        {Py_tp_clear, (void *)MemoObject_clear<MemoImmutableObject>},        
+        {Py_tp_clear, (void *)MemoObject_clear<MemoImmutableObject>},
         {0, 0}
     };
     
@@ -739,8 +803,8 @@ namespace db0::python
         auto bases = Py_OWN(PySafeTuple_Pack(Py_BORROW(base_class)));
         auto tp_result = Py_OWN((PyTypeObject*)PyType_FromSpecWithBases(&type_spec, *bases));        
         auto old_dict = Py_OWN((*tp_result)->tp_dict);
-        // NOTE: take only the auto-generated __setattr__ and __delattr__
-        (*tp_result)->tp_dict = mergeDicts(base_class->tp_dict, *old_dict, { "__setattr__", "__delattr__" });
+        // NOTE: take only the auto-generated __setattr__, __delattr__, __dir__ and __dict__
+        (*tp_result)->tp_dict = mergeDicts(base_class->tp_dict, *old_dict, { "__setattr__", "__delattr__", "__dir__", "__dict__" });
 
         // disable weak-refs (important for Python 3.11.x)
         (*tp_result)->tp_weaklistoffset = 0;
