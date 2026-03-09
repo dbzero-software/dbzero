@@ -94,6 +94,7 @@ jobs:
         env:
           CIBW_BUILD: cp${{ inputs.python-tag }}-*
           CIBW_ARCHS_WINDOWS: ${{ inputs.architecture }}
+          CIBW_ENABLE: cpython-prerelease
       
       - uses: actions/upload-artifact@v4
         with:
