@@ -50,54 +50,44 @@ on:
 jobs:
   build-windows:
     runs-on: windows-latest
-
     steps:
       - uses: actions/checkout@v4
-
+      
       - name: Set up Python ${{ inputs.python-version }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ inputs.python-version }}
-
+      
       - uses: bus1/cabuild/action/msdevshell@v1
         with:
           architecture: x64
         if: inputs.architecture == 'AMD64'
-
+      
       - uses: bus1/cabuild/action/msdevshell@v1
         with:
           architecture: x86
         if: inputs.architecture == 'x86'
-
+      
       - name: Generate meson files
         run: |
           python scripts/generate_meson.py ./src/dbzero/ core
           python scripts/generate_meson_tests.py tests/
           python scripts/generate_meson_dbzero.py dbzero/
-
+      
       - name: Configure git
         run: |
           git config --global user.email "ci@example.com"
           git config --global user.name "CI Builder"
-          rm .gitignore
-          git add . || exit 0
-          git commit -m "Update meson files for build" || exit 0
-
-      - name: Cache cibuildwheel
-        uses: actions/cache@v4
-        with:
-          path: C:\Users\runneradmin\AppData\Local\pypa\cibuildwheel\Cache
-          key: cibuildwheel-${{ runner.os }}-${{ inputs.python-tag }}
-
-      - name: Install cibuildwheel
-        run: pip install cibuildwheel==2.23.0
-
-      - name: Build wheels
-        run: python -m cibuildwheel
+          rm  .gitignore
+          git add . && git commit -m "Update meson files for build"  
+      
+      - run: pip install cibuildwheel==2.23.0
+      
+      - run: python -m cibuildwheel --output-dir wheelhouse
         env:
           CIBW_BUILD: cp${{ inputs.python-tag }}-*
           CIBW_ARCHS_WINDOWS: ${{ inputs.architecture }}
-
+      
       - uses: actions/upload-artifact@v4
         with:
           name: wheels-windows-${{ inputs.python-version }}
