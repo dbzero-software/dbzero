@@ -85,7 +85,7 @@ jobs:
         run: |
           $cachePath = "$env:LOCALAPPDATA\pypa\cibuildwheel\Cache"
           New-Item -ItemType Directory -Force -Path $cachePath
-          Copy-Item ".github\files\virtualenv-20.30.0.pyz" "$cachePath\virtualenv-20.30.0.pyz"
+          Copy-Item ".github\files\*.pyz" "$cachePath\"
         shell: pwsh
 
       - run: pip install cibuildwheel==2.23.0
