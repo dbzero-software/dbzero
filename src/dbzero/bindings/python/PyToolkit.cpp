@@ -129,9 +129,14 @@ namespace db0::python
 
         // First token is the module root
         char* p = strchr(copy, '.');
-        if (!p) {  // No dot = not fully qualified
+        if (!p) {  // Bare module name
+            auto module = Py_OWN(PyImport_ImportModule(copy));
             free(copy);
-            THROWF(db0::InputException) << "Failed to unload CALLABLE: not a fully qualified name" << THROWF_END;
+            if (!module) {
+                throwErrorWithPyErrorCheck("Failed to unload CALLABLE: ",
+                    "could not import module");
+            }
+            return module;
         }
         *p = '\0';
         const char* root = copy;
