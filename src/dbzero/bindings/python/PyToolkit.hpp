@@ -33,7 +33,7 @@ namespace db0::object_model
     class Class;
     class ClassFactory;
     struct EnumValue;
-    class LongWeakRef;
+    class LongWeakRef;    
 
 }
 
@@ -120,10 +120,11 @@ namespace db0::python
         static ObjectSharedPtr unloadExpiredRef(db0::swine_ptr<Fixture> &, Address addr, std::uint64_t obj_fixture_uuid,
             UniqueAddress obj_address);
         
-        // Unload with known type & lang class
+        // Unload with known type & lang class (hints)
         // note that lang_class may be a base of the actual type (e.g. MemoBase)
         static ObjectSharedPtr unloadObject(db0::swine_ptr<Fixture> &, Address address,
-            std::shared_ptr<Class>, TypeObjectPtr lang_class, AccessFlags = {});
+            std::shared_ptr<Class> type_hint, TypeObjectPtr lang_class_hint, AccessFlags = {}, 
+            const ClassFactory *class_factory_ptr = nullptr);
         
         static ObjectSharedPtr unloadList(db0::swine_ptr<Fixture>, Address, std::uint16_t instance_id = 0, AccessFlags = {});
         static ObjectSharedPtr unloadIndex(db0::swine_ptr<Fixture>, Address, std::uint16_t instance_id = 0, AccessFlags = {});

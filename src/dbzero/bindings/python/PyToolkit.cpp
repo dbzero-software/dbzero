@@ -285,7 +285,7 @@ namespace db0::python
         }
         
         // construct Python's memo object (placeholder for actual dbzero instance)
-        // the associated lang class must be available
+        // the associated lang class must be available        
         auto *memo_ptr = MemoObjectStub_new(lang_type_ptr);
         // unload from stem (with type hint)
         memo_ptr->unload(fixture, std::move(stem), type, Object::with_type_hint{});
@@ -310,9 +310,10 @@ namespace db0::python
     }
     
     PyToolkit::ObjectSharedPtr PyToolkit::unloadObject(db0::swine_ptr<Fixture> &fixture, Address address,
-        std::shared_ptr<Class> type, TypeObjectPtr lang_class, AccessFlags access_mode)
+        std::shared_ptr<Class> type_hint, TypeObjectPtr lang_class_hint, AccessFlags access_mode,
+        const ClassFactory *class_factory_ptr)
     {
-        assert(lang_class);
+        assert(lang_class_hint);
         // try unloading from cache first
         auto &lang_cache = fixture->getLangCache();
         auto obj_ptr = tryUnloadObjectFromCache(lang_cache, address);
@@ -322,14 +323,27 @@ namespace db0::python
         }
         
         // NOTE: lang_class may be of a base type (e.g. MemoBase)
-        auto *memo_ptr = MemoObjectStub_new(lang_class);
+        auto *memo_ptr = MemoObjectStub_new(lang_class_hint);
         // unload with type hint
-        memo_ptr->unload(fixture, address, type, Object::with_type_hint{}, access_mode);
+        bool type_hit;
+        memo_ptr->unload(fixture, address, type_hint, Object::with_type_hint{}, access_mode, &type_hit);
+        if (!type_hit) {
+            // we need to resolve the actual lang type on type miss
+            if (!class_factory_ptr) {
+                class_factory_ptr = &fixture->get<ClassFactory>();
+            }
+            auto lang_type = class_factory_ptr->getLangType(memo_ptr->ext().getType());
+            // then upcast to the exact type if found
+            if (!!lang_type) {
+                memo_ptr->unsafeUpcastTo(lang_type.get());
+            }
+        }
+        
         // NOTE: Py_OWN only possible with a proper object
         obj_ptr = Py_OWN((PyObject*)memo_ptr);
         if (!memo_ptr->ext().isNoCache()) {
             lang_cache.add(address, obj_ptr.get());
-        }        
+        }
         return obj_ptr;
     }
     

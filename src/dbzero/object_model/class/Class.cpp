@@ -796,5 +796,14 @@ namespace db0::object_model
     void Class::setRuntimeFlags(FlagSet<MemoOptions> memo_options) {
         m_no_cache = memo_options[MemoOptions::NO_CACHE];
     }
+
+    bool Class::isBaseClass(const Class &other) const
+    {
+        auto current_ptr = this;
+        while (current_ptr && !(*current_ptr == other)) {
+            current_ptr = current_ptr->getBaseClassPtr();
+        }
+        return current_ptr != nullptr;
+    }
     
 }
