@@ -60,6 +60,20 @@ namespace db0::python
             THROWF(db0::InputException) << "Null function object" << THROWF_END;
         }
 
+        // Allow Python modules as CALLABLE values by serializing their module name.
+        if (PyModule_Check(func_obj)) {
+            auto name_obj = Py_OWN(PyObject_GetAttrString(func_obj, "__name__"));
+            if (!name_obj) {
+                THROWF(db0::InputException) << "Failed to get module name" << THROWF_END;
+            }
+
+            const char* name_cstr = PyUnicode_AsUTF8(*name_obj);
+            if (!name_cstr) {
+                THROWF(db0::InputException) << "Failed to decode module name as UTF-8" << THROWF_END;
+            }
+            return std::string(name_cstr);
+        }
+
         // Reject bound/unbound methods
         if (PyMethod_Check(func_obj)) {
             THROWF(db0::InputException) << "Methods are not allowed as CALLABLE members" << THROWF_END;
@@ -115,9 +129,14 @@ namespace db0::python
 
         // First token is the module root
         char* p = strchr(copy, '.');
-        if (!p) {  // No dot = not fully qualified
+        if (!p) {  // Bare module name
+            auto module = Py_OWN(PyImport_ImportModule(copy));
             free(copy);
-            THROWF(db0::InputException) << "Failed to unload CALLABLE: not a fully qualified name" << THROWF_END;
+            if (!module) {
+                throwErrorWithPyErrorCheck("Failed to unload CALLABLE: ",
+                    "could not import module");
+            }
+            return module;
         }
         *p = '\0';
         const char* root = copy;
