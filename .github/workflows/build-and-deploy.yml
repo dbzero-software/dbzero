@@ -118,9 +118,7 @@ jobs:
           - python-version: "3.13"
             python-tag: "313"
             architecture: "AMD64"
-          - python-version: "3.14"
-            python-tag: "314"
-            architecture: "AMD64"
+
     uses: ./.github/workflows/test-windows-wheel.yml
     with:
       python-version: ${{ matrix.python-version }}
