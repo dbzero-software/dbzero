@@ -60,6 +60,7 @@ namespace db0::python
         addStaticSimpleType(&PyUnicode_Type, TypeId::STRING);
         addStaticSimpleType(&PyFunction_Type, TypeId::CALLABLE);
         addStaticSimpleType(&PyType_Type, TypeId::CALLABLE);
+        addStaticSimpleType(&PyModule_Type, TypeId::CALLABLE);
 
         // add python list type
         addStaticType(&PyList_Type, TypeId::LIST);

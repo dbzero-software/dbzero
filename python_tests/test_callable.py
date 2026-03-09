@@ -220,3 +220,10 @@ def test_store_db0_type(db0_fixture):
     value = obj.value(5)
     assert value.value == 5
     assert isinstance(value, MemoTestClass)
+
+
+def test_can_store_python_module_as_callable(db0_fixture):
+    """Test that storing a Python module as a callable works and allows access to its functions"""
+    obj = MemoTestClass(math)
+    assert obj.value.sqrt(16) == 4
+    assert isinstance(obj.value, type(math))
