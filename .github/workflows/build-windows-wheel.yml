@@ -24,7 +24,6 @@ on:
           - '3.11'
           - '3.12'
           - '3.13'
-          - '3.14'
         default: '3.12'
       python-tag:
         description: 'Python tag (e.g., 310, 311, 312)'
@@ -36,7 +35,6 @@ on:
           - '311'
           - '312'
           - '313'
-          - '314'
         default: '312'
       architecture:
         description: 'Build architecture'
