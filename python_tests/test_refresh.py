@@ -33,6 +33,12 @@ class RefreshTestClass:
         self.value2 = value2        
 
 
+@db0.memo(singleton=True)
+class RefreshNoneToValueSingleton:
+    def __init__(self, value=None):
+        self.value = value
+
+
 def test_objects_are_removed_from_gc0_registry_when_deleted(db0_fixture):
     # first crete objects
     object_1 = RefreshTestClass(0, "text")
@@ -337,6 +343,7 @@ def test_refresh_can_detect_updates_in_kvstore_fields(db0_fixture):
     p.join()
     assert max_repeat > 0
 
+
 def create_process(result_queue, prefix_name):
     db0.init(DB0_DIR)
     db0.open(prefix_name, "rw")
@@ -502,4 +509,40 @@ async def test_async_wait_for_updates(db0_fixture):
 
     p.terminate()
     p.join()
+    
+    
+def update_process_can_detect_lofi_to_full_value_updates(prefix_name):
+    time.sleep(0.25)
+    db0.init(DB0_DIR)
+    db0.open(prefix_name, "rw")
+    object_x = RefreshNoneToValueSingleton()
+    object_x.value = "Full length value"
+    db0.commit()
+    db0.close()
+
+def test_refresh_can_detect_lofi_to_full_value_updates(db0_fixture):
+    object_1 = RefreshNoneToValueSingleton(None)
+    prefix_name = db0.get_prefix_of(object_1).name
+
+    db0.commit()
+    db0.close()
+
+    p = multiprocessing.Process(target=update_process_can_detect_lofi_to_full_value_updates,
+                                args=(prefix_name,))
+    p.start()
+    db0.init(DB0_DIR)
+    db0.open(prefix_name, "r")
+    object_1 = RefreshNoneToValueSingleton()
+    assert object_1.value is None
+    max_repeat = 10
+    while max_repeat > 0:
+        db0.refresh()
+        max_repeat -= 1
+        if object_1.value == "Full length value":
+            break
+        time.sleep(0.1)
+
+    p.terminate()
+    p.join()
+    assert max_repeat > 0
     

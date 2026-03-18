@@ -194,20 +194,16 @@ namespace db0::object_model
         
         return false;
     }
-    
+        
     std::pair<MemberID, bool> Class::findField(const char *name) const
-    {        
+    {
+        // NOTE: refresh is a lightweght operation if there were no changes (no detach)
+        m_member_cache.fastRefresh();
         auto it = m_index.find(name);
         if (it == m_index.end()) {
-            // try again after refreshing the cache
-            if (m_member_cache.refresh()) {
-                it = m_index.find(name);
-            }
-            if (it == m_index.end()) {
-                // field ID not found, check for possible initialization variable
-                bool is_init_var = m_init_vars.find(name) != m_init_vars.end();
-                return { MemberID(), is_init_var };
-            }
+            // field ID not found, check for possible initialization variable
+            bool is_init_var = m_init_vars.find(name) != m_init_vars.end();
+            return { MemberID(), is_init_var };            
         }
         
         return it->second;
@@ -292,9 +288,9 @@ namespace db0::object_model
     bool Class::isExistingSingleton() const {
         return isSingleton() && (*this)->m_singleton_address.isValid();
     }
-        
+    
     void Class::onMemberIDUpdated(const MemberID &member_id) const
-    {        
+    {
         if (member_id.hasFidelity(PRIMARY_FIDELITY) && member_id.size() > 1) {
             // ensure unique keys vector is large enough
             auto index = member_id.secondary().first.getIndex();
@@ -437,6 +433,7 @@ namespace db0::object_model
     void Class::detach() const
     {
         m_members.detach();
+        m_member_cache.detach();
         m_fidelities.detach();
         m_schema.detach();
         super_t::detach();

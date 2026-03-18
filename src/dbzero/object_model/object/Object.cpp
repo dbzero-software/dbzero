@@ -183,7 +183,7 @@ namespace db0::object_model
             const void *loc_ptr = nullptr;
             unsigned int pos = 0;
             // NOTE: slot may already exist (pos-vt or index-vt) either for regular or lo-fi storage
-            std::tie(loc_ptr, pos) = tryGetLoc(field_id);            
+            std::tie(loc_ptr, pos) = tryGetLoc(field_id);
             // Either use existing slot or create a new (kv-index)
             addWithLoc(fixture, field_id, loc_ptr, pos, storage_fidelity, storage_class, value);
         }
