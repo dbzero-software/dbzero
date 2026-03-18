@@ -127,7 +127,6 @@ namespace db0::object_model
         void commit() const;
         
         // FieldID, is_init_var, fidelity
-        // @param refresh_cache if true then the member cache will be forced a refreshed
         std::pair<MemberID, bool> findField(const char *name) const;
         
         // NOTE: hasRefs is NOT available in ObjectAnyBase bacause
