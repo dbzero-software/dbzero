@@ -438,13 +438,13 @@ namespace db0::object_model
         assert(class_ptr);
         return class_ptr->findField(name);
     }
-
+    
     template <typename T, typename ImplT>
     FieldID ObjectImplBase<T, ImplT>::tryGetMember(const char *field_name, std::pair<StorageClass, Value> &member,
         bool &is_init_var, bool *is_auto_generated) const
     {
         MemberID member_id;
-        std::tie(member_id, is_init_var) = this->findField(field_name);        
+        std::tie(member_id, is_init_var) = this->findField(field_name);
         bool exists, deleted = false;
         if (is_auto_generated) {
             *is_auto_generated = false;
@@ -475,14 +475,14 @@ namespace db0::object_model
                 *is_auto_generated = true;
             }
         }
-
+        
         // member not found
-        return {};
+        return {};        
     }
     
     template <typename T, typename ImplT>
     std::optional<XValue> ObjectImplBase<T, ImplT>::tryGetX(const char *field_name) const
-    {
+    {        
         auto [member_id, is_init_var] = this->findField(field_name);
         bool exists, deleted = false;
         if (member_id) {
@@ -509,7 +509,8 @@ namespace db0::object_model
             return XValue(member_id.primary().first.getIndex(), StorageClass::NONE, Value());
         }
         
-        return std::nullopt;
+        // member not found
+        return std::nullopt;        
     }
 
     template <typename T, typename ImplT>

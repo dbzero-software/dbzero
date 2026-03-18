@@ -201,6 +201,7 @@ DB0_PACKED_END
          * Class must implement detach since it has v_bvector as a member
         */
         void detach() const;
+        void refreshMemberCache() const;
 
         bool operator==(const Class &rhs) const;
         bool operator!=(const Class &rhs) const;

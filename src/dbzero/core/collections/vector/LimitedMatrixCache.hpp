@@ -51,18 +51,22 @@ namespace db0
         // Reload / refresh a specific existing item only
         void reload(std::pair<std::uint32_t, std::uint32_t>);
         
+        // This operation is to handle the "detach" signal / to prevent unecessary refreshes
+        void detach();
+
         typename super_t::const_iterator cbegin() const {
             return super_t::begin();
         }
-
+        
         typename super_t::const_iterator cend() const {
             return super_t::end();
         }
 
-    private:        
+    private:
         std::reference_wrapper<const MatrixT> m_matrix;
         AdapterT m_adapter;
         CallbackType m_callback;
+        bool m_detached = true;
     };
     
     template <typename MatrixT, typename ItemT, typename AdapterT>
@@ -97,6 +101,11 @@ namespace db0
     template <typename MatrixT, typename ItemT, typename AdapterT>
     bool LimitedMatrixCache<MatrixT, ItemT, AdapterT>::refresh()
     {
+        // prevent if not detached (i.e. no new changes expected)
+        if (!m_detached) {
+            return false;
+        }
+
         // prevent refreshing if item count did not change
         if (this->size() == this->m_matrix.get().getItemCount()) {
             return false;
@@ -115,6 +124,7 @@ namespace db0
                 result = true;
             }
         }
+        m_detached = false;
         return result;
     }
     
@@ -128,5 +138,11 @@ namespace db0
         }
         this->set(pos, std::move(item));
     }
-        
+
+    template <typename MatrixT, typename ItemT, typename AdapterT>
+    void LimitedMatrixCache<MatrixT, ItemT, AdapterT>::detach()
+    {
+        m_detached = true;
+    }
+
 }
