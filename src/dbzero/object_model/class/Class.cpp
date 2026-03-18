@@ -194,15 +194,11 @@ namespace db0::object_model
         
         return false;
     }
-    
-    void Class::refreshMemberCache() const {
-        m_member_cache.refresh();
-    }
-    
+        
     std::pair<MemberID, bool> Class::findField(const char *name) const
     {
-        // NOTE: refresh is a lightweght operation if there were no changes
-        m_member_cache.refresh();
+        // NOTE: refresh is a lightweght operation if there were no changes (no detach)
+        m_member_cache.fastRefresh();
         auto it = m_index.find(name);
         if (it == m_index.end()) {
             // field ID not found, check for possible initialization variable

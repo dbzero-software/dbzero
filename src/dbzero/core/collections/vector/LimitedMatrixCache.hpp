@@ -48,6 +48,9 @@ namespace db0
         // Fetch appended items only (updates or deletions not reflected)
         // callback will be notified on each new item added
         bool refresh();
+        // This is a detach-aware refresh version - for client side integration
+        bool fastRefresh();
+
         // Reload / refresh a specific existing item only
         void reload(std::pair<std::uint32_t, std::uint32_t>);
         
@@ -101,11 +104,6 @@ namespace db0
     template <typename MatrixT, typename ItemT, typename AdapterT>
     bool LimitedMatrixCache<MatrixT, ItemT, AdapterT>::refresh()
     {
-        // prevent if not detached (i.e. no new changes expected)
-        if (!m_detached) {
-            return false;
-        }
-
         // prevent refreshing if item count did not change
         if (this->size() == this->m_matrix.get().getItemCount()) {
             return false;
@@ -123,7 +121,18 @@ namespace db0
                 this->set(it.loc(), std::move(item));
                 result = true;
             }
-        }
+        }        
+        return result;
+    }
+
+    template <typename MatrixT, typename ItemT, typename AdapterT>
+    bool LimitedMatrixCache<MatrixT, ItemT, AdapterT>::fastRefresh()
+    {
+        // prevent if not detached (i.e. no new changes expected)
+        if (!m_detached) {
+            return false;
+        }        
+        bool result = this->refresh();
         m_detached = false;
         return result;
     }
