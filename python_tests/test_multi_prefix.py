@@ -63,6 +63,14 @@ def test_get_prefix_of_query(db0_fixture, memo_tags):
     assert db0.get_prefix_of(query) == db0.get_current_prefix()
 
 
+def test_get_prefix_of_string_uuid(db0_fixture):
+    other_prefix_name = "some-other-prefix"
+    db0.open(other_prefix_name)
+    object_1 = MemoTestClass(123)
+    object_uuid = db0.uuid(object_1)
+    assert db0.get_prefix_of(object_uuid) == db0.get_prefix_of(object_1)
+
+
 def test_get_state_num_of_specific_prefix(db0_fixture, memo_tags):
     px_name = "some-other-prefix"
     object_1 = MemoTestPxClass(123, prefix=px_name)
