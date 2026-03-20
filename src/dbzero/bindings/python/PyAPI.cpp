@@ -429,7 +429,7 @@ namespace db0::python
             }
             fixture = PyToolkit::getPyWorkspace().getWorkspace().tryGetFixture(object_id.m_fixture_uuid);
             if(!fixture) {
-                return Py_BuildValue("OK", nullptr, object_id.m_fixture_uuid);
+                return Py_BuildValue("OK", Py_None, object_id.m_fixture_uuid);
             }
         } else if (PyType_Check(py_object)) {
             // only memo or enum types can be scoped
