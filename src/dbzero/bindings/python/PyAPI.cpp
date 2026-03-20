@@ -421,7 +421,14 @@ namespace db0::python
         
         db0::swine_ptr<Fixture> fixture;
         
-        if (PyType_Check(py_object)) {
+        if (PyUnicode_Check(py_object)) {
+            auto uuid = PyUnicode_AsUTF8(py_object);
+            auto object_id = ObjectId::tryFromBase32(uuid);
+            if (!object_id) {
+                Py_RETURN_NONE;
+            }
+            fixture = PyToolkit::getPyWorkspace().getWorkspace().tryGetFixture(object_id.m_fixture_uuid);
+        } else if (PyType_Check(py_object)) {
             // only memo or enum types can be scoped
             if (PyAnyMemoType_Check(reinterpret_cast<PyTypeObject*>(py_object))) {
                 PyTypeObject *py_type = reinterpret_cast<PyTypeObject*>(py_object);
