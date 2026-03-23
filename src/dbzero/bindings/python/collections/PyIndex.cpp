@@ -17,6 +17,7 @@ namespace db0::python
         {"range", (PyCFunction)PyAPI_IndexObject_range, METH_VARARGS | METH_KEYWORDS, "Deprecated"},
         {"select", (PyCFunction)PyAPI_IndexObject_range, METH_VARARGS | METH_KEYWORDS, "Extract unsorted values from a specific range"},
         {"flush", (PyCFunction)PyAPI_IndexObject_flush, METH_NOARGS, "Flush buffered changes"},
+        {"clear", (PyCFunction)PyAPI_IndexObject_clear, METH_NOARGS, "Clears all items from the index."},
         {NULL}
     };
 
@@ -218,6 +219,19 @@ namespace db0::python
     {
         PY_API_FUNC
         return runSafe(tryIndexObject_flush, self);
+    }
+
+    PyObject *tryIndexObject_clear(IndexObject *self)
+    {
+        FixtureLock lock(self->ext().getFixture());
+        self->modifyExt().clear(lock);
+        Py_RETURN_NONE;
+    }
+
+    PyObject *PyAPI_IndexObject_clear(IndexObject *self)
+    {
+        PY_API_FUNC
+        return runSafe(tryIndexObject_clear, self);
     }
 
 }

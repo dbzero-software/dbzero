@@ -89,6 +89,9 @@ namespace db0::object_model
         void setDirtyCallback(std::function<void(bool incRef)> &&callback) const {
             m_dirty_callback = std::move(callback);
         }
+        void clear(FixtureLock &);
+
+        void clearMembers() const;
 
     protected:
         // the default / provisional type
