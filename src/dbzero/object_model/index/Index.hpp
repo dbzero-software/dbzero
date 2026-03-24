@@ -91,7 +91,7 @@ namespace db0::object_model
         }
         void clear(FixtureLock &);
 
-        void clearMembers() const;
+        void clearMembers();
 
     protected:
         // the default / provisional type

@@ -668,9 +668,9 @@ namespace db0::object_model
         }
     }
 
-    void Index::clearMembers() const
+    void Index::clearMembers()
     {
-        const_cast<Index*>(this)->_flush();
+        m_builder.rollback();
         if (!hasRangeTree()) {
             return;
         }
