@@ -760,3 +760,45 @@ def test_insert_key_into_split_range (db0_no_autocommit):
     elements += 1
     assert len(cut) == elements
     print(f"Inserted {elements} keys to index in {end - start:.2f} seconds")
+
+
+def test_can_clear_index(db0_fixture):
+    index = db0.index()
+    for i in range(10):
+        index.add(i, MemoTestClass(i))
+    db0.commit()
+    assert len(index) == 10
+    index.clear()
+    db0.commit()
+    assert len(index) == 0
+
+
+def test_clear_index_unref_objects(db0_fixture):
+    index = db0.index()
+    index.add(1, MemoTestClass(999))
+    dep_uuid = db0.uuid(list(index.select(None, None))[0])
+    index.clear()
+    db0.commit()
+    with pytest.raises(Exception):
+        db0.fetch(dep_uuid)
+
+
+def test_clear_index_with_null_keys(db0_fixture):
+    index = db0.index()
+    for i in range(5):
+        index.add(None, MemoTestClass(i))
+    db0.commit()
+    assert len(index) == 5
+    index.clear()
+    db0.commit()
+    assert len(index) == 0
+
+
+def test_clear_unflushed_index(db0_fixture):
+    index = db0.index()
+    for i in range(5):
+        index.add(i, MemoTestClass(i))
+    # clear before flush/commit
+    index.clear()
+    db0.commit()
+    assert len(index) == 0

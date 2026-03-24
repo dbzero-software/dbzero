@@ -23,6 +23,7 @@ namespace db0::python
     PyObject *PyAPI_IndexObject_sort(IndexObject *, PyObject *args, PyObject *kwargs);
     PyObject *PyAPI_IndexObject_range(IndexObject *, PyObject *args, PyObject *kwargs);
     PyObject *PyAPI_IndexObject_flush(IndexObject *);
+    PyObject *PyAPI_IndexObject_clear(IndexObject *);
     
     extern PyTypeObject IndexObjectType;
     

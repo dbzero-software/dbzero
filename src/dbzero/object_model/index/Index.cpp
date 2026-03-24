@@ -638,5 +638,62 @@ namespace db0::object_model
         }
         super_t::destroy();
     }
+
+    void Index::clear(FixtureLock &)
+    {
+        clearMembers();
+        m_builder.rollback();
+        if (hasRangeTree()) {
+            switch ((*this)->m_data_type) {
+                case IndexDataType::Int64:
+                    getExistingRangeTree<std::int64_t>().destroy();
+                    break;
+                case IndexDataType::UInt64:
+                    getExistingRangeTree<std::uint64_t>().destroy();
+                    break;
+                case IndexDataType::Auto:
+                    getExistingRangeTree<DefaultT>().destroy();
+                    break;
+                default:
+                    THROWF(db0::InputException)
+                        << "Unsupported index data type: "
+                        << static_cast<std::uint16_t>((*this)->m_data_type);
+            }
+            m_index = nullptr;
+            this->modify().m_index_addr = {};
+        }
+        this->modify().m_data_type = IndexDataType::Auto;
+        if (m_mutation_log) {
+            m_mutation_log->onDirty();
+        }
+    }
+
+    void Index::clearMembers()
+    {
+        m_builder.rollback();
+        if (!hasRangeTree()) {
+            return;
+        }
+        auto fixture = this->getFixture();
+        auto unref_func = [&fixture](Address obj_addr) {
+            unrefMember<StorageClass::OBJECT_REF, LangToolkit>(fixture, obj_addr);
+        };
+        switch ((*this)->m_data_type) {
+            case IndexDataType::Int64:
+                getExistingRangeTree<std::int64_t>().forAll(unref_func);
+                break;
+            case IndexDataType::UInt64:
+                getExistingRangeTree<std::uint64_t>().forAll(unref_func);
+                break;
+            case IndexDataType::Auto:
+                getExistingRangeTree<DefaultT>().forAll(unref_func);
+                break;
+            default:
+                THROWF(db0::InputException)
+                    << "Unsupported index data type: "
+                    << static_cast<std::uint16_t>((*this)->m_data_type);
+        }
+    }
+    
     
 }
