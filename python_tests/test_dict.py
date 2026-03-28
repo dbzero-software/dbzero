@@ -600,3 +600,11 @@ def test_db0_dict_iterator_type_valid(db0_fixture):
     d = db0.dict()
     it = iter(d)
     assert type(type(it)) is type
+
+
+def test_dict_raises_on_namedtuple_values(db0_fixture):
+    TestNT = db0.namedtuple("TestNT", ["field1", "field2"])
+    dict_1 = db0.dict()
+    # should raise since namedtuple is not supported by this version
+    with pytest.raises(Exception):
+        dict_1["key"] = TestNT(1, 2)

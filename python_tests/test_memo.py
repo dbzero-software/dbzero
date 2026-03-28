@@ -244,3 +244,15 @@ def test_memo_class_names_are_not_mangled(db0_fixture):
     obj_1 = MemoTestClass(1)
     assert type(obj_1).__name__ == "MemoTestClass" 
     
+    
+def test_memo_raises_on_namedtuple_assign(db0_fixture):
+    TestNT = db0.namedtuple("TestNT", ["field1", "field2"])
+    obj_1 = MemoTestClass(1)
+    # should raise since namedtuple is not supported by this version
+    with pytest.raises(Exception):
+        obj_1.value = TestNT(1, 2)
+    
+    # should also raise when converting dicts with unsupported types        
+    with pytest.raises(Exception):
+        obj_1.value = { "a": TestNT(1, 2) }
+    
