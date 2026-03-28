@@ -217,11 +217,11 @@ namespace db0::python
                     if (!our_value) {
                         return nullptr;
                     }
-                    auto their_value = Py_OWN(PyDict_GetItem(other, *key));
+                    auto their_value = PyDict_GetItem(other, *key);
                     if (!their_value) {
-                        return PyBool_fromBool(false);
+                        return nullptr;
                     }
-                    int cmp_result = PyObject_RichCompareBool(*our_value, *their_value, Py_EQ);
+                    int cmp_result = PyObject_RichCompareBool(*our_value, their_value, Py_EQ);
                     if (cmp_result == -1) {
                         return nullptr;
                     }
