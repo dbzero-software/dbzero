@@ -362,6 +362,15 @@ namespace db0::object_model
             return 0;
         }
 
+        if (!m_filters.empty()) {
+            auto obj_iter = iter();
+            std::size_t result = 0;
+            while (!!obj_iter->next()) {
+                ++result;
+            }
+            return result;
+        }
+
         std::unique_ptr<ObjectIterator::QueryIterator> iter;
         if (m_factory) {
             iter = m_factory->createFTIterator();
@@ -412,7 +421,11 @@ namespace db0::object_model
         if (isNull()) {
             return true;
         }
-        
+        if (!m_filters.empty()) {
+            auto obj_iter = iter();
+            return !obj_iter->next();
+        }
+
         std::unique_ptr<ObjectIterator::QueryIterator> iter;
         if (m_factory) {
             iter = m_factory->createFTIterator();
