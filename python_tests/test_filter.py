@@ -24,6 +24,17 @@ def test_split_filtered_query(db0_fixture, memo_enum_tags):
     assert counts[Colors.BLUE] == 2
     
     
+def test_len_on_filtered_query(db0_fixture, memo_tags):
+    query = db0.filter(lambda x: x.value == 1, db0.find("tag1"))
+    assert len(query) == 1
+
+    query_even = db0.filter(lambda x: x.value % 2 == 0, db0.find("tag1"))
+    assert len(query_even) == 5
+
+    query_none = db0.filter(lambda x: x.value > 100, db0.find("tag1"))
+    assert len(query_none) == 0
+
+
 def test_sort_filtered_query(db0_fixture, memo_tags):
     ix_value = db0.index()
     for obj in db0.find(MemoTestClass, "tag1"):
