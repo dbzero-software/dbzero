@@ -125,7 +125,7 @@ namespace db0::object_model
     }
     
     std::int64_t EnumValueRepr::getPermHash() const {
-        return std::hash<std::string>{}(m_str_repr);
+        return murmurhash64A(m_str_repr.c_str(), m_str_repr.size());
     }
     
     bool EnumValue::operator==(const EnumValue &other) const
