@@ -9,6 +9,7 @@
 #include "PyWeakProxy.hpp"
 #include <dbzero/bindings/python/collections/PyList.hpp>
 #include <dbzero/bindings/python/collections/PySet.hpp>
+#include <dbzero/bindings/python/collections/PyWeakSet.hpp>
 #include <dbzero/bindings/python/collections/PyTuple.hpp>
 #include <dbzero/bindings/python/collections/PyDict.hpp>
 #include <dbzero/bindings/python/collections/PyIndex.hpp>
@@ -22,6 +23,7 @@
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/object_model/list/List.hpp>
 #include <dbzero/object_model/set/Set.hpp>
+#include <dbzero/object_model/set/WeakSet.hpp>
 #include <dbzero/object_model/tuple/Tuple.hpp>
 #include <dbzero/object_model/dict/Dict.hpp>
 #include <dbzero/object_model/index/Index.hpp>
@@ -86,6 +88,7 @@ namespace db0::python
         addStaticdbzeroType(&IndexObjectType, TypeId::DB0_INDEX);
         addStaticdbzeroType(&ListObjectType, TypeId::DB0_LIST);
         addStaticdbzeroType(&SetObjectType, TypeId::DB0_SET);
+        addStaticdbzeroType(&WeakSetObjectType, TypeId::DB0_WEAK_SET);
         addStaticdbzeroType(&DictObjectType, TypeId::DB0_DICT);
         addStaticdbzeroType(&TupleObjectType, TypeId::DB0_TUPLE);
         addStaticdbzeroType(&ClassObjectType, TypeId::DB0_CLASS);
@@ -281,6 +284,22 @@ namespace db0::python
             THROWF(db0::InputException) << "Expected a set object" << THROWF_END;
         }
         return reinterpret_cast<SetObject*>(set_ptr)->modifyExt();
+    }
+
+    const db0::object_model::WeakSet &PyTypeManager::extractWeakSet(ObjectPtr set_ptr) const
+    {
+        if (!WeakSetObject_Check(set_ptr)) {
+            THROWF(db0::InputException) << "Expected a weak set object" << THROWF_END;
+        }
+        return reinterpret_cast<const WeakSetObject*>(set_ptr)->ext();
+    }
+
+    db0::object_model::WeakSet &PyTypeManager::extractMutableWeakSet(ObjectPtr set_ptr) const
+    {
+        if (!WeakSetObject_Check(set_ptr)) {
+            THROWF(db0::InputException) << "Expected a weak set object" << THROWF_END;
+        }
+        return reinterpret_cast<WeakSetObject*>(set_ptr)->modifyExt();
     }
     
     db0::object_model::ByteArray &PyTypeManager::extractMutableByteArray(ObjectPtr py_obj) const

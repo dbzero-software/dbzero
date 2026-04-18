@@ -120,6 +120,14 @@ namespace db0::object_model
         return resolveForFixture(fixture, set, obj_ptr, storage_class, access_flags);
     }
 
+    // WEAK_SET specialization
+    template <> Value createMember<TypeId::DB0_WEAK_SET, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
+        PyObjectPtr obj_ptr, StorageClass storage_class, AccessFlags access_flags)
+    {
+        auto &weak_set = PyToolkit::getTypeManager().extractMutableWeakSet(obj_ptr);
+        return resolveForFixture(fixture, weak_set, obj_ptr, storage_class, access_flags);
+    }
+
     // DB0 DICT specialization
     template <> Value createMember<TypeId::DB0_DICT, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
         PyObjectPtr obj_ptr, StorageClass storage_class, AccessFlags access_flags)
@@ -361,6 +369,7 @@ namespace db0::object_model
         functions[static_cast<int>(TypeId::DB0_LIST)] = createMember<TypeId::DB0_LIST, PyToolkit>;
         functions[static_cast<int>(TypeId::DB0_INDEX)] = createMember<TypeId::DB0_INDEX, PyToolkit>;
         functions[static_cast<int>(TypeId::DB0_SET)] = createMember<TypeId::DB0_SET, PyToolkit>;
+        functions[static_cast<int>(TypeId::DB0_WEAK_SET)] = createMember<TypeId::DB0_WEAK_SET, PyToolkit>;
         functions[static_cast<int>(TypeId::DB0_DICT)] = createMember<TypeId::DB0_DICT, PyToolkit>;
         functions[static_cast<int>(TypeId::DB0_TUPLE)] = createMember<TypeId::DB0_TUPLE, PyToolkit>;
         functions[static_cast<int>(TypeId::LIST)] = createMember<TypeId::LIST, PyToolkit>;
@@ -438,6 +447,13 @@ namespace db0::object_model
         db0::swine_ptr<Fixture> &fixture, Value value, unsigned int, AccessFlags access_mode)
     {
         return PyToolkit::unloadSet(fixture, value.asAddress(), 0, access_mode);
+    }
+
+    // DB0_WEAK_SET specialization
+    template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DB0_WEAK_SET, PyToolkit>(
+        db0::swine_ptr<Fixture> &fixture, Value value, unsigned int, AccessFlags access_mode)
+    {
+        return PyToolkit::unloadWeakSet(fixture, value.asAddress(), 0, access_mode);
     }
     
     // DB0_DICT specialization
@@ -655,6 +671,7 @@ namespace db0::object_model
         functions[static_cast<int>(StorageClass::DB0_LIST)] = unloadMember<StorageClass::DB0_LIST, PyToolkit>;
         functions[static_cast<int>(StorageClass::DB0_INDEX)] = unloadMember<StorageClass::DB0_INDEX, PyToolkit>;
         functions[static_cast<int>(StorageClass::DB0_SET)] = unloadMember<StorageClass::DB0_SET, PyToolkit>;
+        functions[static_cast<int>(StorageClass::DB0_WEAK_SET)] = unloadMember<StorageClass::DB0_WEAK_SET, PyToolkit>;
         functions[static_cast<int>(StorageClass::DB0_DICT)] = unloadMember<StorageClass::DB0_DICT, PyToolkit>;
         functions[static_cast<int>(StorageClass::DB0_TUPLE)] = unloadMember<StorageClass::DB0_TUPLE, PyToolkit>;
         functions[static_cast<int>(StorageClass::DB0_BYTES)] = unloadMember<StorageClass::DB0_BYTES, PyToolkit>;
@@ -751,9 +768,15 @@ namespace db0::object_model
     }
 
     template <> void unrefMember<StorageClass::DB0_SET, PyToolkit>(
-        db0::swine_ptr<Fixture> &fixture, Value value) 
+        db0::swine_ptr<Fixture> &fixture, Value value)
     {
         unrefObjectBase<Set, PyToolkit>(fixture, value.asAddress());
+    }
+
+    template <> void unrefMember<StorageClass::DB0_WEAK_SET, PyToolkit>(
+        db0::swine_ptr<Fixture> &fixture, Value value)
+    {
+        unrefObjectBase<WeakSet, PyToolkit>(fixture, value.asAddress());
     }
 
     template <> void unrefMember<StorageClass::DB0_DICT, PyToolkit>(
@@ -803,6 +826,7 @@ namespace db0::object_model
         functions[static_cast<int>(StorageClass::DB0_LIST)] = unrefMember<StorageClass::DB0_LIST, PyToolkit>;
         functions[static_cast<int>(StorageClass::DB0_INDEX)] = unrefMember<StorageClass::DB0_INDEX, PyToolkit>;
         functions[static_cast<int>(StorageClass::DB0_SET)] = unrefMember<StorageClass::DB0_SET, PyToolkit>;
+        functions[static_cast<int>(StorageClass::DB0_WEAK_SET)] = unrefMember<StorageClass::DB0_WEAK_SET, PyToolkit>;
         functions[static_cast<int>(StorageClass::DB0_DICT)] = unrefMember<StorageClass::DB0_DICT, PyToolkit>;
         functions[static_cast<int>(StorageClass::DB0_TUPLE)] = unrefMember<StorageClass::DB0_TUPLE, PyToolkit>;
         functions[static_cast<int>(StorageClass::DB0_BYTES_ARRAY)] = unrefMember<StorageClass::DB0_BYTES_ARRAY, PyToolkit>;

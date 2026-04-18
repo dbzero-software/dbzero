@@ -39,6 +39,7 @@ namespace db0::object_model
         addMapping(TypeId::DB0_LIST, PreStorageClass::DB0_LIST);
         addMapping(TypeId::DB0_DICT, PreStorageClass::DB0_DICT);
         addMapping(TypeId::DB0_SET, PreStorageClass::DB0_SET);
+        addMapping(TypeId::DB0_WEAK_SET, PreStorageClass::DB0_WEAK_SET);
         addMapping(TypeId::DB0_TUPLE, PreStorageClass::DB0_TUPLE);
         addMapping(TypeId::DB0_INDEX, PreStorageClass::DB0_INDEX);
         addMapping(TypeId::OBJECT_ITERABLE, PreStorageClass::DB0_SERIALIZED);
@@ -150,6 +151,7 @@ namespace std
             case StorageClass::DB0_LIST: return os << "DB0_LIST";
             case StorageClass::DB0_DICT: return os << "DB0_DICT";
             case StorageClass::DB0_SET: return os << "DB0_SET";
+            case StorageClass::DB0_WEAK_SET: return os << "DB0_WEAK_SET";
             case StorageClass::DB0_TUPLE: return os << "DB0_TUPLE";
             case StorageClass::STR64: return os << "STR64";
             case StorageClass::DB0_CLASS: return os << "DB0_CLASS";

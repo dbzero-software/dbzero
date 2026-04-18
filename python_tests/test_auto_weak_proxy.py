@@ -53,7 +53,6 @@ def test_auto_wrap_expires_when_source_deleted(db0_fixture):
         _ = obj_2.value.value
 
 
-
 def test_auto_wrap_on_cross_prefix_assignment(db0_fixture):
     """Cross-prefix assignment is silently wrapped as weak_proxy by default."""
     px_1 = db0.get_current_prefix().name
