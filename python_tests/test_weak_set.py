@@ -119,3 +119,79 @@ def test_weak_set_persistence(db0_fixture):
     db0.commit()
     assert len(holder.value) == 1
     assert obj_1 in holder.value
+
+
+def test_weak_set_discard_mixed_prefix(db0_fixture):
+    # Minimal reproducer: a weak_set that holds exactly one object
+    # from the current prefix (short weak ref) and one from another
+    # prefix (long weak ref). discard() on either element is expected
+    # to remove it; today it silently does nothing and len stays at 2.
+    px_current = db0.get_current_prefix().name
+    px_other = "some-other-prefix"
+    db0.open(px_other, "rw")
+
+    obj_curr = MemoTestPxClass(1, prefix=px_current)
+    obj_other = MemoTestPxClass(2, prefix=px_other)
+
+    ws = db0.weak_set()
+    ws.add(obj_curr)
+    ws.add(obj_other)
+    assert len(ws) == 2
+    assert obj_curr in ws
+    assert obj_other in ws
+
+    # Discarding the current-prefix (short weak ref) member: the
+    # long weak ref from the other prefix must remain.
+    ws.discard(obj_curr)
+    assert obj_curr not in ws
+    assert obj_other in ws
+    assert len(ws) == 1
+
+    # And discarding the remaining cross-prefix member empties the set.
+    ws.discard(obj_other)
+    assert obj_other not in ws
+    assert len(ws) == 0
+
+
+def test_weak_set_bulk_add_discard_contains(db0_fixture):
+    import random
+
+    # Mix objects from two prefixes so the weak_set holds both
+    # same-prefix weak refs and cross-prefix "long" weak refs.
+    px_current = db0.get_current_prefix().name
+    px_other = "some-other-prefix"
+    db0.open(px_other, "rw")
+
+    n = 128
+    objs = [
+        MemoTestPxClass(i, prefix=px_current if i % 2 == 0 else px_other)
+        for i in range(n)
+    ]
+
+    # Populate ws and verify every element is a member.
+    ws = db0.weak_set()
+    for o in objs:
+        ws.add(o)
+    assert len(ws) == n
+    for o in objs:
+        assert o in ws
+
+    # Objects not added — from either prefix — must not be reported as members.
+    assert MemoTestPxClass(9998, prefix=px_current) not in ws
+    assert MemoTestPxClass(9999, prefix=px_other) not in ws
+
+    # Discard a random half, then confirm membership on both sides.
+    # Split by id() so memo value-equality cannot move objects between groups.
+    rng = random.Random(42)
+    to_discard = rng.sample(objs, n // 2)
+    discard_ids = {id(o) for o in to_discard}
+    remaining = [o for o in objs if id(o) not in discard_ids]
+
+    for o in to_discard:
+        ws.discard(o)
+
+    assert len(ws) == n - len(to_discard)
+    for o in to_discard:
+        assert o not in ws
+    for o in remaining:
+        assert o in ws

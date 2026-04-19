@@ -658,3 +658,36 @@ def test_db0_set_iterator_type_valid(db0_fixture):
     s = db0.set()
     it = iter(s)
     assert type(type(it)) is type
+
+
+def test_db0_set_remove_with_hash_collision(db0_fixture):
+    # The TUPLE hash in PyHash.cpp is xor-of-element-hashes, so any
+    # two permutations of the same elements collide. That puts them
+    # in the same m_index bucket, which is the only path that exercises
+    # Set::remove's bindex.erase(*it) branch (size > 1).
+    #
+    # If that branch fails to re-sync m_index after the underlying
+    # bindex morphs to a smaller container, the bucket's stale
+    # {address, type} will keep reporting pre-erase data on later
+    # lookups — wrong len(), wrong `in`, stale iteration.
+    a = (1, 2)
+    b = (2, 1)
+
+    s = db0.set()
+    s.add(a)
+    s.add(b)
+    assert len(s) == 2
+    assert a in s
+    assert b in s
+
+    s.remove(a)
+    assert a not in s
+    assert b in s
+    assert len(s) == 1
+    # Iteration should see only b.
+    assert list(s) == [b]
+
+    # Removing the last colliding element must fully clean the bucket.
+    s.remove(b)
+    assert b not in s
+    assert len(s) == 0

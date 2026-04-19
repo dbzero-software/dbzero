@@ -13,6 +13,18 @@
 #include <dbzero/object_model/value/Member.hpp>
 #include <object.h>
 
+// WeakSet stores m_index: a top-level bindex keyed by element hash, whose
+// bucket value is a TypedIndexAddr { m_index_address, m_type } pointing at
+// an inner MorphingBIndex (SetIndex) that holds the (weak-referenced)
+// elements sharing that hash.
+//
+// MorphingBIndex may morph on insert/erase — changing its address and/or type
+// (see AGENTS.md). Every path here that calls bindex.insert() or bindex.erase()
+// on a bucket retrieved from m_index must re-sync the parent entry afterwards,
+// otherwise later lookups go through a stale {address, type} and read
+// pre-mutation storage. The size==1 erase branch is exempt because the whole
+// bucket is removed from m_index and the bindex is destroyed.
+
 namespace db0::object_model
 
 {
@@ -183,6 +195,14 @@ namespace db0::object_model
                     bindex.destroy();
                 } else {
                     bindex.erase(*it);
+                    // Erasing may have morphed the bindex to a smaller container,
+                    // changing its address/type. Re-point the m_index entry so the
+                    // bucket tracks the new storage — otherwise later lookups read
+                    // through the stale {address, type} and see pre-erase data.
+                    if (bindex.getAddress() != address.m_index_address) {
+                        m_index.erase(iter);
+                        m_index.insert({it_key, bindex});
+                    }
                 }
                 --modify().m_size;
                 restoreIterators();
