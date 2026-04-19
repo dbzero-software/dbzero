@@ -11,6 +11,7 @@
 #include <dbzero/bindings/python/collections/PyIndex.hpp>
 #include <dbzero/bindings/python/collections/PyByteArray.hpp>
 #include <dbzero/bindings/python/collections/PySet.hpp>
+#include <dbzero/bindings/python/collections/PyWeakSet.hpp>
 #include <dbzero/bindings/python/collections/PyDict.hpp>
 #include <dbzero/core/exception/Exceptions.hpp>
 #include <dbzero/core/memory/mptr.hpp>
@@ -462,7 +463,7 @@ namespace db0::python
         return shared_py_cast<PyObject*>(std::move(py_index));
     }
     
-    PyToolkit::ObjectSharedPtr PyToolkit::unloadSet(db0::swine_ptr<Fixture> fixture, 
+    PyToolkit::ObjectSharedPtr PyToolkit::unloadSet(db0::swine_ptr<Fixture> fixture,
         Address address, std::uint16_t, AccessFlags access_mode)
     {
         // try pulling from cache first
@@ -472,16 +473,34 @@ namespace db0::python
             // return from cache
             return object_ptr;
         }
-        
+
         auto set_object = SetDefaultObject_new();
         // retrieve actual dbzero instance
         set_object->unload(fixture, address, access_mode);
-        
+
         // add list object to cache
         if (!set_object->ext().isNoCache()) {
             lang_cache.add(address, set_object.get());
         }
         return shared_py_cast<PyObject*>(std::move(set_object));
+    }
+
+    PyToolkit::ObjectSharedPtr PyToolkit::unloadWeakSet(db0::swine_ptr<Fixture> fixture,
+        Address address, std::uint16_t, AccessFlags access_mode)
+    {
+        auto &lang_cache = fixture->getLangCache();
+        auto object_ptr = lang_cache.get(address);
+        if (object_ptr.get()) {
+            return object_ptr;
+        }
+
+        auto weak_set_object = WeakSetDefaultObject_new();
+        weak_set_object->unload(fixture, address, access_mode);
+
+        if (!weak_set_object->ext().isNoCache()) {
+            lang_cache.add(address, weak_set_object.get());
+        }
+        return shared_py_cast<PyObject*>(std::move(weak_set_object));
     }
     
     PyToolkit::ObjectSharedPtr PyToolkit::unloadDict(db0::swine_ptr<Fixture> fixture, 

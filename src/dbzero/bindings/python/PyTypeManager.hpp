@@ -31,6 +31,7 @@ namespace db0::object_model {
     class Class;
     class List;
     class Set;
+    class WeakSet;
     class Tuple;
     class Dict;
     class TagSet;
@@ -74,6 +75,7 @@ namespace db0::python
         using ObjectAnyImpl = db0::object_model::ObjectAnyImpl;
         using List = db0::object_model::List;
         using Set = db0::object_model::Set;
+        using WeakSet = db0::object_model::WeakSet;
         using Tuple = db0::object_model::Tuple;
         using Dict = db0::object_model::Dict;
         using TagSet = db0::object_model::TagSet;
@@ -127,6 +129,8 @@ namespace db0::python
         List &extractMutableList(ObjectPtr list_ptr) const;
         const Set &extractSet(ObjectPtr set_ptr) const;
         Set &extractMutableSet(ObjectPtr set_ptr) const;
+        const WeakSet &extractWeakSet(ObjectPtr set_ptr) const;
+        WeakSet &extractMutableWeakSet(ObjectPtr set_ptr) const;
         std::int64_t extractInt64(ObjectPtr int_ptr) const;
         std::uint64_t extractUInt64(ObjectPtr) const;
         std::uint64_t extractUInt64(TypeId, ObjectPtr) const;

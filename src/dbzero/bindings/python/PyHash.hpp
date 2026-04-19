@@ -25,7 +25,7 @@ namespace db0::python
     
     template <TypeId type_id> std::int64_t getPyHashImpl(db0::swine_ptr<Fixture> &, PyObject *);
     
-    // NOTE: in rare cases type may be hashable but hash cannot be calculate if instance does not exist
+    // NOTE: in rare cases type may be hashable but hash cannot be calculated if an instance does not exist
     // e.g. EnumValueRepr without actual EnumValue materialized yet
     // in such cases this function will not raise any exception but return std::nullopt    
     std::optional<std::pair<std::int64_t, ObjectSharedPtr> > getPyHashIfExists(

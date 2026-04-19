@@ -1,0 +1,88 @@
+FROM python:3.12-bullseye
+
+ARG NODE_MAJOR=20
+ARG CLAUDE_CODE_VERSION=latest
+ARG DEV_USER=claude
+ARG DEV_UID=1000
+ARG DEV_GID=1000
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV HOME=/home/${DEV_USER}
+ENV CLAUDE_CONFIG_DIR=/home/${DEV_USER}/.claude
+ENV PATH=/home/${DEV_USER}/.local/bin:${PATH}
+
+# Install development dependencies, Node.js 20, and Claude Code.
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    cmake \
+    curl \
+    gdb \
+    gettext-base \
+    git \
+    gnupg \
+    jq \
+    less \
+    meson \
+    ninja-build \
+    psmisc \
+    python3-dbg \
+    python3-pip \
+    python3-venv \
+    ripgrep \
+    rsync \
+    screen \
+    unzip \
+    valgrind \
+    && mkdir -p /etc/apt/keyrings \
+    && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
+        | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
+    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${NODE_MAJOR}.x nodistro main" \
+        > /etc/apt/sources.list.d/nodesource.list \
+    && apt-get update && apt-get install -y nodejs \
+    && npm install -g "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}" \
+    && node "$(npm root -g)/@anthropic-ai/claude-code/install.cjs" \
+    && npm cache clean --force \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN groupadd --gid ${DEV_GID} ${DEV_USER} \
+    && useradd --uid ${DEV_UID} --gid ${DEV_GID} --create-home --shell /bin/bash ${DEV_USER}
+
+# Install Python build tooling and project requirements.
+RUN python3 -m pip install --no-cache-dir --upgrade pip setuptools wheel build
+
+COPY requirements.txt /usr/src/dbzero/
+RUN python3 -m pip install --no-cache-dir --upgrade -r /usr/src/dbzero/requirements.txt
+
+# Seed Claude Code defaults and make them available in interactive shells.
+COPY docker/claude-settings.json /opt/claude/settings.json
+COPY docker/claude-shell-init.sh /usr/local/bin/claude-shell-init
+COPY docker/dbzero-build.sh /usr/local/bin/dbzero-build
+COPY docker/dbzero-build-package.sh /usr/local/bin/dbzero-build-package
+RUN chmod +x /usr/local/bin/claude-shell-init \
+    && chmod +x /usr/local/bin/dbzero-build /usr/local/bin/dbzero-build-package \
+    && mkdir -p ${CLAUDE_CONFIG_DIR} /etc/profile.d \
+    && chmod 700 ${CLAUDE_CONFIG_DIR} \
+    && cp /opt/claude/settings.json ${CLAUDE_CONFIG_DIR}/settings.json \
+    && chmod 600 ${CLAUDE_CONFIG_DIR}/settings.json \
+    && chown -R ${DEV_UID}:${DEV_GID} ${HOME} /opt/claude \
+    && printf '%s\n' \
+        'export CLAUDE_CONFIG_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"' \
+        > /etc/profile.d/claude-code.sh \
+    && printf '%s\n' \
+        'export CLAUDE_CONFIG_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"' \
+        >> ${HOME}/.bashrc \
+    && claude --version
+
+RUN ulimit -c unlimited
+
+COPY --chown=${DEV_UID}:${DEV_GID} . /usr/src/dbzero
+WORKDIR /usr/src/dbzero
+
+RUN python3 scripts/generate_meson.py ./src/dbzero/ core
+RUN python3 scripts/generate_meson_tests.py tests/
+
+USER ${DEV_USER}
+
+ENTRYPOINT ["/usr/local/bin/claude-shell-init"]
+CMD ["/bin/bash"]

@@ -16,6 +16,7 @@
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/object_model/class/ClassFactory.hpp>
 #include <dbzero/object_model/set/Set.hpp>
+#include <dbzero/object_model/set/WeakSet.hpp>
 #include <dbzero/object_model/dict/Dict.hpp>
 #include <dbzero/object_model/tuple/Tuple.hpp>
 #include <dbzero/object_model/index/Index.hpp>

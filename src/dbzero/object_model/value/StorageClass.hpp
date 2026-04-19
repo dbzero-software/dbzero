@@ -63,7 +63,8 @@ namespace db0::object_model
        // deleted value (placeholder)
        DELETED = 31,
        CALLABLE = 32,
-    
+       DB0_WEAK_SET = 33,
+
        COUNT = std::numeric_limits<std::uint8_t>::max() - 32,
        // invalid / reserved value, never used in objects
        INVALID = std::numeric_limits<std::uint8_t>::max()
@@ -114,6 +115,7 @@ namespace db0::object_model
         OBJECT_WEAK_REF = static_cast<int>(PreStorageClass::OBJECT_WEAK_REF),
         DELETED = static_cast<int>(PreStorageClass::DELETED),
         CALLABLE = static_cast<int>(PreStorageClass::CALLABLE),
+        DB0_WEAK_SET = static_cast<int>(PreStorageClass::DB0_WEAK_SET),
         // weak reference to other (Memo) instance from a foreign prefix
         OBJECT_LONG_WEAK_REF = static_cast<int>(PreStorageClass::COUNT),
         // COUNT used to determine size of the StorageClass associated arrays
@@ -159,10 +161,8 @@ namespace db0
     using PreStorageClass = db0::object_model::PreStorageClass;
     using StorageClass = db0::object_model::StorageClass;
     
-    // This version is valid for all cases except for OBJECT_WEAK_REF
-    inline StorageClass getStorageClass(PreStorageClass pre_storage_class) 
+    inline StorageClass getStorageClass(PreStorageClass pre_storage_class)
     {
-        assert(pre_storage_class != PreStorageClass::OBJECT_WEAK_REF);
         return static_cast<StorageClass>(static_cast<int>(pre_storage_class));
     }
     
