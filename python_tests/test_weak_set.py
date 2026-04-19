@@ -3,7 +3,8 @@
 
 import pytest
 import dbzero as db0
-from .memo_test_types import MemoTestClass, MemoTestPxClass
+from .memo_test_types import MemoTestClass, MemoTestPxClass, MemoScopedSingleton
+from .conftest import DB0_DIR
 
 
 def test_weak_set_created_empty(db0_fixture):
@@ -194,4 +195,107 @@ def test_weak_set_bulk_add_discard_contains(db0_fixture):
     for o in to_discard:
         assert o not in ws
     for o in remaining:
+        assert o in ws
+
+
+def test_weak_set_persistence_across_close(db0_fixture):
+    px_current = db0.get_current_prefix().name
+    px_other = "some-other-prefix"
+    db0.open(px_other, "rw")
+
+    n = 120
+    objs = [
+        MemoTestPxClass(i, prefix=px_current if i % 2 == 0 else px_other)
+        for i in range(n)
+    ]
+
+    holder = MemoTestPxClass(db0.weak_set(objs), prefix=px_other)
+    assert len(holder.value) == n
+
+    # Per-prefix singletons anchor the objects and the holder so they
+    # survive close/reopen and the weak refs in the set stay resolvable.
+    MemoScopedSingleton(
+        value=[o for o in objs if o.value % 2 == 0], prefix=px_current
+    )
+    MemoScopedSingleton(
+        value=[holder] + [o for o in objs if o.value % 2 == 1],
+        prefix=px_other,
+    )
+
+    obj_values = sorted(o.value for o in objs)
+
+    del holder, objs
+    db0.commit()
+    db0.close()
+
+    db0.init(DB0_DIR)
+    db0.open(px_current, "r")
+    db0.open(px_other, "r")
+
+    root_other = db0.fetch(MemoScopedSingleton, prefix=px_other)
+    holder2 = root_other.value[0]
+    ws = holder2.value
+    assert len(ws) == n
+
+    root_current = db0.fetch(MemoScopedSingleton, prefix=px_current)
+    all_objs = list(root_current.value) + list(root_other.value[1:])
+    assert sorted(o.value for o in all_objs) == obj_values
+    for o in all_objs:
+        assert o in ws
+
+
+def test_weak_set_persistence_only_holder_prefix_opened(db0_fixture):
+    # After close, reopen ONLY the prefix that owns the weak_set.
+    # Half the members are long weak refs into a prefix that is not loaded.
+    # Documents the current behavior: every set-wide operation on such a
+    # weak_set raises because the foreign prefix cannot be resolved.
+    px_current = db0.get_current_prefix().name
+    px_other = "some-other-prefix"
+    db0.open(px_other, "rw")
+
+    n = 120
+    objs = [
+        MemoTestPxClass(i, prefix=px_current if i % 2 == 0 else px_other)
+        for i in range(n)
+    ]
+
+    holder = MemoTestPxClass(db0.weak_set(objs), prefix=px_other)
+    assert len(holder.value) == n
+
+    MemoScopedSingleton(
+        value=[o for o in objs if o.value % 2 == 0], prefix=px_current
+    )
+    MemoScopedSingleton(
+        value=[holder] + [o for o in objs if o.value % 2 == 1],
+        prefix=px_other,
+    )
+
+    del holder, objs
+    db0.commit()
+    db0.close()
+
+    db0.init(DB0_DIR)
+    # Deliberately open only the holder's prefix — the other one stays closed.
+    db0.open(px_other, "r")
+
+    root_other = db0.fetch(MemoScopedSingleton, prefix=px_other)
+    holder2 = root_other.value[0]
+    ws = holder2.value
+    same_prefix_objs = list(root_other.value[1:])
+    # Sanity: same-prefix anchors are fully reachable on their own.
+    assert len(same_prefix_objs) == n // 2
+
+    # len(), iteration, and membership all traverse the full underlying
+    # storage and hit the unresolvable long weak refs into px_current.
+    with pytest.raises(Exception):
+        len(ws)
+    with pytest.raises(RuntimeError, match="Prefix:"):
+        list(ws)
+    with pytest.raises(RuntimeError, match="Prefix:"):
+        _ = same_prefix_objs[0] in ws
+
+    # Opening the missing prefix heals the set.
+    db0.open(px_current, "r")
+    assert len(ws) == n
+    for o in same_prefix_objs:
         assert o in ws
