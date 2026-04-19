@@ -48,7 +48,7 @@ namespace db0::object_model
     {
         // wrap memo object as weak proxy (or pass-through if already a proxy)
         auto wrapped = db0::python::PyTypes::ObjectSharedPtr(
-            db0::python::PyWeakProxy_Check(lang_value) ? Py_NewRef(lang_value) : db0::python::tryWeakProxy(lang_value),
+            db0::python::PyWeakProxy_Check(lang_value) ? (Py_INCREF(lang_value), lang_value) : db0::python::tryWeakProxy(lang_value),
             false);
         if (!wrapped) {
             THROWF(db0::InputException) << "Failed to construct weak proxy" << THROWF_END;
