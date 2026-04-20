@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 # Copyright (c) 2025 DBZero Software sp. z o.o.
 
+import random
+
 import pytest
 import dbzero as db0
 from .memo_test_types import MemoTestPxClass
@@ -178,7 +180,7 @@ def test_long_weak_ref_inside_set(db0_fixture):
     obj_1 = MemoTestPxClass(123, prefix=px_1)
     set_1 = db0.set([db0.weak_proxy(obj_1)])
     for obj in set_1:
-        assert obj == obj_1    
+        assert obj == obj_1
 
 
 def test_long_weak_ref_inside_dict(db0_fixture):

@@ -8,6 +8,7 @@
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/object_model/list/List.hpp>
 #include <dbzero/object_model/set/Set.hpp>
+#include <dbzero/object_model/set/WeakSet.hpp>
 #include <dbzero/object_model/dict/Dict.hpp>
 #include <dbzero/object_model/tuple/Tuple.hpp>
 #include <dbzero/object_model/class/Class.hpp>
@@ -37,7 +38,7 @@ namespace db0::object_model
         return [](db0::swine_ptr<Fixture> &fixture, bool is_new, bool read_only, bool is_snapshot)
         {
             // static GC0 bindings initialization
-            GC0::registerTypes<Class, Object, List, Set, Dict, Tuple, Index, Enum, ByteArray>();
+            GC0::registerTypes<Class, Object, List, Set, WeakSet, Dict, Tuple, Index, Enum, ByteArray>();
             auto &oc = fixture->getObjectCatalogue();
             if (is_new) {
                 assert(!is_snapshot);

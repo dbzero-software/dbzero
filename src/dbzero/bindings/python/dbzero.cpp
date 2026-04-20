@@ -17,6 +17,7 @@
 #include <dbzero/bindings/python/collections/PyByteArray.hpp>
 #include <dbzero/bindings/python/collections/PyIndex.hpp>
 #include <dbzero/bindings/python/collections/PySet.hpp>
+#include <dbzero/bindings/python/collections/PyWeakSet.hpp>
 #include <dbzero/bindings/python/collections/PyTuple.hpp>
 #include <dbzero/bindings/python/collections/PyDict.hpp>
 #include <dbzero/bindings/python/PyWorkspace.hpp>
@@ -49,6 +50,7 @@ static PyMethodDef dbzero_methods[] =
     {"index", (PyCFunction)&py::PyAPI_makeIndex, METH_FASTCALL, "Create a new dbzero index instance"},
     {"tuple", (PyCFunction)&py::PyAPI_makeTuple, METH_FASTCALL, "Create a new dbzero tuple instance"},
     {"set", (PyCFunction)&py::PyAPI_makeSet, METH_FASTCALL, "Create a new dbzero set instance"},
+    {"weak_set", (PyCFunction)&py::PyAPI_makeWeakSet, METH_FASTCALL, "Create a new dbzero weak set instance"},
     {"dict", (PyCFunction)&py::PyAPI_makeDict, METH_VARARGS | METH_KEYWORDS, "Create a new dbzero dict instance"},
     {"bytearray", (PyCFunction)&py::PyAPI_makeByteArray, METH_FASTCALL, "Create a new dbzero bytearray instance"},        
     {"tags", (PyCFunction)&py::makeObjectTagManager, METH_FASTCALL, ""},
@@ -186,8 +188,10 @@ PyMODINIT_FUNC PyInit_dbzero(void)
         &py::ListObjectType,
         &py::ListIteratorObjectType,
         &py::IndexObjectType, 
-        &py::SetObjectType, 
+        &py::SetObjectType,
         &py::SetIteratorObjectType,
+        &py::WeakSetObjectType,
+        &py::WeakSetIteratorObjectType,
         &py::TupleObjectType,
         &py::TupleIteratorObjectType,
         &py::DictObjectType,
