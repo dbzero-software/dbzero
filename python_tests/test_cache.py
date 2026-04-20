@@ -2,9 +2,11 @@
 # Copyright (c) 2025 DBZero Software sp. z o.o.
 
 import pytest
+import multiprocessing
 import dbzero as db0
 from random import randint
-from .memo_test_types import MemoTestClass
+from .conftest import DB0_DIR
+from .memo_test_types import MemoTestClass, MemoTestSingleton
     
 
 def get_string(str_len):
@@ -62,3 +64,126 @@ def test_lang_cache_can_reach_capacity(db0_fixture):
     assert db0.get_lang_cache_stats()["capacity"] == initial_capacity
     # capacity might be exceeded due to indeterministic gc collection by Python
     assert db0.get_lang_cache_stats()["size"] < initial_capacity * 2
+
+
+# --- Writer process used by the stale-instance repro below.
+# The writer cycles through: create obj, commit, (await reader), delete obj,
+# create a replacement obj (likely reusing the same physical slot), commit.
+def _writer_create_delete_create(prefix_name, req_queue, resp_queue):
+    db0.init(DB0_DIR)
+    db0.open(prefix_name, "rw")
+    # singleton holds a strong reference so we control exactly when the
+    # writer-side instance is dropped
+    root = MemoTestSingleton(None)
+    while True:
+        cmd = req_queue.get()
+        if cmd is None:
+            break
+        action = cmd[0]
+        if action == "create":
+            value = cmd[1]
+            obj = MemoTestClass(value)
+            root.value = obj
+            uuid = db0.uuid(obj)
+            del obj
+            db0.commit()
+            resp_queue.put(uuid)
+        elif action == "delete":
+            # drop the only strong reference and commit so the object
+            # and its slab slot are freed on disk before the next create
+            root.value = None
+            db0.commit()
+            resp_queue.put("ok")
+    db0.close()
+
+
+def test_lang_cache_returns_stale_instance_after_slot_reuse(db0_fixture):
+    """
+    Reproduces a lang-cache coherence bug on read-only clients.
+
+    Scenario: a writer creates obj1, the reader fetches it into its
+    LangCache. The writer then deletes obj1 and creates obj2, which is
+    likely allocated at obj1's recycled physical address. After refresh,
+    the reader fetches obj2 by its new UUID; the client-side LangCache
+    is keyed by (fixture_id, address) - no instance_id - so it returns
+    the stale wrapper that was bound to obj1's (now recycled) slot.
+
+    The test records UUIDs only - it intentionally does not keep Python
+    references to fetched wrappers. Holding a stale wrapper around
+    exposes a separate "stale instance access" class of bugs which is
+    out of scope here; dropping the wrapper after each fetch isolates
+    the LangCache coherence issue. The cache entry itself survives the
+    wrapper being dropped (it holds its own reference via
+    ObjectSharedExtPtr) until something explicitly clears it.
+    """
+    prefix_name = db0.get_current_prefix().name
+    # make sure the prefix exists on disk before the reader opens it read-only
+    db0.commit()
+    db0.close()
+
+    req_queue = multiprocessing.Queue()
+    resp_queue = multiprocessing.Queue()
+    writer = multiprocessing.Process(
+        target=_writer_create_delete_create,
+        args=(prefix_name, req_queue, resp_queue),
+    )
+    writer.start()
+
+    # Record (uuid, expected_value) pairs seen across all iterations so we
+    # can also validate post-loop that fetching any historical uuid either
+    # succeeds with the right value or fails cleanly - never silently
+    # returns a stale/wrong instance.
+    seen = []
+    try:
+        db0.init(DB0_DIR)
+        db0.open(prefix_name, "r")
+        iterations = 50
+        for i in range(iterations):
+            first_value = i
+            second_value = 100000 + i
+
+            # writer: create obj1 (instance 0)
+            req_queue.put(("create", first_value))
+            uuid1 = resp_queue.get(timeout=30)
+
+            db0.refresh()
+            obj1 = db0.fetch(uuid1)
+            assert obj1.value == first_value, \
+                f"iter {i}: unexpected obj1.value={obj1.value}"
+            assert db0.uuid(obj1) == uuid1, \
+                f"iter {i}: uuid1 roundtrip failed"
+            # intentionally drop the wrapper immediately - we only retain
+            # the uuid, not the Python instance
+            del obj1
+
+            # writer: delete obj1 and commit
+            req_queue.put(("delete",))
+            assert resp_queue.get(timeout=30) == "ok"
+
+            # writer: create obj2 (instance 1) - likely reuses obj1's slot
+            req_queue.put(("create", second_value))
+            uuid2 = resp_queue.get(timeout=30)
+            assert uuid1 != uuid2
+
+            db0.refresh()
+            obj2 = db0.fetch(uuid2)
+            # If the LangCache wrongly served the stale entry for obj1's
+            # address, db0.uuid(obj2) will not match the uuid we just
+            # resolved through, and obj2.value may report obj1's value.
+            assert db0.uuid(obj2) == uuid2, (
+                f"iter {i}: uuid mismatch - lang cache served stale wrapper "
+                f"(expected {uuid2}, got {db0.uuid(obj2)})"
+            )
+            assert obj2.value == second_value, (
+                f"iter {i}: lang cache returned stale instance "
+                f"(expected {second_value}, got {obj2.value}); "
+                f"uuid1={uuid1} uuid2={uuid2}"
+            )
+            seen.append((uuid2, second_value))
+            del obj2
+    finally:
+        req_queue.put(None)
+        writer.join(timeout=30)
+        if writer.is_alive():
+            writer.terminate()
+            writer.join()

@@ -230,7 +230,16 @@ namespace db0
         if (!Memspace::beginRefresh()) {
             return false;
         }
-        
+
+        // Drop all language-side cache entries mapped to this fixture before
+        // detaching. The LangCache key is (fixture_id, address.offset) and does
+        // not include instance_id, so any slot reused by the writer since the
+        // last refresh would cause a subsequent fetch to return a stale wrapper
+        // bound to the previous logical object. Clearing here forces the next
+        // fetch to materialize a fresh wrapper. Done before detachAll so we
+        // don't waste work detaching entries that are about to be dropped.        
+        m_lang_cache.clear(false);
+
         if (m_gc0_ptr) {
             // detach all active ObjectBase instances so that they can be refreshed
             m_gc0_ptr->detachAll();
