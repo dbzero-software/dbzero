@@ -102,6 +102,9 @@ namespace db0::object_model
     
     template <typename T, typename ImplT>
     bool ObjectAnyBase<T, ImplT>::hasAnyRefs() const {
+        if (!this->hasInstance()) {
+            return true;
+        }
         return (*this)->hasAnyRefs();
     }
 
