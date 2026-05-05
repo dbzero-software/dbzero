@@ -57,3 +57,9 @@ def test_find_inside_memo_init_after_tagging_self(db0_rw_fixture):
     """db0.find() inside a memo __init__ must not segfault after db0.tags(self).add()."""
     obj = TaggerAndFinder()
     assert obj._results == []
+
+def test_find_memo_init_after_tagging_in_init(db0_rw_fixture):
+    """db0.find() inside a memo __init__ must not segfault after db0.tags(self).add()."""
+    obj = TaggerAndFinder()
+    obj2 = TaggerAndFinder()
+    assert len(list(db0.find(TaggerAndFinder, "my-tag"))) == 2

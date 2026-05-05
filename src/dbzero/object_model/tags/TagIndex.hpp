@@ -112,6 +112,10 @@ DB0_PACKED_END
         
         // add a defunct object (failed on __init__)
         void addDefunct(ObjectPtr memo_ptr) const;
+
+        // Apply user-tags that were deferred because the object was in __init__ (pre-postInit)
+        // when db0.tags(self).add() was first called.  Must be called after postInit().
+        void applyDeferredTags(ObjectPtr memo_ptr);
         
         void clear();
         
@@ -153,10 +157,17 @@ DB0_PACKED_END
         // and to handle callbacks from the full-text index
         // NOTE: cache must hold "shared external" references to the objects
         mutable std::unordered_map<UniqueAddress, ObjectSharedExtPtr> m_object_cache;
-        // A cache for incomplete objects (not yet fully initialized)        
+        // A cache for incomplete objects (not yet fully initialized)
         mutable std::unordered_map<ObjectPtr, UniqueAddress> m_active_cache;
         // Additional buffer to preserve / release ownership for active-cache objects
         mutable std::unordered_set<ObjectSharedExtPtr> m_active_pre_cache;
+        // User tags added via db0.tags(self).add() while self is still in __init__ (before
+        // postInit assigns a dbzero address).  Stored as raw Python objects so they can be
+        // re-submitted via addTags() once postInit has completed.
+        struct DeferredUserTagsEntry { std::vector<ObjectSharedPtr> tags; };
+        mutable std::unordered_map<ObjectPtr, DeferredUserTagsEntry> m_deferred_user_tags;
+        // Extended Python references keeping pre-init objects alive until activateDeferredTags()
+        mutable std::unordered_map<ObjectPtr, ObjectSharedExtPtr> m_deferred_pre_cache;
         db0::weak_swine_ptr<Fixture> m_fixture;
         // the associated fixture UUID (for validation purposes)
         const std::uint64_t m_fixture_uuid;

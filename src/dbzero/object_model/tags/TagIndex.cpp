@@ -169,10 +169,28 @@ namespace db0::object_model
     }
     
     void TagIndex::addTags(ObjectPtr memo_ptr, ObjectPtr const *args, std::size_t nargs)
-    {       
+    {
         using TypeId = db0::bindings::TypeId;
         if (nargs == 0) {
             return;
+        }
+
+        // If the tagged object has not yet completed postInit() (i.e. we are inside its
+        // __init__ before postInit assigns a dbzero address), the normal placeholder
+        // mechanism would have the tags dropped by a flush() triggered by a db0.find()
+        // call in the same __init__.  Instead, store the tag Python objects and apply
+        // them once postInit() has completed (see applyDeferredTags / Memo.cpp).
+        {
+            auto &memo = LangToolkit::getTypeManager().extractAnyObject(memo_ptr);
+            if (!memo.hasInstance() && !memo.isDefunct()) {
+                auto &entry = m_deferred_user_tags[memo_ptr];
+                for (std::size_t i = 0; i < nargs; ++i) {
+                    entry.tags.emplace_back(args[i]);
+                }
+                m_deferred_pre_cache.emplace(memo_ptr, ObjectSharedExtPtr(memo_ptr));
+                m_mutation_log->onDirty();
+                return;
+            }
         }
 
         using IterableSequence = TagMakerSequence<ForwardIterator, ObjectSharedPtr>;
@@ -302,6 +320,28 @@ namespace db0::object_model
         }
     }
     
+    void TagIndex::applyDeferredTags(ObjectPtr memo_ptr)
+    {
+        auto it = m_deferred_user_tags.find(memo_ptr);
+        if (it == m_deferred_user_tags.end()) {
+            return;
+        }
+
+        auto &entry = it->second;
+        if (!entry.tags.empty()) {
+            std::vector<ObjectPtr> tag_ptrs;
+            tag_ptrs.reserve(entry.tags.size());
+            for (auto &tag : entry.tags) {
+                tag_ptrs.push_back(tag.get());
+            }
+            // hasInstance() is now true (postInit has run), so addTags() takes the normal path.
+            addTags(memo_ptr, tag_ptrs.data(), tag_ptrs.size());
+        }
+
+        m_deferred_user_tags.erase(it);
+        m_deferred_pre_cache.erase(memo_ptr);
+    }
+
     void TagIndex::rollback()
     {
         // Reject any pending updates
@@ -322,6 +362,8 @@ namespace db0::object_model
         m_object_cache.clear();
         m_active_cache.clear();
         m_active_pre_cache.clear();
+        m_deferred_user_tags.clear();
+        m_deferred_pre_cache.clear();
     }
 
     void TagIndex::clear()
@@ -346,6 +388,8 @@ namespace db0::object_model
         m_active_cache.clear();
         m_active_pre_cache.clear();
         m_inc_refed_tags.clear();
+        m_deferred_user_tags.clear();
+        m_deferred_pre_cache.clear();
     }
     
     void TagIndex::tryTagIncRef(ShortTagT tag_addr) const

@@ -280,9 +280,9 @@ namespace db0::python
             
             // invoke post-init on associated dbzero object
             auto &object = self->modifyExt();
-            db0::FixtureLock fixture(object.getFixture());            
+            db0::FixtureLock fixture(object.getFixture());
             object.postInit(fixture);
-            
+
             // need to call modifyExt again after postInit because the instance has just been created
             // and potentially needs to be included in the AtomicContext
             self->modifyExt();
@@ -290,13 +290,18 @@ namespace db0::python
             if (!class_ptr || !class_ptr->isNoCache()) {
                 fixture->getLangCache().add(object.getAddress(), self);
             }
-            
-            // finally, unless opted-out, assign the type tag(s) of the entire type hierarchy            
-            if (class_ptr && class_ptr->assignDefaultTags()) {
+
+            {
                 auto &tag_index = fixture->get<TagIndex>();
-                while (class_ptr) {
-                    tag_index.addTag(self, class_ptr->getAddress(), true);
-                    class_ptr = class_ptr->getBaseClassPtr();
+                // Flush any user-tags that were deferred because db0.tags(self).add() was
+                // called during __init__ before postInit() assigned the dbzero address.
+                tag_index.applyDeferredTags(self);
+                // finally, unless opted-out, assign the type tag(s) of the entire type hierarchy
+                if (class_ptr && class_ptr->assignDefaultTags()) {
+                    while (class_ptr) {
+                        tag_index.addTag(self, class_ptr->getAddress(), true);
+                        class_ptr = class_ptr->getBaseClassPtr();
+                    }
                 }
             }
         }
