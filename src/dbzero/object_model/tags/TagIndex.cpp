@@ -374,8 +374,6 @@ namespace db0::object_model
         
         // this is to resolve addresses of incomplete objects (must be done before flushing)
         buildActiveValues();
-        // the pre-cache can be cleared now (while active cache still needs to be preserved)
-        m_active_pre_cache.clear();
         auto &type_manager = LangToolkit::getTypeManager();
         // NOTE: some object might've been dropped in the meantime, need to be reverted from batch operations        
         for (const auto &item: m_object_cache) {
@@ -472,17 +470,14 @@ namespace db0::object_model
         m_object_cache.clear();
         // Keep mid-init entries (zero-addr placeholder) for the next flush cycle;
         // erase only entries that have been resolved to a real address.
+        // Pre-cache ref was born in getBatchOperation; drop it here at resolution time.
         for (auto it = m_active_cache.begin(); it != m_active_cache.end(); ) {
             if (it->second.isValid()) {
+                m_active_pre_cache.erase(ObjectSharedExtPtr(it->first));
                 it = m_active_cache.erase(it);
             } else {
                 ++it;
             }
-        }
-        // Rebuild pre-cache so surviving mid-init objects stay alive until next flush.
-        m_active_pre_cache.clear();
-        for (const auto &item : m_active_cache) {
-            m_active_pre_cache.insert(ObjectSharedExtPtr(item.first));
         }
         m_inc_refed_tags.clear();
     }
