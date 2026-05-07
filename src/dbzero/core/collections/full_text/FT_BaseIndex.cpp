@@ -457,9 +457,20 @@ namespace db0
                 }
             }
         }
-        buf.clear();
+        // Keep zero-addr refs (mid-init objects whose address isn't assigned yet)
+        // so they are available for the next flush once __init__ completes.
+        // Clear everything else: resolved refs, direct values, and the reverted set.
+        buf.m_values.clear();
+        buf.m_reverted.clear();
+        for (auto it = buf.m_value_refs.begin(); it != buf.m_value_refs.end(); ) {
+            if (is_valid(*it->second)) {
+                it = buf.m_value_refs.erase(it);
+            } else {
+                ++it;
+            }
+        }
     }
-    
+
     template class FT_BaseIndex<std::uint64_t, UniqueAddress>;
     template class FT_BaseIndex<db0::LongTagT, UniqueAddress>;
 

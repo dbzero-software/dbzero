@@ -374,8 +374,6 @@ namespace db0::object_model
         
         // this is to resolve addresses of incomplete objects (must be done before flushing)
         buildActiveValues();
-        // the pre-cache can be cleared now (while active cache still needs to be preserved)
-        m_active_pre_cache.clear();
         auto &type_manager = LangToolkit::getTypeManager();
         // NOTE: some object might've been dropped in the meantime, need to be reverted from batch operations        
         for (const auto &item: m_object_cache) {
@@ -406,8 +404,8 @@ namespace db0::object_model
             std::function<void(UniqueAddress)> remove_tag_callback = [&](UniqueAddress obj_addr) {
                 auto it = m_object_cache.find(obj_addr);
                 // object may not exist if tags are removed post-deletion
-                auto obj_ptr = it->second.get();
                 if (it != m_object_cache.end()) {
+                    auto obj_ptr = it->second.get();
                     // NOTE: we check for acutal language references (excluding LangCache + TagIndex)
                     if (LangToolkit::decRefMemo(true, obj_ptr) && !LangToolkit::hasAnyLangRefs(obj_ptr, 2)) {
                         auto &memo = type_manager.extractAnyObject(obj_ptr);
@@ -429,9 +427,8 @@ namespace db0::object_model
             
             // flush all short tags' updates
             if (!m_batch_op_short.assureEmpty()) {
-                m_batch_op_short->flush(&add_tag_callback, &remove_tag_callback, 
+                m_batch_op_short->flush(&add_tag_callback, &remove_tag_callback,
                     &add_index_callback, &erase_index_callback);
-                assert(m_batch_op_short.empty());
             }
             
             std::function<void(LongTagT)> add_long_index_callback = [&](LongTagT long_tag_addr) {
@@ -446,35 +443,42 @@ namespace db0::object_model
             
             // flush all long tags' updates
             if (!m_batch_op_long.assureEmpty()) {
-                m_batch_op_long->flush(&add_tag_callback, &remove_tag_callback, 
+                m_batch_op_long->flush(&add_tag_callback, &remove_tag_callback,
                     &add_long_index_callback, &erase_long_index_callback);
-                assert(m_batch_op_long->empty());
             }
             
             if (!m_batch_op_types.assureEmpty()) {
-                // now, scan the object cache and revert any unreferenced objects (no dbzero refs, no lang refs)
-                assert(m_active_pre_cache.empty());
+                // Scan fully-initialized objects and revert type tags for those with no remaining refs.
+                // Mid-init objects are in m_active_pre_cache, not m_object_cache, so they are unaffected.
                 for (const auto &item: m_object_cache) {
                     auto obj_ptr = item.second.get();
                     auto &memo = type_manager.extractAnyObject(obj_ptr);
                     // NOTE: dropped instances should've already been reverted by now
-                    // NOTE: we check for acutal language references (excluding LangCache + TagIndex)
+                    // NOTE: we check for actual language references (excluding LangCache + TagIndex)
                     if (!memo.isDropped() && !memo.hasAnyRefs() && !LangToolkit::hasAnyLangRefs(obj_ptr, 2)) {
                         m_batch_op_types->revert(memo.getUniqueAddress());
                     }
                 }
-                
                 // flush all type-tag updates
                 if (!m_batch_op_types.assureEmpty()) {
                     // NOTE: we don't pass any remove_tag_callback since type tags are only removed when objects are dropped
                     m_batch_op_types->flush(&add_tag_callback, nullptr, &add_index_callback, &erase_index_callback);
-                    assert(m_batch_op_types.empty());
                 }
             }
-        } 
-        
+        }
+
         m_object_cache.clear();
-        m_active_cache.clear();
+        // Keep mid-init entries (zero-addr placeholder) for the next flush cycle;
+        // erase only entries that have been resolved to a real address.
+        // Pre-cache ref was born in getBatchOperation; drop it here at resolution time.
+        for (auto it = m_active_cache.begin(); it != m_active_cache.end(); ) {
+            if (it->second.isValid()) {
+                m_active_pre_cache.erase(ObjectSharedExtPtr(it->first));
+                it = m_active_cache.erase(it);
+            } else {
+                ++it;
+            }
+        }
         m_inc_refed_tags.clear();
     }
     
@@ -482,9 +486,9 @@ namespace db0::object_model
     {
         for (auto &item: m_active_cache) {
             auto &memo = LangToolkit::getTypeManager().extractAnyObject(item.first);
-            // NOTE: defunct objects have to be ignored since they don't have a valid address
-            // NOTE: defunct objects, since no valid unique address is assigned will be auto-reverted on flush
-            if (!memo.isDefunct()) {
+            // NOTE: defunct objects and mid-init objects (still in __init__, no address yet)
+            // must be skipped — their placeholder stays zero and is preserved for the next flush.
+            if (!memo.isDefunct() && memo.hasInstance()) {
                 auto object_addr = memo.getUniqueAddress();
                 assert(object_addr.isValid());
                 // initialize active value with the actual object address
