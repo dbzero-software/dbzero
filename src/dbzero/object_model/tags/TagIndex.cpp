@@ -450,6 +450,17 @@ namespace db0::object_model
             }
             
             if (!m_batch_op_types.assureEmpty()) {
+                // Scan fully-initialized objects and revert type tags for those with no remaining refs.
+                // Mid-init objects are in m_active_pre_cache, not m_object_cache, so they are unaffected.
+                for (const auto &item: m_object_cache) {
+                    auto obj_ptr = item.second.get();
+                    auto &memo = type_manager.extractAnyObject(obj_ptr);
+                    // NOTE: dropped instances should've already been reverted by now
+                    // NOTE: we check for actual language references (excluding LangCache + TagIndex)
+                    if (!memo.isDropped() && !memo.hasAnyRefs() && !LangToolkit::hasAnyLangRefs(obj_ptr, 2)) {
+                        m_batch_op_types->revert(memo.getUniqueAddress());
+                    }
+                }
                 // flush all type-tag updates
                 if (!m_batch_op_types.assureEmpty()) {
                     // NOTE: we don't pass any remove_tag_callback since type tags are only removed when objects are dropped
