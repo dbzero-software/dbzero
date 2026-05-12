@@ -133,8 +133,10 @@ namespace db0::object_model
         , m_string_pool(string_pool)
         , m_class_factory(class_factory)
         , m_enum_factory(enum_factory)
+        , m_cache(cache)
         , m_base_index_short(memspace, cache)
         , m_base_index_long(memspace, cache)
+        , m_short_tag_index_map(std::make_unique<ShortTagIndexMap>(memspace, cache))
         , m_fixture(enum_factory.getFixture())
         , m_fixture_uuid(enum_factory.getFixture()->getUUID())
         , m_mutation_log(mutation_log)
@@ -142,6 +144,7 @@ namespace db0::object_model
         assert(mutation_log);
         modify().m_base_index_short_ptr = m_base_index_short.getAddress();
         modify().m_base_index_long_ptr = m_base_index_long.getAddress();
+        modify().m_reserved[0] = m_short_tag_index_map->getAddress().getOffset();
     }
     
     TagIndex::TagIndex(mptr ptr, ClassFactory &class_factory, EnumFactory &enum_factory,
@@ -150,6 +153,7 @@ namespace db0::object_model
         , m_string_pool(string_pool)
         , m_class_factory(class_factory)
         , m_enum_factory(enum_factory)
+        , m_cache(cache)
         , m_base_index_short(myPtr((*this)->m_base_index_short_ptr), cache)
         , m_base_index_long(myPtr((*this)->m_base_index_long_ptr), cache)
         , m_fixture(enum_factory.getFixture())
@@ -157,6 +161,12 @@ namespace db0::object_model
         , m_mutation_log(mutation_log)
     {
         assert(mutation_log);
+        if ((*this)->m_reserved[0] != 0) {
+            m_short_tag_index_map = std::make_unique<ShortTagIndexMap>(
+                myPtr(Address::fromOffset((*this)->m_reserved[0])),
+                cache
+            );
+        }
     }
     
     TagIndex::~TagIndex()
@@ -268,6 +278,18 @@ namespace db0::object_model
         batch_operation->addTags(active_key, TagPtrSequence(&tag, &tag + 1));        
         m_mutation_log->onDirty();        
     }
+
+    std::shared_ptr<TagIndex> TagIndex::addCompositeTag(ObjectPtr, ShortTagT tag)
+    {
+        return getShortTagIndexMap().findOrCreate(
+            tag,
+            m_class_factory,
+            m_enum_factory,
+            m_string_pool,
+            m_cache,
+            m_mutation_log
+        );
+    }
     
     void TagIndex::removeTypeTag(UniqueAddress obj_addr, Address tag_addr)
     {
@@ -304,6 +326,12 @@ namespace db0::object_model
     
     void TagIndex::rollback()
     {
+        if (m_short_tag_index_map) {
+            m_short_tag_index_map->forEachActive([](TagIndex &tag_index) {
+                tag_index.rollback();
+            });
+        }
+
         // Reject any pending updates
         if (m_batch_op_short) {
             m_batch_op_short.reset();
@@ -333,6 +361,12 @@ namespace db0::object_model
     
     void TagIndex::close()
     {
+        if (m_short_tag_index_map) {
+            m_short_tag_index_map->forEachActive([](TagIndex &tag_index) {
+                tag_index.close();
+            });
+        }
+
         if (m_batch_op_short) {
             m_batch_op_short.reset();
         }
@@ -364,14 +398,47 @@ namespace db0::object_model
         }
     }
     
-    void TagIndex::flush() const
+    bool TagIndex::flush() const
     {
         using ShortBatchOperationBulder = db0::FT_BaseIndex<ShortTagT>::BatchOperationBuilder;
-        
-        if (empty()) {
-            return;
+
+        bool composite_indexes_contain_values = false;
+        auto hasPersistedValues = [&]() {
+            return !m_base_index_short.empty() || !m_base_index_long.empty() || composite_indexes_contain_values;
+        };
+
+        if (m_short_tag_index_map) {
+            std::vector<ShortTagT> emptyCompositeTags;
+            m_short_tag_index_map->forEachActive([this, &composite_indexes_contain_values, &emptyCompositeTags](TagIndex &tag_index) {
+                if (tag_index.flush()) {
+                    composite_indexes_contain_values = true;
+                    return;
+                }
+
+                auto tag_index_address = tag_index.getAddress();
+                for (auto it = m_short_tag_index_map->begin(); it != m_short_tag_index_map->end(); ++it) {
+                    if ((*it).value == tag_index_address) {
+                        emptyCompositeTags.push_back((*it).key);
+                        return;
+                    }
+                }
+            });
+            for (auto tag: emptyCompositeTags) {
+                m_short_tag_index_map->erase(
+                    tag,
+                    m_class_factory,
+                    m_enum_factory,
+                    m_string_pool,
+                    m_cache,
+                    m_mutation_log
+                );
+            }
         }
         
+        if (empty()) {
+            return hasPersistedValues();
+        }
+                
         // this is to resolve addresses of incomplete objects (must be done before flushing)
         buildActiveValues();
         auto &type_manager = LangToolkit::getTypeManager();
@@ -480,6 +547,7 @@ namespace db0::object_model
             }
         }
         m_inc_refed_tags.clear();
+        return hasPersistedValues();
     }
     
     void TagIndex::buildActiveValues() const
@@ -949,6 +1017,12 @@ namespace db0::object_model
         flush();
         m_base_index_short.commit();
         m_base_index_long.commit();
+        if (m_short_tag_index_map) {
+            m_short_tag_index_map->forEachActive([](TagIndex &tag_index) {
+                tag_index.commit();
+            });
+            m_short_tag_index_map->commit();
+        }
         super_t::commit();
     }
     
@@ -956,6 +1030,12 @@ namespace db0::object_model
     {
         m_base_index_short.detach();
         m_base_index_long.detach();
+        if (m_short_tag_index_map) {
+            m_short_tag_index_map->forEachActive([](TagIndex &tag_index) {
+                tag_index.detach();
+            });
+            m_short_tag_index_map->detach();
+        }
         super_t::detach();
     }
 
@@ -969,6 +1049,30 @@ namespace db0::object_model
 
     const db0::FT_BaseIndex<LongTagT> &TagIndex::getBaseIndexLong() const {
         return m_base_index_long;
+    }
+
+    TagIndex::ShortTagIndexMap *TagIndex::tryGetShortTagIndexMap() {
+        return m_short_tag_index_map.get();
+    }
+
+    const TagIndex::ShortTagIndexMap *TagIndex::tryGetShortTagIndexMap() const {
+        return m_short_tag_index_map.get();
+    }
+
+    TagIndex::ShortTagIndexMap &TagIndex::getShortTagIndexMap() {
+        if (!m_short_tag_index_map) {
+            m_short_tag_index_map = std::make_unique<ShortTagIndexMap>(getMemspace(), m_cache);
+            modify().m_reserved[0] = m_short_tag_index_map->getAddress().getOffset();
+            m_mutation_log->onDirty();
+        }
+        return *m_short_tag_index_map;
+    }
+
+    const TagIndex::ShortTagIndexMap &TagIndex::getShortTagIndexMap() const {
+        if (!m_short_tag_index_map) {
+            THROWF(db0::InternalException) << "Short tag index map not initialized" << THROWF_END;
+        }
+        return *m_short_tag_index_map;
     }
 
     std::unique_ptr<TagIndex::QueryIterator> TagIndex::makeIterator(ObjectPtr obj_ptr) const {
@@ -1132,17 +1236,35 @@ namespace db0::object_model
     }
     
     bool TagIndex::empty() const {
-        return m_batch_op_short.empty() && m_batch_op_long.empty() && m_batch_op_types.empty();
+        if (!m_batch_op_short.empty() || !m_batch_op_long.empty() || !m_batch_op_types.empty()) {
+            return false;
+        }
+
+        if (m_short_tag_index_map) {
+            bool all_composite_indexes_empty = true;
+            m_short_tag_index_map->forEachActive([&all_composite_indexes_empty](TagIndex &tag_index) {
+                if (!tag_index.empty()) {
+                    all_composite_indexes_empty = false;
+                    return false;
+                }
+                return true;
+            });
+            return all_composite_indexes_empty;
+        }
+
+        return true;
     }
     
     bool TagIndex::assureEmpty() const
     {
-        if (empty()) {
-            m_batch_op_short.clear();
-            m_batch_op_long.clear();
-            m_batch_op_types.clear();
+        if (!m_batch_op_short.empty() || !m_batch_op_long.empty() || !m_batch_op_types.empty()) {
+            return false;
         }
-        return false;
+
+        m_batch_op_short.clear();
+        m_batch_op_long.clear();
+        m_batch_op_types.clear();
+        return true;
     }
 
     bool isObjectPendingUpdate(db0::swine_ptr<Fixture> &fixture, UniqueAddress addr)

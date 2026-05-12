@@ -30,6 +30,10 @@ Never mark a task done while tests are failing.
 
 ## Implementation notes
 
+### C++ style
+
+- Use camelCase for local helper variables, lambdas, and method names in C++ code.
+
 ### MorphingBIndex: address and type can change on mutation
 
 A `MorphingBIndex` does not behave like a typical container. On mutation (`insert`, `erase`) it may morph into a different internal storage variant (itty / array_2..4 / vector / bindex), and the morph can change both its **address** and its **type**.

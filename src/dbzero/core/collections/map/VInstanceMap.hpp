@@ -46,7 +46,7 @@ namespace db0
         VInstanceMap(VInstanceMap &&other)
             : super_t(std::move(other))
             , m_cache(other.m_cache)
-            , m_instances(std::move(other.m_instances))
+            , m_active_instances(std::move(other.m_active_instances))
         {
         }
 
@@ -54,7 +54,7 @@ namespace db0
         {
             super_t::operator=(std::move(other));
             m_cache = other.m_cache;
-            m_instances = std::move(other.m_instances);
+            m_active_instances = std::move(other.m_active_instances);
             return *this;
         }
 
@@ -67,7 +67,7 @@ namespace db0
             if (super_t::updateExisting(item, &old_item)) {
                 destroyValue(old_item.value, std::forward<Args>(args)...);
                 m_cache->erase(old_item.value);
-                m_instances.erase(cacheKey(old_item.value));
+                m_active_instances.erase(cacheKey(old_item.value));
             } else {
                 super_t::insert(item);
             }
@@ -80,7 +80,7 @@ namespace db0
         {
             MapItemT item(key);
             if (super_t::findOne(item)) {
-                return open(item.value);
+                return openExisting(item.value, std::forward<Args>(args)...);
             }
             return insert(key, std::forward<Args>(args)...);
         }
@@ -118,24 +118,32 @@ namespace db0
             value->destroy();
             super_t::erase(it);
             m_cache->erase(address);
-            m_instances.erase(cacheKey(address));
+            m_active_instances.erase(cacheKey(address));
             return true;
         }
 
         template <typename F>
-        std::size_t forAll(F &&f) const
+        std::size_t forEachActive(F &&f) const
         {
             std::size_t active_count = 0;
-            for (auto it = m_instances.begin(); it != m_instances.end();) {
+            for (auto it = m_active_instances.begin(); it != m_active_instances.end();) {
                 auto value = it->second.lock();
                 if (!value) {
-                    it = m_instances.erase(it);
+                    it = m_active_instances.erase(it);
                     continue;
                 }
 
-                f(*value);
                 ++active_count;
                 ++it;
+                if constexpr(std::is_void_v<std::invoke_result_t<F&, ValueT&> >) {
+                    f(*value);
+                } else {
+                    static_assert(std::is_convertible_v<std::invoke_result_t<F&, ValueT&>, bool>,
+                        "VInstanceMap::forEachActive callback must return void or bool");
+                    if (!f(*value)) {
+                        break;
+                    }
+                }
             }
             return active_count;
         }
@@ -175,20 +183,32 @@ namespace db0
             return value;
         }
 
+        template <typename... Args>
+        std::shared_ptr<ValueT> openExisting(ValueAddrT address, Args&&... args) const
+        {
+            if constexpr(std::is_constructible_v<ValueT, mptr, Args...>) {
+                return open(address, std::forward<Args>(args)...);
+            } else {
+                static_assert(std::is_constructible_v<ValueT, mptr>,
+                    "ValueT must be constructible from mptr or from mptr plus the supplied arguments");
+                return open(address);
+            }
+        }
+
         void track(const std::shared_ptr<ValueT> &value) const
         {
-            m_instances[value->getAddress().getOffset()] = value;
+            m_active_instances[value->getAddress().getOffset()] = value;
         }
 
         std::shared_ptr<ValueT> tryFindTracked(ValueAddrT address) const
         {
-            auto it = m_instances.find(cacheKey(address));
-            if (it == m_instances.end()) {
+            auto it = m_active_instances.find(cacheKey(address));
+            if (it == m_active_instances.end()) {
                 return nullptr;
             }
             auto value = it->second.lock();
             if (!value) {
-                m_instances.erase(it);
+                m_active_instances.erase(it);
             }
             return value;
         }
@@ -199,7 +219,7 @@ namespace db0
         }
 
         VObjectCache *m_cache = nullptr;
-        mutable std::unordered_map<std::uint64_t, std::weak_ptr<ValueT> > m_instances;
+        mutable std::unordered_map<std::uint64_t, std::weak_ptr<ValueT> > m_active_instances;
     };
 
 }
