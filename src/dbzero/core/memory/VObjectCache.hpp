@@ -81,6 +81,15 @@ namespace db0
             bool has_detach, Args&&... args);
 
         /**
+         * Either locate existing instance in cache or open a persisted instance by address.
+         * @param address the instance address
+         * @param has_detach whether the object can be detached
+         * @return the v_object's shared_ptr
+        */
+        template <typename T, typename... Args> std::shared_ptr<T> findOrOpen(std::uint64_t address,
+            bool has_detach, Args&&... args);
+
+        /**
          * Remove element from cache if it exists, object is not destroyed
          * NOTE: as a side effect of this operation some other item may be removed from cache
          * if the requested object is no longer present at its original index
@@ -158,6 +167,46 @@ namespace db0
             }
         }
         return create<T>(has_detach, std::forward<Args>(args)...);
+    }
+
+    template <typename T, typename... Args>
+    std::shared_ptr<T> VObjectCache::findOrOpen(std::uint64_t address, bool has_detach, Args&&... args)
+    {
+        auto it = m_cache.find(address);
+        if (it != m_cache.end()) {
+            auto lock = std::get<0>(it->second).lock();
+            if (lock) {
+                if (m_atomic) {
+                    m_volatile.insert(address);
+                }
+                return std::static_pointer_cast<T>(lock);
+            } else {
+                m_cache.erase(it);
+            }
+        }
+
+        if (m_shared_object_list.full()) {
+            m_shared_object_list.eraseItems((m_shared_object_list.size() >> 2) + 1);
+        }
+
+        auto ptr = make_shared_void<T>(m_memspace.myPtr(Address::fromOffset(address)), std::forward<Args>(args)...);
+        auto index = m_shared_object_list.append(ptr);
+        auto result_ptr = std::static_pointer_cast<T>(ptr);
+        auto raw_ptr = result_ptr.get();
+        auto commit_func = [raw_ptr]() {
+            raw_ptr->commit();
+        };
+        std::function<void()> detach_func;
+        if (has_detach) {
+            detach_func = [raw_ptr]() {
+                raw_ptr->detach();
+            };
+        }
+        m_cache[address] = { ptr, index, commit_func, detach_func };
+        if (m_atomic) {
+            m_volatile.insert(address);
+        }
+        return result_ptr;
     }
     
     template <typename T>

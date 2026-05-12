@@ -1,4 +1,4 @@
-FROM gcc:12-bullseye
+FROM python:3.11-bullseye
 
 RUN apt-get update && apt-get install -y \
  cmake \
@@ -6,15 +6,23 @@ RUN apt-get update && apt-get install -y \
 
 RUN apt-get update
 RUN apt-get install psmisc
-RUN apt-get install python3.9-dev -y
 RUN apt-get install python3-pip -y
 RUN apt-get install gdb -y
 RUN apt-get install screen -y
 RUN apt-get install rsync -y
+RUN apt-get install ripgrep -y
 RUN apt-get install meson ninja-build -y
 RUN apt-get install python3-venv -y
 RUN apt-get install gettext-base -y
 RUN apt-get install valgrind -y
+RUN apt-get install curl ca-certificates gnupg -y
+
+RUN mkdir -p /etc/apt/keyrings \
+  && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
+  && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" > /etc/apt/sources.list.d/nodesource.list \
+  && apt-get update \
+  && apt-get install nodejs -y \
+  && npm install -g @openai/codex
 
 # for demo purposes only (bokeh is a charts package)
 RUN pip3 install jupyter
