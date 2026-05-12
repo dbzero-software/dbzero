@@ -58,11 +58,18 @@ namespace db0
         VObjectCache(Memspace &, FixedObjectList &shared_object_list);
 
         /**
-         * Create a new v_object instance add add to cache
+         * Pull an object wrapper into the cache.
+         *
+         * The actual behavior depends on T's constructor selected by Args:
+         * - constructors taking Memspace plus creation args allocate/create new persisted state;
+         * - constructors taking Memspace plus an existing address/type open existing persisted state;
+         * - constructors taking mptr open an existing pointed object.
+         *
+         * Call sites should pass arguments that make the intended behavior explicit.
          * @param has_detach whether the object can be detached
          * @return the v_object's shared_ptr
         */
-        template <typename T, typename... Args> std::shared_ptr<T> create(bool has_detach, Args&&... args);
+        template <typename T, typename... Args> std::shared_ptr<T> pull(bool has_detach, Args&&... args);
         
         /**
          * Try locating an existing instance in cache
@@ -72,21 +79,15 @@ namespace db0
         std::shared_ptr<T> tryFind(std::uint64_t address) const;
 
         /**
-         * Either locate existing instance in cache or create a new one
-         * @param address the instance address
-         * @param has_detach whether the object can be detached         
-         * @return the v_object's shared_ptr
-        */
-        template <typename T, typename... Args> std::shared_ptr<T> findOrCreate(std::uint64_t address, 
-            bool has_detach, Args&&... args);
-
-        /**
-         * Either locate existing instance in cache or open a persisted instance by address.
+         * Either locate existing instance in cache or pull a wrapper using the supplied
+         * constructor arguments. This is intended for types such as MorphingBIndex where
+         * construction with the forwarded arguments opens existing state instead of
+         * allocating new persisted state.
          * @param address the instance address
          * @param has_detach whether the object can be detached
          * @return the v_object's shared_ptr
         */
-        template <typename T, typename... Args> std::shared_ptr<T> findOrOpen(std::uint64_t address,
+        template <typename T, typename... Args> std::shared_ptr<T> findOrPull(std::uint64_t address,
             bool has_detach, Args&&... args);
 
         /**
@@ -102,6 +103,10 @@ namespace db0
         void commit() const;
         
         FixedObjectList &getSharedObjectList() const;
+
+        Memspace &getMemspace() const {
+            return m_memspace;
+        }
 
         void beginAtomic();
         void endAtomic();
@@ -120,14 +125,14 @@ namespace db0
     };
     
     template <typename T, typename... Args>
-    std::shared_ptr<T> VObjectCache::create(bool has_detach, Args&&... args)
+    std::shared_ptr<T> VObjectCache::pull(bool has_detach, Args&&... args)
     {
         if (m_shared_object_list.full()) {
             // remove 1/4 of cached objects once the max_size is reached
             m_shared_object_list.eraseItems((m_shared_object_list.size() >> 2) + 1);
         }
 
-        auto ptr = make_shared_void<T>(m_memspace, std::forward<Args>(args)...);
+        auto ptr = make_shared_void<T>(std::forward<Args>(args)...);
         // note that the index may be at any moment released and reused by other item
         auto index = m_shared_object_list.append(ptr);
         auto result_ptr = std::static_pointer_cast<T>(ptr);
@@ -150,7 +155,7 @@ namespace db0
     }
     
     template <typename T, typename... Args>
-    std::shared_ptr<T> VObjectCache::findOrCreate(std::uint64_t address, bool has_detach, Args&&... args)
+    std::shared_ptr<T> VObjectCache::findOrPull(std::uint64_t address, bool has_detach, Args&&... args)
     {
         auto it = m_cache.find(address);
         if (it != m_cache.end()) {
@@ -166,49 +171,9 @@ namespace db0
                 m_cache.erase(it);            
             }
         }
-        return create<T>(has_detach, std::forward<Args>(args)...);
+        return pull<T>(has_detach, std::forward<Args>(args)...);
     }
 
-    template <typename T, typename... Args>
-    std::shared_ptr<T> VObjectCache::findOrOpen(std::uint64_t address, bool has_detach, Args&&... args)
-    {
-        auto it = m_cache.find(address);
-        if (it != m_cache.end()) {
-            auto lock = std::get<0>(it->second).lock();
-            if (lock) {
-                if (m_atomic) {
-                    m_volatile.insert(address);
-                }
-                return std::static_pointer_cast<T>(lock);
-            } else {
-                m_cache.erase(it);
-            }
-        }
-
-        if (m_shared_object_list.full()) {
-            m_shared_object_list.eraseItems((m_shared_object_list.size() >> 2) + 1);
-        }
-
-        auto ptr = make_shared_void<T>(m_memspace.myPtr(Address::fromOffset(address)), std::forward<Args>(args)...);
-        auto index = m_shared_object_list.append(ptr);
-        auto result_ptr = std::static_pointer_cast<T>(ptr);
-        auto raw_ptr = result_ptr.get();
-        auto commit_func = [raw_ptr]() {
-            raw_ptr->commit();
-        };
-        std::function<void()> detach_func;
-        if (has_detach) {
-            detach_func = [raw_ptr]() {
-                raw_ptr->detach();
-            };
-        }
-        m_cache[address] = { ptr, index, commit_func, detach_func };
-        if (m_atomic) {
-            m_volatile.insert(address);
-        }
-        return result_ptr;
-    }
-    
     template <typename T>
     std::shared_ptr<T> VObjectCache::tryFind(std::uint64_t address) const
     {

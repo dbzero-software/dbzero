@@ -29,9 +29,13 @@ namespace db0
         // use high 4-bits for index type
         auto index_type = static_cast<db0::bindex::type>(address.getOffset() >> 60);
         auto mb_addr = Address::fromOffset(address & 0x0FFFFFFFFFFFFFFF);
-        // NOTE: first address is for cache, the latter for MorphingBIndex
+        // NOTE: first address is for cache, the latter for MorphingBIndex.
+        // This pulls a MorphingBIndex wrapper over existing state; the constructor
+        // opens the encoded address/type instead of creating a new persisted index.
         // NOTE: MorphingBIndex does not provide detach functionality
-        return cache.findOrCreate<db0::MorphingBIndex<KeyT> >(mb_addr, false, mb_addr, index_type);
+        return cache.findOrPull<db0::MorphingBIndex<KeyT> >(
+            mb_addr, false, cache.getMemspace(), mb_addr, index_type
+        );
     }    
     
     template <typename IndexKeyT = std::uint64_t, typename KeyT = UniqueAddress, typename ValueT = Address>
@@ -62,13 +66,6 @@ namespace db0
 
         InvertedIndex(InvertedIndex &&);
 
-        /**
-         * Pull existing or create new key inverted list
-         * @param key key to retrieve/create the inverted list by
-         * @return the inverted list object
-         */
-        std::shared_ptr<ListT> findOrCreateInvertedList(IndexKeyT key);
-        
         /**
          * Similar as getObjectIndex but performed in a bulk operation for all provided keys
          * @param keys ***MUST BE SORTED*** ascendingS
@@ -109,11 +106,6 @@ namespace db0
             }
             return result;
         }
-
-        /**
-         * Pull list by map item
-         */
-        std::shared_ptr<ListT> getInvertedList(const MapItemT &item) const;
 
         /**
          * Pull existing index from under iterator (or create new)
@@ -166,39 +158,14 @@ namespace db0
     {
     }
     
-    template <typename IndexKeyT, typename KeyT, typename ValueT>
-    std::shared_ptr<typename InvertedIndex<IndexKeyT, KeyT, ValueT>::ListT>
-    InvertedIndex<IndexKeyT, KeyT, ValueT>::findOrCreateInvertedList(IndexKeyT key)
-    {
-		MapItemT item(key);
-		auto it = super_t::find(item);
-		if (it == super_t::end()) {
-			// construct as empty (pull through cache)
-			auto list_ptr = m_cache.create<ListT>();
-			item.value =  m_value_function(*list_ptr);
-			super_t::insert(item);
-			return list_ptr;
-		} else {
-			// fetch existing
-            return m_list_function(m_cache, it->value);			
-		}
-    }
-    
-    template <typename IndexKeyT, typename KeyT, typename ValueT> 
-    std::shared_ptr<typename InvertedIndex<IndexKeyT, KeyT, ValueT>::ListT>
-    InvertedIndex<IndexKeyT, KeyT, ValueT>::getInvertedList(const MapItemT &item) const
-    {
-        // pull dbzero existing        
-        return m_list_function(m_cache, item.value);
-    }
-
     template <typename IndexKeyT, typename KeyT, typename ValueT> 
     std::shared_ptr<typename InvertedIndex<IndexKeyT, KeyT, ValueT>::ListT> 
     InvertedIndex<IndexKeyT, KeyT, ValueT>::getInvertedList(iterator &it)
     {
 		if ((*it).value == ValueT()) {
-            // assume ListT as non-detachable (e.g. MorphingBIndex)
-            auto list_ptr = m_cache.create<ListT>(false);
+            // Empty map value means this tag has no inverted list yet.
+            // Pulling ListT with no extra args constructs a new empty MorphingBIndex.
+            auto list_ptr = m_cache.pull<ListT>(false, this->getMemspace());
             it.modifyItem().value = m_value_function(*list_ptr);
             return list_ptr;
 		} else {

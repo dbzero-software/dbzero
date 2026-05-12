@@ -61,7 +61,9 @@ namespace db0
         template <typename... Args>
         std::shared_ptr<ValueT> insert(KeyT key, Args&&... args)
         {
-            auto value = m_cache->template create<ValueT>(true, std::forward<Args>(args)...);
+            // This is a new map value: constructor args are creation args for ValueT,
+            // so pull allocates new persisted state and caches the wrapper.
+            auto value = m_cache->template pull<ValueT>(true, this->getMemspace(), std::forward<Args>(args)...);
             MapItemT item(key, value->getAddress());
             MapItemT old_item(key);
             if (super_t::updateExisting(item, &old_item)) {
@@ -176,8 +178,15 @@ namespace db0
         template <typename... Args>
         std::shared_ptr<ValueT> open(ValueAddrT address, Args&&... args) const
         {
-            auto value = m_cache->template findOrOpen<ValueT>(
-                address.getOffset(), true, std::forward<Args>(args)...
+            // This map item already stores a persisted ValueT address. The numeric
+            // address is the cache key; the mptr is the constructor argument that
+            // makes pull open the existing object instead of allocating a replacement.
+            auto ptr = this->getMemspace().myPtr(address);
+            auto value = m_cache->template findOrPull<ValueT>(
+                address.getOffset(),
+                true,
+                ptr,
+                std::forward<Args>(args)...
             );
             track(value);
             return value;
