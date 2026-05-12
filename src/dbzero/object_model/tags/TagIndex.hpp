@@ -69,6 +69,8 @@ DB0_PACKED_END
         std::shared_ptr<TagIndex> addComposite(ObjectPtr memo_ptr, ShortTagT);
         // For modifying composite tags
         std::shared_ptr<TagIndex> tryUpdateComposite(ObjectPtr memo_ptr, ShortTagT);
+        ShortTagT addCompositeKey(ObjectPtr);
+        ShortTagT getCompositeKey(ObjectPtr) const;
         
         // add a tag using long identifier
         void addTag(ObjectPtr memo_ptr, LongTagT tag_addr);

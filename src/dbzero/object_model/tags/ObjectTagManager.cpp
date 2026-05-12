@@ -5,10 +5,30 @@
 #include <dbzero/object_model/class/Class.hpp>
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/workspace/Fixture.hpp>
+#include <Python.h>
 
 namespace db0::object_model
 
 {
+    namespace
+    {
+        bool isCompositeTag(ObjectTagManager::ObjectPtr arg)
+        {
+            return PyTuple_Check(arg) && ObjectTagManager::LangToolkit::length(arg) >= 2;
+        }
+
+        void validateCompositeTag(ObjectTagManager::ObjectPtr arg)
+        {
+            auto length = ObjectTagManager::LangToolkit::length(arg);
+            for (std::size_t i = 0; i < length; ++i) {
+                auto item = ObjectTagManager::LangToolkit::getItem(arg, i);
+                if (isCompositeTag(item.get())) {
+                    THROWF(db0::InputException) << "Nested composite tags are not supported" << THROWF_END;
+                }
+            }
+        }
+
+    }
 
     ObjectTagManager::ObjectTagManager(ObjectPtr const *memo_ptr, std::size_t nargs)
         : m_info(memo_ptr[0])
@@ -59,18 +79,45 @@ namespace db0::object_model
         , m_has_tags(LangToolkit::hasTagRefs(memo_ptr))
     {
     }    
+
+    bool ObjectTagManager::ObjectInfo::hasCompositeTags(ObjectPtr const *args, Py_ssize_t nargs) const
+    {
+        for (Py_ssize_t i = 0; i < nargs; ++i) {
+            if (isCompositeTag(args[i])) {
+                return true;
+            }
+        }
+        return false;
+    }
     
     void ObjectTagManager::ObjectInfo::add(ObjectPtr const *args, Py_ssize_t nargs)
     {
         assert(m_tag_index_ptr);
+        auto &tag_index = *m_tag_index_ptr;
         assert(m_access_mode == AccessType::READ_WRITE);
-        m_tag_index_ptr->addTags(m_lang_ptr.get(), args, nargs);
+
+        if (!hasCompositeTags(args, nargs)) {
+            tag_index.addTags(m_lang_ptr.get(), args, nargs);
+        } else {
+            for (Py_ssize_t i = 0; i < nargs; ++i) {
+                if (isCompositeTag(args[i])) {
+                    validateCompositeTag(args[i]);
+                }
+            }
+            for (Py_ssize_t i = 0; i < nargs; ++i) {
+                if (isCompositeTag(args[i])) {
+                    addComposite(args[i]);
+                } else {
+                    tag_index.addTags(m_lang_ptr.get(), args + i, 1);
+                }
+            }
+        }
         // assign default tags (only when adding the first tag)
         if (!m_has_tags) {
             auto type = m_type;
             while (type) {
                 // also add type as tag (once)
-                m_tag_index_ptr->addTag(m_lang_ptr.get(), type->getAddress(), true);
+                tag_index.addTag(m_lang_ptr.get(), type->getAddress(), true);
                 type = type->tryGetBaseClass();
             }
             m_has_tags = true;
@@ -80,7 +127,72 @@ namespace db0::object_model
     void ObjectTagManager::ObjectInfo::remove(ObjectPtr const *args, Py_ssize_t nargs)
     {
         assert(m_access_mode == AccessType::READ_WRITE);
-        m_tag_index_ptr->removeTags(m_lang_ptr.get(), args, nargs);
+        assert(m_tag_index_ptr);
+        auto &tag_index = *m_tag_index_ptr;
+
+        if (!hasCompositeTags(args, nargs)) {
+            tag_index.removeTags(m_lang_ptr.get(), args, nargs);
+        } else {
+            for (Py_ssize_t i = 0; i < nargs; ++i) {
+                if (isCompositeTag(args[i])) {
+                    validateCompositeTag(args[i]);
+                }
+            }
+            for (Py_ssize_t i = 0; i < nargs; ++i) {
+                if (isCompositeTag(args[i])) {
+                    removeComposite(args[i]);
+                } else {
+                    tag_index.removeTags(m_lang_ptr.get(), args + i, 1);
+                }
+            }
+        }
+    }
+
+    void ObjectTagManager::ObjectInfo::addComposite(ObjectPtr arg)
+    {
+        assert(m_tag_index_ptr);
+        assert(isCompositeTag(arg));
+        auto length = LangToolkit::length(arg);
+        assert(length >= 2);
+        validateCompositeTag(arg);
+
+        std::shared_ptr<TagIndex> currentTagIndexPtr;
+        auto *currentTagIndex = m_tag_index_ptr;
+        for (std::size_t i = 0; i + 1 < length; ++i) {
+            auto item = LangToolkit::getItem(arg, i);
+            auto key = currentTagIndex->addCompositeKey(item.get());
+            currentTagIndexPtr = currentTagIndex->addComposite(m_lang_ptr.get(), key);
+            currentTagIndex = currentTagIndexPtr.get();
+        }
+
+        auto tagPtr = LangToolkit::getItem(arg, length - 1);
+        ObjectPtr tag = tagPtr.get();
+        currentTagIndex->addTags(m_lang_ptr.get(), &tag, 1);
+    }
+
+    void ObjectTagManager::ObjectInfo::removeComposite(ObjectPtr arg)
+    {
+        assert(m_tag_index_ptr);
+        assert(isCompositeTag(arg));
+        auto length = LangToolkit::length(arg);
+        assert(length >= 2);
+        validateCompositeTag(arg);
+
+        std::shared_ptr<TagIndex> currentTagIndexPtr;
+        auto *currentTagIndex = m_tag_index_ptr;
+        for (std::size_t i = 0; i + 1 < length; ++i) {
+            auto item = LangToolkit::getItem(arg, i);
+            auto key = currentTagIndex->getCompositeKey(item.get());
+            currentTagIndexPtr = currentTagIndex->tryUpdateComposite(m_lang_ptr.get(), key);
+            if (!currentTagIndexPtr) {
+                return;
+            }
+            currentTagIndex = currentTagIndexPtr.get();
+        }
+
+        auto tagPtr = LangToolkit::getItem(arg, length - 1);
+        ObjectPtr tag = tagPtr.get();
+        currentTagIndex->removeTags(m_lang_ptr.get(), &tag, 1);
     }
 
     void ObjectTagManager::add(ObjectPtr const *args, Py_ssize_t nargs)

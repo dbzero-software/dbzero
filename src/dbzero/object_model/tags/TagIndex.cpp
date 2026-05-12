@@ -306,6 +306,24 @@ namespace db0::object_model
             m_mutation_log
         );
     }
+
+    TagIndex::ShortTagT TagIndex::addCompositeKey(ObjectPtr arg)
+    {
+        bool inc_ref = false;
+        auto result = tryAddShortTag(arg, inc_ref);
+        if (!result) {
+            THROWF(db0::InputException) << "Unable to add foreign composite tag";
+        }
+        if (inc_ref) {
+            m_inc_refed_tags.insert(*result);
+        }
+        return *result;
+    }
+
+    TagIndex::ShortTagT TagIndex::getCompositeKey(ObjectPtr arg) const
+    {
+        return getShortTag(arg);
+    }
     
     void TagIndex::removeTypeTag(UniqueAddress obj_addr, Address tag_addr)
     {
