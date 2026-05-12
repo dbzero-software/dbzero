@@ -5,6 +5,7 @@
 #include <dbzero/object_model/class/Class.hpp>
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/workspace/Fixture.hpp>
+#include <dbzero/bindings/python/types/PyCompositeTag.hpp>
 #include <Python.h>
 
 namespace db0::object_model
@@ -14,14 +15,31 @@ namespace db0::object_model
     {
         bool isCompositeTag(ObjectTagManager::ObjectPtr arg)
         {
-            return PyTuple_Check(arg) && ObjectTagManager::LangToolkit::length(arg) >= 2;
+            return db0::python::PyCompositeTag_Check(arg) ||
+                (PyTuple_Check(arg) && ObjectTagManager::LangToolkit::length(arg) >= 2);
+        }
+
+        std::size_t compositeTagSize(ObjectTagManager::ObjectPtr arg)
+        {
+            if (db0::python::PyCompositeTag_Check(arg)) {
+                return reinterpret_cast<db0::python::PyCompositeTag*>(arg)->ext().size();
+            }
+            return ObjectTagManager::LangToolkit::length(arg);
+        }
+
+        ObjectTagManager::ObjectSharedPtr getCompositeItem(ObjectTagManager::ObjectPtr arg, std::size_t index)
+        {
+            if (db0::python::PyCompositeTag_Check(arg)) {
+                return reinterpret_cast<db0::python::PyCompositeTag*>(arg)->ext().getItems()[index];
+            }
+            return ObjectTagManager::LangToolkit::getItem(arg, index);
         }
 
         void validateCompositeTag(ObjectTagManager::ObjectPtr arg)
         {
-            auto length = ObjectTagManager::LangToolkit::length(arg);
+            auto length = compositeTagSize(arg);
             for (std::size_t i = 0; i < length; ++i) {
-                auto item = ObjectTagManager::LangToolkit::getItem(arg, i);
+                auto item = getCompositeItem(arg, i);
                 if (isCompositeTag(item.get())) {
                     THROWF(db0::InputException) << "Nested composite tags are not supported" << THROWF_END;
                 }
@@ -152,20 +170,20 @@ namespace db0::object_model
     {
         assert(m_tag_index_ptr);
         assert(isCompositeTag(arg));
-        auto length = LangToolkit::length(arg);
+        auto length = compositeTagSize(arg);
         assert(length >= 2);
         validateCompositeTag(arg);
 
         std::shared_ptr<TagIndex> currentTagIndexPtr;
         auto *currentTagIndex = m_tag_index_ptr;
         for (std::size_t i = 0; i + 1 < length; ++i) {
-            auto item = LangToolkit::getItem(arg, i);
+            auto item = getCompositeItem(arg, i);
             auto key = currentTagIndex->addCompositeKey(item.get());
             currentTagIndexPtr = currentTagIndex->addComposite(m_lang_ptr.get(), key);
             currentTagIndex = currentTagIndexPtr.get();
         }
 
-        auto tagPtr = LangToolkit::getItem(arg, length - 1);
+        auto tagPtr = getCompositeItem(arg, length - 1);
         ObjectPtr tag = tagPtr.get();
         currentTagIndex->addTags(m_lang_ptr.get(), &tag, 1);
     }
@@ -174,14 +192,14 @@ namespace db0::object_model
     {
         assert(m_tag_index_ptr);
         assert(isCompositeTag(arg));
-        auto length = LangToolkit::length(arg);
+        auto length = compositeTagSize(arg);
         assert(length >= 2);
         validateCompositeTag(arg);
 
         std::shared_ptr<TagIndex> currentTagIndexPtr;
         auto *currentTagIndex = m_tag_index_ptr;
         for (std::size_t i = 0; i + 1 < length; ++i) {
-            auto item = LangToolkit::getItem(arg, i);
+            auto item = getCompositeItem(arg, i);
             auto key = currentTagIndex->getCompositeKey(item.get());
             currentTagIndexPtr = currentTagIndex->tryUpdateComposite(m_lang_ptr.get(), key);
             if (!currentTagIndexPtr) {
@@ -190,7 +208,7 @@ namespace db0::object_model
             currentTagIndex = currentTagIndexPtr.get();
         }
 
-        auto tagPtr = LangToolkit::getItem(arg, length - 1);
+        auto tagPtr = getCompositeItem(arg, length - 1);
         ObjectPtr tag = tagPtr.get();
         currentTagIndex->removeTags(m_lang_ptr.get(), &tag, 1);
     }

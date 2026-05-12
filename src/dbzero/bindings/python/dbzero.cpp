@@ -29,6 +29,7 @@
 #include <dbzero/bindings/python/types/PyClass.hpp>
 #include <dbzero/bindings/python/types/PyEnum.hpp>
 #include <dbzero/bindings/python/types/PyTag.hpp>
+#include <dbzero/bindings/python/types/PyCompositeTag.hpp>
 #include <dbzero/bindings/python/PyTagSet.hpp>
 
 namespace py = db0::python;
@@ -212,6 +213,7 @@ PyMODINIT_FUNC PyInit_dbzero(void)
         &py::TagSetType,
         &py::PyAtomicType,        
         &py::PyTagType,
+        &py::PyCompositeTagType,
         &py::PyLockedType,
         &py::PyWeakProxyType,
     };

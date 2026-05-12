@@ -1,5 +1,9 @@
 FROM python:3.11-bullseye
 
+ARG USERNAME=dbzero
+ARG USER_UID=1000
+ARG USER_GID=1000
+
 RUN apt-get update && apt-get install -y \
  cmake \
   && rm -rf /var/lib/apt/lists/*
@@ -39,11 +43,11 @@ RUN ulimit -c unlimited
 RUN mkdir -p "$(cat /proc/sys/kernel/core_pattern | sed 's/%.*//')"
 RUN chmod 777 "$(cat /proc/sys/kernel/core_pattern | sed 's/%.*//')"
 
-COPY . /usr/src/dbzero
-WORKDIR /usr/src/dbzero
+RUN groupadd --gid "$USER_GID" "$USERNAME" \
+  && useradd --uid "$USER_UID" --gid "$USER_GID" --create-home --shell /bin/bash "$USERNAME"
 
-RUN python3 scripts/generate_meson.py ./src/dbzero/ core
-RUN python3 scripts/generate_meson_tests.py tests/
+WORKDIR /usr/src/dbzero
+USER $USERNAME
 # RUN ./build.sh -r
 # WORKDIR /usr/src/dbzero/build/release/
 # RUN meson install

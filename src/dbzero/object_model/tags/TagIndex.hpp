@@ -25,6 +25,7 @@ namespace db0::object_model
     using RC_LimitedStringPool = db0::pools::RC_LimitedStringPool;
     using LongTagT = db0::LongTagT;
     class EnumFactory;
+    class CompositeTagDef;
 
 DB0_PACKED_BEGIN    
     struct DB0_PACKED_ATTR o_tag_index: public o_fixed_versioned<o_tag_index>
@@ -226,6 +227,9 @@ DB0_PACKED_END
         bool addIterator(ObjectPtr, db0::FT_IteratorFactory<UniqueAddress> &factory,
             std::vector<std::unique_ptr<QueryIterator> > &neg_iterators, 
             std::vector<std::unique_ptr<QueryObserver> > &query_observers) const;
+        bool addCompositeIterator(const CompositeTagDef &, db0::FT_IteratorFactory<UniqueAddress> &factory,
+            std::vector<std::unique_ptr<QueryObserver> > &query_observers) const;
+        std::optional<ShortTagT> tryGetCompositeKey(ObjectPtr) const;
         
         bool isShortTag(ObjectPtr) const;
         bool isShortTag(ObjectSharedPtr) const;

@@ -59,8 +59,9 @@ namespace db0::bindings
         MEMO_TYPE = 118,
         MEMO_IMMUTABLE_OBJECT = 119,
         DB0_WEAK_SET = 120,
+        DB0_COMPOSITE_TAG = 121,
         // COUNT determines size of the type operator arrays
-        COUNT = 121,
+        COUNT = 122,
         // unrecognized type
         UNKNOWN = std::numeric_limits<std::uint16_t>::max()
     };

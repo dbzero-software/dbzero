@@ -4,6 +4,7 @@
 #include "TagIndex.hpp"
 #include "ObjectIterator.hpp"
 #include "OR_QueryObserver.hpp"
+#include "CompositeTagDef.hpp"
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/object_model/iterators.hpp>
@@ -322,7 +323,11 @@ namespace db0::object_model
 
     TagIndex::ShortTagT TagIndex::getCompositeKey(ObjectPtr arg) const
     {
-        return getShortTag(arg);
+        auto result = tryGetCompositeKey(arg);
+        if (!result) {
+            THROWF(db0::InputException) << "Unable to resolve foreign composite tag key" << THROWF_END;
+        }
+        return *result;
     }
     
     void TagIndex::removeTypeTag(UniqueAddress obj_addr, Address tag_addr)
@@ -347,12 +352,12 @@ namespace db0::object_model
             if (type_id != TypeId::STRING && LangToolkit::isIterable(args[i])) {
                 batch_operation->removeTags(active_key,
                     IterableSequence(LangToolkit::getIterator(args[i]), ForwardIterator::end(), [&](ObjectSharedPtr arg) {
-                        return getShortTag(arg.get());
+                        return getCompositeKey(arg.get());
                     })
                 );
                 m_mutation_log->onDirty();
             } else {
-                batch_operation->removeTag(active_key, getShortTag(type_id, args[i]));
+                batch_operation->removeTag(active_key, getCompositeKey(args[i]));
                 m_mutation_log->onDirty();
             }
         }
@@ -652,6 +657,10 @@ namespace db0::object_model
         using IterableSequence = TagMakerSequence<ForwardIterator, ObjectSharedPtr>;
         
         auto type_id = LangToolkit::getTypeManager().getTypeId(arg);
+        if (type_id == TypeId::DB0_COMPOSITE_TAG) {
+            return addCompositeIterator(LangToolkit::getTypeManager().extractCompositeTag(arg), factory, query_observers);
+        }
+
         // simple tag-convertible type
         if (type_id == TypeId::STRING || type_id == TypeId::DB0_TAG || type_id == TypeId::DB0_ENUM_VALUE || 
             type_id == TypeId::DB0_CLASS)
@@ -758,6 +767,79 @@ namespace db0::object_model
         
         THROWF(db0::InputException) << "Unable to interpret object of type: " << LangToolkit::getTypeName(arg)
             << " as a query" << THROWF_END;
+    }
+
+    bool TagIndex::addCompositeIterator(const CompositeTagDef &tag,
+        db0::FT_IteratorFactory<UniqueAddress> &factory,
+        std::vector<std::unique_ptr<QueryObserver> > &query_observers) const
+    {
+        if (tag.size() < 2 || !m_short_tag_index_map) {
+            return false;
+        }
+
+        auto const &items = tag.getItems();
+        auto firstKey = tryGetCompositeKey(items[0].get());
+        if (!firstKey) {
+            return false;
+        }
+
+        auto currentTagIndexPtr = m_short_tag_index_map->tryGet(
+            *firstKey,
+            m_class_factory,
+            m_enum_factory,
+            m_string_pool,
+            m_cache,
+            m_mutation_log
+        );
+        if (!currentTagIndexPtr) {
+            return false;
+        }
+
+        auto *currentTagIndex = currentTagIndexPtr.get();
+        for (std::size_t i = 1; i + 1 < items.size(); ++i) {
+            auto key = currentTagIndex->tryGetCompositeKey(items[i].get());
+            if (!key || !currentTagIndex->m_short_tag_index_map) {
+                return false;
+            }
+            currentTagIndexPtr = currentTagIndex->m_short_tag_index_map->tryGet(
+                *key,
+                currentTagIndex->m_class_factory,
+                currentTagIndex->m_enum_factory,
+                currentTagIndex->m_string_pool,
+                currentTagIndex->m_cache,
+                currentTagIndex->m_mutation_log
+            );
+            if (!currentTagIndexPtr) {
+                return false;
+            }
+            currentTagIndex = currentTagIndexPtr.get();
+        }
+
+        std::vector<std::unique_ptr<QueryIterator> > negIterators;
+        auto result = currentTagIndex->addIterator(items.back().get(), factory, negIterators, query_observers);
+        if (!negIterators.empty()) {
+            THROWF(db0::InputException) << "Negated composite tag leaves are not supported" << THROWF_END;
+        }
+        return result;
+    }
+
+    std::optional<TagIndex::ShortTagT> TagIndex::tryGetCompositeKey(ObjectPtr arg) const
+    {
+        using TypeId = db0::bindings::TypeId;
+
+        auto typeId = LangToolkit::getTypeManager().getTypeId(arg);
+        if (typeId == TypeId::MEMO_OBJECT) {
+            return tryAddShortTagFromMemo(arg);
+        }
+        if (typeId == TypeId::DB0_TAG) {
+            return tryAddShortTagFromTag(arg);
+        }
+        if (typeId == TypeId::STRING || typeId == TypeId::DB0_ENUM_VALUE || typeId == TypeId::DB0_ENUM_VALUE_REPR ||
+            typeId == TypeId::DB0_FIELD_DEF || typeId == TypeId::DB0_CLASS)
+        {
+            return getShortTag(typeId, arg);
+        }
+        return std::nullopt;
     }
     
     TagIndex::ShortTagT TagIndex::getShortTag(TypeId type_id, ObjectPtr py_arg, ObjectSharedPtr *alt_repr) const
