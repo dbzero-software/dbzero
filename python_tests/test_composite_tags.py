@@ -120,6 +120,67 @@ def test_find_by_composite_tag_with_negation(db0_fixture):
     assert [doc.title for doc in db0.find(CompositeTagDocument, db0.no(db0.as_tag("GRANT-READ", user)))] == ["doc-2"]
 
 
+def test_composite_tags_with_many_objects_and_many_tags(db0_fixture):
+    users = [CompositeTagUser(f"user-{i}") for i in range(12)]
+    documents = [CompositeTagDocument(f"doc-{i}") for i in range(60)]
+    predicates = [f"perm-{i}" for i in range(15)]
+    removed_pairs = set()
+
+    def pairs_for_document(index):
+        return {
+            (index % len(predicates), index % len(users)),
+            ((index + 1) % len(predicates), (index + 3) % len(users)),
+        }
+
+    def titles_for(predicate_index, user_index):
+        return {
+            documents[index].title
+            for index in range(len(documents))
+            if (predicate_index, user_index) in pairs_for_document(index)
+            and (index, predicate_index, user_index) not in removed_pairs
+        }
+
+    def query_titles(*args):
+        return {doc.title for doc in db0.find(*args)}
+
+    for index, document in enumerate(documents):
+        composite_tags = [
+            db0.as_tag(predicates[predicate_index], users[user_index])
+            for predicate_index, user_index in sorted(pairs_for_document(index))
+        ]
+        simple_tags = ["active" if index % 2 == 0 else "archived"]
+        if index % 3 == 0:
+            simple_tags.append("reviewed")
+        db0.tags(document).add(*composite_tags, *simple_tags)
+
+    assert query_titles(db0.as_tag(predicates[4], users[4])) == titles_for(4, 4)
+    assert query_titles(db0.as_tag((predicates[7], users[10]))) == titles_for(7, 10)
+
+    active_expected = {
+        title
+        for title in titles_for(4, 4)
+        if int(title.split("-")[1]) % 2 == 0
+    }
+    assert query_titles(CompositeTagDocument, db0.as_tag(predicates[4], users[4]), "active") == active_expected
+
+    reviewed_expected = {document.title for index, document in enumerate(documents) if index % 3 == 0}
+    assert query_titles([db0.as_tag(predicates[7], users[10]), "reviewed"]) == (
+        titles_for(7, 10) | reviewed_expected
+    )
+
+    denied_expected = {document.title for document in documents} - titles_for(4, 4)
+    assert query_titles(CompositeTagDocument, db0.no(db0.as_tag(predicates[4], users[4]))) == denied_expected
+
+    for index in range(0, len(documents), 5):
+        predicate_index, user_index = next(iter(pairs_for_document(index)))
+        db0.tags(documents[index]).remove(db0.as_tag(predicates[predicate_index], users[user_index]))
+        removed_pairs.add((index, predicate_index, user_index))
+
+    assert query_titles(db0.as_tag(predicates[0], users[0])) == titles_for(0, 0)
+    assert query_titles(db0.as_tag(predicates[5], users[5])) == titles_for(5, 5)
+    assert query_titles(CompositeTagDocument, db0.as_tag(predicates[10], users[10])) == titles_for(10, 10)
+
+
 def test_rejects_nested_composite_tag_before_update(db0_fixture):
     user = CompositeTagUser("user-1")
     document = CompositeTagDocument("doc-1")
