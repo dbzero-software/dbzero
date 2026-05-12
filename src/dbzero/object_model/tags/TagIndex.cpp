@@ -279,9 +279,25 @@ namespace db0::object_model
         m_mutation_log->onDirty();        
     }
 
-    std::shared_ptr<TagIndex> TagIndex::addCompositeTag(ObjectPtr, ShortTagT tag)
+    std::shared_ptr<TagIndex> TagIndex::addComposite(ObjectPtr, ShortTagT tag)
     {
         return getShortTagIndexMap().findOrCreate(
+            tag,
+            m_class_factory,
+            m_enum_factory,
+            m_string_pool,
+            m_cache,
+            m_mutation_log
+        );
+    }
+
+    std::shared_ptr<TagIndex> TagIndex::tryUpdateComposite(ObjectPtr, ShortTagT tag)
+    {
+        if (!m_short_tag_index_map) {
+            return nullptr;
+        }
+
+        return m_short_tag_index_map->tryGet(
             tag,
             m_class_factory,
             m_enum_factory,

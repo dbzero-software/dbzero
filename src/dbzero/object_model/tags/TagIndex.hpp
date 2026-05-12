@@ -66,7 +66,9 @@ DB0_PACKED_END
         void addTag(ObjectPtr memo_ptr, ShortTagT tag_addr, bool is_type);
         void addTag(ObjectPtr memo_ptr, Address tag_addr, bool is_type);
         // add the high-order part of the composite tag
-        std::shared_ptr<TagIndex> addCompositeTag(ObjectPtr memo_ptr, ShortTagT);
+        std::shared_ptr<TagIndex> addComposite(ObjectPtr memo_ptr, ShortTagT);
+        // For modifying composite tags
+        std::shared_ptr<TagIndex> tryUpdateComposite(ObjectPtr memo_ptr, ShortTagT);
         
         // add a tag using long identifier
         void addTag(ObjectPtr memo_ptr, LongTagT tag_addr);
