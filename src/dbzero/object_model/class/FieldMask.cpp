@@ -23,9 +23,15 @@ namespace db0::object_model
 
     std::optional<FieldMaskFlags> FieldMask::getMask(std::uint32_t field_offset) const
     {
+        auto result = getAssignedMask(field_offset);
+        return result ? result : FieldMaskFlags {};
+    }
+
+    std::optional<FieldMaskFlags> FieldMask::getAssignedMask(std::uint32_t field_offset) const
+    {
         auto slot = getSlot(field_offset);
         if (slot >= this->size()) {
-            return FieldMaskFlags {};
+            return std::nullopt;
         }
 
         return decode(this->getItem(slot), getShift(field_offset));

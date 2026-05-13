@@ -52,6 +52,7 @@ namespace db0::object_model
 
         void setMask(std::uint32_t field_offset, FieldMaskFlags);
         std::optional<FieldMaskFlags> getMask(std::uint32_t field_offset) const;
+        std::optional<FieldMaskFlags> getAssignedMask(std::uint32_t field_offset) const;
 
     private:
         static constexpr std::uint8_t VALUE_MASK = 0x0f;

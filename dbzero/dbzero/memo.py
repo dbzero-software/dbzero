@@ -168,6 +168,10 @@ def memo(cls: Optional[type] = None, **kwargs) -> type:
     no_default_tags : bool, default False
         If True, dbzero will not automatically add default system tags (such as the class 
         name) to new instances of this class.
+    protect_fields : bool, default False
+        If True, the persistent class is marked for field protection. Once the class is
+        materialized, removing this argument from the Python definition does not clear
+        the persisted flag; use reset_protect_fields on the dbzero Class object instead.
 
     Returns
     -------

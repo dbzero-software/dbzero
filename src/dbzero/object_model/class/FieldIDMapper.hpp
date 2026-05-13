@@ -33,6 +33,7 @@ DB0_PACKED_BEGIN
         db0_ptr<NameOffsetMap> m_name_offsets_ptr;
         std::uint32_t m_next_name_offset = FieldID::getClusterSize();
         std::uint32_t m_next_cluster_offset = FieldID::getClusterSize();
+        std::uint32_t m_field_offset_range = 0;
 
         o_field_id_mapper() = default;
     };
@@ -57,6 +58,8 @@ DB0_PACKED_END
         bool renameField(const char *old_field_name, const char *new_field_name);
 
         std::optional<std::uint32_t> tryGetAssignedFieldOffset(FieldID) const;
+        std::unordered_map<std::string, std::uint32_t> getAssignedNameOffsets() const;
+        std::uint32_t getFieldOffsetRange() const;
 
         void detach() const;
         void commit() const;
@@ -91,6 +94,7 @@ DB0_PACKED_END
         std::uint32_t assignNextNameOffset();
         std::uint32_t assignNextClusterOffset();
         std::uint32_t assignFieldExceptionOffset(FieldID, std::uint32_t offset);
+        void recordFieldOffsetRange(std::uint32_t offset);
     };
 
 }

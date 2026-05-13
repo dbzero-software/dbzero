@@ -11,7 +11,7 @@
 #include <dbzero/object_model/value/StorageClass.hpp>
 #include "Schema.hpp"
 
-DEFINE_ENUM_VALUES(db0::ClassOptions, "SINGLETON", "NO_DEFAULT_TAGS", "IMMUTABLE")
+DEFINE_ENUM_VALUES(db0::ClassOptions, "SINGLETON", "NO_DEFAULT_TAGS", "IMMUTABLE", "PROTECT_FIELDS")
 
 namespace db0::object_model
 
@@ -112,6 +112,9 @@ namespace db0::object_model
         , m_uid(this->fetchUID())
         , m_member_cache(m_members, *this, this->getRefreshCallback())        
     {
+        if (isProtectFields()) {
+            ensureFieldSafe();
+        }
         m_schema.postInit(getTotalFunc());
     }
     
@@ -124,6 +127,7 @@ namespace db0::object_model
         , m_uid(this->fetchUID())
         , m_member_cache(m_members, *this, this->getRefreshCallback())
     {
+        openFieldSafe();
         m_schema.postInit(getTotalFunc());
         // initialize base class if such exists
         if ((*this)->m_base_class_ref) {
@@ -164,18 +168,28 @@ namespace db0::object_model
     
     MemberID Class::addField(const char *name, unsigned int fidelity)
     {
+        return addFieldInternal(name, fidelity, true);
+    }
+
+    MemberID Class::addFieldInternal(const char *name, unsigned int fidelity, bool registerFieldAccess)
+    {
         assert(fidelity < std::numeric_limits<std::uint8_t>::max());
+
         // NOTE: before creating with fidelity = 0 we'll always pre-register
         // a slot for fidelity = 2 which will be used as the PRIMARY identifier
         if (fidelity == 0 && !hasSlot(name, PRIMARY_FIDELITY)) {
-            addField(name, PRIMARY_FIDELITY);
+            addFieldInternal(name, PRIMARY_FIDELITY, false);
         }
         
         auto pos = assignSlot(fidelity);
         // reserve the slot
         m_members.set(pos, o_field { getFixture()->getLimitedStringPool(), name });
         m_member_cache.reload(pos);
-        return m_index[name].first;
+        auto member_id = m_index[name].first;
+        if (registerFieldAccess && m_field_safe) {
+            m_field_safe->getFieldIDMapper().onFieldIDAssigned(name, member_id.primary().first);
+        }
+        return member_id;
     }
     
     bool Class::hasSlot(const char *name, unsigned int fidelity) const
@@ -283,6 +297,155 @@ namespace db0::object_model
     
     bool Class::isSingleton() const {
         return (*this)->m_flags[ClassOptions::SINGLETON];
+    }
+
+    bool Class::isNoDefaultTags() const {
+        return (*this)->m_flags[ClassOptions::NO_DEFAULT_TAGS];
+    }
+
+    bool Class::isImmutable() const {
+        return (*this)->m_flags[ClassOptions::IMMUTABLE];
+    }
+
+    bool Class::isProtectFields() const {
+        return (*this)->m_flags[ClassOptions::PROTECT_FIELDS];
+    }
+
+    void Class::assertFieldSafeSupported() const
+    {
+        if ((*this)->getObjVer() < FIELD_SAFE_MIN_VERSION) {
+            THROWF(db0::InputException) << "Class version too low to support protected fields. Current is: "
+                << (*this)->getObjVer() << ", for minimum support you need " << FIELD_SAFE_MIN_VERSION;
+        }
+    }
+
+    void Class::openFieldSafe() const
+    {
+        if ((*this)->getObjVer() >= FIELD_SAFE_MIN_VERSION && (*this)->m_field_safe_ptr && !m_field_safe) {
+            m_field_safe.emplace(getFixture()->myPtr((*this)->m_field_safe_ptr.getAddress()), getFixture()->getVObjectCache());
+        }
+    }
+
+    FieldSafe &Class::ensureFieldSafe()
+    {
+        if (m_field_safe) {
+            return *m_field_safe;
+        }
+        assertFieldSafeSupported();
+        openFieldSafe();
+        if (!m_field_safe) {
+            m_field_safe.emplace(*getFixture(), getFixture()->getVObjectCache());
+            modify().m_field_safe_ptr = *m_field_safe;
+        }
+        return *m_field_safe;
+    }
+
+    void Class::setProtectFields() {
+        ensureFieldSafe();
+        modify().m_flags.set(ClassOptions::PROTECT_FIELDS, true);
+    }
+
+    void Class::resetProtectFields() {
+        modify().m_flags.set(ClassOptions::PROTECT_FIELDS, false);
+    }
+
+    bool Class::hasFieldSafe() const
+    {
+        return (*this)->getObjVer() >= FIELD_SAFE_MIN_VERSION && (*this)->m_field_safe_ptr;
+    }
+
+    FieldSafe &Class::getFieldSafe()
+    {
+        if (!m_field_safe) {
+            THROWF(db0::InputException) << "FieldSafe is not initialized for class " << getName();
+        }
+        return *m_field_safe;
+    }
+
+    const FieldSafe &Class::getFieldSafe() const
+    {
+        if (!m_field_safe) {
+            THROWF(db0::InputException) << "FieldSafe is not initialized for class " << getName();
+        }
+        return *m_field_safe;
+    }
+
+    void Class::setFieldAccess(const std::vector<std::uint64_t> &account_ids, FieldMaskFlags mask,
+        const std::vector<std::string> &field_names)
+    {
+        if (!isProtectFields()) {
+            THROWF(db0::InputException) << "Class " << getName() << " does not have protected fields enabled";
+        }
+        if (account_ids.empty()) {
+            THROWF(db0::InputException) << "At least one account ID is required";
+        }
+        if (field_names.empty()) {
+            THROWF(db0::InputException) << "At least one field name is required";
+        }
+
+        auto &field_safe = getFieldSafe();
+        auto &field_id_mapper = field_safe.getFieldIDMapper();
+        auto &field_mask_manager = field_safe.getFieldMaskManager();
+
+        std::vector<std::uint32_t> field_offsets;
+        field_offsets.reserve(field_names.size());
+        for (const auto &field_name: field_names) {
+            auto member = tryGetMember(field_name.c_str());
+            if (member) {
+                field_offsets.push_back(field_id_mapper.assignFieldOffset(member->m_field_id));
+            } else {
+                field_offsets.push_back(field_id_mapper.assignFieldOffset(field_name.c_str()));
+            }
+        }
+
+        for (auto account_id: account_ids) {
+            auto field_mask = field_mask_manager.createFieldMask(account_id);
+            for (auto field_offset: field_offsets) {
+                field_mask->setMask(field_offset, mask);
+            }
+        }
+    }
+
+    std::vector<std::pair<std::string, FieldMaskFlags> > Class::getFieldAccess(std::uint64_t account_id) const
+    {
+        if (!isProtectFields()) {
+            THROWF(db0::InputException) << "Class " << getName() << " does not have protected fields enabled";
+        }
+
+        auto &field_safe = getFieldSafe();
+        auto field_mask = field_safe.getFieldMaskManager().tryGetFieldMask(account_id);
+        if (!field_mask) {
+            return {};
+        }
+
+        auto &field_id_mapper = field_safe.getFieldIDMapper();
+        auto field_offsets = field_id_mapper.getAssignedNameOffsets();
+        for (const auto &[field_name, member_id]: getMembers()) {
+            auto maybe_offset = field_id_mapper.tryGetAssignedFieldOffset(member_id.primary().first);
+            if (maybe_offset) {
+                field_offsets[field_name] = *maybe_offset;
+            }
+        }
+
+        std::vector<std::pair<std::string, FieldMaskFlags> > result;
+        result.reserve(field_offsets.size());
+        for (const auto &[field_name, field_offset]: field_offsets) {
+            auto mask = field_mask->getAssignedMask(field_offset);
+            if (mask) {
+                result.emplace_back(field_name, *mask);
+            }
+        }
+        return result;
+    }
+
+    std::uint32_t Class::getFieldOffsetRange() const
+    {
+        if (!m_field_safe) {
+            return 0;
+        }
+
+        m_member_cache.refresh();
+        return m_field_safe->getFieldIDMapper().getFieldOffsetRange();
     }
     
     bool Class::isExistingSingleton() const {
@@ -436,6 +599,9 @@ namespace db0::object_model
         m_member_cache.detach();
         m_fidelities.detach();
         m_schema.detach();
+        if (m_field_safe) {
+            m_field_safe->detach();
+        }
         super_t::detach();
     }
     
@@ -456,6 +622,9 @@ namespace db0::object_model
         m_members.commit();        
         m_fidelities.commit();
         m_schema.commit();
+        if (m_field_safe) {
+            m_field_safe->commit();
+        }
         super_t::commit();
     }
     

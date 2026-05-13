@@ -66,6 +66,8 @@ static PyMethodDef dbzero_methods[] =
     {"begin_locked", (PyCFunction)&py::PyAPI_beginLocked, METH_FASTCALL, "Enter a new locked section"},
     {"describe", &py::describeObject, METH_VARARGS, "Get dbzero object's description"},
     {"rename_field", (PyCFunction)&py::renameField, METH_VARARGS | METH_KEYWORDS, "Get snapshot of dbzero state"},
+    {"set_field_access", (PyCFunction)&py::setFieldAccess, METH_VARARGS, "Set protected field access masks for a memo class"},
+    {"get_field_access", (PyCFunction)&py::getFieldAccess, METH_VARARGS, "Get protected field access masks for a memo class and account"},
     {"is_singleton", &py::PyAPI_isSingleton, METH_VARARGS, "Check if a specific instance is a dbzero singleton"},
     {"getrefcount", &py::PyAPI_getRefCount, METH_VARARGS, "Get dbzero ref counts"},
     {"no", (PyCFunction)&py::negTagSet, METH_FASTCALL, "Tag negation function"},

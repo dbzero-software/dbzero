@@ -155,6 +155,9 @@ namespace db0::object_model
             if (class_ptr) {
                 // pull existing dbzero class instance by pointer
                 type = getTypeByPtr(class_ptr, lang_type).m_class;
+                if (LangToolkit::isProtectFields(lang_type) && !type->isProtectFields()) {
+                    type->setProtectFields();
+                }
             } else {
                 auto fixture = getFixture();
                 if (!checkAccessType(*fixture, AccessType::READ_WRITE)) {
@@ -166,9 +169,10 @@ namespace db0::object_model
                 ClassFlags flags;
                 if (is_singleton) {
                     flags += ClassOptions::SINGLETON;
-                }                
+                }
                 flags.set(ClassOptions::NO_DEFAULT_TAGS, LangToolkit::isNoDefaultTags(lang_type));
                 flags.set(ClassOptions::IMMUTABLE, LangToolkit::isImmutable(lang_type));
+                flags.set(ClassOptions::PROTECT_FIELDS, LangToolkit::isProtectFields(lang_type));
                 auto memo_base = LangToolkit::getBaseMemoType(lang_type);
                 std::shared_ptr<Class> base_class;                
                 if (memo_base) {
@@ -198,6 +202,8 @@ namespace db0::object_model
             
             it_cached = m_type_cache.insert({lang_type, type}).first;
             m_pending_types.push_back(lang_type);
+        } else if (LangToolkit::isProtectFields(lang_type) && !it_cached->second->isProtectFields()) {
+            it_cached->second->setProtectFields();
         }
         return it_cached->second;
     }
@@ -233,6 +239,9 @@ namespace db0::object_model
             it_cached->second.m_lang_type = lang_type;
             it_cached->second.m_class->setInitVars(LangToolkit::getInitVars(lang_type));
             it_cached->second.m_class->setRuntimeFlags(LangToolkit::getMemoFlags(lang_type));
+        }
+        if (lang_type && LangToolkit::isProtectFields(lang_type) && !it_cached->second.m_class->isProtectFields()) {
+            it_cached->second.m_class->setProtectFields();
         }
         return it_cached->second.m_class;
     }
@@ -298,6 +307,9 @@ namespace db0::object_model
             if (lang_type) {
                 type->setInitVars(LangToolkit::getInitVars(lang_type));
                 type->setRuntimeFlags(LangToolkit::getMemoFlags(lang_type));
+                if (LangToolkit::isProtectFields(lang_type) && !type->isProtectFields()) {
+                    type->setProtectFields();
+                }
             }
             // register the mapping to language specific type object
             it_cached = m_ptr_cache.insert({ptr, ClassItem { type, lang_type }}).first;
@@ -308,6 +320,9 @@ namespace db0::object_model
             it_cached->second.m_lang_type = lang_type;        
             it_cached->second.m_class->setInitVars(LangToolkit::getInitVars(lang_type));
             it_cached->second.m_class->setRuntimeFlags(LangToolkit::getMemoFlags(lang_type));
+        }
+        if (lang_type && LangToolkit::isProtectFields(lang_type) && !it_cached->second.m_class->isProtectFields()) {
+            it_cached->second.m_class->setProtectFields();
         }
         return it_cached->second;
     }

@@ -751,6 +751,15 @@ namespace db0::python
         }
     }
 
+    bool PyToolkit::isProtectFields(TypeObjectPtr py_type)
+    {
+        if (isAnyMemoType(py_type)) {
+            return MemoTypeDecoration::get(py_type).getFlags()[MemoOptions::PROTECT_FIELDS];
+        } else {
+            return false;
+        }
+    }
+
     FlagSet<MemoOptions> PyToolkit::getMemoFlags(TypeObjectPtr py_type)
     {
         if (isAnyMemoType(py_type)) {

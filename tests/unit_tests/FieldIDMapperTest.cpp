@@ -97,6 +97,25 @@ namespace tests
         ASSERT_EQ(mapper.getNameMappingCount(), 1u);
     }
 
+    TEST_F( FieldIDMapperTest , testFieldOffsetRangeTracksHighestAssignedOffset )
+    {
+        auto memspace = getMemspace();
+        TestFieldIDMapper mapper(memspace);
+
+        ASSERT_EQ(mapper.getFieldOffsetRange(), 0u);
+        ASSERT_EQ(mapper.assignFieldOffset(FieldID::fromIndex(0, 3)), 3u);
+        ASSERT_EQ(mapper.getFieldOffsetRange(), 3u);
+        ASSERT_EQ(mapper.assignFieldOffset("status"), FieldIDMapper::CLUSTER_SIZE);
+        ASSERT_EQ(mapper.getFieldOffsetRange(), FieldIDMapper::CLUSTER_SIZE);
+
+        auto field_id = FieldID::fromIndex(100, 7);
+        auto offset = mapper.assignFieldOffset(field_id);
+
+        ASSERT_EQ(mapper.getFieldOffsetRange(), offset);
+        ASSERT_EQ(mapper.assignFieldOffset(FieldID::fromIndex(0, 1)), 1u);
+        ASSERT_EQ(mapper.getFieldOffsetRange(), offset);
+    }
+
     TEST_F( FieldIDMapperTest , testRenameFieldMovesExistingNameMapping )
     {
         auto memspace = getMemspace();
@@ -237,6 +256,42 @@ namespace tests
         ASSERT_EQ(mapper.getFieldIDMappingCount(), 2u);
         ASSERT_EQ(mapper.getFieldIDClusterMappingCount(), 1u);
         ASSERT_EQ(mapper.getFieldIDExceptionMappingCount(), 1u);
+    }
+
+    TEST_F( FieldIDMapperTest , testNamedFieldIDAssignmentWithoutPredeclaredNameUsesCompactExceptionMapping )
+    {
+        auto memspace = getMemspace();
+        TestFieldIDMapper mapper(memspace);
+        auto field_id = FieldID::fromIndex(100, 0);
+        auto next_field_id = FieldID::fromIndex(101, 0);
+
+        auto offset = mapper.onFieldIDAssigned("status", field_id);
+        auto next_offset = mapper.onFieldIDAssigned("type", next_field_id);
+
+        ASSERT_EQ(offset, FieldIDMapper::CLUSTER_SIZE);
+        ASSERT_EQ(next_offset, offset + 1);
+        ASSERT_EQ(mapper.tryGetAssignedFieldOffset(field_id), offset);
+        ASSERT_EQ(mapper.tryGetAssignedFieldOffset(next_field_id), next_offset);
+        ASSERT_EQ(mapper.getFieldIDClusterMappingCount(), 0u);
+        ASSERT_EQ(mapper.getFieldIDExceptionMappingCount(), 2u);
+        ASSERT_EQ(mapper.getFieldOffsetRange(), next_offset);
+    }
+
+    TEST_F( FieldIDMapperTest , testRepeatedNamedFieldIDAssignmentReusesExistingFieldMapping )
+    {
+        auto memspace = getMemspace();
+        TestFieldIDMapper mapper(memspace);
+        auto field_id = FieldID::fromIndex(100, 0);
+
+        auto offset = mapper.onFieldIDAssigned("status", field_id);
+        ASSERT_EQ(mapper.onFieldIDAssigned("status", field_id), offset);
+        auto next_offset = mapper.onFieldIDAssigned("type", FieldID::fromIndex(101, 0));
+
+        ASSERT_EQ(next_offset, offset + 1);
+        ASSERT_EQ(mapper.tryGetAssignedFieldOffset(field_id), offset);
+        ASSERT_EQ(mapper.getFieldIDExceptionMappingCount(), 2u);
+        ASSERT_EQ(mapper.getNameMappingCount(), 0u);
+        ASSERT_EQ(mapper.getFieldOffsetRange(), next_offset);
     }
 
     TEST_F( FieldIDMapperTest , testClusterAndNameAllocationsDoNotOverlap )

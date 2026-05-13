@@ -11,8 +11,7 @@ namespace db0::python
 
 {
 
-    // immutable Class object
-    using ClassObject = PySharedWrapper<const db0::object_model::Class>;
+    using ClassObject = PySharedWrapper<db0::object_model::Class, false>;
     
     ClassObject *ClassObject_new(PyTypeObject *type, PyObject *, PyObject *);
     shared_py_object<ClassObject*> ClassDefaultObject_new();
@@ -22,6 +21,8 @@ namespace db0::python
     PyObject *PyAPI_PyClass_type_exists(PyObject *, PyObject *);
     PyObject *PyAPI_PyClass_get_attributes(PyObject *, PyObject *);
     PyObject *PyAPI_PyClass_type_info(PyObject *, PyObject *);
+    PyObject *PyAPI_PyClass_get_type_flags(PyObject *, PyObject *);
+    PyObject *PyAPI_PyClass_reset_protect_fields(PyObject *, PyObject *);
 
     extern PyTypeObject ClassObjectType;
     
