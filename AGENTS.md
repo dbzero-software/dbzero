@@ -30,6 +30,13 @@ Never mark a task done while tests are failing.
 
 ## Implementation notes
 
+### v_object constructor conventions
+
+Types derived from `v_object` should follow the project-wide constructor pattern:
+
+- New durable instances are constructed from `Memspace &` plus any type-specific creation arguments.
+- Existing durable instances are reopened from `mptr` plus any type-specific runtime dependencies.
+
 ### C++ style
 
 - Use camelCase for local helper variables, lambdas, and method names in C++ code.

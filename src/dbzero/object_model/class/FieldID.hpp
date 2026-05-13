@@ -17,6 +17,10 @@ namespace db0::object_model
     public:
         static constexpr std::uint32_t MAX_INDEX = 0x40000 - 1; // max 2^22 fields
         static constexpr std::uint32_t MAX_OFFSET = 0x40 - 1;
+
+        static constexpr std::uint32_t getClusterSize() {
+            return MAX_OFFSET + 1;
+        }
         
         FieldID() = default;
         FieldID(std::pair<std::uint32_t, std::uint32_t> loc) {
