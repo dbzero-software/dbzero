@@ -28,6 +28,13 @@ Never mark a task done while tests are failing.
 
 ## Implementation notes
 
+### v_object constructor conventions
+
+Types derived from `v_object` should follow the project-wide constructor pattern:
+
+- New durable instances are constructed from `Memspace &` plus any type-specific creation arguments.
+- Existing durable instances are reopened from `mptr` plus any type-specific runtime dependencies.
+
 ### MorphingBIndex: address and type can change on mutation
 
 A `MorphingBIndex` does not behave like a typical container. On mutation (`insert`, `erase`) it may morph into a different internal storage variant (itty / array_2..4 / vector / bindex), and the morph can change both its **address** and its **type**.

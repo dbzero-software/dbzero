@@ -4,9 +4,21 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
 #include <optional>
+#include <dbzero/core/collections/b_index/v_bindex.hpp>
+#include <dbzero/core/collections/full_text/key_value.hpp>
 #include <dbzero/core/collections/vector/v_bvector.hpp>
+#include <dbzero/core/memory/Address.hpp>
 #include <dbzero/core/utils/FlagSet.hpp>
+
+namespace db0
+
+{
+
+    class VObjectCache;
+
+}
 
 namespace db0::object_model
 
@@ -37,6 +49,7 @@ namespace db0::object_model
         using super_t::super_t;
 
         FieldMask() = default;
+        FieldMask(db0::Memspace &, db0::Address);
 
         void setMask(std::uint32_t field_offset, FieldMaskFlags);
         std::optional<FieldMaskFlags> getMask(std::uint32_t field_offset) const;
@@ -48,6 +61,25 @@ namespace db0::object_model
         static std::uint64_t getSlot(std::uint32_t field_offset);
         static unsigned int getShift(std::uint32_t field_offset);
         static FieldMaskFlags decode(std::uint8_t slot_value, unsigned int shift);
+    };
+
+    using FieldMaskManagerItem = db0::key_value<std::uint64_t, db0::Address>;
+
+    class FieldMaskManager: public db0::v_bindex<FieldMaskManagerItem, db0::Address, FieldMaskManagerItem::comparer>
+    {
+    public:
+        using super_t = db0::v_bindex<FieldMaskManagerItem, db0::Address, FieldMaskManagerItem::comparer>;
+
+        FieldMaskManager(db0::Memspace &, db0::VObjectCache &);
+        FieldMaskManager(db0::mptr, db0::VObjectCache &);
+
+        std::shared_ptr<FieldMask> createFieldMask(std::uint64_t account_id);
+        std::shared_ptr<FieldMask> tryGetFieldMask(std::uint64_t account_id) const;
+
+    private:
+        db0::VObjectCache *m_cache = nullptr;
+
+        std::shared_ptr<FieldMask> fieldMaskFromAddress(db0::Address address) const;
     };
 
 }

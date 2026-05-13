@@ -2,12 +2,18 @@
 // Copyright (c) 2025 DBZero Software sp. z o.o.
 
 #include "FieldMask.hpp"
+#include <dbzero/core/memory/VObjectCache.hpp>
 
 DEFINE_ENUM_VALUES(db0::object_model::FieldMaskOptions, "create", "read", "update", "delete")
 
 namespace db0::object_model
 
 {
+
+    FieldMask::FieldMask(db0::Memspace &memspace, db0::Address address)
+        : super_t(memspace.myPtr(address))
+    {
+    }
 
     void FieldMask::setMask(std::uint32_t field_offset, FieldMaskFlags mask)
     {
@@ -43,6 +49,47 @@ namespace db0::object_model
     FieldMaskFlags FieldMask::decode(std::uint8_t slot_value, unsigned int shift)
     {
         return FieldMaskFlags::fromValue((slot_value >> shift) & VALUE_MASK);
+    }
+
+    FieldMaskManager::FieldMaskManager(db0::Memspace &memspace, db0::VObjectCache &cache)
+        : super_t(memspace)
+        , m_cache(&cache)
+    {
+        assert(m_cache);
+    }
+
+    FieldMaskManager::FieldMaskManager(db0::mptr ptr, db0::VObjectCache &cache)
+        : super_t(ptr, ptr.getPageSize())
+        , m_cache(&cache)
+    {
+        assert(m_cache);
+    }
+
+    std::shared_ptr<FieldMask> FieldMaskManager::createFieldMask(std::uint64_t account_id)
+    {
+        auto result = tryGetFieldMask(account_id);
+        if (result) {
+            return result;
+        }
+
+        result = m_cache->create<FieldMask>(true);
+        super_t::insert(FieldMaskManagerItem(account_id, result->getAddress()));
+        return result;
+    }
+
+    std::shared_ptr<FieldMask> FieldMaskManager::tryGetFieldMask(std::uint64_t account_id) const
+    {
+        auto it = super_t::find(account_id);
+        if (it == super_t::end()) {
+            return nullptr;
+        }
+
+        return fieldMaskFromAddress((*it).value);
+    }
+
+    std::shared_ptr<FieldMask> FieldMaskManager::fieldMaskFromAddress(db0::Address address) const
+    {
+        return m_cache->findOrCreate<FieldMask>(address, true, address);
     }
 
 }
