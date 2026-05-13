@@ -208,6 +208,7 @@ namespace db0::object_model
         assert(field_name);
         auto maybe_offset = tryGetNameOffset(field_name);
         if (maybe_offset) {
+            recordFieldOffsetRange(*maybe_offset);
             return *maybe_offset;
         }
 
@@ -219,6 +220,7 @@ namespace db0::object_model
         }
 
         m_name_offset_cache[field_name] = offset;
+        recordFieldOffsetRange(offset);
         return offset;
     }
 
@@ -282,6 +284,7 @@ namespace db0::object_model
     {
         auto maybe_offset = tryGetAssignedFieldOffset(field_id);
         if (maybe_offset) {
+            recordFieldOffsetRange(*maybe_offset);
             return *maybe_offset;
         }
 
@@ -295,7 +298,9 @@ namespace db0::object_model
         }
 
         m_field_cluster_offset_cache[field_id.getIndex()] = cluster_offset;
-        return cluster_offset + field_id.getOffset();
+        auto offset = cluster_offset + field_id.getOffset();
+        recordFieldOffsetRange(offset);
+        return offset;
     }
 
     std::uint32_t FieldIDMapper::assignFieldExceptionOffset(FieldID field_id, std::uint32_t offset)
@@ -309,6 +314,7 @@ namespace db0::object_model
         }
 
         m_field_exception_offset_cache[field_id.getLongIndex()] = offset;
+        recordFieldOffsetRange(offset);
         return offset;
     }
 
@@ -317,7 +323,7 @@ namespace db0::object_model
         assert(field_name);
         auto maybe_offset = tryGetNameOffset(field_name);
         if (!maybe_offset) {
-            return assignFieldOffset(field_id);
+            return assignFieldExceptionOffset(field_id, assignNextNameOffset());
         }
 
         auto offset = *maybe_offset;
@@ -333,10 +339,40 @@ namespace db0::object_model
 
         auto maybe_exception_offset = tryGetFieldExceptionOffset(field_id);
         if (maybe_exception_offset) {
+            recordFieldOffsetRange(*maybe_exception_offset);
             return *maybe_exception_offset;
         }
 
         return assignFieldExceptionOffset(field_id, offset);
+    }
+
+    std::unordered_map<std::string, std::uint32_t> FieldIDMapper::getAssignedNameOffsets() const
+    {
+        std::unordered_map<std::string, std::uint32_t> result;
+        auto name_offsets = getNameOffsets();
+        if (!name_offsets) {
+            return result;
+        }
+
+        for (auto it = name_offsets->begin(); it != name_offsets->end(); ++it) {
+            auto field_name = it->first().toString();
+            auto offset = static_cast<std::uint32_t>(it->second());
+            result[field_name] = offset;
+            m_name_offset_cache[field_name] = offset;
+        }
+        return result;
+    }
+
+    std::uint32_t FieldIDMapper::getFieldOffsetRange() const
+    {
+        return (*this)->m_field_offset_range;
+    }
+
+    void FieldIDMapper::recordFieldOffsetRange(std::uint32_t offset)
+    {
+        if (offset > (*this)->m_field_offset_range) {
+            this->modify().m_field_offset_range = offset;
+        }
     }
 
     std::uint32_t FieldIDMapper::getFieldIDMappingCount() const

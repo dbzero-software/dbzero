@@ -615,6 +615,208 @@ namespace db0::python
         return runSafe(tryRenameField, args, kwargs);
     }
 
+    namespace
+    {
+        std::vector<std::uint64_t> extractAccountIDs(PyObject *py_account_id)
+        {
+            std::vector<std::uint64_t> result;
+            if (PyLong_Check(py_account_id)) {
+                result.push_back(PyLong_AsUnsignedLongLong(py_account_id));
+                if (PyErr_Occurred()) {
+                    THROWF(db0::InputException) << "Invalid account ID";
+                }
+                return result;
+            }
+
+            auto sequence = Py_OWN(PySequence_Fast(py_account_id, "account_id must be an int or a sequence of ints"));
+            if (!sequence) {
+                THROWF(db0::InputException) << "account_id must be an int or a sequence of ints";
+            }
+            auto size = PySequence_Fast_GET_SIZE(*sequence);
+            result.reserve(size);
+            for (Py_ssize_t i = 0; i < size; ++i) {
+                auto item = PySequence_Fast_GET_ITEM(*sequence, i);
+                if (!PyLong_Check(item)) {
+                    THROWF(db0::InputException) << "account_id sequence must contain only ints";
+                }
+                result.push_back(PyLong_AsUnsignedLongLong(item));
+                if (PyErr_Occurred()) {
+                    THROWF(db0::InputException) << "Invalid account ID";
+                }
+            }
+            return result;
+        }
+
+        db0::object_model::FieldMaskOptions extractFieldMaskOption(PyObject *py_mode)
+        {
+            std::string mode;
+            if (PyEnumValue_Check(py_mode)) {
+                mode = reinterpret_cast<PyEnumValue*>(py_mode)->ext().m_str_repr;
+            } else if (PyEnumValueRepr_Check(py_mode)) {
+                mode = reinterpret_cast<PyEnumValueRepr*>(py_mode)->ext().m_str_repr;
+            } else if (PyUnicode_Check(py_mode)) {
+                mode = PyUnicode_AsUTF8(py_mode);
+            } else {
+                THROWF(db0::InputException) << "Field access mode must contain enum values";
+            }
+
+            if (mode == "CREATE") {
+                return db0::object_model::FieldMaskOptions::CREATE;
+            }
+            if (mode == "READ") {
+                return db0::object_model::FieldMaskOptions::READ;
+            }
+            if (mode == "UPDATE") {
+                return db0::object_model::FieldMaskOptions::UPDATE;
+            }
+            if (mode == "DELETE") {
+                return db0::object_model::FieldMaskOptions::DELETE;
+            }
+            THROWF(db0::InputException) << "Invalid field access mode: " << mode;
+            return db0::object_model::FieldMaskOptions::READ;
+        }
+
+        db0::object_model::FieldMaskFlags extractFieldMask(PyObject *py_mode)
+        {
+            auto sequence = Py_OWN(PySequence_Fast(py_mode, "mode must be a sequence of field access enum values"));
+            if (!sequence) {
+                THROWF(db0::InputException) << "mode must be a sequence of field access enum values";
+            }
+
+            db0::object_model::FieldMaskFlags result;
+            auto size = PySequence_Fast_GET_SIZE(*sequence);
+            for (Py_ssize_t i = 0; i < size; ++i) {
+                result.set(extractFieldMaskOption(PySequence_Fast_GET_ITEM(*sequence, i)), true);
+            }
+            return result;
+        }
+
+        std::vector<std::string> extractFieldNames(PyObject *args)
+        {
+            auto arg_count = PyTuple_Size(args);
+            if (arg_count < 4) {
+                THROWF(db0::InputException) << "At least one field name is required";
+            }
+
+            std::vector<std::string> result;
+            result.reserve(arg_count - 3);
+            for (Py_ssize_t i = 3; i < arg_count; ++i) {
+                auto py_field_name = PyTuple_GetItem(args, i);
+                if (!PyUnicode_Check(py_field_name)) {
+                    THROWF(db0::InputException) << "Field names must be strings";
+                }
+                result.push_back(PyUnicode_AsUTF8(py_field_name));
+            }
+            return result;
+        }
+
+        PyObject *fieldMaskToTuple(db0::object_model::FieldMaskFlags mask)
+        {
+            std::vector<const char *> names;
+            if (mask[db0::object_model::FieldMaskOptions::CREATE]) {
+                names.push_back("CREATE");
+            }
+            if (mask[db0::object_model::FieldMaskOptions::READ]) {
+                names.push_back("READ");
+            }
+            if (mask[db0::object_model::FieldMaskOptions::UPDATE]) {
+                names.push_back("UPDATE");
+            }
+            if (mask[db0::object_model::FieldMaskOptions::DELETE]) {
+                names.push_back("DELETE");
+            }
+
+            auto values = Py_OWN(PyTuple_New(names.size()));
+            Py_ssize_t index = 0;
+            for (auto name: names) {
+                PySafeTuple_SetItem(*values, index++, Py_OWN(PyUnicode_FromString(name)));
+            }
+            return values.steal();
+        }
+    }
+
+    PyObject *trySetFieldAccess(PyObject *args)
+    {
+        if (PyTuple_Size(args) < 4) {
+            THROWF(db0::InputException) << "set_field_access requires type, account_id, mode, and at least one field name";
+        }
+
+        auto py_type = PyTuple_GetItem(args, 0);
+        if (!PyType_Check(py_type)) {
+            THROWF(db0::InputException) << "First argument must be a type";
+        }
+        if (!PyAnyMemoType_Check(reinterpret_cast<PyTypeObject*>(py_type))) {
+            THROWF(db0::InputException) << "First argument must be a dbzero memo type";
+        }
+
+        auto account_ids = extractAccountIDs(PyTuple_GetItem(args, 1));
+        auto mask = extractFieldMask(PyTuple_GetItem(args, 2));
+        auto field_names = extractFieldNames(args);
+
+        using ClassFactory = db0::object_model::ClassFactory;
+        auto fixture_uuid = MemoTypeDecoration::get(reinterpret_cast<PyTypeObject*>(py_type)).getFixtureUUID();
+        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(fixture_uuid, AccessType::READ_WRITE);
+        auto &class_factory = fixture->get<ClassFactory>();
+        auto type = class_factory.getExistingType(reinterpret_cast<PyTypeObject*>(py_type));
+        if (!type->isProtectFields()) {
+            THROWF(db0::InputException) << "Class " << type->getName() << " does not have protected fields enabled";
+        }
+
+        db0::FixtureLock lock(fixture);
+        type->setFieldAccess(account_ids, mask, field_names);
+
+        Py_RETURN_NONE;
+    }
+
+    PyObject *setFieldAccess(PyObject *, PyObject *args)
+    {
+        PY_API_FUNC
+        return runSafe(trySetFieldAccess, args);
+    }
+
+    PyObject *tryGetFieldAccess(PyObject *args)
+    {
+        PyObject *py_type = nullptr;
+        unsigned long long account_id = 0;
+        if (!PyArg_ParseTuple(args, "OK:get_field_access", &py_type, &account_id)) {
+            return nullptr;
+        }
+        if (!PyType_Check(py_type)) {
+            THROWF(db0::InputException) << "First argument must be a type";
+        }
+        if (!PyAnyMemoType_Check(reinterpret_cast<PyTypeObject*>(py_type))) {
+            THROWF(db0::InputException) << "First argument must be a dbzero memo type";
+        }
+
+        using ClassFactory = db0::object_model::ClassFactory;
+        auto fixture_uuid = MemoTypeDecoration::get(reinterpret_cast<PyTypeObject*>(py_type)).getFixtureUUID();
+        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(fixture_uuid, AccessType::READ_WRITE);
+        auto &class_factory = fixture->get<ClassFactory>();
+        auto type = class_factory.getExistingType(reinterpret_cast<PyTypeObject*>(py_type));
+        if (!type->isProtectFields()) {
+            THROWF(db0::InputException) << "Class " << type->getName() << " does not have protected fields enabled";
+        }
+
+        auto access = type->getFieldAccess(account_id);
+        auto result = Py_OWN(PyList_New(access.size()));
+        Py_ssize_t index = 0;
+        for (const auto &[field_name, mask]: access) {
+            PySafeList_SetItem(
+                *result,
+                index++,
+                Py_OWN(PySafeTuple_Pack(
+                    Py_OWN(PyUnicode_FromString(field_name.c_str())),
+                    Py_OWN(fieldMaskToTuple(mask)))));
+        }
+        return result.steal();
+    }
+
+    PyObject *getFieldAccess(PyObject *, PyObject *args)
+    {
+        PY_API_FUNC
+        return runSafe(tryGetFieldAccess, args);
+    }
+
     PyObject *TryPyAPI_isSingleton(PyObject *py_object)
     {
         assert((PyMemo_Check<MemoObject>(py_object)));

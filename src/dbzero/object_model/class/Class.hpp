@@ -181,6 +181,10 @@ DB0_PACKED_END
         bool hasFieldSafe() const;
         FieldSafe &getFieldSafe();
         const FieldSafe &getFieldSafe() const;
+        void setFieldAccess(const std::vector<std::uint64_t> &account_ids, FieldMaskFlags mask,
+            const std::vector<std::string> &field_names);
+        std::vector<std::pair<std::string, FieldMaskFlags> > getFieldAccess(std::uint64_t account_id) const;
+        std::uint32_t getFieldOffsetRange() const;
         
         /**
          * Check if this class has an associated singleton instance

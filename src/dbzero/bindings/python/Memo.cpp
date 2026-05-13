@@ -1046,6 +1046,10 @@ namespace db0::python
         PySafeDict_SetItemString(*py_result, "uuid", Py_OWN(tryGetUUID(self)));
         PySafeDict_SetItemString(*py_result, "type", Py_OWN(PyUnicode_FromString(self->ext().getType().getName().c_str())));
         PySafeDict_SetItemString(*py_result, "size_of", Py_OWN(PyLong_FromLong(self->ext()->sizeOf())));
+        PySafeDict_SetItemString(*py_result, "protected_fields",
+            Py_OWN(PyBool_fromBool(self->ext().getType().isProtectFields())));
+        PySafeDict_SetItemString(*py_result, "field_offset_range",
+            Py_OWN(PyLong_FromUnsignedLong(self->ext().getType().getFieldOffsetRange())));
         return py_result.steal();
     }
     

@@ -359,6 +359,84 @@ namespace db0::object_model
         }
         return *m_field_safe;
     }
+
+    void Class::setFieldAccess(const std::vector<std::uint64_t> &account_ids, FieldMaskFlags mask,
+        const std::vector<std::string> &field_names)
+    {
+        if (!isProtectFields()) {
+            THROWF(db0::InputException) << "Class " << getName() << " does not have protected fields enabled";
+        }
+        if (account_ids.empty()) {
+            THROWF(db0::InputException) << "At least one account ID is required";
+        }
+        if (field_names.empty()) {
+            THROWF(db0::InputException) << "At least one field name is required";
+        }
+
+        auto &field_safe = getFieldSafe();
+        auto &field_id_mapper = field_safe.getFieldIDMapper();
+        auto &field_mask_manager = field_safe.getFieldMaskManager();
+
+        std::vector<std::uint32_t> field_offsets;
+        field_offsets.reserve(field_names.size());
+        for (const auto &field_name: field_names) {
+            auto member = tryGetMember(field_name.c_str());
+            if (member) {
+                field_offsets.push_back(field_id_mapper.assignFieldOffset(member->m_field_id));
+            } else {
+                field_offsets.push_back(field_id_mapper.assignFieldOffset(field_name.c_str()));
+            }
+        }
+
+        for (auto account_id: account_ids) {
+            auto field_mask = field_mask_manager.createFieldMask(account_id);
+            for (auto field_offset: field_offsets) {
+                field_mask->setMask(field_offset, mask);
+            }
+        }
+    }
+
+    std::vector<std::pair<std::string, FieldMaskFlags> > Class::getFieldAccess(std::uint64_t account_id) const
+    {
+        if (!isProtectFields()) {
+            THROWF(db0::InputException) << "Class " << getName() << " does not have protected fields enabled";
+        }
+
+        auto &field_safe = getFieldSafe();
+        auto field_mask = field_safe.getFieldMaskManager().tryGetFieldMask(account_id);
+        if (!field_mask) {
+            return {};
+        }
+
+        auto &field_id_mapper = field_safe.getFieldIDMapper();
+        auto field_offsets = field_id_mapper.getAssignedNameOffsets();
+        for (const auto &[field_name, member_id]: getMembers()) {
+            auto maybe_offset = field_id_mapper.tryGetAssignedFieldOffset(member_id.primary().first);
+            if (maybe_offset) {
+                field_offsets[field_name] = *maybe_offset;
+            }
+        }
+
+        std::vector<std::pair<std::string, FieldMaskFlags> > result;
+        result.reserve(field_offsets.size());
+        for (const auto &[field_name, field_offset]: field_offsets) {
+            auto mask = field_mask->getAssignedMask(field_offset);
+            if (mask) {
+                result.emplace_back(field_name, *mask);
+            }
+        }
+        return result;
+    }
+
+    std::uint32_t Class::getFieldOffsetRange() const
+    {
+        if (!m_field_safe) {
+            return 0;
+        }
+
+        m_member_cache.refresh();
+        return m_field_safe->getFieldIDMapper().getFieldOffsetRange();
+    }
     
     bool Class::isExistingSingleton() const {
         return isSingleton() && (*this)->m_singleton_address.isValid();
@@ -382,6 +460,9 @@ namespace db0::object_model
         return [this](const Member &member) {
             // this is required before accessing members to prevent segfaults on a defunct object
             auto fixture = getFixture();
+            if (m_field_safe) {
+                m_field_safe->getFieldIDMapper().onFieldIDAssigned(member.m_name.c_str(), member.m_field_id);
+            }
             auto it = m_index.find(member.m_name);
             if (it == m_index.end()) {
                 bool is_init_var = m_init_vars.find(member.m_name) != m_init_vars.end();
