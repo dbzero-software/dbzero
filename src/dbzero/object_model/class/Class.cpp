@@ -112,6 +112,9 @@ namespace db0::object_model
         , m_uid(this->fetchUID())
         , m_member_cache(m_members, *this, this->getRefreshCallback())        
     {
+        if (isProtectFields()) {
+            ensureFieldSafe();
+        }
         m_schema.postInit(getTotalFunc());
     }
     
@@ -124,6 +127,7 @@ namespace db0::object_model
         , m_uid(this->fetchUID())
         , m_member_cache(m_members, *this, this->getRefreshCallback())
     {
+        openFieldSafe();
         m_schema.postInit(getTotalFunc());
         // initialize base class if such exists
         if ((*this)->m_base_class_ref) {
@@ -297,12 +301,63 @@ namespace db0::object_model
         return (*this)->m_flags[ClassOptions::PROTECT_FIELDS];
     }
 
+    void Class::assertFieldSafeSupported() const
+    {
+        if ((*this)->getObjVer() < FIELD_SAFE_MIN_VERSION) {
+            THROWF(db0::InputException) << "Class version too low to support protected fields. Current is: "
+                << (*this)->getObjVer() << ", for minimum support you need " << FIELD_SAFE_MIN_VERSION;
+        }
+    }
+
+    void Class::openFieldSafe() const
+    {
+        if ((*this)->getObjVer() >= FIELD_SAFE_MIN_VERSION && (*this)->m_field_safe_ptr && !m_field_safe) {
+            m_field_safe.emplace(getFixture()->myPtr((*this)->m_field_safe_ptr.getAddress()), getFixture()->getVObjectCache());
+        }
+    }
+
+    FieldSafe &Class::ensureFieldSafe()
+    {
+        if (m_field_safe) {
+            return *m_field_safe;
+        }
+        assertFieldSafeSupported();
+        openFieldSafe();
+        if (!m_field_safe) {
+            m_field_safe.emplace(*getFixture(), getFixture()->getVObjectCache());
+            modify().m_field_safe_ptr = *m_field_safe;
+        }
+        return *m_field_safe;
+    }
+
     void Class::setProtectFields() {
+        ensureFieldSafe();
         modify().m_flags.set(ClassOptions::PROTECT_FIELDS, true);
     }
 
     void Class::resetProtectFields() {
         modify().m_flags.set(ClassOptions::PROTECT_FIELDS, false);
+    }
+
+    bool Class::hasFieldSafe() const
+    {
+        return (*this)->getObjVer() >= FIELD_SAFE_MIN_VERSION && (*this)->m_field_safe_ptr;
+    }
+
+    FieldSafe &Class::getFieldSafe()
+    {
+        if (!m_field_safe) {
+            THROWF(db0::InputException) << "FieldSafe is not initialized for class " << getName();
+        }
+        return *m_field_safe;
+    }
+
+    const FieldSafe &Class::getFieldSafe() const
+    {
+        if (!m_field_safe) {
+            THROWF(db0::InputException) << "FieldSafe is not initialized for class " << getName();
+        }
+        return *m_field_safe;
     }
     
     bool Class::isExistingSingleton() const {
@@ -456,6 +511,9 @@ namespace db0::object_model
         m_member_cache.detach();
         m_fidelities.detach();
         m_schema.detach();
+        if (m_field_safe) {
+            m_field_safe->detach();
+        }
         super_t::detach();
     }
     
@@ -476,6 +534,9 @@ namespace db0::object_model
         m_members.commit();        
         m_fidelities.commit();
         m_schema.commit();
+        if (m_field_safe) {
+            m_field_safe->commit();
+        }
         super_t::commit();
     }
     

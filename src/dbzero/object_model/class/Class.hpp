@@ -4,10 +4,12 @@
 #pragma once
 
 #include "Field.hpp"
+#include "FieldSafe.hpp"
 #include "MemberID.hpp"
 
 #include <limits>
 #include <array>
+#include <optional>
 #include <dbzero/core/serialization/Types.hpp>
 #include <dbzero/core/serialization/FixedVersioned.hpp>
 #include <dbzero/core/vspace/db0_ptr.hpp>
@@ -62,7 +64,7 @@ namespace db0::object_model
     using VFidelityVector = db0::v_bvector<std::pair<std::uint8_t, unsigned int> >;    
     
 DB0_PACKED_BEGIN
-    struct DB0_PACKED_ATTR o_class: public db0::o_fixed_versioned<o_class>
+    struct DB0_PACKED_ATTR o_class: public db0::o_fixed_versioned<o_class, 1>
     {        
         // common object header
         db0::o_object_header m_header;
@@ -81,6 +83,9 @@ DB0_PACKED_BEGIN
         UniqueAddress m_singleton_address = {};
         const std::uint32_t m_base_class_ref;
         const std::uint32_t m_num_bases;
+
+        // Version 1 fields.
+        db0_ptr<FieldSafe> m_field_safe_ptr;
         
         o_class(RC_LimitedStringPool &, const std::string &name, std::optional<std::string> module_name,
             const VFieldMatrix &, const VFidelityVector &, const Schema &, const char *type_id, const char *prefix_name, ClassFlags,
@@ -108,6 +113,7 @@ DB0_PACKED_END
     public:
         static constexpr std::uint32_t SLOT_NUM = Fixture::TYPE_SLOT_NUM;
         static constexpr unsigned int PRIMARY_FIDELITY = 2;
+        static constexpr std::uint16_t FIELD_SAFE_MIN_VERSION = 1;
         
         struct Member
         {
@@ -172,6 +178,9 @@ DB0_PACKED_END
         bool isProtectFields() const;
         void setProtectFields();
         void resetProtectFields();
+        bool hasFieldSafe() const;
+        FieldSafe &getFieldSafe();
+        const FieldSafe &getFieldSafe() const;
         
         /**
          * Check if this class has an associated singleton instance
@@ -315,6 +324,7 @@ DB0_PACKED_END
         // only holds non-default fidelities (i.e. > 0)
         VFidelityVector m_fidelities;
         Schema m_schema;
+        mutable std::optional<FieldSafe> m_field_safe;
         std::shared_ptr<Class> m_base_class_ptr;
         
         // Field by-name index (cache)
@@ -334,6 +344,9 @@ DB0_PACKED_END
         std::function<void(const Member &)> getRefreshCallback() const;
         // callback for MemberID updates
         void onMemberIDUpdated(const MemberID &) const;
+        void assertFieldSafeSupported() const;
+        FieldSafe &ensureFieldSafe();
+        void openFieldSafe() const;
         // translate member's field ID into a unique key
         FieldID getPrimaryKey(unsigned int index) const;
         

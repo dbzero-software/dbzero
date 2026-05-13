@@ -16,6 +16,11 @@ namespace tests
         this->incRef(false);
         this->incRef(false);
     }
+
+    void SubClass::forceObjVersionForTest(std::uint16_t version)
+    {
+        *reinterpret_cast<std::uint16_t*>(&this->modify()) = version;
+    }
     
     std::shared_ptr<Class> getTestClass(db0::swine_ptr<Fixture> &fixture)
     {
