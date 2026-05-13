@@ -11,7 +11,7 @@
 #include <dbzero/object_model/value/StorageClass.hpp>
 #include "Schema.hpp"
 
-DEFINE_ENUM_VALUES(db0::ClassOptions, "SINGLETON", "NO_DEFAULT_TAGS", "IMMUTABLE")
+DEFINE_ENUM_VALUES(db0::ClassOptions, "SINGLETON", "NO_DEFAULT_TAGS", "IMMUTABLE", "PROTECT_FIELDS")
 
 namespace db0::object_model
 
@@ -283,6 +283,26 @@ namespace db0::object_model
     
     bool Class::isSingleton() const {
         return (*this)->m_flags[ClassOptions::SINGLETON];
+    }
+
+    bool Class::isNoDefaultTags() const {
+        return (*this)->m_flags[ClassOptions::NO_DEFAULT_TAGS];
+    }
+
+    bool Class::isImmutable() const {
+        return (*this)->m_flags[ClassOptions::IMMUTABLE];
+    }
+
+    bool Class::isProtectFields() const {
+        return (*this)->m_flags[ClassOptions::PROTECT_FIELDS];
+    }
+
+    void Class::setProtectFields() {
+        modify().m_flags.set(ClassOptions::PROTECT_FIELDS, true);
+    }
+
+    void Class::resetProtectFields() {
+        modify().m_flags.set(ClassOptions::PROTECT_FIELDS, false);
     }
     
     bool Class::isExistingSingleton() const {

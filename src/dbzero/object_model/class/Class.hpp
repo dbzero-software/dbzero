@@ -34,14 +34,15 @@ namespace db0
         SINGLETON = 0x0001,
         // instances of this type opted out of auto-assigned type tags
         NO_DEFAULT_TAGS = 0x0002,
-        IMMUTABLE = 0x0004
+        IMMUTABLE = 0x0004,
+        PROTECT_FIELDS = 0x0008
     };
 
     using ClassFlags = db0::FlagSet<ClassOptions>;
 
 }
 
-DECLARE_ENUM_VALUES(db0::ClassOptions, 3)
+DECLARE_ENUM_VALUES(db0::ClassOptions, 4)
 
 namespace db0::object_model
 
@@ -165,7 +166,12 @@ DB0_PACKED_END
          * Check if this is a singleton class
         */
         bool isSingleton() const;
+        bool isNoDefaultTags() const;
+        bool isImmutable() const;
         bool assignDefaultTags() const;
+        bool isProtectFields() const;
+        void setProtectFields();
+        void resetProtectFields();
         
         /**
          * Check if this class has an associated singleton instance

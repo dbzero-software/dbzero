@@ -22,6 +22,8 @@ namespace db0::python
     PyObject *PyAPI_PyClass_type_exists(PyObject *, PyObject *);
     PyObject *PyAPI_PyClass_get_attributes(PyObject *, PyObject *);
     PyObject *PyAPI_PyClass_type_info(PyObject *, PyObject *);
+    PyObject *PyAPI_PyClass_get_type_flags(PyObject *, PyObject *);
+    PyObject *PyAPI_PyClass_reset_protect_fields(PyObject *, PyObject *);
 
     extern PyTypeObject ClassObjectType;
     

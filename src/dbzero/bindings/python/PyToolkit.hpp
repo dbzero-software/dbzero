@@ -205,6 +205,7 @@ namespace db0::python
         static bool isNoCache(TypeObjectPtr);
         // type marked as immutable
         static bool isImmutable(TypeObjectPtr);
+        static bool isProtectFields(TypeObjectPtr);
         static FlagSet<MemoOptions> getMemoFlags(TypeObjectPtr);
         
         inline static void incRef(ObjectPtr py_object) {
