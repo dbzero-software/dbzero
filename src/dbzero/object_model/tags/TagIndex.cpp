@@ -1133,10 +1133,8 @@ namespace db0::object_model
         flush();
         m_base_index_short.commit();
         m_base_index_long.commit();
+        // no need to commit invdividual nested intances since they're managed by cache
         if (m_short_tag_index_map) {
-            m_short_tag_index_map->forEachActive([](TagIndex &tag_index) {
-                tag_index.commit();
-            });
             m_short_tag_index_map->commit();
         }
         super_t::commit();
@@ -1146,10 +1144,8 @@ namespace db0::object_model
     {
         m_base_index_short.detach();
         m_base_index_long.detach();
+        // no need to detach invdividual nested intances since they're managed by cache
         if (m_short_tag_index_map) {
-            m_short_tag_index_map->forEachActive([](TagIndex &tag_index) {
-                tag_index.detach();
-            });
             m_short_tag_index_map->detach();
         }
         super_t::detach();
@@ -1175,7 +1171,8 @@ namespace db0::object_model
         return m_short_tag_index_map.get();
     }
 
-    TagIndex::ShortTagIndexMap &TagIndex::getShortTagIndexMap() {
+    TagIndex::ShortTagIndexMap &TagIndex::getShortTagIndexMap()
+    {
         if (!m_short_tag_index_map) {
             m_short_tag_index_map = std::make_unique<ShortTagIndexMap>(getMemspace(), m_cache);
             modify().m_reserved[0] = m_short_tag_index_map->getAddress().getOffset();
