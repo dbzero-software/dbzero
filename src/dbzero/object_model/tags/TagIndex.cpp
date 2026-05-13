@@ -4,6 +4,7 @@
 #include "TagIndex.hpp"
 #include "ObjectIterator.hpp"
 #include "OR_QueryObserver.hpp"
+#include "CompositeTagDef.hpp"
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/object_model/iterators.hpp>
@@ -133,8 +134,10 @@ namespace db0::object_model
         , m_string_pool(string_pool)
         , m_class_factory(class_factory)
         , m_enum_factory(enum_factory)
+        , m_cache(cache)
         , m_base_index_short(memspace, cache)
         , m_base_index_long(memspace, cache)
+        , m_short_tag_index_map(std::make_unique<ShortTagIndexMap>(memspace, cache))
         , m_fixture(enum_factory.getFixture())
         , m_fixture_uuid(enum_factory.getFixture()->getUUID())
         , m_mutation_log(mutation_log)
@@ -142,6 +145,7 @@ namespace db0::object_model
         assert(mutation_log);
         modify().m_base_index_short_ptr = m_base_index_short.getAddress();
         modify().m_base_index_long_ptr = m_base_index_long.getAddress();
+        modify().m_reserved[0] = m_short_tag_index_map->getAddress().getOffset();
     }
     
     TagIndex::TagIndex(mptr ptr, ClassFactory &class_factory, EnumFactory &enum_factory,
@@ -150,6 +154,7 @@ namespace db0::object_model
         , m_string_pool(string_pool)
         , m_class_factory(class_factory)
         , m_enum_factory(enum_factory)
+        , m_cache(cache)
         , m_base_index_short(myPtr((*this)->m_base_index_short_ptr), cache)
         , m_base_index_long(myPtr((*this)->m_base_index_long_ptr), cache)
         , m_fixture(enum_factory.getFixture())
@@ -157,6 +162,12 @@ namespace db0::object_model
         , m_mutation_log(mutation_log)
     {
         assert(mutation_log);
+        if ((*this)->m_reserved[0] != 0) {
+            m_short_tag_index_map = std::make_unique<ShortTagIndexMap>(
+                myPtr(Address::fromOffset((*this)->m_reserved[0])),
+                cache
+            );
+        }
     }
     
     TagIndex::~TagIndex()
@@ -268,6 +279,56 @@ namespace db0::object_model
         batch_operation->addTags(active_key, TagPtrSequence(&tag, &tag + 1));        
         m_mutation_log->onDirty();        
     }
+
+    std::shared_ptr<TagIndex> TagIndex::addComposite(ObjectPtr, ShortTagT tag)
+    {
+        return getShortTagIndexMap().findOrCreate(
+            tag,
+            m_class_factory,
+            m_enum_factory,
+            m_string_pool,
+            m_cache,
+            m_mutation_log
+        );
+    }
+
+    std::shared_ptr<TagIndex> TagIndex::tryUpdateComposite(ObjectPtr, ShortTagT tag)
+    {
+        if (!m_short_tag_index_map) {
+            return nullptr;
+        }
+
+        return m_short_tag_index_map->tryGet(
+            tag,
+            m_class_factory,
+            m_enum_factory,
+            m_string_pool,
+            m_cache,
+            m_mutation_log
+        );
+    }
+
+    TagIndex::ShortTagT TagIndex::addCompositeKey(ObjectPtr arg)
+    {
+        bool inc_ref = false;
+        auto result = tryAddShortTag(arg, inc_ref);
+        if (!result) {
+            THROWF(db0::InputException) << "Unable to add foreign composite tag";
+        }
+        if (inc_ref) {
+            m_inc_refed_tags.insert(*result);
+        }
+        return *result;
+    }
+
+    TagIndex::ShortTagT TagIndex::getCompositeKey(ObjectPtr arg) const
+    {
+        auto result = tryGetCompositeKey(arg);
+        if (!result) {
+            THROWF(db0::InputException) << "Unable to resolve foreign composite tag key" << THROWF_END;
+        }
+        return *result;
+    }
     
     void TagIndex::removeTypeTag(UniqueAddress obj_addr, Address tag_addr)
     {
@@ -291,12 +352,12 @@ namespace db0::object_model
             if (type_id != TypeId::STRING && LangToolkit::isIterable(args[i])) {
                 batch_operation->removeTags(active_key,
                     IterableSequence(LangToolkit::getIterator(args[i]), ForwardIterator::end(), [&](ObjectSharedPtr arg) {
-                        return getShortTag(arg.get());
+                        return getCompositeKey(arg.get());
                     })
                 );
                 m_mutation_log->onDirty();
             } else {
-                batch_operation->removeTag(active_key, getShortTag(type_id, args[i]));
+                batch_operation->removeTag(active_key, getCompositeKey(args[i]));
                 m_mutation_log->onDirty();
             }
         }
@@ -304,6 +365,12 @@ namespace db0::object_model
     
     void TagIndex::rollback()
     {
+        if (m_short_tag_index_map) {
+            m_short_tag_index_map->forEachActive([](TagIndex &tag_index) {
+                tag_index.rollback();
+            });
+        }
+
         // Reject any pending updates
         if (m_batch_op_short) {
             m_batch_op_short.reset();
@@ -333,6 +400,12 @@ namespace db0::object_model
     
     void TagIndex::close()
     {
+        if (m_short_tag_index_map) {
+            m_short_tag_index_map->forEachActive([](TagIndex &tag_index) {
+                tag_index.close();
+            });
+        }
+
         if (m_batch_op_short) {
             m_batch_op_short.reset();
         }
@@ -364,14 +437,47 @@ namespace db0::object_model
         }
     }
     
-    void TagIndex::flush() const
+    bool TagIndex::flush() const
     {
         using ShortBatchOperationBulder = db0::FT_BaseIndex<ShortTagT>::BatchOperationBuilder;
-        
-        if (empty()) {
-            return;
+
+        bool composite_indexes_contain_values = false;
+        auto hasPersistedValues = [&]() {
+            return !m_base_index_short.empty() || !m_base_index_long.empty() || composite_indexes_contain_values;
+        };
+
+        if (m_short_tag_index_map) {
+            std::vector<ShortTagT> emptyCompositeTags;
+            m_short_tag_index_map->forEachActive([this, &composite_indexes_contain_values, &emptyCompositeTags](TagIndex &tag_index) {
+                if (tag_index.flush()) {
+                    composite_indexes_contain_values = true;
+                    return;
+                }
+
+                auto tag_index_address = tag_index.getAddress();
+                for (auto it = m_short_tag_index_map->begin(); it != m_short_tag_index_map->end(); ++it) {
+                    if ((*it).value == tag_index_address) {
+                        emptyCompositeTags.push_back((*it).key);
+                        return;
+                    }
+                }
+            });
+            for (auto tag: emptyCompositeTags) {
+                m_short_tag_index_map->erase(
+                    tag,
+                    m_class_factory,
+                    m_enum_factory,
+                    m_string_pool,
+                    m_cache,
+                    m_mutation_log
+                );
+            }
         }
         
+        if (empty()) {
+            return hasPersistedValues();
+        }
+                
         // this is to resolve addresses of incomplete objects (must be done before flushing)
         buildActiveValues();
         auto &type_manager = LangToolkit::getTypeManager();
@@ -480,6 +586,7 @@ namespace db0::object_model
             }
         }
         m_inc_refed_tags.clear();
+        return hasPersistedValues();
     }
     
     void TagIndex::buildActiveValues() const
@@ -550,6 +657,10 @@ namespace db0::object_model
         using IterableSequence = TagMakerSequence<ForwardIterator, ObjectSharedPtr>;
         
         auto type_id = LangToolkit::getTypeManager().getTypeId(arg);
+        if (type_id == TypeId::DB0_COMPOSITE_TAG) {
+            return addCompositeIterator(LangToolkit::getTypeManager().extractCompositeTag(arg), factory, query_observers);
+        }
+
         // simple tag-convertible type
         if (type_id == TypeId::STRING || type_id == TypeId::DB0_TAG || type_id == TypeId::DB0_ENUM_VALUE || 
             type_id == TypeId::DB0_CLASS)
@@ -656,6 +767,79 @@ namespace db0::object_model
         
         THROWF(db0::InputException) << "Unable to interpret object of type: " << LangToolkit::getTypeName(arg)
             << " as a query" << THROWF_END;
+    }
+
+    bool TagIndex::addCompositeIterator(const CompositeTagDef &tag,
+        db0::FT_IteratorFactory<UniqueAddress> &factory,
+        std::vector<std::unique_ptr<QueryObserver> > &query_observers) const
+    {
+        if (tag.size() < 2 || !m_short_tag_index_map) {
+            return false;
+        }
+
+        auto const &items = tag.getItems();
+        auto firstKey = tryGetCompositeKey(items[0].get());
+        if (!firstKey) {
+            return false;
+        }
+
+        auto currentTagIndexPtr = m_short_tag_index_map->tryGet(
+            *firstKey,
+            m_class_factory,
+            m_enum_factory,
+            m_string_pool,
+            m_cache,
+            m_mutation_log
+        );
+        if (!currentTagIndexPtr) {
+            return false;
+        }
+
+        auto *currentTagIndex = currentTagIndexPtr.get();
+        for (std::size_t i = 1; i + 1 < items.size(); ++i) {
+            auto key = currentTagIndex->tryGetCompositeKey(items[i].get());
+            if (!key || !currentTagIndex->m_short_tag_index_map) {
+                return false;
+            }
+            currentTagIndexPtr = currentTagIndex->m_short_tag_index_map->tryGet(
+                *key,
+                currentTagIndex->m_class_factory,
+                currentTagIndex->m_enum_factory,
+                currentTagIndex->m_string_pool,
+                currentTagIndex->m_cache,
+                currentTagIndex->m_mutation_log
+            );
+            if (!currentTagIndexPtr) {
+                return false;
+            }
+            currentTagIndex = currentTagIndexPtr.get();
+        }
+
+        std::vector<std::unique_ptr<QueryIterator> > negIterators;
+        auto result = currentTagIndex->addIterator(items.back().get(), factory, negIterators, query_observers);
+        if (!negIterators.empty()) {
+            THROWF(db0::InputException) << "Negated composite tag leaves are not supported" << THROWF_END;
+        }
+        return result;
+    }
+
+    std::optional<TagIndex::ShortTagT> TagIndex::tryGetCompositeKey(ObjectPtr arg) const
+    {
+        using TypeId = db0::bindings::TypeId;
+
+        auto typeId = LangToolkit::getTypeManager().getTypeId(arg);
+        if (typeId == TypeId::MEMO_OBJECT) {
+            return tryAddShortTagFromMemo(arg);
+        }
+        if (typeId == TypeId::DB0_TAG) {
+            return tryAddShortTagFromTag(arg);
+        }
+        if (typeId == TypeId::STRING || typeId == TypeId::DB0_ENUM_VALUE || typeId == TypeId::DB0_ENUM_VALUE_REPR ||
+            typeId == TypeId::DB0_FIELD_DEF || typeId == TypeId::DB0_CLASS)
+        {
+            return getShortTag(typeId, arg);
+        }
+        return std::nullopt;
     }
     
     TagIndex::ShortTagT TagIndex::getShortTag(TypeId type_id, ObjectPtr py_arg, ObjectSharedPtr *alt_repr) const
@@ -949,6 +1133,10 @@ namespace db0::object_model
         flush();
         m_base_index_short.commit();
         m_base_index_long.commit();
+        // no need to commit invdividual nested intances since they're managed by cache
+        if (m_short_tag_index_map) {
+            m_short_tag_index_map->commit();
+        }
         super_t::commit();
     }
     
@@ -956,6 +1144,10 @@ namespace db0::object_model
     {
         m_base_index_short.detach();
         m_base_index_long.detach();
+        // no need to detach invdividual nested intances since they're managed by cache
+        if (m_short_tag_index_map) {
+            m_short_tag_index_map->detach();
+        }
         super_t::detach();
     }
 
@@ -969,6 +1161,31 @@ namespace db0::object_model
 
     const db0::FT_BaseIndex<LongTagT> &TagIndex::getBaseIndexLong() const {
         return m_base_index_long;
+    }
+
+    TagIndex::ShortTagIndexMap *TagIndex::tryGetShortTagIndexMap() {
+        return m_short_tag_index_map.get();
+    }
+
+    const TagIndex::ShortTagIndexMap *TagIndex::tryGetShortTagIndexMap() const {
+        return m_short_tag_index_map.get();
+    }
+
+    TagIndex::ShortTagIndexMap &TagIndex::getShortTagIndexMap()
+    {
+        if (!m_short_tag_index_map) {
+            m_short_tag_index_map = std::make_unique<ShortTagIndexMap>(getMemspace(), m_cache);
+            modify().m_reserved[0] = m_short_tag_index_map->getAddress().getOffset();
+            m_mutation_log->onDirty();
+        }
+        return *m_short_tag_index_map;
+    }
+
+    const TagIndex::ShortTagIndexMap &TagIndex::getShortTagIndexMap() const {
+        if (!m_short_tag_index_map) {
+            THROWF(db0::InternalException) << "Short tag index map not initialized" << THROWF_END;
+        }
+        return *m_short_tag_index_map;
     }
 
     std::unique_ptr<TagIndex::QueryIterator> TagIndex::makeIterator(ObjectPtr obj_ptr) const {
@@ -1132,17 +1349,35 @@ namespace db0::object_model
     }
     
     bool TagIndex::empty() const {
-        return m_batch_op_short.empty() && m_batch_op_long.empty() && m_batch_op_types.empty();
+        if (!m_batch_op_short.empty() || !m_batch_op_long.empty() || !m_batch_op_types.empty()) {
+            return false;
+        }
+
+        if (m_short_tag_index_map) {
+            bool all_composite_indexes_empty = true;
+            m_short_tag_index_map->forEachActive([&all_composite_indexes_empty](TagIndex &tag_index) {
+                if (!tag_index.empty()) {
+                    all_composite_indexes_empty = false;
+                    return false;
+                }
+                return true;
+            });
+            return all_composite_indexes_empty;
+        }
+
+        return true;
     }
     
     bool TagIndex::assureEmpty() const
     {
-        if (empty()) {
-            m_batch_op_short.clear();
-            m_batch_op_long.clear();
-            m_batch_op_types.clear();
+        if (!m_batch_op_short.empty() || !m_batch_op_long.empty() || !m_batch_op_types.empty()) {
+            return false;
         }
-        return false;
+
+        m_batch_op_short.clear();
+        m_batch_op_long.clear();
+        m_batch_op_types.clear();
+        return true;
     }
 
     bool isObjectPendingUpdate(db0::swine_ptr<Fixture> &fixture, UniqueAddress addr)

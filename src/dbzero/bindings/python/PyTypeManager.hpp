@@ -41,6 +41,7 @@ namespace db0::object_model {
     struct EnumValueRepr;
     struct FieldDef;
     class TagDef;
+    class CompositeTagDef;
     class ByteArray;
     class PyWeakProxy;
     
@@ -86,6 +87,7 @@ namespace db0::python
         using FieldDef = db0::object_model::FieldDef;
         using Class = db0::object_model::Class;
         using TagDef = db0::object_model::TagDef;
+        using CompositeTagDef = db0::object_model::CompositeTagDef;
         using ByteArray = db0::object_model::ByteArray;
 
         PyTypeManager();
@@ -151,6 +153,7 @@ namespace db0::python
         ObjectPtr getLangObject(TypeObjectPtr py_type) const;
         std::shared_ptr<const Class> extractConstClass(ObjectPtr py_class) const;
         const TagDef &extractTag(ObjectPtr py_tag) const;
+        const CompositeTagDef &extractCompositeTag(ObjectPtr py_tag) const;
         ByteArray &extractMutableByteArray(ObjectPtr) const;
         
         ObjectPtr getBadPrefixError() const;

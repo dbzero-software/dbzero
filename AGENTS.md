@@ -16,17 +16,23 @@ All tests must pass before a change is considered complete.
 
 ### Building
 
-- Debug build: `./docker/dbzero-build.sh`
-- Release build: `./docker/dbzero-build.sh -r`
+- Debug build: `./scripts/build.sh`
+- Release build: `./scripts/build.sh -r`
+- Release build with C++ unit test binary: `./scripts/build.sh -r -t`
 
 ### Running tests
 
 - Python tests: `./scripts/run_tests.sh`
+- C++ tests after a `-t` build: `./build/release/tests.x`
 - If any C++ source under the native/core part of the project was modified, also run the C++ test suite (do not rely on the Python tests alone to cover native changes).
 
 Never mark a task done while tests are failing.
 
 ## Implementation notes
+
+### C++ style
+
+- Use camelCase for local helper variables, lambdas, and method names in C++ code.
 
 ### MorphingBIndex: address and type can change on mutation
 

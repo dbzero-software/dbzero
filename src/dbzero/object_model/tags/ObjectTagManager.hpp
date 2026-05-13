@@ -58,6 +58,9 @@ namespace db0::object_model
 
             void add(ObjectPtr const *args, Py_ssize_t nargs);
             void remove(ObjectPtr const *args, Py_ssize_t nargs);
+            bool hasCompositeTags(ObjectPtr const *args, Py_ssize_t nargs) const;
+            void addComposite(ObjectPtr);
+            void removeComposite(ObjectPtr);
             
             db0::swine_ptr<Fixture> getFixture() const;
         };

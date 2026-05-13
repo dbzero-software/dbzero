@@ -36,6 +36,7 @@
 #include <dbzero/bindings/python/types/PyClassFields.hpp>
 #include <dbzero/bindings/python/types/PyClass.hpp>
 #include <dbzero/bindings/python/types/PyTag.hpp>
+#include <dbzero/bindings/python/types/PyCompositeTag.hpp>
 #include <dbzero/bindings/python/types/PyDecimal.hpp>
 #include <dbzero/core/utils/ProcessTimer.hpp>
 
@@ -84,6 +85,7 @@ namespace db0::python
         addStaticSimpleType(decimal_type, TypeId::DECIMAL);
         // dbzero extension types
         addStaticdbzeroType(&PyTagType, TypeId::DB0_TAG);
+        addStaticdbzeroType(&PyCompositeTagType, TypeId::DB0_COMPOSITE_TAG);
         addStaticdbzeroType(&TagSetType, TypeId::DB0_TAG_SET);
         addStaticdbzeroType(&IndexObjectType, TypeId::DB0_INDEX);
         addStaticdbzeroType(&ListObjectType, TypeId::DB0_LIST);
@@ -595,6 +597,12 @@ namespace db0::python
     {
         assert(PyTag_Check(py_tag));
         return reinterpret_cast<PyTag*>(py_tag)->ext();
+    }
+
+    const PyTypeManager::CompositeTagDef &PyTypeManager::extractCompositeTag(ObjectPtr py_tag) const
+    {
+        assert(PyCompositeTag_Check(py_tag));
+        return reinterpret_cast<PyCompositeTag*>(py_tag)->ext();
     }
     
     const MemoTypeDecoration &PyTypeManager::getMemoTypeDecoration(TypeObjectPtr py_type) const

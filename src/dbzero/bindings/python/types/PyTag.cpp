@@ -2,6 +2,7 @@
 // Copyright (c) 2025 DBZero Software sp. z o.o.
 
 #include "PyTag.hpp"
+#include "PyCompositeTag.hpp"
 #include <dbzero/bindings/python/Memo.hpp>
 #include <dbzero/bindings/python/MemoExpiredRef.hpp>
 #include <dbzero/object_model/object/Object.hpp>
@@ -99,13 +100,77 @@ namespace db0::python
         py_tag->makeNew(expired_ref.getFixtureUUID(), expired_ref.getAddress(), py_obj);
         return py_tag;
     }
+
+    CompositeTagDef::ObjectSharedPtr makeCompositeItem(PyObject *arg)
+    {
+        if (PyTag_Check(arg) || PyCompositeTag_Check(arg)) {
+            return CompositeTagDef::ObjectSharedPtr(arg);
+        }
+        if (PyMemo_Check<MemoObject>(arg)) {
+            return CompositeTagDef::ObjectSharedPtr(tryMemoAsTag<MemoObject>(arg), false);
+        }
+        if (PyMemo_Check<MemoImmutableObject>(arg)) {
+            return CompositeTagDef::ObjectSharedPtr(tryMemoAsTag<MemoImmutableObject>(arg), false);
+        }
+        if (PyType_Check(arg)) {
+            auto *py_type = reinterpret_cast<PyTypeObject*>(arg);
+            if (PyAnyMemoType_Check(py_type)) {
+                return CompositeTagDef::ObjectSharedPtr(tryMemoTypeAsTag(py_type), false);
+            }
+        }
+        if (MemoExpiredRef_Check(arg)) {
+            return CompositeTagDef::ObjectSharedPtr(tryMemoExpiredRefAsTag(arg), false);
+        }
+        return CompositeTagDef::ObjectSharedPtr(arg);
+    }
+
+    PyObject *tryCompositeAsTag(PyObject *const *args, Py_ssize_t nargs)
+    {
+        std::vector<CompositeTagDef::ObjectSharedPtr> items;
+        items.reserve(nargs);
+        for (Py_ssize_t i = 0; i < nargs; ++i) {
+            items.push_back(makeCompositeItem(args[i]));
+        }
+        if (items.size() < 2) {
+            THROWF(db0::InputException) << "as_tag: composite tag requires at least 2 items" << THROWF_END;
+        }
+        auto *py_tag = PyCompositeTagDefault_new();
+        py_tag->makeNew(std::move(items));
+        return reinterpret_cast<PyObject*>(py_tag);
+    }
+
+    PyObject *tryCompositeTupleAsTag(PyObject *arg)
+    {
+        auto length = PyTuple_Size(arg);
+        if (length < 0) {
+            THROWF(db0::InputException) << "as_tag: unable to read tuple" << THROWF_END;
+        }
+
+        std::vector<CompositeTagDef::ObjectSharedPtr> items;
+        items.reserve(length);
+        for (Py_ssize_t i = 0; i < length; ++i) {
+            items.push_back(makeCompositeItem(PyTuple_GET_ITEM(arg, i)));
+        }
+        if (items.size() < 2) {
+            THROWF(db0::InputException) << "as_tag: composite tag requires at least 2 items" << THROWF_END;
+        }
+        auto *py_tag = PyCompositeTagDefault_new();
+        py_tag->makeNew(std::move(items));
+        return reinterpret_cast<PyObject*>(py_tag);
+    }
     
     PyObject *PyAPI_as_tag(PyObject *, PyObject *const *args, Py_ssize_t nargs)
     {
         PY_API_FUNC
-        if (nargs != 1) {
-            PyErr_SetString(PyExc_TypeError, "as_tag: Expected 1 argument");
+        if (nargs == 0) {
+            PyErr_SetString(PyExc_TypeError, "as_tag: Expected at least 1 argument");
             return NULL;
+        }
+        if (nargs > 1) {
+            return runSafe(tryCompositeAsTag, args, nargs);
+        }
+        if (PyTuple_Check(args[0])) {
+            return runSafe(tryCompositeTupleAsTag, args[0]);
         }
         if (PyMemo_Check<MemoObject>(args[0])) {
             return runSafe(tryMemoAsTag<MemoObject>, args[0]);

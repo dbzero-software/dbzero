@@ -84,6 +84,39 @@ def test_tags_can_be_applied_to_multiple_objects(db0_fixture):
     assert len(list(db0.find("tag1"))) == 3
 
 
+def test_adding_same_tag_after_reopen_without_querying_updates_inverted_list(db0_fixture):
+    prefix_name = db0.get_current_prefix().name
+    initial_values = range(64)
+    for value in initial_values:
+        db0.tags(MemoClassForTags(value)).add("tag1")
+
+    db0.close()
+    db0.init(DB0_DIR)
+    db0.open(prefix_name)
+
+    additional_values = range(64, 80)
+    for value in additional_values:
+        db0.tags(MemoClassForTags(value)).add("tag1")
+
+    assert {obj.value for obj in db0.find(MemoClassForTags, "tag1")} == set(range(80))
+
+
+def test_adding_same_tag_after_reopen_with_existing_object_in_cache(db0_fixture):
+    prefix_name = db0.get_current_prefix().name
+    object_1 = MemoClassForTags(1)
+    object_1_uuid = db0.uuid(object_1)
+    db0.tags(object_1).add("tag1")
+
+    db0.close()
+    db0.init(DB0_DIR)
+    db0.open(prefix_name)
+
+    assert db0.fetch(object_1_uuid).value == 1
+    db0.tags(MemoClassForTags(2)).add("tag1")
+
+    assert {obj.value for obj in db0.find(MemoClassForTags, "tag1")} == {1, 2}
+
+
 def test_tag_queries_can_use_or_filters(db0_fixture):
     objects = [MemoClassForTags(i) for i in range(10)]
     db0.tags(objects[4]).add(["tag1", "tag2"])
