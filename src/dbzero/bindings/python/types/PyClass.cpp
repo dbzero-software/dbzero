@@ -117,7 +117,7 @@ namespace db0::python
 
     PyObject *tryPyClassResetProtectFields(PyObject *self)
     {
-        const_cast<db0::object_model::Class&>(reinterpret_cast<ClassObject*>(self)->ext()).resetProtectFields();
+        reinterpret_cast<ClassObject*>(self)->modifyExt().resetProtectFields();
         Py_RETURN_NONE;
     }
 
@@ -143,7 +143,7 @@ namespace db0::python
     ClassObject *makeClass(std::shared_ptr<db0::object_model::Class> class_ptr)
     {
         auto class_obj = ClassDefaultObject_new();
-        class_obj.get()->makeNew(std::dynamic_pointer_cast<const db0::object_model::Class>(class_ptr));
+        class_obj.get()->makeNew(class_ptr);
         return class_obj.steal();
     }
     

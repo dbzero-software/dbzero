@@ -277,6 +277,23 @@ namespace tests
         ASSERT_EQ(mapper.getFieldOffsetRange(), next_offset);
     }
 
+    TEST_F( FieldIDMapperTest , testRepeatedNamedFieldIDAssignmentReusesExistingFieldMapping )
+    {
+        auto memspace = getMemspace();
+        TestFieldIDMapper mapper(memspace);
+        auto field_id = FieldID::fromIndex(100, 0);
+
+        auto offset = mapper.onFieldIDAssigned("status", field_id);
+        ASSERT_EQ(mapper.onFieldIDAssigned("status", field_id), offset);
+        auto next_offset = mapper.onFieldIDAssigned("type", FieldID::fromIndex(101, 0));
+
+        ASSERT_EQ(next_offset, offset + 1);
+        ASSERT_EQ(mapper.tryGetAssignedFieldOffset(field_id), offset);
+        ASSERT_EQ(mapper.getFieldIDExceptionMappingCount(), 2u);
+        ASSERT_EQ(mapper.getNameMappingCount(), 0u);
+        ASSERT_EQ(mapper.getFieldOffsetRange(), next_offset);
+    }
+
     TEST_F( FieldIDMapperTest , testClusterAndNameAllocationsDoNotOverlap )
     {
         auto memspace = getMemspace();

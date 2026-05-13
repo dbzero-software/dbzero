@@ -168,18 +168,28 @@ namespace db0::object_model
     
     MemberID Class::addField(const char *name, unsigned int fidelity)
     {
+        return addFieldInternal(name, fidelity, true);
+    }
+
+    MemberID Class::addFieldInternal(const char *name, unsigned int fidelity, bool registerFieldAccess)
+    {
         assert(fidelity < std::numeric_limits<std::uint8_t>::max());
+
         // NOTE: before creating with fidelity = 0 we'll always pre-register
         // a slot for fidelity = 2 which will be used as the PRIMARY identifier
         if (fidelity == 0 && !hasSlot(name, PRIMARY_FIDELITY)) {
-            addField(name, PRIMARY_FIDELITY);
+            addFieldInternal(name, PRIMARY_FIDELITY, false);
         }
         
         auto pos = assignSlot(fidelity);
         // reserve the slot
         m_members.set(pos, o_field { getFixture()->getLimitedStringPool(), name });
         m_member_cache.reload(pos);
-        return m_index[name].first;
+        auto member_id = m_index[name].first;
+        if (registerFieldAccess && m_field_safe) {
+            m_field_safe->getFieldIDMapper().onFieldIDAssigned(name, member_id.primary().first);
+        }
+        return member_id;
     }
     
     bool Class::hasSlot(const char *name, unsigned int fidelity) const
@@ -460,9 +470,6 @@ namespace db0::object_model
         return [this](const Member &member) {
             // this is required before accessing members to prevent segfaults on a defunct object
             auto fixture = getFixture();
-            if (m_field_safe) {
-                m_field_safe->getFieldIDMapper().onFieldIDAssigned(member.m_name.c_str(), member.m_field_id);
-            }
             auto it = m_index.find(member.m_name);
             if (it == m_index.end()) {
                 bool is_init_var = m_init_vars.find(member.m_name) != m_init_vars.end();

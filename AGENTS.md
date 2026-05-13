@@ -41,6 +41,12 @@ Types derived from `v_object` should follow the project-wide constructor pattern
 
 - Use camelCase for local helper variables, lambdas, and method names in C++ code.
 
+### Python binding wrapper access
+
+When accessing a C++ object stored inside a Python wrapper, use `ext()` for read-only operations and for operations that are explicitly documented as non-mutating wrapper/runtime attachment updates.
+
+Use `modifyExt()` for real object mutations, especially durable state changes. Do not use `const_cast` on `ext()` to call a mutating method. If a wrapper currently exposes only a const object but needs a mutating API, change the wrapper type or access path so the mutation can go through `modifyExt()`.
+
 ### MorphingBIndex: address and type can change on mutation
 
 A `MorphingBIndex` does not behave like a typical container. On mutation (`insert`, `erase`) it may morph into a different internal storage variant (itty / array_2..4 / vector / bindex), and the morph can change both its **address** and its **type**.

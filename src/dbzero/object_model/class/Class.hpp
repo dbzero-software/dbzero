@@ -346,6 +346,7 @@ DB0_PACKED_END
         // A function to retrieve the total number of instances of the schema
         std::function<unsigned int()> getTotalFunc() const;
         std::function<void(const Member &)> getRefreshCallback() const;
+        MemberID addFieldInternal(const char *name, unsigned int fidelity, bool registerFieldAccess);
         // callback for MemberID updates
         void onMemberIDUpdated(const MemberID &) const;
         void assertFieldSafeSupported() const;

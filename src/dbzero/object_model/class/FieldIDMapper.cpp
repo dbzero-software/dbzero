@@ -323,6 +323,11 @@ namespace db0::object_model
         assert(field_name);
         auto maybe_offset = tryGetNameOffset(field_name);
         if (!maybe_offset) {
+            auto maybe_field_offset = tryGetAssignedFieldOffset(field_id);
+            if (maybe_field_offset) {
+                recordFieldOffsetRange(*maybe_field_offset);
+                return *maybe_field_offset;
+            }
             return assignFieldExceptionOffset(field_id, assignNextNameOffset());
         }
 
