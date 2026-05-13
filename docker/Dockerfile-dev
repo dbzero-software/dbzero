@@ -46,6 +46,8 @@ RUN chmod 777 "$(cat /proc/sys/kernel/core_pattern | sed 's/%.*//')"
 RUN groupadd --gid "$USER_GID" "$USERNAME" \
   && useradd --uid "$USER_UID" --gid "$USER_GID" --create-home --shell /bin/bash "$USERNAME"
 
+RUN chown -R "$USERNAME:$USERNAME" /usr/local/lib/python3.11/site-packages /usr/local/bin
+
 WORKDIR /usr/src/dbzero
 USER $USERNAME
 # RUN ./build.sh -r
