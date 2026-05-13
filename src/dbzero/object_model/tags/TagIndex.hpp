@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <dbzero/core/serialization/FixedVersioned.hpp>
 #include <dbzero/core/memory/Memspace.hpp>
+#include <dbzero/core/collections/map/VInstanceMap.hpp>
 #include <dbzero/core/collections/full_text/FT_BaseIndex.hpp>
 #include <dbzero/object_model/object/ObjectAnyImpl.hpp>
 #include <dbzero/core/collections/pools/StringPools.hpp>
@@ -24,6 +25,7 @@ namespace db0::object_model
     using RC_LimitedStringPool = db0::pools::RC_LimitedStringPool;
     using LongTagT = db0::LongTagT;
     class EnumFactory;
+    class CompositeTagDef;
 
 DB0_PACKED_BEGIN    
     struct DB0_PACKED_ATTR o_tag_index: public o_fixed_versioned<o_tag_index>
@@ -52,6 +54,7 @@ DB0_PACKED_END
         using TP_Iterator = TagProduct<UniqueAddress>;
         // string tokens and classes are represented as short tags
         using ShortTagT = std::uint64_t;
+        using ShortTagIndexMap = db0::VInstanceMap<ShortTagT, TagIndex>;
         
         TagIndex(Memspace &memspace, ClassFactory &, EnumFactory &, RC_LimitedStringPool &, VObjectCache &,
             std::shared_ptr<MutationLog> mutation_log);
@@ -63,6 +66,12 @@ DB0_PACKED_END
         // @param is_type true for implicilty assigned type tags
         void addTag(ObjectPtr memo_ptr, ShortTagT tag_addr, bool is_type);
         void addTag(ObjectPtr memo_ptr, Address tag_addr, bool is_type);
+        // add the high-order part of the composite tag
+        std::shared_ptr<TagIndex> addComposite(ObjectPtr memo_ptr, ShortTagT);
+        // For modifying composite tags
+        std::shared_ptr<TagIndex> tryUpdateComposite(ObjectPtr memo_ptr, ShortTagT);
+        ShortTagT addCompositeKey(ObjectPtr);
+        ShortTagT getCompositeKey(ObjectPtr) const;
         
         // add a tag using long identifier
         void addTag(ObjectPtr memo_ptr, LongTagT tag_addr);
@@ -96,8 +105,9 @@ DB0_PACKED_END
         // Clears the uncommited contents (rollback)
         void rollback();
 
-        // Flush any pending updates from the internal buffers
-        void flush() const;
+        // Flush any pending updates from the internal buffers.
+        // @return true if this index or any active composite child index contains persisted entries after flushing.
+        bool flush() const;
         
         // Close tag index without flushing any pending updates
         void close();
@@ -109,6 +119,10 @@ DB0_PACKED_END
         db0::FT_BaseIndex<ShortTagT> &getBaseIndexShort();
         const db0::FT_BaseIndex<ShortTagT> &getBaseIndexShort() const;
         const db0::FT_BaseIndex<LongTagT> &getBaseIndexLong() const;
+        ShortTagIndexMap *tryGetShortTagIndexMap();
+        const ShortTagIndexMap *tryGetShortTagIndexMap() const;
+        ShortTagIndexMap &getShortTagIndexMap();
+        const ShortTagIndexMap &getShortTagIndexMap() const;
         
         // add a defunct object (failed on __init__)
         void addDefunct(ObjectPtr memo_ptr) const;
@@ -139,8 +153,11 @@ DB0_PACKED_END
         RC_LimitedStringPool &m_string_pool;
         ClassFactory &m_class_factory;
         EnumFactory &m_enum_factory;
+        VObjectCache &m_cache;
         db0::FT_BaseIndex<ShortTagT> m_base_index_short;
         db0::FT_BaseIndex<LongTagT> m_base_index_long;
+        // For composite tags
+        std::unique_ptr<ShortTagIndexMap> m_short_tag_index_map;
         // Current batch-operation buffer (may not be initialized)
         mutable db0::FT_BaseIndex<ShortTagT>::BatchOperationBuilder m_batch_op_short;
         mutable db0::FT_BaseIndex<LongTagT>::BatchOperationBuilder m_batch_op_long;
@@ -210,6 +227,9 @@ DB0_PACKED_END
         bool addIterator(ObjectPtr, db0::FT_IteratorFactory<UniqueAddress> &factory,
             std::vector<std::unique_ptr<QueryIterator> > &neg_iterators, 
             std::vector<std::unique_ptr<QueryObserver> > &query_observers) const;
+        bool addCompositeIterator(const CompositeTagDef &, db0::FT_IteratorFactory<UniqueAddress> &factory,
+            std::vector<std::unique_ptr<QueryObserver> > &query_observers) const;
+        std::optional<ShortTagT> tryGetCompositeKey(ObjectPtr) const;
         
         bool isShortTag(ObjectPtr) const;
         bool isShortTag(ObjectSharedPtr) const;

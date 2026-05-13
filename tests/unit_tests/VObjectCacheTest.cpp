@@ -37,21 +37,21 @@ namespace tests
         }
     };
     
-	TEST_F( VObjectCacheTests , testVObjecCacheCanCreateNewInstance )
+	TEST_F( VObjectCacheTests , testVObjecCacheCanPullNewInstance )
 	{
         using VType = db0::v_object<o_test_inst>;
         auto memspace = getMemspace();
         VObjectCache cut(memspace, m_sol);
-        auto obj = cut.create<VType>(true);
+        auto obj = cut.pull<VType>(true, memspace);
         ASSERT_EQ(691u, (*obj)->m_value);
 	}
 
-	TEST_F( VObjectCacheTests , testVObjecCacheCanCreateNewInstanceWithArguments )
+	TEST_F( VObjectCacheTests , testVObjecCacheCanPullNewInstanceWithArguments )
 	{
         using VType = db0::v_object<o_test_inst>;
         auto memspace = getMemspace();
         VObjectCache cut(memspace, m_sol);
-        auto obj = cut.create<VType>(true, 81392);
+        auto obj = cut.pull<VType>(true, memspace, 81392);
         ASSERT_EQ(81392u, (*obj)->m_value);
 	}
 
@@ -61,7 +61,7 @@ namespace tests
         auto memspace = getMemspace();
         VObjectCache cut(memspace, m_sol);
         // add to cache first
-        auto address = cut.create<VType>(true, 81392)->getAddress();
+        auto address = cut.pull<VType>(true, memspace, 81392)->getAddress();
         auto obj = cut.tryFind<VType>(address);
         ASSERT_TRUE(obj);
         ASSERT_EQ(81392u, (*obj)->m_value);
@@ -73,11 +73,11 @@ namespace tests
         auto memspace = getMemspace();
         VObjectCache cut(memspace, m_sol);
         std::unordered_set<std::uint64_t> addresses;
-        addresses.insert(cut.create<VType>(true, 81392)->getAddress());
+        addresses.insert(cut.pull<VType>(true, memspace, 81392)->getAddress());
         // add more instances so that the cache size is exhausted
         // use twice the cache size because extra capacity may be assigned by the implementation
         for (std::size_t i = 0; i < CACHE_SIZE * 2; ++i) {
-            addresses.insert(cut.create<VType>(i)->getAddress());
+            addresses.insert(cut.pull<VType>(true, memspace, i)->getAddress());
         }
 
         int existing_count = 0;

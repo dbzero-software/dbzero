@@ -49,7 +49,6 @@ namespace db0::object_model
         using super_t::super_t;
 
         FieldMask() = default;
-        FieldMask(db0::Memspace &, db0::Address);
 
         void setMask(std::uint32_t field_offset, FieldMaskFlags);
         std::optional<FieldMaskFlags> getMask(std::uint32_t field_offset) const;

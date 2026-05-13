@@ -10,11 +10,6 @@ namespace db0::object_model
 
 {
 
-    FieldMask::FieldMask(db0::Memspace &memspace, db0::Address address)
-        : super_t(memspace.myPtr(address))
-    {
-    }
-
     void FieldMask::setMask(std::uint32_t field_offset, FieldMaskFlags mask)
     {
         auto slot = getSlot(field_offset);
@@ -72,7 +67,7 @@ namespace db0::object_model
             return result;
         }
 
-        result = m_cache->create<FieldMask>(true);
+        result = m_cache->pull<FieldMask>(true, m_cache->getMemspace());
         super_t::insert(FieldMaskManagerItem(account_id, result->getAddress()));
         return result;
     }
@@ -89,7 +84,7 @@ namespace db0::object_model
 
     std::shared_ptr<FieldMask> FieldMaskManager::fieldMaskFromAddress(db0::Address address) const
     {
-        return m_cache->findOrCreate<FieldMask>(address, true, address);
+        return m_cache->findOrPull<FieldMask>(address, true, m_cache->getMemspace().myPtr(address));
     }
 
 }
