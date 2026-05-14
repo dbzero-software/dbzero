@@ -441,11 +441,14 @@ namespace db0::python
             auto member_loc = memo_obj->ext().findField(attr_name);
             member = memo_obj->ext().tryGet(member_loc, &is_auto_generated);
             
-            if (member.get() && !is_auto_generated) {
+            if (member.get()) {
                 auto masked = checkProtectedFieldReadAccess(memo_obj, member_loc);
                 if (masked || PyErr_Occurred()) {
                     return masked;
                 }
+            }
+
+            if (member.get() && !is_auto_generated) {
                 return member.steal();
             }
         }
