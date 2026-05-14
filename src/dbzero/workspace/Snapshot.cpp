@@ -64,5 +64,13 @@ namespace db0
     std::optional<AccessType> Snapshot::tryGetAccessType() const {
         return std::nullopt;
     }
+
+    std::shared_ptr<DataMaskingState> Snapshot::getDataMaskingState() const {
+        return {};
+    }
+
+    std::shared_ptr<DataMaskingState> Snapshot::getDataMaskingState(const PrefixName &) const {
+        return {};
+    }
     
 }

@@ -619,6 +619,15 @@ def get_field_access(class_obj: type, account_id: int) -> Iterable[Tuple[str, Tu
     """Return protected-field access flags for a memo class and account."""
     ...
 
+def _init_data_masking(
+    context_var: Any,
+    prefix: Union[str, Any, Sequence[Any], None] = None,
+    missing_value_placeholder: Optional[Any] = None,
+    mode: str = "RELEASE",
+) -> None:
+    """Initialize prefix-scoped data masking for the current process."""
+    ...
+
 # Cache management
 
 def clear_cache() -> None:

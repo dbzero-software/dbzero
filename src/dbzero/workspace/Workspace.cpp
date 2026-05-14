@@ -359,6 +359,7 @@ namespace db0
                     Fixture::formatFixture(Memspace(prefix, allocator), *allocator);
                 }
                 auto fixture = db0::make_swine<Fixture>(*this, prefix, allocator, m_next_locked_section_id);
+                fixture->initMaskingState(getDataMaskingState(prefix_name));
                 if (m_fixture_initializer) {
                     // initialize fixture with a model-specific initializer
                     m_fixture_initializer(fixture, file_created, read_only, false);
@@ -550,6 +551,52 @@ namespace db0
             m_head_view = {};
         }
         return result;
+    }
+
+    void Workspace::initDataMasking(std::shared_ptr<DataMaskingState> state)
+    {
+        if (!m_prefix_data_masking_states.empty()) {
+            THROWF(db0::InputException) << "Data masking is already configured per prefix";
+        }
+        if (m_data_masking_state && m_data_masking_state != state) {
+            THROWF(db0::InputException) << "Data masking is already configured for the workspace";
+        }
+        m_data_masking_state = std::move(state);
+        for (auto &[uuid, fixture]: m_fixtures) {
+            fixture->initMaskingState(m_data_masking_state);
+        }
+    }
+
+    void Workspace::initDataMasking(const PrefixName &prefix_name, std::shared_ptr<DataMaskingState> state)
+    {
+        if (m_data_masking_state) {
+            THROWF(db0::InputException) << "Data masking is already configured for the workspace";
+        }
+        auto [it, inserted] = m_prefix_data_masking_states.emplace(prefix_name.get(), state);
+        if (!inserted && it->second != state) {
+            THROWF(db0::InputException) << "Data masking is already configured for prefix: " << prefix_name;
+        }
+        auto fixture = tryFindFixture(prefix_name);
+        if (fixture) {
+            fixture->initMaskingState(it->second);
+        }
+    }
+
+    std::shared_ptr<DataMaskingState> Workspace::getDataMaskingState() const
+    {
+        return m_data_masking_state;
+    }
+
+    std::shared_ptr<DataMaskingState> Workspace::getDataMaskingState(const PrefixName &prefix_name) const
+    {
+        if (m_data_masking_state) {
+            return m_data_masking_state;
+        }
+        auto it = m_prefix_data_masking_states.find(prefix_name.get());
+        if (it == m_prefix_data_masking_states.end()) {
+            return {};
+        }
+        return it->second;
     }
     
     db0::swine_ptr<Fixture> Workspace::getCurrentFixture()
