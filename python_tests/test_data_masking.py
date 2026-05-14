@@ -38,20 +38,30 @@ def test_init_data_masking_prefix_scoped_lifecycle(db0_fixture):
     )
 
 
-def test_init_data_masking_rejects_general_scope_until_implemented(db0_fixture):
-    with pytest.raises(NotImplementedError, match="prefix"):
-        db0._init_data_masking(account_id)
+def test_init_data_masking_general_scope_lifecycle(db0_fixture):
+    db0._init_data_masking(account_id)
+
+    db0._init_data_masking(account_id, mode="RELEASE")
+
+    with pytest.raises(RuntimeError, match="binding"):
+        db0._init_data_masking(ContextVar("other_general_account_id"))
+
+    db0.open("data-masking-general-prefix")
+    with pytest.raises(RuntimeError, match="binding"):
+        db0._init_data_masking(
+            ContextVar("other_general_prefix_account_id"),
+            prefix="data-masking-general-prefix",
+        )
 
 
-def test_init_data_masking_requires_open_mutable_prefix(db0_fixture):
-    with pytest.raises(ValueError, match="open.*read-write"):
+def test_init_data_masking_requires_open_prefix(db0_fixture):
+    with pytest.raises(ValueError, match="open"):
         db0._init_data_masking(account_id, prefix="not-opened")
 
     db0.open("readonly-data-masking-prefix")
     db0.close("readonly-data-masking-prefix")
     db0.open("readonly-data-masking-prefix", "r")
-    with pytest.raises(ValueError, match="open.*read-write"):
-        db0._init_data_masking(account_id, prefix="readonly-data-masking-prefix")
+    db0._init_data_masking(account_id, prefix="readonly-data-masking-prefix")
 
 
 def test_init_data_masking_rejects_parameter_changes(db0_fixture):

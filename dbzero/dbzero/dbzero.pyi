@@ -625,7 +625,7 @@ def _init_data_masking(
     missing_value_placeholder: Optional[Any] = None,
     mode: str = "RELEASE",
 ) -> None:
-    """Initialize prefix-scoped data masking for the current process."""
+    """Initialize workspace-wide or prefix-scoped data masking for the current process."""
     ...
 
 # Cache management

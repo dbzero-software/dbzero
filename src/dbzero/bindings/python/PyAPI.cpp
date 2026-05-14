@@ -171,12 +171,12 @@ namespace db0::python
             return true;
         }
 
-        bool isOpenReadWriteFixture(const std::string &prefixName)
+        bool isOpenFixture(const std::string &prefixName)
         {
             auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
             auto fixture = workspace.tryFindFixture(PrefixName(prefixName));
-            if (!fixture || fixture->getAccessType() != AccessType::READ_WRITE) {
-                PyErr_SetString(PyExc_ValueError, "data masking prefix must be open in read-write mode");
+            if (!fixture) {
+                PyErr_SetString(PyExc_ValueError, "data masking prefix must be open");
                 return false;
             }
             return true;
@@ -773,11 +773,6 @@ namespace db0::python
             return nullptr;
         }
 
-        if (!pyPrefix || pyPrefix == Py_None) {
-            PyErr_SetString(PyExc_NotImplementedError, "prefix-scoped data masking requires an explicit prefix");
-            return nullptr;
-        }
-
         PyObject *contextValue = nullptr;
         if (PyContextVar_Get(pyContextVar, NULL, &contextValue) < 0) {
             PyErr_SetString(PyExc_TypeError, "context_var must be a contextvars.ContextVar");
@@ -790,6 +785,26 @@ namespace db0::python
             return nullptr;
         }
 
+        auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
+        bool hasMissingValuePlaceholder = pyMissingValuePlaceholder && pyMissingValuePlaceholder != Py_None;
+        auto *missingValuePlaceholder = hasMissingValuePlaceholder ? pyMissingValuePlaceholder : nullptr;
+        auto binding = std::make_shared<DataMaskingState>(
+            pyContextVar, missingValuePlaceholder, hasMissingValuePlaceholder, mode);
+
+        if (!pyPrefix || pyPrefix == Py_None) {
+            auto existingState = workspace.getDataMaskingState();
+            if (existingState) {
+                if (!existingState->matches(
+                        pyContextVar, missingValuePlaceholder, hasMissingValuePlaceholder, mode)) {
+                    PyErr_SetString(PyExc_RuntimeError, "data masking binding for workspace cannot be changed");
+                    return nullptr;
+                }
+                Py_RETURN_NONE;
+            }
+            workspace.initDataMasking(binding);
+            Py_RETURN_NONE;
+        }
+
         std::vector<std::string> prefixes;
         if (!appendPrefixSpec(pyPrefix, prefixes)) {
             return nullptr;
@@ -799,17 +814,11 @@ namespace db0::python
             return nullptr;
         }
 
-        auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
         for (const auto &prefixName: prefixes) {
-            if (!isOpenReadWriteFixture(prefixName)) {
+            if (!isOpenFixture(prefixName)) {
                 return nullptr;
             }
         }
-
-        bool hasMissingValuePlaceholder = pyMissingValuePlaceholder && pyMissingValuePlaceholder != Py_None;
-        auto *missingValuePlaceholder = hasMissingValuePlaceholder ? pyMissingValuePlaceholder : nullptr;
-        auto binding = std::make_shared<DataMaskingState>(
-            pyContextVar, missingValuePlaceholder, hasMissingValuePlaceholder, mode);
 
         for (const auto &prefixName: prefixes) {
             auto prefix = PrefixName(prefixName);
