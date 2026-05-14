@@ -34,6 +34,7 @@ namespace db0
     class RefreshThread;
     class AutoCommitThread;
     class AtomicContext;
+    struct DataMaskingState;
     class LangCache;
     class Config;
     class WorkspaceView;
@@ -283,6 +284,11 @@ namespace db0
         void clearCache() const;
         
         const FixtureCatalog &getFixtureCatalog() const;
+
+        void initDataMasking(std::shared_ptr<DataMaskingState>);
+        void initDataMasking(const PrefixName &, std::shared_ptr<DataMaskingState>);
+        std::shared_ptr<DataMaskingState> getDataMaskingState() const override;
+        std::shared_ptr<DataMaskingState> getDataMaskingState(const PrefixName &) const override;
         
         std::shared_ptr<WorkspaceView> getWorkspaceView(
             std::optional<std::uint64_t> state_num = {},
@@ -331,6 +337,8 @@ namespace db0
         std::unordered_set<unsigned int> m_locked_section_ids;
         // log of prefixes closed inside locked sections
         std::unordered_map<unsigned int, std::vector<std::pair<std::string, std::uint64_t> > > m_locked_section_log;
+        std::shared_ptr<DataMaskingState> m_data_masking_state;
+        std::unordered_map<std::string, std::shared_ptr<DataMaskingState> > m_prefix_data_masking_states;
         // this is to prevent recursive cleanups (which might result in a deadlock)
         mutable std::atomic<bool> m_cleanup_pending = false;
         

@@ -34,6 +34,7 @@ namespace db0
 DB0_PACKED_BEGIN
     
     class GC0;
+    struct DataMaskingState;
     class MetaAllocator;
     class Snapshot;
     class Workspace;
@@ -280,6 +281,9 @@ DB0_PACKED_BEGIN
         void registerPrefixStateReachedCallback(StateNumType state_num, std::unique_ptr<StateReachedCallbackBase> &&callback);
         
         PrefixName tryGetPrefixName() const;
+
+        void initMaskingState(std::shared_ptr<DataMaskingState>);
+        std::shared_ptr<DataMaskingState> getMaskingState() const;
         
     private:
         const AccessType m_access_type;
@@ -319,6 +323,7 @@ DB0_PACKED_BEGIN
         // flush handlers, to release some memory on resource exhaustion
         std::vector<std::function<void()> > m_flush_handlers;
         std::list<std::shared_ptr<MutationLog> > m_mutation_handlers;
+        std::shared_ptr<DataMaskingState> m_masking_state;
         
         std::uint64_t getUUID(MetaAllocator &);
         

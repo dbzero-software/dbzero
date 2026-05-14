@@ -19,6 +19,13 @@ using namespace db0::tests;
 namespace tests
 
 {
+
+    std::shared_ptr<DataMaskingState> makeTestMaskingState(std::uintptr_t value)
+    {
+        return std::shared_ptr<DataMaskingState>(
+            reinterpret_cast<DataMaskingState *>(value),
+            [](DataMaskingState *) {});
+    }
     
     class WorkspaceTest: public testing::Test
     {
@@ -111,6 +118,33 @@ namespace tests
         // query the snapshot
         v_object<o_TT> obj(snap->myPtr(address));
         ASSERT_EQ(obj->a, 7);
+    }
+
+    TEST_F( WorkspaceTest , testWorkspaceViewFixtureByNameKeepsWorkspaceMaskingState )
+    {
+        auto masking_state = makeTestMaskingState(1);
+        m_workspace.initDataMasking(masking_state);
+
+        auto fixture = m_workspace.getFixture(getPrefixName());
+        fixture->commit();
+
+        auto workspace_view = m_workspace.getWorkspaceView(fixture->getStateNum());
+        auto snapshot_fixture = workspace_view->getFixture(getPrefixName(), AccessType::READ_ONLY);
+
+        ASSERT_EQ(snapshot_fixture->getMaskingState(), masking_state);
+    }
+
+    TEST_F( WorkspaceTest , testWorkspaceViewFixtureByUuidKeepsPrefixMaskingState )
+    {
+        auto fixture = m_workspace.getFixture(getPrefixName());
+        auto masking_state = makeTestMaskingState(2);
+        m_workspace.initDataMasking(getPrefixName(), masking_state);
+        fixture->commit();
+
+        auto workspace_view = m_workspace.getWorkspaceView(fixture->getStateNum());
+        auto snapshot_fixture = workspace_view->getFixture(fixture->getUUID(), AccessType::READ_ONLY);
+
+        ASSERT_EQ(snapshot_fixture->getMaskingState(), masking_state);
     }
     
     TEST_F( WorkspaceTest , testFreeCanBePerformedBetweenTransactions )

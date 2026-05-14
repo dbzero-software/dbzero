@@ -15,6 +15,7 @@ namespace db0
 {
 
     class Fixture;
+    struct DataMaskingState;
     class LangCache;
     class PrefixName;
     class ProcessTimer;
@@ -53,6 +54,9 @@ namespace db0
         virtual std::shared_ptr<LangCache> getLangCache() const = 0;
         
         virtual bool isMutable() const = 0;
+
+        virtual std::shared_ptr<DataMaskingState> getDataMaskingState() const;
+        virtual std::shared_ptr<DataMaskingState> getDataMaskingState(const PrefixName &) const;
         
         db0::swine_ptr<Fixture> findFixture(const PrefixName &) const;
         

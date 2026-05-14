@@ -39,12 +39,149 @@
 #include <dbzero/core/vspace/v_object.hpp>
 #include <dbzero/core/serialization/Types.hpp>
 #include <dbzero/core/threading/SafeRMutex.hpp>
+#include <cstring>
+#include <memory>
+#include <vector>
+
+namespace db0
+
+{
+
+    enum class DataMaskingMode
+    {
+        RELEASE,
+        DEBUG
+    };
+
+    struct DataMaskingState
+    {
+        PyObject *contextVar = nullptr;
+        PyObject *missingValuePlaceholder = nullptr;
+        bool hasMissingValuePlaceholder = false;
+        DataMaskingMode mode = DataMaskingMode::RELEASE;
+
+        DataMaskingState(PyObject *contextVar, PyObject *missingValuePlaceholder,
+            bool hasMissingValuePlaceholder, DataMaskingMode mode)
+            : contextVar(contextVar)
+            , missingValuePlaceholder(missingValuePlaceholder)
+            , hasMissingValuePlaceholder(hasMissingValuePlaceholder)
+            , mode(mode)
+        {
+            Py_INCREF(contextVar);
+            if (missingValuePlaceholder) {
+                Py_INCREF(missingValuePlaceholder);
+            }
+        }
+
+        bool matches(PyObject *otherContextVar, PyObject *otherMissingValuePlaceholder,
+            bool otherHasMissingValuePlaceholder, DataMaskingMode otherMode) const
+        {
+            return contextVar == otherContextVar
+                && missingValuePlaceholder == otherMissingValuePlaceholder
+                && hasMissingValuePlaceholder == otherHasMissingValuePlaceholder
+                && mode == otherMode;
+        }
+    };
+
+}
 
 namespace db0::python
 
 {
 
     using ObjectSharedPtr = PyTypes::ObjectSharedPtr;
+
+    namespace
+    {
+        DataMaskingMode parseDataMaskingMode(PyObject *pyMode)
+        {
+            if (!pyMode || pyMode == Py_None) {
+                return DataMaskingMode::RELEASE;
+            }
+            if (!PyUnicode_Check(pyMode)) {
+                PyErr_SetString(PyExc_TypeError, "mode must be either 'DEBUG' or 'RELEASE'");
+                return DataMaskingMode::RELEASE;
+            }
+
+            auto mode = PyUnicode_AsUTF8(pyMode);
+            if (!mode) {
+                return DataMaskingMode::RELEASE;
+            }
+            if (strcmp(mode, "DEBUG") == 0) {
+                return DataMaskingMode::DEBUG;
+            }
+            if (strcmp(mode, "RELEASE") == 0) {
+                return DataMaskingMode::RELEASE;
+            }
+
+            PyErr_SetString(PyExc_ValueError, "mode must be either 'DEBUG' or 'RELEASE'");
+            return DataMaskingMode::RELEASE;
+        }
+
+        std::optional<std::string> tryExtractPrefixName(PyObject *pyPrefix)
+        {
+            if (PyUnicode_Check(pyPrefix)) {
+                auto prefix = PyUnicode_AsUTF8(pyPrefix);
+                if (!prefix) {
+                    return {};
+                }
+                return std::string(prefix);
+            }
+
+            if (PyTuple_Check(pyPrefix) && PyTuple_Size(pyPrefix) == 2) {
+                auto pyName = PyTuple_GetItem(pyPrefix, 0);
+                auto pyUuid = PyTuple_GetItem(pyPrefix, 1);
+                if (PyUnicode_Check(pyName) && PyLong_Check(pyUuid)) {
+                    auto prefix = PyUnicode_AsUTF8(pyName);
+                    if (!prefix) {
+                        return {};
+                    }
+                    return std::string(prefix);
+                }
+            }
+
+            return {};
+        }
+
+        bool appendPrefixSpec(PyObject *pyPrefix, std::vector<std::string> &prefixes)
+        {
+            if (auto prefixName = tryExtractPrefixName(pyPrefix)) {
+                prefixes.push_back(*prefixName);
+                return true;
+            }
+
+            auto iterator = Py_OWN(PyObject_GetIter(pyPrefix));
+            if (!iterator) {
+                PyErr_SetString(PyExc_TypeError, "prefix must be a string, PrefixMetaData, or a sequence of those values");
+                return false;
+            }
+
+            Py_FOR(item, iterator) {
+                if (auto prefixName = tryExtractPrefixName(*item)) {
+                    prefixes.push_back(*prefixName);
+                    continue;
+                }
+                PyErr_SetString(PyExc_TypeError, "prefix sequence items must be strings or PrefixMetaData values");
+                return false;
+            }
+
+            if (PyErr_Occurred()) {
+                return false;
+            }
+            return true;
+        }
+
+        bool isOpenFixture(const std::string &prefixName)
+        {
+            auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
+            auto fixture = workspace.tryFindFixture(PrefixName(prefixName));
+            if (!fixture) {
+                PyErr_SetString(PyExc_ValueError, "data masking prefix must be open");
+                return false;
+            }
+            return true;
+        }
+    }
 
     PyObject *tryGetCacheStats()
     {
@@ -609,10 +746,101 @@ namespace db0::python
         Py_RETURN_NONE;       
     }
     
-    PyObject *renameField(PyObject *, PyObject *args, PyObject *kwargs) 
+    PyObject *renameField(PyObject *, PyObject *args, PyObject *kwargs)
     {
-        PY_API_FUNC        
+        PY_API_FUNC
         return runSafe(tryRenameField, args, kwargs);
+    }
+
+    PyObject *tryInitDataMasking(PyObject *args, PyObject *kwargs)
+    {
+        PyObject *pyContextVar = nullptr;
+        PyObject *pyPrefix = nullptr;
+        PyObject *pyMissingValuePlaceholder = nullptr;
+        PyObject *pyMode = nullptr;
+        static const char *kwlist[] = {
+            "context_var", "prefix", "missing_value_placeholder", "mode", NULL
+        };
+        if (!PyArg_ParseTupleAndKeywords(
+                args,
+                kwargs,
+                "O|OOO:_init_data_masking",
+                const_cast<char**>(kwlist),
+                &pyContextVar,
+                &pyPrefix,
+                &pyMissingValuePlaceholder,
+                &pyMode)) {
+            return nullptr;
+        }
+
+        PyObject *contextValue = nullptr;
+        if (PyContextVar_Get(pyContextVar, NULL, &contextValue) < 0) {
+            PyErr_SetString(PyExc_TypeError, "context_var must be a contextvars.ContextVar");
+            return nullptr;
+        }
+        Py_XDECREF(contextValue);
+
+        auto mode = parseDataMaskingMode(pyMode);
+        if (PyErr_Occurred()) {
+            return nullptr;
+        }
+
+        auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
+        bool hasMissingValuePlaceholder = pyMissingValuePlaceholder && pyMissingValuePlaceholder != Py_None;
+        auto *missingValuePlaceholder = hasMissingValuePlaceholder ? pyMissingValuePlaceholder : nullptr;
+        auto binding = std::make_shared<DataMaskingState>(
+            pyContextVar, missingValuePlaceholder, hasMissingValuePlaceholder, mode);
+
+        if (!pyPrefix || pyPrefix == Py_None) {
+            auto existingState = workspace.getDataMaskingState();
+            if (existingState) {
+                if (!existingState->matches(
+                        pyContextVar, missingValuePlaceholder, hasMissingValuePlaceholder, mode)) {
+                    PyErr_SetString(PyExc_RuntimeError, "data masking binding for workspace cannot be changed");
+                    return nullptr;
+                }
+                Py_RETURN_NONE;
+            }
+            workspace.initDataMasking(binding);
+            Py_RETURN_NONE;
+        }
+
+        std::vector<std::string> prefixes;
+        if (!appendPrefixSpec(pyPrefix, prefixes)) {
+            return nullptr;
+        }
+        if (prefixes.empty()) {
+            PyErr_SetString(PyExc_ValueError, "prefix must include at least one prefix");
+            return nullptr;
+        }
+
+        for (const auto &prefixName: prefixes) {
+            if (!isOpenFixture(prefixName)) {
+                return nullptr;
+            }
+        }
+
+        for (const auto &prefixName: prefixes) {
+            auto prefix = PrefixName(prefixName);
+            auto existingState = workspace.getDataMaskingState(prefix);
+            if (existingState) {
+                if (!existingState->matches(
+                        pyContextVar, missingValuePlaceholder, hasMissingValuePlaceholder, mode)) {
+                    PyErr_SetString(PyExc_RuntimeError, "data masking binding for fixture cannot be changed");
+                    return nullptr;
+                }
+                continue;
+            }
+            workspace.initDataMasking(prefix, binding);
+        }
+
+        Py_RETURN_NONE;
+    }
+
+    PyObject *initDataMasking(PyObject *, PyObject *args, PyObject *kwargs)
+    {
+        PY_API_FUNC
+        return runSafe(tryInitDataMasking, args, kwargs);
     }
 
     namespace
