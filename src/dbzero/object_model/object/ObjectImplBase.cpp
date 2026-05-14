@@ -421,7 +421,7 @@ namespace db0::object_model
     }
     
     template <typename T, typename ImplT>
-    std::pair<MemberID, bool> ObjectImplBase<T, ImplT>::findField(const char *name) const
+    MemberLoc ObjectImplBase<T, ImplT>::findField(const char *name) const
     {
         if (this->isDropped()) {
             // defunct objects should not be accessed
@@ -440,11 +440,10 @@ namespace db0::object_model
     }
     
     template <typename T, typename ImplT>
-    FieldID ObjectImplBase<T, ImplT>::tryGetMember(const char *field_name, std::pair<StorageClass, Value> &member,
-        bool &is_init_var, bool *is_auto_generated) const
+    FieldID ObjectImplBase<T, ImplT>::tryGetMember(MemberLoc member_loc, std::pair<StorageClass, Value> &member,
+        bool *is_auto_generated) const
     {
-        MemberID member_id;
-        std::tie(member_id, is_init_var) = this->findField(field_name);
+        auto [member_id, is_init_var] = member_loc;
         bool exists, deleted = false;
         if (is_auto_generated) {
             *is_auto_generated = false;
@@ -481,9 +480,9 @@ namespace db0::object_model
     }
     
     template <typename T, typename ImplT>
-    std::optional<XValue> ObjectImplBase<T, ImplT>::tryGetX(const char *field_name) const
+    std::optional<XValue> ObjectImplBase<T, ImplT>::tryGetX(MemberLoc member_loc) const
     {        
-        auto [member_id, is_init_var] = this->findField(field_name);
+        auto [member_id, is_init_var] = member_loc;
         bool exists, deleted = false;
         if (member_id) {
             assert(member_id.primary().first);
@@ -514,12 +513,18 @@ namespace db0::object_model
     }
 
     template <typename T, typename ImplT>
+    std::optional<XValue> ObjectImplBase<T, ImplT>::tryGetX(const char *field_name) const
+    {
+        return tryGetX(this->findField(field_name));
+    }
+
+    template <typename T, typename ImplT>
     typename ObjectImplBase<T, ImplT>::ObjectSharedPtr 
-    ObjectImplBase<T, ImplT>::tryGet(const char *field_name, bool *is_auto_generated) const
+    ObjectImplBase<T, ImplT>::tryGet(MemberLoc member_loc, bool *is_auto_generated) const
     {
         std::pair<StorageClass, Value> member;
-        bool is_init_var = false;
-        auto field_id = tryGetMember(field_name, member, is_init_var, is_auto_generated);
+        auto is_init_var = member_loc.second;
+        auto field_id = tryGetMember(member_loc, member, is_auto_generated);
         // NOTE: init vars are always reported as None if not explicitly set nor explicitly deleted
         if (field_id || (is_init_var && member.first != StorageClass::DELETED)) {
             auto fixture = this->getFixture();
@@ -533,14 +538,21 @@ namespace db0::object_model
         
         return nullptr;
     }
+
+    template <typename T, typename ImplT>
+    typename ObjectImplBase<T, ImplT>::ObjectSharedPtr
+    ObjectImplBase<T, ImplT>::tryGet(const char *field_name, bool *is_auto_generated) const
+    {
+        return tryGet(this->findField(field_name), is_auto_generated);
+    }
     
     template <typename T, typename ImplT>
     typename ObjectImplBase<T, ImplT>::ObjectSharedPtr ObjectImplBase<T, ImplT>::tryGetAs(
-        const char *field_name, TypeObjectPtr lang_type) const
+        MemberLoc member_loc, TypeObjectPtr lang_type) const
     {
         std::pair<StorageClass, Value> member;
-        bool is_init_var = false;
-        auto field_id = tryGetMember(field_name, member, is_init_var);
+        auto is_init_var = member_loc.second;
+        auto field_id = tryGetMember(member_loc, member);
         if (field_id || (is_init_var && member.first != StorageClass::DELETED)) {
             // prevent accessing a deleted member
             assert(member.first != StorageClass::DELETED && member.first != StorageClass::UNDEFINED);
@@ -557,6 +569,13 @@ namespace db0::object_model
         }
 
         return nullptr;
+    }
+
+    template <typename T, typename ImplT>
+    typename ObjectImplBase<T, ImplT>::ObjectSharedPtr ObjectImplBase<T, ImplT>::tryGetAs(
+        const char *field_name, TypeObjectPtr lang_type) const
+    {
+        return tryGetAs(this->findField(field_name), lang_type);
     }
     
     template <typename T, typename ImplT>

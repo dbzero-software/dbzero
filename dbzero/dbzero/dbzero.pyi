@@ -619,6 +619,14 @@ def get_field_access(class_obj: type, account_id: int) -> Iterable[Tuple[str, Tu
     """Return protected-field access flags for a memo class and account."""
     ...
 
+def reset_protect_fields(class_obj: type) -> None:
+    """Clear the persisted protect_fields flag for a memo class.
+
+    The memo type must no longer be decorated with ``protect_fields=True``.
+    Remove the argument or set it to ``False`` before calling this function.
+    """
+    ...
+
 def _init_data_masking(
     context_var: Any,
     prefix: Union[str, Any, Sequence[Any], None] = None,

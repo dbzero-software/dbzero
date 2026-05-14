@@ -11,12 +11,15 @@
 #include "Types.hpp"
 #include "Migration.hpp"
 #include "PyHash.hpp"
+#include "DataMasking.hpp"
 #include <dbzero/object_model/object.hpp>
 #include <dbzero/object_model/class.hpp>
+#include <dbzero/object_model/class/FieldMask.hpp>
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/object_model/value/Member.hpp>
 #include <dbzero/object_model/tags/TagIndex.hpp>
 #include <dbzero/core/exception/Exceptions.hpp>
+#include <dbzero/core/memory/config.hpp>
 #include <dbzero/core/utils/to_string.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/PrefixName.hpp>
@@ -357,6 +360,66 @@ namespace db0::python
     }
 
     template <typename MemoImplT>
+    PyObject *checkProtectedFieldReadAccess(MemoImplT *memo_obj, const db0::object_model::MemberLoc &member_loc)
+    {
+        auto &type = memo_obj->ext().getType();
+        if (!type.isProtectFields()) {
+            return nullptr;
+        }
+
+        if (!Settings::m_data_masking_enabled) {
+            PyErr_SetString(PyExc_RuntimeError, "data masking is not initialized for protected fields");
+            return nullptr;
+        }
+
+        auto masking_state = memo_obj->ext().getFixture()->getMaskingState();
+        if (!masking_state) {
+            PyErr_SetString(PyExc_RuntimeError, "data masking is not initialized for protected fields");
+            return nullptr;
+        }
+
+        PyObject *pyAccountId = nullptr;
+        if (PyContextVar_Get(masking_state->contextVar, NULL, &pyAccountId) < 0) {
+            PyErr_SetString(PyExc_RuntimeError, "unable to read data masking account context");
+            return nullptr;
+        }
+        if (!pyAccountId) {
+            PyErr_SetString(PyExc_RuntimeError, "data masking account context is not set");
+            return nullptr;
+        }
+
+        auto accountId = PyLong_AsLongLong(pyAccountId);
+        Py_DECREF(pyAccountId);
+        if (PyErr_Occurred()) {
+            PyErr_SetString(PyExc_TypeError, "data masking account context must be an int");
+            return nullptr;
+        }
+
+        bool canRead = false;
+        if (accountId < -2) {
+            PyErr_SetString(PyExc_RuntimeError, "invalid data masking account id");
+            return nullptr;
+        } else if (accountId == -1 || accountId == -2) {
+            canRead = masking_state->mode == DataMaskingMode::DEBUG;
+        } else if (accountId >= 0) {
+            auto mask = type.tryGetFieldAccess(static_cast<std::uint64_t>(accountId), member_loc);
+            canRead = mask && (*mask)[db0::object_model::FieldMaskOptions::READ];
+        }
+
+        if (canRead) {
+            return nullptr;
+        }
+
+        if (masking_state->hasMissingValuePlaceholder) {
+            Py_INCREF(masking_state->missingValuePlaceholder);
+            return masking_state->missingValuePlaceholder;
+        }
+
+        PyErr_SetString(PyExc_PermissionError, "data masking denies read access to protected field");
+        return nullptr;
+    }
+
+    template <typename MemoImplT>
     PyObject *tryMemoObject_getattro(MemoImplT *memo_obj, PyObject *attr)
     {
         // The method resolution order for Memo types is following:
@@ -375,8 +438,16 @@ namespace db0::python
         ObjectSharedPtr member;
         if (isPersistentAttrName(attr_name)) {
             memo_obj->ext().getFixture()->refreshIfUpdated();
-            member = memo_obj->ext().tryGet(PyUnicode_AsUTF8(attr), &is_auto_generated);
+            auto member_loc = memo_obj->ext().findField(attr_name);
+            member = memo_obj->ext().tryGet(member_loc, &is_auto_generated);
             
+            if (member.get()) {
+                auto masked = checkProtectedFieldReadAccess(memo_obj, member_loc);
+                if (masked || PyErr_Occurred()) {
+                    return masked;
+                }
+            }
+
             if (member.get() && !is_auto_generated) {
                 return member.steal();
             }
@@ -1108,8 +1179,14 @@ namespace db0::python
     template <typename MemoImplT>
     PyObject *tryGetAttrAs(MemoImplT *memo_obj, PyObject *attr, PyTypeObject *py_type)
     {
+        const char *attr_name = PyUnicode_AsUTF8(attr);
+        if (!attr_name) {
+            PyErr_SetString(PyExc_AttributeError, "Invalid attribute name");
+            return nullptr;
+        }
+
         memo_obj->ext().getFixture()->refreshIfUpdated();
-        auto member = memo_obj->ext().tryGetAs(PyUnicode_AsUTF8(attr), py_type);
+        auto member = memo_obj->ext().tryGetAs(memo_obj->ext().findField(attr_name), py_type);
         if (member.get()) {
             return member.steal();
         }

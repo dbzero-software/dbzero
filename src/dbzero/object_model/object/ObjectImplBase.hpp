@@ -96,7 +96,9 @@ namespace db0::object_model
         void setPreInit(const char *field_name, ObjectPtr lang_value) const;
         void removePreInit(const char *field_name) const;
         
+        ObjectSharedPtr tryGet(MemberLoc, bool *is_auto_generated = nullptr) const;
         ObjectSharedPtr tryGet(const char *field_name, bool *is_auto_generated = nullptr) const;
+        ObjectSharedPtr tryGetAs(MemberLoc, TypeObjectPtr) const;
         ObjectSharedPtr tryGetAs(const char *field_name, TypeObjectPtr) const;
         ObjectSharedPtr get(const char *field_name) const;
                 
@@ -127,7 +129,7 @@ namespace db0::object_model
         void commit() const;
         
         // FieldID, is_init_var, fidelity
-        std::pair<MemberID, bool> findField(const char *name) const;
+        MemberLoc findField(const char *name) const;
         
         // NOTE: hasRefs is NOT available in ObjectAnyBase bacause
         // of the use of num_type_tags property
@@ -156,8 +158,8 @@ namespace db0::object_model
             std::pair<bool, bool> &find_result) const;
         std::pair<bool, bool> tryGetMemberAt(std::pair<FieldID, unsigned int>, 
             std::pair<StorageClass, Value> &) const;
-        FieldID tryGetMember(const char *field_name, std::pair<StorageClass, Value> &,
-            bool &is_init_var, bool *is_auto_generated = nullptr) const;
+        FieldID tryGetMember(MemberLoc, std::pair<StorageClass, Value> &,
+            bool *is_auto_generated = nullptr) const;
         
         // Try resolving field ID of an existing (or deleted) member and also its storage location
         // @param pos the member's position in the containing collection
@@ -194,6 +196,7 @@ namespace db0::object_model
         bool hasValidClassRef() const;
         
         // try retrieving member as XValue
+        std::optional<XValue> tryGetX(MemberLoc) const;
         std::optional<XValue> tryGetX(const char *field_name) const;        
         
         // Unreference value

@@ -350,7 +350,8 @@ namespace db0
         void onFlushDirty(std::size_t limit) override;
 
         std::optional<std::size_t> getLangCacheSize() const;
-        std::shared_ptr<WorkspaceView> getWorkspaceHeadView() const;        
+        std::shared_ptr<WorkspaceView> getWorkspaceHeadView() const;
+        void updateDataMaskingSettingsFlag() const;
     };
     
 }
