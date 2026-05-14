@@ -146,7 +146,7 @@ DB0_PACKED_END
         MemberID addField(const char *name, unsigned int fidelity);
         
         // @return member ID / init var flag assigned on initialization flag (see Schema Extensions)
-        std::pair<MemberID, bool> findField(const char *name) const;
+        MemberLoc findField(const char *name) const;
         
         // Get the total number of unique members declared in this class
         std::size_t size() const {            
@@ -183,6 +183,8 @@ DB0_PACKED_END
         const FieldSafe &getFieldSafe() const;
         void setFieldAccess(const std::vector<std::uint64_t> &account_ids, FieldMaskFlags mask,
             const std::vector<std::string> &field_names);
+        std::optional<FieldMaskFlags> tryGetFieldAccess(std::uint64_t account_id, const Member &) const;
+        std::optional<FieldMaskFlags> tryGetFieldAccess(std::uint64_t account_id, const MemberLoc &) const;
         std::vector<std::pair<std::string, FieldMaskFlags> > getFieldAccess(std::uint64_t account_id) const;
         std::uint32_t getFieldOffsetRange() const;
         
@@ -333,7 +335,7 @@ DB0_PACKED_END
         
         // Field by-name index (cache)
         // values: member ID / assigned on initialization flag
-        mutable std::unordered_map<std::string, std::pair<MemberID, bool> > m_index;
+        mutable std::unordered_map<std::string, MemberLoc> m_index;
         // For fidelity = 0 this maps "index" to the unique field ID
         mutable std::vector<FieldID> m_unique_keys;
         // fields initialized on class creation (from static code analysis)

@@ -209,7 +209,7 @@ namespace db0::object_model
         return false;
     }
         
-    std::pair<MemberID, bool> Class::findField(const char *name) const
+    MemberLoc Class::findField(const char *name) const
     {
         // NOTE: refresh is a lightweght operation if there were no changes (no detach)
         m_member_cache.fastRefresh();
@@ -404,6 +404,37 @@ namespace db0::object_model
                 field_mask->setMask(field_offset, mask);
             }
         }
+    }
+
+    std::optional<FieldMaskFlags> Class::tryGetFieldAccess(std::uint64_t account_id, const Member &member) const
+    {
+        if (!isProtectFields()) {
+            return {};
+        }
+
+        auto &field_safe = getFieldSafe();
+        auto maybe_offset = field_safe.getFieldIDMapper().tryGetAssignedFieldOffset(member.m_field_id);
+        if (!maybe_offset) {
+            return {};
+        }
+
+        auto field_mask = field_safe.getFieldMaskManager().tryGetFieldMask(account_id);
+        if (!field_mask) {
+            return {};
+        }
+
+        return field_mask->getAssignedMask(*maybe_offset);
+    }
+
+    std::optional<FieldMaskFlags> Class::tryGetFieldAccess(std::uint64_t account_id, const MemberLoc &member_loc) const
+    {
+        const auto &member_id = member_loc.first;
+        if (!member_id) {
+            return {};
+        }
+
+        auto member = tryGetMember(member_id.primary().first);
+        return member ? tryGetFieldAccess(account_id, *member) : std::nullopt;
     }
 
     std::vector<std::pair<std::string, FieldMaskFlags> > Class::getFieldAccess(std::uint64_t account_id) const

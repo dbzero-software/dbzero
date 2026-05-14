@@ -16,6 +16,7 @@
 #include "PyReflectionAPI.hpp"
 #include "PyHash.hpp"
 #include "PyWeakProxy.hpp"
+#include "DataMasking.hpp"
 #include <dbzero/bindings/python/iter/PyObjectIterable.hpp>
 #include <dbzero/bindings/python/iter/PyObjectIterator.hpp>
 #include <dbzero/bindings/python/collections/PyList.hpp>
@@ -42,48 +43,6 @@
 #include <cstring>
 #include <memory>
 #include <vector>
-
-namespace db0
-
-{
-
-    enum class DataMaskingMode
-    {
-        RELEASE,
-        DEBUG
-    };
-
-    struct DataMaskingState
-    {
-        PyObject *contextVar = nullptr;
-        PyObject *missingValuePlaceholder = nullptr;
-        bool hasMissingValuePlaceholder = false;
-        DataMaskingMode mode = DataMaskingMode::RELEASE;
-
-        DataMaskingState(PyObject *contextVar, PyObject *missingValuePlaceholder,
-            bool hasMissingValuePlaceholder, DataMaskingMode mode)
-            : contextVar(contextVar)
-            , missingValuePlaceholder(missingValuePlaceholder)
-            , hasMissingValuePlaceholder(hasMissingValuePlaceholder)
-            , mode(mode)
-        {
-            Py_INCREF(contextVar);
-            if (missingValuePlaceholder) {
-                Py_INCREF(missingValuePlaceholder);
-            }
-        }
-
-        bool matches(PyObject *otherContextVar, PyObject *otherMissingValuePlaceholder,
-            bool otherHasMissingValuePlaceholder, DataMaskingMode otherMode) const
-        {
-            return contextVar == otherContextVar
-                && missingValuePlaceholder == otherMissingValuePlaceholder
-                && hasMissingValuePlaceholder == otherHasMissingValuePlaceholder
-                && mode == otherMode;
-        }
-    };
-
-}
 
 namespace db0::python
 
@@ -1043,6 +1002,43 @@ namespace db0::python
     {
         PY_API_FUNC
         return runSafe(tryGetFieldAccess, args);
+    }
+
+    PyObject *tryResetProtectFields(PyObject *args)
+    {
+        PyObject *py_type = nullptr;
+        if (!PyArg_ParseTuple(args, "O:reset_protect_fields", &py_type)) {
+            return nullptr;
+        }
+        if (!PyType_Check(py_type)) {
+            THROWF(db0::InputException) << "First argument must be a type";
+        }
+        if (!PyAnyMemoType_Check(reinterpret_cast<PyTypeObject*>(py_type))) {
+            THROWF(db0::InputException) << "First argument must be a dbzero memo type";
+        }
+
+        auto memo_type = reinterpret_cast<PyTypeObject*>(py_type);
+        auto &decor = MemoTypeDecoration::get(memo_type);
+        if (decor.getFlags()[MemoOptions::PROTECT_FIELDS]) {
+            THROWF(db0::InputException)
+                << "Type is still decorated with protect_fields=True; remove it or set protect_fields=False first";
+        }
+
+        using ClassFactory = db0::object_model::ClassFactory;
+        auto fixture_uuid = decor.getFixtureUUID(AccessType::READ_WRITE);
+        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(fixture_uuid, AccessType::READ_WRITE);
+        auto &class_factory = fixture->get<ClassFactory>();
+        auto type = class_factory.getExistingType(memo_type);
+
+        db0::FixtureLock lock(fixture);
+        type->resetProtectFields();
+        Py_RETURN_NONE;
+    }
+
+    PyObject *resetProtectFields(PyObject *, PyObject *args)
+    {
+        PY_API_FUNC
+        return runSafe(tryResetProtectFields, args);
     }
 
     PyObject *TryPyAPI_isSingleton(PyObject *py_object)

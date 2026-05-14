@@ -7,6 +7,8 @@
 #include "Config.hpp"
 #include "WorkspaceView.hpp"
 #include "PrefixName.hpp"
+#include <dbzero/core/memory/config.hpp>
+#include <algorithm>
 #include <thread>
 
 namespace db0
@@ -272,6 +274,7 @@ namespace db0
                 bool is_default = (it->second == m_default_fixture);
                 it->second->close(false);
                 m_fixtures.erase(it);
+                updateDataMaskingSettingsFlag();
 
                 if (is_default) {
                     m_default_fixture = {};
@@ -315,6 +318,7 @@ namespace db0
             it->second->close(as_defunct, timer.get());
             it = m_fixtures.erase(it);
         }
+        updateDataMaskingSettingsFlag();
         
         if (as_defunct) {
             m_lang_cache->clearDefunct();
@@ -376,6 +380,7 @@ namespace db0
                 }
                 
                 it = m_fixtures.emplace(fixture->getUUID(), fixture).first;
+                updateDataMaskingSettingsFlag();
                 m_fixture_catalog.add(prefix_name, *fixture);
                 if (*access_type == AccessType::READ_ONLY) {
                     // add read-only fixture to be monitored by the refresh thread (will be removed automatically when closed)
@@ -565,6 +570,7 @@ namespace db0
         for (auto &[uuid, fixture]: m_fixtures) {
             fixture->initMaskingState(m_data_masking_state);
         }
+        updateDataMaskingSettingsFlag();
     }
 
     void Workspace::initDataMasking(const PrefixName &prefix_name, std::shared_ptr<DataMaskingState> state)
@@ -580,6 +586,7 @@ namespace db0
         if (fixture) {
             fixture->initMaskingState(it->second);
         }
+        updateDataMaskingSettingsFlag();
     }
 
     std::shared_ptr<DataMaskingState> Workspace::getDataMaskingState() const
@@ -851,6 +858,16 @@ namespace db0
         
     std::size_t Workspace::size() const {
         return m_fixtures.size();
+    }
+
+    void Workspace::updateDataMaskingSettingsFlag() const
+    {
+        Settings::m_data_masking_enabled = std::any_of(
+            m_fixtures.begin(),
+            m_fixtures.end(),
+            [](const auto &item) {
+                return static_cast<bool>(item.second->getMaskingState());
+            });
     }
     
     std::optional<std::size_t> Workspace::getLangCacheSize() const

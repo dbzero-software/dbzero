@@ -112,6 +112,8 @@ namespace db0::python
 
     PyObject *getFieldAccess(PyObject *self, PyObject *args);
 
+    PyObject *resetProtectFields(PyObject *self, PyObject *args);
+
     PyObject *PyAPI_isSingleton(PyObject *self, PyObject *args);
 
     PyObject *PyAPI_getRefCount(PyObject *self, PyObject *args);

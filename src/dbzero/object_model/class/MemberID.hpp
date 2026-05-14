@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cassert>
 #include <limits>
+#include <utility>
 #include "FieldID.hpp"
 
 namespace db0::object_model
@@ -88,6 +89,8 @@ namespace db0::object_model
         std::pair<FieldID, unsigned int> m_primary = { FieldID(), std::numeric_limits<unsigned int>::max() };
         std::pair<FieldID, unsigned int> m_secondary = { FieldID(), std::numeric_limits<unsigned int>::max() };
     };
+
+    using MemberLoc = std::pair<MemberID, bool>;
     
 }
 

@@ -7,6 +7,7 @@
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/workspace/PrefixName.hpp>
 #include <dbzero/workspace/WorkspaceView.hpp>
+#include <dbzero/core/memory/config.hpp>
 #include <dbzero/core/storage/BDevStorage.hpp>
 #include <dbzero/core/memory/swine_ptr.hpp>
 #include <dbzero/bindings/python/PyToolkit.hpp>
@@ -35,6 +36,7 @@ namespace tests
         
         void SetUp() override
         {
+            Settings::reset();
             if (!Py_IsInitialized()) {
                 Py_InitializeEx(0);
             }
@@ -47,6 +49,7 @@ namespace tests
         {            
             m_workspace.close();
             m_no_gil = nullptr;
+            Settings::reset();
             drop(file_name);
         }
         
@@ -145,6 +148,32 @@ namespace tests
         auto snapshot_fixture = workspace_view->getFixture(fixture->getUUID(), AccessType::READ_ONLY);
 
         ASSERT_EQ(snapshot_fixture->getMaskingState(), masking_state);
+    }
+
+    TEST_F( WorkspaceTest , testSettingsDataMaskingEnabledTracksWorkspaceScopeOpenFixtures )
+    {
+        auto masking_state = makeTestMaskingState(3);
+        m_workspace.initDataMasking(masking_state);
+        ASSERT_FALSE(Settings::m_data_masking_enabled);
+
+        auto fixture = m_workspace.getFixture(getPrefixName());
+        ASSERT_TRUE(Settings::m_data_masking_enabled);
+
+        m_workspace.close(fixture->getPrefix().getName());
+        ASSERT_FALSE(Settings::m_data_masking_enabled);
+    }
+
+    TEST_F( WorkspaceTest , testSettingsDataMaskingEnabledTracksPrefixScopeOpenFixtures )
+    {
+        auto masking_state = makeTestMaskingState(4);
+        m_workspace.initDataMasking(getPrefixName(), masking_state);
+        ASSERT_FALSE(Settings::m_data_masking_enabled);
+
+        auto fixture = m_workspace.getFixture(getPrefixName());
+        ASSERT_TRUE(Settings::m_data_masking_enabled);
+
+        m_workspace.close(fixture->getPrefix().getName());
+        ASSERT_FALSE(Settings::m_data_masking_enabled);
     }
     
     TEST_F( WorkspaceTest , testFreeCanBePerformedBetweenTransactions )
