@@ -280,6 +280,12 @@ namespace db0::object_model
         return std::nullopt;
     }
 
+    std::optional<std::uint32_t> FieldIDMapper::tryGetAssignedFieldOffset(const char *field_name) const
+    {
+        assert(field_name);
+        return tryGetNameOffset(field_name);
+    }
+
     std::uint32_t FieldIDMapper::assignFieldOffset(FieldID field_id)
     {
         auto maybe_offset = tryGetAssignedFieldOffset(field_id);

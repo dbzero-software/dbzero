@@ -58,6 +58,7 @@ DB0_PACKED_END
         bool renameField(const char *old_field_name, const char *new_field_name);
 
         std::optional<std::uint32_t> tryGetAssignedFieldOffset(FieldID) const;
+        std::optional<std::uint32_t> tryGetAssignedFieldOffset(const char *field_name) const;
         std::unordered_map<std::string, std::uint32_t> getAssignedNameOffsets() const;
         std::uint32_t getFieldOffsetRange() const;
 
