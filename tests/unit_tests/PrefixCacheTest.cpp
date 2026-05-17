@@ -93,5 +93,29 @@ namespace tests
         ASSERT_FALSE(lock_1);
         cut.release();
     }
+
+    TEST_F( PrefixCacheTest , testNestedAtomicRollbackConsumesTopVolatileFrame )
+    {
+        db0::Storage0 dev_null;
+        PrefixCache cut(dev_null, nullptr, 0);
+
+        cut.beginAtomic(2);
+        auto parent_lock = cut.createPage(0, 0, 2, { AccessOptions::write, AccessOptions::no_flush });
+
+        cut.beginAtomic(3);
+        auto child_lock = cut.createPage(1, 0, 3, { AccessOptions::write, AccessOptions::no_flush });
+
+        StateNumType read_state_num;
+        ASSERT_EQ(cut.findPage(0, 2, {}, read_state_num), parent_lock);
+        ASSERT_EQ(cut.findPage(1, 3, {}, read_state_num), child_lock);
+
+        cut.rollback(3);
+        ASSERT_EQ(cut.findPage(1, 3, {}, read_state_num), nullptr);
+        ASSERT_EQ(cut.findPage(0, 2, {}, read_state_num), parent_lock);
+
+        cut.rollback(2);
+        ASSERT_EQ(cut.findPage(0, 2, {}, read_state_num), nullptr);
+        cut.release();
+    }
     
 }

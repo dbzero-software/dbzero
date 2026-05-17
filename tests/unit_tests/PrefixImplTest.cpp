@@ -459,6 +459,115 @@ namespace tests
         cut.close();
     }
 
+    TEST_F( PrefixImplTest , testNestedAtomicDPLockCommitMergesIntoParent )
+    {
+        BDevStorage::create(file_name);
+        PrefixImpl cut(file_name, m_dirty_meter, &m_cache_recycler, std::make_shared<BDevStorage>(file_name));
+
+        {
+            auto w1 = cut.mapRange(16, 8, { AccessOptions::write });
+            memcpy(w1.modify(), "base0000", 8);
+        }
+
+        cut.beginAtomic();
+        {
+            auto w1 = cut.mapRange(16, 8, { AccessOptions::read, AccessOptions::write });
+            memcpy(w1.modify(), "outer000", 8);
+        }
+
+        cut.beginAtomic();
+        {
+            auto w1 = cut.mapRange(16, 8, { AccessOptions::read, AccessOptions::write });
+            memcpy((char*)w1.modify() + 2, "INNER", 5);
+        }
+        cut.endAtomic();
+        cut.endAtomic();
+
+        {
+            auto lock = cut.mapRange(16, 8, { AccessOptions::read });
+            auto str_value = std::string((char *)lock.m_buffer, 8);
+            ASSERT_EQ(str_value, "ouINNER0");
+        }
+
+        cut.close();
+    }
+
+    TEST_F( PrefixImplTest , testNestedAtomicBoundaryLockRollbackKeepsParentUpdate )
+    {
+        BDevStorage::create(file_name);
+        PrefixImpl cut(file_name, m_dirty_meter, &m_cache_recycler, std::make_shared<BDevStorage>(file_name));
+        auto page_size = cut.getPageSize();
+
+        {
+            auto w1 = cut.mapRange(page_size - 4, 8, { AccessOptions::write });
+            memcpy(w1.modify(), "base0000", 8);
+        }
+
+        cut.beginAtomic();
+        {
+            auto w1 = cut.mapRange(page_size - 4, 8, { AccessOptions::read, AccessOptions::write });
+            memcpy(w1.modify(), "outer000", 8);
+        }
+
+        cut.beginAtomic();
+        {
+            auto w1 = cut.mapRange(page_size - 4, 8, { AccessOptions::read, AccessOptions::write });
+            memcpy((char*)w1.modify() + 2, "ROLL", 4);
+        }
+        cut.cancelAtomic();
+        cut.endAtomic();
+
+        {
+            auto lock = cut.mapRange(page_size - 4, 8, { AccessOptions::read });
+            auto str_value = std::string((char *)lock.m_buffer, 8);
+            ASSERT_EQ(str_value, "outer000");
+
+            auto lhs = cut.mapRange(page_size - 4, 4, { AccessOptions::read });
+            str_value = std::string((char *)lhs.m_buffer, 4);
+            ASSERT_EQ(str_value, "oute");
+
+            auto rhs = cut.mapRange(page_size, 4, { AccessOptions::read });
+            str_value = std::string((char *)rhs.m_buffer, 4);
+            ASSERT_EQ(str_value, "r000");
+        }
+
+        cut.close();
+    }
+
+    TEST_F( PrefixImplTest , testNestedAtomicWideLockCommitMergesIntoParent )
+    {
+        BDevStorage::create(file_name);
+        PrefixImpl cut(file_name, m_dirty_meter, &m_cache_recycler, std::make_shared<BDevStorage>(file_name));
+        auto page_size = cut.getPageSize();
+
+        {
+            auto w1 = cut.mapRange(page_size, page_size + 8, { AccessOptions::write });
+            memcpy((char*)w1.modify() + page_size, "base0000", 8);
+        }
+
+        cut.beginAtomic();
+        {
+            auto w1 = cut.mapRange(page_size, page_size + 8, { AccessOptions::read, AccessOptions::write });
+            memcpy((char*)w1.modify() + page_size, "outer000", 8);
+        }
+
+        cut.beginAtomic();
+        {
+            auto w1 = cut.mapRange(page_size, page_size + 8, { AccessOptions::read, AccessOptions::write });
+            memcpy((char*)w1.modify() + page_size + 2, "INNER", 5);
+        }
+        cut.endAtomic();
+        cut.endAtomic();
+
+        {
+            auto lock = cut.mapRange(page_size, page_size + 8, { AccessOptions::read });
+            auto str_value = std::string((char *)lock.m_buffer + page_size, 8);
+            ASSERT_EQ(str_value, "ouINNER0");
+        }
+
+        cut.close();
+    }
+    
     TEST_F( PrefixImplTest , testMergingAtomicAndNonAtomicUpdates )
     {
         BDevStorage::create(file_name);

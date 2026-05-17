@@ -8,6 +8,7 @@
 #include <functional>
 #include <shared_mutex>
 #include <map>
+#include <vector>
 
 #include <dbzero/core/serialization/FixedVersioned.hpp>
 #include <dbzero/core/memory/Memspace.hpp>
@@ -253,9 +254,9 @@ DB0_PACKED_BEGIN
         
         void beginAtomic(AtomicContext *context);
         
-        void endAtomic();
+        void endAtomic(AtomicContext *context);
         
-        void cancelAtomic();
+        void cancelAtomic(AtomicContext *context);
         
         void detach();
 
@@ -301,7 +302,9 @@ DB0_PACKED_BEGIN
         ObjectCatalogue m_object_catalogue;
         // internal cache for dbzero based collections
         mutable VObjectCache m_v_object_cache;
-        AtomicContext *m_atomic_context_ptr = nullptr;
+        // Non-owning active atomic stack. AtomicContext instances are owned by the
+        // Python wrapper; fixtures only observe the current lexical/LIFO context.
+        std::vector<AtomicContext*> m_atomic_context_stack;
         std::atomic<bool> m_closed = false;
         std::atomic<bool> m_commit_pending = false;
 

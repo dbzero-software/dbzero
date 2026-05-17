@@ -176,13 +176,13 @@ namespace db0
     {
         std::unique_lock<std::mutex> m_commit_lock;
         std::unique_lock<std::shared_mutex> m_locked_context_lock;
-        std::unique_lock<std::mutex> m_atomic_lock;
+        std::unique_lock<std::recursive_mutex> m_atomic_lock;
 
     public:
         AutoSaveContext(
             std::unique_lock<std::mutex> &&commit_lock,
             std::unique_lock<std::shared_mutex> &&locked_context_lock, 
-            std::unique_lock<std::mutex> &&atomic_lock)
+            std::unique_lock<std::recursive_mutex> &&atomic_lock)
             : m_commit_lock(std::move(commit_lock))
             , m_locked_context_lock(std::move(locked_context_lock))
             , m_atomic_lock(std::move(atomic_lock))

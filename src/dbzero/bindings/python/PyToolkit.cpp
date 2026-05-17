@@ -452,11 +452,21 @@ namespace db0::python
         lang_cache.add(address, py_index.get());
 
         auto py_index_ptr = py_index.get();
-        py_index->ext().setDirtyCallback([py_index_ptr](bool incRef) {
+        // Dirty/clean notifications are state transitions, but nested atomic
+        // rollback/merge paths may emit a clean notification for work that did
+        // not take a matching Python self-reference in this wrapper callback.
+        // Keep the callback's own ref balance explicit so an unmatched clean
+        // does not drop the LangCache-owned Index wrapper.
+        auto dirty_ref_count = std::make_shared<std::uint32_t>(0);
+        py_index->ext().setDirtyCallback([py_index_ptr, dirty_ref_count](bool incRef) {
             if (incRef) {
                 Py_INCREF(py_index_ptr);
+                ++(*dirty_ref_count);
             } else {
-                Py_DECREF(py_index_ptr);
+                if (*dirty_ref_count > 0) {
+                    --(*dirty_ref_count);
+                    Py_DECREF(py_index_ptr);
+                }
             }
         });
         

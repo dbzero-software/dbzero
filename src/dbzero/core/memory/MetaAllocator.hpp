@@ -217,8 +217,8 @@ DB0_PACKED_END
         RealmsVector m_realms;
         SlabRecycler *m_recycler_ptr;        
         std::function<std::uint32_t(Address)> m_slab_id_function;
-        // flag indicating if the atomic operation is in progress
-        bool m_atomic = false;
+        // atomic operation nesting depth
+        std::uint32_t m_atomic_depth = 0;
         
         /**
          * Reads header information from the prefix

@@ -121,8 +121,7 @@ namespace db0
     
     void Memspace::beginAtomic()
     {
-        assert(!m_atomic);
-        m_atomic = true;
+        ++m_atomic_depth;
         getAllocatorForUpdate().commit();
         // note that we don't flush from prefix on begin atomic
         m_prefix->beginAtomic();
@@ -130,16 +129,16 @@ namespace db0
     
     void Memspace::endAtomic()
     {
-        assert(m_atomic);
-        m_atomic = false;
+        assert(m_atomic_depth > 0);
+        --m_atomic_depth;
         getAllocator().detach();
         m_prefix->endAtomic();
     }
     
     void Memspace::cancelAtomic()
     {
-        assert(m_atomic);
-        m_atomic = false;
+        assert(m_atomic_depth > 0);
+        --m_atomic_depth;
         // NOTE: the deferred operations on the allocator get cancelled
         getAllocator().detach();
         m_prefix->cancelAtomic();

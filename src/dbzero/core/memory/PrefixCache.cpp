@@ -52,7 +52,8 @@ namespace db0
         assert(lock);
         if (is_volatile) {
             // NOTE: volatile locks are not registered with the recycler
-            m_volatile_locks.push_back(lock);
+            assert(!m_volatile_lock_stack.empty());
+            m_volatile_lock_stack.back().m_dp_locks.push_back(lock);
         } else {
             // register or update lock with the recycler
             if (m_cache_recycler_ptr) {
@@ -119,7 +120,8 @@ namespace db0
                 dp_lock->setDirty();
                 // upgraded locks may need to be registered as volatile
                 if (is_volatile) {
-                    m_volatile_locks.push_back(dp_lock);
+                    assert(!m_volatile_lock_stack.empty());
+                    m_volatile_lock_stack.back().m_dp_locks.push_back(dp_lock);
                 }
             }        
         }
@@ -151,7 +153,8 @@ namespace db0
         assert(lock);
         // register with the volatile locks
         if (is_volatile) {
-            m_volatile_wide_locks.push_back(lock);
+            assert(!m_volatile_lock_stack.empty());
+            m_volatile_lock_stack.back().m_wide_locks.push_back(lock);
         } else {
             // register or update lock with the recycler
             if (m_cache_recycler_ptr) {
@@ -244,7 +247,8 @@ namespace db0
                 read_state_num = state_num;
                 // upgraded locks may need to be registered as volatile
                 if (is_volatile) {
-                    m_volatile_wide_locks.push_back(wide_lock);
+                    assert(!m_volatile_lock_stack.empty());
+                    m_volatile_lock_stack.back().m_wide_locks.push_back(wide_lock);
                 }
             }
         }
@@ -325,7 +329,8 @@ namespace db0
             m_boundary_map.insert(read_state_num, br_lock);
             // the new lock may need to be registered as "potentially" volatile because parent locks may already be volatile
             if (access_mode[AccessOptions::no_flush]) {
-                m_volatile_boundary_locks.push_back(br_lock);
+                assert(!m_volatile_lock_stack.empty());
+                m_volatile_lock_stack.back().m_boundary_locks.push_back(br_lock);
             }
         }
         
@@ -358,7 +363,8 @@ namespace db0
 
         // register with the volatile locks
         if (access_mode[AccessOptions::no_flush]) {            
-            m_volatile_locks.push_back(result);
+            assert(!m_volatile_lock_stack.empty());
+            m_volatile_lock_stack.back().m_dp_locks.push_back(result);
         } else {
             // register with the recycler
             if (m_cache_recycler_ptr) {
@@ -377,7 +383,8 @@ namespace db0
         
         // register with the volatile locks
         if (access_mode[AccessOptions::no_flush]) {            
-            m_volatile_wide_locks.push_back(result);
+            assert(!m_volatile_lock_stack.empty());
+            m_volatile_lock_stack.back().m_wide_locks.push_back(result);
         } else {
             // register with the recycler
             if (m_cache_recycler_ptr) {
@@ -404,7 +411,8 @@ namespace db0
         // note that BoundaryLocks are not recycled
         // register with the volatile locks
         if (access_mode[AccessOptions::no_flush]) {
-            m_volatile_boundary_locks.push_back(result);
+            assert(!m_volatile_lock_stack.empty());
+            m_volatile_lock_stack.back().m_boundary_locks.push_back(result);
         }
         
         return result;
@@ -426,9 +434,12 @@ namespace db0
     
     void PrefixCache::release()
     {
-        discardAll(m_volatile_boundary_locks);
-        discardAll(m_volatile_wide_locks);
-        discardAll(m_volatile_locks);
+        for (auto &volatileLocks : m_volatile_lock_stack) {
+            discardAll(volatileLocks.m_boundary_locks);
+            discardAll(volatileLocks.m_wide_locks);
+            discardAll(volatileLocks.m_dp_locks);
+        }
+        m_volatile_lock_stack.clear();
         // undo write / remove dirty flag from all owned locks
         forEach([&](ResourceLock &lock) {
             lock.discard();
@@ -468,6 +479,15 @@ namespace db0
             // flush residual part of the wide locks
             lock.flushResidual();
         });
+    }
+    
+    void PrefixCache::beginAtomic(StateNumType state_num)
+    {
+        // Atomic state numbers grow as nested blocks are entered. Recording the state
+        // on the frame makes rollback/merge validate the same LIFO order that owns
+        // the volatile locks.
+        assert(m_volatile_lock_stack.empty() || m_volatile_lock_stack.back().m_state_num < state_num);
+        m_volatile_lock_stack.emplace_back(state_num);
     }
     
     void PrefixCache::commit(ProcessTimer *parent_timer)
@@ -515,25 +535,28 @@ namespace db0
     
     void PrefixCache::rollback(StateNumType state_num)
     {
+        assert(!m_volatile_lock_stack.empty());
+        // Only the youngest atomic frame may be rolled back. If this assertion trips,
+        // the caller is trying to unwind a parent while child volatile locks still exist.
+        assert(m_volatile_lock_stack.back().m_state_num == state_num);
+        auto volatileLocks = std::move(m_volatile_lock_stack.back());
+        m_volatile_lock_stack.pop_back();
         // remove all volatile locks
-        for (auto &lock: m_volatile_boundary_locks) {
+        for (auto &lock : volatileLocks.m_boundary_locks) {
             // erase range
             eraseBoundaryRange(lock->getAddress(), lock->size(), state_num);
             lock->discard();
         }
-        m_volatile_boundary_locks.clear();
-        for (auto &lock: m_volatile_wide_locks) {
+        for (auto &lock : volatileLocks.m_wide_locks) {
             // erase range
             eraseRange(lock->getAddress(), lock->size(), state_num);
             lock->discard();
         }
-        m_volatile_wide_locks.clear();
-        for (auto &lock: m_volatile_locks) {
+        for (auto &lock : volatileLocks.m_dp_locks) {
             // erase range
             eraseRange(lock->getAddress(), lock->size(), state_num);
             lock->discard();
         }
-        m_volatile_locks.clear();
     }
     
     void PrefixCache::eraseRange(std::uint64_t address, std::size_t size, StateNumType state_num)
@@ -566,7 +589,10 @@ namespace db0
         if (end_page == first_page + 1) {
             auto existing_lock = m_dp_map.replace(state_num, new_lock, first_page);
             if (existing_lock) {
-                assert(!existing_lock->isVolatile());
+                // In nested atomic blocks the parent state may already own a
+                // volatile lock for this page. Replacing means merging the
+                // child's changes into that parent lock, not necessarily into
+                // a committed transaction lock.
                 return existing_lock;
             } else {
                 // must clear the no_flush flag if lock was reused
@@ -576,7 +602,8 @@ namespace db0
         } else {
             auto existing_lock = m_wide_map.replace(state_num, std::dynamic_pointer_cast<WideLock>(new_lock), first_page);
             if (existing_lock) {
-                assert(!existing_lock->isVolatile());
+                // Same as DP locks above: a nested child can merge into a
+                // volatile wide lock owned by its parent atomic frame.
                 return existing_lock;
             } else {
                 // must clear the no_flush flag if lock was reused
@@ -593,7 +620,8 @@ namespace db0
         assert(isBoundaryRange(first_page, ((address + size - 1) >> m_shift) + 1, address & m_mask));
         auto existing_lock = m_boundary_map.replace(state_num, new_lock, first_page);
         if (existing_lock) {
-            assert(!existing_lock->isVolatile());
+            // Nested merge can target a boundary lock from the parent atomic
+            // frame, so the existing lock is allowed to be volatile here.
             return true;
         } else {
             // must clear the no_flush flag if lock was reused (i.e. added to cache under a different state)
@@ -605,16 +633,23 @@ namespace db0
     void PrefixCache::merge(StateNumType from_state_num, StateNumType to_state_num,
         std::vector<std::shared_ptr<ResourceLock> > &reused_locks)
     {
+        assert(!m_volatile_lock_stack.empty());
+        // Merge is the commit path for an atomic frame, so it must consume the stack
+        // top associated with the temporary state being merged.
+        assert(m_volatile_lock_stack.back().m_state_num == from_state_num);
+        auto volatileLocks = std::move(m_volatile_lock_stack.back());
+        m_volatile_lock_stack.pop_back();
+
         // Remove all volatile boundary locks before merge, to flush them
         // into the underlying parent DP-locks
         // This is fine because in the head transaction we've released all boundary locks
         // so they need not to be merged
-        m_volatile_boundary_locks.clear();
+        volatileLocks.m_boundary_locks.clear();
         
         // first collect residual parts from dirty wide locks
         // which need to be trated as dirty, otherwise may not be merged / flushed properly
         std::unordered_set<const ResourceLock*> dirty_res_locks;
-        for (auto &lock: m_volatile_wide_locks) {
+        for (auto &lock: volatileLocks.m_wide_locks) {
             if (lock->isDirty()) {
                 // collect dirty residual locks
                 dirty_res_locks.insert(lock->getResLockPtr());
@@ -623,7 +658,7 @@ namespace db0
 
         std::unordered_map<const ResourceLock*, std::shared_ptr<DP_Lock> > rebase_map;
         // merge DP-locks first
-        for (auto &lock: m_volatile_locks) {
+        for (auto &lock: volatileLocks.m_dp_locks) {
             // erase volatile range related lock
             eraseRange(lock->getAddress(), lock->size(), from_state_num);
             // NOTE: volatile locks may not be dirty if first accessed as read-only from the atomic context
@@ -636,13 +671,15 @@ namespace db0
                     rebase_map[lock.get()] = existing_lock;
                 } else {
                     reused_locks.push_back(lock);
+                    if (!m_volatile_lock_stack.empty()) {
+                        m_volatile_lock_stack.back().m_dp_locks.push_back(lock);
+                    }
                 }
             }
         }
-        m_volatile_locks.clear();
         
         // merge wide locks next & rebase residual locks if needed
-        for (auto &lock: m_volatile_wide_locks) {
+        for (auto &lock: volatileLocks.m_wide_locks) {
             // erase volatile range related lock
             eraseRange(lock->getAddress(), lock->size(), from_state_num);
             // NOTE: volatile locks may not be dirty if first accessed as read-only from the atomic context
@@ -656,10 +693,12 @@ namespace db0
                     // need to rebase parent locks if the boundary lock was reused
                     lock->rebase(rebase_map);
                     reused_locks.push_back(lock);
+                    if (!m_volatile_lock_stack.empty()) {
+                        m_volatile_lock_stack.back().m_wide_locks.push_back(lock);
+                    }
                 }
             }
         }
-        m_volatile_wide_locks.clear();        
     }
     
     std::size_t PrefixCache::getPageSize() const {
@@ -708,9 +747,7 @@ namespace db0
     {
         // NOTE boundary map may contain non-expired locks - e.g. ones supported by Snapshot (e.g. PrefixViewImpl)
         // there must be no volatile locks
-        assert(m_volatile_locks.empty());
-        assert(m_volatile_wide_locks.empty());
-        assert(m_volatile_boundary_locks.empty());
+        assert(m_volatile_lock_stack.empty());
         // clear all expired locks from the boundary map
         m_boundary_map.clear();
     }
