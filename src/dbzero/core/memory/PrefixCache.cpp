@@ -481,9 +481,13 @@ namespace db0
         });
     }
     
-    void PrefixCache::beginAtomic()
+    void PrefixCache::beginAtomic(StateNumType state_num)
     {
-        m_volatile_lock_stack.emplace_back();
+        // Atomic state numbers grow as nested blocks are entered. Recording the state
+        // on the frame makes rollback/merge validate the same LIFO order that owns
+        // the volatile locks.
+        assert(m_volatile_lock_stack.empty() || m_volatile_lock_stack.back().m_state_num < state_num);
+        m_volatile_lock_stack.emplace_back(state_num);
     }
     
     void PrefixCache::commit(ProcessTimer *parent_timer)
@@ -532,6 +536,9 @@ namespace db0
     void PrefixCache::rollback(StateNumType state_num)
     {
         assert(!m_volatile_lock_stack.empty());
+        // Only the youngest atomic frame may be rolled back. If this assertion trips,
+        // the caller is trying to unwind a parent while child volatile locks still exist.
+        assert(m_volatile_lock_stack.back().m_state_num == state_num);
         auto volatileLocks = std::move(m_volatile_lock_stack.back());
         m_volatile_lock_stack.pop_back();
         // remove all volatile locks
@@ -627,6 +634,9 @@ namespace db0
         std::vector<std::shared_ptr<ResourceLock> > &reused_locks)
     {
         assert(!m_volatile_lock_stack.empty());
+        // Merge is the commit path for an atomic frame, so it must consume the stack
+        // top associated with the temporary state being merged.
+        assert(m_volatile_lock_stack.back().m_state_num == from_state_num);
         auto volatileLocks = std::move(m_volatile_lock_stack.back());
         m_volatile_lock_stack.pop_back();
 

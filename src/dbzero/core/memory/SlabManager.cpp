@@ -2,6 +2,7 @@
 // Copyright (c) 2025 DBZero Software sp. z o.o.
 
 #include "SlabManager.hpp"
+#include <algorithm>
 
 namespace db0
 
@@ -65,6 +66,16 @@ namespace db0
     {
         assert(locality < m_active_slab.size());
         m_active_slab[locality] = {};
+    }
+
+    void SlabManager::resetActiveSlab(std::shared_ptr<SlabItem> slab)
+    {
+        if (m_active_slab[0] == slab) {
+            m_active_slab[0] = {};
+        }
+        if (m_active_slab[1] == slab) {
+            m_active_slab[1] = {};
+        }
     }
     
     std::shared_ptr<SlabItem> SlabManager::findFirst(std::size_t size, unsigned char locality)
@@ -228,6 +239,37 @@ namespace db0
         }
         return slab;
     }
+
+    void SlabManager::markDirty(std::shared_ptr<SlabItem> slab)
+    {
+        if (!m_atomic_stack.empty()) {
+            m_atomic_stack.back().m_dirty_slabs.insert(m_slab_address_func(slab->m_cap_item.m_slab_id));
+        }
+        if (!slab->m_is_dirty) {
+            slab->m_is_dirty = true;
+            m_dirty_slabs.push_back(slab);
+        }
+    }
+
+    void SlabManager::invalidateCachedSlab(std::uint64_t address)
+    {
+        auto it = m_slabs.find(address);
+        if (it == m_slabs.end()) {
+            return;
+        }
+
+        auto slab_item = it->second.lock();
+        if (slab_item) {
+            slab_item->m_is_dirty = false;
+            resetActiveSlab(slab_item);
+            if (m_recycler_ptr) {
+                m_recycler_ptr->closeOne([&slab_item](const SlabItem &item) {
+                    return slab_item.get() == &item;
+                });
+            }
+        }
+        m_slabs.erase(it);
+    }
     
     void SlabManager::erase(std::shared_ptr<SlabItem> slab) {
         erase(slab, true);
@@ -342,7 +384,11 @@ namespace db0
     }
 
     void SlabManager::beginAtomic()
-    {            
+    {
+        // Parent-frame slab capacity metadata lives in SlabItem until saved.
+        // Persist dirty metadata before opening a child frame so child rollback can
+        // evict stale child-mutated SlabItem instances without losing parent updates.
+        saveDirtySlabs();
         m_atomic_stack.emplace_back();
     }
     
@@ -370,6 +416,11 @@ namespace db0
             parentVolatileSlabs.insert(parentVolatileSlabs.end(), atomicFrame.m_volatile_slabs.begin(),
                 atomicFrame.m_volatile_slabs.end());
         }
+
+        if (!atomicFrame.m_dirty_slabs.empty() && !m_atomic_stack.empty()) {
+            auto &parentDirtySlabs = m_atomic_stack.back().m_dirty_slabs;
+            parentDirtySlabs.insert(atomicFrame.m_dirty_slabs.begin(), atomicFrame.m_dirty_slabs.end());
+        }
     }
 
     void SlabManager::cancelAtomic()
@@ -378,32 +429,26 @@ namespace db0
         auto atomicFrame = std::move(m_atomic_stack.back());
         m_atomic_stack.pop_back();
 
-        // Rollback restores the prefix state, so cached slab objects from the
-        // canceled frame may carry stale capacity metadata. Drop all slab cache
-        // state and reopen slabs lazily from the restored prefix.
+        // Rollback restores prefix data for the canceled frame. Only slab
+        // allocators mutated by that frame can now carry stale in-memory state,
+        // so evict just those slabs and let later reads reopen them lazily.
+        for (auto slab_addr : atomicFrame.m_dirty_slabs) {
+            invalidateCachedSlab(slab_addr);
+        }
         for (auto slab_addr : atomicFrame.m_volatile_slabs) {
-            auto it = m_slabs.find(slab_addr);
-            if (it != m_slabs.end()) {
-                auto slab_item = it->second.lock();
-                if (slab_item) {
-                    slab_item->m_is_dirty = false;
-                }
-                m_slabs.erase(it);
-            }
+            invalidateCachedSlab(slab_addr);
         }
-        for (auto &slab_item : m_dirty_slabs) {
-            slab_item->m_is_dirty = false;
+
+        m_dirty_slabs.erase(
+            std::remove_if(m_dirty_slabs.begin(), m_dirty_slabs.end(),
+                [](const std::shared_ptr<SlabItem> &slab_item) {
+                    return !slab_item || !slab_item->m_is_dirty;
+                }),
+            m_dirty_slabs.end());
+
+        if (!atomicFrame.m_dirty_slabs.empty() || !atomicFrame.m_volatile_slabs.empty()) {
+            m_next_slab_id = {};
         }
-        m_dirty_slabs.clear();
-        if (m_recycler_ptr) {
-            m_recycler_ptr->close([this](const SlabItem &slab) {
-                return &slab->getPrefix() == m_prefix.get();
-            });
-        }
-        m_slabs.clear();
-        m_reserved_slabs.clear();
-        m_active_slab = {};
-        m_next_slab_id = {};
     }
     
     void SlabManager::saveItem(SlabItem &item) const
@@ -576,11 +621,9 @@ namespace db0
                     }
                     
                     if (!unique || ((*slab)->tryMakeAddressUnique(*addr, instance_id))) {                        
-                        // modified, add to dirty slabs
-                        if (!slab->m_is_dirty) {
-                            slab->m_is_dirty = true;
-                            m_dirty_slabs.push_back(slab);
-                        }
+                        // Modified slabs are tracked per atomic frame so rollback can evict
+                        // only stale allocator instances from that frame.
+                        markDirty(slab);
                         return addr;
                     }
                     
@@ -643,15 +686,12 @@ namespace db0
         auto slab = find(slab_id);
         assert(slab);
         (*slab)->free(address);
+        markDirty(slab);
         if ((*slab)->empty()) {
             // erase or mark as erased
             erase(slab);
         } else {
-            // modified, add to dirty slabs
-            if (!slab->m_is_dirty) {
-                slab->m_is_dirty = true;
-                m_dirty_slabs.push_back(slab);
-            }
+            // Slab metadata will be saved lazily by saveDirtySlabs().
         }
     }
 

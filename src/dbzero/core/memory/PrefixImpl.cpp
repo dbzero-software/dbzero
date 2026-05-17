@@ -391,8 +391,8 @@ namespace db0
         // this is because the atomic operation needs to start over a DP-consistent state
         // Due to the same reason, also flush the residual parts of wide locks
         m_cache.flushBoundary();
-        m_cache.beginAtomic();
         // increment state number to allow isolation
+        m_cache.beginAtomic(m_head_state_num + 1);
         ++m_head_state_num;
         ++m_atomic_depth;
     }

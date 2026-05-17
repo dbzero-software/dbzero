@@ -123,7 +123,7 @@ namespace db0
         // Flush managed boundary locks only
         void flushBoundary();
 
-        void beginAtomic();
+        void beginAtomic(StateNumType state_num);
 
         /**
          * Relase / rollback all locks stored by the cache
@@ -186,11 +186,21 @@ namespace db0
         // marker lock (to mark missing ranges)
         const std::shared_ptr<DP_Lock> m_missing_dp_lock_ptr;
         const std::shared_ptr<WideLock> m_missing_wide_lock_ptr;
-        // One volatile-lock frame per nested atomic block. Boundary locks are tracked by frame
-        // because their parent DP states can change during merge/rebase, so state-derived
-        // ownership is not reliable enough for scoped rollback.
+        // One volatile-lock frame per nested atomic block. Each frame records the temporary
+        // state number assigned to its atomic block, which lets rollback/merge assert that
+        // nested atomic contexts are unwound strictly from the stack top.
+        //
+        // Boundary locks are tracked by frame because their parent DP states can change
+        // during merge/rebase, so state-derived ownership is not reliable enough for
+        // scoped rollback.
         struct VolatileLocks
         {
+            explicit VolatileLocks(StateNumType state_num)
+                : m_state_num(state_num)
+            {
+            }
+
+            StateNumType m_state_num;
             std::vector<std::shared_ptr<DP_Lock> > m_dp_locks;
             std::vector<std::shared_ptr<WideLock> > m_wide_locks;
             std::vector<std::shared_ptr<BoundaryLock> > m_boundary_locks;

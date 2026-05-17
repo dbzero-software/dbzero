@@ -688,6 +688,32 @@ def test_nested_atomic_cancel_reverts_index_add_without_corrupting_index(db0_fix
     gc.collect()
 
 
+def test_nested_atomic_rollback_preserves_parent_list_slab_metadata(db0_fixture):
+    items = db0.list()
+
+    with db0.atomic():
+        for i in range(20):
+            items.append(f"parent-before-{i}")
+
+        try:
+            with db0.atomic():
+                for i in range(20):
+                    items.append(f"child-rollback-{i}")
+                raise RuntimeError("rollback child list writes")
+        except RuntimeError:
+            pass
+
+        for i in range(20):
+            items.append(f"parent-after-{i}")
+
+    assert list(items) == [
+        *(f"parent-before-{i}" for i in range(20)),
+        *(f"parent-after-{i}" for i in range(20)),
+    ]
+    items = None
+    gc.collect()
+
+
 def test_deep_nested_atomic_mixed_commit_and_rollback(db0_fixture):
     items = db0.list()
     index = db0.index()
