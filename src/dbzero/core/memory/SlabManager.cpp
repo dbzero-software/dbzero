@@ -626,7 +626,9 @@ namespace db0
                     if (!unique || ((*slab)->tryMakeAddressUnique(*addr, instance_id))) {                        
                         // Modified slabs are tracked per atomic frame so rollback can evict
                         // only stale allocator instances from that frame.
-                        markDirty(slab);
+                        if (!slab->m_is_dirty) {
+                            markDirty(slab);
+                        }
                         return addr;
                     }
                     
@@ -689,7 +691,9 @@ namespace db0
         auto slab = find(slab_id);
         assert(slab);
         (*slab)->free(address);
-        markDirty(slab);
+        if (!slab->m_is_dirty) {
+            markDirty(slab);
+        }
         if ((*slab)->empty()) {
             // erase or mark as erased
             erase(slab);
