@@ -210,23 +210,28 @@ namespace db0
     
     void GC0::beginAtomic()
     {
-        assert(!m_atomic);
         // commmit all active v_object instances so that the underlying locks can be re-created (CoW)        
         commitAll();
-        m_atomic = true;
+        m_volatile_stack.emplace_back();
     }
 
     void GC0::endAtomic()
     {
-        assert(m_atomic);
-        m_volatile.clear();
-        m_atomic = false;
+        assert(!m_volatile_stack.empty());
+        auto volatilePtrs = std::move(m_volatile_stack.back());
+        m_volatile_stack.pop_back();
+        if (!m_volatile_stack.empty()) {
+            auto &parentVolatilePtrs = m_volatile_stack.back();
+            parentVolatilePtrs.insert(parentVolatilePtrs.end(), volatilePtrs.begin(), volatilePtrs.end());
+        }
     }
     
     void GC0::cancelAtomic()
     {
-        assert(m_atomic);
-        for (auto vptr : m_volatile) {
+        assert(!m_volatile_stack.empty());
+        auto volatilePtrs = std::move(m_volatile_stack.back());
+        m_volatile_stack.pop_back();
+        for (auto vptr : volatilePtrs) {
             if (vptr) {
                 tryRemove(vptr, true);
             }
@@ -236,8 +241,6 @@ namespace db0
         for (auto &item : m_flush_map) {
             ops_list[item.second].flush(item.first, true);
         }
-        m_volatile.clear();
-        m_atomic = false;
     }
     
     std::optional<unsigned int> GC0::erase(void *vptr)
@@ -252,8 +255,8 @@ namespace db0
             m_flush_map.erase(it);                    
         }
 
-        if (m_atomic) {
-            for (auto &volatile_ptr: m_volatile) {
+        if (!m_volatile_stack.empty()) {
+            for (auto &volatile_ptr: m_volatile_stack.back()) {
                 if (volatile_ptr == vptr) {
                     volatile_ptr = nullptr;
                 }

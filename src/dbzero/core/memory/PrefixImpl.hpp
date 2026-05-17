@@ -99,8 +99,8 @@ namespace db0
         const std::uint32_t m_shift;
         StateNumType m_head_state_num;
         mutable PrefixCache m_cache;
-        // flag indicating atomic operation in progress
-        bool m_atomic = false;
+        // atomic operation nesting depth
+        std::uint32_t m_atomic_depth = 0;
         
         std::shared_ptr<DP_Lock> mapPage(std::uint64_t page_num, StateNumType state_num, FlagSet<AccessOptions>);
         std::shared_ptr<BoundaryLock> mapBoundaryRange(std::uint64_t page_num, std::uint64_t address,

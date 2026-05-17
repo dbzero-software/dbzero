@@ -114,7 +114,10 @@ namespace db0
     }
     
     bool LangCache::erase(const Fixture &fixture, Address address, bool expired_only, bool as_defunct) {
-        return erase(getFixtureId(fixture), address, expired_only);
+        // Preserve the defunct-cleanup mode for callers that enter through a
+        // Fixture. Dropping it here would make interpreter-shutdown cleanup try
+        // to DECREF Python objects after the safe cleanup window.
+        return erase(getFixtureId(fixture), address, expired_only, as_defunct);
     }
 
     bool LangCache::erase(std::uint16_t fixture_id, Address address, bool expired_only, bool as_defunct)

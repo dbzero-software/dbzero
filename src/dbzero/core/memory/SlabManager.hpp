@@ -154,11 +154,16 @@ namespace db0
         std::function<Address(unsigned int)> m_slab_address_func;
         std::function<std::uint32_t(Address)> m_slab_id_func;
         mutable std::optional<std::uint32_t> m_next_slab_id;
-        // addresses of slabs newly created during atomic operations (potentially to be reverted)
-        mutable std::vector<std::uint64_t> m_volatile_slabs;
-        // the atomic operation's flag
-        bool m_atomic = false;
-        std::vector<Address> m_atomic_deferred_free_ops;
+        // One frame per nested atomic block. New slabs and deferred frees must be
+        // promoted or discarded together so child commit/rollback keeps allocator state scoped.
+        struct AtomicFrame
+        {
+            // Slabs created in this atomic block; removed from cache if the block is rolled back.
+            std::vector<std::uint64_t> m_volatile_slabs;
+            // Frees requested in this atomic block; promoted on commit, discarded on rollback.
+            std::vector<Address> m_deferred_free_ops;
+        };
+        mutable std::vector<AtomicFrame> m_atomic_stack;
         const bool m_deferred_free;
         mutable std::unordered_set<Address> m_deferred_free_ops;
         // the list of modified slabs (need backend refresh)

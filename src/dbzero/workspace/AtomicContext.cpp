@@ -14,7 +14,7 @@ namespace db0
 
 {
     
-    std::mutex AtomicContext::m_atomic_mutex;
+    std::recursive_mutex AtomicContext::m_atomic_mutex;
 
     // NOTE: since objects might've been destroyed inside atomic operation, we need to check before detaching
     template <typename T> void detachExisting(const T &obj)
@@ -68,12 +68,15 @@ namespace db0
         functions[static_cast<int>(TypeId::DB0_TUPLE)] = detachObject<TypeId::DB0_TUPLE, PyToolkit>;
     }
     
-    AtomicContext::AtomicContext(std::shared_ptr<Workspace> &workspace, std::unique_lock<std::mutex> &&lock)
+    AtomicContext::AtomicContext(std::shared_ptr<Workspace> &workspace, std::unique_lock<std::recursive_mutex> &&lock)
         : m_workspace(workspace)
+        , m_parent(workspace->currentAtomicContext())
         , m_atomic_lock(std::move(lock))
     {
         assert(isActive());
-        m_workspace->preAtomic();
+        if (!m_parent) {
+            m_workspace->preAtomic();
+        }
         m_workspace->beginAtomic(this);
     }
         
@@ -89,8 +92,8 @@ namespace db0
             for (auto &pair : m_objects) {            
                 detachObject<PyToolkit>(type_manager.getTypeId(pair.second.get()), pair.second.get());
             }
-            m_workspace->cancelAtomic();
             m_objects.clear();
+            m_workspace->cancelAtomic(this);
         } catch (...) {
             m_atomic_lock.unlock();
             throw;
@@ -121,7 +124,12 @@ namespace db0
                 detachObject<PyToolkit>(type_manager.getTypeId(pair.second.get()), pair.second.get());
             }        
             
-            m_workspace->endAtomic();
+            m_workspace->endAtomic(this);
+            if (m_parent) {
+                for (auto &pair : m_objects) {
+                    m_parent->add(pair.first, pair.second.get());
+                }
+            }
             m_objects.clear();
         } catch (...) {
             m_atomic_lock.unlock();
@@ -147,8 +155,8 @@ namespace db0
         }
     }
     
-    std::unique_lock<std::mutex> AtomicContext::lock() {
-        return std::unique_lock<std::mutex>(m_atomic_mutex);
+    std::unique_lock<std::recursive_mutex> AtomicContext::lock() {
+        return std::unique_lock<std::recursive_mutex>(m_atomic_mutex);
     }
     
     bool AtomicContext::isActive() const {

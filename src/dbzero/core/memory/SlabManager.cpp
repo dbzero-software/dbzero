@@ -131,9 +131,9 @@ namespace db0
         auto capacity = SlabAllocator::formatSlab(m_prefix, address, m_slab_size, m_page_size);
         // NOTE: for a new slab, the initial lost capacity is 0
         auto slab = std::make_shared<SlabAllocator>(m_prefix, address, m_slab_size, m_page_size, capacity, 0);
-        if (m_atomic) {
+        if (!m_atomic_stack.empty()) {
             // if atomic operation is in progress, add to the volatile slabs
-            m_volatile_slabs.push_back(address);
+            m_atomic_stack.back().m_volatile_slabs.push_back(address);
         }
         
         return { slab, slab_id };
@@ -343,34 +343,45 @@ namespace db0
 
     void SlabManager::beginAtomic()
     {            
-        assert(!m_atomic);
-        assert(m_volatile_slabs.empty());
-        m_atomic = true;            
+        m_atomic_stack.emplace_back();
     }
     
     void SlabManager::endAtomic()
     {            
-        assert(m_atomic);
+        assert(!m_atomic_stack.empty());
+        auto atomicFrame = std::move(m_atomic_stack.back());
+        m_atomic_stack.pop_back();
+
         // merge atomic deferred free operations
-        if (!m_atomic_deferred_free_ops.empty()) {
-            for (auto addr : m_atomic_deferred_free_ops) {
-                m_deferred_free_ops.insert(addr);
+        if (!atomicFrame.m_deferred_free_ops.empty()) {
+            if (!m_atomic_stack.empty()) {
+                auto &parentDeferredFreeOps = m_atomic_stack.back().m_deferred_free_ops;
+                parentDeferredFreeOps.insert(parentDeferredFreeOps.end(), atomicFrame.m_deferred_free_ops.begin(),
+                    atomicFrame.m_deferred_free_ops.end());
+            } else {
+                for (auto addr : atomicFrame.m_deferred_free_ops) {
+                    m_deferred_free_ops.insert(addr);
+                }
             }
-            m_atomic_deferred_free_ops.clear();
         }
 
-        m_volatile_slabs.clear();
-        m_atomic = false;         
+        if (!atomicFrame.m_volatile_slabs.empty() && !m_atomic_stack.empty()) {
+            auto &parentVolatileSlabs = m_atomic_stack.back().m_volatile_slabs;
+            parentVolatileSlabs.insert(parentVolatileSlabs.end(), atomicFrame.m_volatile_slabs.begin(),
+                atomicFrame.m_volatile_slabs.end());
+        }
     }
 
     void SlabManager::cancelAtomic()
     {
-        assert(m_atomic);
-        // rollback atomic deferred free operations
-        m_atomic_deferred_free_ops.clear();
+        assert(!m_atomic_stack.empty());
+        auto atomicFrame = std::move(m_atomic_stack.back());
+        m_atomic_stack.pop_back();
 
-        // revert all volatile slabs from cache
-        for (auto slab_addr : m_volatile_slabs) {
+        // Rollback restores the prefix state, so cached slab objects from the
+        // canceled frame may carry stale capacity metadata. Drop all slab cache
+        // state and reopen slabs lazily from the restored prefix.
+        for (auto slab_addr : atomicFrame.m_volatile_slabs) {
             auto it = m_slabs.find(slab_addr);
             if (it != m_slabs.end()) {
                 auto slab_item = it->second.lock();
@@ -380,9 +391,19 @@ namespace db0
                 m_slabs.erase(it);
             }
         }
+        for (auto &slab_item : m_dirty_slabs) {
+            slab_item->m_is_dirty = false;
+        }
+        m_dirty_slabs.clear();
+        if (m_recycler_ptr) {
+            m_recycler_ptr->close([this](const SlabItem &slab) {
+                return &slab->getPrefix() == m_prefix.get();
+            });
+        }
+        m_slabs.clear();
+        m_reserved_slabs.clear();
         m_active_slab = {};
-        m_volatile_slabs.clear();
-        m_atomic = false;
+        m_next_slab_id = {};
     }
     
     void SlabManager::saveItem(SlabItem &item) const
@@ -676,8 +697,8 @@ namespace db0
     
     void SlabManager::deferredFree(Address address)
     {        
-        if (m_atomic) {
-            m_atomic_deferred_free_ops.push_back(address);
+        if (!m_atomic_stack.empty()) {
+            m_atomic_stack.back().m_deferred_free_ops.push_back(address);
         } else {
             m_deferred_free_ops.insert(address);
         }
@@ -685,8 +706,7 @@ namespace db0
 
     void SlabManager::flush() const
     {
-        assert(!m_atomic);
-        assert(m_atomic_deferred_free_ops.empty());
+        assert(m_atomic_stack.empty());
         // perform the deferred free operations
         if (!m_deferred_free_ops.empty()) {
             for (auto addr : m_deferred_free_ops) {

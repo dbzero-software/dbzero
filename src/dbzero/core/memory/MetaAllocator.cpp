@@ -332,7 +332,7 @@ namespace db0
     {
         // NOTE: if atomic operation is in progress, the deferred free operations are not flushed
         // this is not a finalized and potentially reversible commit        
-        if (!m_atomic) {
+        if (m_atomic_depth == 0) {
             flush();
         }
         m_realms.commit();
@@ -352,28 +352,27 @@ namespace db0
     
     void MetaAllocator::flush() const
     {
-        assert(!m_atomic);
+        assert(m_atomic_depth == 0);
         m_realms.flush();
     }
     
     void MetaAllocator::beginAtomic()
     {        
-        assert(!m_atomic);
-        m_atomic = true;
+        ++m_atomic_depth;
         m_realms.beginAtomic();
     }
     
     void MetaAllocator::endAtomic()
     {        
-        assert(m_atomic);
-        m_atomic = false;
+        assert(m_atomic_depth > 0);
+        --m_atomic_depth;
         m_realms.endAtomic();
     }
     
     void MetaAllocator::cancelAtomic()
     {
-        assert(m_atomic);
-        m_atomic = false;
+        assert(m_atomic_depth > 0);
+        --m_atomic_depth;
         m_realms.cancelAtomic();
     }
     

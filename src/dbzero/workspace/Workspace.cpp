@@ -374,9 +374,11 @@ namespace db0
                     fixture->commit();
                 }
                 
-                if (m_atomic_context_ptr && *access_type == AccessType::READ_WRITE) {
-                    // begin atomic with the new read/write fixture
-                    fixture->beginAtomic(m_atomic_context_ptr);
+                if (!m_atomic_context_stack.empty() && *access_type == AccessType::READ_WRITE) {
+                    // begin all active atomic levels with the new read/write fixture
+                    for (auto *context : m_atomic_context_stack) {
+                        fixture->beginAtomic(context);
+                    }
                 }
                 
                 it = m_fixtures.emplace(fixture->getUUID(), fixture).first;
@@ -646,8 +648,7 @@ namespace db0
     
     void Workspace::preAtomic()
     {
-        assert(!m_atomic_context_ptr);
-        // begin atomic with all open read/write fixtures
+        // prepare all currently open read/write fixtures before the root atomic block
         for (auto &[uuid, fixture] : m_fixtures) {
             if (fixture->getAccessType() == AccessType::READ_WRITE) {
                 fixture->preAtomic();
@@ -657,14 +658,21 @@ namespace db0
     
     void Workspace::beginAtomic(AtomicContext *context)
     {
-        assert(!m_atomic_context_ptr);
         // begin atomic with all open read/write fixtures
         for (auto &[uuid, fixture] : m_fixtures) {
             if (fixture->getAccessType() == AccessType::READ_WRITE) {
                 fixture->beginAtomic(context);
             }
         }
-        m_atomic_context_ptr = context;
+        m_atomic_context_stack.push_back(context);
+    }
+    
+    AtomicContext *Workspace::currentAtomicContext() const
+    {
+        if (m_atomic_context_stack.empty()) {
+            return nullptr;
+        }
+        return m_atomic_context_stack.back();
     }
     
     unsigned int Workspace::beginLocked()
@@ -725,26 +733,30 @@ namespace db0
         }        
     }
     
-    void Workspace::endAtomic()
+    void Workspace::endAtomic(AtomicContext *context)
     {
-        assert(m_atomic_context_ptr);
+        assert(!m_atomic_context_stack.empty());
+        assert(m_atomic_context_stack.back() == context);
         // end atomic with all open fixtures
         for (auto &[uuid, fixture] : m_fixtures) {
             if (fixture->getAccessType() == AccessType::READ_WRITE) {
-                fixture->endAtomic();
+                fixture->endAtomic(context);
             }
         }
-        m_atomic_context_ptr = nullptr;
+        m_atomic_context_stack.pop_back();
     }
     
-    void Workspace::cancelAtomic()
+    void Workspace::cancelAtomic(AtomicContext *context)
     {
-        assert(m_atomic_context_ptr);
-        // end atomic with all open fixtures
+        assert(!m_atomic_context_stack.empty());
+        assert(m_atomic_context_stack.back() == context);
+        // cancel atomic with all open read/write fixtures
         for (auto &[uuid, fixture] : m_fixtures) {
-            fixture->cancelAtomic();
+            if (fixture->getAccessType() == AccessType::READ_WRITE) {
+                fixture->cancelAtomic(context);
+            }
         }
-        m_atomic_context_ptr = nullptr;
+        m_atomic_context_stack.pop_back();
     }
 
     void Workspace::setAutocommitInterval(std::uint64_t interval_ms) {
