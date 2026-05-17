@@ -242,13 +242,16 @@ namespace db0
 
     void SlabManager::markDirty(std::shared_ptr<SlabItem> slab)
     {
+        if (slab->m_is_dirty) {
+            return;
+        }
         if (!m_atomic_stack.empty()) {
+            // The first dirty transition registers this slab with the active frame.
+            // Subsequent mutations are covered by the dirty flag and dirty-list entry.
             m_atomic_stack.back().m_dirty_slabs.insert(m_slab_address_func(slab->m_cap_item.m_slab_id));
         }
-        if (!slab->m_is_dirty) {
-            slab->m_is_dirty = true;
-            m_dirty_slabs.push_back(slab);
-        }
+        slab->m_is_dirty = true;
+        m_dirty_slabs.push_back(slab);
     }
 
     void SlabManager::invalidateCachedSlab(std::uint64_t address)
