@@ -15,6 +15,7 @@
 #include <dbzero/core/vspace/v_object.hpp>
 #include <dbzero/core/collections/vector/LimitedVector.hpp>
 #include <dbzero/core/compiler_attributes.hpp>
+#include <unordered_set>
 
 namespace db0
 
@@ -106,6 +107,7 @@ namespace db0
         */
         std::shared_ptr<SlabItem> tryGetActiveSlab(unsigned char locality);        
         void resetActiveSlab(unsigned char locality);
+        void resetActiveSlab(std::shared_ptr<SlabItem>);
 
         /**
          * Retrieve the 1st slab to allocate a block of at least min_capacity
@@ -128,6 +130,8 @@ namespace db0
         // Find existing slab by ID
         std::shared_ptr<SlabItem> tryFind(std::uint32_t slab_id) const;
         std::shared_ptr<SlabItem> find(std::uint32_t slab_id) const;
+        void markDirty(std::shared_ptr<SlabItem>);
+        void invalidateCachedSlab(std::uint64_t);
         
         /**
          * Erase if 'slab' is the last slab
@@ -154,11 +158,19 @@ namespace db0
         std::function<Address(unsigned int)> m_slab_address_func;
         std::function<std::uint32_t(Address)> m_slab_id_func;
         mutable std::optional<std::uint32_t> m_next_slab_id;
-        // addresses of slabs newly created during atomic operations (potentially to be reverted)
-        mutable std::vector<std::uint64_t> m_volatile_slabs;
-        // the atomic operation's flag
-        bool m_atomic = false;
-        std::vector<Address> m_atomic_deferred_free_ops;
+        // One frame per nested atomic block. New slabs and deferred frees must be
+        // promoted or discarded together so child commit/rollback keeps allocator state scoped.
+        struct AtomicFrame
+        {
+            // Slabs created in this atomic block; removed from cache if the block is rolled back.
+            std::vector<std::uint64_t> m_volatile_slabs;
+            // Existing slabs whose in-memory allocator state was changed in this block.
+            // Rollback evicts only these slabs so they are reopened lazily from the restored prefix.
+            std::unordered_set<std::uint64_t> m_dirty_slabs;
+            // Frees requested in this atomic block; promoted on commit, discarded on rollback.
+            std::vector<Address> m_deferred_free_ops;
+        };
+        mutable std::vector<AtomicFrame> m_atomic_stack;
         const bool m_deferred_free;
         mutable std::unordered_set<Address> m_deferred_free_ops;
         // the list of modified slabs (need backend refresh)

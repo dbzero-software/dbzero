@@ -45,7 +45,7 @@ namespace db0::python
         .tp_free = PyObject_Free,
     };
     
-    PyAtomic *PyAPI_tryBeginAtomic(PyObject *self, std::unique_lock<std::mutex> &&lock)
+    PyAtomic *PyAPI_tryBeginAtomic(PyObject *self, std::unique_lock<std::recursive_mutex> &&lock)
     {
         PY_API_FUNC
         auto py_object = Py_OWN(PyAtomic_new(&PyAtomicType, NULL, NULL));        
@@ -62,7 +62,7 @@ namespace db0::python
         }
 
         // need to acquire atomic lock before API lock
-        std::unique_lock<std::mutex> atomic_lock;
+        std::unique_lock<std::recursive_mutex> atomic_lock;
         {
             // this is to prevent GIL-related deadlocks
             WithGIL_Unlocked no_gil;

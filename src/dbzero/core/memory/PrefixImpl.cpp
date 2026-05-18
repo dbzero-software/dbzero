@@ -55,7 +55,7 @@ namespace db0
         assert(state_num > 0);
         assert(size > 0);
         // for atomic operations use no_flush flag to allow reverting changes
-        if (m_atomic) {
+        if (m_atomic_depth > 0) {
             access_mode.set(AccessOptions::no_flush, true);
         }
         
@@ -285,12 +285,12 @@ namespace db0
     StateNumType PrefixImpl::getStateNum(bool finalized) const
     {
         // NOTE: must apply atomic operation adjustment
-        int adjust = m_atomic ? -1 : 0;
+        auto adjust = static_cast<StateNumType>(m_atomic_depth);
         if (finalized) {
             // in case of read/write prefixes the head state number is never finalized
-            return (m_access_type == AccessType::READ_WRITE) ? (m_head_state_num - 1 + adjust):(m_head_state_num + adjust);
+            return (m_access_type == AccessType::READ_WRITE) ? (m_head_state_num - 1 - adjust):(m_head_state_num - adjust);
         } else {
-            return m_head_state_num + adjust;
+            return m_head_state_num - adjust;
         }
     }
     
@@ -385,7 +385,6 @@ namespace db0
     
     void PrefixImpl::beginAtomic()
     {        
-        assert(!m_atomic);
         // Flush all boundary locks before the start of a new atomic operation
         // this is to avoid flushing (which in case of the boundary locks - mutates the underlying DPs)
         // during the atomic operation. Otherwise it would result in a data inconsistency - 
@@ -393,18 +392,19 @@ namespace db0
         // Due to the same reason, also flush the residual parts of wide locks
         m_cache.flushBoundary();
         // increment state number to allow isolation
+        m_cache.beginAtomic(m_head_state_num + 1);
         ++m_head_state_num;
-        m_atomic = true;
+        ++m_atomic_depth;
     }
     
     void PrefixImpl::endAtomic()
     {                
-        assert(m_atomic);
+        assert(m_atomic_depth > 0);
         std::vector<std::shared_ptr<ResourceLock> > reused_locks;
         // merge all results into the current transaction
         m_cache.merge(m_head_state_num, m_head_state_num - 1, reused_locks);
         --m_head_state_num;
-        m_atomic = false;
+        --m_atomic_depth;
 
         // update reused locks with CacheRecycler
         // this can only be done AFTER completing the atomic operation (as it's a potentially mutable operation)        
@@ -418,10 +418,10 @@ namespace db0
     
     void PrefixImpl::cancelAtomic()
     {
-        assert(m_atomic);
+        assert(m_atomic_depth > 0);
         m_cache.rollback(m_head_state_num);
         --m_head_state_num;
-        m_atomic = false;        
+        --m_atomic_depth;        
     }
     
     BaseStorage &PrefixImpl::getStorage() const {

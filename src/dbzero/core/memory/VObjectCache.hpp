@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <functional>
+#include <vector>
 #include <dbzero/core/utils/shared_void.hpp>
 #include <dbzero/core/threading/ProgressiveMutex.hpp>
 #include <dbzero/core/memory/Memspace.hpp>
@@ -119,9 +120,8 @@ namespace db0
         // note that detach function may not be present (non-detachable)
         mutable std::unordered_map<std::uint64_t, std::tuple<std::weak_ptr<void>, std::uint32_t,
             std::function<void()>, std::function<void()> > > m_cache;
-        bool m_atomic = false;
-        // volatile instances - i.e. ones created during atomic operation
-        mutable std::unordered_set<std::uint64_t> m_volatile;
+        // volatile instance stack - i.e. instances used during atomic operations
+        mutable std::vector<std::unordered_set<std::uint64_t> > m_volatile_stack;
     };
     
     template <typename T, typename... Args>
@@ -148,8 +148,8 @@ namespace db0
             };
         }
         m_cache[result_ptr->getAddress()] = { ptr, index, commit_func, detach_func };
-        if (m_atomic) {
-            m_volatile.insert(result_ptr->getAddress());
+        if (!m_volatile_stack.empty()) {
+            m_volatile_stack.back().insert(result_ptr->getAddress());
         }
         return result_ptr;
     }
@@ -162,8 +162,8 @@ namespace db0
             auto lock = std::get<0>(it->second).lock();
             if (lock) {
                 // for atomic operations register the address as volatile
-                if (m_atomic) {
-                    m_volatile.insert(address);
+                if (!m_volatile_stack.empty()) {
+                    m_volatile_stack.back().insert(address);
                 }
                 return std::static_pointer_cast<T>(lock);
             } else {
@@ -187,8 +187,8 @@ namespace db0
             m_cache.erase(it);
             return nullptr;
         }
-        if (m_atomic) {
-            m_volatile.insert(address);
+        if (!m_volatile_stack.empty()) {
+            m_volatile_stack.back().insert(address);
         }
         return std::static_pointer_cast<T>(lock);
     }

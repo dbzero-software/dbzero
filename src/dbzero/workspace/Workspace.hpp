@@ -273,10 +273,11 @@ namespace db0
         // prepare for an atomic operation - e.g. by flushing internal update buffers
         void preAtomic();
         void beginAtomic(AtomicContext *context);
+        AtomicContext *currentAtomicContext() const;
         void detach();
-        void endAtomic();
+        void endAtomic(AtomicContext *context);
         
-        void cancelAtomic();
+        void cancelAtomic(AtomicContext *context);
         
         void setCacheSize(std::size_t cache_size);
 
@@ -323,8 +324,10 @@ namespace db0
         std::vector<std::string> m_current_prefix_history;
         // shared object list is for maintainig v_object cache evition policy at a process level
         mutable FixedObjectList m_shared_object_list;
-        // flag indicating atomic operation in progress
-        AtomicContext *m_atomic_context_ptr = nullptr;
+        // active atomic operation stack
+        // Non-owning active atomic stack. AtomicContext instances are owned by the
+        // Python wrapper; the workspace only observes the current lexical/LIFO context.
+        std::vector<AtomicContext*> m_atomic_context_stack;
         mutable std::shared_ptr<LangCache> m_lang_cache;
         std::unique_ptr<WorkspaceThreads> m_workspace_threads;        
         // associated workspace views (some of which may already be deleted)
