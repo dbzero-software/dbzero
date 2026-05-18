@@ -323,6 +323,7 @@ namespace db0::object_model
 
     void Class::resetProtectFieldsCache() const
     {
+        m_protect_fields_cache.reset();
         getClassFactory(*getFixture()).forAll([this](const Class &type) {
             if (type.isBaseClass(*this)) {
                 type.m_protect_fields_cache.reset();
