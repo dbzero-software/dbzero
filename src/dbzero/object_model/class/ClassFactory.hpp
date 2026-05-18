@@ -132,8 +132,6 @@ DB0_PACKED_END
     private:
         struct ProtectFieldsCacheItem
         {
-            bool m_own_protect_fields = false;
-            bool m_base_protect_fields = false;
             bool m_protect_fields = false;
         };
 

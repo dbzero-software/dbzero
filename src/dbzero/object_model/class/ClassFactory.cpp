@@ -139,25 +139,21 @@ namespace db0::object_model
 
     bool ClassFactory::isProtectFields(const Class &type) const
     {
-        bool ownProtectFields = type.hasOwnProtectFields();
-        auto baseClass = type.getBaseClassPtr();
-        bool baseProtectFields = baseClass && isProtectFields(*baseClass);
         auto cacheKey = type.getAddress();
         auto it = m_protect_fields_cache.find(cacheKey);
-        if (it != m_protect_fields_cache.end()
-            && it->second.m_own_protect_fields == ownProtectFields
-            && it->second.m_base_protect_fields == baseProtectFields) {
+        if (it != m_protect_fields_cache.end()) {
             return it->second.m_protect_fields;
         }
 
-        bool protectFields = ownProtectFields || baseProtectFields;
-        m_protect_fields_cache[cacheKey] = { ownProtectFields, baseProtectFields, protectFields };
+        auto baseClass = type.getBaseClassPtr();
+        bool protectFields = type.hasOwnProtectFields() || (baseClass && isProtectFields(*baseClass));
+        m_protect_fields_cache[cacheKey] = { protectFields };
         return protectFields;
     }
 
-    void ClassFactory::resetProtectFieldsCache(const Class &type) const
+    void ClassFactory::resetProtectFieldsCache(const Class &) const
     {
-        m_protect_fields_cache.erase(type.getAddress());
+        m_protect_fields_cache.clear();
     }
     
     std::shared_ptr<Class> ClassFactory::tryGetOrCreateType(TypeObjectPtr lang_type)
