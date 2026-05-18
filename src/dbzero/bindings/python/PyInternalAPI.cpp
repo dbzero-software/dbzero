@@ -186,7 +186,7 @@ namespace db0::python
             // validate type if requested (no validation for MemoBase)
             if (py_expected_type && !PyToolkit::getTypeManager().isMemoBase(py_expected_type)) {
                 // in other cases the type must match the actual object type
-                auto expected_class = class_factory.getExistingType(py_expected_type);
+                auto expected_class = class_factory.getOrCreateType(py_expected_type);
                 // honor class-specific access flags (e.g. type-level no_cache)
                 auto result = PyToolkit::unloadObject(fixture, addr, class_factory, nullptr, addr.getInstanceId(),
                     expected_class->getInstanceFlags()

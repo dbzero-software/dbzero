@@ -136,6 +136,29 @@ namespace db0::object_model
         }
         return type;
     }
+
+    bool ClassFactory::isProtectFields(const Class &type) const
+    {
+        bool ownProtectFields = type.hasOwnProtectFields();
+        auto baseClass = type.getBaseClassPtr();
+        bool baseProtectFields = baseClass && isProtectFields(*baseClass);
+        auto cacheKey = type.getAddress();
+        auto it = m_protect_fields_cache.find(cacheKey);
+        if (it != m_protect_fields_cache.end()
+            && it->second.m_own_protect_fields == ownProtectFields
+            && it->second.m_base_protect_fields == baseProtectFields) {
+            return it->second.m_protect_fields;
+        }
+
+        bool protectFields = ownProtectFields || baseProtectFields;
+        m_protect_fields_cache[cacheKey] = { ownProtectFields, baseProtectFields, protectFields };
+        return protectFields;
+    }
+
+    void ClassFactory::resetProtectFieldsCache(const Class &type) const
+    {
+        m_protect_fields_cache.erase(type.getAddress());
+    }
     
     std::shared_ptr<Class> ClassFactory::tryGetOrCreateType(TypeObjectPtr lang_type)
     {
@@ -155,10 +178,11 @@ namespace db0::object_model
             if (class_ptr) {
                 // pull existing dbzero class instance by pointer
                 type = getTypeByPtr(class_ptr, lang_type).m_class;
-                auto base_class = type->tryGetBaseClass();
-                bool protect_fields = LangToolkit::isProtectFields(lang_type)
-                    || (base_class && base_class->isProtectFields());
-                if (protect_fields && !type->isProtectFields()) {
+                auto memo_base = LangToolkit::getBaseMemoType(lang_type);
+                if (memo_base) {
+                    getOrCreateType(memo_base);
+                }
+                if (LangToolkit::isProtectFields(lang_type) && !type->hasOwnProtectFields()) {
                     type->setProtectFields();
                 }
             } else {
@@ -180,8 +204,7 @@ namespace db0::object_model
                 if (memo_base) {
                     base_class = getOrCreateType(memo_base);                    
                 }
-                flags.set(ClassOptions::PROTECT_FIELDS,
-                    LangToolkit::isProtectFields(lang_type) || (base_class && base_class->isProtectFields()));
+                flags.set(ClassOptions::PROTECT_FIELDS, LangToolkit::isProtectFields(lang_type));
                 type = std::shared_ptr<Class>(new Class(fixture, LangToolkit::getTypeName(lang_type),
                     LangToolkit::tryGetModuleName(lang_type), type_id, prefix_name, init_vars, flags, base_class)
                 );
@@ -207,10 +230,11 @@ namespace db0::object_model
             it_cached = m_type_cache.insert({lang_type, type}).first;
             m_pending_types.push_back(lang_type);
         } else {
-            auto base_class = it_cached->second->tryGetBaseClass();
-            bool protect_fields = LangToolkit::isProtectFields(lang_type)
-                || (base_class && base_class->isProtectFields());
-            if (protect_fields && !it_cached->second->isProtectFields()) {
+            auto memo_base = LangToolkit::getBaseMemoType(lang_type);
+            if (memo_base) {
+                getOrCreateType(memo_base);
+            }
+            if (LangToolkit::isProtectFields(lang_type) && !it_cached->second->hasOwnProtectFields()) {
                 it_cached->second->setProtectFields();
             }
         }
@@ -249,10 +273,7 @@ namespace db0::object_model
             it_cached->second.m_class->setInitVars(LangToolkit::getInitVars(lang_type));
             it_cached->second.m_class->setRuntimeFlags(LangToolkit::getMemoFlags(lang_type));
         }
-        auto base_class = it_cached->second.m_class->tryGetBaseClass();
-        bool protect_fields = lang_type && (LangToolkit::isProtectFields(lang_type)
-            || (base_class && base_class->isProtectFields()));
-        if (protect_fields && !it_cached->second.m_class->isProtectFields()) {
+        if (lang_type && LangToolkit::isProtectFields(lang_type) && !it_cached->second.m_class->hasOwnProtectFields()) {
             it_cached->second.m_class->setProtectFields();
         }
         return it_cached->second.m_class;
@@ -319,10 +340,7 @@ namespace db0::object_model
             if (lang_type) {
                 type->setInitVars(LangToolkit::getInitVars(lang_type));
                 type->setRuntimeFlags(LangToolkit::getMemoFlags(lang_type));
-                auto base_class = type->tryGetBaseClass();
-                bool protect_fields = LangToolkit::isProtectFields(lang_type)
-                    || (base_class && base_class->isProtectFields());
-                if (protect_fields && !type->isProtectFields()) {
+                if (LangToolkit::isProtectFields(lang_type) && !type->hasOwnProtectFields()) {
                     type->setProtectFields();
                 }
             }
@@ -336,10 +354,7 @@ namespace db0::object_model
             it_cached->second.m_class->setInitVars(LangToolkit::getInitVars(lang_type));
             it_cached->second.m_class->setRuntimeFlags(LangToolkit::getMemoFlags(lang_type));
         }
-        auto base_class = it_cached->second.m_class->tryGetBaseClass();
-        bool protect_fields = lang_type && (LangToolkit::isProtectFields(lang_type)
-            || (base_class && base_class->isProtectFields()));
-        if (protect_fields && !it_cached->second.m_class->isProtectFields()) {
+        if (lang_type && LangToolkit::isProtectFields(lang_type) && !it_cached->second.m_class->hasOwnProtectFields()) {
             it_cached->second.m_class->setProtectFields();
         }
         return it_cached->second;

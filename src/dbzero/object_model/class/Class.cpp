@@ -112,7 +112,7 @@ namespace db0::object_model
         , m_uid(this->fetchUID())
         , m_member_cache(m_members, *this, this->getRefreshCallback())        
     {
-        if (isProtectFields()) {
+        if (hasOwnProtectFields()) {
             ensureFieldSafe();
         }
         m_schema.postInit(getTotalFunc());
@@ -307,8 +307,12 @@ namespace db0::object_model
         return (*this)->m_flags[ClassOptions::IMMUTABLE];
     }
 
-    bool Class::isProtectFields() const {
+    bool Class::hasOwnProtectFields() const {
         return (*this)->m_flags[ClassOptions::PROTECT_FIELDS];
+    }
+
+    bool Class::isProtectFields() const {
+        return getClassFactory(*getFixture()).isProtectFields(*this);
     }
 
     void Class::assertFieldSafeSupported() const
@@ -343,6 +347,7 @@ namespace db0::object_model
     void Class::setProtectFields() {
         ensureFieldSafe();
         modify().m_flags.set(ClassOptions::PROTECT_FIELDS, true);
+        getClassFactory(*getFixture()).resetProtectFieldsCache(*this);
     }
 
     void Class::resetProtectFields() {
@@ -352,6 +357,7 @@ namespace db0::object_model
                 << " because it inherits from a protect_fields base class";
         }
         modify().m_flags.set(ClassOptions::PROTECT_FIELDS, false);
+        getClassFactory(*getFixture()).resetProtectFieldsCache(*this);
     }
 
     bool Class::hasFieldSafe() const
@@ -388,7 +394,7 @@ namespace db0::object_model
             THROWF(db0::InputException) << "At least one field name is required";
         }
 
-        auto &field_safe = getFieldSafe();
+        auto &field_safe = ensureFieldSafe();
         auto &field_id_mapper = field_safe.getFieldIDMapper();
         auto &field_mask_manager = field_safe.getFieldMaskManager();
 

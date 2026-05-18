@@ -4,6 +4,7 @@
 #pragma once
 
 #include <unordered_map>
+#include <optional>
 #include <dbzero/core/serialization/FixedVersioned.hpp>
 #include <dbzero/core/memory/Memspace.hpp>
 #include <dbzero/core/vspace/db0_ptr.hpp>
@@ -125,7 +126,17 @@ DB0_PACKED_END
         // calculate class-ref from its address
         std::uint32_t getClassRef(Address class_addr) const;
 
+        bool isProtectFields(const Class &) const;
+        void resetProtectFieldsCache(const Class &) const;
+
     private:
+        struct ProtectFieldsCacheItem
+        {
+            bool m_own_protect_fields = false;
+            bool m_base_protect_fields = false;
+            bool m_protect_fields = false;
+        };
+
         // Language specific type to dbzero class mapping
         mutable std::unordered_map<TypeObjectPtr, std::shared_ptr<Class> > m_type_cache;
         // dbzero Class objects by pointer (may not have language specific type assigned yet)
@@ -137,6 +148,7 @@ DB0_PACKED_END
         // buffers with keys for potential rollback
         mutable std::vector<TypeObjectSharedPtr> m_pending_types;
         mutable std::vector<ClassPtr> m_pending_ptrs;
+        mutable std::unordered_map<Address, ProtectFieldsCacheItem> m_protect_fields_cache;
         // starting address of the "types" slot
         const std::pair<std::uint64_t, std::uint64_t> m_type_slot_addr_range;
         

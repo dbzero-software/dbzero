@@ -944,7 +944,7 @@ namespace db0::python
             THROWF(db0::InputException)
                 << "Cannot set protect_fields=False on a class derived from a protect_fields base class";
         }
-        bool protect_fields = protect_fields_option.value_or(false) || inherited_protect_fields;
+        bool protect_fields = protect_fields_option.value_or(false);
 
         MemoFlags type_flags = no_default_tags ? MemoFlags { MemoOptions::NO_DEFAULT_TAGS } : MemoFlags();
         if (no_cache) {

@@ -944,7 +944,7 @@ namespace db0::python
         auto fixture_uuid = MemoTypeDecoration::get(reinterpret_cast<PyTypeObject*>(py_type)).getFixtureUUID();
         auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(fixture_uuid, AccessType::READ_WRITE);
         auto &class_factory = fixture->get<ClassFactory>();
-        auto type = class_factory.getExistingType(reinterpret_cast<PyTypeObject*>(py_type));
+        auto type = class_factory.getOrCreateType(reinterpret_cast<PyTypeObject*>(py_type));
         if (!type->isProtectFields()) {
             THROWF(db0::InputException) << "Class " << type->getName() << " does not have protected fields enabled";
         }
@@ -979,7 +979,7 @@ namespace db0::python
         auto fixture_uuid = MemoTypeDecoration::get(reinterpret_cast<PyTypeObject*>(py_type)).getFixtureUUID();
         auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(fixture_uuid, AccessType::READ_WRITE);
         auto &class_factory = fixture->get<ClassFactory>();
-        auto type = class_factory.getExistingType(reinterpret_cast<PyTypeObject*>(py_type));
+        auto type = class_factory.getOrCreateType(reinterpret_cast<PyTypeObject*>(py_type));
         if (!type->isProtectFields()) {
             THROWF(db0::InputException) << "Class " << type->getName() << " does not have protected fields enabled";
         }
@@ -1023,7 +1023,7 @@ namespace db0::python
         auto fixture_uuid = decor.getFixtureUUID(AccessType::READ_WRITE);
         auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(fixture_uuid, AccessType::READ_WRITE);
         auto &class_factory = fixture->get<ClassFactory>();
-        auto type = class_factory.getExistingType(memo_type);
+        auto type = class_factory.getOrCreateType(memo_type);
 
         if (type->getBaseClassPtr() && type->getBaseClassPtr()->isProtectFields()) {
             THROWF(db0::InputException)

@@ -176,6 +176,7 @@ DB0_PACKED_END
         bool isImmutable() const;
         bool assignDefaultTags() const;
         bool isProtectFields() const;
+        bool hasOwnProtectFields() const;
         void setProtectFields();
         void resetProtectFields();
         bool hasFieldSafe() const;
