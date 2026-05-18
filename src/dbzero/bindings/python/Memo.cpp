@@ -12,6 +12,7 @@
 #include "Migration.hpp"
 #include "PyHash.hpp"
 #include "DataMasking.hpp"
+#include <optional>
 #include <dbzero/object_model/object.hpp>
 #include <dbzero/object_model/class.hpp>
 #include <dbzero/object_model/class/FieldMask.hpp>
@@ -960,7 +961,7 @@ namespace db0::python
     
     PyObject *wrapPyType(PyTypeObject *base_class, bool is_singleton, bool no_default_tags, const char *prefix_name,
         const char *type_id, const char *file_name, std::vector<std::string> &&init_vars, PyObject *py_dyn_prefix_callable,
-        std::vector<Migration> &&migrations, bool no_cache, bool immutable, bool protect_fields)
+        std::vector<Migration> &&migrations, bool no_cache, bool immutable, std::optional<bool> protect_fields_option)
     {
         auto py_class = Py_BORROW(base_class);
         auto py_module = Py_OWN(findModule(*Py_OWN(PyObject_GetAttrString((PyObject*)*py_class, "__module__"))));
@@ -993,6 +994,15 @@ namespace db0::python
         if (!new_type) {
             return nullptr;
         }
+
+        auto base_memo_type = PyToolkit::getBaseMemoType(*new_type);
+        bool inherited_protect_fields = base_memo_type
+            && MemoTypeDecoration::get(base_memo_type).getFlags()[MemoOptions::PROTECT_FIELDS];
+        if (inherited_protect_fields && protect_fields_option == false) {
+            THROWF(db0::InputException)
+                << "Cannot set protect_fields=False on a class derived from a protect_fields base class";
+        }
+        bool protect_fields = protect_fields_option.value_or(false);
 
         MemoFlags type_flags = no_default_tags ? MemoFlags { MemoOptions::NO_DEFAULT_TAGS } : MemoFlags();
         if (no_cache) {
@@ -1058,7 +1068,10 @@ namespace db0::python
         bool no_default_tags = py_no_default_tags && PyObject_IsTrue(py_no_default_tags);
         bool no_cache = py_no_cache && PyObject_IsTrue(py_no_cache);
         bool immutable = py_immutable && PyObject_IsTrue(py_immutable);
-        bool protect_fields = py_protect_fields && PyObject_IsTrue(py_protect_fields);
+        std::optional<bool> protect_fields_option;
+        if (py_protect_fields) {
+            protect_fields_option = PyObject_IsTrue(py_protect_fields);
+        }
         const char *prefix_name = (py_prefix_name && py_prefix_name != Py_None) ? PyUnicode_AsUTF8(py_prefix_name) : nullptr;
         const char *type_id = py_type_id ? PyUnicode_AsUTF8(py_type_id) : nullptr;        
         const char *file_name = (py_file_name && py_file_name != Py_None) ? PyUnicode_AsUTF8(py_file_name) : nullptr;
@@ -1093,7 +1106,7 @@ namespace db0::python
         
         auto migrations = extractMigrations(py_migrations);
         return wrapPyType(castToType(class_obj), is_singleton, no_default_tags, prefix_name, type_id, file_name, 
-            std::move(init_vars), py_dyn_prefix, std::move(migrations), no_cache, immutable, protect_fields
+            std::move(init_vars), py_dyn_prefix, std::move(migrations), no_cache, immutable, protect_fields_option
         );
     }
     

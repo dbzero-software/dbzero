@@ -172,6 +172,7 @@ def memo(cls: Optional[type] = None, **kwargs) -> type:
         If True, the persistent class is marked for field protection. Once the class is
         materialized, removing this argument from the Python definition does not clear
         the persisted flag; use reset_protect_fields on the dbzero Class object instead.
+        Derived memo classes inherit field protection and cannot disable it.
 
     Returns
     -------

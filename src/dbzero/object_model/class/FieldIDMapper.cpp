@@ -282,6 +282,7 @@ namespace db0::object_model
 
     std::optional<std::uint32_t> FieldIDMapper::tryGetAssignedFieldOffset(const char *field_name) const
     {
+        assert(field_name);
         return tryGetNameOffset(field_name);
     }
 

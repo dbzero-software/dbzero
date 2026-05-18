@@ -307,8 +307,28 @@ namespace db0::object_model
         return (*this)->m_flags[ClassOptions::IMMUTABLE];
     }
 
-    bool Class::isProtectFields() const {
+    bool Class::hasOwnProtectFields() const {
         return (*this)->m_flags[ClassOptions::PROTECT_FIELDS];
+    }
+
+    bool Class::isProtectFields() const {
+        if (m_protect_fields_cache) {
+            return *m_protect_fields_cache;
+        }
+
+        m_protect_fields_cache = hasOwnProtectFields()
+            || (m_base_class_ptr && m_base_class_ptr->isProtectFields());
+        return *m_protect_fields_cache;
+    }
+
+    void Class::resetProtectFieldsCache() const
+    {
+        m_protect_fields_cache.reset();
+        getClassFactory(*getFixture()).forAll([this](const Class &type) {
+            if (type.isBaseClass(*this)) {
+                type.m_protect_fields_cache.reset();
+            }
+        });
     }
 
     void Class::assertFieldSafeSupported() const
@@ -343,10 +363,17 @@ namespace db0::object_model
     void Class::setProtectFields() {
         ensureFieldSafe();
         modify().m_flags.set(ClassOptions::PROTECT_FIELDS, true);
+        resetProtectFieldsCache();
     }
 
     void Class::resetProtectFields() {
+        if (m_base_class_ptr && m_base_class_ptr->isProtectFields()) {
+            THROWF(db0::InputException)
+                << "Cannot disable protected fields on class " << getName()
+                << " because it inherits from a protect_fields base class";
+        }
         modify().m_flags.set(ClassOptions::PROTECT_FIELDS, false);
+        resetProtectFieldsCache();
     }
 
     bool Class::hasFieldSafe() const
@@ -383,7 +410,7 @@ namespace db0::object_model
             THROWF(db0::InputException) << "At least one field name is required";
         }
 
-        auto &field_safe = getFieldSafe();
+        auto &field_safe = ensureFieldSafe();
         auto &field_id_mapper = field_safe.getFieldIDMapper();
         auto &field_mask_manager = field_safe.getFieldMaskManager();
 
@@ -391,7 +418,7 @@ namespace db0::object_model
         field_offsets.reserve(field_names.size());
         for (const auto &field_name: field_names) {
             auto member = tryGetMember(field_name.c_str());
-            if (member) {
+            if (member && mask.value() != 0) {
                 field_offsets.push_back(field_id_mapper.assignFieldOffset(member->m_field_id));
             } else {
                 field_offsets.push_back(field_id_mapper.assignFieldOffset(field_name.c_str()));
@@ -412,18 +439,18 @@ namespace db0::object_model
             return {};
         }
 
+        if (!hasFieldSafe()) {
+            return {};
+        }
+
         auto &field_safe = getFieldSafe();
-        auto maybe_offset = field_safe.getFieldIDMapper().tryGetAssignedFieldOffset(member.m_field_id);
-        if (!maybe_offset) {
-            return {};
-        }
-
         auto field_mask = field_safe.getFieldMaskManager().tryGetFieldMask(account_id);
-        if (!field_mask) {
-            return {};
+        auto maybe_offset = field_safe.getFieldIDMapper().tryGetAssignedFieldOffset(member.m_field_id);
+        if (maybe_offset && field_mask) {
+            return field_mask->getAssignedMask(*maybe_offset);
         }
 
-        return field_mask->getAssignedMask(*maybe_offset);
+        return {};
     }
 
     std::optional<FieldMaskFlags> Class::tryGetFieldAccess(std::uint64_t account_id, const MemberLoc &member_loc) const
@@ -434,7 +461,10 @@ namespace db0::object_model
         }
 
         auto member = tryGetMember(member_id.primary().first);
-        return member ? tryGetFieldAccess(account_id, *member) : std::nullopt;
+        if (member) {
+            return tryGetFieldAccess(account_id, *member);
+        }
+        return {};
     }
 
     std::optional<FieldMaskFlags> Class::tryGetFieldAccess(std::uint64_t account_id, const char *field_name) const

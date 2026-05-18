@@ -133,8 +133,8 @@ namespace db0
         Allocator *m_allocator_ptr = nullptr;
         // UUID (if passed from a derived class)
         std::optional<std::uint64_t> m_derived_UUID;
-        // flag indicating if the atomic operation is in progress
-        bool m_atomic = false;
+        // atomic operation nesting depth
+        std::uint32_t m_atomic_depth = 0;
         std::size_t m_page_size = 0;
         unsigned int m_page_shift = 0;
         // exhaustive list of instances which may need flush

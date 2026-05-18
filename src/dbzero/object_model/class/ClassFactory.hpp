@@ -4,6 +4,7 @@
 #pragma once
 
 #include <unordered_map>
+#include <optional>
 #include <dbzero/core/serialization/FixedVersioned.hpp>
 #include <dbzero/core/memory/Memspace.hpp>
 #include <dbzero/core/vspace/db0_ptr.hpp>

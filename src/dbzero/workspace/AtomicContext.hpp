@@ -7,6 +7,7 @@
 #include <dbzero/object_model/LangConfig.hpp>
 #include <unordered_set>
 #include <vector>
+#include <mutex>
 #include <dbzero/bindings/TypeId.hpp>
 
 namespace db0
@@ -49,7 +50,7 @@ namespace db0
         using ObjectSharedPtr = LangToolkit::ObjectSharedPtr;
         using ObjectSharedExtPtr = LangToolkit::ObjectSharedExtPtr;
 
-        AtomicContext(std::shared_ptr<Workspace> &, std::unique_lock<std::mutex> &&);
+        AtomicContext(std::shared_ptr<Workspace> &, std::unique_lock<std::recursive_mutex> &&);
 
         // Register specific instance with the current transaction (for rollback/detach)
         void add(Address, ObjectPtr);
@@ -61,16 +62,17 @@ namespace db0
         void cancel();
         void close();
         
-        static std::unique_lock<std::mutex> lock();
+        static std::unique_lock<std::recursive_mutex> lock();
         
     private:
         std::shared_ptr<Workspace> m_workspace;
+        AtomicContext *m_parent = nullptr;
         std::unordered_map<Address, ObjectSharedExtPtr> m_objects;
         
         // mutex / lock to prevent mutliple concurrent atomic operations
         // also acquired by the autocommit-thread to prevent auto-commit during atomic operation
-        static std::mutex m_atomic_mutex;
-        std::unique_lock<std::mutex> m_atomic_lock;
+        static std::recursive_mutex m_atomic_mutex;
+        std::unique_lock<std::recursive_mutex> m_atomic_lock;
 
         bool isActive() const;
     };

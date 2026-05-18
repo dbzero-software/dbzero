@@ -138,27 +138,30 @@ namespace db0
     
     void VObjectCache::beginAtomic()
     {
-        assert(!m_atomic);
         commit();
-        m_atomic = true;
+        m_volatile_stack.emplace_back();
     }
 
     void VObjectCache::endAtomic()
     {
-        assert(m_atomic);
-        m_atomic = false;
-        m_volatile.clear();
+        assert(!m_volatile_stack.empty());
+        auto volatileInstances = std::move(m_volatile_stack.back());
+        m_volatile_stack.pop_back();
+        if (!m_volatile_stack.empty()) {
+            auto &parentVolatileInstances = m_volatile_stack.back();
+            parentVolatileInstances.insert(volatileInstances.begin(), volatileInstances.end());
+        }
     }
 
     void VObjectCache::cancelAtomic()
     {
-        assert(m_atomic);
-        m_atomic = false;
+        assert(!m_volatile_stack.empty());
         // remove volatile instances from cache
-        for (auto address : m_volatile) {
+        auto volatileInstances = std::move(m_volatile_stack.back());
+        m_volatile_stack.pop_back();
+        for (auto address : volatileInstances) {
             erase(address);
         }
-        m_volatile.clear();
     }
 
 }

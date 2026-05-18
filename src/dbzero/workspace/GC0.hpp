@@ -163,10 +163,8 @@ namespace db0
         std::unordered_map<void*, unsigned int> m_flush_map;
         // objects irrevocably scheduled for deletion
         std::unordered_map<UniqueAddress, StorageClass> m_scheduled_for_deletion;
-        // flag indicating atomic operation in progress
-        bool m_atomic = false;
-        // the list of volatile instances - i.e. created during atomic operation
-        std::vector<void*> m_volatile;
+        // volatile instance stack - i.e. instances created during atomic operations
+        std::vector<std::vector<void*> > m_volatile_stack;
         mutable std::mutex m_mutex;
         
         void commitAll();
@@ -194,8 +192,8 @@ namespace db0
         if (ops_list[T::m_gc_ops_id].flush) {
             m_flush_map[vptr] = T::m_gc_ops_id;
         }
-        if (m_atomic) {
-            m_volatile.push_back(vptr);
+        if (!m_volatile_stack.empty()) {
+            m_volatile_stack.back().push_back(vptr);
         }
     }
     
@@ -208,8 +206,8 @@ namespace db0
         if (flush_op) {
             m_flush_map[vptr] = *flush_op;
         }
-        if (m_atomic) {
-            m_volatile.push_back(vptr);
+        if (!m_volatile_stack.empty()) {
+            m_volatile_stack.back().push_back(vptr);
         }
     }
     

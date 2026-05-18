@@ -944,7 +944,7 @@ namespace db0::python
         auto fixture_uuid = MemoTypeDecoration::get(reinterpret_cast<PyTypeObject*>(py_type)).getFixtureUUID();
         auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(fixture_uuid, AccessType::READ_WRITE);
         auto &class_factory = fixture->get<ClassFactory>();
-        auto type = class_factory.getExistingType(reinterpret_cast<PyTypeObject*>(py_type));
+        auto type = class_factory.getOrCreateType(reinterpret_cast<PyTypeObject*>(py_type));
         if (!type->isProtectFields()) {
             THROWF(db0::InputException) << "Class " << type->getName() << " does not have protected fields enabled";
         }
@@ -979,7 +979,7 @@ namespace db0::python
         auto fixture_uuid = MemoTypeDecoration::get(reinterpret_cast<PyTypeObject*>(py_type)).getFixtureUUID();
         auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(fixture_uuid, AccessType::READ_WRITE);
         auto &class_factory = fixture->get<ClassFactory>();
-        auto type = class_factory.getExistingType(reinterpret_cast<PyTypeObject*>(py_type));
+        auto type = class_factory.getOrCreateType(reinterpret_cast<PyTypeObject*>(py_type));
         if (!type->isProtectFields()) {
             THROWF(db0::InputException) << "Class " << type->getName() << " does not have protected fields enabled";
         }
@@ -1019,16 +1019,22 @@ namespace db0::python
 
         auto memo_type = reinterpret_cast<PyTypeObject*>(py_type);
         auto &decor = MemoTypeDecoration::get(memo_type);
-        if (decor.getFlags()[MemoOptions::PROTECT_FIELDS]) {
-            THROWF(db0::InputException)
-                << "Type is still decorated with protect_fields=True; remove it or set protect_fields=False first";
-        }
-
         using ClassFactory = db0::object_model::ClassFactory;
         auto fixture_uuid = decor.getFixtureUUID(AccessType::READ_WRITE);
         auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(fixture_uuid, AccessType::READ_WRITE);
         auto &class_factory = fixture->get<ClassFactory>();
-        auto type = class_factory.getExistingType(memo_type);
+        auto type = class_factory.getOrCreateType(memo_type);
+
+        if (type->getBaseClassPtr() && type->getBaseClassPtr()->isProtectFields()) {
+            THROWF(db0::InputException)
+                << "Cannot disable protected fields on class " << type->getName()
+                << " because it inherits from a protect_fields base class";
+        }
+
+        if (decor.getFlags()[MemoOptions::PROTECT_FIELDS]) {
+            THROWF(db0::InputException)
+                << "Type is still decorated with protect_fields=True; remove it or set protect_fields=False first";
+        }
 
         db0::FixtureLock lock(fixture);
         type->resetProtectFields();

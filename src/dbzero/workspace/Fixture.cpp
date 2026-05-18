@@ -475,8 +475,8 @@ namespace db0
     
     void Fixture::beginAtomic(AtomicContext *context)
     {
-        assert(!m_atomic_context_ptr);
-        m_atomic_context_ptr = context;
+        preAtomic();
+        m_atomic_context_stack.push_back(context);
         m_meta_allocator.beginAtomic();        
         getGC0().beginAtomic();
         m_string_pool.commit();
@@ -507,10 +507,11 @@ namespace db0
         Memspace::detach();
     }
     
-    void Fixture::endAtomic()
+    void Fixture::endAtomic(AtomicContext *context)
     {        
-        assert(m_atomic_context_ptr);
-        m_atomic_context_ptr = nullptr;
+        assert(!m_atomic_context_stack.empty());
+        assert(m_atomic_context_stack.back() == context);
+        m_atomic_context_stack.pop_back();
 
         m_meta_allocator.endAtomic();
         m_v_object_cache.endAtomic();        
@@ -518,10 +519,11 @@ namespace db0
         Memspace::endAtomic();
     }
     
-    void Fixture::cancelAtomic()
+    void Fixture::cancelAtomic(AtomicContext *context)
     {
-        assert(m_atomic_context_ptr);
-        m_atomic_context_ptr = nullptr;
+        assert(!m_atomic_context_stack.empty());
+        assert(m_atomic_context_stack.back() == context);
+        m_atomic_context_stack.pop_back();
         m_meta_allocator.cancelAtomic();
         getGC0().cancelAtomic();
         // rollback any uncommited changes
@@ -539,7 +541,10 @@ namespace db0
     }
     
     AtomicContext *Fixture::tryGetAtomicContext() const {
-        return m_atomic_context_ptr;
+        if (m_atomic_context_stack.empty()) {
+            return nullptr;
+        }
+        return m_atomic_context_stack.back();
     }
 
     void Fixture::forAllSlabs(std::function<void(const SlabAllocator &, std::uint32_t)> f) const {

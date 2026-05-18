@@ -610,8 +610,9 @@ def rename_field(class_obj: type, from_name: str, to_name: str) -> None:
 def set_field_access(class_obj: type, account_id: Union[int, Sequence[int]], mode: Tuple[EnumValue, ...], *fields: str) -> None:
     """Set protected-field access flags for one or more fields of a memo class.
 
-    The memo class must be declared with ``protect_fields=True``. Pass an empty
-    ``mode`` tuple to clear all access flags for the specified account and fields.
+    The memo class must be declared with ``protect_fields=True`` or inherit it
+    from a protected memo base. Pass an empty ``mode`` tuple to clear all access
+    flags for the specified account and fields.
     """
     ...
 
@@ -622,8 +623,9 @@ def get_field_access(class_obj: type, account_id: int) -> Iterable[Tuple[str, Tu
 def reset_protect_fields(class_obj: type) -> None:
     """Clear the persisted protect_fields flag for a memo class.
 
-    The memo type must no longer be decorated with ``protect_fields=True``.
-    Remove the argument or set it to ``False`` before calling this function.
+    The memo type must no longer be decorated with ``protect_fields=True`` and
+    must not inherit protected fields from a protected memo base. Remove the
+    argument or set it to ``False`` before calling this function.
     """
     ...
 
