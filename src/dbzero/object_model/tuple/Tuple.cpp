@@ -14,23 +14,23 @@ namespace db0::object_model
     
     GC0_Define(Tuple)
 
-    o_tuple::o_tuple(std::size_t size)
+    o_db0_tuple::o_db0_tuple(std::size_t size)
     {
         arrangeMembers()
             (o_micro_array<o_typed_item>::type(), size).ptr();
     }
 
-    std::size_t o_tuple::size() const {
+    std::size_t o_db0_tuple::size() const {
         return items().size();
     }
 
-    std::size_t o_tuple::sizeOf() const
+    std::size_t o_db0_tuple::sizeOf() const
     {
         return sizeOfMembers()
             (o_micro_array<o_typed_item>::type());
     }
 
-    std::size_t o_tuple::measure(std::size_t size)
+    std::size_t o_db0_tuple::measure(std::size_t size)
     {
         return measureMembers()
             (o_micro_array<o_typed_item>::measure(size));
