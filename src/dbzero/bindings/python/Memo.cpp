@@ -360,49 +360,65 @@ namespace db0::python
     }
 
     template <typename MemoImplT>
-    PyObject *checkProtectedFieldReadAccess(MemoImplT *memo_obj, const db0::object_model::MemberLoc &member_loc)
+    bool getProtectedFieldAccessContext(MemoImplT *memo_obj, const db0::object_model::Class *&type,
+        std::shared_ptr<DataMaskingState> &masking_state, long long &account_id)
     {
-        auto &type = memo_obj->ext().getType();
-        if (!type.isProtectFields()) {
-            return nullptr;
+        type = &memo_obj->ext().getType();
+        if (!type->isProtectFields()) {
+            return false;
         }
 
         if (!Settings::m_data_masking_enabled) {
             PyErr_SetString(PyExc_RuntimeError, "data masking is not initialized for protected fields");
-            return nullptr;
+            return false;
         }
 
-        auto masking_state = memo_obj->ext().getFixture()->getMaskingState();
+        masking_state = memo_obj->ext().getFixture()->getMaskingState();
         if (!masking_state) {
             PyErr_SetString(PyExc_RuntimeError, "data masking is not initialized for protected fields");
-            return nullptr;
+            return false;
         }
 
         PyObject *pyAccountId = nullptr;
         if (PyContextVar_Get(masking_state->contextVar, NULL, &pyAccountId) < 0) {
             PyErr_SetString(PyExc_RuntimeError, "unable to read data masking account context");
-            return nullptr;
+            return false;
         }
         if (!pyAccountId) {
             PyErr_SetString(PyExc_RuntimeError, "data masking account context is not set");
-            return nullptr;
+            return false;
         }
 
-        auto accountId = PyLong_AsLongLong(pyAccountId);
+        account_id = PyLong_AsLongLong(pyAccountId);
         Py_DECREF(pyAccountId);
         if (PyErr_Occurred()) {
             PyErr_SetString(PyExc_TypeError, "data masking account context must be an int");
+            return false;
+        }
+
+        if (account_id < -2) {
+            PyErr_SetString(PyExc_RuntimeError, "invalid data masking account id");
+            return false;
+        }
+
+        return true;
+    }
+
+    template <typename MemoImplT>
+    PyObject *checkProtectedFieldReadAccess(MemoImplT *memo_obj, const db0::object_model::MemberLoc &member_loc)
+    {
+        const db0::object_model::Class *type = nullptr;
+        std::shared_ptr<DataMaskingState> masking_state;
+        long long account_id = 0;
+        if (!getProtectedFieldAccessContext(memo_obj, type, masking_state, account_id)) {
             return nullptr;
         }
 
         bool canRead = false;
-        if (accountId < -2) {
-            PyErr_SetString(PyExc_RuntimeError, "invalid data masking account id");
-            return nullptr;
-        } else if (accountId == -1 || accountId == -2) {
+        if (account_id == -1 || account_id == -2) {
             canRead = masking_state->mode == DataMaskingMode::DEBUG;
-        } else if (accountId >= 0) {
-            auto mask = type.tryGetFieldAccess(static_cast<std::uint64_t>(accountId), member_loc);
+        } else if (account_id >= 0) {
+            auto mask = type->tryGetFieldAccess(static_cast<std::uint64_t>(account_id), member_loc);
             canRead = mask && (*mask)[db0::object_model::FieldMaskOptions::READ];
         }
 
@@ -417,6 +433,41 @@ namespace db0::python
 
         PyErr_SetString(PyExc_PermissionError, "data masking denies read access to protected field");
         return nullptr;
+    }
+
+    template <typename MemoImplT>
+    bool checkProtectedFieldCreateAccess(MemoImplT *memo_obj, const char *field_name)
+    {
+        auto &memo_type = memo_obj->ext().getType();
+        if (!memo_type.isProtectFields() || !Settings::m_data_masking_enabled) {
+            return true;
+        }
+
+        const db0::object_model::Class *type = nullptr;
+        std::shared_ptr<DataMaskingState> masking_state;
+        long long account_id = 0;
+        if (!getProtectedFieldAccessContext(memo_obj, type, masking_state, account_id)) {
+            return !PyErr_Occurred();
+        }
+
+        bool canCreate = false;
+        if (account_id == -2) {
+            canCreate = masking_state->mode == DataMaskingMode::DEBUG;
+        } else if (account_id >= 0) {
+            auto member_loc = type->findField(field_name);
+            auto mask = type->tryGetFieldAccess(static_cast<std::uint64_t>(account_id), member_loc);
+            if (!mask) {
+                mask = type->tryGetFieldAccess(static_cast<std::uint64_t>(account_id), field_name);
+            }
+            canCreate = mask && (*mask)[db0::object_model::FieldMaskOptions::CREATE];
+        }
+
+        if (canCreate) {
+            return true;
+        }
+
+        PyErr_SetString(PyExc_PermissionError, "data masking denies create access to protected field");
+        return false;
     }
 
     template <typename MemoImplT>
@@ -495,9 +546,16 @@ namespace db0::python
                 auto maybe_type_id = PyToolkit::getTypeManager().tryGetTypeId(value);
                 if (maybe_type_id) {
                     if (self->ext().hasInstance()) {
+                        auto member_loc = self->ext().findField(attr_name);
+                        if (!self->ext().tryGet(member_loc) && !checkProtectedFieldCreateAccess(self, attr_name)) {
+                            return -1;
+                        }
                         db0::FixtureLock lock(self->ext().getFixture());
                         self->modifyExt().set(lock, attr_name, *maybe_type_id, value);
                     } else {
+                        if (!checkProtectedFieldCreateAccess(self, attr_name)) {
+                            return -1;
+                        }
                         // considered as a non-mutating operation
                         self->ext().setPreInit(attr_name, *maybe_type_id, value);
                     }
