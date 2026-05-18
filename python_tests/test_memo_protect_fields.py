@@ -81,6 +81,25 @@ class MemoProtectedManyInitFieldsClass:
             setattr(self, f"init_field_{i}", values[i % len(values)](i))
 
 
+@db0.memo
+@dataclass
+class MemoUnprotectedBaseFieldsClass:
+    base_value: str
+
+
+@db0.memo(protect_fields=True)
+@dataclass
+class MemoProtectedDerivedFieldsClass(MemoUnprotectedBaseFieldsClass):
+    name: str
+    value: int
+
+
+@db0.memo
+@dataclass
+class MemoImplicitlyProtectedDerivedFieldsClass(MemoProtectedDerivedFieldsClass):
+    derived_value: float
+
+
 def get_memo_class_object(obj):
     return db0.get_memo_class(obj).get_class()
 
@@ -242,6 +261,60 @@ def test_set_field_access_requires_protected_class(db0_fixture):
         assert False, "set_field_access should fail for unprotected classes"
 
 
+def test_protect_fields_is_inherited_by_derived_memo_classes(db0_fixture):
+    obj = MemoImplicitlyProtectedDerivedFieldsClass("base", "alpha", 1, 1.5)
+
+    assert get_memo_class_object(obj).get_type_flags()["protect_fields"] is True
+    db0.set_field_access(MemoImplicitlyProtectedDerivedFieldsClass, 123, (FieldAccess.READ,), "derived_value")
+
+
+def test_protect_fields_cannot_be_disabled_in_derived_memo_class(db0_fixture):
+    with pytest.raises(RuntimeError, match="protect_fields.*base"):
+        @db0.memo(protect_fields=False)
+        @dataclass
+        class ExplicitlyUnprotectedDerived(MemoProtectedDerivedFieldsClass):
+            extra_value: str
+
+
+def test_set_field_access_still_rejects_unprotected_base_of_protected_class(db0_fixture):
+    MemoImplicitlyProtectedDerivedFieldsClass("base", "alpha", 1, 1.5)
+
+    with pytest.raises(RuntimeError, match="protected fields"):
+        db0.set_field_access(MemoUnprotectedBaseFieldsClass, 123, (FieldAccess.READ,), "base_value")
+
+
+def test_reset_protect_fields_rejects_inherited_protection(db0_fixture):
+    obj = MemoImplicitlyProtectedDerivedFieldsClass("base", "alpha", 1, 1.5)
+    memo_class = get_memo_class_object(obj)
+
+    with pytest.raises(RuntimeError, match="inherits.*protect_fields"):
+        db0.reset_protect_fields(MemoImplicitlyProtectedDerivedFieldsClass)
+
+    assert memo_class.get_type_flags()["protect_fields"] is True
+
+
+def test_class_reset_protect_fields_rejects_inherited_protection(db0_fixture):
+    obj = MemoImplicitlyProtectedDerivedFieldsClass("base", "alpha", 1, 1.5)
+    memo_class = get_memo_class_object(obj)
+
+    with pytest.raises(RuntimeError, match="inherits.*protect_fields"):
+        memo_class.reset_protect_fields()
+
+    assert memo_class.get_type_flags()["protect_fields"] is True
+
+
+def test_explicit_true_is_allowed_on_class_derived_from_protected_base(db0_fixture):
+    @db0.memo(protect_fields=True)
+    @dataclass
+    class ExplicitlyProtectedDerived(MemoProtectedDerivedFieldsClass):
+        extra_value: str
+
+    obj = ExplicitlyProtectedDerived("base", "alpha", 1, "extra")
+
+    assert get_memo_class_object(obj).get_type_flags()["protect_fields"] is True
+    db0.set_field_access(ExplicitlyProtectedDerived, 123, (FieldAccess.READ,), "extra_value")
+
+
 def test_set_field_access_accepts_unknown_field_names(db0_fixture):
     MemoProtectedFieldsClass("alpha", 1)
 
@@ -374,6 +447,156 @@ def test_protected_field_getter_requires_read_access(db0_fixture):
 
     with pytest.raises(PermissionError, match="read"):
         _ = obj.value
+
+
+def test_protected_field_getter_does_not_inherit_base_class_masks(db0_fixture):
+    account_id = ContextVar("protected_inheritance_account_id")
+    obj = MemoImplicitlyProtectedDerivedFieldsClass("base", "alpha", 1, 1.5)
+    db0.set_field_access(MemoProtectedDerivedFieldsClass, 123, (FieldAccess.READ,), "base_value", "name")
+    db0.set_field_access(MemoImplicitlyProtectedDerivedFieldsClass, 123, (FieldAccess.READ,), "derived_value")
+    db0._init_data_masking(account_id)
+    account_id.set(123)
+
+    assert obj.derived_value == 1.5
+    with pytest.raises(PermissionError, match="read"):
+        _ = obj.base_value
+    with pytest.raises(PermissionError, match="read"):
+        _ = obj.name
+    with pytest.raises(PermissionError, match="read"):
+        _ = obj.value
+
+
+def test_protected_field_getter_uses_derived_class_own_masks(db0_fixture):
+    account_id = ContextVar("protected_inheritance_allow_override_account_id")
+    obj = MemoImplicitlyProtectedDerivedFieldsClass("base", "alpha", 1, 1.5)
+    db0.set_field_access(MemoProtectedDerivedFieldsClass, 123, (), "name")
+    db0.set_field_access(MemoImplicitlyProtectedDerivedFieldsClass, 123, (FieldAccess.READ,), "name")
+    db0._init_data_masking(account_id)
+    account_id.set(123)
+
+    assert obj.name == "alpha"
+    with pytest.raises(PermissionError, match="read"):
+        _ = obj.value
+
+
+def test_inherited_protect_fields_survives_reopen_without_parameter(db0_fixture):
+    @db0.memo(id="dbzero-software/dbzero/tests/protected-inherited-reopen-base")
+    @dataclass
+    class ReopenBase:
+        base_value: str
+
+    @db0.memo(id="dbzero-software/dbzero/tests/protected-inherited-reopen-mid", protect_fields=True)
+    @dataclass
+    class ReopenMid(ReopenBase):
+        name: str
+
+    @db0.memo(id="dbzero-software/dbzero/tests/protected-inherited-reopen-derived")
+    @dataclass
+    class ReopenDerived(ReopenMid):
+        value: int
+
+    obj = ReopenDerived("base", "alpha", 1)
+    obj_id = db0.uuid(obj)
+    assert get_memo_class_object(obj).get_type_flags()["protect_fields"] is True
+    db0.commit()
+
+    db0.close()
+    db0.init(DB0_DIR)
+    db0.open("my-test-prefix")
+
+    @db0.memo(id="dbzero-software/dbzero/tests/protected-inherited-reopen-base")
+    @dataclass
+    class ReopenBaseAfter:
+        base_value: str
+
+    @db0.memo(id="dbzero-software/dbzero/tests/protected-inherited-reopen-mid")
+    @dataclass
+    class ReopenMidAfter(ReopenBaseAfter):
+        name: str
+
+    @db0.memo(id="dbzero-software/dbzero/tests/protected-inherited-reopen-derived")
+    @dataclass
+    class ReopenDerivedAfter(ReopenMidAfter):
+        value: int
+
+    obj = db0.fetch(ReopenDerivedAfter, obj_id)
+    assert get_memo_class_object(obj).get_type_flags()["protect_fields"] is True
+    db0.set_field_access(ReopenDerivedAfter, 123, (FieldAccess.READ,), "value")
+
+
+def test_derived_class_inherits_protect_fields_enabled_on_base_after_materialization(db0_fixture):
+    @db0.memo(id="dbzero-software/dbzero/tests/protected-base-enabled-later-base")
+    @dataclass
+    class BaseBefore:
+        base_value: str
+
+    @db0.memo(id="dbzero-software/dbzero/tests/protected-base-enabled-later-derived")
+    @dataclass
+    class DerivedBefore(BaseBefore):
+        value: int
+
+    obj = DerivedBefore("base", 1)
+    obj_id = db0.uuid(obj)
+    assert get_memo_class_object(obj).get_type_flags()["protect_fields"] is False
+    with pytest.raises(RuntimeError, match="protected fields"):
+        db0.set_field_access(DerivedBefore, 123, (FieldAccess.READ,), "value")
+    db0.commit()
+
+    db0.close()
+    db0.init(DB0_DIR)
+    db0.open("my-test-prefix")
+
+    @db0.memo(id="dbzero-software/dbzero/tests/protected-base-enabled-later-base", protect_fields=True)
+    @dataclass
+    class BaseAfter:
+        base_value: str
+
+    @db0.memo(id="dbzero-software/dbzero/tests/protected-base-enabled-later-derived")
+    @dataclass
+    class DerivedAfter(BaseAfter):
+        value: int
+
+    obj = db0.fetch(DerivedAfter, obj_id)
+    assert get_memo_class_object(obj).get_type_flags()["protect_fields"] is True
+    db0.set_field_access(DerivedAfter, 123, (FieldAccess.READ,), "value")
+
+
+def test_derived_class_stops_inheriting_protect_fields_after_base_reset(db0_fixture):
+    @db0.memo(id="dbzero-software/dbzero/tests/protected-base-reset-base", protect_fields=True)
+    @dataclass
+    class BaseBefore:
+        base_value: str
+
+    @db0.memo(id="dbzero-software/dbzero/tests/protected-base-reset-derived")
+    @dataclass
+    class DerivedBefore(BaseBefore):
+        value: int
+
+    obj = DerivedBefore("base", 1)
+    obj_id = db0.uuid(obj)
+    assert get_memo_class_object(obj).get_type_flags()["protect_fields"] is True
+    db0.commit()
+
+    db0.close()
+    db0.init(DB0_DIR)
+    db0.open("my-test-prefix")
+
+    @db0.memo(id="dbzero-software/dbzero/tests/protected-base-reset-base", protect_fields=False)
+    @dataclass
+    class BaseAfter:
+        base_value: str
+
+    @db0.memo(id="dbzero-software/dbzero/tests/protected-base-reset-derived")
+    @dataclass
+    class DerivedAfter(BaseAfter):
+        value: int
+
+    obj = db0.fetch(DerivedAfter, obj_id)
+    db0.reset_protect_fields(BaseAfter)
+
+    assert get_memo_class_object(obj).get_type_flags()["protect_fields"] is False
+    with pytest.raises(RuntimeError, match="protected fields"):
+        db0.set_field_access(DerivedAfter, 123, (FieldAccess.READ,), "value")
 
 
 def test_protected_field_getter_returns_missing_value_placeholder(db0_fixture):
