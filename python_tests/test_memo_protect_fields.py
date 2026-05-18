@@ -436,6 +436,71 @@ def test_protected_field_getter_requires_initialized_data_masking(db0_fixture):
         _ = obj.name
 
 
+def test_protected_field_create_from_init_requires_create_access(db0_fixture):
+    account_id = ContextVar("protected_create_init_account_id")
+    MemoProtectedFieldsClass("materializer", 0)
+    db0.set_field_access(MemoProtectedFieldsClass, 101, (FieldAccess.CREATE,), "name")
+    db0.set_field_access(
+        MemoProtectedFieldsClass,
+        202,
+        (FieldAccess.CREATE,),
+        "name",
+        "value",
+    )
+    db0._init_data_masking(account_id)
+
+    account_id.set(101)
+    with pytest.raises(PermissionError, match="create"):
+        MemoProtectedFieldsClass("alpha", 1)
+
+    account_id.set(202)
+    MemoProtectedFieldsClass("beta", 2)
+
+
+def test_protected_field_create_from_init_uses_predeclared_name_masks(db0_fixture):
+    account_id = ContextVar("protected_create_predeclared_account_id")
+
+    @db0.memo(protect_fields=True)
+    class InitFutureField:
+        def __init__(self, include_fields=False):
+            if include_fields:
+                self.future = "allowed"
+                self.denied = "blocked"
+
+    InitFutureField()
+    db0.set_field_access(InitFutureField, 101, (FieldAccess.CREATE,), "future")
+    db0._init_data_masking(account_id)
+
+    account_id.set(101)
+    with pytest.raises(PermissionError, match="create"):
+        InitFutureField(include_fields=True)
+
+
+def test_protected_field_append_requires_create_access(db0_fixture):
+    account_id = ContextVar("protected_create_append_account_id")
+    obj = MemoProtectedFieldsClass("alpha", 1)
+    db0.set_field_access(MemoProtectedFieldsClass, 101, (FieldAccess.UPDATE,), "extra")
+    db0.set_field_access(MemoProtectedFieldsClass, 202, (FieldAccess.CREATE,), "extra")
+    db0._init_data_masking(account_id)
+
+    account_id.set(101)
+    with pytest.raises(PermissionError, match="create"):
+        obj.extra = "denied"
+
+    account_id.set(202)
+    obj.extra = "allowed"
+
+
+def test_protected_field_update_does_not_require_create_access(db0_fixture):
+    account_id = ContextVar("protected_update_existing_account_id")
+    obj = MemoProtectedFieldsClass("alpha", 1)
+    db0.set_field_access(MemoProtectedFieldsClass, 101, (FieldAccess.UPDATE,), "name")
+    db0._init_data_masking(account_id)
+
+    account_id.set(101)
+    obj.name = "beta"
+
+
 def test_protected_field_getter_requires_read_access(db0_fixture):
     account_id = ContextVar("protected_read_account_id")
     obj = MemoProtectedFieldsClass("alpha", 1)

@@ -467,6 +467,26 @@ namespace db0::object_model
         return {};
     }
 
+    std::optional<FieldMaskFlags> Class::tryGetFieldAccess(std::uint64_t account_id, const char *field_name) const
+    {
+        if (!isProtectFields()) {
+            return {};
+        }
+
+        auto &field_safe = getFieldSafe();
+        auto maybe_offset = field_safe.getFieldIDMapper().tryGetAssignedFieldOffset(field_name);
+        if (!maybe_offset) {
+            return {};
+        }
+
+        auto field_mask = field_safe.getFieldMaskManager().tryGetFieldMask(account_id);
+        if (!field_mask) {
+            return {};
+        }
+
+        return field_mask->getAssignedMask(*maybe_offset);
+    }
+
     std::vector<std::pair<std::string, FieldMaskFlags> > Class::getFieldAccess(std::uint64_t account_id) const
     {
         if (!isProtectFields()) {
