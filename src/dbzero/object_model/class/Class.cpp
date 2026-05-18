@@ -112,7 +112,7 @@ namespace db0::object_model
         , m_uid(this->fetchUID())
         , m_member_cache(m_members, *this, this->getRefreshCallback())        
     {
-        if (hasOwnProtectFields()) {
+        if (isProtectFields()) {
             ensureFieldSafe();
         }
         m_schema.postInit(getTotalFunc());
@@ -312,7 +312,22 @@ namespace db0::object_model
     }
 
     bool Class::isProtectFields() const {
-        return getClassFactory(*getFixture()).isProtectFields(*this);
+        if (m_protect_fields_cache) {
+            return *m_protect_fields_cache;
+        }
+
+        m_protect_fields_cache = hasOwnProtectFields()
+            || (m_base_class_ptr && m_base_class_ptr->isProtectFields());
+        return *m_protect_fields_cache;
+    }
+
+    void Class::resetProtectFieldsCache() const
+    {
+        getClassFactory(*getFixture()).forAll([this](const Class &type) {
+            if (type.isBaseClass(*this)) {
+                type.m_protect_fields_cache.reset();
+            }
+        });
     }
 
     void Class::assertFieldSafeSupported() const
@@ -347,7 +362,7 @@ namespace db0::object_model
     void Class::setProtectFields() {
         ensureFieldSafe();
         modify().m_flags.set(ClassOptions::PROTECT_FIELDS, true);
-        getClassFactory(*getFixture()).resetProtectFieldsCache(*this);
+        resetProtectFieldsCache();
     }
 
     void Class::resetProtectFields() {
@@ -357,7 +372,7 @@ namespace db0::object_model
                 << " because it inherits from a protect_fields base class";
         }
         modify().m_flags.set(ClassOptions::PROTECT_FIELDS, false);
-        getClassFactory(*getFixture()).resetProtectFieldsCache(*this);
+        resetProtectFieldsCache();
     }
 
     bool Class::hasFieldSafe() const
@@ -423,28 +438,15 @@ namespace db0::object_model
             return {};
         }
 
-        if (hasFieldSafe()) {
-            auto &field_safe = getFieldSafe();
-            auto field_mask = field_safe.getFieldMaskManager().tryGetFieldMask(account_id);
-            auto maybe_offset = field_safe.getFieldIDMapper().tryGetAssignedFieldOffset(member.m_name.c_str());
-            if (maybe_offset && field_mask) {
-                auto mask = field_mask->getAssignedMask(*maybe_offset);
-                if (mask) {
-                    return mask;
-                }
-            }
-
-            maybe_offset = field_safe.getFieldIDMapper().tryGetAssignedFieldOffset(member.m_field_id);
-            if (maybe_offset && field_mask) {
-                auto mask = field_mask->getAssignedMask(*maybe_offset);
-                if (mask && mask->value() != 0) {
-                    return mask;
-                }
-            }
+        if (!hasFieldSafe()) {
+            return {};
         }
 
-        if (m_base_class_ptr && m_base_class_ptr->isProtectFields()) {
-            return m_base_class_ptr->tryGetFieldAccess(account_id, member);
+        auto &field_safe = getFieldSafe();
+        auto field_mask = field_safe.getFieldMaskManager().tryGetFieldMask(account_id);
+        auto maybe_offset = field_safe.getFieldIDMapper().tryGetAssignedFieldOffset(member.m_field_id);
+        if (maybe_offset && field_mask) {
+            return field_mask->getAssignedMask(*maybe_offset);
         }
 
         return {};
@@ -460,9 +462,6 @@ namespace db0::object_model
         auto member = tryGetMember(member_id.primary().first);
         if (member) {
             return tryGetFieldAccess(account_id, *member);
-        }
-        if (m_base_class_ptr && m_base_class_ptr->isProtectFields()) {
-            return m_base_class_ptr->tryGetFieldAccess(account_id, member_loc);
         }
         return {};
     }

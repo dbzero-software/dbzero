@@ -333,6 +333,7 @@ DB0_PACKED_END
         Schema m_schema;
         mutable std::optional<FieldSafe> m_field_safe;
         std::shared_ptr<Class> m_base_class_ptr;
+        mutable std::optional<bool> m_protect_fields_cache;
         
         // Field by-name index (cache)
         // values: member ID / assigned on initialization flag
@@ -353,6 +354,7 @@ DB0_PACKED_END
         // callback for MemberID updates
         void onMemberIDUpdated(const MemberID &) const;
         void assertFieldSafeSupported() const;
+        void resetProtectFieldsCache() const;
         FieldSafe &ensureFieldSafe();
         void openFieldSafe() const;
         // translate member's field ID into a unique key

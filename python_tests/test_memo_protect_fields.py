@@ -449,24 +449,24 @@ def test_protected_field_getter_requires_read_access(db0_fixture):
         _ = obj.value
 
 
-def test_protected_field_getter_resolves_masks_upstream_and_allows_derived_override(db0_fixture):
+def test_protected_field_getter_does_not_inherit_base_class_masks(db0_fixture):
     account_id = ContextVar("protected_inheritance_account_id")
     obj = MemoImplicitlyProtectedDerivedFieldsClass("base", "alpha", 1, 1.5)
     db0.set_field_access(MemoProtectedDerivedFieldsClass, 123, (FieldAccess.READ,), "base_value", "name")
-    db0.set_field_access(MemoImplicitlyProtectedDerivedFieldsClass, 123, (), "name")
     db0.set_field_access(MemoImplicitlyProtectedDerivedFieldsClass, 123, (FieldAccess.READ,), "derived_value")
     db0._init_data_masking(account_id)
     account_id.set(123)
 
-    assert obj.base_value == "base"
     assert obj.derived_value == 1.5
+    with pytest.raises(PermissionError, match="read"):
+        _ = obj.base_value
     with pytest.raises(PermissionError, match="read"):
         _ = obj.name
     with pytest.raises(PermissionError, match="read"):
         _ = obj.value
 
 
-def test_protected_field_getter_allows_derived_mask_to_override_base_deny(db0_fixture):
+def test_protected_field_getter_uses_derived_class_own_masks(db0_fixture):
     account_id = ContextVar("protected_inheritance_allow_override_account_id")
     obj = MemoImplicitlyProtectedDerivedFieldsClass("base", "alpha", 1, 1.5)
     db0.set_field_access(MemoProtectedDerivedFieldsClass, 123, (), "name")

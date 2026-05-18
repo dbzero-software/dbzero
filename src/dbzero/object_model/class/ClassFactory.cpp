@@ -137,25 +137,6 @@ namespace db0::object_model
         return type;
     }
 
-    bool ClassFactory::isProtectFields(const Class &type) const
-    {
-        auto cacheKey = type.getAddress();
-        auto it = m_protect_fields_cache.find(cacheKey);
-        if (it != m_protect_fields_cache.end()) {
-            return it->second.m_protect_fields;
-        }
-
-        auto baseClass = type.getBaseClassPtr();
-        bool protectFields = type.hasOwnProtectFields() || (baseClass && isProtectFields(*baseClass));
-        m_protect_fields_cache[cacheKey] = { protectFields };
-        return protectFields;
-    }
-
-    void ClassFactory::resetProtectFieldsCache(const Class &) const
-    {
-        m_protect_fields_cache.clear();
-    }
-    
     std::shared_ptr<Class> ClassFactory::tryGetOrCreateType(TypeObjectPtr lang_type)
     {
         // disallow creating MemoBase type
