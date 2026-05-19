@@ -434,9 +434,9 @@ namespace db0::python
             return false;
         }
 
-        auto mask = type->tryGetFieldAccess(static_cast<std::uint64_t>(account_id), member_loc);
+        auto mask = type->tryGetFieldAccessByMemberLoc(static_cast<std::uint64_t>(account_id), member_loc);
         if (!mask && field_name) {
-            mask = type->tryGetFieldAccess(static_cast<std::uint64_t>(account_id), field_name);
+            mask = type->tryGetFieldAccessByName(static_cast<std::uint64_t>(account_id), field_name);
         }
         return mask && (*mask)[access_option];
     }

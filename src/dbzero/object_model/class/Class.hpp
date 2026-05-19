@@ -184,9 +184,10 @@ DB0_PACKED_END
         const FieldSafe &getFieldSafe() const;
         void setFieldAccess(const std::vector<std::uint64_t> &account_ids, FieldMaskFlags mask,
             const std::vector<std::string> &field_names);
-        std::optional<FieldMaskFlags> tryGetFieldAccess(std::uint64_t account_id, const Member &) const;
-        std::optional<FieldMaskFlags> tryGetFieldAccess(std::uint64_t account_id, const MemberLoc &) const;
+        std::optional<FieldMaskFlags> tryGetFieldAccessByMember(std::uint64_t account_id, const Member &) const;
+        std::optional<FieldMaskFlags> tryGetFieldAccessByMemberLoc(std::uint64_t account_id, const MemberLoc &) const;
         std::optional<FieldMaskFlags> tryGetFieldAccess(std::uint64_t account_id, const char *field_name) const;
+        std::optional<FieldMaskFlags> tryGetFieldAccessByName(std::uint64_t account_id, const char *field_name) const;
         std::vector<std::pair<std::string, FieldMaskFlags> > getFieldAccess(std::uint64_t account_id) const;
         std::uint32_t getFieldOffsetRange() const;
         

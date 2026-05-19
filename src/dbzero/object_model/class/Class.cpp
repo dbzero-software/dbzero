@@ -433,7 +433,7 @@ namespace db0::object_model
         }
     }
 
-    std::optional<FieldMaskFlags> Class::tryGetFieldAccess(std::uint64_t account_id, const Member &member) const
+    std::optional<FieldMaskFlags> Class::tryGetFieldAccessByMember(std::uint64_t account_id, const Member &member) const
     {
         if (!isProtectFields()) {
             return {};
@@ -458,7 +458,7 @@ namespace db0::object_model
         return {};
     }
 
-    std::optional<FieldMaskFlags> Class::tryGetFieldAccess(std::uint64_t account_id, const MemberLoc &member_loc) const
+    std::optional<FieldMaskFlags> Class::tryGetFieldAccessByMemberLoc(std::uint64_t account_id, const MemberLoc &member_loc) const
     {
         const auto &member_id = member_loc.first;
         if (!member_id) {
@@ -467,12 +467,22 @@ namespace db0::object_model
 
         auto member = tryGetMember(member_id.primary().first);
         if (member) {
-            return tryGetFieldAccess(account_id, *member);
+            return tryGetFieldAccessByMember(account_id, *member);
         }
         return {};
     }
 
     std::optional<FieldMaskFlags> Class::tryGetFieldAccess(std::uint64_t account_id, const char *field_name) const
+    {
+        auto member = tryGetMember(field_name);
+        if (member) {
+            return tryGetFieldAccessByMember(account_id, *member);
+        }
+
+        return tryGetFieldAccessByName(account_id, field_name);
+    }
+
+    std::optional<FieldMaskFlags> Class::tryGetFieldAccessByName(std::uint64_t account_id, const char *field_name) const
     {
         if (!isProtectFields()) {
             return {};
@@ -482,17 +492,6 @@ namespace db0::object_model
             auto &field_safe = getFieldSafe();
             auto field_mask = field_safe.getFieldMaskManager().tryGetFieldMask(account_id);
             if (field_mask) {
-                auto member = tryGetMember(field_name);
-                if (member) {
-                    auto maybe_offset = field_safe.getFieldIDMapper().tryGetAssignedFieldOffset(member->m_field_id);
-                    if (maybe_offset) {
-                        auto mask = field_mask->getAssignedMask(*maybe_offset);
-                        if (mask && !mask->none()) {
-                            return mask;
-                        }
-                    }
-                }
-
                 auto maybe_offset = field_safe.getFieldIDMapper().tryGetAssignedFieldOffset(field_name);
                 if (maybe_offset) {
                     auto mask = field_mask->getAssignedMask(*maybe_offset);
@@ -505,7 +504,7 @@ namespace db0::object_model
         }
 
         if (m_base_class_ptr && m_base_class_ptr->isProtectFields()) {
-            return m_base_class_ptr->tryGetFieldAccess(account_id, field_name);
+            return m_base_class_ptr->tryGetFieldAccessByName(account_id, field_name);
         }
 
         return {};
