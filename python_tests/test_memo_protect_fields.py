@@ -501,6 +501,24 @@ def test_protected_field_update_does_not_require_create_access(db0_fixture):
     obj.name = "beta"
 
 
+def test_protected_field_delete_requires_delete_access(db0_fixture):
+    account_id = ContextVar("protected_delete_account_id")
+    obj = MemoProtectedFieldsClass("alpha", 1)
+    db0.set_field_access(MemoProtectedFieldsClass, 101, (FieldAccess.READ, FieldAccess.UPDATE), "name")
+    db0.set_field_access(MemoProtectedFieldsClass, 202, (FieldAccess.READ, FieldAccess.DELETE), "name")
+    db0._init_data_masking(account_id)
+
+    account_id.set(101)
+    with pytest.raises(PermissionError, match="delete"):
+        del obj.name
+    assert obj.name == "alpha"
+
+    account_id.set(202)
+    del obj.name
+    with pytest.raises(AttributeError):
+        _ = obj.name
+
+
 def test_protected_field_getter_requires_read_access(db0_fixture):
     account_id = ContextVar("protected_read_account_id")
     obj = MemoProtectedFieldsClass("alpha", 1)
