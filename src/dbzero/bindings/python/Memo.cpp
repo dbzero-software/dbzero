@@ -441,26 +441,10 @@ namespace db0::python
         return mask && (*mask)[access_option];
     }
 
-    const char *getProtectedFieldAccessName(db0::object_model::FieldMaskOptions accessOption)
-    {
-        switch (accessOption) {
-            case db0::object_model::FieldMaskOptions::CREATE:
-                return "create";
-            case db0::object_model::FieldMaskOptions::READ:
-                return "read";
-            case db0::object_model::FieldMaskOptions::UPDATE:
-                return "update";
-            case db0::object_model::FieldMaskOptions::DELETE:
-                return "delete";
-        }
-
-        return "unknown";
-    }
-
-    void setProtectedFieldPermissionError(db0::object_model::FieldMaskOptions accessOption)
+    void setProtectedFieldPermissionError(db0::object_model::FieldMaskOptions access_option)
     {
         std::stringstream message;
-        message << "data masking denies " << getProtectedFieldAccessName(accessOption)
+        message << "data masking denies " << access_option
             << " access to protected field";
         PyErr_SetString(PyExc_PermissionError, message.str().c_str());
     }
@@ -487,7 +471,7 @@ namespace db0::python
     }
 
     template <typename MemoImplT>
-    bool checkProtectedFieldModifyAccess(MemoImplT *memo_obj, db0::object_model::FieldMaskOptions accessOption,
+    bool checkProtectedFieldMutateAccess(MemoImplT *memo_obj, db0::object_model::FieldMaskOptions accessOption,
         const char *fieldName)
     {
         auto &memo_type = memo_obj->ext().getType();
@@ -574,7 +558,7 @@ namespace db0::python
         
         if (isPersistentAttrName(attr_name)) {
             try {
-                if (!value && !checkProtectedFieldModifyAccess(
+                if (!value && !checkProtectedFieldMutateAccess(
                     self, db0::object_model::FieldMaskOptions::DELETE, attr_name
                 )) {
                     return -1;
@@ -597,7 +581,7 @@ namespace db0::python
                                 : db0::object_model::FieldMaskOptions::CREATE;
                             if (
                                 (memberExists || Settings::m_data_masking_enabled)
-                                && !checkProtectedFieldModifyAccess(
+                                && !checkProtectedFieldMutateAccess(
                                     self, accessOption, attr_name
                                 )
                             ) {
@@ -610,7 +594,7 @@ namespace db0::python
                         if (
                             value
                             && Settings::m_data_masking_enabled
-                            && !checkProtectedFieldModifyAccess(
+                            && !checkProtectedFieldMutateAccess(
                                 self, db0::object_model::FieldMaskOptions::CREATE, attr_name
                             )
                         ) {
