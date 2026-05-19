@@ -501,6 +501,51 @@ def test_protected_field_update_does_not_require_create_access(db0_fixture):
     obj.name = "beta"
 
 
+def test_protected_field_update_requires_update_access(db0_fixture):
+    account_id = ContextVar("protected_update_denied_account_id")
+    obj = MemoProtectedFieldsClass("alpha", 1)
+    db0.set_field_access(MemoProtectedFieldsClass, 101, (FieldAccess.READ,), "name")
+    db0.set_field_access(MemoProtectedFieldsClass, 202, (FieldAccess.READ, FieldAccess.UPDATE), "name")
+    db0._init_data_masking(account_id)
+
+    account_id.set(101)
+    with pytest.raises(PermissionError, match="update"):
+        obj.name = "denied"
+    assert obj.name == "alpha"
+
+    account_id.set(202)
+    obj.name = "allowed"
+    assert obj.name == "allowed"
+
+
+def test_protected_field_update_requires_initialized_data_masking(db0_fixture):
+    obj = MemoProtectedFieldsClass("alpha", 1)
+
+    with pytest.raises(RuntimeError, match="data masking"):
+        obj.name = "beta"
+
+
+def test_protected_field_update_allows_debug_full_access_super_account(db0_fixture):
+    account_id = ContextVar("protected_update_debug_full_access_account_id")
+    obj = MemoProtectedFieldsClass("alpha", 1)
+    db0._init_data_masking(account_id, mode="DEBUG")
+    account_id.set(-2)
+
+    obj.name = "beta"
+    assert obj.name == "beta"
+
+
+def test_protected_field_update_rejects_debug_read_only_super_account(db0_fixture):
+    account_id = ContextVar("protected_update_debug_read_only_account_id")
+    obj = MemoProtectedFieldsClass("alpha", 1)
+    db0._init_data_masking(account_id, mode="DEBUG")
+    account_id.set(-1)
+
+    with pytest.raises(PermissionError, match="update"):
+        obj.name = "beta"
+    assert obj.name == "alpha"
+
+
 def test_protected_field_delete_requires_delete_access(db0_fixture):
     account_id = ContextVar("protected_delete_account_id")
     obj = MemoProtectedFieldsClass("alpha", 1)

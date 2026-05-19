@@ -589,21 +589,27 @@ namespace db0::python
                 auto maybe_type_id = PyToolkit::getTypeManager().tryGetTypeId(value);
                 if (maybe_type_id) {
                     if (self->ext().hasInstance()) {
-                        auto member_loc = self->ext().findField(attr_name);
-                        if (
-                            !self->ext().tryGet(member_loc)
-                            && Settings::m_data_masking_enabled
-                            && !checkProtectedFieldModifyAccess(
-                                self, db0::object_model::FieldMaskOptions::CREATE, attr_name
-                            )
-                        ) {
-                            return -1;
+                        if (value) {
+                            auto member_loc = self->ext().findField(attr_name);
+                            bool memberExists = !!self->ext().tryGet(member_loc);
+                            auto accessOption = memberExists
+                                ? db0::object_model::FieldMaskOptions::UPDATE
+                                : db0::object_model::FieldMaskOptions::CREATE;
+                            if (
+                                (memberExists || Settings::m_data_masking_enabled)
+                                && !checkProtectedFieldModifyAccess(
+                                    self, accessOption, attr_name
+                                )
+                            ) {
+                                return -1;
+                            }
                         }
                         db0::FixtureLock lock(self->ext().getFixture());
                         self->modifyExt().set(lock, attr_name, *maybe_type_id, value);
                     } else {
                         if (
-                            Settings::m_data_masking_enabled
+                            value
+                            && Settings::m_data_masking_enabled
                             && !checkProtectedFieldModifyAccess(
                                 self, db0::object_model::FieldMaskOptions::CREATE, attr_name
                             )
