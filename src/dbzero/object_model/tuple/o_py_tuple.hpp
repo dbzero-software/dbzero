@@ -15,7 +15,7 @@ namespace db0::object_model
 {
 
 DB0_PACKED_BEGIN
-    class DB0_PACKED_ATTR o_py_tuple: public o_tuple
+    class DB0_PACKED_ATTR o_py_tuple: public o_tuple<>
     {
     public:
         explicit o_py_tuple(PyObject *sequence);
@@ -24,7 +24,7 @@ DB0_PACKED_BEGIN
 
         template <typename BufT> static std::size_t safeSizeOf(BufT buf)
         {
-            return o_tuple::safeSizeOf(buf);
+            return o_tuple<>::safeSizeOf(buf);
         }
 
         static o_py_tuple &__ref(void *buf);

@@ -12,10 +12,29 @@
 #include <dbzero/core/compiler_attributes.hpp>
 #include <dbzero/core/serialization/Types.hpp>
 #include <dbzero/core/serialization/packed_int.hpp>
-#include <dbzero/object_model/value/StorageClass.hpp>
+#include <dbzero/core/serialization/string.hpp>
 
 namespace db0::object_model
 {
+
+    enum class TupleItemKind: std::uint8_t
+    {
+        UNDEFINED = 0,
+        NONE = 1,
+        BOOLEAN = 2,
+        INT64 = 3,
+        FP_NUMERIC64 = 4,
+        STRING = 5,
+        BINARY = 6,
+        PTIME64 = 7,
+        DATE = 8,
+        DATETIME = 9,
+        DATETIME_TZ = 10,
+        TIME = 11,
+        TIME_TZ = 12,
+        DECIMAL = 13,
+        PACKED_INT64 = 14
+    };
 
 DB0_PACKED_BEGIN
     class DB0_PACKED_ATTR o_tuple_item: public db0::o_base<o_tuple_item, 0, false>
@@ -33,10 +52,11 @@ DB0_PACKED_BEGIN
                 std::size_t m_size = 0;
             };
 
-            StorageClass m_storage_class = StorageClass::UNDEFINED;
+            TupleItemKind m_kind = TupleItemKind::UNDEFINED;
             union Payload
             {
                 std::int64_t m_int_value;
+                std::uint64_t m_uint64_value;
                 double m_double_value;
                 bool m_bool_value;
                 std::string_view m_string_value;
@@ -52,8 +72,16 @@ DB0_PACKED_BEGIN
             static Element string(std::string_view value);
             static Element bytes(const std::byte *data, std::size_t size);
             static Element bytes(const std::vector<std::byte> &value);
+            static Element timestamp(std::uint64_t value);
+            static Element date(std::uint64_t value);
+            static Element datetime(std::uint64_t value);
+            static Element datetimeTz(std::uint64_t value);
+            static Element time(std::uint64_t value);
+            static Element timeTz(std::uint64_t value);
+            static Element decimal(std::uint64_t value);
 
             std::int64_t intValue() const;
+            std::uint64_t uint64Value() const;
             double doubleValue() const;
             bool boolValue() const;
             std::string stringValue() const;
@@ -63,7 +91,7 @@ DB0_PACKED_BEGIN
 
         explicit o_tuple_item(const Element &element);
 
-        StorageClass storageClass() const;
+        TupleItemKind itemKind() const;
         std::size_t sizeOf() const;
 
         static std::size_t measure(const Element &element);
@@ -73,57 +101,72 @@ DB0_PACKED_BEGIN
             auto start = buf;
             auto cursor = buf;
             cursor += super_t::baseSize();
-            advancePayload(super_t::__const_ref(buf).m_storage_class, cursor);
+            advancePayload(super_t::__const_ref(buf).m_kind, cursor);
             return cursor - start;
         }
 
     private:
-        StorageClass m_storage_class = StorageClass::UNDEFINED;
+        TupleItemKind m_kind = TupleItemKind::UNDEFINED;
 
         void arrangePayload(const Element &element);
 
     public:
         const o_simple<bool> &boolPayload() const;
         const o_simple<std::int64_t> &intPayload() const;
+        const packed_int64 &packedIntPayload() const;
+        const o_simple<std::uint64_t> &uint64Payload() const;
         const o_simple<double> &doublePayload() const;
         const o_string &stringPayload() const;
         const o_binary &bytesPayload() const;
 
     private:
-        template <typename BufT> static void advancePayload(StorageClass storageClass, BufT &cursor)
+        template <typename BufT> static void advancePayload(TupleItemKind kind, BufT &cursor)
         {
-            switch (storageClass) {
-            case StorageClass::NONE:
+            switch (kind) {
+            case TupleItemKind::NONE:
                 return;
-            case StorageClass::BOOLEAN:
+            case TupleItemKind::BOOLEAN:
                 cursor += o_simple<bool>::safeSizeOf(cursor);
                 return;
-            case StorageClass::INT64:
+            case TupleItemKind::INT64:
                 cursor += o_simple<std::int64_t>::safeSizeOf(cursor);
                 return;
-            case StorageClass::FP_NUMERIC64:
+            case TupleItemKind::PACKED_INT64:
+                cursor += packed_int64::safeSizeOf(cursor);
+                return;
+            case TupleItemKind::FP_NUMERIC64:
                 cursor += o_simple<double>::safeSizeOf(cursor);
                 return;
-            case StorageClass::STRING_REF:
+            case TupleItemKind::STRING:
                 cursor += o_string::safeSizeOf(cursor);
                 return;
-            case StorageClass::DB0_BYTES:
+            case TupleItemKind::BINARY:
                 cursor += o_binary::safeSizeOf(cursor);
                 return;
+            case TupleItemKind::PTIME64:
+            case TupleItemKind::DATE:
+            case TupleItemKind::DATETIME:
+            case TupleItemKind::DATETIME_TZ:
+            case TupleItemKind::TIME:
+            case TupleItemKind::TIME_TZ:
+            case TupleItemKind::DECIMAL:
+                cursor += o_simple<std::uint64_t>::safeSizeOf(cursor);
+                return;
             default:
-                throwUnsupportedStorageClass();
+                throwUnsupportedItemKind();
             }
         }
 
-        static void throwUnsupportedStorageClass();
+        static void throwUnsupportedItemKind();
     };
 DB0_PACKED_END
 
 DB0_PACKED_BEGIN
-    class DB0_PACKED_ATTR o_tuple: public db0::o_base<o_tuple, 0, false>
+    template <bool compact = false>
+    class DB0_PACKED_ATTR o_tuple: public db0::o_base<o_tuple<compact>, 0, false>
     {
     protected:
-        using super_t = db0::o_base<o_tuple, 0, false>;
+        using super_t = db0::o_base<o_tuple<compact>, 0, false>;
         friend super_t;
 
     public:
@@ -141,7 +184,7 @@ DB0_PACKED_BEGIN
             bool operator!=(const const_iterator &other) const;
 
         private:
-            friend class o_tuple;
+            friend class o_tuple<compact>;
 
             explicit const_iterator(const o_tuple_item *item);
 
@@ -160,6 +203,27 @@ DB0_PACKED_BEGIN
 
         static std::size_t measure(const std::vector<Element> &elements);
 
+        class Builder
+        {
+        public:
+            Builder(void *buf, std::uint32_t count, std::uint32_t elementsByteSize);
+            Builder(o_tuple<compact> &tuple, std::uint32_t count, std::uint32_t elementsByteSize);
+
+            void add(const Element &element);
+            o_tuple<compact> &finish();
+
+            static std::size_t measure(std::uint32_t count, std::uint32_t elementsByteSize);
+            static std::size_t measureGrowth(
+                std::uint32_t count, std::uint32_t elementsByteSize, std::uint32_t addedElementByteSize
+            );
+
+        private:
+            o_tuple<compact> &m_tuple;
+            db0::Foundation::Arranger m_arranger;
+            std::uint32_t m_expectedCount = 0;
+            std::uint32_t m_addedCount = 0;
+        };
+
         template <typename BufT> static std::size_t safeSizeOf(BufT buf)
         {
             auto start = buf;
@@ -167,11 +231,17 @@ DB0_PACKED_BEGIN
             cursor += super_t::baseSize();
 
             cursor += db0::packed_int32::safeSizeOf(cursor);
-            auto elementsByteSizeAt = cursor;
-            cursor += db0::packed_int32::safeSizeOf(cursor);
-
-            auto elementsByteSize = db0::packed_int32::__const_ref(elementsByteSizeAt).value();
-            cursor += elementsByteSize;
+            if constexpr (compact) {
+                auto count = db0::packed_int32::__const_ref(start + super_t::baseSize()).value();
+                for (std::uint32_t i = 0; i < count; ++i) {
+                    cursor += o_tuple_item::safeSizeOf(cursor);
+                }
+            } else {
+                auto elementsByteSizeAt = cursor;
+                cursor += db0::packed_int32::safeSizeOf(cursor);
+                auto elementsByteSize = db0::packed_int32::__const_ref(elementsByteSizeAt).value();
+                cursor += elementsByteSize;
+            }
             return cursor - start;
         }
 
@@ -180,10 +250,12 @@ DB0_PACKED_BEGIN
 
     private:
         const db0::packed_int32 &count() const;
-        const db0::packed_int32 &elementsByteSizeMember() const;
         const std::byte *beginOfItems() const;
         static std::size_t measureElements(const std::vector<Element> &elements);
     };
 DB0_PACKED_END
+
+    // Used for embedded buckets where the containing object already stores the byte size.
+    using o_compact_tuple = o_tuple<true>;
 
 }

@@ -125,6 +125,24 @@ Object views should:
 
 Collection views should follow the same model but account for collection-specific traversal and lookup costs. Use the higher `ViewCost` constant for collection embedding decisions.
 
+## Embedded Simple Sets
+
+The first embedded-set slice is `o_set`, a variable-length overlaid object for simple immutable set values. It uses the same tagged embedded item representation as `o_tuple_item`, so payload bytes live inside the set allocation rather than in side allocations.
+
+Layout:
+
+```text
+o_set
+  packed count
+  packed element_block_byte_size
+  packed bucket_block_byte_size
+  o_tuple_item element[count]
+  uint32 bucket_offset_plus_one[capacity]
+  o_tuple bucket[occupied_slots]
+```
+
+Construction removes duplicate simple descriptors before arranging members. The first occurrence determines physical order in the main element stream. `count` stores the unique item count and `element_block_byte_size` stores the exact byte extent of that stream. The hash index is a direct bucket table: slot `hash % capacity` stores `bucket_block_offset + 1`, and `0` means empty. Each occupied slot points to an embedded `o_tuple` containing the elements that landed in that hash bucket. Lookup reads one slot and scans only that bucket tuple to resolve collisions. `sizeOf()` and `safeSizeOf()` rely on the stored element byte size, count-derived index size, and stored bucket byte size for the total extent.
+
 ## Deferred Materialization
 
 Embedding pre-existing immutable dbzero instances is allowed only when the instance has no external references yet, because its final durable address is not known until it is embedded or otherwise materialized.

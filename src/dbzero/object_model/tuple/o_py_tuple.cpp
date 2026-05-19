@@ -5,13 +5,13 @@
 
 #include <Python.h>
 
+#include <dbzero/bindings/python/PyToolkit.hpp>
 #include <dbzero/core/exception/Exceptions.hpp>
 
 namespace db0::object_model
 {
-
     o_py_tuple::o_py_tuple(PyObject *sequence)
-        : o_tuple()
+        : o_tuple<>()
     {
         auto count = static_cast<std::uint32_t>(sequenceSize(sequence));
         auto elementsByteSize = static_cast<std::uint32_t>(measureElements(sequence));
@@ -51,13 +51,15 @@ namespace db0::object_model
 
     o_py_tuple::Element o_py_tuple::elementFromPythonObject(PyObject *object)
     {
-        if (object == Py_None) {
+        auto &typeManager = db0::python::PyToolkit::getTypeManager();
+        auto typeId = typeManager.getTypeId(object);
+
+        switch (typeId) {
+        case db0::bindings::TypeId::NONE:
             return Element::none();
-        }
-        if (PyBool_Check(object)) {
+        case db0::bindings::TypeId::BOOLEAN:
             return Element::boolean(object == Py_True);
-        }
-        if (PyLong_Check(object)) {
+        case db0::bindings::TypeId::INTEGER: {
             auto value = PyLong_AsLongLong(object);
             if (PyErr_Occurred()) {
                 PyErr_Clear();
@@ -65,10 +67,21 @@ namespace db0::object_model
             }
             return Element::integer(value);
         }
-        if (PyFloat_Check(object)) {
+        case db0::bindings::TypeId::FLOAT:
             return Element::floating(PyFloat_AsDouble(object));
-        }
-        if (PyUnicode_Check(object)) {
+        case db0::bindings::TypeId::DATETIME:
+            return Element::datetime(typeManager.extractUInt64(typeId, object));
+        case db0::bindings::TypeId::DATETIME_TZ:
+            return Element::datetimeTz(typeManager.extractUInt64(typeId, object));
+        case db0::bindings::TypeId::DATE:
+            return Element::date(typeManager.extractUInt64(typeId, object));
+        case db0::bindings::TypeId::TIME:
+            return Element::time(typeManager.extractUInt64(typeId, object));
+        case db0::bindings::TypeId::TIME_TZ:
+            return Element::timeTz(typeManager.extractUInt64(typeId, object));
+        case db0::bindings::TypeId::DECIMAL:
+            return Element::decimal(typeManager.extractUInt64(typeId, object));
+        case db0::bindings::TypeId::STRING: {
             const char *value = PyUnicode_AsUTF8(object);
             if (!value) {
                 PyErr_Clear();
@@ -76,7 +89,7 @@ namespace db0::object_model
             }
             return Element::string(value);
         }
-        if (PyBytes_Check(object)) {
+        case db0::bindings::TypeId::BYTES: {
             char *data = nullptr;
             Py_ssize_t size = 0;
             if (PyBytes_AsStringAndSize(object, &data, &size) != 0) {
@@ -84,6 +97,9 @@ namespace db0::object_model
                 THROWF(db0::InputException) << "Unable to read Python bytes";
             }
             return Element::bytes(reinterpret_cast<const std::byte *>(data), static_cast<std::size_t>(size));
+        }
+        default:
+            break;
         }
 
         THROWF(db0::InputException) << "Unsupported o_py_tuple element type: " << Py_TYPE(object)->tp_name;

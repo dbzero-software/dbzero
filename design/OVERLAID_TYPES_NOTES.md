@@ -1,6 +1,6 @@
 # Overlaid Types Notes
 
-This note captures the local overlaid-object conventions that matter for embedded tuple/list work.
+This note captures the local overlaid-object conventions that matter for embedded tuple/list/set work.
 
 ## Core Model
 
@@ -169,7 +169,7 @@ This pattern is relevant for a tagged union element where the next payload type 
 
 `PosVT` shows a mixed pattern: `o_micro_array<StorageClass, true>` is fixed-size and self-sized, then `o_unbound_array<Value>` follows. Because `o_unbound_array` has no own size header, `safeSizeOf()` must derive its size from the preceding `types().size()`.
 
-## Requirements For Embedded Tuple/List
+## Requirements For Embedded Tuple/List/Set
 
 For embedded tuple/list elements, `o_tuple_item` must not be `o_fixed`. An item is a tagged overlaid union:
 
@@ -193,21 +193,52 @@ o_tuple
     ...
 
 o_tuple_item
-  storage_class
-  payload selected by storage_class
+  tuple_item_kind
+  payload selected by tuple_item_kind
 ```
 
-For the first slice, supported payload classes can be limited to:
+An embedded set uses the same element encoding for the first implementation:
 
-- `NONE`
-- `BOOLEAN`
-- `INT64`
-- `FP_NUMERIC64`
-- `STRING_REF` as embedded `o_string`
-- `DB0_BYTES` as embedded `o_binary`
-- nested `TUPLE` / `LIST` as embedded `o_tuple`
+```text
+o_set
+  header: packed count, packed element_block_byte_size, packed bucket_block_byte_size
+  element block:
+    o_tuple_item
+    o_tuple_item
+    ...
+  hash index:
+    32-bit bucket-block offset plus one
+  bucket block:
+    o_tuple
+    o_tuple
+    ...
+```
 
-The names `STRING_REF` and `DB0_BYTES` are imperfect for embedded storage because existing code uses them for separately allocated members. Until a dedicated embedded storage class exists, accessors must treat these tags as embedded only inside `o_tuple_item`.
+Set construction deduplicates simple construction descriptors before writing the element block. The stored count is the number of unique items and the stored byte size is the byte extent of the unique item stream. Lookup should map the 32-bit item hash to a slot using modulo arithmetic, read the bucket offset from the embedded offset table, and then scan only that bucket's embedded `o_tuple` to resolve collisions. Slot value `0` means unoccupied; occupied slots store `bucket_block_offset + 1`. `safeSizeOf` should use the stored element byte size, count-derived index size, and stored bucket byte size to validate and return the declared embedded set extent; it must not iterate through every item just to rediscover a byte count that is already in the header.
+
+`o_tuple_item` uses `TupleItemKind`, not `StorageClass`, because the tag is persisted inside embedded tuple/set bytes and describes the embedded payload layout rather than object-model storage behavior. Enum values must stay explicit and stable. New payload kinds should be appended with new numeric values; do not renumber existing values.
+
+Current persisted values:
+
+- `0`: `UNDEFINED` (invalid/reserved)
+- `1`: `NONE`
+- `2`: `BOOLEAN` as embedded `o_simple<bool>`
+- `3`: `INT64` as embedded `o_simple<int64_t>`
+- `4`: `FP_NUMERIC64` as embedded `o_simple<double>`
+- `5`: `STRING` as embedded `o_string`
+- `6`: `BINARY` as embedded `o_binary`
+- `7`: `PTIME64` as embedded `o_simple<uint64_t>`
+- `8`: `DATE` as embedded `o_simple<uint64_t>`
+- `9`: `DATETIME` as embedded `o_simple<uint64_t>`
+- `10`: `DATETIME_TZ` as embedded `o_simple<uint64_t>`
+- `11`: `TIME` as embedded `o_simple<uint64_t>`
+- `12`: `TIME_TZ` as embedded `o_simple<uint64_t>`
+- `13`: `DECIMAL` as embedded `o_simple<uint64_t>`
+- `14`: `PACKED_INT64` as embedded `packed_int64`
+
+`Element::integer()` automatically chooses `PACKED_INT64` for non-negative integers whose packed payload is 6 bytes or less. That is the point where the payload saves at least 2 bytes compared with fixed `INT64`. Negative integers and values whose packed payload would need 7 or more bytes remain `INT64`. Set equality and hashing treat `INT64` and `PACKED_INT64` as the same logical integer encoding.
+
+Embedded collections are intentionally not part of the current slice. When tuple/list/set/dict payloads are added later, they should get dedicated `TupleItemKind` values and should embed the child overlay bytes immediately after the tag.
 
 ## Common Pitfalls
 
