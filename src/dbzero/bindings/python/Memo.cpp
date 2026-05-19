@@ -1389,19 +1389,47 @@ namespace db0::python
             (const std::string &key, PyTypes::ObjectSharedPtr)
         {
             auto key_obj = Py_OWN(PyUnicode_FromString(key.c_str()));
+            if (!key_obj) {
+                has_error = true;
+                return false;
+            }
+
+            if (py_exclude != nullptr && py_exclude != Py_None) {
+                int contains = PySequence_Contains(py_exclude, *key_obj);
+                if (contains < 0) {
+                    has_error = true;
+                    return false;
+                }
+                if (contains == 1) {
+                    return true;
+                }
+            }
+
+            auto &memo_type = memo_obj->ext().getType();
+            if (memo_type.isProtectFields()) {
+                auto member_loc = memo_obj->ext().findField(key.c_str());
+                if (!checkProtectedFieldAccess(
+                    memo_obj, db0::object_model::FieldMaskOptions::READ, member_loc, key.c_str()
+                )) {
+                    if (PyErr_Occurred()) {
+                        has_error = true;
+                        return false;
+                    }
+                    return true;
+                }
+            }
+
             auto attr = Py_OWN(PyAPI_MemoObject_getattro(memo_obj, *key_obj));
             if (!attr) {
                 has_error = true;
                 return false;
             }
-            
-            if (py_exclude == nullptr || py_exclude == Py_None || PySequence_Contains(py_exclude, *key_obj) == 0) {
-                auto res = Py_OWN(tryLoad(*attr, kwargs, nullptr, load_stack_ptr, false));
-                if (!res) {
-                    has_error = true;
-                } else {
-                    PySafeDict_SetItemString(*py_result, key.c_str(), res);                    
-                }
+
+            auto res = Py_OWN(tryLoad(*attr, kwargs, nullptr, load_stack_ptr, false));
+            if (!res) {
+                has_error = true;
+            } else {
+                PySafeDict_SetItemString(*py_result, key.c_str(), res);
             }
             return !has_error;
         });
