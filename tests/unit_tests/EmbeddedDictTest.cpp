@@ -91,9 +91,11 @@ namespace tests
                 key << std::setprecision(17) << element.doubleValue();
                 break;
             case StorageClass::STRING_REF:
+            case StorageClass::EMBEDDED_STRING:
                 key << element.stringValue();
                 break;
             case StorageClass::DB0_BYTES:
+            case StorageClass::EMBEDDED_BYTES:
                 key << bytesKey(element.bytesData(), element.bytesSize());
                 break;
             case StorageClass::PTIME64:
@@ -132,9 +134,11 @@ namespace tests
                 key << std::setprecision(17) << item.doublePayload().value();
                 break;
             case StorageClass::STRING_REF:
+            case StorageClass::EMBEDDED_STRING:
                 key << item.stringPayload().toString();
                 break;
             case StorageClass::DB0_BYTES:
+            case StorageClass::EMBEDDED_BYTES:
                 key << bytesKey(item.bytesPayload().begin(), item.bytesPayload().size());
                 break;
             case StorageClass::PTIME64:

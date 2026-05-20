@@ -46,6 +46,7 @@ namespace db0::object_model
             case StorageClass::DB0_TUPLE:
             case StorageClass::DB0_SET:
             case StorageClass::DB0_DICT:
+            case StorageClass::OBJECT_REF:
                 return true;
             default:
                 return false;

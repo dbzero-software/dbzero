@@ -5,7 +5,9 @@
 
 #include <dbzero/bindings/python/PyToolkit.hpp>
 #include <dbzero/core/exception/Exceptions.hpp>
+#include <dbzero/object_model/class/Class.hpp>
 #include <dbzero/object_model/dict/o_py_dict.hpp>
+#include <dbzero/object_model/object/ObjectImmutableImpl.hpp>
 #include <dbzero/object_model/set/o_py_set.hpp>
 #include <dbzero/object_model/tuple/o_py_tuple.hpp>
 
@@ -28,6 +30,36 @@ namespace db0::object_model
         void writePyDict(void *buf, const void *source)
         {
             o_py_dict::__new(buf, const_cast<PyObject *>(static_cast<const PyObject *>(source)));
+        }
+
+        const ImmutableObjectInitializer &getInitializer(PyObject *pyObject)
+        {
+            using MemoImmutableObject = db0::python::PyToolkit::TypeManager::MemoImmutableObject;
+
+            assert(db0::python::PyToolkit::isMemoImmutableObject(pyObject));
+
+            const auto &object = db0::python::PyToolkit::getTypeManager()
+                .template extractObject<MemoImmutableObject>(pyObject);
+            if (object.hasInstance()) {
+                THROWF(db0::InputException)
+                    << "Only non-materialized immutable memo objects can be embedded";
+            }
+
+            auto *initializer = dynamic_cast<ImmutableObjectInitializer *>(
+                InitManager::instance.findInitializer(object)
+            );
+            if (!initializer) {
+                THROWF(db0::InputException)
+                    << "Non-materialized immutable memo object has no active initializer";
+            }
+            return *initializer;
+        }
+
+        void writeEmbeddedObject(void *buf, const void *source)
+        {
+            auto *pyObject = const_cast<PyObject *>(static_cast<const PyObject *>(source));
+            const auto &initializer = getInitializer(pyObject);
+            o_embedded_object::__new(buf, initializer.getClassPtr()->getClassRef(), initializer);
         }
 
         o_dict::Element fieldMapElementFromObject(
@@ -61,6 +93,11 @@ namespace db0::object_model
                 case StorageClass::DB0_DICT: {
                     auto size = o_py_dict::measure(pyObject);
                     return o_dict::Element::embeddedDict(size, writePyDict, pyObject);
+                }
+                case StorageClass::OBJECT_REF: {
+                    const auto &initializer = getInitializer(pyObject);
+                    auto size = o_embedded_object::measure(initializer.getClassPtr()->getClassRef(), initializer);
+                    return o_dict::Element::embeddedObject(size, writeEmbeddedObject, pyObject);
                 }
                 default:
                     THROWF(db0::InputException)

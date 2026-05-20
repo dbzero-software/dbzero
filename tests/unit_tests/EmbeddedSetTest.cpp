@@ -48,6 +48,8 @@ namespace tests
     static std::uint32_t testElementHash(const o_set::Element &element)
     {
         auto seedKind = element.m_kind == StorageClass::PACKED_INT32 ? StorageClass::INT64 : element.m_kind;
+        seedKind = seedKind == StorageClass::EMBEDDED_STRING ? StorageClass::STRING_REF : seedKind;
+        seedKind = seedKind == StorageClass::EMBEDDED_BYTES ? StorageClass::DB0_BYTES : seedKind;
         auto seed = 0x9e3779b9U ^ static_cast<std::uint32_t>(seedKind);
         switch (element.m_kind) {
             case StorageClass::NONE:
@@ -68,11 +70,13 @@ namespace tests
                 auto value = element.doubleValue();
                 return testHashBytes(&value, sizeof(value), seed);
             }
-            case StorageClass::STRING_REF: {
+            case StorageClass::STRING_REF:
+            case StorageClass::EMBEDDED_STRING: {
                 auto value = element.m_payload.m_string_value;
                 return testHashBytes(value.data(), value.size(), seed);
             }
             case StorageClass::DB0_BYTES:
+            case StorageClass::EMBEDDED_BYTES:
                 return testHashBytes(element.bytesData(), element.bytesSize(), seed);
             case StorageClass::PTIME64:
             case StorageClass::DATE:
@@ -130,9 +134,11 @@ namespace tests
                 key << std::setprecision(17) << element.doubleValue();
                 break;
             case StorageClass::STRING_REF:
+            case StorageClass::EMBEDDED_STRING:
                 key << element.stringValue();
                 break;
             case StorageClass::DB0_BYTES:
+            case StorageClass::EMBEDDED_BYTES:
                 key << bytesKey(element.bytesData(), element.bytesSize());
                 break;
             case StorageClass::PTIME64:
@@ -171,9 +177,11 @@ namespace tests
                 key << std::setprecision(17) << item.doublePayload().value();
                 break;
             case StorageClass::STRING_REF:
+            case StorageClass::EMBEDDED_STRING:
                 key << item.stringPayload().toString();
                 break;
             case StorageClass::DB0_BYTES:
+            case StorageClass::EMBEDDED_BYTES:
                 key << bytesKey(item.bytesPayload().begin(), item.bytesPayload().size());
                 break;
             case StorageClass::PTIME64:

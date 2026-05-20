@@ -68,7 +68,8 @@ namespace db0::python
     PyToolkit::ObjectSharedPtr PyToolkit::unloadEmbeddedInstance(const db0::object_model::o_tuple_item &item)
     {
         switch (item.itemKind()) {
-            case StorageClass::STRING_REF: {
+            case StorageClass::STRING_REF:
+            case StorageClass::EMBEDDED_STRING: {
                 auto str = item.stringPayload().get();
                 auto result = Py_OWN(PyUnicode_FromStringAndSize(str.get_raw(), str.size()));
                 if (!result) {
@@ -76,7 +77,8 @@ namespace db0::python
                 }
                 return result;
             }
-            case StorageClass::DB0_BYTES: {
+            case StorageClass::DB0_BYTES:
+            case StorageClass::EMBEDDED_BYTES: {
                 const auto &bytes = item.bytesPayload();
                 auto result = Py_OWN(PyBytes_FromStringAndSize(
                     reinterpret_cast<const char *>(bytes.getBuffer()), bytes.size()

@@ -4,15 +4,20 @@
 #include <gtest/gtest.h>
 #include <Python.h>
 #include <utils/TestBase.hpp>
+#include <utils/SubClass.hpp>
+#include <dbzero/bindings/python/Memo.hpp>
+#include <dbzero/bindings/python/PyAPI.hpp>
 #include <dbzero/bindings/python/PySafeAPI.hpp>
 #include <dbzero/bindings/python/shared_py_object.hpp>
 #include <dbzero/core/serialization/bounded_buf_t.hpp>
 #include <dbzero/core/vspace/v_object.hpp>
+#include <dbzero/object_model/ObjectModel.hpp>
 #include <dbzero/object_model/object/ObjectImmutableImpl.hpp>
 #include <dbzero/object_model/object/o_immutable_object.hpp>
 #include <dbzero/object_model/object/o_embedded_object.hpp>
 #include <dbzero/object_model/set/o_set.hpp>
 #include <dbzero/object_model/tuple/o_tuple.hpp>
+#include <dbzero/workspace/Workspace.hpp>
 
 #include <stdexcept>
 
@@ -39,6 +44,36 @@ namespace tests
             throw std::runtime_error("immutable initializer not found");
         }
         return *initializer;
+    }
+
+    static db0::python::shared_py_object<PyTypeObject *> makeMemoType()
+    {
+        static std::uint64_t memoTypeIndex = 0;
+        auto className = std::string("EmbeddedObjectNestedImmutable") + std::to_string(memoTypeIndex);
+        auto typeId = "tests/" + className;
+        ++memoTypeIndex;
+
+        if (PyRun_SimpleString(("class " + className + ": pass\n").c_str()) != 0) {
+            return {};
+        }
+
+        auto mainModule = Py_BORROW(PyImport_AddModule("__main__"));
+        auto pyClass = Py_OWN(PyObject_GetAttrString(mainModule.get(), className.c_str()));
+        auto args = Py_OWN(PyTuple_Pack(1, pyClass.get()));
+        auto kwargs = Py_OWN(PyDict_New());
+        auto pyTypeId = Py_OWN(PyUnicode_FromString(typeId.c_str()));
+        auto pyImmutable = Py_OWN(PyBool_FromLong(1));
+        if (!mainModule.get() || !pyClass.get() || !args.get() || !kwargs.get()
+            || !pyTypeId.get() || !pyImmutable.get()) {
+            return {};
+        }
+        db0::python::PySafeDict_SetItemString(kwargs.get(), "id", std::move(pyTypeId));
+        db0::python::PySafeDict_SetItemString(kwargs.get(), "immutable", std::move(pyImmutable));
+
+        return db0::python::shared_py_object<PyTypeObject *>(
+            reinterpret_cast<PyTypeObject *>(db0::python::PyAPI_wrapPyClass(nullptr, args.get(), kwargs.get())),
+            false
+        );
     }
 
     TEST_F( EmbeddedObjectTest , testEmbeddedObjectStoresInitializerPlannedFixedTables )
@@ -118,7 +153,7 @@ namespace tests
 
         auto *variableValue = object->variableValue(300);
         ASSERT_NE(variableValue, nullptr);
-        ASSERT_EQ(variableValue->itemKind(), StorageClass::STRING_REF);
+        ASSERT_EQ(variableValue->itemKind(), StorageClass::EMBEDDED_STRING);
         ASSERT_EQ(variableValue->stringPayload().toString(), "root variable string");
         ASSERT_EQ(&object->embeddedObject().pos_vt(), &object->pos_vt());
         ASSERT_EQ(&object->embeddedObject().index_vt(), &object->index_vt());
@@ -150,11 +185,11 @@ namespace tests
         ASSERT_EQ(object->getClassRef(), 88u);
         auto *stringValue = object->variableValue(300);
         ASSERT_NE(stringValue, nullptr);
-        ASSERT_EQ(stringValue->itemKind(), StorageClass::STRING_REF);
+        ASSERT_EQ(stringValue->itemKind(), StorageClass::EMBEDDED_STRING);
         ASSERT_EQ(stringValue->stringPayload().toString(), "variable string");
         auto *bytesValue = object->variableValue(301);
         ASSERT_NE(bytesValue, nullptr);
-        ASSERT_EQ(bytesValue->itemKind(), StorageClass::DB0_BYTES);
+        ASSERT_EQ(bytesValue->itemKind(), StorageClass::EMBEDDED_BYTES);
         ASSERT_EQ(bytesValue->bytesPayload().size(), 3u);
         ASSERT_EQ(bytesValue->bytesPayload().begin()[0], std::byte{0x01});
         ASSERT_EQ(bytesValue->bytesPayload().begin()[1], std::byte{0x02});
@@ -189,7 +224,7 @@ namespace tests
 
         auto *stringValue = object->variableValue(300);
         ASSERT_NE(stringValue, nullptr);
-        ASSERT_EQ(stringValue->itemKind(), StorageClass::STRING_REF);
+        ASSERT_EQ(stringValue->itemKind(), StorageClass::EMBEDDED_STRING);
         ASSERT_EQ(stringValue->stringPayload().toString(), "new value");
     }
 
@@ -240,7 +275,7 @@ namespace tests
 
         auto *tupleValue = object->variableValue(400);
         ASSERT_NE(tupleValue, nullptr);
-        ASSERT_EQ(tupleValue->itemKind(), StorageClass::DB0_TUPLE);
+        ASSERT_EQ(tupleValue->itemKind(), StorageClass::EMBEDDED_TUPLE);
         const auto &payload = tupleValue->embeddedPayload();
         const auto &tuple = o_tuple<>::__const_ref(payload.begin());
         ASSERT_EQ(tuple.size(), 2u);
@@ -304,7 +339,7 @@ namespace tests
 
         auto *listValue = object->variableValue(100);
         ASSERT_NE(listValue, nullptr);
-        ASSERT_EQ(listValue->itemKind(), StorageClass::DB0_TUPLE);
+        ASSERT_EQ(listValue->itemKind(), StorageClass::EMBEDDED_TUPLE);
         const auto &embeddedTuple = o_tuple<>::__const_ref(listValue->embeddedPayload().begin());
         ASSERT_EQ(embeddedTuple.size(), 3u);
         ASSERT_EQ(embeddedTuple.item(0).packedIntPayload().value(), 7u);
@@ -313,7 +348,7 @@ namespace tests
 
         auto *setValue = object->variableValue(101);
         ASSERT_NE(setValue, nullptr);
-        ASSERT_EQ(setValue->itemKind(), StorageClass::DB0_SET);
+        ASSERT_EQ(setValue->itemKind(), StorageClass::EMBEDDED_SET);
         const auto &embeddedSet = o_set::__const_ref(setValue->embeddedPayload().begin());
         ASSERT_EQ(embeddedSet.size(), 2u);
         ASSERT_TRUE(embeddedSet.contains(o_set::Element::integer(10)));
@@ -321,7 +356,7 @@ namespace tests
 
         auto *dictValue = object->variableValue(102);
         ASSERT_NE(dictValue, nullptr);
-        ASSERT_EQ(dictValue->itemKind(), StorageClass::DB0_DICT);
+        ASSERT_EQ(dictValue->itemKind(), StorageClass::EMBEDDED_DICT);
         const auto &embeddedDict = o_dict::__const_ref(dictValue->embeddedPayload().begin());
         ASSERT_EQ(embeddedDict.size(), 2u);
         auto *nameValue = embeddedDict.get(o_dict::Element::string("name"));
@@ -330,6 +365,51 @@ namespace tests
         auto *countValue = embeddedDict.get(o_dict::Element::string("count"));
         ASSERT_NE(countValue, nullptr);
         ASSERT_EQ(countValue->packedIntPayload().value(), 3u);
+    }
+
+    TEST_F( EmbeddedObjectTest , testEmbeddedObjectStoresNestedImmutableMemoPayload )
+    {
+        Py_Initialize();
+
+        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
+        auto fixture = workspace.getFixture("embedded-object-nested-memo");
+        auto nestedClass = getTestClass(fixture);
+        auto pyMemoType = makeMemoType();
+        ASSERT_TRUE(pyMemoType.get());
+
+        auto pyMemo = Py_OWN(reinterpret_cast<db0::python::MemoImmutableObject *>(
+            db0::python::MemoObjectStub_new(pyMemoType.get())
+        ));
+        pyMemo->makeNew(nestedClass);
+        auto *nestedInitializer = dynamic_cast<ImmutableObjectInitializer *>(
+            InitManager::instance.findInitializer(pyMemo->ext())
+        );
+        ASSERT_NE(nestedInitializer, nullptr);
+        nestedInitializer->set({0, 0}, StorageClass::INT64, Value(17));
+
+        auto memspace = getMemspace();
+        int sourceObject = 0;
+        ObjectInitializerManager manager;
+        auto &initializer = makeInitializer(manager, sourceObject);
+        initializer.setObject(
+            {500, 0}, StorageClass::OBJECT_REF, Value(0),
+            ImmutableObjectInitializer::ObjectSharedPtr(reinterpret_cast<PyObject *>(pyMemo.get()))
+        );
+
+        v_object<o_embedded_object> object(memspace, 88u, initializer);
+
+        auto *nestedValue = object->variableValue(500);
+        ASSERT_NE(nestedValue, nullptr);
+        ASSERT_EQ(nestedValue->itemKind(), StorageClass::EMBEDDED_OBJECT);
+
+        const auto &nestedObject = o_embedded_object::__const_ref(nestedValue->embeddedPayload().begin());
+        ASSERT_EQ(nestedObject.getClassRef(), nestedClass->getClassRef());
+        auto fixedValue = nestedObject.fixedValue(0);
+        ASSERT_TRUE(fixedValue.has_value());
+        ASSERT_EQ(fixedValue->m_kind, StorageClass::INT64);
+        ASSERT_EQ(fixedValue->m_value, 17u);
+
+        workspace.close();
     }
 
     TEST_F( EmbeddedObjectTest , testEmbeddedObjectMeasureSizeOfAndSafeSizeOf )

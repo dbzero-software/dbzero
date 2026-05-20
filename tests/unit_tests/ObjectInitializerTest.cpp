@@ -6,11 +6,14 @@
 #include <utils/utils.hpp>
 #include <utils/SubClass.hpp>
 #include <utils/TestBase.hpp>
+#include <dbzero/bindings/python/Memo.hpp>
+#include <dbzero/bindings/python/PyAPI.hpp>
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/object_model/object/ObjectImmutableImpl.hpp>
 #include <dbzero/object_model/object/o_embedded_object.hpp>
 #include <dbzero/core/memory/SlabAllocatorConfig.hpp>
 #include <dbzero/object_model/ObjectModel.hpp>
+#include <dbzero/object_model/class/ClassFactory.hpp>
 #include <dbzero/object_model/object/ObjectInitializer.hpp>
 #include <dbzero/object_model/class/Class.hpp>
 #include <dbzero/bindings/TypeId.hpp>
@@ -44,6 +47,36 @@ namespace tests
             drop(file_name);
         }
     };
+
+    static db0::python::shared_py_object<PyTypeObject *> makeImmutableMemoType()
+    {
+        static std::uint64_t memoTypeIndex = 0;
+        auto className = std::string("ObjectInitializerNestedImmutable") + std::to_string(memoTypeIndex);
+        auto typeId = "tests/" + className;
+        ++memoTypeIndex;
+
+        if (PyRun_SimpleString(("class " + className + ": pass\n").c_str()) != 0) {
+            return {};
+        }
+
+        auto mainModule = Py_BORROW(PyImport_AddModule("__main__"));
+        auto pyClass = Py_OWN(PyObject_GetAttrString(mainModule.get(), className.c_str()));
+        auto args = Py_OWN(PyTuple_Pack(1, pyClass.get()));
+        auto kwargs = Py_OWN(PyDict_New());
+        auto pyTypeId = Py_OWN(PyUnicode_FromString(typeId.c_str()));
+        auto pyImmutable = Py_OWN(PyBool_FromLong(1));
+        if (!mainModule.get() || !pyClass.get() || !args.get() || !kwargs.get()
+            || !pyTypeId.get() || !pyImmutable.get()) {
+            return {};
+        }
+        db0::python::PySafeDict_SetItemString(kwargs.get(), "id", std::move(pyTypeId));
+        db0::python::PySafeDict_SetItemString(kwargs.get(), "immutable", std::move(pyImmutable));
+
+        return db0::python::shared_py_object<PyTypeObject *>(
+            reinterpret_cast<PyTypeObject *>(db0::python::PyAPI_wrapPyClass(nullptr, args.get(), kwargs.get())),
+            false
+        );
+    }
 
     TEST_F( ObjectInitializerTest, testIncompletePosVT )
     {   
@@ -239,7 +272,7 @@ namespace tests
 
         auto *variable_value = embedded_object.variableValue(4);
         ASSERT_NE(variable_value, nullptr);
-        ASSERT_EQ(variable_value->itemKind(), StorageClass::STRING_REF);
+        ASSERT_EQ(variable_value->itemKind(), StorageClass::EMBEDDED_STRING);
         ASSERT_EQ(variable_value->stringPayload().toString(), "variable-value");
 
         workspace.close();
@@ -275,13 +308,13 @@ namespace tests
         ASSERT_FALSE(embedded_object.fixedValue(8).has_value());
         auto *variable_value = embedded_object.variableValue(8);
         ASSERT_NE(variable_value, nullptr);
-        ASSERT_EQ(variable_value->itemKind(), StorageClass::DB0_TUPLE);
+        ASSERT_EQ(variable_value->itemKind(), StorageClass::EMBEDDED_TUPLE);
 
         const auto &tuple = o_tuple<>::__const_ref(variable_value->embeddedPayload().begin());
         ASSERT_EQ(tuple.size(), 2u);
         ASSERT_EQ(tuple.item(0).itemKind(), StorageClass::PACKED_INT32);
         ASSERT_EQ(tuple.item(0).packedIntPayload().value(), 7u);
-        ASSERT_EQ(tuple.item(1).itemKind(), StorageClass::STRING_REF);
+        ASSERT_EQ(tuple.item(1).itemKind(), StorageClass::EMBEDDED_STRING);
         ASSERT_EQ(tuple.item(1).stringPayload().toString(), "seven");
 
         workspace.close();
@@ -328,7 +361,7 @@ namespace tests
 
         auto *list_value = embedded_object.variableValue(8);
         ASSERT_NE(list_value, nullptr);
-        ASSERT_EQ(list_value->itemKind(), StorageClass::DB0_TUPLE);
+        ASSERT_EQ(list_value->itemKind(), StorageClass::EMBEDDED_TUPLE);
         const auto &tuple = o_tuple<>::__const_ref(list_value->embeddedPayload().begin());
         ASSERT_EQ(tuple.size(), 2u);
         ASSERT_EQ(tuple.item(0).packedIntPayload().value(), 7u);
@@ -373,7 +406,7 @@ namespace tests
             const o_tuple_item *variableValue = nullptr;
             for (std::uint32_t index = 0; index < 32 && !variableValue; ++index) {
                 auto *candidate = object->variableValue(index);
-                if (candidate && candidate->itemKind() == StorageClass::STRING_REF) {
+                if (candidate && candidate->itemKind() == StorageClass::EMBEDDED_STRING) {
                     variableValue = candidate;
                 }
             }
@@ -565,16 +598,64 @@ namespace tests
 
             auto *embeddedValue = object->variableValue(loc.first);
             ASSERT_NE(embeddedValue, nullptr);
-            ASSERT_EQ(embeddedValue->itemKind(), StorageClass::DB0_TUPLE);
+            ASSERT_EQ(embeddedValue->itemKind(), StorageClass::EMBEDDED_TUPLE);
 
             const auto &tuple = o_tuple<>::__const_ref(embeddedValue->embeddedPayload().begin());
             ASSERT_EQ(tuple.size(), 2u);
             ASSERT_EQ(tuple.item(0).itemKind(), StorageClass::PACKED_INT32);
             ASSERT_EQ(tuple.item(0).packedIntPayload().value(), 7u);
-            ASSERT_EQ(tuple.item(1).itemKind(), StorageClass::STRING_REF);
+            ASSERT_EQ(tuple.item(1).itemKind(), StorageClass::EMBEDDED_STRING);
             ASSERT_EQ(tuple.item(1).stringPayload().toString(), "seven");
         }
 
+        workspace.close();
+    }
+
+    TEST_F( ObjectInitializerTest, testImmutablePreInitEmbedsNonMaterializedNestedMemo )
+    {
+        Py_Initialize();
+
+        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
+        auto fixture = workspace.getFixture(prefix_name);
+        auto mockClass = getTestClass(fixture);
+        auto pyMemoType = makeImmutableMemoType();
+        ASSERT_TRUE(pyMemoType.get());
+        auto nestedClass = fixture->get<ClassFactory>().getOrCreateType(pyMemoType.get());
+
+        {
+            ObjectImmutableImpl object(mockClass);
+            auto pyMemo = Py_OWN(reinterpret_cast<db0::python::MemoImmutableObject *>(
+                db0::python::MemoObjectStub_new(pyMemoType.get())
+            ));
+            pyMemo->makeNew(nestedClass);
+            auto *nestedInitializer = dynamic_cast<ImmutableObjectInitializer *>(
+                InitManager::instance.findInitializer(pyMemo->ext())
+            );
+            ASSERT_NE(nestedInitializer, nullptr);
+            nestedInitializer->set({0, 0}, StorageClass::INT64, Value(17));
+
+            object.setPreInit(
+                "inner", db0::bindings::TypeId::MEMO_IMMUTABLE_OBJECT, reinterpret_cast<PyObject *>(pyMemo.get())
+            );
+
+            auto *initializer = dynamic_cast<ImmutableObjectInitializer *>(InitManager::instance.findInitializer(object));
+            ASSERT_NE(initializer, nullptr);
+
+            auto [memberId, isInitVar] = mockClass->findField("inner");
+            (void)isInitVar;
+            ASSERT_TRUE(memberId);
+            auto loc = memberId.get(0).getIndexAndOffset();
+
+            std::pair<StorageClass, Value> storedValue;
+            ASSERT_FALSE(initializer->tryGetAt(loc, storedValue));
+
+            ImmutableObjectInitializer::ObjectSharedPtr storedObject;
+            ASSERT_TRUE(initializer->tryGetObjectAt(loc, storedObject));
+            ASSERT_EQ(storedObject.get(), reinterpret_cast<PyObject *>(pyMemo.get()));
+        }
+
+        mockClass.reset();
+        nestedClass.reset();
         workspace.close();
     }
 

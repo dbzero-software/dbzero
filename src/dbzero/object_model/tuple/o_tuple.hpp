@@ -72,6 +72,7 @@ DB0_PACKED_BEGIN
             static Element embeddedTuple(std::size_t size, BytesView::Writer writer, const void *source);
             static Element embeddedSet(std::size_t size, BytesView::Writer writer, const void *source);
             static Element embeddedDict(std::size_t size, BytesView::Writer writer, const void *source);
+            static Element embeddedObject(std::size_t size, BytesView::Writer writer, const void *source);
 
             std::int64_t intValue() const;
             std::uint64_t uint64Value() const;
@@ -132,15 +133,17 @@ DB0_PACKED_BEGIN
                 cursor += o_simple<double>::safeSizeOf(cursor);
                 return;
             case StorageClass::STRING_REF:
+            case StorageClass::EMBEDDED_STRING:
                 cursor += o_string::safeSizeOf(cursor);
                 return;
             case StorageClass::DB0_BYTES:
+            case StorageClass::EMBEDDED_BYTES:
                 cursor += o_binary::safeSizeOf(cursor);
                 return;
-            case StorageClass::DB0_TUPLE:
-            case StorageClass::DB0_SET:
-            case StorageClass::DB0_DICT:
-            case StorageClass::OBJECT_REF:
+            case StorageClass::EMBEDDED_TUPLE:
+            case StorageClass::EMBEDDED_SET:
+            case StorageClass::EMBEDDED_DICT:
+            case StorageClass::EMBEDDED_OBJECT:
                 cursor += o_binary::safeSizeOf(cursor);
                 return;
             case StorageClass::PTIME64:
