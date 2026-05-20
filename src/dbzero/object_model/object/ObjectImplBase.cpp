@@ -4,11 +4,13 @@
 #include "ObjectImplBase.hpp"
 #include <random>
 #include <type_traits>
+#include <unordered_map>
 #include <dbzero/core/exception/Exceptions.hpp>
 #include <dbzero/core/serialization/string.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/object_model/class.hpp>
 #include <dbzero/object_model/value.hpp>
+#include <dbzero/object_model/object/EmbeddingMeasure.hpp>
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/object_model/object/ObjectImmutableImpl.hpp>
 #include <dbzero/object_model/list/List.hpp>
@@ -32,25 +34,29 @@ namespace db0::object_model
         return static_cast<std::uint8_t>(value);
     }
 
-    bool isEmbeddableType(TypeId typeId, StorageClass storageClass)
+    bool canStorePreInitEmbeddedValue(StorageClass storageClass)
     {
         switch (storageClass) {
             case StorageClass::STRING_REF:
+            case StorageClass::POOLED_STRING:
+            case StorageClass::STR64:
             case StorageClass::DB0_BYTES:
-                return true;
+            case StorageClass::DB0_BYTES_ARRAY:
             case StorageClass::DB0_LIST:
-                return typeId == TypeId::LIST;
             case StorageClass::DB0_TUPLE:
-                return typeId == TypeId::TUPLE;
             case StorageClass::DB0_SET:
-                return typeId == TypeId::SET;
             case StorageClass::DB0_DICT:
-                return typeId == TypeId::DICT;
+                return true;
             default:
                 return false;
         }
     }
-    
+
+    bool shouldEmbedd(TypeId typeId, StorageClass storageClass, LangConfig::ObjectPtr value)
+    {
+        return canStorePreInitEmbeddedValue(storageClass) && shouldEmbedValue(typeId, storageClass, value);
+    }
+
     template <typename T, typename ImplT>
     ObjectImplBase<T, ImplT>::ObjectImplBase(tag_as_dropped, UniqueAddress addr, unsigned int ext_refs)
         : super_t(tag_as_dropped(), addr, ext_refs)
@@ -175,6 +181,18 @@ namespace db0::object_model
                 super_t::init(*fixture, type.getClassRef(), initializer.getRefCounts(), numTypeTags,
                     *immutableInitializer, getAccessOptions(type)
                 );
+                std::unordered_map<std::uint32_t, StorageClass> embeddedSchemaTypes;
+                for (const auto &objectValue: immutableInitializer->objects()) {
+                    auto index = objectValue.m_loc.first;
+                    if (!objectValue.m_object) {
+                        embeddedSchemaTypes.erase(index);
+                    } else {
+                        embeddedSchemaTypes[index] = objectValue.m_storage_class;
+                    }
+                }
+                for (const auto &[index, storageClass]: embeddedSchemaTypes) {
+                    type.addToSchema(index, storageClass, {});
+                }
             } else {
                 super_t::init(*fixture, type.getClassRef(), initializer.getRefCounts(), numTypeTags,
                     pos_vt_data, pos_vt_offset, index_vt_data.first, index_vt_data.second,
@@ -279,7 +297,7 @@ namespace db0::object_model
             auto member_flags = type.isNoCache() ? AccessFlags { AccessOptions::no_cache } : AccessFlags();
             auto loc = member_id.get(0).getIndexAndOffset();
             if constexpr (std::is_same_v<ImplT, ObjectImmutableImpl>) {
-                if (isEmbeddableType(type_id, storage_class)) {
+                if (shouldEmbedd(type_id, storage_class, obj_ptr)) {
                     auto &immutableInitializer = dynamic_cast<ImmutableObjectInitializer &>(initializer);
                     immutableInitializer.setObject(loc, storage_class, {}, ObjectSharedPtr(obj_ptr));
                 } else {

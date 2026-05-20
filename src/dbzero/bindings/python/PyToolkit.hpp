@@ -29,6 +29,7 @@ namespace db0::object_model
 
 {
 
+    class o_tuple_item;
     class Object;
     class Class;
     class ClassFactory;
@@ -132,6 +133,7 @@ namespace db0::python
         static ObjectSharedPtr unloadWeakSet(db0::swine_ptr<Fixture>, Address, std::uint16_t instance_id = 0, AccessFlags = {});
         static ObjectSharedPtr unloadDict(db0::swine_ptr<Fixture>, Address, std::uint16_t instance_id = 0, AccessFlags = {});
         static ObjectSharedPtr unloadTuple(db0::swine_ptr<Fixture>, Address, std::uint16_t instance_id = 0, AccessFlags = {});
+        static ObjectSharedPtr unloadEmbeddedInstance(const db0::object_model::o_tuple_item &);
         // Unload dbzero block instance
         static ObjectSharedPtr unloadBlock(db0::swine_ptr<Fixture>, Address, std::uint16_t instance_id = 0, AccessFlags = {});
         

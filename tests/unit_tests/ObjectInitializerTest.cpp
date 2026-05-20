@@ -9,6 +9,7 @@
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/object_model/object/ObjectImmutableImpl.hpp>
 #include <dbzero/object_model/object/o_embedded_object.hpp>
+#include <dbzero/core/memory/SlabAllocatorConfig.hpp>
 #include <dbzero/object_model/ObjectModel.hpp>
 #include <dbzero/object_model/object/ObjectInitializer.hpp>
 #include <dbzero/object_model/class/Class.hpp>
@@ -17,6 +18,8 @@
 #include <dbzero/bindings/python/shared_py_object.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/Workspace.hpp>
+
+#include <cstring>
 
 using namespace std;
 using namespace db0;
@@ -381,6 +384,120 @@ namespace tests
         workspace.close();
     }
 
+    TEST_F( ObjectInitializerTest, testImmutableGetRetrievesEmbeddedStringAndBytes )
+    {
+        Py_Initialize();
+
+        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
+        auto fixture = workspace.getFixture(prefix_name);
+        std::shared_ptr<Class> mock_class = getTestClass(fixture);
+
+        {
+            ObjectImmutableImpl object(mock_class);
+            auto pyString = Py_OWN(PyUnicode_FromString("embedded read string"));
+            const char rawBytes[] = { 'a', '\0', 'z' };
+            auto pyBytes = Py_OWN(PyBytes_FromStringAndSize(rawBytes, sizeof(rawBytes)));
+            object.setPreInit("name", db0::bindings::TypeId::STRING, pyString.get());
+            object.setPreInit("payload", db0::bindings::TypeId::BYTES, pyBytes.get());
+
+            {
+                db0::FixtureLock lock(fixture);
+                object.postInit(lock);
+            }
+
+            auto stringResult = object.get("name");
+            ASSERT_STREQ(PyUnicode_AsUTF8(stringResult.get()), "embedded read string");
+
+            auto bytesResult = object.get("payload");
+            ASSERT_TRUE(PyBytes_Check(bytesResult.get()));
+            ASSERT_EQ(PyBytes_GET_SIZE(bytesResult.get()), static_cast<Py_ssize_t>(sizeof(rawBytes)));
+            ASSERT_EQ(std::memcmp(PyBytes_AsString(bytesResult.get()), rawBytes, sizeof(rawBytes)), 0);
+        }
+
+        workspace.close();
+    }
+
+    TEST_F( ObjectInitializerTest, testImmutablePreInitGetRetrievesEmbeddedStringAndBytes )
+    {
+        Py_Initialize();
+
+        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
+        auto fixture = workspace.getFixture(prefix_name);
+        std::shared_ptr<Class> mock_class = getTestClass(fixture);
+
+        {
+            ObjectImmutableImpl object(mock_class);
+            auto pyString = Py_OWN(PyUnicode_FromString("pre-init embedded string"));
+            const char rawBytes[] = { 'p', '\0', 'i' };
+            auto pyBytes = Py_OWN(PyBytes_FromStringAndSize(rawBytes, sizeof(rawBytes)));
+            object.setPreInit("name", db0::bindings::TypeId::STRING, pyString.get());
+            object.setPreInit("payload", db0::bindings::TypeId::BYTES, pyBytes.get());
+
+            auto stringResult = object.get("name");
+            ASSERT_EQ(stringResult.get(), pyString.get());
+
+            auto bytesResult = object.get("payload");
+            ASSERT_EQ(bytesResult.get(), pyBytes.get());
+        }
+
+        workspace.close();
+    }
+
+    TEST_F( ObjectInitializerTest, testImmutableLargeStringAndBytesUseDurableFallback )
+    {
+        Py_Initialize();
+
+        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
+        auto fixture = workspace.getFixture(prefix_name);
+        std::shared_ptr<Class> mock_class = getTestClass(fixture);
+
+        {
+            ObjectImmutableImpl object(mock_class);
+            std::string largeString(3 * SlabAllocatorConfig::DEFAULT_PAGE_SIZE, 'x');
+            std::string largeBytes(3 * SlabAllocatorConfig::DEFAULT_PAGE_SIZE, 'y');
+            auto pyString = Py_OWN(PyUnicode_FromStringAndSize(largeString.data(), largeString.size()));
+            auto pyBytes = Py_OWN(PyBytes_FromStringAndSize(largeBytes.data(), largeBytes.size()));
+            object.setPreInit("name", db0::bindings::TypeId::STRING, pyString.get());
+            object.setPreInit("payload", db0::bindings::TypeId::BYTES, pyBytes.get());
+
+            auto *initializer = dynamic_cast<ImmutableObjectInitializer *>(InitManager::instance.findInitializer(object));
+            ASSERT_NE(initializer, nullptr);
+
+            auto [nameMemberId, nameIsInitVar] = mock_class->findField("name");
+            (void)nameIsInitVar;
+            ASSERT_TRUE(nameMemberId);
+            auto nameLoc = nameMemberId.get(0).getIndexAndOffset();
+            ImmutableObjectInitializer::ObjectSharedPtr storedObject;
+            ASSERT_FALSE(initializer->tryGetObjectAt(nameLoc, storedObject));
+            std::pair<StorageClass, Value> storedValue;
+            ASSERT_TRUE(initializer->tryGetAt(nameLoc, storedValue));
+            ASSERT_EQ(storedValue.first, StorageClass::STRING_REF);
+
+            auto [payloadMemberId, payloadIsInitVar] = mock_class->findField("payload");
+            (void)payloadIsInitVar;
+            ASSERT_TRUE(payloadMemberId);
+            auto payloadLoc = payloadMemberId.get(0).getIndexAndOffset();
+            ASSERT_FALSE(initializer->tryGetObjectAt(payloadLoc, storedObject));
+            ASSERT_TRUE(initializer->tryGetAt(payloadLoc, storedValue));
+            ASSERT_EQ(storedValue.first, StorageClass::DB0_BYTES);
+
+            {
+                db0::FixtureLock lock(fixture);
+                object.postInit(lock);
+            }
+
+            ASSERT_EQ(object->variableValue(nameLoc.first), nullptr);
+            ASSERT_EQ(object->variableValue(payloadLoc.first), nullptr);
+            auto stringResult = object.get("name");
+            ASSERT_EQ(std::string(PyUnicode_AsUTF8(stringResult.get())), largeString);
+            auto bytesResult = object.get("payload");
+            ASSERT_EQ(PyBytes_GET_SIZE(bytesResult.get()), static_cast<Py_ssize_t>(largeBytes.size()));
+            ASSERT_EQ(std::memcmp(PyBytes_AsString(bytesResult.get()), largeBytes.data(), largeBytes.size()), 0);
+        }
+
+        workspace.close();
+    }
+
     TEST_F( ObjectInitializerTest, testImmutablePreInitEmbeddableValueDoesNotCreateDurableMemberValue )
     {
         Py_Initialize();
@@ -406,6 +523,56 @@ namespace tests
             ImmutableObjectInitializer::ObjectSharedPtr storedObject;
             ASSERT_TRUE(initializer->tryGetObjectAt(loc, storedObject));
             ASSERT_EQ(storedObject.get(), py_string.get());
+        }
+
+        workspace.close();
+    }
+
+    TEST_F( ObjectInitializerTest, testImmutablePreInitEmbedsPythonList )
+    {
+        Py_Initialize();
+
+        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
+        auto fixture = workspace.getFixture(prefix_name);
+        std::shared_ptr<Class> mock_class = getTestClass(fixture);
+
+        {
+            ObjectImmutableImpl object(mock_class);
+            auto pyList = Py_OWN(PyList_New(2));
+            db0::python::PySafeList_SetItem(pyList.get(), 0, Py_OWN(PyLong_FromLong(7)));
+            db0::python::PySafeList_SetItem(pyList.get(), 1, Py_OWN(PyUnicode_FromString("seven")));
+            object.setPreInit("items", db0::bindings::TypeId::LIST, pyList.get());
+
+            auto *initializer = dynamic_cast<ImmutableObjectInitializer *>(InitManager::instance.findInitializer(object));
+            ASSERT_NE(initializer, nullptr);
+
+            auto [memberId, isInitVar] = mock_class->findField("items");
+            (void)isInitVar;
+            ASSERT_TRUE(memberId);
+            auto loc = memberId.get(0).getIndexAndOffset();
+
+            std::pair<StorageClass, Value> storedValue;
+            ASSERT_FALSE(initializer->tryGetAt(loc, storedValue));
+
+            ImmutableObjectInitializer::ObjectSharedPtr storedObject;
+            ASSERT_TRUE(initializer->tryGetObjectAt(loc, storedObject));
+            ASSERT_EQ(storedObject.get(), pyList.get());
+
+            {
+                db0::FixtureLock lock(fixture);
+                object.postInit(lock);
+            }
+
+            auto *embeddedValue = object->variableValue(loc.first);
+            ASSERT_NE(embeddedValue, nullptr);
+            ASSERT_EQ(embeddedValue->itemKind(), StorageClass::DB0_TUPLE);
+
+            const auto &tuple = o_tuple<>::__const_ref(embeddedValue->embeddedPayload().begin());
+            ASSERT_EQ(tuple.size(), 2u);
+            ASSERT_EQ(tuple.item(0).itemKind(), StorageClass::PACKED_INT32);
+            ASSERT_EQ(tuple.item(0).packedIntPayload().value(), 7u);
+            ASSERT_EQ(tuple.item(1).itemKind(), StorageClass::STRING_REF);
+            ASSERT_EQ(tuple.item(1).stringPayload().toString(), "seven");
         }
 
         workspace.close();

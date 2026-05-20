@@ -35,4 +35,8 @@ namespace db0::object_model
         db0::bindings::TypeId typeId, StorageClass storageClass, LangConfig::ObjectPtr value
     );
 
+    bool shouldEmbedValue(
+        db0::bindings::TypeId typeId, StorageClass storageClass, LangConfig::ObjectPtr value
+    );
+
 }

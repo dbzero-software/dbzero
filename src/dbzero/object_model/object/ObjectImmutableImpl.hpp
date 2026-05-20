@@ -23,6 +23,16 @@ namespace db0::object_model
             : super_t(std::forward<Args>(args)...)
         {
         }
+
+        ObjectSharedPtr tryGet(MemberLoc, bool *is_auto_generated = nullptr) const;
+        ObjectSharedPtr tryGet(const char *field_name, bool *is_auto_generated = nullptr) const;
+        ObjectSharedPtr get(const char *field_name) const;
+
+    protected:
+        friend super_t;
+
+        ObjectSharedPtr tryGetEmbeddedField(const FieldInfo &) const;
+        void getMembersImpl(std::unordered_set<std::string> &) const;
     };
     
 }

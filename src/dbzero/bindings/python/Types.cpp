@@ -32,6 +32,11 @@ namespace db0::python
         return reinterpret_cast<MemoObject*>(py_value)->ext().getFixture();
     }
 
+    // IMMUTABLE OBJECT specialization
+    template <> db0::swine_ptr<Fixture> getFixtureOf<TypeId::MEMO_IMMUTABLE_OBJECT>(PyObject *py_value) {
+        return reinterpret_cast<MemoImmutableObject*>(py_value)->ext().getFixture();
+    }
+
     // LIST specialization
     template <> db0::swine_ptr<Fixture> getFixtureOf<TypeId::DB0_LIST>(PyObject *py_value) {
         return reinterpret_cast<ListObject*>(py_value)->ext().getFixture();
@@ -77,6 +82,7 @@ namespace db0::python
         functions.resize(static_cast<int>(TypeId::COUNT));
         std::fill(functions.begin(), functions.end(), nullptr);
         functions[static_cast<int>(TypeId::MEMO_OBJECT)] = getFixtureOf<TypeId::MEMO_OBJECT>;
+        functions[static_cast<int>(TypeId::MEMO_IMMUTABLE_OBJECT)] = getFixtureOf<TypeId::MEMO_IMMUTABLE_OBJECT>;
         functions[static_cast<int>(TypeId::DB0_LIST)] = getFixtureOf<TypeId::DB0_LIST>;
         functions[static_cast<int>(TypeId::DB0_DICT)] = getFixtureOf<TypeId::DB0_DICT>;
         functions[static_cast<int>(TypeId::DB0_SET)] = getFixtureOf<TypeId::DB0_SET>;
@@ -139,6 +145,11 @@ namespace db0::python
         return tryGetUUIDOf(reinterpret_cast<MemoObject*>(py_value));
     }
 
+    // IMMUTABLE OBJECT specialization
+    template <> PyObject *tryGetUUID<TypeId::MEMO_IMMUTABLE_OBJECT>(PyObject *py_value) {
+        return tryGetUUIDOf(reinterpret_cast<MemoImmutableObject*>(py_value));
+    }
+
     // OBJECT_ITERABLE specialization
     template <> PyObject *tryGetUUID<TypeId::OBJECT_ITERABLE>(PyObject *py_value) {
         return tryGetSerializableUUID(&reinterpret_cast<PyObjectIterable*>(py_value)->ext());
@@ -165,6 +176,7 @@ namespace db0::python
         std::fill(functions.begin(), functions.end(), nullptr);
         // NOTE: for security reasons we only allow UUID retrieval for a strictly limited set of types
         functions[static_cast<int>(TypeId::MEMO_OBJECT)] = tryGetUUID<TypeId::MEMO_OBJECT>;
+        functions[static_cast<int>(TypeId::MEMO_IMMUTABLE_OBJECT)] = tryGetUUID<TypeId::MEMO_IMMUTABLE_OBJECT>;
         // the purpose of UUID here is to find identical queries
         functions[static_cast<int>(TypeId::OBJECT_ITERABLE)] = tryGetUUID<TypeId::OBJECT_ITERABLE>;
         // for expired refs UUIDs are still available

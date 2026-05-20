@@ -8,6 +8,7 @@
 #include <dbzero/bindings/python/PyAPI.hpp>
 #include <dbzero/bindings/python/PySafeAPI.hpp>
 #include <dbzero/core/exception/Exceptions.hpp>
+#include <dbzero/core/memory/SlabAllocatorConfig.hpp>
 #include <dbzero/object_model/ObjectModel.hpp>
 #include <dbzero/object_model/class/Class.hpp>
 #include <dbzero/object_model/object/EmbeddingMeasure.hpp>
@@ -118,6 +119,7 @@ namespace tests
             stringMeasure->m_embeddedBytes,
             o_tuple_item::measure(o_tuple_item::Element::string("embedded-string"))
         );
+        ASSERT_EQ(stringMeasure->m_separateStorageBytes, db0::o_string::measure("embedded-string"));
         ASSERT_FALSE(stringMeasure->m_requiresObjectView);
         ASSERT_FALSE(stringMeasure->m_requiresCollectionView);
         ASSERT_EQ(stringMeasure->m_allocationsAvoided, 1u);
@@ -132,7 +134,29 @@ namespace tests
                 reinterpret_cast<const std::byte *>(bytes), sizeof(bytes)
             ))
         );
+        ASSERT_EQ(
+            bytesMeasure->m_separateStorageBytes,
+            db0::o_binary::measure(reinterpret_cast<const std::byte *>(bytes), sizeof(bytes))
+        );
         ASSERT_EQ(bytesMeasure->m_allocationsAvoided, 1u);
+    }
+
+    TEST_F( EmbeddingMeasureTest, testStringAndBytesEmbeddingDecisionUsesCostRule )
+    {
+        auto smallString = Py_OWN(PyUnicode_FromString("small embedded string"));
+        ASSERT_TRUE(shouldEmbedValue(TypeId::STRING, StorageClass::STRING_REF, smallString.get()));
+
+        std::string largeString(3 * SlabAllocatorConfig::DEFAULT_PAGE_SIZE, 'x');
+        auto largePyString = Py_OWN(PyUnicode_FromStringAndSize(largeString.data(), largeString.size()));
+        ASSERT_FALSE(shouldEmbedValue(TypeId::STRING, StorageClass::STRING_REF, largePyString.get()));
+
+        const char smallBytes[] = { 'a', '\0', 'b' };
+        auto smallPyBytes = Py_OWN(PyBytes_FromStringAndSize(smallBytes, sizeof(smallBytes)));
+        ASSERT_TRUE(shouldEmbedValue(TypeId::BYTES, StorageClass::DB0_BYTES, smallPyBytes.get()));
+
+        std::string largeBytes(3 * SlabAllocatorConfig::DEFAULT_PAGE_SIZE, 'y');
+        auto largePyBytes = Py_OWN(PyBytes_FromStringAndSize(largeBytes.data(), largeBytes.size()));
+        ASSERT_FALSE(shouldEmbedValue(TypeId::BYTES, StorageClass::DB0_BYTES, largePyBytes.get()));
     }
 
     TEST_F( EmbeddingMeasureTest, testMeasuresPythonCollectionValues )

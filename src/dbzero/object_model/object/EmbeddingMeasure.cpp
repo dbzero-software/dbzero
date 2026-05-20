@@ -30,15 +30,18 @@ namespace db0::object_model
         using ObjectPtr = LangConfig::ObjectPtr;
         using MemoImmutableObject = typename LangToolkit::TypeManager::MemoImmutableObject;
 
+        constexpr std::size_t ALLOCATION_COST = 64;
+        constexpr std::size_t PAGE_FETCH_COST = SlabAllocatorConfig::DEFAULT_PAGE_SIZE / 2;
+
         EmbeddingMeasure makeMeasure(
-            StorageClass storageClass, std::size_t embeddedBytes, std::uint32_t allocationsAvoided = 0,
-            bool requiresObjectView = false, bool requiresCollectionView = false
+            StorageClass storageClass, std::size_t embeddedBytes, std::size_t separateStorageBytes = 0,
+            std::uint32_t allocationsAvoided = 0, bool requiresObjectView = false, bool requiresCollectionView = false
         )
         {
             return {
                 storageClass,
                 embeddedBytes,
-                0,
+                separateStorageBytes,
                 allocationsAvoided,
                 requiresObjectView,
                 requiresCollectionView
@@ -71,6 +74,11 @@ namespace db0::object_model
             return static_cast<std::uint32_t>(std::max<std::size_t>(
                 1, (bytes + SlabAllocatorConfig::DEFAULT_PAGE_SIZE - 1) / SlabAllocatorConfig::DEFAULT_PAGE_SIZE
             ));
+        }
+
+        std::size_t extraPagesFetched(std::size_t embeddedBytes)
+        {
+            return embeddedBytes / SlabAllocatorConfig::DEFAULT_PAGE_SIZE;
         }
 
         std::uint32_t listRootAllocationsAvoided(std::size_t itemCount)
@@ -202,14 +210,23 @@ namespace db0::object_model
                 if (typeId != TypeId::STRING) {
                     return std::nullopt;
                 }
-                return makeMeasure(storageClass, o_tuple_item::measure(stringElement(value)), 1);
+                return makeMeasure(
+                    storageClass, o_tuple_item::measure(stringElement(value)),
+                    db0::o_string::measure(LangToolkit::getTypeManager().extractString(value)), 1
+                );
 
             case StorageClass::DB0_BYTES:
             case StorageClass::DB0_BYTES_ARRAY:
                 if (typeId != TypeId::BYTES && typeId != TypeId::BYTES_ARRAY) {
                     return std::nullopt;
                 }
-                return makeMeasure(storageClass, o_tuple_item::measure(bytesElement(value)), 1);
+                {
+                    auto bytes = LangToolkit::getTypeManager().extractBytes(value);
+                    return makeMeasure(
+                        storageClass, o_tuple_item::measure(bytesElement(value)),
+                        db0::o_binary::measure(bytes.m_data, bytes.m_size), 1
+                    );
+                }
 
             case StorageClass::DB0_LIST:
             case StorageClass::DB0_TUPLE:
@@ -217,7 +234,7 @@ namespace db0::object_model
                     return std::nullopt;
                 }
                 return makeMeasure(
-                    storageClass, o_py_tuple::measure(value), nestedAllocationsAvoided(typeId, value), false, true
+                    storageClass, o_py_tuple::measure(value), 0, nestedAllocationsAvoided(typeId, value), false, true
                 );
 
             case StorageClass::DB0_SET:
@@ -225,7 +242,7 @@ namespace db0::object_model
                     return std::nullopt;
                 }
                 return makeMeasure(
-                    storageClass, o_py_set::measure(value), nestedAllocationsAvoided(typeId, value), false, true
+                    storageClass, o_py_set::measure(value), 0, nestedAllocationsAvoided(typeId, value), false, true
                 );
 
             case StorageClass::DB0_DICT:
@@ -233,7 +250,7 @@ namespace db0::object_model
                     return std::nullopt;
                 }
                 return makeMeasure(
-                    storageClass, o_py_dict::measure(value), nestedAllocationsAvoided(typeId, value), false, true
+                    storageClass, o_py_dict::measure(value), 0, nestedAllocationsAvoided(typeId, value), false, true
                 );
 
             case StorageClass::OBJECT_REF: {
@@ -256,13 +273,30 @@ namespace db0::object_model
                 auto classRef = initializer->getClassPtr()->getClassRef();
                 return makeMeasure(
                     storageClass, o_embedded_object::measure(classRef, *initializer),
-                    saturatedAdd(1, initializerObjectAllocationsAvoided(*initializer)), true, false
+                    0, saturatedAdd(1, initializerObjectAllocationsAvoided(*initializer)), true, false
                 );
             }
 
             default:
                 return std::nullopt;
         }
+    }
+
+    bool shouldEmbedValue(TypeId typeId, StorageClass storageClass, ObjectPtr value)
+    {
+        auto measure = tryMeasureEmbeddingValue(typeId, storageClass, value);
+        if (!measure) {
+            return false;
+        }
+
+        if (measure->m_separateStorageBytes == 0 && measure->m_allocationsAvoided == 0) {
+            return false;
+        }
+
+        auto savedCost = measure->m_separateStorageBytes + measure->m_allocationsAvoided * ALLOCATION_COST;
+        auto embeddedCost = measure->m_embeddedBytes
+            + extraPagesFetched(measure->m_embeddedBytes) * PAGE_FETCH_COST;
+        return savedCost > embeddedCost;
     }
 
 }
