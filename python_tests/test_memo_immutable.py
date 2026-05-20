@@ -30,6 +30,27 @@ class MemoImmutableLargePayloadClass:
 
 
 @db0.memo(immutable=True, no_default_tags=True)
+@dataclass
+class MemoImmutableNestedPayload:
+    name: str
+    count: int
+
+
+@db0.memo(immutable=True, no_default_tags=True)
+class MemoImmutableNestedHolder:
+    def __init__(self, name, count, label):
+        self.nested = MemoImmutableNestedPayload(name=name, count=count)
+        self.label = label
+
+
+@db0.memo(immutable=True, no_default_tags=True)
+class MemoImmutablePreboundNestedHolder:
+    def __init__(self, nested, label):
+        self.nested = nested
+        self.label = label
+
+
+@db0.memo(immutable=True, no_default_tags=True)
 class MemoImmutableReadInConstructor:
     def __init__(self, data, payload):
         self.data = data
@@ -93,4 +114,39 @@ def test_read_embedded_immutable_values_inside_constructor(db0_fixture):
     assert obj.seen_payload == payload
     assert obj.data == "constructor string"
     assert obj.payload == payload
+
+
+def test_read_embedded_immutable_nested_object_after_reopen(db0_fixture):
+    obj = MemoImmutableNestedHolder(name="embedded child", count=5, label="root")
+    db0.tags(obj).add("keep-embedded-nested")
+    obj_id = db0.uuid(obj)
+
+    assert obj.nested.name == "embedded child"
+    assert obj.nested.count == 5
+
+    del obj
+    gc.collect()
+    db0.commit()
+    db0.close()
+    db0.init(DB0_DIR)
+    db0.open("my-test-prefix", "rw")
+
+    reopened = db0.fetch(obj_id)
+    assert reopened.nested.name == "embedded child"
+    assert reopened.nested.count == 5
+    assert isinstance(reopened.nested, MemoImmutableNestedPayload)
+
+
+def test_prebound_immutable_nested_object_embeds_into_owner(db0_fixture):
+    inner = MemoImmutableNestedPayload(name="prebound child", count=8)
+    obj = MemoImmutablePreboundNestedHolder(inner, "root")
+    db0.tags(obj).add("keep-prebound-embedded")
+
+    assert obj.nested.name == "prebound child"
+    assert inner.name == "prebound child"
+    assert inner.count == 8
+    assert isinstance(inner, MemoImmutableNestedPayload)
+    assert db0.is_memo(inner)
+    with pytest.raises(Exception):
+        db0.uuid(inner)
     

@@ -257,8 +257,10 @@ namespace db0::object_model
         const std::vector<ObjectValue> &objects() const;
 
     private:
-        std::vector<ObjectValue> m_objects;
+        mutable std::vector<ObjectValue> m_objects;
+        mutable bool m_objects_compacted = true;
 
+        void compactObjects() const;
         void appendObjectTombstone(std::pair<std::uint32_t, std::uint32_t> loc);
         bool hasObjectAt(std::pair<std::uint32_t, std::uint32_t> loc) const;
     };

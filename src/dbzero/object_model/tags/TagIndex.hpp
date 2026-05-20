@@ -281,10 +281,9 @@ DB0_PACKED_END
     {
         // prepare the active value only if it's not yet initialized
         if (!result.first.isValid() && !result.second) {
-            auto &memo = LangToolkit::getTypeManager().extractAnyObject(memo_ptr);
             // NOTE: that memo object may not have address before fully initialized (before postInit)
-            if (memo.hasInstance()) {
-                auto object_addr = memo.getUniqueAddress();
+            if (LangToolkit::hasMemoInstance(memo_ptr)) {
+                auto object_addr = LangToolkit::getMemoUniqueAddress(memo_ptr);
                 // cache object locally
                 if (m_object_cache.find(object_addr) == m_object_cache.end()) {
                     m_object_cache.emplace(object_addr, memo_ptr);

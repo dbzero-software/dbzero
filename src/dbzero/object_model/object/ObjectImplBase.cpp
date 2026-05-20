@@ -4,7 +4,6 @@
 #include "ObjectImplBase.hpp"
 #include <random>
 #include <type_traits>
-#include <unordered_map>
 #include <dbzero/core/exception/Exceptions.hpp>
 #include <dbzero/core/serialization/string.hpp>
 #include <dbzero/workspace/Fixture.hpp>
@@ -163,6 +162,11 @@ namespace db0::object_model
     template <typename T, typename ImplT>
     void ObjectImplBase<T, ImplT>::postInit(FixtureLock &fixture)
     {
+        if constexpr (std::is_same_v<ImplT, ObjectImmutableImpl>) {
+            assert(false && "ObjectImmutableImpl::postInit must be used for immutable objects");
+            return;
+        }
+
         if (!this->hasInstance()) {
             auto &initializer = InitManager::instance.getInitializer(*this);
             PosVT::Data pos_vt_data;
@@ -176,30 +180,10 @@ namespace db0::object_model
             
             auto &type = *this->m_type;
             auto numTypeTags = safeCast<std::uint8_t>(type.getNumBases() + 1, "Too many base classes");
-            if constexpr (std::is_same_v<ImplT, ObjectImmutableImpl>) {
-                auto *immutableInitializer = dynamic_cast<ImmutableObjectInitializer *>(&initializer);
-                assert(immutableInitializer);
-                super_t::init(*fixture, type.getClassRef(), initializer.getRefCounts(), numTypeTags,
-                    *immutableInitializer, getAccessOptions(type)
-                );
-                std::unordered_map<std::uint32_t, StorageClass> embeddedSchemaTypes;
-                for (const auto &objectValue: immutableInitializer->objects()) {
-                    auto index = objectValue.m_loc.first;
-                    if (!objectValue.m_object) {
-                        embeddedSchemaTypes.erase(index);
-                    } else {
-                        embeddedSchemaTypes[index] = objectValue.m_storage_class;
-                    }
-                }
-                for (const auto &[index, storageClass]: embeddedSchemaTypes) {
-                    type.addToSchema(index, storageClass, {});
-                }
-            } else {
-                super_t::init(*fixture, type.getClassRef(), initializer.getRefCounts(), numTypeTags,
-                    pos_vt_data, pos_vt_offset, index_vt_data.first, index_vt_data.second,
-                    getAccessOptions(type)
-                );
-            }
+            super_t::init(*fixture, type.getClassRef(), initializer.getRefCounts(), numTypeTags,
+                pos_vt_data, pos_vt_offset, index_vt_data.first, index_vt_data.second,
+                getAccessOptions(type)
+            );
             
             // reference associated class
             type.incRef(false);
@@ -276,7 +260,11 @@ namespace db0::object_model
         auto fixture = initializer.getFixture();
         auto &type = initializer.getClass();
         auto storage_class = recognizeType(*fixture, type_id, obj_ptr);
-        auto storage_fidelity = getStorageFidelity(storage_class);
+        bool embedValue = false;
+        if constexpr (std::is_same_v<ImplT, ObjectImmutableImpl>) {
+            embedValue = shouldEmbedd(type_id, storage_class, obj_ptr);
+        }
+        auto storage_fidelity = embedValue ? 0 : getStorageFidelity(storage_class);
         
         // Find an already existing field index
         auto [member_id, is_init_var] = type.findField(field_name);
@@ -298,9 +286,12 @@ namespace db0::object_model
             auto member_flags = type.isNoCache() ? AccessFlags { AccessOptions::no_cache } : AccessFlags();
             auto loc = member_id.get(0).getIndexAndOffset();
             if constexpr (std::is_same_v<ImplT, ObjectImmutableImpl>) {
-                if (shouldEmbedd(type_id, storage_class, obj_ptr)) {
+                if (embedValue) {
                     auto &immutableInitializer = dynamic_cast<ImmutableObjectInitializer &>(initializer);
-                    immutableInitializer.setObject(loc, storage_class, {}, ObjectSharedPtr(obj_ptr));
+                    auto embeddedStorageClass = storage_class == StorageClass::OBJECT_REF
+                        ? StorageClass::EMBEDDED_OBJECT
+                        : storage_class;
+                    immutableInitializer.setObject(loc, embeddedStorageClass, {}, ObjectSharedPtr(obj_ptr));
                 } else {
                     auto value = createMember<LangToolkit>(fixture, type_id, storage_class, obj_ptr, member_flags);
                     initializer.set(loc, storage_class, value);

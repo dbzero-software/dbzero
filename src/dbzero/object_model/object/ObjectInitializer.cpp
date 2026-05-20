@@ -4,6 +4,7 @@
 #include "ObjectInitializer.hpp"
 #include <dbzero/object_model/class.hpp>
 #include <dbzero/workspace/Fixture.hpp>
+#include <algorithm>
 
 namespace db0::object_model
 
@@ -197,6 +198,7 @@ namespace db0::object_model
             return;
         }
 
+        m_objects_compacted = false;
         m_objects.push_back({ loc, storage_class, std::move(object) });
     }
 
@@ -234,18 +236,58 @@ namespace db0::object_model
     ) const
     {
         for (const auto &value: m_objects) {
+            if (!value.m_object || value.m_storage_class == StorageClass::DELETED) {
+                continue;
+            }
             assert(value.m_loc.second == 0 && "Variable-length embedded fields must use default fidelity");
         }
         return getDataFrom(m_values, data, offset);
     }
 
+    void ImmutableObjectInitializer::compactObjects() const
+    {
+        if (m_objects_compacted) {
+            return;
+        }
+
+        std::stable_sort(m_objects.begin(), m_objects.end(),
+            [](const ObjectValue &lhs, const ObjectValue &rhs) {
+                return lhs.m_loc.first < rhs.m_loc.first;
+            }
+        );
+
+        std::size_t writePos = 0;
+        for (std::size_t groupBegin = 0; groupBegin < m_objects.size();) {
+            auto index = m_objects[groupBegin].m_loc.first;
+            auto groupEnd = groupBegin + 1;
+            while (groupEnd < m_objects.size() && m_objects[groupEnd].m_loc.first == index) {
+                ++groupEnd;
+            }
+
+            auto &value = m_objects[groupEnd - 1];
+            if (!!value.m_object && value.m_storage_class != StorageClass::DELETED) {
+                assert(value.m_loc.second == 0 && "Variable-length embedded fields must use default fidelity");
+                if (writePos != groupEnd - 1) {
+                    m_objects[writePos] = std::move(value);
+                }
+                ++writePos;
+            }
+
+            groupBegin = groupEnd;
+        }
+        m_objects.erase(m_objects.begin() + writePos, m_objects.end());
+        m_objects_compacted = true;
+    }
+
     void ImmutableObjectInitializer::resetObjects()
     {
         m_objects.clear();
+        m_objects_compacted = true;
     }
 
     const std::vector<ImmutableObjectInitializer::ObjectValue> &ImmutableObjectInitializer::objects() const
     {
+        compactObjects();
         return m_objects;
     }
 
@@ -256,6 +298,7 @@ namespace db0::object_model
 
     void ImmutableObjectInitializer::appendObjectTombstone(std::pair<std::uint32_t, std::uint32_t> loc)
     {
+        m_objects_compacted = false;
         m_objects.push_back({ loc, StorageClass::DELETED, {} });
     }
 

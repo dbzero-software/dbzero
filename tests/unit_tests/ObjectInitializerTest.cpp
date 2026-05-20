@@ -215,6 +215,72 @@ namespace tests
         workspace.close();
     }
 
+    TEST_F( ObjectInitializerTest, testImmutableInitializerCompactsEmbeddedObjectsInPlace )
+    {
+        Py_Initialize();
+
+        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
+        auto fixture = workspace.getFixture(prefix_name);
+
+        int object = 0;
+        std::shared_ptr<Class> mock_class = getTestClass(fixture);
+        ObjectInitializerManager manager;
+        manager.addInitializerFor<ObjectImmutableImpl>(object, mock_class);
+        auto *initializer = dynamic_cast<ImmutableObjectInitializer *>(manager.findInitializer(object));
+        ASSERT_NE(initializer, nullptr);
+
+        auto pyFirst = Py_OWN(PyLong_FromLong(1));
+        auto pyRemoved = Py_OWN(PyLong_FromLong(2));
+        auto pyFinal = Py_OWN(PyLong_FromLong(3));
+        auto pyOther = Py_OWN(PyLong_FromLong(4));
+        auto pyUpdated = Py_OWN(PyLong_FromLong(5));
+        initializer->setObject(
+            {9, 0}, StorageClass::DB0_BYTES, Value(0),
+            ImmutableObjectInitializer::ObjectSharedPtr(pyOther.get())
+        );
+        initializer->setObject(
+            {4, 0}, StorageClass::STRING_REF, Value(0),
+            ImmutableObjectInitializer::ObjectSharedPtr(pyFirst.get())
+        );
+        initializer->setObject(
+            {7, 0}, StorageClass::DB0_BYTES, Value(0),
+            ImmutableObjectInitializer::ObjectSharedPtr(pyRemoved.get())
+        );
+        initializer->setObject(
+            {4, 0}, StorageClass::DB0_LIST, Value(0),
+            ImmutableObjectInitializer::ObjectSharedPtr(pyFinal.get())
+        );
+        initializer->setObject(
+            {9, 0}, StorageClass::DB0_SET, Value(0),
+            ImmutableObjectInitializer::ObjectSharedPtr(pyUpdated.get())
+        );
+        ASSERT_TRUE(initializer->remove({7, 0}));
+
+        ASSERT_EQ(initializer->objects().size(), 2u);
+        ASSERT_EQ(initializer->objects()[0].m_loc, std::make_pair(4u, 0u));
+        ASSERT_EQ(initializer->objects()[0].m_storage_class, StorageClass::DB0_LIST);
+        ASSERT_EQ(initializer->objects()[0].m_object.get(), pyFinal.get());
+        ASSERT_EQ(initializer->objects()[1].m_loc, std::make_pair(9u, 0u));
+        ASSERT_EQ(initializer->objects()[1].m_storage_class, StorageClass::DB0_SET);
+        ASSERT_EQ(initializer->objects()[1].m_object.get(), pyUpdated.get());
+        ASSERT_EQ(initializer->objects().size(), 2u);
+
+        auto pyLatest = Py_OWN(PyLong_FromLong(6));
+        initializer->setObject(
+            {4, 0}, StorageClass::DB0_DICT, Value(0),
+            ImmutableObjectInitializer::ObjectSharedPtr(pyLatest.get())
+        );
+        ASSERT_EQ(initializer->objects().size(), 2u);
+        ASSERT_EQ(initializer->objects()[0].m_loc, std::make_pair(4u, 0u));
+        ASSERT_EQ(initializer->objects()[0].m_storage_class, StorageClass::DB0_DICT);
+        ASSERT_EQ(initializer->objects()[0].m_object.get(), pyLatest.get());
+        ASSERT_EQ(initializer->objects()[1].m_loc, std::make_pair(9u, 0u));
+        ASSERT_EQ(initializer->objects()[1].m_storage_class, StorageClass::DB0_SET);
+        ASSERT_EQ(initializer->objects()[1].m_object.get(), pyUpdated.get());
+
+        workspace.close();
+    }
+
     TEST_F( ObjectInitializerTest, testImmutableInitializerDoesNotStoreObjectForFixedValues )
     {
         Py_Initialize();
@@ -672,6 +738,8 @@ namespace tests
         auto nestedClass = fixture->get<ClassFactory>().getOrCreateType(pyMemoType.get());
         auto rootLoc = rootClass->addField("inner", 0).get(0).getIndexAndOffset();
         auto nestedLoc = nestedClass->addField("held", 0).get(0).getIndexAndOffset();
+        rootClass->flush();
+        nestedClass->flush();
 
         {
             Object referenced(referencedClass);
@@ -710,6 +778,7 @@ namespace tests
 
             ASSERT_TRUE(fixture->isAddressValid(root.getAddress(), ObjectImmutableImpl::REALM_ID));
             root.destroy();
+            rootClass->flush();
             ASSERT_EQ(referenced.getRefCounts().second, 1u);
         }
 
@@ -733,6 +802,8 @@ namespace tests
         auto rootLoc = rootClass->addField("outer", 0).get(0).getIndexAndOffset();
         auto outerLoc = nestedClass->addField("inner", 0).get(0).getIndexAndOffset();
         auto innerLoc = nestedClass->addField("held", 0).get(0).getIndexAndOffset();
+        rootClass->flush();
+        nestedClass->flush();
 
         {
             Object referenced(referencedClass);
@@ -783,6 +854,7 @@ namespace tests
             }
 
             root.destroy();
+            rootClass->flush();
             ASSERT_EQ(referenced.getRefCounts().second, 1u);
         }
 

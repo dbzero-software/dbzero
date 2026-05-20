@@ -94,7 +94,8 @@ namespace db0::object_model
                     auto size = o_py_dict::measure(pyObject);
                     return o_dict::Element::embeddedDict(size, writePyDict, pyObject);
                 }
-                case StorageClass::OBJECT_REF: {
+                case StorageClass::OBJECT_REF:
+                case StorageClass::EMBEDDED_OBJECT: {
                     const auto &initializer = getInitializer(pyObject);
                     auto size = o_embedded_object::measure(initializer.getClassPtr()->getClassRef(), initializer);
                     return o_dict::Element::embeddedObject(size, writeEmbeddedObject, pyObject);
@@ -110,11 +111,11 @@ namespace db0::object_model
         {
             o_dict::ElementMap fieldMap;
             for (const auto &value: initializer.objects()) {
-                assert(value.m_loc.second == 0 && "Variable-length embedded fields must use default fidelity");
                 auto key = o_dict::Element::integer(value.m_loc.first);
                 if (!value.m_object) {
                     fieldMap.erase(key);
                 } else {
+                    assert(value.m_loc.second == 0 && "Variable-length embedded fields must use default fidelity");
                     fieldMap[key] = fieldMapElementFromObject(value.m_storage_class, value.m_object);
                 }
             }
