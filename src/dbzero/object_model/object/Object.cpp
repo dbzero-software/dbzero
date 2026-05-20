@@ -276,7 +276,11 @@ namespace db0::object_model
     KV_Index *Object::tryGetKV_Index() const
     {
         // if KV index address has changed, update the cached instance
-        if (!m_kv_index || m_kv_index->getAddress() != (*this)->m_kv_address) {
+        auto shouldOpenIndex = !m_kv_index;
+        if (!shouldOpenIndex && m_kv_index->getIndexType() != bindex::type::itty) {
+            shouldOpenIndex = m_kv_index->getAddress() != (*this)->m_kv_address;
+        }
+        if (shouldOpenIndex) {
             if ((*this)->m_kv_address) {
                 m_kv_index = std::make_unique<KV_Index>(
                     std::make_pair(&getMemspace(), (*this)->m_kv_address), (*this)->m_kv_type
@@ -305,10 +309,11 @@ namespace db0::object_model
                 lofi_store<2>::fromValue(kv_value).set(field_id.getOffset(), value.m_store);
                 xvalue.m_value = kv_value;
                 kv_index_ptr->updateExisting(xvalue);
-                // in case of the IttyIndex updating an element changes the address
+                // in case of the IttyIndex updating an element changes the address/type
                 // which needs to be updated in the object
                 if (kv_index_ptr->getIndexType() == bindex::type::itty) {
                     this->modify().m_kv_address = kv_index_ptr->getAddress();
+                    this->modify().m_kv_type = kv_index_ptr->getIndexType();
                 }
             } else {
                 if (kv_index_ptr->insert(xvalue)) {
@@ -340,10 +345,11 @@ namespace db0::object_model
                 // mark as deleted in kv-index
                 xvalue.m_type = StorageClass::DELETED;
                 kv_index_ptr->updateExisting(xvalue);
-                // in case of the IttyIndex updating an element changes the address
+                // in case of the IttyIndex updating an element changes the address/type
                 // which needs to be updated in the object
                 if (kv_index_ptr->getIndexType() == bindex::type::itty) {
                     this->modify().m_kv_address = kv_index_ptr->getAddress();
+                    this->modify().m_kv_type = kv_index_ptr->getIndexType();
                 }
             } else {
                 auto old_addr = kv_index_ptr->getAddress();
@@ -372,10 +378,11 @@ namespace db0::object_model
             }            
             xvalue.m_value = value;
             kv_index_ptr->updateExisting(xvalue);
-            // in case of the IttyIndex updating an element changes the address
+            // in case of the IttyIndex updating an element changes the address/type
             // which needs to be updated in the object
             if (kv_index_ptr->getIndexType() == bindex::type::itty) {
                 this->modify().m_kv_address = kv_index_ptr->getAddress();                    
+                this->modify().m_kv_type = kv_index_ptr->getIndexType();
             }
 
             m_type->removeFromSchema(field_id, fidelity, old_type_id);
@@ -440,10 +447,11 @@ namespace db0::object_model
                     auto new_type_id = getSchemaTypeId(storage_class, value);
                     m_type->updateSchema(field_id, fidelity, old_type_id, new_type_id);
                 }
-                // in case of the IttyIndex updating an element changes the address
+                // in case of the IttyIndex updating an element changes the address/type
                 // which needs to be updated in the object
                 if (kv_index_ptr->getIndexType() == bindex::type::itty) {
                     this->modify().m_kv_address = kv_index_ptr->getAddress();
+                    this->modify().m_kv_type = kv_index_ptr->getIndexType();
                 }
             } else {
                 if (kv_index_ptr->insert(xvalue)) {
@@ -624,6 +632,7 @@ namespace db0::object_model
     {
         auto unique_addr = this->getUniqueAddress();
         auto ext_refs = this->getExtRefs();
+        this->destroy();
         this->~Object();
         // construct a null placeholder
         new ((void*)this) Object(tag_as_dropped(), unique_addr, ext_refs);

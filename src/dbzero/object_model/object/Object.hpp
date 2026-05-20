@@ -23,6 +23,11 @@ namespace db0::object_model
             : super_t(std::forward<Args>(args)...)
         {
         }
+
+        ~Object()
+        {
+            this->unregister();
+        }
         
         // Convert singleton into a regular instance
         void unSingleton(FixtureLock &);
