@@ -12,6 +12,7 @@
 #include <dbzero/object_model/ObjectModel.hpp>
 #include <dbzero/object_model/object/ObjectInitializer.hpp>
 #include <dbzero/object_model/class/Class.hpp>
+#include <dbzero/bindings/TypeId.hpp>
 #include <dbzero/bindings/python/PySafeAPI.hpp>
 #include <dbzero/bindings/python/shared_py_object.hpp>
 #include <dbzero/workspace/Fixture.hpp>
@@ -163,11 +164,10 @@ namespace tests
         auto py_value = Py_OWN(PyLong_FromLong(42));
         ImmutableObjectInitializer::ObjectSharedPtr object_value(py_value.get());
         initializer->setObject({9, 0}, StorageClass::STRING_REF, Value(123), object_value);
+        ASSERT_FALSE(initializer->empty());
 
         std::pair<StorageClass, Value> stored_value;
-        ASSERT_TRUE(initializer->tryGetAt({9, 0}, stored_value));
-        ASSERT_EQ(stored_value.first, StorageClass::STRING_REF);
-        ASSERT_EQ(stored_value.second, Value(123));
+        ASSERT_FALSE(initializer->tryGetAt({9, 0}, stored_value));
 
         ImmutableObjectInitializer::ObjectSharedPtr stored_object;
         ASSERT_TRUE(initializer->tryGetObjectAt({9, 0}, stored_object));
@@ -330,6 +330,156 @@ namespace tests
         ASSERT_EQ(tuple.size(), 2u);
         ASSERT_EQ(tuple.item(0).packedIntPayload().value(), 7u);
         ASSERT_EQ(tuple.item(1).stringPayload().toString(), "seven");
+
+        workspace.close();
+    }
+
+    TEST_F( ObjectInitializerTest, testObjectImmutableImplPostInitUsesEmbeddedStorageAndNoKVIndex )
+    {
+        Py_Initialize();
+
+        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
+        auto fixture = workspace.getFixture(prefix_name);
+        std::shared_ptr<Class> mock_class = getTestClass(fixture);
+
+        {
+            ObjectImmutableImpl object(mock_class);
+            auto py_int = Py_OWN(PyLong_FromLong(42));
+            object.setPreInit("value", db0::bindings::TypeId::INTEGER, py_int.get());
+            auto py_string = Py_OWN(PyUnicode_FromString("immutable payload"));
+            object.setPreInit("name", db0::bindings::TypeId::STRING, py_string.get());
+
+            {
+                db0::FixtureLock lock(fixture);
+                object.postInit(lock);
+            }
+
+            auto layout = object.getFieldLayout();
+            ASSERT_TRUE(layout.m_kv_index_fields.empty());
+            ASSERT_FALSE(layout.m_pos_vt_fields.empty());
+
+            std::optional<FixedValue> fixedValue;
+            for (std::uint32_t index = 0; index < 32 && !fixedValue.has_value(); ++index) {
+                auto candidate = object->fixedValue(index);
+                if (candidate && candidate->m_value == 42u) {
+                    fixedValue = candidate;
+                }
+            }
+            ASSERT_TRUE(fixedValue.has_value());
+
+            const o_tuple_item *variableValue = nullptr;
+            for (std::uint32_t index = 0; index < 32 && !variableValue; ++index) {
+                auto *candidate = object->variableValue(index);
+                if (candidate && candidate->itemKind() == StorageClass::STRING_REF) {
+                    variableValue = candidate;
+                }
+            }
+            ASSERT_NE(variableValue, nullptr);
+            ASSERT_EQ(variableValue->stringPayload().toString(), "immutable payload");
+        }
+
+        workspace.close();
+    }
+
+    TEST_F( ObjectInitializerTest, testImmutablePreInitEmbeddableValueDoesNotCreateDurableMemberValue )
+    {
+        Py_Initialize();
+
+        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
+        auto fixture = workspace.getFixture(prefix_name);
+        std::shared_ptr<Class> mock_class = getTestClass(fixture);
+
+        {
+            ObjectImmutableImpl object(mock_class);
+            auto py_string = Py_OWN(PyUnicode_FromString("embedded without durable side object"));
+            object.setPreInit("name", db0::bindings::TypeId::STRING, py_string.get());
+
+            auto *initializer = dynamic_cast<ImmutableObjectInitializer *>(InitManager::instance.findInitializer(object));
+            ASSERT_NE(initializer, nullptr);
+            ASSERT_FALSE(initializer->objects().empty());
+            auto loc = initializer->objects().back().m_loc;
+            ASSERT_EQ(initializer->objects().back().m_storage_class, StorageClass::STRING_REF);
+
+            std::pair<StorageClass, Value> storedValue;
+            ASSERT_FALSE(initializer->tryGetAt(loc, storedValue));
+
+            ImmutableObjectInitializer::ObjectSharedPtr storedObject;
+            ASSERT_TRUE(initializer->tryGetObjectAt(loc, storedObject));
+            ASSERT_EQ(storedObject.get(), py_string.get());
+        }
+
+        workspace.close();
+    }
+
+    TEST_F( ObjectInitializerTest, testImmutablePreInitChangingRegularValueToLoFiClearsEmbeddedObject )
+    {
+        Py_Initialize();
+
+        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
+        auto fixture = workspace.getFixture(prefix_name);
+        std::shared_ptr<Class> mock_class = getTestClass(fixture);
+
+        {
+            ObjectImmutableImpl object(mock_class);
+            auto pyString = Py_OWN(PyUnicode_FromString("stale embedded object"));
+            object.setPreInit("name", db0::bindings::TypeId::STRING, pyString.get());
+
+            auto *initializer = dynamic_cast<ImmutableObjectInitializer *>(InitManager::instance.findInitializer(object));
+            ASSERT_NE(initializer, nullptr);
+            ASSERT_FALSE(initializer->objects().empty());
+            auto regularLoc = initializer->objects().back().m_loc;
+
+            object.setPreInit("name", db0::bindings::TypeId::BOOLEAN, Py_True);
+
+            ImmutableObjectInitializer::ObjectSharedPtr storedObject;
+            ASSERT_FALSE(initializer->tryGetObjectAt(regularLoc, storedObject));
+
+            std::pair<StorageClass, Value> storedValue;
+            ASSERT_FALSE(initializer->tryGetAt(regularLoc, storedValue));
+
+            auto [memberId, isInitVar] = mock_class->findField("name");
+            (void)isInitVar;
+            ASSERT_TRUE(memberId);
+            ASSERT_TRUE(memberId.hasFidelity(2));
+            auto lofiLoc = memberId.get(2).getIndexAndOffset();
+
+            ASSERT_TRUE(initializer->tryGetAt(lofiLoc, storedValue));
+            ASSERT_EQ(storedValue.first, StorageClass::PACK_2);
+            ASSERT_TRUE(lofi_store<2>::fromValue(storedValue.second).isSet(lofiLoc.second));
+            ASSERT_EQ(lofi_store<2>::fromValue(storedValue.second).get(lofiLoc.second), Value::TRUE);
+        }
+
+        workspace.close();
+    }
+
+    TEST_F( ObjectInitializerTest, testImmutableRemovePreInitClearsEmbeddedObject )
+    {
+        Py_Initialize();
+
+        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
+        auto fixture = workspace.getFixture(prefix_name);
+        std::shared_ptr<Class> mock_class = getTestClass(fixture);
+
+        {
+            ObjectImmutableImpl object(mock_class);
+            auto pyString = Py_OWN(PyUnicode_FromString("removed embedded object"));
+            object.setPreInit("name", db0::bindings::TypeId::STRING, pyString.get());
+
+            auto *initializer = dynamic_cast<ImmutableObjectInitializer *>(InitManager::instance.findInitializer(object));
+            ASSERT_NE(initializer, nullptr);
+            ASSERT_FALSE(initializer->objects().empty());
+            auto regularLoc = initializer->objects().back().m_loc;
+
+            object.removePreInit("name");
+
+            ImmutableObjectInitializer::ObjectSharedPtr storedObject;
+            ASSERT_FALSE(initializer->tryGetObjectAt(regularLoc, storedObject));
+
+            std::pair<StorageClass, Value> storedValue;
+            ASSERT_TRUE(initializer->tryGetAt(regularLoc, storedValue));
+            ASSERT_EQ(storedValue.first, StorageClass::DELETED);
+            ASSERT_EQ(storedValue.second, Value());
+        }
 
         workspace.close();
     }

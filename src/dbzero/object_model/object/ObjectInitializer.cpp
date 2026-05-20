@@ -2,7 +2,6 @@
 // Copyright (c) 2025 DBZero Software sp. z o.o.
 
 #include "ObjectInitializer.hpp"
-#include <algorithm>
 #include <dbzero/object_model/class.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 
@@ -192,27 +191,36 @@ namespace db0::object_model
         ObjectSharedPtr object, std::uint64_t mask
     )
     {
-        set(loc, storage_class, value, mask);
         if (isFixedStorageClass(storage_class)) {
-            eraseObjectAt(loc);
+            ObjectInitializer::set(loc, storage_class, value, mask);
+            appendObjectTombstone(loc);
             return;
         }
 
-        eraseObjectAt(loc);
         m_objects.push_back({ loc, storage_class, std::move(object) });
+    }
+
+    void ImmutableObjectInitializer::set(
+        std::pair<std::uint32_t, std::uint32_t> loc, StorageClass storage_class, Value value, std::uint64_t mask
+    )
+    {
+        appendObjectTombstone(loc);
+        ObjectInitializer::set(loc, storage_class, value, mask);
     }
 
     bool ImmutableObjectInitializer::remove(std::pair<std::uint32_t, std::uint32_t> loc, std::uint64_t mask)
     {
-        eraseObjectAt(loc);
-        return ObjectInitializer::remove(loc, mask);
+        auto hadObject = hasObjectAt(loc);
+        appendObjectTombstone(loc);
+        return ObjectInitializer::remove(loc, mask) || hadObject;
     }
 
     bool ImmutableObjectInitializer::tryGetObjectAt(
         std::pair<std::uint32_t, std::uint32_t> loc, ObjectSharedPtr &object
     ) const
     {
-        for (const auto &value: m_objects) {
+        for (auto it = m_objects.rbegin(); it != m_objects.rend(); ++it) {
+            const auto &value = *it;
             if (value.m_loc == loc) {
                 object = value.m_object;
                 return object.get() != nullptr;
@@ -225,23 +233,15 @@ namespace db0::object_model
         PosVT::Data &data, unsigned int &offset
     ) const
     {
-        m_values.sortAndMerge();
-        m_fixed_values.clear();
-        m_fixed_values.reserve(m_values.size());
-        for (const auto &value: m_values) {
-            m_fixed_values.push_back(value);
-        }
         for (const auto &value: m_objects) {
             assert(value.m_loc.second == 0 && "Variable-length embedded fields must use default fidelity");
-            m_fixed_values.remove(value.m_loc.first);
         }
-        return getDataFrom(m_fixed_values, data, offset);
+        return getDataFrom(m_values, data, offset);
     }
 
     void ImmutableObjectInitializer::resetObjects()
     {
         m_objects.clear();
-        m_fixed_values.clear();
     }
 
     const std::vector<ImmutableObjectInitializer::ObjectValue> &ImmutableObjectInitializer::objects() const
@@ -249,14 +249,20 @@ namespace db0::object_model
         return m_objects;
     }
 
-    void ImmutableObjectInitializer::eraseObjectAt(std::pair<std::uint32_t, std::uint32_t> loc)
+    bool ImmutableObjectInitializer::empty() const
     {
-        m_objects.erase(
-            std::remove_if(m_objects.begin(), m_objects.end(), [&](const auto &value) {
-                return value.m_loc == loc;
-            }),
-            m_objects.end()
-        );
+        return ObjectInitializer::empty() && m_objects.empty();
+    }
+
+    void ImmutableObjectInitializer::appendObjectTombstone(std::pair<std::uint32_t, std::uint32_t> loc)
+    {
+        m_objects.push_back({ loc, StorageClass::DELETED, {} });
+    }
+
+    bool ImmutableObjectInitializer::hasObjectAt(std::pair<std::uint32_t, std::uint32_t> loc) const
+    {
+        ObjectSharedPtr object;
+        return tryGetObjectAt(loc, object);
     }
 
     bool ObjectInitializer::trySetFixture(db0::swine_ptr<Fixture> &new_fixture)

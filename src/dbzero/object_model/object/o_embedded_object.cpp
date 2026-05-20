@@ -74,8 +74,12 @@ namespace db0::object_model
             o_dict::ElementMap fieldMap;
             for (const auto &value: initializer.objects()) {
                 assert(value.m_loc.second == 0 && "Variable-length embedded fields must use default fidelity");
-                fieldMap[o_dict::Element::integer(value.m_loc.first)] =
-                    fieldMapElementFromObject(value.m_storage_class, value.m_object);
+                auto key = o_dict::Element::integer(value.m_loc.first);
+                if (!value.m_object) {
+                    fieldMap.erase(key);
+                } else {
+                    fieldMap[key] = fieldMapElementFromObject(value.m_storage_class, value.m_object);
+                }
             }
             return fieldMap;
         }
@@ -128,6 +132,18 @@ namespace db0::object_model
             (o_dict::type(), fieldMap);
     }
 
+    o_embedded_object::o_embedded_object(
+        std::uint32_t classRefValue, const PosVT::Data &posVtData, unsigned int posVtOffset,
+        const XValue *indexVtBegin, const XValue *indexVtEnd
+    )
+    {
+        arrangeMembers()
+            (db0::packed_int32::type(), classRefValue)
+            (PosVT::type(), posVtData, posVtOffset)
+            (IndexVT::type(), indexVtBegin, indexVtEnd)
+            (o_dict::type(), o_dict::ElementMap());
+    }
+
     std::uint32_t o_embedded_object::getClassRef() const
     {
         return classRef().value();
@@ -138,7 +154,17 @@ namespace db0::object_model
         return getDynAfter(classRef(), PosVT::type());
     }
 
+    PosVT &o_embedded_object::pos_vt()
+    {
+        return getDynAfter(classRef(), PosVT::type());
+    }
+
     const IndexVT &o_embedded_object::index_vt() const
+    {
+        return getDynAfter(pos_vt(), IndexVT::type());
+    }
+
+    IndexVT &o_embedded_object::index_vt()
     {
         return getDynAfter(pos_vt(), IndexVT::type());
     }
@@ -187,6 +213,18 @@ namespace db0::object_model
             (PosVT::type(), posVtData, posVtOffset)
             (IndexVT::type(), indexVtData.first, indexVtData.second)
             (o_dict::type(), fieldMap);
+    }
+
+    std::size_t o_embedded_object::measure(
+        std::uint32_t classRefValue, const PosVT::Data &posVtData, unsigned int posVtOffset,
+        const XValue *indexVtBegin, const XValue *indexVtEnd
+    )
+    {
+        return measureMembers()
+            (db0::packed_int32::type(), classRefValue)
+            (PosVT::type(), posVtData, posVtOffset)
+            (IndexVT::type(), indexVtBegin, indexVtEnd)
+            (o_dict::type(), o_dict::ElementMap());
     }
 
     const db0::packed_int32 &o_embedded_object::classRef() const

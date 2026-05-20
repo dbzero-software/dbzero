@@ -135,10 +135,7 @@ namespace db0::object_model
         // of the use of num_type_tags property
         bool hasRefs() const;
         
-    protected:        
-        // local kv-index instance cache (created at first use)
-        mutable std::unique_ptr<KV_Index> m_kv_index;
-        
+    protected:
         void setType(std::shared_ptr<Class>);
         // adjusts to actual type if the type hint is a base class
         // @return true if type was changed (type hint hit)

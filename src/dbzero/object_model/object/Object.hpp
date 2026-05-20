@@ -37,8 +37,14 @@ namespace db0::object_model
         // Destroys an existing instance and constructs a "null" placeholder
         void dropInstance(FixtureLock &);
 
+        void detach() const;
+        void commit() const;
+
     protected:
         friend super_t;
+
+        // local kv-index instance cache (created at first use)
+        mutable std::unique_ptr<KV_Index> m_kv_index;
 
         bool tryFindMemberAt(std::pair<FieldID, unsigned int> field_info,
             std::pair<StorageClass, Value> &result, std::pair<bool, bool> &find_result) const;

@@ -31,6 +31,25 @@ namespace db0::object_model
         }
         return static_cast<std::uint8_t>(value);
     }
+
+    bool isEmbeddableType(TypeId typeId, StorageClass storageClass)
+    {
+        switch (storageClass) {
+            case StorageClass::STRING_REF:
+            case StorageClass::DB0_BYTES:
+                return true;
+            case StorageClass::DB0_LIST:
+                return typeId == TypeId::LIST;
+            case StorageClass::DB0_TUPLE:
+                return typeId == TypeId::TUPLE;
+            case StorageClass::DB0_SET:
+                return typeId == TypeId::SET;
+            case StorageClass::DB0_DICT:
+                return typeId == TypeId::DICT;
+            default:
+                return false;
+        }
+    }
     
     template <typename T, typename ImplT>
     ObjectImplBase<T, ImplT>::ObjectImplBase(tag_as_dropped, UniqueAddress addr, unsigned int ext_refs)
@@ -149,11 +168,19 @@ namespace db0::object_model
             assert(this->m_type);
             
             auto &type = *this->m_type;
-            super_t::init(*fixture, type.getClassRef(), initializer.getRefCounts(),
-                safeCast<std::uint8_t>(type.getNumBases() + 1, "Too many base classes"), 
-                pos_vt_data, pos_vt_offset, index_vt_data.first, index_vt_data.second,
-                getAccessOptions(type)
-            );
+            auto numTypeTags = safeCast<std::uint8_t>(type.getNumBases() + 1, "Too many base classes");
+            if constexpr (std::is_same_v<ImplT, ObjectImmutableImpl>) {
+                auto *immutableInitializer = dynamic_cast<ImmutableObjectInitializer *>(&initializer);
+                assert(immutableInitializer);
+                super_t::init(*fixture, type.getClassRef(), initializer.getRefCounts(), numTypeTags,
+                    *immutableInitializer, getAccessOptions(type)
+                );
+            } else {
+                super_t::init(*fixture, type.getClassRef(), initializer.getRefCounts(), numTypeTags,
+                    pos_vt_data, pos_vt_offset, index_vt_data.first, index_vt_data.second,
+                    getAccessOptions(type)
+                );
+            }
             
             // reference associated class
             type.incRef(false);
@@ -250,9 +277,19 @@ namespace db0::object_model
             // register a regular member with the initializer
             // NOTE: a new member receives the no-cache flag if set (at the type level)
             auto member_flags = type.isNoCache() ? AccessFlags { AccessOptions::no_cache } : AccessFlags();
-            initializer.set(member_id.get(0).getIndexAndOffset(), storage_class,
-                createMember<LangToolkit>(fixture, type_id, storage_class, obj_ptr, member_flags)
-            );
+            auto loc = member_id.get(0).getIndexAndOffset();
+            if constexpr (std::is_same_v<ImplT, ObjectImmutableImpl>) {
+                if (isEmbeddableType(type_id, storage_class)) {
+                    auto &immutableInitializer = dynamic_cast<ImmutableObjectInitializer &>(initializer);
+                    immutableInitializer.setObject(loc, storage_class, {}, ObjectSharedPtr(obj_ptr));
+                } else {
+                    auto value = createMember<LangToolkit>(fixture, type_id, storage_class, obj_ptr, member_flags);
+                    initializer.set(loc, storage_class, value);
+                }
+            } else {
+                auto value = createMember<LangToolkit>(fixture, type_id, storage_class, obj_ptr, member_flags);
+                initializer.set(loc, storage_class, value);
+            }
         } else {
             if (member_id.hasFidelity(0)) {
                 // remove any existing regular initialization
@@ -266,7 +303,8 @@ namespace db0::object_model
             auto value = lofi_store<2>::create(loc.second, 
                 createMember<LangToolkit>(fixture, type_id, storage_class, obj_ptr, {}).m_store);
             // register a lo-fi member with the initializer (using mask)
-            initializer.set(loc, storage_class, value, lofi_store<2>::mask(loc.second));
+            auto mask = lofi_store<2>::mask(loc.second);
+            initializer.set(loc, storage_class, value, mask);
         }
     }
     
@@ -1027,8 +1065,6 @@ namespace db0::object_model
     void ObjectImplBase<T, ImplT>::detach() const
     {
         this->m_type->detach();
-        // invalidate since detach is not supported by the MorphingBIndex
-        this->m_kv_index = nullptr;
         super_t::detach();
     }
     
@@ -1036,9 +1072,6 @@ namespace db0::object_model
     void ObjectImplBase<T, ImplT>::commit() const
     {
         this->m_type->commit();
-        if (m_kv_index) {
-            m_kv_index->commit();
-        }
         super_t::commit();
         // reset the silent-mutation flag
         this->m_touched = false;

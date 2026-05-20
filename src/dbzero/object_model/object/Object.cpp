@@ -89,6 +89,21 @@ namespace db0::object_model
         return getType().isSingleton();
     }
 
+    void Object::detach() const
+    {
+        // invalidate since detach is not supported by the MorphingBIndex
+        m_kv_index = nullptr;
+        super_t::detach();
+    }
+
+    void Object::commit() const
+    {
+        if (m_kv_index) {
+            m_kv_index->commit();
+        }
+        super_t::commit();
+    }
+
     bool Object::tryFindMemberAt(std::pair<FieldID, unsigned int> field_info, std::pair<StorageClass, Value> &result,
         std::pair<bool, bool> &find_result) const
     {

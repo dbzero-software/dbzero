@@ -9,6 +9,7 @@
 #include <dbzero/core/serialization/bounded_buf_t.hpp>
 #include <dbzero/core/vspace/v_object.hpp>
 #include <dbzero/object_model/object/ObjectImmutableImpl.hpp>
+#include <dbzero/object_model/object/o_immutable_object.hpp>
 #include <dbzero/object_model/object/o_embedded_object.hpp>
 #include <dbzero/object_model/set/o_set.hpp>
 #include <dbzero/object_model/tuple/o_tuple.hpp>
@@ -90,6 +91,40 @@ namespace tests
         ASSERT_FALSE(object->fixedValue(999).has_value());
     }
 
+    TEST_F( EmbeddedObjectTest , testImmutableRootEncapsulatesEmbeddedObjectStorage )
+    {
+        Py_Initialize();
+
+        auto memspace = getMemspace();
+        int sourceObject = 0;
+        ObjectInitializerManager manager;
+        auto &initializer = makeInitializer(manager, sourceObject);
+        initializer.set({0, 0}, StorageClass::INT64, Value(42));
+
+        auto pyString = Py_OWN(PyUnicode_FromString("root variable string"));
+        initializer.setObject(
+            {300, 0}, StorageClass::STRING_REF, Value(0),
+            ImmutableObjectInitializer::ObjectSharedPtr(pyString.get())
+        );
+
+        v_object<o_immutable_object> object(memspace, 88u, std::make_pair(1u, 2u), 1u, initializer);
+
+        ASSERT_EQ(object->getClassRef(), 88u);
+        ASSERT_TRUE(object->hasAnyRefs());
+        auto fixedValue = object->fixedValue(0);
+        ASSERT_TRUE(fixedValue.has_value());
+        ASSERT_EQ(fixedValue->m_kind, StorageClass::INT64);
+        ASSERT_EQ(fixedValue->m_value, 42u);
+
+        auto *variableValue = object->variableValue(300);
+        ASSERT_NE(variableValue, nullptr);
+        ASSERT_EQ(variableValue->itemKind(), StorageClass::STRING_REF);
+        ASSERT_EQ(variableValue->stringPayload().toString(), "root variable string");
+        ASSERT_EQ(&object->embeddedObject().pos_vt(), &object->pos_vt());
+        ASSERT_EQ(&object->embeddedObject().index_vt(), &object->index_vt());
+        ASSERT_EQ(&object->embeddedObject().field_map(), &object->field_map());
+    }
+
     TEST_F( EmbeddedObjectTest , testEmbeddedObjectStoresVariableFieldsInDictMap )
     {
         Py_Initialize();
@@ -125,6 +160,64 @@ namespace tests
         ASSERT_EQ(bytesValue->bytesPayload().begin()[1], std::byte{0x02});
         ASSERT_EQ(bytesValue->bytesPayload().begin()[2], std::byte{0x03});
         ASSERT_EQ(object->variableValue(999), nullptr);
+    }
+
+    TEST_F( EmbeddedObjectTest , testEmbeddedObjectUsesLatestVariableFieldMapValue )
+    {
+        Py_Initialize();
+
+        auto memspace = getMemspace();
+        int sourceObject = 0;
+        ObjectInitializerManager manager;
+        auto &initializer = makeInitializer(manager, sourceObject);
+        auto pyString1 = Py_OWN(PyUnicode_FromString("old value"));
+        auto pyString2 = Py_OWN(PyUnicode_FromString("new value"));
+        initializer.setObject(
+            {300, 0}, StorageClass::STRING_REF, Value(0),
+            ImmutableObjectInitializer::ObjectSharedPtr(pyString1.get())
+        );
+        initializer.setObject(
+            {300, 0}, StorageClass::STRING_REF, Value(0),
+            ImmutableObjectInitializer::ObjectSharedPtr(pyString2.get())
+        );
+
+        ImmutableObjectInitializer::ObjectSharedPtr storedObject;
+        ASSERT_TRUE(initializer.tryGetObjectAt({300, 0}, storedObject));
+        ASSERT_EQ(storedObject.get(), pyString2.get());
+
+        v_object<o_embedded_object> object(memspace, 88u, initializer);
+
+        auto *stringValue = object->variableValue(300);
+        ASSERT_NE(stringValue, nullptr);
+        ASSERT_EQ(stringValue->itemKind(), StorageClass::STRING_REF);
+        ASSERT_EQ(stringValue->stringPayload().toString(), "new value");
+    }
+
+    TEST_F( EmbeddedObjectTest , testEmbeddedObjectTombstoneRemovesVariableFieldMapValue )
+    {
+        Py_Initialize();
+
+        auto memspace = getMemspace();
+        int sourceObject = 0;
+        ObjectInitializerManager manager;
+        auto &initializer = makeInitializer(manager, sourceObject);
+        auto pyString = Py_OWN(PyUnicode_FromString("old variable value"));
+        initializer.setObject(
+            {300, 0}, StorageClass::STRING_REF, Value(0),
+            ImmutableObjectInitializer::ObjectSharedPtr(pyString.get())
+        );
+        initializer.set({300, 0}, StorageClass::INT64, Value(91));
+
+        ImmutableObjectInitializer::ObjectSharedPtr storedObject;
+        ASSERT_FALSE(initializer.tryGetObjectAt({300, 0}, storedObject));
+
+        v_object<o_embedded_object> object(memspace, 88u, initializer);
+
+        ASSERT_EQ(object->variableValue(300), nullptr);
+        auto fixedValue = object->fixedValue(300);
+        ASSERT_TRUE(fixedValue.has_value());
+        ASSERT_EQ(fixedValue->m_kind, StorageClass::INT64);
+        ASSERT_EQ(fixedValue->m_value, 91u);
     }
 
     TEST_F( EmbeddedObjectTest , testEmbeddedObjectStoresNestedTuplePayload )
