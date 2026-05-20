@@ -2,14 +2,22 @@
 # Copyright (c) 2025 DBZero Software sp. z o.o.
 
 from contextvars import ContextVar
+from dataclasses import dataclass
 
 import pytest
 
 import dbzero as db0
+from .conftest import DB0_DIR
 
 
 account_id = ContextVar("account_id")
 missing_value = object()
+
+
+@db0.memo(protect_fields=True)
+@dataclass
+class InitDataMaskingProtectedClass:
+    value: str
 
 
 def test_init_data_masking_prefix_scoped_lifecycle(db0_fixture):
@@ -141,3 +149,42 @@ def test_init_data_masking_allows_different_bindings_for_different_prefixes(db0_
         missing_value_placeholder=object(),
         mode="RELEASE",
     )
+
+
+def test_init_can_initialize_workspace_data_masking(db0_fixture):
+    db0.close()
+    init_account_id = ContextVar("init_workspace_data_masking_account_id")
+
+    db0.init(
+        DB0_DIR,
+        data_masking={
+            "context_var": init_account_id,
+            "mode": "DEBUG",
+        },
+    )
+    db0.open("init-workspace-data-masking")
+    init_account_id.set(-2)
+
+    obj = InitDataMaskingProtectedClass("visible")
+
+    assert obj.value == "visible"
+
+
+def test_init_can_initialize_prefix_data_masking_after_opening_prefix(db0_fixture):
+    db0.close()
+    init_account_id = ContextVar("init_prefix_data_masking_account_id")
+
+    db0.init(
+        DB0_DIR,
+        prefix="init-prefix-data-masking",
+        data_masking={
+            "context_var": init_account_id,
+            "prefix": "init-prefix-data-masking",
+            "mode": "DEBUG",
+        },
+    )
+    init_account_id.set(-2)
+
+    obj = InitDataMaskingProtectedClass("visible")
+
+    assert obj.value == "visible"
