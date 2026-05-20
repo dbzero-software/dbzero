@@ -650,6 +650,15 @@ namespace db0::python
         }
         return item;
     }
+
+    PyToolkit::ObjectSharedPtr PyToolkit::getMappingItem(ObjectPtr py_object, ObjectPtr key)
+    {
+        auto item = Py_OWN(PyObject_GetItem(py_object, key));
+        if (!item) {
+            THROWF(db0::InputException) << "Unable to get mapping item";
+        }
+        return item;
+    }
     
     bool PyToolkit::isSingleton(TypeObjectPtr py_type) {
         return PyMemoType_IsSingleton(py_type);

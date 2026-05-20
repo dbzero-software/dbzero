@@ -189,6 +189,7 @@ namespace db0::python
         static ObjectSharedPtr next(ObjectPtr py_object);
         static std::size_t length(ObjectPtr py_object);
         static ObjectSharedPtr getItem(ObjectPtr py_object, std::size_t i);
+        static ObjectSharedPtr getMappingItem(ObjectPtr py_object, ObjectPtr key);
         // Get value associated fixture UUID (e.g. enum value)
         static std::uint64_t getFixtureUUID(ObjectPtr py_object);
         // Get scoped type's associated fixture UUID (or 0x0)
