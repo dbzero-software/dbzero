@@ -828,6 +828,8 @@ namespace db0::object_model
     template <typename T, typename ImplT>
     void ObjectImplBase<T, ImplT>::destroy()
     {
+        // Explicit destroy already owns the drop path; avoid recursive GC0 drop while unregistering.
+        this->unregister(true);
         if (this->hasInstance()) {
             // associated class type (may require unloading)
             auto type = this->m_type;

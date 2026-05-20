@@ -33,6 +33,7 @@ namespace db0::object_model
 
         ObjectSharedPtr tryGetEmbeddedField(const FieldInfo &) const;
         void getMembersImpl(std::unordered_set<std::string> &) const;
+        void dropMembers(db0::swine_ptr<Fixture> &, Class &) const;
     };
     
 }

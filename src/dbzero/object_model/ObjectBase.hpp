@@ -87,13 +87,13 @@ namespace db0
         }
         
         // Unregister must be called pre-destruction
-        void unregister() const
+        void unregister(bool noDrop = false) const
         {
             // remove from the registry (on condition the underlying instance & fixture still exists)
             if (m_gc_registered && hasInstance()) {
                 auto fixture = this->tryGetFixture();
                 if (fixture) {
-                    fixture->getGC0().tryRemove((void*)this);
+                    fixture->getGC0().tryRemove((void*)this, noDrop);
                 }
                 m_gc_registered = false;
             }

@@ -659,6 +659,139 @@ namespace tests
         workspace.close();
     }
 
+    TEST_F( ObjectInitializerTest, testDestroyImmutableRootUnrefsEmbeddedNestedObjectMembers )
+    {
+        Py_Initialize();
+
+        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
+        auto fixture = workspace.getFixture(prefix_name);
+        auto rootClass = getTestClass(fixture);
+        auto referencedClass = getTestClass(fixture);
+        auto pyMemoType = makeImmutableMemoType();
+        ASSERT_TRUE(pyMemoType.get());
+        auto nestedClass = fixture->get<ClassFactory>().getOrCreateType(pyMemoType.get());
+        auto rootLoc = rootClass->addField("inner", 0).get(0).getIndexAndOffset();
+        auto nestedLoc = nestedClass->addField("held", 0).get(0).getIndexAndOffset();
+
+        {
+            Object referenced(referencedClass);
+            {
+                db0::FixtureLock lock(fixture);
+                referenced.postInit(lock);
+            }
+            referenced.incRef(false);
+            referenced.incRef(false);
+            ASSERT_EQ(referenced.getRefCounts().second, 2u);
+
+            ObjectImmutableImpl root(rootClass);
+            auto pyMemo = Py_OWN(reinterpret_cast<db0::python::MemoImmutableObject *>(
+                db0::python::MemoObjectStub_new(pyMemoType.get())
+            ));
+            pyMemo->makeNew(nestedClass);
+            auto *nestedInitializer = dynamic_cast<ImmutableObjectInitializer *>(
+                InitManager::instance.findInitializer(pyMemo->ext())
+            );
+            ASSERT_NE(nestedInitializer, nullptr);
+            nestedInitializer->set(nestedLoc, StorageClass::OBJECT_REF, Value(referenced.getAddress()));
+
+            auto *rootInitializer = dynamic_cast<ImmutableObjectInitializer *>(
+                InitManager::instance.findInitializer(root)
+            );
+            ASSERT_NE(rootInitializer, nullptr);
+            rootInitializer->setObject(
+                rootLoc, StorageClass::OBJECT_REF, Value(0),
+                ImmutableObjectInitializer::ObjectSharedPtr(reinterpret_cast<PyObject *>(pyMemo.get()))
+            );
+
+            {
+                db0::FixtureLock lock(fixture);
+                root.postInit(lock);
+            }
+
+            ASSERT_TRUE(fixture->isAddressValid(root.getAddress(), ObjectImmutableImpl::REALM_ID));
+            root.destroy();
+            ASSERT_EQ(referenced.getRefCounts().second, 1u);
+        }
+
+        rootClass.reset();
+        referencedClass.reset();
+        nestedClass.reset();
+        workspace.close();
+    }
+
+    TEST_F( ObjectInitializerTest, testDestroyImmutableRootUnrefsRecursivelyEmbeddedNestedObjectMembers )
+    {
+        Py_Initialize();
+
+        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
+        auto fixture = workspace.getFixture(prefix_name);
+        auto rootClass = getTestClass(fixture);
+        auto referencedClass = getTestClass(fixture);
+        auto pyMemoType = makeImmutableMemoType();
+        ASSERT_TRUE(pyMemoType.get());
+        auto nestedClass = fixture->get<ClassFactory>().getOrCreateType(pyMemoType.get());
+        auto rootLoc = rootClass->addField("outer", 0).get(0).getIndexAndOffset();
+        auto outerLoc = nestedClass->addField("inner", 0).get(0).getIndexAndOffset();
+        auto innerLoc = nestedClass->addField("held", 0).get(0).getIndexAndOffset();
+
+        {
+            Object referenced(referencedClass);
+            {
+                db0::FixtureLock lock(fixture);
+                referenced.postInit(lock);
+            }
+            referenced.incRef(false);
+            referenced.incRef(false);
+            ASSERT_EQ(referenced.getRefCounts().second, 2u);
+
+            auto pyInnerMemo = Py_OWN(reinterpret_cast<db0::python::MemoImmutableObject *>(
+                db0::python::MemoObjectStub_new(pyMemoType.get())
+            ));
+            pyInnerMemo->makeNew(nestedClass);
+            auto *innerInitializer = dynamic_cast<ImmutableObjectInitializer *>(
+                InitManager::instance.findInitializer(pyInnerMemo->ext())
+            );
+            ASSERT_NE(innerInitializer, nullptr);
+            innerInitializer->set(innerLoc, StorageClass::OBJECT_REF, Value(referenced.getAddress()));
+
+            auto pyOuterMemo = Py_OWN(reinterpret_cast<db0::python::MemoImmutableObject *>(
+                db0::python::MemoObjectStub_new(pyMemoType.get())
+            ));
+            pyOuterMemo->makeNew(nestedClass);
+            auto *outerInitializer = dynamic_cast<ImmutableObjectInitializer *>(
+                InitManager::instance.findInitializer(pyOuterMemo->ext())
+            );
+            ASSERT_NE(outerInitializer, nullptr);
+            outerInitializer->setObject(
+                outerLoc, StorageClass::OBJECT_REF, Value(0),
+                ImmutableObjectInitializer::ObjectSharedPtr(reinterpret_cast<PyObject *>(pyInnerMemo.get()))
+            );
+
+            ObjectImmutableImpl root(rootClass);
+            auto *rootInitializer = dynamic_cast<ImmutableObjectInitializer *>(
+                InitManager::instance.findInitializer(root)
+            );
+            ASSERT_NE(rootInitializer, nullptr);
+            rootInitializer->setObject(
+                rootLoc, StorageClass::OBJECT_REF, Value(0),
+                ImmutableObjectInitializer::ObjectSharedPtr(reinterpret_cast<PyObject *>(pyOuterMemo.get()))
+            );
+
+            {
+                db0::FixtureLock lock(fixture);
+                root.postInit(lock);
+            }
+
+            root.destroy();
+            ASSERT_EQ(referenced.getRefCounts().second, 1u);
+        }
+
+        rootClass.reset();
+        referencedClass.reset();
+        nestedClass.reset();
+        workspace.close();
+    }
+
     TEST_F( ObjectInitializerTest, testImmutablePreInitChangingRegularValueToLoFiClearsEmbeddedObject )
     {
         Py_Initialize();
