@@ -34,7 +34,7 @@ namespace db0::object_model
     class DictIterator;
 
 DB0_PACKED_BEGIN    
-    struct DB0_PACKED_ATTR o_dict: public db0::o_fixed_versioned<o_dict>
+    struct DB0_PACKED_ATTR o_mutable_dict: public db0::o_fixed_versioned<o_mutable_dict>
     {
         // common object header
         o_unique_header m_header;
@@ -48,12 +48,12 @@ DB0_PACKED_BEGIN
     };
 DB0_PACKED_END    
     
-    class Dict: public db0::ObjectBase<Dict, db0::v_object<o_dict>, StorageClass::DB0_DICT>
+    class Dict: public db0::ObjectBase<Dict, db0::v_object<o_mutable_dict>, StorageClass::DB0_DICT>
     {
         GC0_Declare
 
     public:
-        using super_t = db0::ObjectBase<Dict, db0::v_object<o_dict>, StorageClass::DB0_DICT>;
+        using super_t = db0::ObjectBase<Dict, db0::v_object<o_mutable_dict>, StorageClass::DB0_DICT>;
         friend super_t;
         using LangToolkit = db0::python::PyToolkit;
         using ObjectPtr = typename LangToolkit::ObjectPtr;

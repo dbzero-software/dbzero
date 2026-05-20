@@ -11,6 +11,8 @@ namespace db0::python
 {
    
 
+    void init_datetime();
+
     bool isDatatimeWithTZ(PyObject *py_datetime);
 
     PyObject * uint64ToPyDatetime(std::uint64_t datetime);

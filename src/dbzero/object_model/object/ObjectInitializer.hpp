@@ -9,10 +9,14 @@
 #include <cassert>
 #include <optional>
 #include <functional>
+#include <type_traits>
+#include <typeinfo>
 #include "ValueTable.hpp"
 #include <dbzero/core/exception/Exceptions.hpp>
 #include <dbzero/core/memory/swine_ptr.hpp>
 #include <dbzero/core/collections/vector/SparseBoolMatrix.hpp>
+#include <dbzero/object_model/LangConfig.hpp>
+#include <dbzero/object_model/dict/o_dict.hpp>
 #include <dbzero/object_model/value/XValue.hpp>
 #include "ValueTable.hpp"
 #include "XValuesVector.hpp"
@@ -32,7 +36,9 @@ namespace db0::object_model
 
     class Class;
     class Object;
+    class ObjectImmutableImpl;
     class ObjectInitializer;
+    class ImmutableObjectInitializer;
     using Fixture = db0::Fixture;
 
     /**
@@ -47,6 +53,9 @@ namespace db0::object_model
 
         template <typename T, typename... Args> 
         void addInitializer(T &object, Args&& ...args);
+
+        template <typename InitializerObjectT, typename T, typename... Args>
+        void addInitializerFor(T &object, Args&& ...args);
         
         // Close the initializer and retrieve object's class
         template <typename T>
@@ -89,6 +98,8 @@ namespace db0::object_model
     public:
         using XValue = db0::object_model::XValue;
         using TypeInitializer = std::function<std::shared_ptr<Class>(db0::swine_ptr<Fixture> &)>;
+
+        virtual ~ObjectInitializer() = default;
         
         // loc - position in the initializer manager's array
         template <typename T>
@@ -137,7 +148,7 @@ namespace db0::object_model
         }
         
         // @param mask required for lo-fi types (pack-2)
-        void set(std::pair<std::uint32_t, std::uint32_t> loc, StorageClass storage_class, Value value, 
+        void set(std::pair<std::uint32_t, std::uint32_t> loc, StorageClass storage_class, Value value,
             std::uint64_t mask = 0);
         bool remove(std::pair<std::uint32_t, std::uint32_t> loc, std::uint64_t mask = 0);
         
@@ -190,6 +201,9 @@ namespace db0::object_model
         void reset();
 
         void operator=(std::uint32_t new_loc);
+        std::pair<const XValue*, const XValue*> getDataFrom(
+            XValuesVector &values, PosVT::Data &data, unsigned int &pos_vt_offset
+        ) const;
         
     private:
         // maximum size of the position-encoded value-block (pos-VT)
@@ -200,28 +214,85 @@ namespace db0::object_model
         // pointer to an implementation-specific type
         void *m_object_ptr = nullptr;
         mutable std::shared_ptr<Class> m_class;
+
+    protected:
         // indexed initialization values
         mutable XValuesVector m_values;
+
+    private:
         // flags indicating values presence (for fast removal pruning)
         mutable SparseBoolMatrix m_has_value;
         std::pair<std::uint32_t, std::uint32_t> m_ref_counts = {0, 0};
         mutable db0::swine_ptr<Fixture> m_fixture;
         mutable TypeInitializer m_type_initializer;
     };
+
+    class ImmutableObjectInitializer: public ObjectInitializer
+    {
+    public:
+        using ObjectSharedPtr = LangConfig::ObjectSharedPtr;
+        using ObjectInitializer::ObjectInitializer;
+
+        void setObject(
+            std::pair<std::uint32_t, std::uint32_t> loc, StorageClass storage_class, Value value,
+            ObjectSharedPtr object, std::uint64_t mask = 0
+        );
+        bool remove(std::pair<std::uint32_t, std::uint32_t> loc, std::uint64_t mask = 0);
+        bool tryGetObjectAt(std::pair<std::uint32_t, std::uint32_t> loc, ObjectSharedPtr &object) const;
+        std::pair<const XValue*, const XValue*> getData(PosVT::Data &data, unsigned int &pos_vt_offset) const;
+        void resetObjects();
+
+        static bool isFixedStorageClass(StorageClass storage_class);
+
+        struct ObjectValue
+        {
+            std::pair<std::uint32_t, std::uint32_t> m_loc;
+            StorageClass m_storage_class = StorageClass::UNDEFINED;
+            ObjectSharedPtr m_object;
+        };
+
+        const std::vector<ObjectValue> &objects() const;
+
+    private:
+        std::vector<ObjectValue> m_objects;
+        mutable XValuesVector m_fixed_values;
+
+        void eraseObjectAt(std::pair<std::uint32_t, std::uint32_t> loc);
+    };
     
     template <typename T, typename... Args>
     void ObjectInitializerManager::addInitializer(T &object, Args&& ...args)
     {
+        addInitializerFor<T>(object, std::forward<Args>(args)...);
+    }
+
+    template <typename InitializerObjectT, typename T, typename... Args>
+    void ObjectInitializerManager::addInitializerFor(T &object, Args&& ...args)
+    {
+        using InitializerT = std::conditional_t<
+            std::is_same_v<InitializerObjectT, ObjectImmutableImpl>,
+            ImmutableObjectInitializer,
+            ObjectInitializer
+        >;
+
+        auto initAt = [&](std::uint32_t loc) {
+            if (m_initializers[loc] && typeid(*m_initializers[loc]) == typeid(InitializerT)) {
+                static_cast<InitializerT *>(m_initializers[loc].get())->init(object, std::forward<Args>(args)...);
+            } else {
+                m_initializers[loc].reset(new InitializerT(*this, loc, object, std::forward<Args>(args)...));
+            }
+        };
+
         if (m_active_count < m_total_count) {
             auto loc = m_active_count++;
-            m_initializers[loc]->init(object, std::forward<Args>(args)...);
+            initAt(loc);
             return;
         }
         
         for (;;) {
             if (m_total_count < m_initializers.size()) {
                 auto loc = m_total_count++;
-                m_initializers[loc].reset(new ObjectInitializer(*this, loc, object, std::forward<Args>(args)...));
+                initAt(loc);
                 ++m_active_count;
                 return;
             }

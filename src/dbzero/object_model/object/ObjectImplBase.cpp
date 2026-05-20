@@ -3,6 +3,7 @@
 
 #include "ObjectImplBase.hpp"
 #include <random>
+#include <type_traits>
 #include <dbzero/core/exception/Exceptions.hpp>
 #include <dbzero/core/serialization/string.hpp>
 #include <dbzero/workspace/Fixture.hpp>
@@ -41,14 +42,14 @@ namespace db0::object_model
     ObjectImplBase<T, ImplT>::ObjectImplBase(std::shared_ptr<Class> db0_class)    
     {
         // prepare for initialization
-        InitManager::instance.addInitializer(*this, db0_class);
+        InitManager::instance.template addInitializerFor<ImplT>(*this, db0_class);
     }
     
     template <typename T, typename ImplT>
     ObjectImplBase<T, ImplT>::ObjectImplBase(TypeInitializer &&type_initializer)
     {
         // prepare for initialization
-        InitManager::instance.addInitializer(*this, std::move(type_initializer));
+        InitManager::instance.template addInitializerFor<ImplT>(*this, std::move(type_initializer));
     }
 
     template <typename T, typename ImplT>

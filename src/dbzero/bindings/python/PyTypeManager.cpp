@@ -452,6 +452,35 @@ namespace db0::python
         }
     }
 
+    const char *PyTypeManager::extractString(ObjectPtr obj_ptr) const
+    {
+        if (!PyUnicode_Check(obj_ptr)) {
+            THROWF(db0::InputException) << "Expected a string object, got "
+                << PyToolkit::getTypeName(obj_ptr) << THROWF_END;
+        }
+        auto value = PyUnicode_AsUTF8(obj_ptr);
+        if (!value) {
+            PyErr_Clear();
+            THROWF(db0::InputException) << "Unable to encode Python string as UTF-8";
+        }
+        return value;
+    }
+
+    PyTypeManager::BytesView PyTypeManager::extractBytes(ObjectPtr obj_ptr) const
+    {
+        if (!PyBytes_Check(obj_ptr)) {
+            THROWF(db0::InputException) << "Expected a bytes object, got "
+                << PyToolkit::getTypeName(obj_ptr) << THROWF_END;
+        }
+        char *data = nullptr;
+        Py_ssize_t size = 0;
+        if (PyBytes_AsStringAndSize(obj_ptr, &data, &size) != 0) {
+            PyErr_Clear();
+            THROWF(db0::InputException) << "Unable to read Python bytes";
+        }
+        return { reinterpret_cast<const std::byte *>(data), static_cast<std::size_t>(size) };
+    }
+
     PyTypeManager::TypeObjectPtr PyTypeManager::getTypeObject(ObjectPtr py_type) const
     {
         assert(PyType_Check(py_type));

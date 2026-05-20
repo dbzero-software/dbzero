@@ -165,6 +165,7 @@ namespace std
             case StorageClass::PACK_2: return os << "PACK_2";
             case StorageClass::OBJECT_WEAK_REF: return os << "OBJECT_WEAK_REF";
             case StorageClass::OBJECT_LONG_WEAK_REF: return os << "OBJECT_LONG_WEAK_REF";
+            case StorageClass::PACKED_INT32: return os << "PACKED_INT32";
             case StorageClass::INVALID: return os << "INVALID";
             default: return os << "ERROR!";
         }

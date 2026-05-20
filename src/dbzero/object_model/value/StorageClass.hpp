@@ -116,10 +116,12 @@ namespace db0::object_model
         DELETED = static_cast<int>(PreStorageClass::DELETED),
         CALLABLE = static_cast<int>(PreStorageClass::CALLABLE),
         DB0_WEAK_SET = static_cast<int>(PreStorageClass::DB0_WEAK_SET),
+        // Embedded immutable integer encoded with packed-int storage.
+        PACKED_INT32 = std::numeric_limits<std::uint8_t>::max() - 2,
         // weak reference to other (Memo) instance from a foreign prefix
-        OBJECT_LONG_WEAK_REF = static_cast<int>(PreStorageClass::COUNT),
+        OBJECT_LONG_WEAK_REF = std::numeric_limits<std::uint8_t>::max() - 1,
         // COUNT used to determine size of the StorageClass associated arrays
-        COUNT = static_cast<int>(PreStorageClass::COUNT) + 1,
+        COUNT = std::numeric_limits<std::uint8_t>::max(),
         // invalid / reserved value, never used in objects
         INVALID = std::numeric_limits<std::uint8_t>::max()
     };

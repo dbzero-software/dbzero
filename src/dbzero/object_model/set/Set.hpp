@@ -33,7 +33,7 @@ namespace db0::object_model
     class SetIterator;
     
 DB0_PACKED_BEGIN
-    struct DB0_PACKED_ATTR o_set: public db0::o_fixed_versioned<o_set>
+    struct DB0_PACKED_ATTR o_db0_set: public db0::o_fixed_versioned<o_db0_set>
     {
         // common object header
         o_unique_header m_header;
@@ -47,12 +47,12 @@ DB0_PACKED_BEGIN
     };
 DB0_PACKED_END    
     
-    class Set: public db0::ObjectBase<Set, db0::v_object<o_set>, StorageClass::DB0_SET>
+    class Set: public db0::ObjectBase<Set, db0::v_object<o_db0_set>, StorageClass::DB0_SET>
     {
         GC0_Declare
     public:
-        using super_t = db0::ObjectBase<Set, db0::v_object<o_set>, StorageClass::DB0_SET>;
-        friend class db0::ObjectBase<Set, db0::v_object<o_set>, StorageClass::DB0_SET>;
+        using super_t = db0::ObjectBase<Set, db0::v_object<o_db0_set>, StorageClass::DB0_SET>;
+        friend class db0::ObjectBase<Set, db0::v_object<o_db0_set>, StorageClass::DB0_SET>;
         using LangToolkit = db0::python::PyToolkit;
         using ObjectPtr = typename LangToolkit::ObjectPtr;
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;

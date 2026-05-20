@@ -28,13 +28,13 @@ namespace db0::object_model
     class TupleIterator;
     
 DB0_PACKED_BEGIN    
-    class DB0_PACKED_ATTR o_tuple: public o_base<o_tuple, 0, true>
+    class DB0_PACKED_ATTR o_db0_tuple: public o_base<o_db0_tuple, 0, true>
     {
     protected:
-        using super_t = o_base<o_tuple, 0, true>;
+        using super_t = o_base<o_db0_tuple, 0, true>;
         friend super_t;
 
-        o_tuple(std::size_t size);
+        o_db0_tuple(std::size_t size);
 
     public:         
         // common object header
@@ -67,11 +67,11 @@ DB0_PACKED_BEGIN
     };
 DB0_PACKED_END
     
-    class Tuple: public db0::ObjectBase<Tuple, v_object<o_tuple>, StorageClass::DB0_TUPLE>
+    class Tuple: public db0::ObjectBase<Tuple, v_object<o_db0_tuple>, StorageClass::DB0_TUPLE>
     {
         GC0_Declare
     public:
-        using super_t = db0::ObjectBase<Tuple, v_object<o_tuple>, StorageClass::DB0_TUPLE>;
+        using super_t = db0::ObjectBase<Tuple, v_object<o_db0_tuple>, StorageClass::DB0_TUPLE>;
         friend super_t;
         using LangToolkit = db0::python::PyToolkit;
         using ObjectPtr = typename LangToolkit::ObjectPtr;

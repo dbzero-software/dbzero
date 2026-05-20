@@ -36,6 +36,10 @@ namespace db0::object_model
     std::size_t PosVT::size() const {
         return types().size();
     }
+
+    unsigned int PosVT::offset() const {
+        return types().offset();
+    }
     
     std::size_t PosVT::measure(const Data &data, unsigned int offset)
     {

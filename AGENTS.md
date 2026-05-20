@@ -31,6 +31,10 @@ Never mark a task done while tests are failing.
 
 ## Implementation notes
 
+### Temporary immutable objects design
+
+When working on immutable objects, use `design/IMMUTABLE_OBJECTS_DESIGN.md` as the implementation design reference. This file is temporary and should be removed after the feature is complete.
+
 ### v_object constructor conventions
 
 Types derived from `v_object` should follow the project-wide constructor pattern:
@@ -47,6 +51,12 @@ Types derived from `v_object` should follow the project-wide constructor pattern
 When accessing a C++ object stored inside a Python wrapper, use `ext()` for read-only operations and for operations that are explicitly documented as non-mutating wrapper/runtime attachment updates.
 
 Use `modifyExt()` for real object mutations, especially durable state changes. Do not use `const_cast` on `ext()` to call a mutating method. If a wrapper currently exposes only a const object but needs a mutating API, change the wrapper type or access path so the mutation can go through `modifyExt()`.
+
+### Python C API safety helpers
+
+When iterating over Python objects in C++, use `Py_FOR(item, iterator)` from `PySafeAPI.hpp` with an owned iterator, for example `auto iterator = Py_OWN(PyObject_GetIter(obj));`. The loop owns each yielded item and avoids manual `Py_DECREF` paths.
+
+For Python container/object writes, use the `PySafe_*` helpers from `PySafeAPI.hpp` instead of the raw C API when a helper exists, such as `PySafeList_SetItem`, `PySafeTuple_SetItem`, `PySafeDict_SetItem`, `PySafeDict_SetItemString`, `PySafeSet_Add`, and `PySafeModule_AddObject`.
 
 ### MorphingBIndex: address and type can change on mutation
 
