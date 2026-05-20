@@ -47,40 +47,40 @@ namespace tests
 
     static std::uint32_t testElementHash(const o_set::Element &element)
     {
-        auto seedKind = element.m_kind == TupleItemKind::PACKED_INT64 ? TupleItemKind::INT64 : element.m_kind;
+        auto seedKind = element.m_kind == StorageClass::PACKED_INT32 ? StorageClass::INT64 : element.m_kind;
         auto seed = 0x9e3779b9U ^ static_cast<std::uint32_t>(seedKind);
         switch (element.m_kind) {
-            case TupleItemKind::NONE:
+            case StorageClass::NONE:
                 return testHashBytes(nullptr, 0, seed);
-            case TupleItemKind::BOOLEAN: {
+            case StorageClass::BOOLEAN: {
                 auto value = element.boolValue();
                 return testHashBytes(&value, sizeof(value), seed);
             }
-            case TupleItemKind::INT64: {
+            case StorageClass::INT64: {
                 auto value = element.intValue();
                 return testHashBytes(&value, sizeof(value), seed);
             }
-            case TupleItemKind::PACKED_INT64: {
+            case StorageClass::PACKED_INT32: {
                 auto value = element.intValue();
                 return testHashBytes(&value, sizeof(value), seed);
             }
-            case TupleItemKind::FP_NUMERIC64: {
+            case StorageClass::FP_NUMERIC64: {
                 auto value = element.doubleValue();
                 return testHashBytes(&value, sizeof(value), seed);
             }
-            case TupleItemKind::STRING: {
+            case StorageClass::STRING_REF: {
                 auto value = element.m_payload.m_string_value;
                 return testHashBytes(value.data(), value.size(), seed);
             }
-            case TupleItemKind::BINARY:
+            case StorageClass::DB0_BYTES:
                 return testHashBytes(element.bytesData(), element.bytesSize(), seed);
-            case TupleItemKind::PTIME64:
-            case TupleItemKind::DATE:
-            case TupleItemKind::DATETIME:
-            case TupleItemKind::DATETIME_TZ:
-            case TupleItemKind::TIME:
-            case TupleItemKind::TIME_TZ:
-            case TupleItemKind::DECIMAL: {
+            case StorageClass::PTIME64:
+            case StorageClass::DATE:
+            case StorageClass::DATETIME:
+            case StorageClass::DATETIME_TZ:
+            case StorageClass::TIME:
+            case StorageClass::TIME_TZ:
+            case StorageClass::DECIMAL: {
                 auto value = element.uint64Value();
                 return testHashBytes(&value, sizeof(value), seed);
             }
@@ -116,32 +116,32 @@ namespace tests
         std::ostringstream key;
         key << static_cast<unsigned>(element.m_kind) << ':';
         switch (element.m_kind) {
-            case TupleItemKind::NONE:
+            case StorageClass::NONE:
                 key << "none";
                 break;
-            case TupleItemKind::BOOLEAN:
+            case StorageClass::BOOLEAN:
                 key << element.boolValue();
                 break;
-            case TupleItemKind::INT64:
-            case TupleItemKind::PACKED_INT64:
+            case StorageClass::INT64:
+            case StorageClass::PACKED_INT32:
                 key << element.intValue();
                 break;
-            case TupleItemKind::FP_NUMERIC64:
+            case StorageClass::FP_NUMERIC64:
                 key << std::setprecision(17) << element.doubleValue();
                 break;
-            case TupleItemKind::STRING:
+            case StorageClass::STRING_REF:
                 key << element.stringValue();
                 break;
-            case TupleItemKind::BINARY:
+            case StorageClass::DB0_BYTES:
                 key << bytesKey(element.bytesData(), element.bytesSize());
                 break;
-            case TupleItemKind::PTIME64:
-            case TupleItemKind::DATE:
-            case TupleItemKind::DATETIME:
-            case TupleItemKind::DATETIME_TZ:
-            case TupleItemKind::TIME:
-            case TupleItemKind::TIME_TZ:
-            case TupleItemKind::DECIMAL:
+            case StorageClass::PTIME64:
+            case StorageClass::DATE:
+            case StorageClass::DATETIME:
+            case StorageClass::DATETIME_TZ:
+            case StorageClass::TIME:
+            case StorageClass::TIME_TZ:
+            case StorageClass::DECIMAL:
                 key << element.uint64Value();
                 break;
             default:
@@ -155,34 +155,34 @@ namespace tests
         std::ostringstream key;
         key << static_cast<unsigned>(item.itemKind()) << ':';
         switch (item.itemKind()) {
-            case TupleItemKind::NONE:
+            case StorageClass::NONE:
                 key << "none";
                 break;
-            case TupleItemKind::BOOLEAN:
+            case StorageClass::BOOLEAN:
                 key << item.boolPayload().value();
                 break;
-            case TupleItemKind::INT64:
+            case StorageClass::INT64:
                 key << item.intPayload().value();
                 break;
-            case TupleItemKind::PACKED_INT64:
+            case StorageClass::PACKED_INT32:
                 key << item.packedIntPayload().value();
                 break;
-            case TupleItemKind::FP_NUMERIC64:
+            case StorageClass::FP_NUMERIC64:
                 key << std::setprecision(17) << item.doublePayload().value();
                 break;
-            case TupleItemKind::STRING:
+            case StorageClass::STRING_REF:
                 key << item.stringPayload().toString();
                 break;
-            case TupleItemKind::BINARY:
+            case StorageClass::DB0_BYTES:
                 key << bytesKey(item.bytesPayload().begin(), item.bytesPayload().size());
                 break;
-            case TupleItemKind::PTIME64:
-            case TupleItemKind::DATE:
-            case TupleItemKind::DATETIME:
-            case TupleItemKind::DATETIME_TZ:
-            case TupleItemKind::TIME:
-            case TupleItemKind::TIME_TZ:
-            case TupleItemKind::DECIMAL:
+            case StorageClass::PTIME64:
+            case StorageClass::DATE:
+            case StorageClass::DATETIME:
+            case StorageClass::DATETIME_TZ:
+            case StorageClass::TIME:
+            case StorageClass::TIME_TZ:
+            case StorageClass::DECIMAL:
                 key << item.uint64Payload().value();
                 break;
             default:

@@ -7,9 +7,29 @@
 
 #include <dbzero/bindings/python/PyToolkit.hpp>
 #include <dbzero/core/exception/Exceptions.hpp>
+#include <dbzero/object_model/dict/o_py_dict.hpp>
+#include <dbzero/object_model/set/o_py_set.hpp>
 
 namespace db0::object_model
 {
+    namespace
+    {
+        void writePyTuple(void *buf, const void *source)
+        {
+            o_py_tuple::__new(buf, const_cast<PyObject *>(static_cast<const PyObject *>(source)));
+        }
+
+        void writePySet(void *buf, const void *source)
+        {
+            o_py_set::__new(buf, const_cast<PyObject *>(static_cast<const PyObject *>(source)));
+        }
+
+        void writePyDict(void *buf, const void *source)
+        {
+            o_py_dict::__new(buf, const_cast<PyObject *>(static_cast<const PyObject *>(source)));
+        }
+    }
+
     o_py_tuple::o_py_tuple(PyObject *sequence)
         : o_tuple<>()
     {
@@ -82,22 +102,19 @@ namespace db0::object_model
         case db0::bindings::TypeId::DECIMAL:
             return Element::decimal(typeManager.extractUInt64(typeId, object));
         case db0::bindings::TypeId::STRING: {
-            const char *value = PyUnicode_AsUTF8(object);
-            if (!value) {
-                PyErr_Clear();
-                THROWF(db0::InputException) << "Unable to encode Python string as UTF-8";
-            }
-            return Element::string(value);
+            return Element::string(typeManager.extractString(object));
         }
         case db0::bindings::TypeId::BYTES: {
-            char *data = nullptr;
-            Py_ssize_t size = 0;
-            if (PyBytes_AsStringAndSize(object, &data, &size) != 0) {
-                PyErr_Clear();
-                THROWF(db0::InputException) << "Unable to read Python bytes";
-            }
-            return Element::bytes(reinterpret_cast<const std::byte *>(data), static_cast<std::size_t>(size));
+            auto bytes = typeManager.extractBytes(object);
+            return Element::bytes(bytes.m_data, bytes.m_size);
         }
+        case db0::bindings::TypeId::LIST:
+        case db0::bindings::TypeId::TUPLE:
+            return Element::embeddedTuple(o_py_tuple::measure(object), writePyTuple, object);
+        case db0::bindings::TypeId::SET:
+            return Element::embeddedSet(o_py_set::measure(object), writePySet, object);
+        case db0::bindings::TypeId::DICT:
+            return Element::embeddedDict(o_py_dict::measure(object), writePyDict, object);
         default:
             break;
         }

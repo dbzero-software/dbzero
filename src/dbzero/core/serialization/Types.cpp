@@ -32,6 +32,12 @@ namespace db0
 		std::copy(data.data(), data.data() + m_bytes, &m_buf);
 	}
 
+    o_binary::o_binary(std::size_t size, void (*write)(void *, const void *), const void *source)
+        : m_bytes(size)
+    {
+        write(&m_buf, source);
+    }
+
 	o_binary &o_binary::operator=(const o_binary &binary) 
 	{
 		assert(m_bytes == binary.size());

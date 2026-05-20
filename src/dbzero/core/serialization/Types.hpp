@@ -116,6 +116,8 @@ DB0_PACKED_BEGIN
 
         o_binary(const std::vector<std::byte> &);
 
+        o_binary(std::size_t size, void (*write)(void *, const void *), const void *source);
+
     public:
         /**
          * Get content size

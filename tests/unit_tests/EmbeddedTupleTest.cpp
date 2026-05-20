@@ -11,9 +11,12 @@
 #include <utils/TestBase.hpp>
 #include <dbzero/core/serialization/bounded_buf_t.hpp>
 #include <dbzero/core/vspace/v_object.hpp>
+#include <dbzero/object_model/dict/o_dict.hpp>
+#include <dbzero/object_model/set/o_set.hpp>
 #include <dbzero/object_model/tuple/o_py_tuple.hpp>
 #include <dbzero/object_model/tuple/o_tuple.hpp>
 
+#include <limits>
 #include <stdexcept>
 
 namespace tests
@@ -29,7 +32,7 @@ namespace tests
 
     static std::int64_t asInt64(const o_tuple_item &item)
     {
-        if (item.itemKind() == TupleItemKind::PACKED_INT64) {
+        if (item.itemKind() == StorageClass::PACKED_INT32) {
             return static_cast<std::int64_t>(item.packedIntPayload().value());
         }
         return item.intPayload().value();
@@ -93,59 +96,59 @@ namespace tests
             o_tuple<>::safeSizeOf(reinterpret_cast<const std::byte *>(tuple.getData())));
         ASSERT_EQ(tuple->size(), 4u);
         ASSERT_EQ(tuple->elementsByteSize(), expectedElementsSize);
-        ASSERT_EQ(tuple->item(0).itemKind(), TupleItemKind::PACKED_INT64);
+        ASSERT_EQ(tuple->item(0).itemKind(), StorageClass::PACKED_INT32);
         ASSERT_EQ(asInt64(tuple->item(0)), 42);
-        ASSERT_EQ(tuple->item(1).itemKind(), TupleItemKind::STRING);
+        ASSERT_EQ(tuple->item(1).itemKind(), StorageClass::STRING_REF);
         ASSERT_EQ(asString(tuple->item(1)), "alpha");
-        ASSERT_EQ(tuple->item(2).itemKind(), TupleItemKind::BOOLEAN);
+        ASSERT_EQ(tuple->item(2).itemKind(), StorageClass::BOOLEAN);
         ASSERT_TRUE(asBool(tuple->item(2)));
-        ASSERT_EQ(tuple->item(3).itemKind(), TupleItemKind::BINARY);
+        ASSERT_EQ(tuple->item(3).itemKind(), StorageClass::DB0_BYTES);
         ASSERT_EQ(asBytes(tuple->item(3)), (std::vector<std::byte>{ std::byte{0x01}, std::byte{0x02}, std::byte{0xff} }));
     }
 
-    TEST_F( EmbeddedTupleTest , testTupleItemKindValuesAreStable )
+    TEST_F( EmbeddedTupleTest , testTupleItemStorageClassValuesAreStable )
     {
-        ASSERT_EQ(static_cast<std::uint8_t>(TupleItemKind::UNDEFINED), 0u);
-        ASSERT_EQ(static_cast<std::uint8_t>(TupleItemKind::NONE), 1u);
-        ASSERT_EQ(static_cast<std::uint8_t>(TupleItemKind::BOOLEAN), 2u);
-        ASSERT_EQ(static_cast<std::uint8_t>(TupleItemKind::INT64), 3u);
-        ASSERT_EQ(static_cast<std::uint8_t>(TupleItemKind::FP_NUMERIC64), 4u);
-        ASSERT_EQ(static_cast<std::uint8_t>(TupleItemKind::STRING), 5u);
-        ASSERT_EQ(static_cast<std::uint8_t>(TupleItemKind::BINARY), 6u);
-        ASSERT_EQ(static_cast<std::uint8_t>(TupleItemKind::PTIME64), 7u);
-        ASSERT_EQ(static_cast<std::uint8_t>(TupleItemKind::DATE), 8u);
-        ASSERT_EQ(static_cast<std::uint8_t>(TupleItemKind::DATETIME), 9u);
-        ASSERT_EQ(static_cast<std::uint8_t>(TupleItemKind::DATETIME_TZ), 10u);
-        ASSERT_EQ(static_cast<std::uint8_t>(TupleItemKind::TIME), 11u);
-        ASSERT_EQ(static_cast<std::uint8_t>(TupleItemKind::TIME_TZ), 12u);
-        ASSERT_EQ(static_cast<std::uint8_t>(TupleItemKind::DECIMAL), 13u);
-        ASSERT_EQ(static_cast<std::uint8_t>(TupleItemKind::PACKED_INT64), 14u);
+        ASSERT_EQ(static_cast<std::uint8_t>(StorageClass::UNDEFINED), 0u);
+        ASSERT_EQ(static_cast<std::uint8_t>(StorageClass::NONE), 1u);
+        ASSERT_EQ(static_cast<std::uint8_t>(StorageClass::STRING_REF), 2u);
+        ASSERT_EQ(static_cast<std::uint8_t>(StorageClass::INT64), 4u);
+        ASSERT_EQ(static_cast<std::uint8_t>(StorageClass::PTIME64), 5u);
+        ASSERT_EQ(static_cast<std::uint8_t>(StorageClass::FP_NUMERIC64), 6u);
+        ASSERT_EQ(static_cast<std::uint8_t>(StorageClass::DATE), 7u);
+        ASSERT_EQ(static_cast<std::uint8_t>(StorageClass::DATETIME), 8u);
+        ASSERT_EQ(static_cast<std::uint8_t>(StorageClass::DATETIME_TZ), 9u);
+        ASSERT_EQ(static_cast<std::uint8_t>(StorageClass::TIME), 10u);
+        ASSERT_EQ(static_cast<std::uint8_t>(StorageClass::TIME_TZ), 11u);
+        ASSERT_EQ(static_cast<std::uint8_t>(StorageClass::DECIMAL), 12u);
+        ASSERT_EQ(static_cast<std::uint8_t>(StorageClass::DB0_BYTES), 23u);
+        ASSERT_EQ(static_cast<std::uint8_t>(StorageClass::BOOLEAN), 28u);
+        ASSERT_EQ(static_cast<std::uint8_t>(StorageClass::PACKED_INT32), 253u);
     }
 
-    TEST_F( EmbeddedTupleTest , testTupleUsesPackedInt64OnlyWhenItSavesAtLeastTwoBytes )
+    TEST_F( EmbeddedTupleTest , testTupleUsesPackedInt32KindOnlyWhenItSavesAtLeastTwoBytes )
     {
         auto memspace = getMemspace();
-        constexpr std::int64_t sixBytePackedMax = (std::int64_t{1} << 42) - 1;
-        constexpr std::int64_t sevenBytePackedMin = std::int64_t{1} << 42;
+        constexpr std::int64_t maxPackedInt32 = std::numeric_limits<std::uint32_t>::max();
+        constexpr std::int64_t firstInt64AfterPacked = static_cast<std::int64_t>(std::numeric_limits<std::uint32_t>::max()) + 1;
         std::vector<o_tuple<>::Element> elements = {
             o_tuple<>::Element::integer(0),
             o_tuple<>::Element::integer(127),
-            o_tuple<>::Element::integer(sixBytePackedMax),
-            o_tuple<>::Element::integer(sevenBytePackedMin),
+            o_tuple<>::Element::integer(maxPackedInt32),
+            o_tuple<>::Element::integer(firstInt64AfterPacked),
             o_tuple<>::Element::integer(-1)
         };
 
         v_object<o_tuple<> > tuple(memspace, elements);
 
-        ASSERT_EQ(tuple->item(0).itemKind(), TupleItemKind::PACKED_INT64);
+        ASSERT_EQ(tuple->item(0).itemKind(), StorageClass::PACKED_INT32);
         ASSERT_EQ(asInt64(tuple->item(0)), 0);
-        ASSERT_EQ(tuple->item(1).itemKind(), TupleItemKind::PACKED_INT64);
+        ASSERT_EQ(tuple->item(1).itemKind(), StorageClass::PACKED_INT32);
         ASSERT_EQ(asInt64(tuple->item(1)), 127);
-        ASSERT_EQ(tuple->item(2).itemKind(), TupleItemKind::PACKED_INT64);
-        ASSERT_EQ(asInt64(tuple->item(2)), sixBytePackedMax);
-        ASSERT_EQ(tuple->item(3).itemKind(), TupleItemKind::INT64);
-        ASSERT_EQ(asInt64(tuple->item(3)), sevenBytePackedMin);
-        ASSERT_EQ(tuple->item(4).itemKind(), TupleItemKind::INT64);
+        ASSERT_EQ(tuple->item(2).itemKind(), StorageClass::PACKED_INT32);
+        ASSERT_EQ(asInt64(tuple->item(2)), maxPackedInt32);
+        ASSERT_EQ(tuple->item(3).itemKind(), StorageClass::INT64);
+        ASSERT_EQ(asInt64(tuple->item(3)), firstInt64AfterPacked);
+        ASSERT_EQ(tuple->item(4).itemKind(), StorageClass::INT64);
         ASSERT_EQ(asInt64(tuple->item(4)), -1);
 
         ASSERT_EQ(tuple->item(0).sizeOf(), o_tuple_item::measure(elements[0]));
@@ -169,19 +172,19 @@ namespace tests
         v_object<o_tuple<> > tuple(memspace, elements);
 
         ASSERT_EQ(tuple->size(), elements.size());
-        ASSERT_EQ(tuple->item(0).itemKind(), TupleItemKind::PTIME64);
+        ASSERT_EQ(tuple->item(0).itemKind(), StorageClass::PTIME64);
         ASSERT_EQ(asUint64(tuple->item(0)), 1001u);
-        ASSERT_EQ(tuple->item(1).itemKind(), TupleItemKind::DATE);
+        ASSERT_EQ(tuple->item(1).itemKind(), StorageClass::DATE);
         ASSERT_EQ(asUint64(tuple->item(1)), 2002u);
-        ASSERT_EQ(tuple->item(2).itemKind(), TupleItemKind::DATETIME);
+        ASSERT_EQ(tuple->item(2).itemKind(), StorageClass::DATETIME);
         ASSERT_EQ(asUint64(tuple->item(2)), 3003u);
-        ASSERT_EQ(tuple->item(3).itemKind(), TupleItemKind::DATETIME_TZ);
+        ASSERT_EQ(tuple->item(3).itemKind(), StorageClass::DATETIME_TZ);
         ASSERT_EQ(asUint64(tuple->item(3)), 4004u);
-        ASSERT_EQ(tuple->item(4).itemKind(), TupleItemKind::TIME);
+        ASSERT_EQ(tuple->item(4).itemKind(), StorageClass::TIME);
         ASSERT_EQ(asUint64(tuple->item(4)), 5005u);
-        ASSERT_EQ(tuple->item(5).itemKind(), TupleItemKind::TIME_TZ);
+        ASSERT_EQ(tuple->item(5).itemKind(), StorageClass::TIME_TZ);
         ASSERT_EQ(asUint64(tuple->item(5)), 6006u);
-        ASSERT_EQ(tuple->item(6).itemKind(), TupleItemKind::DECIMAL);
+        ASSERT_EQ(tuple->item(6).itemKind(), StorageClass::DECIMAL);
         ASSERT_EQ(asUint64(tuple->item(6)), 7007u);
     }
 
@@ -293,7 +296,7 @@ namespace tests
 
         ASSERT_EQ(tuple->sizeOf(), o_tuple<>::safeSizeOf(reinterpret_cast<const std::byte *>(tuple.getData())));
         ASSERT_EQ(tuple->size(), 2u);
-        ASSERT_EQ(tuple->item(0).itemKind(), TupleItemKind::NONE);
+        ASSERT_EQ(tuple->item(0).itemKind(), StorageClass::NONE);
         ASSERT_EQ(asString(tuple->item(1)), "variable length");
     }
 
@@ -330,15 +333,15 @@ namespace tests
 
         ASSERT_EQ(o_py_tuple::measure(*pyTuple), tuple->sizeOf());
         ASSERT_EQ(tuple->size(), 5u);
-        ASSERT_EQ(tuple->item(0).itemKind(), TupleItemKind::PACKED_INT64);
+        ASSERT_EQ(tuple->item(0).itemKind(), StorageClass::PACKED_INT32);
         ASSERT_EQ(asInt64(tuple->item(0)), 123);
-        ASSERT_EQ(tuple->item(1).itemKind(), TupleItemKind::STRING);
+        ASSERT_EQ(tuple->item(1).itemKind(), StorageClass::STRING_REF);
         ASSERT_EQ(asString(tuple->item(1)), "python");
-        ASSERT_EQ(tuple->item(2).itemKind(), TupleItemKind::BOOLEAN);
+        ASSERT_EQ(tuple->item(2).itemKind(), StorageClass::BOOLEAN);
         ASSERT_TRUE(asBool(tuple->item(2)));
-        ASSERT_EQ(tuple->item(3).itemKind(), TupleItemKind::FP_NUMERIC64);
+        ASSERT_EQ(tuple->item(3).itemKind(), StorageClass::FP_NUMERIC64);
         ASSERT_EQ(asDouble(tuple->item(3)), 4.5);
-        ASSERT_EQ(tuple->item(4).itemKind(), TupleItemKind::BINARY);
+        ASSERT_EQ(tuple->item(4).itemKind(), StorageClass::DB0_BYTES);
         ASSERT_EQ(asBytes(tuple->item(4)), (std::vector<std::byte>{ std::byte{0x01}, std::byte{0x02} }));
     }
 
@@ -354,9 +357,134 @@ namespace tests
 
         ASSERT_EQ(o_py_tuple::measure(*pyList), tuple->sizeOf());
         ASSERT_EQ(tuple->size(), 2u);
-        ASSERT_EQ(tuple->item(0).itemKind(), TupleItemKind::NONE);
-        ASSERT_EQ(tuple->item(1).itemKind(), TupleItemKind::STRING);
+        ASSERT_EQ(tuple->item(0).itemKind(), StorageClass::NONE);
+        ASSERT_EQ(tuple->item(1).itemKind(), StorageClass::STRING_REF);
         ASSERT_EQ(asString(tuple->item(1)), "list item");
+    }
+
+    TEST_F( EmbeddedTupleTest , testPyTupleConstructsDeeplyNestedCollections )
+    {
+        Py_Initialize();
+        auto memspace = getMemspace();
+
+        auto pyRoot = Py_OWN(PyTuple_New(3));
+
+        auto pyNestedList = Py_OWN(PyList_New(2));
+        PySafeList_SetItem(*pyNestedList, 0, Py_OWN(PyLong_FromLongLong(11)));
+
+        auto pyDeepDict = Py_OWN(PyDict_New());
+        ASSERT_EQ(PySafeDict_SetItem(
+            *pyDeepDict, Py_OWN(PyUnicode_FromString("answer")), Py_OWN(PyLong_FromLongLong(42))
+        ), 0);
+
+        auto pyDeepList = Py_OWN(PyList_New(2));
+        PySafeList_SetItem(*pyDeepList, 0, Py_OWN(PyUnicode_FromString("deep")));
+        PySafeList_SetItem(*pyDeepList, 1, Py_OWN(Py_NewRef(*pyDeepDict)));
+
+        auto pyInnerTuple = Py_OWN(PyTuple_New(2));
+        PySafeTuple_SetItem(*pyInnerTuple, 0, Py_OWN(PyLong_FromLongLong(22)));
+        PySafeTuple_SetItem(*pyInnerTuple, 1, Py_OWN(Py_NewRef(*pyDeepList)));
+
+        auto pyInnerDict = Py_OWN(PyDict_New());
+        ASSERT_EQ(PySafeDict_SetItem(
+            *pyInnerDict, Py_OWN(PyUnicode_FromString("tuple")), Py_OWN(Py_NewRef(*pyInnerTuple))
+        ), 0);
+        PySafeList_SetItem(*pyNestedList, 1, Py_OWN(Py_NewRef(*pyInnerDict)));
+        PySafeTuple_SetItem(*pyRoot, 0, Py_OWN(Py_NewRef(*pyNestedList)));
+
+        auto pyNumbers = Py_OWN(PyList_New(2));
+        PySafeList_SetItem(*pyNumbers, 0, Py_OWN(PyLong_FromLongLong(3)));
+        PySafeList_SetItem(*pyNumbers, 1, Py_OWN(PyLong_FromLongLong(4)));
+
+        auto pyFlags = Py_OWN(PySet_New(nullptr));
+        ASSERT_EQ(PySafeSet_Add(*pyFlags, Py_OWN(Py_NewRef(Py_True))), 0);
+        ASSERT_EQ(PySafeSet_Add(*pyFlags, Py_OWN(PyUnicode_FromString("ok"))), 0);
+
+        auto pyRootDict = Py_OWN(PyDict_New());
+        ASSERT_EQ(PySafeDict_SetItem(
+            *pyRootDict, Py_OWN(PyUnicode_FromString("numbers")), Py_OWN(Py_NewRef(*pyNumbers))
+        ), 0);
+        ASSERT_EQ(PySafeDict_SetItem(
+            *pyRootDict, Py_OWN(PyUnicode_FromString("flags")), Py_OWN(Py_NewRef(*pyFlags))
+        ), 0);
+        PySafeTuple_SetItem(*pyRoot, 1, Py_OWN(Py_NewRef(*pyRootDict)));
+
+        auto pyRootSet = Py_OWN(PySet_New(nullptr));
+        ASSERT_EQ(PySafeSet_Add(*pyRootSet, Py_OWN(PyUnicode_FromString("root-set"))), 0);
+        ASSERT_EQ(PySafeSet_Add(*pyRootSet, Py_OWN(PyLong_FromLongLong(99))), 0);
+        auto pySetTuple = Py_OWN(PyTuple_New(2));
+        PySafeTuple_SetItem(*pySetTuple, 0, Py_OWN(PyUnicode_FromString("set-tuple")));
+        PySafeTuple_SetItem(*pySetTuple, 1, Py_OWN(PyLong_FromLongLong(123)));
+        ASSERT_EQ(PySafeSet_Add(*pyRootSet, Py_OWN(Py_NewRef(*pySetTuple))), 0);
+        PySafeTuple_SetItem(*pyRoot, 2, Py_OWN(Py_NewRef(*pyRootSet)));
+
+        v_object<o_py_tuple> tuple(memspace, *pyRoot);
+
+        ASSERT_EQ(o_py_tuple::measure(*pyRoot), tuple->sizeOf());
+        ASSERT_EQ(tuple->size(), 3u);
+
+        ASSERT_EQ(tuple->item(0).itemKind(), StorageClass::DB0_TUPLE);
+        const auto &nestedList = o_tuple<>::__const_ref(tuple->item(0).embeddedPayload().begin());
+        ASSERT_EQ(nestedList.size(), 2u);
+        ASSERT_EQ(asInt64(nestedList.item(0)), 11);
+        ASSERT_EQ(nestedList.item(1).itemKind(), StorageClass::DB0_DICT);
+
+        const auto &innerDict = o_dict::__const_ref(nestedList.item(1).embeddedPayload().begin());
+        auto *innerTupleItem = innerDict.get(o_dict::Element::string("tuple"));
+        ASSERT_NE(innerTupleItem, nullptr);
+        ASSERT_EQ(innerTupleItem->itemKind(), StorageClass::DB0_TUPLE);
+
+        const auto &innerTuple = o_tuple<>::__const_ref(innerTupleItem->embeddedPayload().begin());
+        ASSERT_EQ(innerTuple.size(), 2u);
+        ASSERT_EQ(asInt64(innerTuple.item(0)), 22);
+        ASSERT_EQ(innerTuple.item(1).itemKind(), StorageClass::DB0_TUPLE);
+
+        const auto &deepList = o_tuple<>::__const_ref(innerTuple.item(1).embeddedPayload().begin());
+        ASSERT_EQ(deepList.size(), 2u);
+        ASSERT_EQ(asString(deepList.item(0)), "deep");
+        ASSERT_EQ(deepList.item(1).itemKind(), StorageClass::DB0_DICT);
+
+        const auto &deepDict = o_dict::__const_ref(deepList.item(1).embeddedPayload().begin());
+        auto *answer = deepDict.get(o_dict::Element::string("answer"));
+        ASSERT_NE(answer, nullptr);
+        ASSERT_EQ(asInt64(*answer), 42);
+
+        ASSERT_EQ(tuple->item(1).itemKind(), StorageClass::DB0_DICT);
+        const auto &rootDict = o_dict::__const_ref(tuple->item(1).embeddedPayload().begin());
+        auto *numbersItem = rootDict.get(o_dict::Element::string("numbers"));
+        ASSERT_NE(numbersItem, nullptr);
+        ASSERT_EQ(numbersItem->itemKind(), StorageClass::DB0_TUPLE);
+        const auto &numbers = o_tuple<>::__const_ref(numbersItem->embeddedPayload().begin());
+        ASSERT_EQ(numbers.size(), 2u);
+        ASSERT_EQ(asInt64(numbers.item(0)), 3);
+        ASSERT_EQ(asInt64(numbers.item(1)), 4);
+
+        auto *flagsItem = rootDict.get(o_dict::Element::string("flags"));
+        ASSERT_NE(flagsItem, nullptr);
+        ASSERT_EQ(flagsItem->itemKind(), StorageClass::DB0_SET);
+        const auto &flags = o_set::__const_ref(flagsItem->embeddedPayload().begin());
+        ASSERT_EQ(flags.size(), 2u);
+        ASSERT_TRUE(flags.contains(o_set::Element::boolean(true)));
+        ASSERT_TRUE(flags.contains(o_set::Element::string("ok")));
+
+        ASSERT_EQ(tuple->item(2).itemKind(), StorageClass::DB0_SET);
+        const auto &rootSet = o_set::__const_ref(tuple->item(2).embeddedPayload().begin());
+        ASSERT_EQ(rootSet.size(), 3u);
+        ASSERT_TRUE(rootSet.contains(o_set::Element::string("root-set")));
+        ASSERT_TRUE(rootSet.contains(o_set::Element::integer(99)));
+
+        const o_tuple_item *setTupleItem = nullptr;
+        for (auto it = rootSet.begin(); it != rootSet.end(); ++it) {
+            if (it->itemKind() == StorageClass::DB0_TUPLE) {
+                setTupleItem = &*it;
+                break;
+            }
+        }
+        ASSERT_NE(setTupleItem, nullptr);
+        const auto &setTuple = o_tuple<>::__const_ref(setTupleItem->embeddedPayload().begin());
+        ASSERT_EQ(setTuple.size(), 2u);
+        ASSERT_EQ(asString(setTuple.item(0)), "set-tuple");
+        ASSERT_EQ(asInt64(setTuple.item(1)), 123);
     }
 
     TEST_F( EmbeddedTupleTest , testPyTupleMeasureSizeOfAndSafeSizeOfWithMultipleVariableLengthElements )
@@ -410,15 +538,15 @@ namespace tests
 
         v_object<o_py_tuple> tuple(memspace, *pyTuple);
 
-        ASSERT_EQ(tuple->item(0).itemKind(), TupleItemKind::DATE);
+        ASSERT_EQ(tuple->item(0).itemKind(), StorageClass::DATE);
         ASSERT_EQ(asUint64(tuple->item(0)), db0::python::pyDateToUint64(PyTuple_GET_ITEM(*pyTuple, 0)));
-        ASSERT_EQ(tuple->item(1).itemKind(), TupleItemKind::DATETIME);
+        ASSERT_EQ(tuple->item(1).itemKind(), StorageClass::DATETIME);
         ASSERT_EQ(asUint64(tuple->item(1)), db0::python::pyDateTimeToToUint64(PyTuple_GET_ITEM(*pyTuple, 1)));
-        ASSERT_EQ(tuple->item(2).itemKind(), TupleItemKind::TIME);
+        ASSERT_EQ(tuple->item(2).itemKind(), StorageClass::TIME);
         ASSERT_EQ(asUint64(tuple->item(2)), db0::python::pyTimeToUint64(PyTuple_GET_ITEM(*pyTuple, 2)));
-        ASSERT_EQ(tuple->item(3).itemKind(), TupleItemKind::DECIMAL);
+        ASSERT_EQ(tuple->item(3).itemKind(), StorageClass::DECIMAL);
         ASSERT_EQ(asUint64(tuple->item(3)), db0::python::pyDecimalToUint64(PyTuple_GET_ITEM(*pyTuple, 3)));
-        ASSERT_EQ(tuple->item(4).itemKind(), TupleItemKind::STRING);
+        ASSERT_EQ(tuple->item(4).itemKind(), StorageClass::STRING_REF);
         ASSERT_EQ(asString(tuple->item(4)), "tail");
     }
 

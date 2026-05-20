@@ -13,28 +13,10 @@
 #include <dbzero/core/serialization/Types.hpp>
 #include <dbzero/core/serialization/packed_int.hpp>
 #include <dbzero/core/serialization/string.hpp>
+#include <dbzero/object_model/value/StorageClass.hpp>
 
 namespace db0::object_model
 {
-
-    enum class TupleItemKind: std::uint8_t
-    {
-        UNDEFINED = 0,
-        NONE = 1,
-        BOOLEAN = 2,
-        INT64 = 3,
-        FP_NUMERIC64 = 4,
-        STRING = 5,
-        BINARY = 6,
-        PTIME64 = 7,
-        DATE = 8,
-        DATETIME = 9,
-        DATETIME_TZ = 10,
-        TIME = 11,
-        TIME_TZ = 12,
-        DECIMAL = 13,
-        PACKED_INT64 = 14
-    };
 
 DB0_PACKED_BEGIN
     class DB0_PACKED_ATTR o_tuple_item: public db0::o_base<o_tuple_item, 0, false>
@@ -48,11 +30,15 @@ DB0_PACKED_BEGIN
         {
             struct BytesView
             {
+                using Writer = void (*)(void *, const void *);
+
                 const std::byte *m_data = nullptr;
                 std::size_t m_size = 0;
+                Writer m_writer = nullptr;
+                const void *m_source = nullptr;
             };
 
-            TupleItemKind m_kind = TupleItemKind::UNDEFINED;
+            StorageClass m_kind = StorageClass::UNDEFINED;
             union Payload
             {
                 std::int64_t m_int_value;
@@ -79,6 +65,13 @@ DB0_PACKED_BEGIN
             static Element time(std::uint64_t value);
             static Element timeTz(std::uint64_t value);
             static Element decimal(std::uint64_t value);
+            static Element embeddedTuple(const void *data, std::size_t size);
+            static Element embeddedSet(const void *data, std::size_t size);
+            static Element embeddedDict(const void *data, std::size_t size);
+            static Element embeddedObject(const void *data, std::size_t size);
+            static Element embeddedTuple(std::size_t size, BytesView::Writer writer, const void *source);
+            static Element embeddedSet(std::size_t size, BytesView::Writer writer, const void *source);
+            static Element embeddedDict(std::size_t size, BytesView::Writer writer, const void *source);
 
             std::int64_t intValue() const;
             std::uint64_t uint64Value() const;
@@ -91,7 +84,7 @@ DB0_PACKED_BEGIN
 
         explicit o_tuple_item(const Element &element);
 
-        TupleItemKind itemKind() const;
+        StorageClass itemKind() const;
         std::size_t sizeOf() const;
 
         static std::size_t measure(const Element &element);
@@ -106,50 +99,57 @@ DB0_PACKED_BEGIN
         }
 
     private:
-        TupleItemKind m_kind = TupleItemKind::UNDEFINED;
+        StorageClass m_kind = StorageClass::UNDEFINED;
 
         void arrangePayload(const Element &element);
 
     public:
         const o_simple<bool> &boolPayload() const;
         const o_simple<std::int64_t> &intPayload() const;
-        const packed_int64 &packedIntPayload() const;
+        const packed_int32 &packedIntPayload() const;
         const o_simple<std::uint64_t> &uint64Payload() const;
         const o_simple<double> &doublePayload() const;
         const o_string &stringPayload() const;
         const o_binary &bytesPayload() const;
+        const o_binary &embeddedPayload() const;
 
     private:
-        template <typename BufT> static void advancePayload(TupleItemKind kind, BufT &cursor)
+        template <typename BufT> static void advancePayload(StorageClass kind, BufT &cursor)
         {
             switch (kind) {
-            case TupleItemKind::NONE:
+            case StorageClass::NONE:
                 return;
-            case TupleItemKind::BOOLEAN:
+            case StorageClass::BOOLEAN:
                 cursor += o_simple<bool>::safeSizeOf(cursor);
                 return;
-            case TupleItemKind::INT64:
+            case StorageClass::INT64:
                 cursor += o_simple<std::int64_t>::safeSizeOf(cursor);
                 return;
-            case TupleItemKind::PACKED_INT64:
-                cursor += packed_int64::safeSizeOf(cursor);
+            case StorageClass::PACKED_INT32:
+                cursor += packed_int32::safeSizeOf(cursor);
                 return;
-            case TupleItemKind::FP_NUMERIC64:
+            case StorageClass::FP_NUMERIC64:
                 cursor += o_simple<double>::safeSizeOf(cursor);
                 return;
-            case TupleItemKind::STRING:
+            case StorageClass::STRING_REF:
                 cursor += o_string::safeSizeOf(cursor);
                 return;
-            case TupleItemKind::BINARY:
+            case StorageClass::DB0_BYTES:
                 cursor += o_binary::safeSizeOf(cursor);
                 return;
-            case TupleItemKind::PTIME64:
-            case TupleItemKind::DATE:
-            case TupleItemKind::DATETIME:
-            case TupleItemKind::DATETIME_TZ:
-            case TupleItemKind::TIME:
-            case TupleItemKind::TIME_TZ:
-            case TupleItemKind::DECIMAL:
+            case StorageClass::DB0_TUPLE:
+            case StorageClass::DB0_SET:
+            case StorageClass::DB0_DICT:
+            case StorageClass::OBJECT_REF:
+                cursor += o_binary::safeSizeOf(cursor);
+                return;
+            case StorageClass::PTIME64:
+            case StorageClass::DATE:
+            case StorageClass::DATETIME:
+            case StorageClass::DATETIME_TZ:
+            case StorageClass::TIME:
+            case StorageClass::TIME_TZ:
+            case StorageClass::DECIMAL:
                 cursor += o_simple<std::uint64_t>::safeSizeOf(cursor);
                 return;
             default:

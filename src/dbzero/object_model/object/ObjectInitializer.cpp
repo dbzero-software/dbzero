@@ -2,6 +2,7 @@
 // Copyright (c) 2025 DBZero Software sp. z o.o.
 
 #include "ObjectInitializer.hpp"
+#include <algorithm>
 #include <dbzero/object_model/class.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 
@@ -57,7 +58,7 @@ namespace db0::object_model
         m_values.push_back({ loc.first, storage_class, value }, mask);
         m_has_value.set(loc, true);
     }
-    
+
     bool ObjectInitializer::remove(std::pair<std::uint32_t, std::uint32_t> loc, std::uint64_t mask) 
     {
         if (!m_has_value.get(loc)) {
@@ -78,7 +79,7 @@ namespace db0::object_model
         // retrieve the whole value
         return m_values.tryGetAt(loc.first, result);
     }
-    
+
     db0::swine_ptr<Fixture> ObjectInitializer::getFixture() const {
         return getClass().getFixture();
     }
@@ -89,18 +90,25 @@ namespace db0::object_model
 
     std::pair<const XValue*, const XValue*> ObjectInitializer::getData(PosVT::Data &data, unsigned int &offset)
     {
-        m_values.sortAndMerge();
-        if (m_values.empty()) {
+        return getDataFrom(m_values, data, offset);
+    }
+
+    std::pair<const XValue*, const XValue*> ObjectInitializer::getDataFrom(
+        XValuesVector &initializationValues, PosVT::Data &data, unsigned int &offset
+    ) const
+    {
+        initializationValues.sortAndMerge();
+        if (initializationValues.empty()) {
             // object has no data
-            return { &*m_values.begin(), &*m_values.end() };
+            return { nullptr, nullptr };
         }
         
         // offset if the first pos-vt index
-        offset = m_values.front().getIndex();
+        offset = initializationValues.front().getIndex();
         // Divide values into index-encoded and position-encoded (pos-vt)
         // index represents the number of pos-vt elements
-        auto index = m_values.size();
-        auto it = m_values.begin() + index - 1;
+        auto index = initializationValues.size();
+        auto it = initializationValues.begin() + index - 1;
         // below rule allows pos-vt to be created with the fill-rate of at least 50%
         while (index > 0 && ((it->getIndex() - offset) > ((index - offset) << 1))) {
             --index;
@@ -119,7 +127,7 @@ namespace db0::object_model
             auto &values = data.m_values;
             types.reserve(size);
             values.reserve(size);
-            for (auto it = m_values.begin(), end = m_values.begin() + index; it != end; ++it) {
+            for (auto it = initializationValues.begin(), end = initializationValues.begin() + index; it != end; ++it) {
                 // fill with undefined elements until reaching the index
                 while (types.size() < (it->getIndex() - offset)) {
                     types.push_back(StorageClass::UNDEFINED);
@@ -132,7 +140,8 @@ namespace db0::object_model
             assert(types.size() == size);
         }
         
-        return { &*(m_values.begin() + index), &*(m_values.end()) };
+        auto *begin = initializationValues.data();
+        return { begin + index, begin + initializationValues.size() };
     }
     
     void ObjectInitializer::incRef(bool is_tag)
@@ -152,6 +161,102 @@ namespace db0::object_model
 
     bool ObjectInitializer::empty() const {
         return m_values.empty();
+    }
+
+    bool ImmutableObjectInitializer::isFixedStorageClass(StorageClass storage_class)
+    {
+        switch (storage_class) {
+            case StorageClass::UNDEFINED:
+            case StorageClass::DELETED:
+            case StorageClass::NONE:
+            case StorageClass::INT64:
+            case StorageClass::PTIME64:
+            case StorageClass::FP_NUMERIC64:
+            case StorageClass::DATE:
+            case StorageClass::DATETIME:
+            case StorageClass::DATETIME_TZ:
+            case StorageClass::TIME:
+            case StorageClass::TIME_TZ:
+            case StorageClass::DECIMAL:
+            case StorageClass::BOOLEAN:
+            case StorageClass::PACK_2:
+            case StorageClass::PACKED_INT32:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    void ImmutableObjectInitializer::setObject(
+        std::pair<std::uint32_t, std::uint32_t> loc, StorageClass storage_class, Value value,
+        ObjectSharedPtr object, std::uint64_t mask
+    )
+    {
+        set(loc, storage_class, value, mask);
+        if (isFixedStorageClass(storage_class)) {
+            eraseObjectAt(loc);
+            return;
+        }
+
+        eraseObjectAt(loc);
+        m_objects.push_back({ loc, storage_class, std::move(object) });
+    }
+
+    bool ImmutableObjectInitializer::remove(std::pair<std::uint32_t, std::uint32_t> loc, std::uint64_t mask)
+    {
+        eraseObjectAt(loc);
+        return ObjectInitializer::remove(loc, mask);
+    }
+
+    bool ImmutableObjectInitializer::tryGetObjectAt(
+        std::pair<std::uint32_t, std::uint32_t> loc, ObjectSharedPtr &object
+    ) const
+    {
+        for (const auto &value: m_objects) {
+            if (value.m_loc == loc) {
+                object = value.m_object;
+                return object.get() != nullptr;
+            }
+        }
+        return false;
+    }
+
+    std::pair<const XValue*, const XValue*> ImmutableObjectInitializer::getData(
+        PosVT::Data &data, unsigned int &offset
+    ) const
+    {
+        m_values.sortAndMerge();
+        m_fixed_values.clear();
+        m_fixed_values.reserve(m_values.size());
+        for (const auto &value: m_values) {
+            m_fixed_values.push_back(value);
+        }
+        for (const auto &value: m_objects) {
+            assert(value.m_loc.second == 0 && "Variable-length embedded fields must use default fidelity");
+            m_fixed_values.remove(value.m_loc.first);
+        }
+        return getDataFrom(m_fixed_values, data, offset);
+    }
+
+    void ImmutableObjectInitializer::resetObjects()
+    {
+        m_objects.clear();
+        m_fixed_values.clear();
+    }
+
+    const std::vector<ImmutableObjectInitializer::ObjectValue> &ImmutableObjectInitializer::objects() const
+    {
+        return m_objects;
+    }
+
+    void ImmutableObjectInitializer::eraseObjectAt(std::pair<std::uint32_t, std::uint32_t> loc)
+    {
+        m_objects.erase(
+            std::remove_if(m_objects.begin(), m_objects.end(), [&](const auto &value) {
+                return value.m_loc == loc;
+            }),
+            m_objects.end()
+        );
     }
 
     bool ObjectInitializer::trySetFixture(db0::swine_ptr<Fixture> &new_fixture)
@@ -188,6 +293,9 @@ namespace db0::object_model
     void ObjectInitializerManager::closeAt(std::uint32_t loc)
     {
         auto result = m_initializers[loc]->getClassPtr();
+        if (auto *initializer = dynamic_cast<ImmutableObjectInitializer *>(m_initializers[loc].get())) {
+            initializer->resetObjects();
+        }
         m_initializers[loc]->reset();
         // move to inactive slot
         std::swap(m_initializers[loc], m_initializers[m_active_count - 1]);

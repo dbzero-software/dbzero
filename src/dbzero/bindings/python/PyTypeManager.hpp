@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <unordered_map>
 #include <unordered_set>
 #include <list>
@@ -89,6 +90,11 @@ namespace db0::python
         using TagDef = db0::object_model::TagDef;
         using CompositeTagDef = db0::object_model::CompositeTagDef;
         using ByteArray = db0::object_model::ByteArray;
+        struct BytesView
+        {
+            const std::byte *m_data = nullptr;
+            std::size_t m_size = 0;
+        };
 
         PyTypeManager();
         ~PyTypeManager();
@@ -148,7 +154,8 @@ namespace db0::python
         const EnumValueRepr &extractEnumValueRepr(ObjectPtr enum_value_repr_ptr) const;
         ObjectIterable &extractObjectIterable(ObjectPtr) const;
         FieldDef &extractFieldDef(ObjectPtr) const;
-        std::string extractString(ObjectPtr) const;
+        const char *extractString(ObjectPtr) const;
+        BytesView extractBytes(ObjectPtr) const;
         TypeObjectPtr getTypeObject(ObjectPtr py_type) const;
         ObjectPtr getLangObject(TypeObjectPtr py_type) const;
         std::shared_ptr<const Class> extractConstClass(ObjectPtr py_class) const;

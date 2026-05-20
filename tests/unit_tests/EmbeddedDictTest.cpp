@@ -41,7 +41,7 @@ namespace tests
 
     static std::int64_t asInt64(const o_tuple_item &item)
     {
-        if (item.itemKind() == TupleItemKind::PACKED_INT64) {
+        if (item.itemKind() == StorageClass::PACKED_INT32) {
             return static_cast<std::int64_t>(item.packedIntPayload().value());
         }
         return item.intPayload().value();
@@ -77,32 +77,32 @@ namespace tests
         std::ostringstream key;
         key << static_cast<unsigned>(element.m_kind) << ':';
         switch (element.m_kind) {
-            case TupleItemKind::NONE:
+            case StorageClass::NONE:
                 key << "none";
                 break;
-            case TupleItemKind::BOOLEAN:
+            case StorageClass::BOOLEAN:
                 key << element.boolValue();
                 break;
-            case TupleItemKind::INT64:
-            case TupleItemKind::PACKED_INT64:
+            case StorageClass::INT64:
+            case StorageClass::PACKED_INT32:
                 key << element.intValue();
                 break;
-            case TupleItemKind::FP_NUMERIC64:
+            case StorageClass::FP_NUMERIC64:
                 key << std::setprecision(17) << element.doubleValue();
                 break;
-            case TupleItemKind::STRING:
+            case StorageClass::STRING_REF:
                 key << element.stringValue();
                 break;
-            case TupleItemKind::BINARY:
+            case StorageClass::DB0_BYTES:
                 key << bytesKey(element.bytesData(), element.bytesSize());
                 break;
-            case TupleItemKind::PTIME64:
-            case TupleItemKind::DATE:
-            case TupleItemKind::DATETIME:
-            case TupleItemKind::DATETIME_TZ:
-            case TupleItemKind::TIME:
-            case TupleItemKind::TIME_TZ:
-            case TupleItemKind::DECIMAL:
+            case StorageClass::PTIME64:
+            case StorageClass::DATE:
+            case StorageClass::DATETIME:
+            case StorageClass::DATETIME_TZ:
+            case StorageClass::TIME:
+            case StorageClass::TIME_TZ:
+            case StorageClass::DECIMAL:
                 key << element.uint64Value();
                 break;
             default:
@@ -116,34 +116,34 @@ namespace tests
         std::ostringstream key;
         key << static_cast<unsigned>(item.itemKind()) << ':';
         switch (item.itemKind()) {
-            case TupleItemKind::NONE:
+            case StorageClass::NONE:
                 key << "none";
                 break;
-            case TupleItemKind::BOOLEAN:
+            case StorageClass::BOOLEAN:
                 key << item.boolPayload().value();
                 break;
-            case TupleItemKind::INT64:
+            case StorageClass::INT64:
                 key << item.intPayload().value();
                 break;
-            case TupleItemKind::PACKED_INT64:
+            case StorageClass::PACKED_INT32:
                 key << item.packedIntPayload().value();
                 break;
-            case TupleItemKind::FP_NUMERIC64:
+            case StorageClass::FP_NUMERIC64:
                 key << std::setprecision(17) << item.doublePayload().value();
                 break;
-            case TupleItemKind::STRING:
+            case StorageClass::STRING_REF:
                 key << item.stringPayload().toString();
                 break;
-            case TupleItemKind::BINARY:
+            case StorageClass::DB0_BYTES:
                 key << bytesKey(item.bytesPayload().begin(), item.bytesPayload().size());
                 break;
-            case TupleItemKind::PTIME64:
-            case TupleItemKind::DATE:
-            case TupleItemKind::DATETIME:
-            case TupleItemKind::DATETIME_TZ:
-            case TupleItemKind::TIME:
-            case TupleItemKind::TIME_TZ:
-            case TupleItemKind::DECIMAL:
+            case StorageClass::PTIME64:
+            case StorageClass::DATE:
+            case StorageClass::DATETIME:
+            case StorageClass::DATETIME_TZ:
+            case StorageClass::TIME:
+            case StorageClass::TIME_TZ:
+            case StorageClass::DECIMAL:
                 key << item.uint64Payload().value();
                 break;
             default:
@@ -289,7 +289,7 @@ namespace tests
         std::size_t count = 0;
         for (auto it = dict->begin(); it != dict->end(); ++it) {
             keys.insert(asInt64(it->key()));
-            ASSERT_NE(it->value().itemKind(), TupleItemKind::UNDEFINED);
+            ASSERT_NE(it->value().itemKind(), StorageClass::UNDEFINED);
             ++count;
         }
 

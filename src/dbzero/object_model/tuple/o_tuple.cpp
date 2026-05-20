@@ -3,6 +3,8 @@
 
 #include "o_tuple.hpp"
 
+#include <limits>
+
 #include <dbzero/core/exception/Exceptions.hpp>
 
 namespace db0::object_model
@@ -15,13 +17,13 @@ namespace db0::object_model
 
     o_tuple_item::Element o_tuple_item::Element::none()
     {
-        return { TupleItemKind::NONE };
+        return { StorageClass::NONE };
     }
 
     o_tuple_item::Element o_tuple_item::Element::boolean(bool value)
     {
         Element result;
-        result.m_kind = TupleItemKind::BOOLEAN;
+        result.m_kind = StorageClass::BOOLEAN;
         result.m_payload.m_bool_value = value;
         return result;
     }
@@ -29,10 +31,10 @@ namespace db0::object_model
     o_tuple_item::Element o_tuple_item::Element::integer(std::int64_t value)
     {
         Element result;
-        if (value >= 0 && packed_int64::measure(static_cast<std::uint64_t>(value)) <= 6) {
-            result.m_kind = TupleItemKind::PACKED_INT64;
+        if (value >= 0 && value <= std::numeric_limits<std::uint32_t>::max()) {
+            result.m_kind = StorageClass::PACKED_INT32;
         } else {
-            result.m_kind = TupleItemKind::INT64;
+            result.m_kind = StorageClass::INT64;
         }
         result.m_payload.m_int_value = value;
         return result;
@@ -41,7 +43,7 @@ namespace db0::object_model
     o_tuple_item::Element o_tuple_item::Element::floating(double value)
     {
         Element result;
-        result.m_kind = TupleItemKind::FP_NUMERIC64;
+        result.m_kind = StorageClass::FP_NUMERIC64;
         result.m_payload.m_double_value = value;
         return result;
     }
@@ -49,7 +51,7 @@ namespace db0::object_model
     o_tuple_item::Element o_tuple_item::Element::string(std::string_view value)
     {
         Element result;
-        result.m_kind = TupleItemKind::STRING;
+        result.m_kind = StorageClass::STRING_REF;
         result.m_payload.m_string_value = value;
         return result;
     }
@@ -57,7 +59,7 @@ namespace db0::object_model
     o_tuple_item::Element o_tuple_item::Element::bytes(const std::byte *data, std::size_t size)
     {
         Element result;
-        result.m_kind = TupleItemKind::BINARY;
+        result.m_kind = StorageClass::DB0_BYTES;
         result.m_payload.m_bytes_value = { data, size };
         return result;
     }
@@ -70,7 +72,7 @@ namespace db0::object_model
     o_tuple_item::Element o_tuple_item::Element::timestamp(std::uint64_t value)
     {
         Element result;
-        result.m_kind = TupleItemKind::PTIME64;
+        result.m_kind = StorageClass::PTIME64;
         result.m_payload.m_uint64_value = value;
         return result;
     }
@@ -78,7 +80,7 @@ namespace db0::object_model
     o_tuple_item::Element o_tuple_item::Element::date(std::uint64_t value)
     {
         Element result;
-        result.m_kind = TupleItemKind::DATE;
+        result.m_kind = StorageClass::DATE;
         result.m_payload.m_uint64_value = value;
         return result;
     }
@@ -86,7 +88,7 @@ namespace db0::object_model
     o_tuple_item::Element o_tuple_item::Element::datetime(std::uint64_t value)
     {
         Element result;
-        result.m_kind = TupleItemKind::DATETIME;
+        result.m_kind = StorageClass::DATETIME;
         result.m_payload.m_uint64_value = value;
         return result;
     }
@@ -94,7 +96,7 @@ namespace db0::object_model
     o_tuple_item::Element o_tuple_item::Element::datetimeTz(std::uint64_t value)
     {
         Element result;
-        result.m_kind = TupleItemKind::DATETIME_TZ;
+        result.m_kind = StorageClass::DATETIME_TZ;
         result.m_payload.m_uint64_value = value;
         return result;
     }
@@ -102,7 +104,7 @@ namespace db0::object_model
     o_tuple_item::Element o_tuple_item::Element::time(std::uint64_t value)
     {
         Element result;
-        result.m_kind = TupleItemKind::TIME;
+        result.m_kind = StorageClass::TIME;
         result.m_payload.m_uint64_value = value;
         return result;
     }
@@ -110,7 +112,7 @@ namespace db0::object_model
     o_tuple_item::Element o_tuple_item::Element::timeTz(std::uint64_t value)
     {
         Element result;
-        result.m_kind = TupleItemKind::TIME_TZ;
+        result.m_kind = StorageClass::TIME_TZ;
         result.m_payload.m_uint64_value = value;
         return result;
     }
@@ -118,8 +120,70 @@ namespace db0::object_model
     o_tuple_item::Element o_tuple_item::Element::decimal(std::uint64_t value)
     {
         Element result;
-        result.m_kind = TupleItemKind::DECIMAL;
+        result.m_kind = StorageClass::DECIMAL;
         result.m_payload.m_uint64_value = value;
+        return result;
+    }
+
+    o_tuple_item::Element o_tuple_item::Element::embeddedTuple(const void *data, std::size_t size)
+    {
+        Element result;
+        result.m_kind = StorageClass::DB0_TUPLE;
+        result.m_payload.m_bytes_value = { reinterpret_cast<const std::byte *>(data), size };
+        return result;
+    }
+
+    o_tuple_item::Element o_tuple_item::Element::embeddedSet(const void *data, std::size_t size)
+    {
+        Element result;
+        result.m_kind = StorageClass::DB0_SET;
+        result.m_payload.m_bytes_value = { reinterpret_cast<const std::byte *>(data), size };
+        return result;
+    }
+
+    o_tuple_item::Element o_tuple_item::Element::embeddedDict(const void *data, std::size_t size)
+    {
+        Element result;
+        result.m_kind = StorageClass::DB0_DICT;
+        result.m_payload.m_bytes_value = { reinterpret_cast<const std::byte *>(data), size };
+        return result;
+    }
+
+    o_tuple_item::Element o_tuple_item::Element::embeddedObject(const void *data, std::size_t size)
+    {
+        Element result;
+        result.m_kind = StorageClass::OBJECT_REF;
+        result.m_payload.m_bytes_value = { reinterpret_cast<const std::byte *>(data), size };
+        return result;
+    }
+
+    o_tuple_item::Element o_tuple_item::Element::embeddedTuple(
+        std::size_t size, BytesView::Writer writer, const void *source
+    )
+    {
+        Element result;
+        result.m_kind = StorageClass::DB0_TUPLE;
+        result.m_payload.m_bytes_value = { nullptr, size, writer, source };
+        return result;
+    }
+
+    o_tuple_item::Element o_tuple_item::Element::embeddedSet(
+        std::size_t size, BytesView::Writer writer, const void *source
+    )
+    {
+        Element result;
+        result.m_kind = StorageClass::DB0_SET;
+        result.m_payload.m_bytes_value = { nullptr, size, writer, source };
+        return result;
+    }
+
+    o_tuple_item::Element o_tuple_item::Element::embeddedDict(
+        std::size_t size, BytesView::Writer writer, const void *source
+    )
+    {
+        Element result;
+        result.m_kind = StorageClass::DB0_DICT;
+        result.m_payload.m_bytes_value = { nullptr, size, writer, source };
         return result;
     }
 
@@ -164,7 +228,7 @@ namespace db0::object_model
         arrangePayload(element);
     }
 
-    TupleItemKind o_tuple_item::itemKind() const
+    StorageClass o_tuple_item::itemKind() const
     {
         return m_kind;
     }
@@ -172,27 +236,32 @@ namespace db0::object_model
     std::size_t o_tuple_item::sizeOf() const
     {
         switch (m_kind) {
-        case TupleItemKind::NONE:
+        case StorageClass::NONE:
             return sizeOfMembers();
-        case TupleItemKind::BOOLEAN:
+        case StorageClass::BOOLEAN:
             return sizeOfMembers()(o_simple<bool>::type());
-        case TupleItemKind::INT64:
+        case StorageClass::INT64:
             return sizeOfMembers()(o_simple<std::int64_t>::type());
-        case TupleItemKind::PACKED_INT64:
-            return sizeOfMembers()(packed_int64::type());
-        case TupleItemKind::FP_NUMERIC64:
+        case StorageClass::PACKED_INT32:
+            return sizeOfMembers()(packed_int32::type());
+        case StorageClass::FP_NUMERIC64:
             return sizeOfMembers()(o_simple<double>::type());
-        case TupleItemKind::STRING:
+        case StorageClass::STRING_REF:
             return sizeOfMembers()(o_string::type());
-        case TupleItemKind::BINARY:
+        case StorageClass::DB0_BYTES:
             return sizeOfMembers()(o_binary::type());
-        case TupleItemKind::PTIME64:
-        case TupleItemKind::DATE:
-        case TupleItemKind::DATETIME:
-        case TupleItemKind::DATETIME_TZ:
-        case TupleItemKind::TIME:
-        case TupleItemKind::TIME_TZ:
-        case TupleItemKind::DECIMAL:
+        case StorageClass::DB0_TUPLE:
+        case StorageClass::DB0_SET:
+        case StorageClass::DB0_DICT:
+        case StorageClass::OBJECT_REF:
+            return sizeOfMembers()(o_binary::type());
+        case StorageClass::PTIME64:
+        case StorageClass::DATE:
+        case StorageClass::DATETIME:
+        case StorageClass::DATETIME_TZ:
+        case StorageClass::TIME:
+        case StorageClass::TIME_TZ:
+        case StorageClass::DECIMAL:
             return sizeOfMembers()(o_simple<std::uint64_t>::type());
         default:
             throwUnsupportedItemKind();
@@ -203,27 +272,32 @@ namespace db0::object_model
     std::size_t o_tuple_item::measure(const Element &element)
     {
         switch (element.m_kind) {
-        case TupleItemKind::NONE:
+        case StorageClass::NONE:
             return measureMembers();
-        case TupleItemKind::BOOLEAN:
+        case StorageClass::BOOLEAN:
             return measureMembers()(o_simple<bool>::type(), element.boolValue());
-        case TupleItemKind::INT64:
+        case StorageClass::INT64:
             return measureMembers()(o_simple<std::int64_t>::type(), element.intValue());
-        case TupleItemKind::PACKED_INT64:
-            return measureMembers()(packed_int64::type(), static_cast<std::uint64_t>(element.intValue()));
-        case TupleItemKind::FP_NUMERIC64:
+        case StorageClass::PACKED_INT32:
+            return measureMembers()(packed_int32::type(), static_cast<std::uint32_t>(element.intValue()));
+        case StorageClass::FP_NUMERIC64:
             return measureMembers()(o_simple<double>::type(), element.doubleValue());
-        case TupleItemKind::STRING:
+        case StorageClass::STRING_REF:
             return measureMembers()(o_string::type(), element.stringValue());
-        case TupleItemKind::BINARY:
+        case StorageClass::DB0_BYTES:
             return measureMembers()(o_binary::type(), element.bytesData(), element.bytesSize());
-        case TupleItemKind::PTIME64:
-        case TupleItemKind::DATE:
-        case TupleItemKind::DATETIME:
-        case TupleItemKind::DATETIME_TZ:
-        case TupleItemKind::TIME:
-        case TupleItemKind::TIME_TZ:
-        case TupleItemKind::DECIMAL:
+        case StorageClass::DB0_TUPLE:
+        case StorageClass::DB0_SET:
+        case StorageClass::DB0_DICT:
+        case StorageClass::OBJECT_REF:
+            return measureMembers()(o_binary::type(), element.bytesData(), element.bytesSize());
+        case StorageClass::PTIME64:
+        case StorageClass::DATE:
+        case StorageClass::DATETIME:
+        case StorageClass::DATETIME_TZ:
+        case StorageClass::TIME:
+        case StorageClass::TIME_TZ:
+        case StorageClass::DECIMAL:
             return measureMembers()(o_simple<std::uint64_t>::type(), element.uint64Value());
         default:
             throwUnsupportedItemKind();
@@ -234,34 +308,47 @@ namespace db0::object_model
     void o_tuple_item::arrangePayload(const Element &element)
     {
         switch (element.m_kind) {
-        case TupleItemKind::NONE:
+        case StorageClass::NONE:
             arrangeMembers();
             return;
-        case TupleItemKind::BOOLEAN:
+        case StorageClass::BOOLEAN:
             arrangeMembers()(o_simple<bool>::type(), element.boolValue());
             return;
-        case TupleItemKind::INT64:
+        case StorageClass::INT64:
             arrangeMembers()(o_simple<std::int64_t>::type(), element.intValue());
             return;
-        case TupleItemKind::PACKED_INT64:
-            arrangeMembers()(packed_int64::type(), static_cast<std::uint64_t>(element.intValue()));
+        case StorageClass::PACKED_INT32:
+            arrangeMembers()(packed_int32::type(), static_cast<std::uint32_t>(element.intValue()));
             return;
-        case TupleItemKind::FP_NUMERIC64:
+        case StorageClass::FP_NUMERIC64:
             arrangeMembers()(o_simple<double>::type(), element.doubleValue());
             return;
-        case TupleItemKind::STRING:
+        case StorageClass::STRING_REF:
             arrangeMembers()(o_string::type(), element.stringValue());
             return;
-        case TupleItemKind::BINARY:
+        case StorageClass::DB0_BYTES:
             arrangeMembers()(o_binary::type(), element.bytesData(), element.bytesSize());
             return;
-        case TupleItemKind::PTIME64:
-        case TupleItemKind::DATE:
-        case TupleItemKind::DATETIME:
-        case TupleItemKind::DATETIME_TZ:
-        case TupleItemKind::TIME:
-        case TupleItemKind::TIME_TZ:
-        case TupleItemKind::DECIMAL:
+        case StorageClass::DB0_TUPLE:
+        case StorageClass::DB0_SET:
+        case StorageClass::DB0_DICT:
+        case StorageClass::OBJECT_REF:
+            if (element.m_payload.m_bytes_value.m_writer) {
+                arrangeMembers()(
+                    o_binary::type(), element.bytesSize(), element.m_payload.m_bytes_value.m_writer,
+                    element.m_payload.m_bytes_value.m_source
+                );
+            } else {
+                arrangeMembers()(o_binary::type(), element.bytesData(), element.bytesSize());
+            }
+            return;
+        case StorageClass::PTIME64:
+        case StorageClass::DATE:
+        case StorageClass::DATETIME:
+        case StorageClass::DATETIME_TZ:
+        case StorageClass::TIME:
+        case StorageClass::TIME_TZ:
+        case StorageClass::DECIMAL:
             arrangeMembers()(o_simple<std::uint64_t>::type(), element.uint64Value());
             return;
         default:
@@ -279,9 +366,9 @@ namespace db0::object_model
         return getDynFirst(o_simple<std::int64_t>::type());
     }
 
-    const packed_int64 &o_tuple_item::packedIntPayload() const
+    const packed_int32 &o_tuple_item::packedIntPayload() const
     {
-        return getDynFirst(packed_int64::type());
+        return getDynFirst(packed_int32::type());
     }
 
     const o_simple<std::uint64_t> &o_tuple_item::uint64Payload() const
@@ -300,6 +387,11 @@ namespace db0::object_model
     }
 
     const o_binary &o_tuple_item::bytesPayload() const
+    {
+        return getDynFirst(o_binary::type());
+    }
+
+    const o_binary &o_tuple_item::embeddedPayload() const
     {
         return getDynFirst(o_binary::type());
     }

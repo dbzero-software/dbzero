@@ -271,33 +271,38 @@ namespace db0::object_model
 
     bool o_set::elementsEqual(const Element &lhs, const Element &rhs)
     {
-        auto lhsIsInt = lhs.m_kind == TupleItemKind::INT64 || lhs.m_kind == TupleItemKind::PACKED_INT64;
-        auto rhsIsInt = rhs.m_kind == TupleItemKind::INT64 || rhs.m_kind == TupleItemKind::PACKED_INT64;
+        auto lhsIsInt = lhs.m_kind == StorageClass::INT64 || lhs.m_kind == StorageClass::PACKED_INT32;
+        auto rhsIsInt = rhs.m_kind == StorageClass::INT64 || rhs.m_kind == StorageClass::PACKED_INT32;
         if (lhs.m_kind != rhs.m_kind && !(lhsIsInt && rhsIsInt)) {
             return false;
         }
 
         switch (lhs.m_kind) {
-        case TupleItemKind::NONE:
+        case StorageClass::NONE:
             return true;
-        case TupleItemKind::BOOLEAN:
+        case StorageClass::BOOLEAN:
             return lhs.boolValue() == rhs.boolValue();
-        case TupleItemKind::INT64:
-        case TupleItemKind::PACKED_INT64:
+        case StorageClass::INT64:
+        case StorageClass::PACKED_INT32:
             return lhs.intValue() == rhs.intValue();
-        case TupleItemKind::FP_NUMERIC64:
+        case StorageClass::FP_NUMERIC64:
             return lhs.doubleValue() == rhs.doubleValue();
-        case TupleItemKind::STRING:
+        case StorageClass::STRING_REF:
             return lhs.m_payload.m_string_value == rhs.m_payload.m_string_value;
-        case TupleItemKind::BINARY:
+        case StorageClass::DB0_BYTES:
             return lhs.bytesSize() == rhs.bytesSize() && bytesEqual(lhs.bytesData(), rhs.bytesData(), lhs.bytesSize());
-        case TupleItemKind::PTIME64:
-        case TupleItemKind::DATE:
-        case TupleItemKind::DATETIME:
-        case TupleItemKind::DATETIME_TZ:
-        case TupleItemKind::TIME:
-        case TupleItemKind::TIME_TZ:
-        case TupleItemKind::DECIMAL:
+        case StorageClass::DB0_TUPLE:
+        case StorageClass::DB0_SET:
+        case StorageClass::DB0_DICT:
+        case StorageClass::OBJECT_REF:
+            return lhs.bytesSize() == rhs.bytesSize() && bytesEqual(lhs.bytesData(), rhs.bytesData(), lhs.bytesSize());
+        case StorageClass::PTIME64:
+        case StorageClass::DATE:
+        case StorageClass::DATETIME:
+        case StorageClass::DATETIME_TZ:
+        case StorageClass::TIME:
+        case StorageClass::TIME_TZ:
+        case StorageClass::DECIMAL:
             return lhs.uint64Value() == rhs.uint64Value();
         default:
             THROWF(db0::InternalException) << "Unsupported set item kind";
@@ -307,38 +312,44 @@ namespace db0::object_model
 
     bool o_set::itemEqualsElement(const Item &item, const Element &element)
     {
-        auto itemIsInt = item.itemKind() == TupleItemKind::INT64 || item.itemKind() == TupleItemKind::PACKED_INT64;
-        auto elementIsInt = element.m_kind == TupleItemKind::INT64 || element.m_kind == TupleItemKind::PACKED_INT64;
+        auto itemIsInt = item.itemKind() == StorageClass::INT64 || item.itemKind() == StorageClass::PACKED_INT32;
+        auto elementIsInt = element.m_kind == StorageClass::INT64 || element.m_kind == StorageClass::PACKED_INT32;
         if (item.itemKind() != element.m_kind && !(itemIsInt && elementIsInt)) {
             return false;
         }
 
         switch (element.m_kind) {
-            case TupleItemKind::NONE:
+            case StorageClass::NONE:
                 return true;
-            case TupleItemKind::BOOLEAN:
+            case StorageClass::BOOLEAN:
                 return item.boolPayload().value() == element.boolValue();
-            case TupleItemKind::INT64:
-            case TupleItemKind::PACKED_INT64: {
-                auto itemValue = item.itemKind() == TupleItemKind::PACKED_INT64
+            case StorageClass::INT64:
+            case StorageClass::PACKED_INT32: {
+                auto itemValue = item.itemKind() == StorageClass::PACKED_INT32
                     ? static_cast<std::int64_t>(item.packedIntPayload().value())
                     : item.intPayload().value();
                 return itemValue == element.intValue();
             }
-            case TupleItemKind::FP_NUMERIC64:
+            case StorageClass::FP_NUMERIC64:
                 return item.doublePayload().value() == element.doubleValue();
-            case TupleItemKind::STRING:
+            case StorageClass::STRING_REF:
                 return item.stringPayload().toString() == element.stringValue();
-            case TupleItemKind::BINARY:
+            case StorageClass::DB0_BYTES:
                 return item.bytesPayload().size() == element.bytesSize()
                     && bytesEqual(item.bytesPayload().begin(), element.bytesData(), element.bytesSize());
-            case TupleItemKind::PTIME64:
-            case TupleItemKind::DATE:
-            case TupleItemKind::DATETIME:
-            case TupleItemKind::DATETIME_TZ:
-            case TupleItemKind::TIME:
-            case TupleItemKind::TIME_TZ:
-            case TupleItemKind::DECIMAL:
+            case StorageClass::DB0_TUPLE:
+            case StorageClass::DB0_SET:
+            case StorageClass::DB0_DICT:
+            case StorageClass::OBJECT_REF:
+                return item.embeddedPayload().size() == element.bytesSize()
+                    && bytesEqual(item.embeddedPayload().begin(), element.bytesData(), element.bytesSize());
+            case StorageClass::PTIME64:
+            case StorageClass::DATE:
+            case StorageClass::DATETIME:
+            case StorageClass::DATETIME_TZ:
+            case StorageClass::TIME:
+            case StorageClass::TIME_TZ:
+            case StorageClass::DECIMAL:
                 return item.uint64Payload().value() == element.uint64Value();
             default:
                 THROWF(db0::InternalException) << "Unsupported set item kind";
@@ -400,35 +411,43 @@ namespace db0::object_model
     o_set::Element o_set::elementFromItem(const Item &item)
     {
         switch (item.itemKind()) {
-            case TupleItemKind::NONE:
+            case StorageClass::NONE:
                 return Element::none();
-            case TupleItemKind::BOOLEAN:
+            case StorageClass::BOOLEAN:
                 return Element::boolean(item.boolPayload().value());
-            case TupleItemKind::INT64:
+            case StorageClass::INT64:
                 return Element::integer(item.intPayload().value());
-            case TupleItemKind::PACKED_INT64:
+            case StorageClass::PACKED_INT32:
                 return Element::integer(static_cast<std::int64_t>(item.packedIntPayload().value()));
-            case TupleItemKind::FP_NUMERIC64:
+            case StorageClass::FP_NUMERIC64:
                 return Element::floating(item.doublePayload().value());
-            case TupleItemKind::STRING: {
+            case StorageClass::STRING_REF: {
                 auto str = item.stringPayload().get();
                 return Element::string(std::string_view(str.get_raw(), str.size()));
             }
-            case TupleItemKind::BINARY:
+            case StorageClass::DB0_BYTES:
                 return Element::bytes(item.bytesPayload().begin(), item.bytesPayload().size());
-            case TupleItemKind::PTIME64:
+            case StorageClass::DB0_TUPLE:
+                return Element::embeddedTuple(item.embeddedPayload().begin(), item.embeddedPayload().size());
+            case StorageClass::DB0_SET:
+                return Element::embeddedSet(item.embeddedPayload().begin(), item.embeddedPayload().size());
+            case StorageClass::DB0_DICT:
+                return Element::embeddedDict(item.embeddedPayload().begin(), item.embeddedPayload().size());
+            case StorageClass::OBJECT_REF:
+                return Element::embeddedObject(item.embeddedPayload().begin(), item.embeddedPayload().size());
+            case StorageClass::PTIME64:
                 return Element::timestamp(item.uint64Payload().value());
-            case TupleItemKind::DATE:
+            case StorageClass::DATE:
                 return Element::date(item.uint64Payload().value());
-            case TupleItemKind::DATETIME:
+            case StorageClass::DATETIME:
                 return Element::datetime(item.uint64Payload().value());
-            case TupleItemKind::DATETIME_TZ:
+            case StorageClass::DATETIME_TZ:
                 return Element::datetimeTz(item.uint64Payload().value());
-            case TupleItemKind::TIME:
+            case StorageClass::TIME:
                 return Element::time(item.uint64Payload().value());
-            case TupleItemKind::TIME_TZ:
+            case StorageClass::TIME_TZ:
                 return Element::timeTz(item.uint64Payload().value());
-            case TupleItemKind::DECIMAL:
+            case StorageClass::DECIMAL:
                 return Element::decimal(item.uint64Payload().value());
             default:
                 THROWF(db0::InternalException) << "Unsupported set item kind";
@@ -438,31 +457,42 @@ namespace db0::object_model
 
     std::uint32_t o_set::elementHash(const Element &element)
     {
-        auto seedKind = element.m_kind == TupleItemKind::PACKED_INT64 ? TupleItemKind::INT64 : element.m_kind;
+        auto seedKind = element.m_kind == StorageClass::PACKED_INT32 ? StorageClass::INT64 : element.m_kind;
         auto seed = 0x9e3779b9U ^ static_cast<std::uint32_t>(seedKind);
         switch (element.m_kind) {
-        case TupleItemKind::NONE:
+        case StorageClass::NONE:
             return hashBytes(nullptr, 0, seed);
-        case TupleItemKind::BOOLEAN:
+        case StorageClass::BOOLEAN:
             return hashBytes(&element.m_payload.m_bool_value, sizeof(element.m_payload.m_bool_value), seed);
-        case TupleItemKind::INT64:
-        case TupleItemKind::PACKED_INT64:
+        case StorageClass::INT64:
+        case StorageClass::PACKED_INT32:
             return hashBytes(&element.m_payload.m_int_value, sizeof(element.m_payload.m_int_value), seed);
-        case TupleItemKind::FP_NUMERIC64:
+        case StorageClass::FP_NUMERIC64:
             return hashBytes(&element.m_payload.m_double_value, sizeof(element.m_payload.m_double_value), seed);
-        case TupleItemKind::STRING:
+        case StorageClass::STRING_REF:
             return hashBytes(
                 element.m_payload.m_string_value.data(), element.m_payload.m_string_value.size(), seed
             );
-        case TupleItemKind::BINARY:
+        case StorageClass::DB0_BYTES:
             return hashBytes(element.bytesData(), element.bytesSize(), seed);
-        case TupleItemKind::PTIME64:
-        case TupleItemKind::DATE:
-        case TupleItemKind::DATETIME:
-        case TupleItemKind::DATETIME_TZ:
-        case TupleItemKind::TIME:
-        case TupleItemKind::TIME_TZ:
-        case TupleItemKind::DECIMAL:
+        case StorageClass::DB0_TUPLE:
+        case StorageClass::DB0_SET:
+        case StorageClass::DB0_DICT:
+        case StorageClass::OBJECT_REF: {
+            if (element.m_payload.m_bytes_value.m_writer) {
+                std::vector<std::byte> payload(element.bytesSize());
+                element.m_payload.m_bytes_value.m_writer(payload.data(), element.m_payload.m_bytes_value.m_source);
+                return hashBytes(payload.data(), payload.size(), seed);
+            }
+            return hashBytes(element.bytesData(), element.bytesSize(), seed);
+        }
+        case StorageClass::PTIME64:
+        case StorageClass::DATE:
+        case StorageClass::DATETIME:
+        case StorageClass::DATETIME_TZ:
+        case StorageClass::TIME:
+        case StorageClass::TIME_TZ:
+        case StorageClass::DECIMAL:
             return hashBytes(&element.m_payload.m_uint64_value, sizeof(element.m_payload.m_uint64_value), seed);
         default:
             THROWF(db0::InternalException) << "Unsupported set item kind";
@@ -472,40 +502,45 @@ namespace db0::object_model
 
     std::uint32_t o_set::itemHash(const Item &item)
     {
-        auto seedKind = item.itemKind() == TupleItemKind::PACKED_INT64 ? TupleItemKind::INT64 : item.itemKind();
+        auto seedKind = item.itemKind() == StorageClass::PACKED_INT32 ? StorageClass::INT64 : item.itemKind();
         auto seed = 0x9e3779b9U ^ static_cast<std::uint32_t>(seedKind);
         switch (item.itemKind()) {
-        case TupleItemKind::NONE:
+        case StorageClass::NONE:
             return hashBytes(nullptr, 0, seed);
-        case TupleItemKind::BOOLEAN: {
+        case StorageClass::BOOLEAN: {
             auto value = item.boolPayload().value();
             return hashBytes(&value, sizeof(value), seed);
         }
-        case TupleItemKind::INT64: {
+        case StorageClass::INT64: {
             auto value = item.intPayload().value();
             return hashBytes(&value, sizeof(value), seed);
         }
-        case TupleItemKind::PACKED_INT64: {
+        case StorageClass::PACKED_INT32: {
             auto value = static_cast<std::int64_t>(item.packedIntPayload().value());
             return hashBytes(&value, sizeof(value), seed);
         }
-        case TupleItemKind::FP_NUMERIC64: {
+        case StorageClass::FP_NUMERIC64: {
             auto value = item.doublePayload().value();
             return hashBytes(&value, sizeof(value), seed);
         }
-        case TupleItemKind::STRING: {
+        case StorageClass::STRING_REF: {
             auto str = item.stringPayload().get();
             return hashBytes(str.get_raw(), str.size(), seed);
         }
-        case TupleItemKind::BINARY:
+        case StorageClass::DB0_BYTES:
             return hashBytes(item.bytesPayload().begin(), item.bytesPayload().size(), seed);
-        case TupleItemKind::PTIME64:
-        case TupleItemKind::DATE:
-        case TupleItemKind::DATETIME:
-        case TupleItemKind::DATETIME_TZ:
-        case TupleItemKind::TIME:
-        case TupleItemKind::TIME_TZ:
-        case TupleItemKind::DECIMAL: {
+        case StorageClass::DB0_TUPLE:
+        case StorageClass::DB0_SET:
+        case StorageClass::DB0_DICT:
+        case StorageClass::OBJECT_REF:
+            return hashBytes(item.embeddedPayload().begin(), item.embeddedPayload().size(), seed);
+        case StorageClass::PTIME64:
+        case StorageClass::DATE:
+        case StorageClass::DATETIME:
+        case StorageClass::DATETIME_TZ:
+        case StorageClass::TIME:
+        case StorageClass::TIME_TZ:
+        case StorageClass::DECIMAL: {
             auto value = item.uint64Payload().value();
             return hashBytes(&value, sizeof(value), seed);
         }
