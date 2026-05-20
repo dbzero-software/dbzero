@@ -7,6 +7,14 @@
 #include <iostream>
 #include <thread>
 
+#if PY_VERSION_HEX < 0x030A0000
+static inline PyObject *Py_NewRef(PyObject *obj)
+{
+    Py_INCREF(obj);
+    return obj;
+}
+#endif
+
 // Extended inc-ref, handles additional ref-counter for memo objects
 // must dec-ref with PyEXT_DECREF
 #define PyEXT_INCREF(ptr) db0::python::incExtRef(ptr)
