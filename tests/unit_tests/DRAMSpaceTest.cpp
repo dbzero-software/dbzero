@@ -30,6 +30,13 @@ namespace tests
 
     protected:
         const std::size_t m_page_size = 4096;
+
+        void assertFindsAllocation(DRAM_Allocator &allocator, Address query, Address expected_address) const {
+            auto result = allocator.findAllocation(query);
+            ASSERT_TRUE(result);
+            ASSERT_EQ(result->address, expected_address);
+            ASSERT_EQ(result->size, m_page_size);
+        }
     };
 
     TEST_F( DRAMSpaceTest, testDRAMSpaceCanAlloc )
@@ -139,14 +146,52 @@ namespace tests
     {
         DRAM_Allocator cut(m_page_size);
         auto address = cut.alloc(m_page_size);
-        auto result = cut.findAllocation(address + static_cast<Address::offset_t>(31));
-        ASSERT_TRUE(result);
-        ASSERT_EQ(result->address, address);
-        ASSERT_EQ(result->size, m_page_size);
-        ASSERT_THROW(cut.findAllocation(Address::fromOffset(0)), db0::BadAddressException);
+        assertFindsAllocation(cut, address + static_cast<Address::offset_t>(31), address);
+    }
 
+    TEST_F( DRAMSpaceTest, testDRAMAllocatorFindAllocationExactAddress )
+    {
+        DRAM_Allocator cut(m_page_size);
+        auto address = cut.alloc(m_page_size);
+        assertFindsAllocation(cut, address, address);
+    }
+
+    TEST_F( DRAMSpaceTest, testDRAMAllocatorFindAllocationLastByte )
+    {
+        DRAM_Allocator cut(m_page_size);
+        auto address = cut.alloc(m_page_size);
+        assertFindsAllocation(cut, address + static_cast<Address::offset_t>(m_page_size - 1), address);
+    }
+
+    TEST_F( DRAMSpaceTest, testDRAMAllocatorFindAllocationRejectsEndBoundary )
+    {
+        DRAM_Allocator cut(m_page_size);
+        auto address = cut.alloc(m_page_size);
+        ASSERT_THROW(cut.findAllocation(address + static_cast<Address::offset_t>(m_page_size)), db0::BadAddressException);
+    }
+
+    TEST_F( DRAMSpaceTest, testDRAMAllocatorFindAllocationRejectsReservedZeroAddress )
+    {
+        DRAM_Allocator cut(m_page_size);
+        cut.alloc(m_page_size);
+        ASSERT_THROW(cut.findAllocation(Address::fromOffset(0)), db0::BadAddressException);
+    }
+
+    TEST_F( DRAMSpaceTest, testDRAMAllocatorFindAllocationRejectsFreedPage )
+    {
+        DRAM_Allocator cut(m_page_size);
+        auto address = cut.alloc(m_page_size);
         cut.free(address);
         ASSERT_THROW(cut.findAllocation(address + static_cast<Address::offset_t>(31)), db0::BadAddressException);
+    }
+
+    TEST_F( DRAMSpaceTest, testDRAMAllocatorFindAllocationWorksWithExistingAllocs )
+    {
+        std::unordered_set<std::size_t> allocs { m_page_size, 3 * m_page_size };
+        DRAM_Allocator cut(allocs, m_page_size);
+
+        assertFindsAllocation(cut, Address::fromOffset(3 * m_page_size + 17), Address::fromOffset(3 * m_page_size));
+        ASSERT_THROW(cut.findAllocation(Address::fromOffset(2 * m_page_size)), db0::BadAddressException);
     }
 
     TEST_F( DRAMSpaceTest, testVBVectorCanBePutOnDRAMSpace )

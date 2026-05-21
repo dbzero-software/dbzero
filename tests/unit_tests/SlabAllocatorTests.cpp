@@ -40,6 +40,21 @@ namespace tests
         db0::Memspace m_memspace;
         static constexpr std::size_t page_size = 4096;
         static constexpr std::size_t slab_size = 64 * 1024 * 1024;
+
+        db0::SlabAllocator makeSlabAllocator(Address begin_addr, std::size_t size = slab_size) const
+        {
+            db0::SlabAllocator::formatSlab(m_memspace.getPrefixPtr(), begin_addr, size, page_size);
+            return db0::SlabAllocator(m_memspace.getPrefixPtr(), begin_addr, size, page_size);
+        }
+
+        void assertFindsAllocation(db0::SlabAllocator &allocator, Address query, Address expected_address,
+            std::size_t expected_size) const
+        {
+            auto result = allocator.findAllocation(query);
+            ASSERT_TRUE(result);
+            ASSERT_EQ(result->address, expected_address);
+            ASSERT_EQ(result->size, expected_size);
+        }
     };
 
     TEST_F( SlabAllocatorTests , testNewlyFormattedSlabAllocatorCanBeOpened )
@@ -85,17 +100,46 @@ namespace tests
     TEST_F( SlabAllocatorTests , testSlabAllocatorCanFindAllocationByInnerAddress )
     {
         auto begin_addr = Address::fromOffset(0);
-        db0::SlabAllocator::formatSlab(m_memspace.getPrefixPtr(), begin_addr, slab_size, page_size);
-        db0::SlabAllocator cut(m_memspace.getPrefixPtr(), begin_addr, slab_size, page_size);
+        auto cut = makeSlabAllocator(begin_addr);
 
         auto address = cut.alloc(71);
-        auto result = cut.findAllocation(address + static_cast<Address::offset_t>(17));
-
-        ASSERT_TRUE(result);
-        ASSERT_EQ(result->address, address);
-        ASSERT_EQ(result->size, 71u);
+        assertFindsAllocation(cut, address + static_cast<Address::offset_t>(17), address, 71);
         ASSERT_THROW(cut.findAllocation(address + static_cast<Address::offset_t>(71)), db0::BadAddressException);
         ASSERT_THROW(cut.findAllocation(begin_addr + static_cast<Address::offset_t>(slab_size)), db0::BadAddressException);
+    }
+
+    TEST_F( SlabAllocatorTests , testSlabAllocatorFindAllocationExactAddress )
+    {
+        auto cut = makeSlabAllocator(Address::fromOffset(0));
+        auto address = cut.alloc(71);
+
+        assertFindsAllocation(cut, address, address, 71);
+    }
+
+    TEST_F( SlabAllocatorTests , testSlabAllocatorFindAllocationLastByte )
+    {
+        auto cut = makeSlabAllocator(Address::fromOffset(0));
+        auto address = cut.alloc(71);
+
+        assertFindsAllocation(cut, address + static_cast<Address::offset_t>(70), address, 71);
+    }
+
+    TEST_F( SlabAllocatorTests , testSlabAllocatorFindAllocationRejectsAddressBeforeSlab )
+    {
+        auto begin_addr = Address::fromOffset(8 * 1024 * 1024);
+        auto cut = makeSlabAllocator(begin_addr);
+
+        cut.alloc(71);
+        ASSERT_THROW(cut.findAllocation(begin_addr - static_cast<Address::offset_t>(1)), db0::BadAddressException);
+    }
+
+    TEST_F( SlabAllocatorTests , testSlabAllocatorFindAllocationRejectsFreedAllocation )
+    {
+        auto cut = makeSlabAllocator(Address::fromOffset(0));
+        auto address = cut.alloc(71);
+
+        cut.free(address);
+        ASSERT_THROW(cut.findAllocation(address + static_cast<Address::offset_t>(17)), db0::BadAddressException);
     }
 
     TEST_F( SlabAllocatorTests , testSlotAllocatorCanFindGeneralAndSlotAllocations )

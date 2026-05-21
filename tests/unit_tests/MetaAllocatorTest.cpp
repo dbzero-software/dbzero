@@ -68,6 +68,15 @@ namespace tests
         std::atomic<std::size_t> m_dirty_meter = 0;
         CacheRecycler m_recycler;
         std::shared_ptr<Prefix> m_prefix;
+
+        void assertFindsAllocation(MetaAllocator &allocator, Address query, Address expected_address,
+            std::size_t expected_size) const
+        {
+            auto result = allocator.findAllocation(query);
+            ASSERT_TRUE(result);
+            ASSERT_EQ(result->address, expected_address);
+            ASSERT_EQ(result->size, expected_size);
+        }
     };
 
     TEST_F( MetaAllocatorTests , testAddressPoolFunction )
@@ -295,11 +304,68 @@ namespace tests
 
         MetaAllocator cut(m_prefix, &recycler);
         for (int i = 0; i < count; ++i) {
-            auto result = cut.findAllocation(addresses[i] + static_cast<Address::offset_t>(alloc_sizes[i] - 1));
-            ASSERT_TRUE(result);
-            ASSERT_EQ(result->address, addresses[i]);
-            ASSERT_EQ(result->size, alloc_sizes[i]);
+            assertFindsAllocation(cut, addresses[i] + static_cast<Address::offset_t>(alloc_sizes[i] - 1),
+                addresses[i], alloc_sizes[i]);
         }
+    }
+
+    TEST_F( MetaAllocatorTests , testMetaAllocatorFindAllocationExactAddress )
+    {
+        MetaAllocator::formatPrefix(m_prefix, PAGE_SIZE, SMALL_SLAB_SIZE);
+        SlabRecycler recycler;
+        MetaAllocator cut(m_prefix, &recycler);
+
+        auto address = cut.alloc(128);
+        assertFindsAllocation(cut, address, address, 128);
+        cut.close();
+    }
+
+    TEST_F( MetaAllocatorTests , testMetaAllocatorFindAllocationLastByte )
+    {
+        MetaAllocator::formatPrefix(m_prefix, PAGE_SIZE, SMALL_SLAB_SIZE);
+        SlabRecycler recycler;
+        MetaAllocator cut(m_prefix, &recycler);
+
+        auto address = cut.alloc(128);
+        assertFindsAllocation(cut, address + static_cast<Address::offset_t>(127), address, 128);
+        cut.close();
+    }
+
+    TEST_F( MetaAllocatorTests , testMetaAllocatorFindAllocationRejectsEndBoundary )
+    {
+        MetaAllocator::formatPrefix(m_prefix, PAGE_SIZE, SMALL_SLAB_SIZE);
+        SlabRecycler recycler;
+        MetaAllocator cut(m_prefix, &recycler);
+
+        auto address = cut.alloc(128);
+        ASSERT_THROW(cut.findAllocation(address + static_cast<Address::offset_t>(128)), db0::BadAddressException);
+        cut.close();
+    }
+
+    TEST_F( MetaAllocatorTests , testMetaAllocatorFindAllocationValidatesRealm )
+    {
+        MetaAllocator::formatPrefix(m_prefix, PAGE_SIZE, SMALL_SLAB_SIZE);
+        SlabRecycler recycler;
+        MetaAllocator cut(m_prefix, &recycler);
+
+        auto address = cut.alloc(128, 0, false, 1);
+        assertFindsAllocation(cut, address + static_cast<Address::offset_t>(12), address, 128);
+        ASSERT_TRUE(cut.findAllocation(address + static_cast<Address::offset_t>(12), 1));
+        ASSERT_THROW(cut.findAllocation(address + static_cast<Address::offset_t>(12), 0), db0::BadAddressException);
+        cut.close();
+    }
+
+    TEST_F( MetaAllocatorTests , testMetaAllocatorFindAllocationRejectsFlushedFree )
+    {
+        MetaAllocator::formatPrefix(m_prefix, PAGE_SIZE, SMALL_SLAB_SIZE);
+        SlabRecycler recycler;
+        MetaAllocator cut(m_prefix, &recycler);
+
+        auto address = cut.alloc(128);
+        cut.free(address);
+        cut.flush();
+        ASSERT_THROW(cut.findAllocation(address + static_cast<Address::offset_t>(12)), db0::BadAddressException);
+        cut.close();
     }
 
     TEST_F( MetaAllocatorTests , testMetaAllocatorFindAllocationHidesDeferredFree )

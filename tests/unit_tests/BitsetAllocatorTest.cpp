@@ -26,6 +26,21 @@ namespace tests
 
     protected:
         db0::TestWorkspace m_workspace;
+        static constexpr std::size_t PAGE_SIZE = 4096;
+
+        using AllocatorT = db0::BitsetAllocator<db0::VFixedBitset<123> >;
+
+        AllocatorT makeAllocator(Address base_addr, int direction = 1) {
+            auto memspace = m_workspace.getMemspace("my-test-prefix_1");
+            return AllocatorT(db0::VFixedBitset<123>(memspace), base_addr, PAGE_SIZE, direction);
+        }
+
+        void assertFindsAllocation(AllocatorT &allocator, Address query, Address expectedAddress) {
+            auto result = allocator.findAllocation(query);
+            ASSERT_TRUE(result);
+            ASSERT_EQ(result->address, expectedAddress);
+            ASSERT_EQ(result->size, PAGE_SIZE);
+        }
     };
 
     TEST_F( BitsetAllocatorTests , testAllocAssignsValidAddresses )
@@ -97,6 +112,53 @@ namespace tests
         ASSERT_TRUE(result);
         ASSERT_EQ(result->address, ptr1);
         ASSERT_EQ(result->size, page_size);
+    }
+
+    TEST_F( BitsetAllocatorTests , testBitsetAllocatorFindAllocationExactAddress )
+    {
+        auto cut = makeAllocator(Address::fromOffset(0));
+        auto address = cut.alloc(PAGE_SIZE);
+        assertFindsAllocation(cut, address, address);
+    }
+
+    TEST_F( BitsetAllocatorTests , testBitsetAllocatorFindAllocationLastByte )
+    {
+        auto cut = makeAllocator(Address::fromOffset(0));
+        auto address = cut.alloc(PAGE_SIZE);
+        assertFindsAllocation(cut, address + static_cast<Address::offset_t>(PAGE_SIZE - 1), address);
+    }
+
+    TEST_F( BitsetAllocatorTests , testBitsetAllocatorFindAllocationRejectsFreedBlock )
+    {
+        auto cut = makeAllocator(Address::fromOffset(0));
+        auto first = cut.alloc(PAGE_SIZE);
+        auto second = cut.alloc(PAGE_SIZE);
+        cut.free(second);
+        ASSERT_THROW(cut.findAllocation(second), db0::BadAddressException);
+        assertFindsAllocation(cut, first, first);
+    }
+
+    TEST_F( BitsetAllocatorTests , testBitsetAllocatorFindAllocationRejectsAddressBeyondBitset )
+    {
+        auto cut = makeAllocator(Address::fromOffset(0));
+        cut.alloc(PAGE_SIZE);
+        ASSERT_THROW(cut.findAllocation(Address::fromOffset(PAGE_SIZE * 123)), db0::BadAddressException);
+    }
+
+    TEST_F( BitsetAllocatorTests , testBitsetAllocatorFindAllocationRejectsAddressBeforeForwardBase )
+    {
+        auto cut = makeAllocator(Address::fromOffset(PAGE_SIZE));
+        cut.alloc(PAGE_SIZE);
+        ASSERT_THROW(cut.findAllocation(Address::fromOffset(0)), db0::BadAddressException);
+    }
+
+    TEST_F( BitsetAllocatorTests , testBitsetAllocatorFindAllocationRejectsReverseBaseBoundary )
+    {
+        auto base_addr = Address::fromOffset(PAGE_SIZE * 1024);
+        auto cut = makeAllocator(base_addr, -1);
+        auto address = cut.alloc(PAGE_SIZE);
+        assertFindsAllocation(cut, address + static_cast<Address::offset_t>(PAGE_SIZE - 1), address);
+        ASSERT_THROW(cut.findAllocation(base_addr), db0::BadAddressException);
     }
 
 }

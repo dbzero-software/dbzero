@@ -80,6 +80,18 @@ namespace tests
                 }
             }
         }
+
+        db0::CRDT_Allocator makeAllocator(std::uint32_t max_address = MAX_ADDRESS) {
+            return db0::CRDT_Allocator(*m_allocs, *m_blanks, *m_aligned_blanks, *m_stripes, max_address, page_size);
+        }
+
+        void assertFindsAllocation(db0::CRDT_Allocator &allocator, std::uint64_t query,
+            std::uint64_t expected_address, std::size_t expected_size) const
+        {
+            auto result = allocator.findAllocation(query);
+            ASSERT_EQ(result.first, expected_address);
+            ASSERT_EQ(result.second, expected_size);
+        }
     };
 
     TEST_F( CRDT_AllocatorTests , testCRDT_AllocatorCanAllocFromBlanks )
@@ -170,28 +182,48 @@ namespace tests
 
     TEST_F( CRDT_AllocatorTests , testCRDT_AllocatorCanFindAllocationByInnerAddress )
     {
-        db0::CRDT_Allocator cut(*m_allocs, *m_blanks, *m_aligned_blanks, *m_stripes, MAX_ADDRESS, page_size);
+        auto cut = makeAllocator();
         auto address = cut.alloc(33);
 
-        auto exact = cut.findAllocation(address);
-        ASSERT_EQ(exact.first, address);
-        ASSERT_EQ(exact.second, 33u);
+        assertFindsAllocation(cut, address + 17, address, 33u);
+    }
 
-        auto inner = cut.findAllocation(address + 17);
-        ASSERT_EQ(inner.first, address);
-        ASSERT_EQ(inner.second, 33u);
+    TEST_F( CRDT_AllocatorTests , testCRDT_AllocatorFindAllocationExactAddress )
+    {
+        auto cut = makeAllocator();
+        auto address = cut.alloc(33);
+        assertFindsAllocation(cut, address, address, 33u);
+    }
 
-        auto lastByte = cut.findAllocation(address + 32);
-        ASSERT_EQ(lastByte.first, address);
-        ASSERT_EQ(lastByte.second, 33u);
+    TEST_F( CRDT_AllocatorTests , testCRDT_AllocatorFindAllocationLastByte )
+    {
+        auto cut = makeAllocator();
+        auto address = cut.alloc(33);
+        assertFindsAllocation(cut, address + 32, address, 33u);
+    }
 
+    TEST_F( CRDT_AllocatorTests , testCRDT_AllocatorFindAllocationRejectsEndBoundary )
+    {
+        auto cut = makeAllocator();
+        auto address = cut.alloc(33);
         ASSERT_THROW(cut.findAllocation(address + 33), db0::BadAddressException);
+    }
+
+    TEST_F( CRDT_AllocatorTests , testCRDT_AllocatorFindAllocationRejectsAddressOverUInt32 )
+    {
+        auto cut = makeAllocator();
         ASSERT_THROW(cut.findAllocation(std::numeric_limits<std::uint32_t>::max() + 1ULL), db0::BadAddressException);
+    }
+
+    TEST_F( CRDT_AllocatorTests , testCRDT_AllocatorFindAllocationRejectsEmptyAllocatorAddress )
+    {
+        auto cut = makeAllocator();
+        ASSERT_THROW(cut.findAllocation(0), db0::BadAddressException);
     }
 
     TEST_F( CRDT_AllocatorTests , testCRDT_AllocatorFindAllocationSkipsFreedFillMapUnit )
     {
-        db0::CRDT_Allocator cut(*m_allocs, *m_blanks, *m_aligned_blanks, *m_stripes, MAX_ADDRESS, page_size);
+        auto cut = makeAllocator();
         std::vector<std::uint64_t> addresses;
         for (int i = 0; i < 10; ++i) {
             addresses.push_back(cut.alloc(8));
@@ -202,13 +234,16 @@ namespace tests
         ASSERT_THROW(cut.findAllocation(addresses[5]), db0::BadAddressException);
         ASSERT_THROW(cut.findAllocation(addresses[5] + 7), db0::BadAddressException);
 
-        auto previous = cut.findAllocation(addresses[4] + 7);
-        ASSERT_EQ(previous.first, addresses[4]);
-        ASSERT_EQ(previous.second, 8u);
+        assertFindsAllocation(cut, addresses[4] + 7, addresses[4], 8u);
+        assertFindsAllocation(cut, addresses[6], addresses[6], 8u);
+    }
 
-        auto next = cut.findAllocation(addresses[6]);
-        ASSERT_EQ(next.first, addresses[6]);
-        ASSERT_EQ(next.second, 8u);
+    TEST_F( CRDT_AllocatorTests , testCRDT_AllocatorFindAllocationRejectsFullyFreedAllocation )
+    {
+        auto cut = makeAllocator();
+        auto address = cut.alloc(33);
+        cut.free(address);
+        ASSERT_THROW(cut.findAllocation(address), db0::BadAddressException);
     }
 
     TEST_F( CRDT_AllocatorTests , testCRDT_AllocatorFreeFromAllocs )

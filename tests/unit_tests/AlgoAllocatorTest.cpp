@@ -41,6 +41,27 @@ namespace tests
 
         db0::AlgoAllocator::AddressPoolF m_pool_f;
         db0::AlgoAllocator::ReverseAddressPoolF m_reverse_pool_f;
+
+        db0::AlgoAllocator makeAllocator() const {
+            return db0::AlgoAllocator(m_pool_f, m_reverse_pool_f, PAGE_SIZE);
+        }
+
+        Address addressAt(unsigned int index) const {
+            return Address::fromOffset(index * (PAGE_SIZE + SLAB_SIZE * PAGE_SIZE));
+        }
+
+        void allocMany(db0::AlgoAllocator &allocator, int count) const {
+            for (int i = 0;i < count;++i) {
+                allocator.alloc(PAGE_SIZE);
+            }
+        }
+
+        void assertFindsAllocation(db0::AlgoAllocator &allocator, Address query, Address expectedAddress) const {
+            auto result = allocator.findAllocation(query);
+            ASSERT_TRUE(result);
+            ASSERT_EQ(result->address, expectedAddress);
+            ASSERT_EQ(result->size, PAGE_SIZE);
+        }
     };
 
     TEST_F( AlgoAllocatorTests , testAlgoAllocatorAllocatesMonotonicAddresses )
@@ -81,18 +102,59 @@ namespace tests
 
     TEST_F( AlgoAllocatorTests , testAlgoAllocatorCanFindAllocationByInnerAddress )
     {
-        db0::AlgoAllocator cut(m_pool_f, m_reverse_pool_f, PAGE_SIZE);
-        for (int i = 0;i < 10;++i) {
-            cut.alloc(PAGE_SIZE);
-        }
+        auto cut = makeAllocator();
+        allocMany(cut, 10);
 
-        auto address = Address::fromOffset(7 * (PAGE_SIZE + SLAB_SIZE * PAGE_SIZE));
-        auto result = cut.findAllocation(address + static_cast<Address::offset_t>(13));
-        ASSERT_TRUE(result);
-        ASSERT_EQ(result->address, address);
-        ASSERT_EQ(result->size, PAGE_SIZE);
-        ASSERT_THROW(cut.findAllocation(Address::fromOffset(11 * (PAGE_SIZE + SLAB_SIZE * PAGE_SIZE))), db0::BadAddressException);
+        auto address = addressAt(7);
+        assertFindsAllocation(cut, address + static_cast<Address::offset_t>(13), address);
+        ASSERT_THROW(cut.findAllocation(addressAt(11)), db0::BadAddressException);
         ASSERT_THROW(cut.findAllocation(address + static_cast<Address::offset_t>(PAGE_SIZE)), db0::BadAddressException);
+    }
+
+    TEST_F( AlgoAllocatorTests , testAlgoAllocatorFindAllocationExactAddress )
+    {
+        auto cut = makeAllocator();
+        auto address = cut.alloc(PAGE_SIZE);
+        assertFindsAllocation(cut, address, address);
+    }
+
+    TEST_F( AlgoAllocatorTests , testAlgoAllocatorFindAllocationLastByte )
+    {
+        auto cut = makeAllocator();
+        allocMany(cut, 2);
+        auto address = addressAt(1);
+        assertFindsAllocation(cut, address + static_cast<Address::offset_t>(PAGE_SIZE - 1), address);
+    }
+
+    TEST_F( AlgoAllocatorTests , testAlgoAllocatorFindAllocationRejectsGapBetweenAddresses )
+    {
+        auto cut = makeAllocator();
+        auto address = cut.alloc(PAGE_SIZE);
+        ASSERT_THROW(cut.findAllocation(address + static_cast<Address::offset_t>(PAGE_SIZE)), db0::BadAddressException);
+    }
+
+    TEST_F( AlgoAllocatorTests , testAlgoAllocatorFindAllocationRejectsNextUnallocatedIndex )
+    {
+        auto cut = makeAllocator();
+        allocMany(cut, 3);
+        ASSERT_THROW(cut.findAllocation(addressAt(3)), db0::BadAddressException);
+    }
+
+    TEST_F( AlgoAllocatorTests , testAlgoAllocatorFindAllocationRejectsFreedTail )
+    {
+        auto cut = makeAllocator();
+        allocMany(cut, 3);
+        cut.free(addressAt(2));
+        ASSERT_THROW(cut.findAllocation(addressAt(2)), db0::BadAddressException);
+        assertFindsAllocation(cut, addressAt(1), addressAt(1));
+    }
+
+    TEST_F( AlgoAllocatorTests , testAlgoAllocatorFindAllocationRejectsAddressAfterReset )
+    {
+        auto cut = makeAllocator();
+        auto address = cut.alloc(PAGE_SIZE);
+        cut.reset();
+        ASSERT_THROW(cut.findAllocation(address), db0::BadAddressException);
     }
 
 }
