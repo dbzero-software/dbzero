@@ -14,6 +14,7 @@
 #include <dbzero/core/utils/hash_combine.hpp>
 #include <dbzero/object_model/class/Class.hpp>
 #include <dbzero/object_model/class/ClassFactory.hpp>
+#include <dbzero/object_model/dict/o_py_dict.hpp>
 #include <dbzero/object_model/object/ObjectImmutableImpl.hpp>
 #include <dbzero/object_model/object/o_embedded_object.hpp>
 #include <dbzero/object_model/set/o_py_set.hpp>
@@ -436,6 +437,11 @@ namespace db0::python
             PyObject *sourceSet, const o_py_set &embeddedSet
         );
 
+        void transformEmbeddedDictObjects(
+            db0::swine_ptr<Fixture> &fixture, ClassFactory &classFactory, PyObject *rootObject,
+            PyObject *sourceDict, const o_py_dict &embeddedDict
+        );
+
         void transformEmbeddedItem(
             db0::swine_ptr<Fixture> &fixture, ClassFactory &classFactory, PyObject *rootObject,
             PyObject *sourceItem, const o_tuple_item &embeddedItem
@@ -465,6 +471,13 @@ namespace db0::python
                 assert(embeddedItem.itemKind() == StorageClass::EMBEDDED_SET);
                 const auto &nestedSet = o_py_set::__const_ref(embeddedItem.embeddedPayload().begin());
                 transformEmbeddedSetObjects(fixture, classFactory, rootObject, sourceItem, nestedSet);
+                return;
+            }
+
+            if (PyDict_Check(sourceItem)) {
+                assert(embeddedItem.itemKind() == StorageClass::EMBEDDED_DICT);
+                const auto &nestedDict = o_py_dict::__const_ref(embeddedItem.embeddedPayload().begin());
+                transformEmbeddedDictObjects(fixture, classFactory, rootObject, sourceItem, nestedDict);
             }
         }
 
@@ -510,6 +523,29 @@ namespace db0::python
                 ++embeddedItem;
             }
             assert(embeddedItem == embeddedSet.end());
+        }
+
+        void transformEmbeddedDictObjects(
+            db0::swine_ptr<Fixture> &fixture, ClassFactory &classFactory, PyObject *rootObject,
+            PyObject *sourceDict, const o_py_dict &embeddedDict
+        )
+        {
+            assert(PyDict_Check(sourceDict));
+            assert(static_cast<std::size_t>(PyDict_Size(sourceDict)) == embeddedDict.size());
+
+            auto iterator = Py_OWN(PyObject_GetIter(sourceDict));
+            assert(iterator.get());
+
+            auto embeddedPair = embeddedDict.begin();
+            Py_FOR(sourceKey, iterator) {
+                assert(embeddedPair != embeddedDict.end());
+                auto *sourceValue = PyDict_GetItemWithError(sourceDict, *sourceKey);
+                assert(sourceValue);
+                transformEmbeddedItem(fixture, classFactory, rootObject, *sourceKey, embeddedPair->key());
+                transformEmbeddedItem(fixture, classFactory, rootObject, sourceValue, embeddedPair->value());
+                ++embeddedPair;
+            }
+            assert(embeddedPair == embeddedDict.end());
         }
 
         std::string consumePyErrorMessage()
@@ -636,6 +672,15 @@ namespace db0::python
     {
         auto &classFactory = fixture->get<ClassFactory>();
         transformEmbeddedSetObjects(fixture, classFactory, rootObject, sourceSet, embeddedSet);
+    }
+
+    void transformEmbeddedDict(
+        db0::swine_ptr<Fixture> &fixture, PyTypes::ObjectPtr rootObject, PyTypes::ObjectPtr sourceDict,
+        const o_py_dict &embeddedDict
+    )
+    {
+        auto &classFactory = fixture->get<ClassFactory>();
+        transformEmbeddedDictObjects(fixture, classFactory, rootObject, sourceDict, embeddedDict);
     }
 
     bool PyEmbeddedMemoType_Check(PyTypeObject *type)

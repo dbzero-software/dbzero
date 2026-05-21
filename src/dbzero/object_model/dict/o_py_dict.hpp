@@ -22,6 +22,7 @@ DB0_PACKED_BEGIN
         explicit o_py_dict(PyObject *dict);
 
         static std::size_t measure(PyObject *dict);
+        static Element elementFromPythonObject(PyObject *object);
 
         template <typename BufT> static std::size_t safeSizeOf(BufT buf)
         {
@@ -39,7 +40,6 @@ DB0_PACKED_BEGIN
         static db0::Foundation::Type<o_py_dict> type();
 
     private:
-        static Element elementFromPythonObject(PyObject *object);
         static Element valueFromPythonDict(PyObject *dict, PyObject *key);
         static std::uint32_t dictSize(PyObject *dict);
         static std::size_t measurePairs(PyObject *dict);

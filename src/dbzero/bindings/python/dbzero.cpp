@@ -8,6 +8,7 @@
 #include "PyTagsAPI.hpp"
 #include "PyObjectTagManager.hpp"
 #include <dbzero/bindings/python/embedded/EmbeddedObject.hpp>
+#include <dbzero/bindings/python/embedded/EmbeddedDict.hpp>
 #include <dbzero/bindings/python/embedded/EmbeddedSet.hpp>
 #include <dbzero/bindings/python/embedded/EmbeddedTuple.hpp>
 #include "PySnapshot.hpp"
@@ -209,6 +210,8 @@ PyMODINIT_FUNC PyInit_dbzero(void)
         &py::EmbeddedTupleType,
         &py::EmbeddedSetType,
         &py::EmbeddedSetIteratorType,
+        &py::EmbeddedDictType,
+        &py::EmbeddedDictIteratorType,
         &py::PySnapshotObjectType, 
         &py::PyObjectIterableType,
         &py::PyObjectIteratorType,

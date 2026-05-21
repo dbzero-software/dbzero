@@ -23,6 +23,7 @@ namespace db0::object_model
     class o_embedded_object;
     class o_py_tuple;
     class o_py_set;
+    class o_py_dict;
 }
 
 namespace db0::python
@@ -81,6 +82,11 @@ namespace db0::python
     void transformEmbeddedSet(
         db0::swine_ptr<Fixture> &fixture, PyTypes::ObjectPtr rootObject, PyTypes::ObjectPtr sourceSet,
         const db0::object_model::o_py_set &embeddedSet
+    );
+
+    void transformEmbeddedDict(
+        db0::swine_ptr<Fixture> &fixture, PyTypes::ObjectPtr rootObject, PyTypes::ObjectPtr sourceDict,
+        const db0::object_model::o_py_dict &embeddedDict
     );
 
     bool PyEmbeddedMemo_Check(PyObject *object);

@@ -7,6 +7,7 @@
 #include <dbzero/bindings/python/PyToolkit.hpp>
 #include <dbzero/core/exception/Exceptions.hpp>
 #include <dbzero/object_model/class/Class.hpp>
+#include <dbzero/object_model/dict/o_py_dict.hpp>
 #include <dbzero/object_model/object/ObjectInitializer.hpp>
 #include <dbzero/object_model/object/o_embedded_object.hpp>
 #include <dbzero/object_model/set/o_py_set.hpp>
@@ -55,6 +56,14 @@ namespace db0::object_model
             }
         }
 
+        void unrefEmbeddedDict(db0::swine_ptr<Fixture> &fixture, const o_py_dict &dict)
+        {
+            for (const auto &pair: dict) {
+                unrefEmbeddedItem(fixture, pair.key());
+                unrefEmbeddedItem(fixture, pair.value());
+            }
+        }
+
         void unrefEmbeddedItem(db0::swine_ptr<Fixture> &fixture, const o_tuple_item &item)
         {
             switch (item.itemKind()) {
@@ -66,6 +75,9 @@ namespace db0::object_model
                     return;
                 case StorageClass::EMBEDDED_SET:
                     unrefEmbeddedSet(fixture, o_py_set::__const_ref(item.embeddedPayload().begin()));
+                    return;
+                case StorageClass::EMBEDDED_DICT:
+                    unrefEmbeddedDict(fixture, o_py_dict::__const_ref(item.embeddedPayload().begin()));
                     return;
                 default:
                     return;
@@ -149,6 +161,15 @@ namespace db0::object_model
                     const auto &embeddedSet = o_py_set::__const_ref(embeddedValue->embeddedPayload().begin());
                     db0::python::transformEmbeddedSet(
                         fixture, rootObject, value.m_object.get(), embeddedSet
+                    );
+                    continue;
+                }
+
+                if (value.m_storage_class == StorageClass::DB0_DICT) {
+                    assert(embeddedValue->itemKind() == StorageClass::EMBEDDED_DICT);
+                    const auto &embeddedDict = o_py_dict::__const_ref(embeddedValue->embeddedPayload().begin());
+                    db0::python::transformEmbeddedDict(
+                        fixture, rootObject, value.m_object.get(), embeddedDict
                     );
                 }
             }

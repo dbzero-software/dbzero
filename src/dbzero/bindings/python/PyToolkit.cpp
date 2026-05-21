@@ -3,6 +3,7 @@
 
 #include "PyToolkit.hpp"
 #include <dbzero/bindings/python/embedded/EmbeddedObject.hpp>
+#include <dbzero/bindings/python/embedded/EmbeddedDict.hpp>
 #include <dbzero/bindings/python/embedded/EmbeddedSet.hpp>
 #include <dbzero/bindings/python/embedded/EmbeddedTuple.hpp>
 #include "Memo.hpp"
@@ -39,6 +40,7 @@
 #include <dbzero/bindings/python/types/PyDecimal.hpp>
 #include <dbzero/object_model/tuple/o_py_tuple.hpp>
 #include <dbzero/object_model/set/o_py_set.hpp>
+#include <dbzero/object_model/dict/o_py_dict.hpp>
 
 namespace db0::python
 
@@ -136,6 +138,13 @@ namespace db0::python
                 }
                 const auto &set = db0::object_model::o_py_set::__const_ref(item.embeddedPayload().begin());
                 return makeEmbeddedSet(rootObject, set);
+            }
+            case StorageClass::EMBEDDED_DICT: {
+                if (!rootObject) {
+                    THROWF(db0::InputException) << "Embedded dict retrieval requires a root memo object";
+                }
+                const auto &dict = db0::object_model::o_py_dict::__const_ref(item.embeddedPayload().begin());
+                return makeEmbeddedDict(rootObject, dict);
             }
             case StorageClass::EMBEDDED_OBJECT: {
                 if (!rootObject) {

@@ -10,6 +10,9 @@
 #include <dbzero/bindings/python/PySafeAPI.hpp>
 #include <dbzero/bindings/python/PyToolkit.hpp>
 #include <dbzero/core/exception/Exceptions.hpp>
+#include <dbzero/object_model/class/Class.hpp>
+#include <dbzero/object_model/object/ObjectImmutableImpl.hpp>
+#include <dbzero/object_model/object/o_embedded_object.hpp>
 #include <dbzero/object_model/set/o_py_set.hpp>
 #include <dbzero/object_model/tuple/o_py_tuple.hpp>
 
@@ -30,6 +33,36 @@ namespace db0::object_model
         void writePyDict(void *buf, const void *source)
         {
             o_py_dict::__new(buf, const_cast<PyObject *>(static_cast<const PyObject *>(source)));
+        }
+
+        const ImmutableObjectInitializer &getInitializer(PyObject *pyObject)
+        {
+            using MemoImmutableObject = db0::python::PyToolkit::TypeManager::MemoImmutableObject;
+
+            assert(db0::python::PyToolkit::isMemoImmutableObject(pyObject));
+
+            const auto &object = db0::python::PyToolkit::getTypeManager()
+                .template extractObject<MemoImmutableObject>(pyObject);
+            if (object.hasInstance()) {
+                THROWF(db0::InputException)
+                    << "Only non-materialized immutable memo objects can be embedded";
+            }
+
+            auto *initializer = dynamic_cast<ImmutableObjectInitializer *>(
+                InitManager::instance.findInitializer(object)
+            );
+            if (!initializer) {
+                THROWF(db0::InputException)
+                    << "Non-materialized immutable memo object has no active initializer";
+            }
+            return *initializer;
+        }
+
+        void writeEmbeddedObject(void *buf, const void *source)
+        {
+            auto *pyObject = const_cast<PyObject *>(static_cast<const PyObject *>(source));
+            const auto &initializer = getInitializer(pyObject);
+            o_embedded_object::__new(buf, initializer.getClassPtr()->getClassRef(), initializer);
         }
     }
 
@@ -136,6 +169,11 @@ namespace db0::object_model
             return Element::embeddedSet(o_py_set::measure(object), writePySet, object);
         case db0::bindings::TypeId::DICT:
             return Element::embeddedDict(o_py_dict::measure(object), writePyDict, object);
+        case db0::bindings::TypeId::MEMO_IMMUTABLE_OBJECT: {
+            const auto &initializer = getInitializer(object);
+            auto size = o_embedded_object::measure(initializer.getClassPtr()->getClassRef(), initializer);
+            return Element::embeddedObject(size, writeEmbeddedObject, object);
+        }
         default:
             break;
         }
