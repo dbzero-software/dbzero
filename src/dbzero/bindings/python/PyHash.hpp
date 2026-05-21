@@ -20,7 +20,9 @@ namespace db0::python
 
     PyObject* getPyHashAsPyObject(db0::swine_ptr<Fixture> &, PyObject *);
 
-    // calculate hash or raise an exception (unhashable type)
+    // Calculate a durable hash for db0 persisted collections/indexes, or raise
+    // if the object cannot provide one. This intentionally differs from
+    // Python's tp_hash, which may use runtime-only wrapper identity.
     std::int64_t getPyHash(db0::swine_ptr<Fixture> &, PyObject *);
     
     template <TypeId type_id> std::int64_t getPyHashImpl(db0::swine_ptr<Fixture> &, PyObject *);

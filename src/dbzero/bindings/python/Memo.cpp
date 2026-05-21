@@ -14,6 +14,7 @@
 #include "Migration.hpp"
 #include "PyHash.hpp"
 #include "DataMasking.hpp"
+#include <cstdint>
 #include <optional>
 #include <dbzero/object_model/object.hpp>
 #include <dbzero/object_model/class.hpp>
@@ -89,6 +90,16 @@ namespace db0::python
     Py_hash_t PyAPI_MemoHash(MemoObject *self)
     {
         PY_API_FUNC
+        // Python's tp_hash is only for in-process Python hash tables. Immutable
+        // wrappers can materialize after being inserted into a Python set, so
+        // keep their hash tied to the wrapper address for that wrapper lifetime.
+        // db0 persisted collections must use getPyHash() for durable hashes.
+        if (PyMemo_Check<MemoImmutableObject>(reinterpret_cast<PyObject *>(self))) {
+            auto *immutable = reinterpret_cast<MemoImmutableObject *>(self);
+            auto pyHash = static_cast<Py_hash_t>(reinterpret_cast<std::uintptr_t>(immutable));
+            return pyHash == -1 ? -2 : pyHash;
+        }
+
         auto fixture = self->ext().getFixture();
         return runSafe(getPyHashImpl<TypeId::MEMO_OBJECT>, fixture, self);
     }

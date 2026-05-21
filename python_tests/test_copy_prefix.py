@@ -6,12 +6,12 @@ import dbzero as db0
 import os
 import time
 from .memo_test_types import MemoTestClass, MemoTestSingleton
-from .conftest import DB0_DIR
+from .conftest import DB0_DIR, worker_path
 import multiprocessing
 
 
 def test_copy_current_prefix(db0_fixture):
-    file_name = "./test-copy.db0"
+    file_name = worker_path("./test-copy.db0")
     # remove file if it exists
     if os.path.exists(file_name):
         os.remove(file_name)
@@ -30,7 +30,7 @@ def test_copy_current_prefix(db0_fixture):
 
 
 def test_recover_prefix_from_copy(db0_fixture):
-    file_name = "./test-copy.db0"
+    file_name = worker_path("./test-copy.db0")
     # remove file if it exists
     if os.path.exists(file_name):
         os.remove(file_name)
@@ -58,7 +58,7 @@ def test_recover_prefix_from_copy(db0_fixture):
 
 
 def test_copy_prefix_custom_step_size(db0_fixture):
-    file_name = "./test-copy.db0"
+    file_name = worker_path("./test-copy.db0")
     if os.path.exists(file_name):
         os.remove(file_name)
     
@@ -110,7 +110,7 @@ def writer_process(prefix, obj_count = 50, commit_count = 50, long_run = False):
 
 
 def test_copy_prefix_being_actively_modified(db0_fixture):
-    file_name = "./test-copy.db0"
+    file_name = worker_path("./test-copy.db0")
     if os.path.exists(file_name):
         os.remove(file_name)
     
@@ -153,7 +153,7 @@ def test_copy_prefix_being_actively_modified(db0_fixture):
 
 
 def test_copy_prefix_fails_if_no_active_prefix(db0_fixture):
-    file_name = "./test-copy.db0"
+    file_name = worker_path("./test-copy.db0")
     # remove file if it exists
     if os.path.exists(file_name):
         os.remove(file_name)
@@ -172,7 +172,7 @@ def test_copy_prefix_fails_if_no_active_prefix(db0_fixture):
 
 
 def test_copy_prefix_without_opening_it(db0_fixture):
-    file_name = "./test-copy.db0"
+    file_name = worker_path("./test-copy.db0")
     # remove file if it exists
     if os.path.exists(file_name):
         os.remove(file_name)
@@ -207,7 +207,7 @@ def test_copy_prefix_continuous_process(db0_fixture):
         return len(root.value)
 
     def validate_copy(copy_id, expected_len = None, expected_min_len = None):
-        file_name = f"./test-copy-{copy_id}.db0"
+        file_name = worker_path(f"./test-copy-{copy_id}.db0")
         os.remove(px_path)
         # restore the copy
         os.rename(file_name, px_path)
@@ -250,7 +250,7 @@ def test_copy_prefix_continuous_process(db0_fixture):
         while True:
             if not p.is_alive():
                 break
-            file_name = f"./test-copy-{copy_id}.db0"
+            file_name = worker_path(f"./test-copy-{copy_id}.db0")
             if os.path.exists(file_name):
                 os.remove(file_name)
             # copy prefix without opening it, use default step size
@@ -266,7 +266,7 @@ def test_copy_prefix_continuous_process(db0_fixture):
         total_len += obj_count * commit_count
                 
         # make final stale copy (i.e. without active modifications)
-        final_copy = f"./test-copy-final.db0"
+        final_copy = worker_path("./test-copy-final.db0")
         if os.path.exists(final_copy):
             os.remove(final_copy)
         db0.copy_prefix(final_copy, prefix=px_name)    
@@ -284,7 +284,7 @@ def test_copy_prefix_continuous_process(db0_fixture):
 
 
 def test_modify_copied_prefix(db0_fixture):
-    file_name = "./test-copy.db0"
+    file_name = worker_path("./test-copy.db0")
     # remove file if it exists
     if os.path.exists(file_name):
         os.remove(file_name)
@@ -326,7 +326,7 @@ def test_modify_copied_prefix(db0_fixture):
 
 @pytest.mark.parametrize("db0_fixture", [{"autocommit": False}], indirect=True)
 def test_copy_prefix_of_recovered_copy(db0_fixture):
-    file_name = "./test-copy.db0"
+    file_name = worker_path("./test-copy.db0")
     # remove file if it exists
     if os.path.exists(file_name):
         os.remove(file_name)
@@ -398,7 +398,7 @@ def test_slow_copy(db0_fixture):
             return len(root.value)
 
         def validate_copy(copy_id, expected_len = None, expected_min_len = None):
-            file_name = f"./test-copy-{copy_id}.db0"
+            file_name = worker_path(f"./test-copy-{copy_id}.db0")
             os.remove(px_path)
             # restore the copy
             os.rename(file_name, px_path)                        
@@ -437,7 +437,7 @@ def test_slow_copy(db0_fixture):
         while True:
             if not p.is_alive():
                 break
-            file_name = f"./test-copy-{copy_id}.db0"
+            file_name = worker_path(f"./test-copy-{copy_id}.db0")
             if os.path.exists(file_name):
                 os.remove(file_name)
             db0.copy_prefix(file_name, prefix=px_name)
@@ -468,7 +468,7 @@ def test_copy_prefix_continuous_process_slow_copy(db0_fixture):
             return len(root.value)
 
         def validate_copy(copy_id, expected_len = None, expected_min_len = None):
-            file_name = f"./test-copy-{copy_id}.db0"
+            file_name = worker_path(f"./test-copy-{copy_id}.db0")
             os.remove(px_path)
             # restore the copy
             os.rename(file_name, px_path)
@@ -513,7 +513,7 @@ def test_copy_prefix_continuous_process_slow_copy(db0_fixture):
             while True:
                 if not p.is_alive():
                     break
-                file_name = f"./test-copy-{copy_id}.db0"
+                file_name = worker_path(f"./test-copy-{copy_id}.db0")
                 if os.path.exists(file_name):
                     os.remove(file_name)
                 # copy prefix without opening it, use default step size
@@ -529,7 +529,7 @@ def test_copy_prefix_continuous_process_slow_copy(db0_fixture):
             total_len += obj_count * commit_count
                     
             # make final stale copy (i.e. without active modifications)
-            final_copy = f"./test-copy-final.db0"
+            final_copy = worker_path("./test-copy-final.db0")
             if os.path.exists(final_copy):
                 os.remove(final_copy)
             db0.copy_prefix(final_copy, prefix=px_name)    

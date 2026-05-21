@@ -13,7 +13,17 @@ from .memo_test_types import MemoTestClass, MemoTestSingleton, MemoDataPxClass, 
 
 
 TEST_FILES_DIR_ROOT = os.path.join(os.getcwd(), "python_tests", "files")
-DB0_DIR = os.path.join(os.getcwd(), "db0-test-data")
+PYTEST_WORKER_ID = os.environ.get("PYTEST_XDIST_WORKER")
+WORKER_SUFFIX = f"-{PYTEST_WORKER_ID}" if PYTEST_WORKER_ID else ""
+DB0_DIR = os.path.join(os.getcwd(), f"db0-test-data{WORKER_SUFFIX}")
+
+
+def worker_path(path):
+    if not WORKER_SUFFIX:
+        return path
+    directory, filename = os.path.split(path)
+    name, extension = os.path.splitext(filename)
+    return os.path.join(directory, f"{name}{WORKER_SUFFIX}{extension}")
 
 
 def __extract_param(request, key, default):

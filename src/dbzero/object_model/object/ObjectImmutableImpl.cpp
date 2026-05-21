@@ -3,11 +3,13 @@
 
 #include "ObjectImmutableImpl.hpp"
 
+#include <dbzero/bindings/python/embedded/EmbeddedObject.hpp>
 #include <dbzero/bindings/python/PyToolkit.hpp>
 #include <dbzero/core/exception/Exceptions.hpp>
 #include <dbzero/object_model/class/Class.hpp>
 #include <dbzero/object_model/object/ObjectInitializer.hpp>
 #include <dbzero/object_model/object/o_embedded_object.hpp>
+#include <dbzero/object_model/set/o_py_set.hpp>
 #include <dbzero/object_model/tuple/o_py_tuple.hpp>
 #include <dbzero/object_model/value/Member.hpp>
 
@@ -35,6 +37,40 @@ namespace db0::object_model
         }
 
         void unrefNestedEmbeddedObjects(db0::swine_ptr<Fixture> &fixture, const o_embedded_object &embeddedObject);
+        void unrefEmbeddedObject(db0::swine_ptr<Fixture> &fixture, const o_embedded_object &embeddedObject);
+
+        void unrefEmbeddedItem(db0::swine_ptr<Fixture> &fixture, const o_tuple_item &item);
+
+        void unrefEmbeddedTuple(db0::swine_ptr<Fixture> &fixture, const o_py_tuple &tuple)
+        {
+            for (const auto &item: tuple) {
+                unrefEmbeddedItem(fixture, item);
+            }
+        }
+
+        void unrefEmbeddedSet(db0::swine_ptr<Fixture> &fixture, const o_py_set &set)
+        {
+            for (const auto &item: set) {
+                unrefEmbeddedItem(fixture, item);
+            }
+        }
+
+        void unrefEmbeddedItem(db0::swine_ptr<Fixture> &fixture, const o_tuple_item &item)
+        {
+            switch (item.itemKind()) {
+                case StorageClass::EMBEDDED_OBJECT:
+                    unrefEmbeddedObject(fixture, o_embedded_object::__const_ref(item.embeddedPayload().begin()));
+                    return;
+                case StorageClass::EMBEDDED_TUPLE:
+                    unrefEmbeddedTuple(fixture, o_py_tuple::__const_ref(item.embeddedPayload().begin()));
+                    return;
+                case StorageClass::EMBEDDED_SET:
+                    unrefEmbeddedSet(fixture, o_py_set::__const_ref(item.embeddedPayload().begin()));
+                    return;
+                default:
+                    return;
+            }
+        }
 
         void unrefEmbeddedObjectTables(db0::swine_ptr<Fixture> &fixture, const o_embedded_object &embeddedObject)
         {
@@ -66,11 +102,7 @@ namespace db0::object_model
         {
             for (const auto &entry: embeddedObject.field_map()) {
                 const auto &value = entry.value();
-                if (value.itemKind() != StorageClass::EMBEDDED_OBJECT) {
-                    // Embedded collection traversal is intentionally left for a later implementation.
-                    continue;
-                }
-                unrefEmbeddedObject(fixture, o_embedded_object::__const_ref(value.embeddedPayload().begin()));
+                unrefEmbeddedItem(fixture, value);
             }
         }
 
@@ -97,7 +129,7 @@ namespace db0::object_model
                     const auto &embeddedObject = o_embedded_object::__const_ref(
                         embeddedValue->embeddedPayload().begin()
                     );
-                    LangConfig::LangToolkit::transformEmbeddedObject(
+                    db0::python::transformEmbeddedObject(
                         fixture, rootObject, value.m_object.get(), embeddedObject
                     );
                     continue;
@@ -106,8 +138,17 @@ namespace db0::object_model
                 if (value.m_storage_class == StorageClass::DB0_TUPLE || value.m_storage_class == StorageClass::DB0_LIST) {
                     assert(embeddedValue->itemKind() == StorageClass::EMBEDDED_TUPLE);
                     const auto &embeddedTuple = o_py_tuple::__const_ref(embeddedValue->embeddedPayload().begin());
-                    LangConfig::LangToolkit::transformEmbeddedTuple(
+                    db0::python::transformEmbeddedTuple(
                         fixture, rootObject, value.m_object.get(), embeddedTuple
+                    );
+                    continue;
+                }
+
+                if (value.m_storage_class == StorageClass::DB0_SET) {
+                    assert(embeddedValue->itemKind() == StorageClass::EMBEDDED_SET);
+                    const auto &embeddedSet = o_py_set::__const_ref(embeddedValue->embeddedPayload().begin());
+                    db0::python::transformEmbeddedSet(
+                        fixture, rootObject, value.m_object.get(), embeddedSet
                     );
                 }
             }

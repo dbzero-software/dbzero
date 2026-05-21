@@ -3,6 +3,7 @@
 
 #include <dbzero/bindings/python/embedded/EmbeddedObject.hpp>
 
+#include <dbzero/bindings/python/Memo.hpp>
 #include <dbzero/bindings/python/MemoObject.hpp>
 #include <dbzero/bindings/python/PyInternalAPI.hpp>
 #include <dbzero/bindings/python/PySafeAPI.hpp>
@@ -10,13 +11,18 @@
 #include <dbzero/bindings/python/Utils.hpp>
 
 #include <dbzero/core/exception/Exceptions.hpp>
+#include <dbzero/core/utils/hash_combine.hpp>
 #include <dbzero/object_model/class/Class.hpp>
+#include <dbzero/object_model/class/ClassFactory.hpp>
 #include <dbzero/object_model/object/ObjectImmutableImpl.hpp>
 #include <dbzero/object_model/object/o_embedded_object.hpp>
+#include <dbzero/object_model/set/o_py_set.hpp>
+#include <dbzero/object_model/tuple/o_py_tuple.hpp>
 #include <dbzero/object_model/value/Member.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 
 #include <sstream>
+#include <cstdint>
 #include <unordered_set>
 
 namespace db0::python
@@ -311,11 +317,14 @@ namespace db0::python
             return result.steal();
         }
 
-        Py_hash_t PyAPI_EmbeddedMemo_hash(MemoImmutableObject *)
+        Py_hash_t PyAPI_EmbeddedMemo_hash(MemoImmutableObject *self)
         {
             PY_API_FUNC
-            PyErr_SetString(PyExc_TypeError, "Embedded immutable memo objects do not have durable identity");
-            return -1;
+            // Runtime Python hash only. Embedded memo wrappers may be transformed
+            // in-place after insertion into a Python set, so keep the hash tied
+            // to the wrapper address. Durable db0 hashing must use getPyHash().
+            auto hash = static_cast<Py_hash_t>(reinterpret_cast<std::uintptr_t>(self));
+            return hash == -1 ? -2 : hash;
         }
 
         static PyMethodDef EmbeddedMemo_methods[] = {
@@ -396,6 +405,111 @@ namespace db0::python
                     << "Unable to create embedded memo shadow type: " << consumePyErrorMessage();
             }
             return embeddedType;
+        }
+
+        Py_ssize_t embeddedSequenceSize(PyObject *sequence)
+        {
+            if (PyTuple_Check(sequence)) {
+                return PyTuple_GET_SIZE(sequence);
+            }
+            if (PyList_Check(sequence)) {
+                return PyList_GET_SIZE(sequence);
+            }
+            return -1;
+        }
+
+        PyObject *embeddedSequenceItem(PyObject *sequence, Py_ssize_t index)
+        {
+            if (PyTuple_Check(sequence)) {
+                return PyTuple_GET_ITEM(sequence, index);
+            }
+            return PyList_GET_ITEM(sequence, index);
+        }
+
+        void transformEmbeddedTupleObjects(
+            db0::swine_ptr<Fixture> &fixture, ClassFactory &classFactory, PyObject *rootObject,
+            PyObject *sourceSequence, const o_py_tuple &embeddedTuple
+        );
+
+        void transformEmbeddedSetObjects(
+            db0::swine_ptr<Fixture> &fixture, ClassFactory &classFactory, PyObject *rootObject,
+            PyObject *sourceSet, const o_py_set &embeddedSet
+        );
+
+        void transformEmbeddedItem(
+            db0::swine_ptr<Fixture> &fixture, ClassFactory &classFactory, PyObject *rootObject,
+            PyObject *sourceItem, const o_tuple_item &embeddedItem
+        )
+        {
+            if (PyEmbeddedMemo_Check(sourceItem)) {
+                return;
+            }
+
+            if (PyMemo_Check<MemoImmutableObject>(sourceItem)) {
+                assert(embeddedItem.itemKind() == StorageClass::EMBEDDED_OBJECT);
+                const auto &embeddedObject = o_embedded_object::__const_ref(
+                    embeddedItem.embeddedPayload().begin()
+                );
+                transformEmbeddedObject(fixture, rootObject, sourceItem, embeddedObject);
+                return;
+            }
+
+            if (PyTuple_Check(sourceItem) || PyList_Check(sourceItem)) {
+                assert(embeddedItem.itemKind() == StorageClass::EMBEDDED_TUPLE);
+                const auto &nestedTuple = o_py_tuple::__const_ref(embeddedItem.embeddedPayload().begin());
+                transformEmbeddedTupleObjects(fixture, classFactory, rootObject, sourceItem, nestedTuple);
+                return;
+            }
+
+            if (PySet_Check(sourceItem)) {
+                assert(embeddedItem.itemKind() == StorageClass::EMBEDDED_SET);
+                const auto &nestedSet = o_py_set::__const_ref(embeddedItem.embeddedPayload().begin());
+                transformEmbeddedSetObjects(fixture, classFactory, rootObject, sourceItem, nestedSet);
+            }
+        }
+
+        void transformEmbeddedTupleObjects(
+            db0::swine_ptr<Fixture> &fixture, ClassFactory &classFactory, PyObject *rootObject,
+            PyObject *sourceSequence, const o_py_tuple &embeddedTuple
+        )
+        {
+            // During immutable materialization, tuple/list fields are copied into the root object's embedded
+            // storage. Any non-materialized immutable memo object originally present in that Python sequence
+            // must then be morphed in place into an embedded memo view. The Python object keeps its identity,
+            // but its native payload now points at the embedded object stored under rootObject. Walk the source
+            // Python sequence in lockstep with the persisted embedded tuple so nested tuple/list elements can
+            // be fixed up recursively.
+            auto sourceSize = embeddedSequenceSize(sourceSequence);
+            assert(sourceSize >= 0);
+            assert(static_cast<std::size_t>(sourceSize) == embeddedTuple.size());
+
+            for (Py_ssize_t index = 0; index < sourceSize; ++index) {
+                auto *sourceItem = embeddedSequenceItem(sourceSequence, index);
+                const auto &embeddedItem = embeddedTuple.item(static_cast<std::size_t>(index));
+                transformEmbeddedItem(fixture, classFactory, rootObject, sourceItem, embeddedItem);
+            }
+        }
+
+        void transformEmbeddedSetObjects(
+            db0::swine_ptr<Fixture> &fixture, ClassFactory &classFactory, PyObject *rootObject,
+            PyObject *sourceSet, const o_py_set &embeddedSet
+        )
+        {
+            // o_py_set is constructed by iterating the source Python set, so while that set is unchanged
+            // we can walk both containers in the same order and morph any immutable memo elements in place.
+            assert(PySet_Check(sourceSet));
+            assert(static_cast<std::size_t>(PySet_GET_SIZE(sourceSet)) == embeddedSet.size());
+
+            auto iterator = Py_OWN(PyObject_GetIter(sourceSet));
+            assert(iterator.get());
+
+            auto embeddedItem = embeddedSet.begin();
+            Py_FOR(sourceItem, iterator) {
+                assert(embeddedItem != embeddedSet.end());
+                transformEmbeddedItem(fixture, classFactory, rootObject, *sourceItem, *embeddedItem);
+                ++embeddedItem;
+            }
+            assert(embeddedItem == embeddedSet.end());
         }
 
         std::string consumePyErrorMessage()
@@ -488,6 +602,40 @@ namespace db0::python
         if (Py_TYPE(object)->tp_flags & Py_TPFLAGS_HAVE_GC) {
             PyObject_GC_Track(object);
         }
+    }
+
+    void transformEmbeddedObject(
+        db0::swine_ptr<Fixture> &fixture, PyTypes::ObjectPtr rootObject, PyTypes::ObjectPtr sourceObject,
+        const o_embedded_object &embeddedObject
+    )
+    {
+        if (PyEmbeddedMemo_Check(sourceObject)) {
+            return;
+        }
+
+        assert(PyMemo_Check<MemoImmutableObject>(sourceObject));
+        auto &classFactory = fixture->get<ClassFactory>();
+        auto type = classFactory.getTypeByClassRef(embeddedObject.getClassRef()).m_class;
+        auto *embeddedMemo = reinterpret_cast<MemoImmutableObject *>(sourceObject);
+        transformMemoImmutableObjectToEmbedded(embeddedMemo, rootObject, embeddedObject, std::move(type));
+    }
+
+    void transformEmbeddedTuple(
+        db0::swine_ptr<Fixture> &fixture, PyTypes::ObjectPtr rootObject, PyTypes::ObjectPtr sourceSequence,
+        const o_py_tuple &embeddedTuple
+    )
+    {
+        auto &classFactory = fixture->get<ClassFactory>();
+        transformEmbeddedTupleObjects(fixture, classFactory, rootObject, sourceSequence, embeddedTuple);
+    }
+
+    void transformEmbeddedSet(
+        db0::swine_ptr<Fixture> &fixture, PyTypes::ObjectPtr rootObject, PyTypes::ObjectPtr sourceSet,
+        const o_py_set &embeddedSet
+    )
+    {
+        auto &classFactory = fixture->get<ClassFactory>();
+        transformEmbeddedSetObjects(fixture, classFactory, rootObject, sourceSet, embeddedSet);
     }
 
     bool PyEmbeddedMemoType_Check(PyTypeObject *type)

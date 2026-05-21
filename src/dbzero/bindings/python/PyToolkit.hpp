@@ -138,14 +138,6 @@ namespace db0::python
         static ObjectSharedPtr unloadEmbeddedInstance(
             db0::swine_ptr<Fixture> &, ObjectPtr root_object, const db0::object_model::o_tuple_item &
         );
-        static void transformEmbeddedObject(
-            db0::swine_ptr<Fixture> &, ObjectPtr root_object, ObjectPtr source_object,
-            const db0::object_model::o_embedded_object &
-        );
-        static void transformEmbeddedTuple(
-            db0::swine_ptr<Fixture> &, ObjectPtr root_object, ObjectPtr source_sequence,
-            const db0::object_model::o_py_tuple &
-        );
         // Unload dbzero block instance
         static ObjectSharedPtr unloadBlock(db0::swine_ptr<Fixture>, Address, std::uint16_t instance_id = 0, AccessFlags = {});
         
