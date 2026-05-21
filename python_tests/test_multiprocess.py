@@ -7,7 +7,9 @@ import subprocess
 import multiprocessing
 import dbzero as db0
 from python_tests.memo_test_types import MemoTestClass, MemoTestSingleton
-from .conftest import DB0_DIR
+from .conftest import DB0_DIR, WORKER_SUFFIX
+
+SUBPROCESS_DB0_DIR = f"db0-test-data-subprocess{WORKER_SUFFIX}/"
 
 def test_hash_py_string(db0_fixture):
     assert db0.hash("abc") == db0.hash("abc")
@@ -62,7 +64,7 @@ import os
 import dbzero as db0
 import shutil
 import gc
-DB0_DIR = os.path.join(os.getcwd(), "db0-test-data-subprocess/")
+DB0_DIR = os.path.join(os.getcwd(), {SUBPROCESS_DB0_DIR!r})
 if not os.path.exists(DB0_DIR):
 # create empty directory
     os.mkdir(DB0_DIR)
@@ -81,7 +83,7 @@ import os
 import dbzero as db0
 import shutil
 import gc
-DB0_DIR = os.path.join(os.getcwd(), "db0-test-data-subprocess/")
+DB0_DIR = os.path.join(os.getcwd(), {SUBPROCESS_DB0_DIR!r})
 if os.path.exists(DB0_DIR):
     shutil.rmtree(DB0_DIR)
 """
@@ -93,7 +95,7 @@ import dbzero as db0
 import shutil
 import gc
 
-DB0_DIR = os.path.join(os.getcwd(), "db0-test-data-subprocess/")
+DB0_DIR = os.path.join(os.getcwd(), {SUBPROCESS_DB0_DIR!r})
 if os.path.exists(DB0_DIR):
     shutil.rmtree(DB0_DIR)
 # create empty directory

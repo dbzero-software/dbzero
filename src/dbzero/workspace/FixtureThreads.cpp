@@ -60,38 +60,70 @@ namespace db0
         }
         m_cv.notify_all();
     }
+
+    void FixtureThread::rethrowIfFailed() const
+    {
+        std::exception_ptr failure;
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            failure = m_failure;
+        }
+        if (failure) {
+            std::rethrow_exception(failure);
+        }
+    }
     
     void FixtureThread::run()
     {
         while (true) {
-            std::unique_lock<std::mutex> lock(m_mutex);
-            m_cv.wait_for(lock, std::chrono::milliseconds(m_interval_ms));
-            if (m_stopped) {
+            bool contextPrepared = false;
+            try {
+                std::unique_lock<std::mutex> lock(m_mutex);
+                m_cv.wait_for(lock, std::chrono::milliseconds(m_interval_ms));
+                if (m_stopped) {
+                    break;
+                }
+                // prepare commit context if configured
+                lock.unlock();
+                prepareContext();
+                contextPrepared = true;
+                // collect fixtures first
+                std::vector<db0::swine_ptr<Fixture> > fixtures;
+                lock.lock();
+                fixtures.reserve(m_fixtures.size());
+                for (auto it = m_fixtures.begin(); it != m_fixtures.end();) {
+                    auto fixture_ptr = it->lock();
+                    if (!fixture_ptr) {
+                        it = m_fixtures.erase(it);
+                        continue;
+                    }
+                    fixtures.push_back(fixture_ptr);                
+                    ++it;
+                }
+                // then process as unlocked
+                lock.unlock();
+                for (auto &fixture_ptr : fixtures) {
+                    onUpdate(*fixture_ptr);
+                }
+                
+                closeContext();
+                contextPrepared = false;
+            } catch (...) {
+                // Preserve background-thread failures so explicit workspace close can report them.
+                auto failure = std::current_exception();
+                if (contextPrepared) {
+                    abortContext();
+                }
+                {
+                    std::lock_guard<std::mutex> lock(m_mutex);
+                    if (!m_failure) {
+                        m_failure = failure;
+                    }
+                    m_stopped = true;
+                }
+                m_cv.notify_all();
                 break;
             }
-            // prepare commit context if configured
-            lock.unlock();
-            prepareContext();
-            // collect fixtures first
-            std::vector<db0::swine_ptr<Fixture> > fixtures;
-            lock.lock();
-            fixtures.reserve(m_fixtures.size());
-            for (auto it = m_fixtures.begin(); it != m_fixtures.end();) {
-                auto fixture_ptr = it->lock();
-                if (!fixture_ptr) {
-                    it = m_fixtures.erase(it);
-                    continue;
-                }
-                fixtures.push_back(fixture_ptr);                
-                ++it;
-            }
-            // then process as unlocked
-            lock.unlock();
-            for (auto &fixture_ptr : fixtures) {
-                onUpdate(*fixture_ptr);
-            }
-            
-            closeContext();
         }        
     }
     
@@ -121,6 +153,11 @@ namespace db0
     {
         assert(m_context && "FixtureThreadCallbacksContext must exist here!");
         m_context->finalize();
+        m_context = nullptr;
+    }
+
+    void RefreshThread::abortContext() noexcept
+    {
         m_context = nullptr;
     }
     
@@ -238,6 +275,11 @@ namespace db0
     {
         assert(m_context && "AutoSaveContext must exist here!");
         m_context->finalize();
+        m_context = nullptr;
+    }
+
+    void AutoCommitThread::abortContext() noexcept
+    {
         m_context = nullptr;
     }
 

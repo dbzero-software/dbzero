@@ -67,7 +67,16 @@ namespace db0::python
         if (!obj.hasInstance()) {
             THROWF(db0::InputException) << "Memo object is not initialized" << THROWF_END;
         }
-        return obj.getAddress().getValue();
+        return obj.getUniqueAddress().getValue();
+    }
+
+    template <> std::int64_t getPyHashImpl<TypeId::MEMO_IMMUTABLE_OBJECT>(db0::swine_ptr<Fixture> &, PyObject *key)
+    {
+        auto &obj = reinterpret_cast<MemoImmutableObject*>(key)->ext();
+        if (!obj.hasInstance()) {
+            THROWF(db0::InputException) << "Memo immutable object is not initialized" << THROWF_END;
+        }
+        return obj.getUniqueAddress().getValue();
     }
     
     // MEMO_TYPE specialization
@@ -112,6 +121,7 @@ namespace db0::python
         functions[static_cast<int>(TypeId::DB0_ENUM_VALUE)] = getPyHashImpl<TypeId::DB0_ENUM_VALUE>;
         functions[static_cast<int>(TypeId::DB0_ENUM_VALUE_REPR)] = getPyHashImpl<TypeId::DB0_ENUM_VALUE_REPR>;
         functions[static_cast<int>(TypeId::MEMO_OBJECT)] = getPyHashImpl<TypeId::MEMO_OBJECT>;
+        functions[static_cast<int>(TypeId::MEMO_IMMUTABLE_OBJECT)] = getPyHashImpl<TypeId::MEMO_IMMUTABLE_OBJECT>;
         functions[static_cast<int>(TypeId::MEMO_TYPE)] = getPyHashImpl<TypeId::MEMO_TYPE>;
         functions[static_cast<int>(TypeId::DATETIME)] = getPyHashImpl_for_simple_obj;
         functions[static_cast<int>(TypeId::DATETIME_TZ)] = getPyHashImpl_for_simple_obj;

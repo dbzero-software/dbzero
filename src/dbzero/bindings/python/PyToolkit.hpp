@@ -31,6 +31,7 @@ namespace db0::object_model
 
     class o_tuple_item;
     class o_embedded_object;
+    class o_py_tuple;
     class Object;
     class Class;
     class ClassFactory;
@@ -134,7 +135,6 @@ namespace db0::python
         static ObjectSharedPtr unloadWeakSet(db0::swine_ptr<Fixture>, Address, std::uint16_t instance_id = 0, AccessFlags = {});
         static ObjectSharedPtr unloadDict(db0::swine_ptr<Fixture>, Address, std::uint16_t instance_id = 0, AccessFlags = {});
         static ObjectSharedPtr unloadTuple(db0::swine_ptr<Fixture>, Address, std::uint16_t instance_id = 0, AccessFlags = {});
-        static ObjectSharedPtr unloadEmbeddedInstance(const db0::object_model::o_tuple_item &);
         static ObjectSharedPtr unloadEmbeddedInstance(
             db0::swine_ptr<Fixture> &, ObjectPtr root_object, const db0::object_model::o_tuple_item &
         );

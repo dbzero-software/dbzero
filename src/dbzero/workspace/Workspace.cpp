@@ -204,11 +204,27 @@ namespace db0
 
         ~WorkspaceThreads()
         {
-            // stop refresh/autocommit threads            
+            stop(false);
+        }
+
+        void stopAndRethrow()
+        {
+            // Used by explicit close: join threads first, then surface any worker failure.
+            stop(true);
+        }
+
+        void stop(bool rethrow)
+        {
             m_auto_commit_thread.stop();
             m_refresh_thread.stop();
             for (auto &m_thread : m_threads) {
-                m_thread.join();
+                if (m_thread.joinable()) {
+                    m_thread.join();
+                }
+            }
+            if (rethrow) {
+                m_refresh_thread.rethrowIfFailed();
+                m_auto_commit_thread.rethrowIfFailed();
             }
         }
 
@@ -294,7 +310,10 @@ namespace db0
     }
     
     void Workspace::stopThreads() {
-        m_workspace_threads = nullptr;
+        if (m_workspace_threads) {
+            auto threads = std::move(m_workspace_threads);
+            threads->stopAndRethrow();
+        }
     }
     
     void Workspace::close(bool as_defunct, ProcessTimer *timer_ptr)

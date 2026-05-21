@@ -7,14 +7,23 @@
 
 #include <memory>
 
-#include "MemoObject.hpp"
-#include "PyTypes.hpp"
-#include "PyWrapper.hpp"
+#include <dbzero/bindings/python/MemoObject.hpp>
+#include <dbzero/bindings/python/PyTypes.hpp>
+#include <dbzero/bindings/python/PyWrapper.hpp>
+#include <dbzero/core/memory/swine_ptr.hpp>
+
+namespace db0
+{
+    class Fixture;
+}
 
 namespace db0::object_model
 {
     class Class;
     class o_embedded_object;
+    class o_py_tuple;
+    class o_py_set;
+    class o_py_dict;
 }
 
 namespace db0::python
@@ -58,6 +67,26 @@ namespace db0::python
     void transformMemoImmutableObjectToEmbedded(
         MemoImmutableObject *object, PyObject *rootObject, const db0::object_model::o_embedded_object &embeddedObject,
         std::shared_ptr<db0::object_model::Class> type
+    );
+
+    void transformEmbeddedObject(
+        db0::swine_ptr<Fixture> &fixture, PyTypes::ObjectPtr rootObject, PyTypes::ObjectPtr sourceObject,
+        const db0::object_model::o_embedded_object &embeddedObject
+    );
+
+    void transformEmbeddedTuple(
+        db0::swine_ptr<Fixture> &fixture, PyTypes::ObjectPtr rootObject, PyTypes::ObjectPtr sourceSequence,
+        const db0::object_model::o_py_tuple &embeddedTuple
+    );
+
+    void transformEmbeddedSet(
+        db0::swine_ptr<Fixture> &fixture, PyTypes::ObjectPtr rootObject, PyTypes::ObjectPtr sourceSet,
+        const db0::object_model::o_py_set &embeddedSet
+    );
+
+    void transformEmbeddedDict(
+        db0::swine_ptr<Fixture> &fixture, PyTypes::ObjectPtr rootObject, PyTypes::ObjectPtr sourceDict,
+        const db0::object_model::o_py_dict &embeddedDict
     );
 
     bool PyEmbeddedMemo_Check(PyObject *object);

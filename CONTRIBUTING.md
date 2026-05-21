@@ -94,6 +94,9 @@ This project adheres to a code of conduct that all contributors are expected to 
    # Run Python tests (excludes stress tests)
    ./scripts/run_tests.sh
    
+   # Run Python tests in parallel
+   ./scripts/run_tests.sh -j 6
+   
    # Run specific Python test
    ./scripts/run_tests.sh -k=test_name
    

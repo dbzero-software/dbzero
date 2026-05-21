@@ -150,6 +150,10 @@ DB0_PACKED_END
         void commit();
         
         void refresh();
+
+        void reopen(Address);
+
+        bool isOpen() const;
     };
 
 }

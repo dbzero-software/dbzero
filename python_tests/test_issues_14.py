@@ -3,7 +3,7 @@
 
 import dbzero as db0
 import pytest
-from .conftest import DB0_DIR
+from .conftest import DB0_DIR, worker_path
 from .memo_test_types import MemoTestSingleton, MemoTestClass
 import multiprocessing
 import os
@@ -43,7 +43,7 @@ def test_copy_prefix_issue1(db0_fixture):
         return len(root.value)
     
     def validate_copy(copy_id, expected_len = None, expected_min_len = None):
-        file_name = f"./test-copy-{copy_id}.db0"
+        file_name = worker_path(f"./test-copy-{copy_id}.db0")
         os.remove(px_path)
         # restore the copy
         os.rename(file_name, px_path)
@@ -69,7 +69,7 @@ def test_copy_prefix_issue1(db0_fixture):
         db0.open(px_name, "r")
         
         # make final stale copy (i.e. without active modifications)
-        final_copy = f"./test-copy-final.db0"
+        final_copy = worker_path("./test-copy-final.db0")
         if os.path.exists(final_copy):
             os.remove(final_copy)
         db0.copy_prefix(final_copy, prefix=px_name)    

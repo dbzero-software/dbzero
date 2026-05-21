@@ -5,14 +5,21 @@
 #include <Python.h>
 #include <datetime.h>
 #include <dbzero/bindings/python/PySafeAPI.hpp>
+#include <dbzero/bindings/python/Memo.hpp>
+#include <dbzero/bindings/python/PyAPI.hpp>
 #include <dbzero/bindings/python/shared_py_object.hpp>
 #include <dbzero/bindings/python/types/DateTime.hpp>
 #include <dbzero/bindings/python/types/PyDecimal.hpp>
+#include <utils/SubClass.hpp>
 #include <utils/TestBase.hpp>
 #include <dbzero/core/serialization/bounded_buf_t.hpp>
 #include <dbzero/core/vspace/v_object.hpp>
+#include <dbzero/object_model/ObjectModel.hpp>
 #include <dbzero/object_model/dict/o_dict.hpp>
 #include <dbzero/object_model/dict/o_py_dict.hpp>
+#include <dbzero/object_model/object/ObjectImmutableImpl.hpp>
+#include <dbzero/object_model/object/o_embedded_object.hpp>
+#include <dbzero/workspace/Workspace.hpp>
 
 #include <cstddef>
 #include <cstdint>
@@ -159,6 +166,36 @@ namespace tests
     static void assertItemEqualsElement(const o_tuple_item &item, const o_dict::Element &element)
     {
         ASSERT_EQ(itemKey(item), elementKey(element));
+    }
+
+    static db0::python::shared_py_object<PyTypeObject *> makeMemoType()
+    {
+        static std::uint64_t memoTypeIndex = 0;
+        auto className = std::string("EmbeddedDictNestedImmutable") + std::to_string(memoTypeIndex);
+        auto typeId = "tests/" + className;
+        ++memoTypeIndex;
+
+        if (PyRun_SimpleString(("class " + className + ": pass\n").c_str()) != 0) {
+            return {};
+        }
+
+        auto mainModule = Py_BORROW(PyImport_AddModule("__main__"));
+        auto pyClass = Py_OWN(PyObject_GetAttrString(mainModule.get(), className.c_str()));
+        auto args = Py_OWN(PyTuple_Pack(1, pyClass.get()));
+        auto kwargs = Py_OWN(PyDict_New());
+        auto pyTypeId = Py_OWN(PyUnicode_FromString(typeId.c_str()));
+        auto pyImmutable = Py_OWN(PyBool_FromLong(1));
+        if (!mainModule.get() || !pyClass.get() || !args.get() || !kwargs.get()
+            || !pyTypeId.get() || !pyImmutable.get()) {
+            return {};
+        }
+        db0::python::PySafeDict_SetItemString(kwargs.get(), "id", std::move(pyTypeId));
+        db0::python::PySafeDict_SetItemString(kwargs.get(), "immutable", std::move(pyImmutable));
+
+        return db0::python::shared_py_object<PyTypeObject *>(
+            reinterpret_cast<PyTypeObject *>(db0::python::PyAPI_wrapPyClass(nullptr, args.get(), kwargs.get())),
+            false
+        );
     }
 
     static std::size_t testHashIndexCapacity(std::size_t count)
@@ -463,6 +500,78 @@ namespace tests
         ASSERT_EQ(asInt64(*dict->get(o_dict::Element::date(dateKey))), 123);
         ASSERT_EQ(dict->get(o_dict::Element::decimal(decimalKeyValue))->uint64Payload().value(), decimalStoredValue);
         ASSERT_EQ(o_py_dict::measure(*pyDict), dict->sizeOf());
+    }
+
+    TEST_F( EmbeddedDictTest , testPyDictConstructsFromImmutableMemoKeyAndValue )
+    {
+        Py_Initialize();
+
+        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
+        auto fixture = workspace.getFixture("embedded-dict-nested-memo");
+        auto nestedClass = getTestClass(fixture);
+        auto pyMemoType = makeMemoType();
+        ASSERT_TRUE(pyMemoType.get());
+
+        auto pyMemoKey = Py_OWN(reinterpret_cast<db0::python::MemoImmutableObject *>(
+            db0::python::MemoObjectStub_new(pyMemoType.get())
+        ));
+        pyMemoKey->makeNew(nestedClass);
+        auto *keyInitializer = dynamic_cast<ImmutableObjectInitializer *>(
+            InitManager::instance.findInitializer(pyMemoKey->ext())
+        );
+        ASSERT_NE(keyInitializer, nullptr);
+        keyInitializer->set({0, 0}, StorageClass::INT64, Value(47));
+
+        auto pyMemoValue = Py_OWN(reinterpret_cast<db0::python::MemoImmutableObject *>(
+            db0::python::MemoObjectStub_new(pyMemoType.get())
+        ));
+        pyMemoValue->makeNew(nestedClass);
+        auto *valueInitializer = dynamic_cast<ImmutableObjectInitializer *>(
+            InitManager::instance.findInitializer(pyMemoValue->ext())
+        );
+        ASSERT_NE(valueInitializer, nullptr);
+        valueInitializer->set({0, 0}, StorageClass::INT64, Value(53));
+
+        auto pyDict = Py_OWN(PyDict_New());
+        ASSERT_EQ(PySafeDict_SetItem(
+            *pyDict, Py_OWN(Py_NewRef(reinterpret_cast<PyObject *>(pyMemoKey.get()))),
+            Py_OWN(PyUnicode_FromString("key-object"))
+        ), 0);
+        ASSERT_EQ(PySafeDict_SetItem(
+            *pyDict, Py_OWN(PyUnicode_FromString("value-object")),
+            Py_OWN(Py_NewRef(reinterpret_cast<PyObject *>(pyMemoValue.get())))
+        ), 0);
+
+        auto memspace = getMemspace();
+        v_object<o_py_dict> dict(memspace, *pyDict);
+
+        ASSERT_EQ(dict->size(), 2u);
+        bool sawEmbeddedKey = false;
+        bool sawEmbeddedValue = false;
+        for (auto it = dict->begin(); it != dict->end(); ++it) {
+            if (it->key().itemKind() == StorageClass::EMBEDDED_OBJECT) {
+                sawEmbeddedKey = true;
+                const auto &embeddedObject = o_embedded_object::__const_ref(it->key().embeddedPayload().begin());
+                ASSERT_EQ(embeddedObject.getClassRef(), nestedClass->getClassRef());
+                auto fixedValue = embeddedObject.fixedValue(0);
+                ASSERT_TRUE(fixedValue.has_value());
+                ASSERT_EQ(fixedValue->m_value, 47u);
+                ASSERT_EQ(asString(it->value()), "key-object");
+            }
+            if (it->value().itemKind() == StorageClass::EMBEDDED_OBJECT) {
+                sawEmbeddedValue = true;
+                const auto &embeddedObject = o_embedded_object::__const_ref(it->value().embeddedPayload().begin());
+                ASSERT_EQ(embeddedObject.getClassRef(), nestedClass->getClassRef());
+                auto fixedValue = embeddedObject.fixedValue(0);
+                ASSERT_TRUE(fixedValue.has_value());
+                ASSERT_EQ(fixedValue->m_value, 53u);
+                ASSERT_EQ(asString(it->key()), "value-object");
+            }
+        }
+        ASSERT_TRUE(sawEmbeddedKey);
+        ASSERT_TRUE(sawEmbeddedValue);
+
+        workspace.close();
     }
 
 }

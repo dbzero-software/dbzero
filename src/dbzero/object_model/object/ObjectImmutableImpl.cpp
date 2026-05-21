@@ -3,10 +3,15 @@
 
 #include "ObjectImmutableImpl.hpp"
 
+#include <dbzero/bindings/python/embedded/EmbeddedObject.hpp>
 #include <dbzero/bindings/python/PyToolkit.hpp>
 #include <dbzero/core/exception/Exceptions.hpp>
 #include <dbzero/object_model/class/Class.hpp>
+#include <dbzero/object_model/dict/o_py_dict.hpp>
 #include <dbzero/object_model/object/ObjectInitializer.hpp>
+#include <dbzero/object_model/object/o_embedded_object.hpp>
+#include <dbzero/object_model/set/o_py_set.hpp>
+#include <dbzero/object_model/tuple/o_py_tuple.hpp>
 #include <dbzero/object_model/value/Member.hpp>
 
 #include <limits>
@@ -33,6 +38,51 @@ namespace db0::object_model
         }
 
         void unrefNestedEmbeddedObjects(db0::swine_ptr<Fixture> &fixture, const o_embedded_object &embeddedObject);
+        void unrefEmbeddedObject(db0::swine_ptr<Fixture> &fixture, const o_embedded_object &embeddedObject);
+
+        void unrefEmbeddedItem(db0::swine_ptr<Fixture> &fixture, const o_tuple_item &item);
+
+        void unrefEmbeddedTuple(db0::swine_ptr<Fixture> &fixture, const o_py_tuple &tuple)
+        {
+            for (const auto &item: tuple) {
+                unrefEmbeddedItem(fixture, item);
+            }
+        }
+
+        void unrefEmbeddedSet(db0::swine_ptr<Fixture> &fixture, const o_py_set &set)
+        {
+            for (const auto &item: set) {
+                unrefEmbeddedItem(fixture, item);
+            }
+        }
+
+        void unrefEmbeddedDict(db0::swine_ptr<Fixture> &fixture, const o_py_dict &dict)
+        {
+            for (const auto &pair: dict) {
+                unrefEmbeddedItem(fixture, pair.key());
+                unrefEmbeddedItem(fixture, pair.value());
+            }
+        }
+
+        void unrefEmbeddedItem(db0::swine_ptr<Fixture> &fixture, const o_tuple_item &item)
+        {
+            switch (item.itemKind()) {
+                case StorageClass::EMBEDDED_OBJECT:
+                    unrefEmbeddedObject(fixture, o_embedded_object::__const_ref(item.embeddedPayload().begin()));
+                    return;
+                case StorageClass::EMBEDDED_TUPLE:
+                    unrefEmbeddedTuple(fixture, o_py_tuple::__const_ref(item.embeddedPayload().begin()));
+                    return;
+                case StorageClass::EMBEDDED_SET:
+                    unrefEmbeddedSet(fixture, o_py_set::__const_ref(item.embeddedPayload().begin()));
+                    return;
+                case StorageClass::EMBEDDED_DICT:
+                    unrefEmbeddedDict(fixture, o_py_dict::__const_ref(item.embeddedPayload().begin()));
+                    return;
+                default:
+                    return;
+            }
+        }
 
         void unrefEmbeddedObjectTables(db0::swine_ptr<Fixture> &fixture, const o_embedded_object &embeddedObject)
         {
@@ -64,23 +114,69 @@ namespace db0::object_model
         {
             for (const auto &entry: embeddedObject.field_map()) {
                 const auto &value = entry.value();
-                if (value.itemKind() != StorageClass::EMBEDDED_OBJECT) {
-                    // Embedded collection traversal is intentionally left for a later implementation.
+                unrefEmbeddedItem(fixture, value);
+            }
+        }
+
+        void transformEmbeddedObjectValues(
+            db0::swine_ptr<Fixture> &fixture, ObjectImmutableImpl &object, ObjectImmutableImpl::ObjectPtr rootObject,
+            const ImmutableObjectInitializer &initializer
+        )
+        {
+            if (!rootObject) {
+                return;
+            }
+
+            for (const auto &value: initializer.objects()) {
+                if (value.m_storage_class == StorageClass::DELETED) {
                     continue;
                 }
-                unrefEmbeddedObject(fixture, o_embedded_object::__const_ref(value.embeddedPayload().begin()));
+                assert(value.m_object.get());
+
+                auto *embeddedValue = object->variableValue(value.m_loc.first);
+                assert(embeddedValue);
+
+                if (value.m_storage_class == StorageClass::EMBEDDED_OBJECT) {
+                    assert(embeddedValue->itemKind() == StorageClass::EMBEDDED_OBJECT);
+                    const auto &embeddedObject = o_embedded_object::__const_ref(
+                        embeddedValue->embeddedPayload().begin()
+                    );
+                    db0::python::transformEmbeddedObject(
+                        fixture, rootObject, value.m_object.get(), embeddedObject
+                    );
+                    continue;
+                }
+
+                if (value.m_storage_class == StorageClass::DB0_TUPLE || value.m_storage_class == StorageClass::DB0_LIST) {
+                    assert(embeddedValue->itemKind() == StorageClass::EMBEDDED_TUPLE);
+                    const auto &embeddedTuple = o_py_tuple::__const_ref(embeddedValue->embeddedPayload().begin());
+                    db0::python::transformEmbeddedTuple(
+                        fixture, rootObject, value.m_object.get(), embeddedTuple
+                    );
+                    continue;
+                }
+
+                if (value.m_storage_class == StorageClass::DB0_SET) {
+                    assert(embeddedValue->itemKind() == StorageClass::EMBEDDED_SET);
+                    const auto &embeddedSet = o_py_set::__const_ref(embeddedValue->embeddedPayload().begin());
+                    db0::python::transformEmbeddedSet(
+                        fixture, rootObject, value.m_object.get(), embeddedSet
+                    );
+                    continue;
+                }
+
+                if (value.m_storage_class == StorageClass::DB0_DICT) {
+                    assert(embeddedValue->itemKind() == StorageClass::EMBEDDED_DICT);
+                    const auto &embeddedDict = o_py_dict::__const_ref(embeddedValue->embeddedPayload().begin());
+                    db0::python::transformEmbeddedDict(
+                        fixture, rootObject, value.m_object.get(), embeddedDict
+                    );
+                }
             }
         }
     }
 
     void ObjectImmutableImpl::postInit(FixtureLock &fixture)
-    {
-        postInit(fixture, {});
-    }
-
-    void ObjectImmutableImpl::postInit(
-        FixtureLock &fixture, const std::function<void(const ImmutableObjectInitializer &)> &preClose
-    )
     {
         if (!this->hasInstance()) {
             auto &initializer = InitManager::instance.getInitializer(*this);
@@ -111,9 +207,7 @@ namespace db0::object_model
             if (type.isSingleton()) {
                 type.setSingletonAddress(*this);
             }
-            if (preClose) {
-                preClose(*immutableInitializer);
-            }
+            transformEmbeddedObjectValues(*fixture, *this, m_lang_object, *immutableInitializer);
             initializer.close();
         }
 

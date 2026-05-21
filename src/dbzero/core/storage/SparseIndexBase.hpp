@@ -20,6 +20,7 @@ namespace db0
 #include <dbzero/core/dram/DRAM_Prefix.hpp>
 #include <dbzero/core/dram/DRAM_Allocator.hpp>
 #include <dbzero/core/compiler_attributes.hpp>
+#include <new>
 
 namespace db0
 
@@ -174,6 +175,8 @@ DB0_PACKED_END
 
         void update(std::uint64_t max_storage_page_num);
         void update(PageNumT page_num, StateNumT state_num, std::uint64_t max_storage_page_num);
+        void reopen(Address address = {});
+        bool isOpen() const;
         
     private:
         std::shared_ptr<DRAM_Prefix> m_dram_prefix;
@@ -380,10 +383,41 @@ DB0_PACKED_END
     
     template <typename ItemT, typename CompressedItemT>
     void SparseIndexBase<ItemT, CompressedItemT>::refresh()
-    {   
+    {
+        if (!m_index) {
+            this->reopen();
+            return;
+        }
+        
         m_index.detach();
         m_next_page_num = m_index.treeHeader().m_next_page_num;
         m_max_state_num = m_index.treeHeader().m_max_state_num;        
+    }
+
+    template <typename ItemT, typename CompressedItemT>
+    void SparseIndexBase<ItemT, CompressedItemT>::reopen(Address address)
+    {
+        if (m_dram_prefix->empty()) {
+            return;
+        }
+        
+        if (!address.isValid()) {
+            address = m_dram_allocator->firstAlloc();
+        }
+        if (!address.isValid()) {
+            return;
+        }
+        
+        m_index.~IndexT();
+        new (&m_index) IndexT(m_dram_space.myPtr(address), m_dram_prefix->getPageSize(), m_access_type);
+        m_next_page_num = m_index.treeHeader().m_next_page_num;
+        m_max_state_num = m_index.treeHeader().m_max_state_num;
+    }
+
+    template <typename ItemT, typename CompressedItemT>
+    bool SparseIndexBase<ItemT, CompressedItemT>::isOpen() const
+    {
+        return !!m_index;
     }
     
     template <typename ItemT, typename CompressedItemT>

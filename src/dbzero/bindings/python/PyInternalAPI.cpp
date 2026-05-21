@@ -2,14 +2,12 @@
 // Copyright (c) 2025 DBZero Software sp. z o.o.
 
 #include "PyInternalAPI.hpp"
-#include "EmbeddedObject.hpp"
 #include "PyToolkit.hpp"
 #include "Memo.hpp"
 #include <dbzero/object_model/class/ClassFactory.hpp>
 #include <dbzero/object_model/class/Class.hpp>
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/object_model/object/ObjectInitializer.hpp>
-#include <dbzero/object_model/object/o_embedded_object.hpp>
 #include <dbzero/object_model/value/TypeUtils.hpp>
 #include <dbzero/object_model/index/Index.hpp>
 #include <dbzero/core/exception/Exceptions.hpp>
@@ -798,7 +796,7 @@ namespace db0::python
                 << Py_TYPE(py_obj)->tp_name << THROWF_END;
         }
     }
-    
+
     PyObject *materializeMemoObject(MemoObject *memo_obj)
     {
         if (memo_obj->ext().hasInstance()) {
@@ -826,34 +824,8 @@ namespace db0::python
         auto fixture = memo_obj->ext().getFixture();
         db0::FixtureLock lock(fixture);
         // materialize by calling postInit
-        memo_obj->modifyExt().postInit(lock, [&](const auto &initializer) {
-            auto &classFactory = fixture->get<db0::object_model::ClassFactory>();
-            for (const auto &value: initializer.objects()) {
-                if (value.m_storage_class == db0::object_model::StorageClass::DELETED) {
-                    continue;
-                }
-                if (value.m_storage_class != db0::object_model::StorageClass::EMBEDDED_OBJECT) {
-                    continue;
-                }
-                assert(value.m_object.get());
-
-                auto *pyObject = value.m_object.get();
-                assert(PyMemo_Check<MemoImmutableObject>(pyObject));
-
-                auto *embeddedValue = (memo_obj->ext())->variableValue(value.m_loc.first);
-                assert(embeddedValue);
-                assert(embeddedValue->itemKind() == db0::object_model::StorageClass::EMBEDDED_OBJECT);
-                const auto &embeddedObject = db0::object_model::o_embedded_object::__const_ref(
-                    embeddedValue->embeddedPayload().begin()
-                );
-                auto type = classFactory.getTypeByClassRef(embeddedObject.getClassRef()).m_class;
-                auto *embeddedMemo = reinterpret_cast<MemoImmutableObject *>(pyObject);
-                transformMemoImmutableObjectToEmbedded(
-                    embeddedMemo, reinterpret_cast<PyObject *>(memo_obj), embeddedObject, std::move(type)
-                );
-            }
-        });
         memo_obj->modifyExt().setLangObject(reinterpret_cast<PyObject *>(memo_obj));
+        memo_obj->modifyExt().postInit(lock);
         if (!memo_obj->ext().getType().isNoCache()) {
             fixture->getLangCache().add(memo_obj->ext().getAddress(), memo_obj);
         }

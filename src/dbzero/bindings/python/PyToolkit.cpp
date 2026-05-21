@@ -2,7 +2,10 @@
 // Copyright (c) 2025 DBZero Software sp. z o.o.
 
 #include "PyToolkit.hpp"
-#include "EmbeddedObject.hpp"
+#include <dbzero/bindings/python/embedded/EmbeddedObject.hpp>
+#include <dbzero/bindings/python/embedded/EmbeddedDict.hpp>
+#include <dbzero/bindings/python/embedded/EmbeddedSet.hpp>
+#include <dbzero/bindings/python/embedded/EmbeddedTuple.hpp>
 #include "Memo.hpp"
 #include "MemoExpiredRef.hpp"
 #include "PyInternalAPI.hpp"
@@ -18,6 +21,7 @@
 #include <dbzero/core/memory/mptr.hpp>
 #include <dbzero/object_model/class.hpp>
 #include <dbzero/object_model/object.hpp>
+#include <dbzero/object_model/object/o_embedded_object.hpp>
 #include <dbzero/object_model/tuple/o_tuple.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/bindings/python/types/DateTime.hpp>
@@ -32,6 +36,11 @@
 #include <dbzero/bindings/python/types/PyEnum.hpp>
 #include <dbzero/bindings/python/types/PyTag.hpp>
 #include <dbzero/bindings/python/PySafeAPI.hpp>
+#include <dbzero/bindings/python/types/DateTime.hpp>
+#include <dbzero/bindings/python/types/PyDecimal.hpp>
+#include <dbzero/object_model/tuple/o_py_tuple.hpp>
+#include <dbzero/object_model/set/o_py_set.hpp>
+#include <dbzero/object_model/dict/o_py_dict.hpp>
 
 namespace db0::python
 
@@ -64,36 +73,7 @@ namespace db0::python
             }
             return reinterpret_cast<MemoAnyObject *>(pyObject)->ext().hasRefs();
         }
-    }
 
-    PyToolkit::ObjectSharedPtr PyToolkit::unloadEmbeddedInstance(const db0::object_model::o_tuple_item &item)
-    {
-        switch (item.itemKind()) {
-            case StorageClass::STRING_REF:
-            case StorageClass::EMBEDDED_STRING: {
-                auto str = item.stringPayload().get();
-                auto result = Py_OWN(PyUnicode_FromStringAndSize(str.get_raw(), str.size()));
-                if (!result) {
-                    THROWF(db0::InputException) << "Failed to convert embedded string";
-                }
-                return result;
-            }
-            case StorageClass::DB0_BYTES:
-            case StorageClass::EMBEDDED_BYTES: {
-                const auto &bytes = item.bytesPayload();
-                auto result = Py_OWN(PyBytes_FromStringAndSize(
-                    reinterpret_cast<const char *>(bytes.getBuffer()), bytes.size()
-                ));
-                if (!result) {
-                    THROWF(db0::InputException) << "Failed to convert embedded bytes";
-                }
-                return result;
-            }
-            default:
-                THROWF(db0::InputException)
-                    << "Unsupported embedded immutable member storage class: " << item.itemKind();
-        }
-        return {};
     }
 
     PyToolkit::ObjectSharedPtr PyToolkit::unloadEmbeddedInstance(
@@ -101,6 +81,30 @@ namespace db0::python
     )
     {
         switch (item.itemKind()) {
+            case StorageClass::NONE:
+                return Py_BORROW(Py_None);
+            case StorageClass::BOOLEAN:
+                return Py_OWN(PyBool_FromLong(item.boolPayload().value()));
+            case StorageClass::INT64:
+                return Py_OWN(PyLong_FromLongLong(item.intPayload().value()));
+            case StorageClass::PACKED_INT32:
+                return Py_OWN(PyLong_FromUnsignedLong(item.packedIntPayload().value()));
+            case StorageClass::FP_NUMERIC64:
+                return Py_OWN(PyFloat_FromDouble(item.doublePayload().value()));
+            case StorageClass::PTIME64:
+                return Py_OWN(PyLong_FromUnsignedLongLong(item.uint64Payload().value()));
+            case StorageClass::DATE:
+                return Py_OWN(uint64ToPyDate(item.uint64Payload().value()));
+            case StorageClass::DATETIME:
+                return Py_OWN(uint64ToPyDatetime(item.uint64Payload().value()));
+            case StorageClass::DATETIME_TZ:
+                return Py_OWN(uint64ToPyDatetimeWithTZ(item.uint64Payload().value()));
+            case StorageClass::TIME:
+                return Py_OWN(uint64ToPyTime(item.uint64Payload().value()));
+            case StorageClass::TIME_TZ:
+                return Py_OWN(uint64ToPyTimeWithTz(item.uint64Payload().value()));
+            case StorageClass::DECIMAL:
+                return Py_OWN(uint64ToPyDecimal(item.uint64Payload().value()));
             case StorageClass::STRING_REF:
             case StorageClass::EMBEDDED_STRING: {
                 auto str = item.stringPayload().get();
@@ -120,6 +124,27 @@ namespace db0::python
                     THROWF(db0::InputException) << "Failed to convert embedded bytes";
                 }
                 return result;
+            }
+            case StorageClass::EMBEDDED_TUPLE: {
+                if (!rootObject) {
+                    THROWF(db0::InputException) << "Embedded tuple retrieval requires a root memo object";
+                }
+                const auto &tuple = db0::object_model::o_py_tuple::__const_ref(item.embeddedPayload().begin());
+                return makeEmbeddedTuple(rootObject, tuple);
+            }
+            case StorageClass::EMBEDDED_SET: {
+                if (!rootObject) {
+                    THROWF(db0::InputException) << "Embedded set retrieval requires a root memo object";
+                }
+                const auto &set = db0::object_model::o_py_set::__const_ref(item.embeddedPayload().begin());
+                return makeEmbeddedSet(rootObject, set);
+            }
+            case StorageClass::EMBEDDED_DICT: {
+                if (!rootObject) {
+                    THROWF(db0::InputException) << "Embedded dict retrieval requires a root memo object";
+                }
+                const auto &dict = db0::object_model::o_py_dict::__const_ref(item.embeddedPayload().begin());
+                return makeEmbeddedDict(rootObject, dict);
             }
             case StorageClass::EMBEDDED_OBJECT: {
                 if (!rootObject) {
