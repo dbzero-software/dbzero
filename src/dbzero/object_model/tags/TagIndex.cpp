@@ -480,12 +480,10 @@ namespace db0::object_model
                 
         // this is to resolve addresses of incomplete objects (must be done before flushing)
         buildActiveValues();
-        auto &type_manager = LangToolkit::getTypeManager();
         // NOTE: some object might've been dropped in the meantime, need to be reverted from batch operations        
         for (const auto &item: m_object_cache) {
             auto obj_ptr = item.second.get();
-            auto &memo = type_manager.extractAnyObject(obj_ptr);
-            if (memo.isDead()) {
+            if (LangToolkit::isMemoDead(obj_ptr)) {
                 revert(obj_ptr);
             }
         }
@@ -497,7 +495,7 @@ namespace db0::object_model
                 auto it = m_object_cache.find(obj_addr);
                 assert(it != m_object_cache.end());
                 // NOTE: inc-ref as tag
-                type_manager.extractMutableAnyObject(it->second.get()).incRef(true);
+                LangToolkit::incRefMemo(true, it->second.get());
             };
             
             // add_index_callback adds reference to tags (string pool tokens)
@@ -514,11 +512,10 @@ namespace db0::object_model
                     auto obj_ptr = it->second.get();
                     // NOTE: we check for acutal language references (excluding LangCache + TagIndex)
                     if (LangToolkit::decRefMemo(true, obj_ptr) && !LangToolkit::hasAnyLangRefs(obj_ptr, 2)) {
-                        auto &memo = type_manager.extractAnyObject(obj_ptr);
                         // if object is pending deletion, remove all type tags as well
                         // we might skip this operation and leave it to Object's dropTags function
                         // but it will be more efficient to do it here
-                        const Class *type_ptr = &memo.getType();
+                        const Class *type_ptr = &LangToolkit::getMemoType(obj_ptr);
                         while (type_ptr) {
                             batch_op_types->removeTag({ obj_addr, nullptr }, type_ptr->getAddress().getOffset());
                             type_ptr = type_ptr->getBaseClassPtr();
@@ -558,11 +555,11 @@ namespace db0::object_model
                 // Mid-init objects are in m_active_pre_cache, not m_object_cache, so they are unaffected.
                 for (const auto &item: m_object_cache) {
                     auto obj_ptr = item.second.get();
-                    auto &memo = type_manager.extractAnyObject(obj_ptr);
                     // NOTE: dropped instances should've already been reverted by now
                     // NOTE: we check for actual language references (excluding LangCache + TagIndex)
-                    if (!memo.isDropped() && !memo.hasAnyRefs() && !LangToolkit::hasAnyLangRefs(obj_ptr, 2)) {
-                        m_batch_op_types->revert(memo.getUniqueAddress());
+                    if (!LangToolkit::isMemoDropped(obj_ptr) && !LangToolkit::hasMemoAnyRefs(obj_ptr)
+                        && !LangToolkit::hasAnyLangRefs(obj_ptr, 2)) {
+                        m_batch_op_types->revert(LangToolkit::getMemoUniqueAddress(obj_ptr));
                     }
                 }
                 // flush all type-tag updates

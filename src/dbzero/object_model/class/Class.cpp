@@ -1059,7 +1059,38 @@ namespace db0::object_model
     
     FieldID Class::getPrimaryKey(unsigned int index) const
     {
-        assert(index < m_unique_keys.size());
+        auto resolvePrimaryKey = [this, index]() -> FieldID {
+            for (const auto &entry: m_index) {
+                const auto &memberId = entry.second.first;
+                if (!memberId) {
+                    continue;
+                }
+                if (memberId.size() > 1 && memberId.secondary().first.getIndex() == index) {
+                    return memberId.primary().first;
+                }
+                if (memberId.primary().first.getIndex() == index) {
+                    return memberId.primary().first;
+                }
+            }
+            return {};
+        };
+
+        if (index >= m_unique_keys.size() || !m_unique_keys[index]) {
+            m_member_cache.refresh();
+        }
+        if (index >= m_unique_keys.size() || !m_unique_keys[index]) {
+            auto primaryKey = resolvePrimaryKey();
+            if (!!primaryKey) {
+                if (m_unique_keys.size() <= index) {
+                    m_unique_keys.resize(index + 1);
+                }
+                m_unique_keys[index] = primaryKey;
+            }
+        }
+        if (index >= m_unique_keys.size() || !m_unique_keys[index]) {
+            // Destruction/schema cleanup must not read past the cache if the primary-key cache is stale.
+            return FieldID::fromIndex(index);
+        }
         return m_unique_keys[index];
     }
     

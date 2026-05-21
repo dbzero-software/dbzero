@@ -148,9 +148,9 @@ namespace db0::object_model
         }
         
         // @param mask required for lo-fi types (pack-2)
-        void set(std::pair<std::uint32_t, std::uint32_t> loc, StorageClass storage_class, Value value,
+        virtual void set(std::pair<std::uint32_t, std::uint32_t> loc, StorageClass storage_class, Value value,
             std::uint64_t mask = 0);
-        bool remove(std::pair<std::uint32_t, std::uint32_t> loc, std::uint64_t mask = 0);
+        virtual bool remove(std::pair<std::uint32_t, std::uint32_t> loc, std::uint64_t mask = 0);
         
         // Allows migrating initialization to other fixture (only for empty ObjectInitializer)
         // @return false if operation failed (exception not thrown)
@@ -194,7 +194,7 @@ namespace db0::object_model
         // performs a deferred incRef on an actual object instance (the ref-count reflected upon creation)
         void incRef(bool is_tag);
         
-        bool empty() const;
+        virtual bool empty() const;
                 
     protected:
         friend class ObjectInitializerManager;
@@ -237,10 +237,13 @@ namespace db0::object_model
             std::pair<std::uint32_t, std::uint32_t> loc, StorageClass storage_class, Value value,
             ObjectSharedPtr object, std::uint64_t mask = 0
         );
-        bool remove(std::pair<std::uint32_t, std::uint32_t> loc, std::uint64_t mask = 0);
+        void set(std::pair<std::uint32_t, std::uint32_t> loc, StorageClass storage_class, Value value,
+            std::uint64_t mask = 0) override;
+        bool remove(std::pair<std::uint32_t, std::uint32_t> loc, std::uint64_t mask = 0) override;
         bool tryGetObjectAt(std::pair<std::uint32_t, std::uint32_t> loc, ObjectSharedPtr &object) const;
         std::pair<const XValue*, const XValue*> getData(PosVT::Data &data, unsigned int &pos_vt_offset) const;
         void resetObjects();
+        bool empty() const override;
 
         static bool isFixedStorageClass(StorageClass storage_class);
 
@@ -254,10 +257,12 @@ namespace db0::object_model
         const std::vector<ObjectValue> &objects() const;
 
     private:
-        std::vector<ObjectValue> m_objects;
-        mutable XValuesVector m_fixed_values;
+        mutable std::vector<ObjectValue> m_objects;
+        mutable bool m_objects_compacted = true;
 
-        void eraseObjectAt(std::pair<std::uint32_t, std::uint32_t> loc);
+        void compactObjects() const;
+        void appendObjectTombstone(std::pair<std::uint32_t, std::uint32_t> loc);
+        bool hasObjectAt(std::pair<std::uint32_t, std::uint32_t> loc) const;
     };
     
     template <typename T, typename... Args>

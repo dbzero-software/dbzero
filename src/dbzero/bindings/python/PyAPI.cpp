@@ -1113,6 +1113,10 @@ namespace db0::python
     template <> db0::object_model::StorageClass getStorageClass<MemoObject>() {
         return db0::object_model::StorageClass::OBJECT_REF;
     }
+
+    template <> db0::object_model::StorageClass getStorageClass<MemoImmutableObject>() {
+        return db0::object_model::StorageClass::OBJECT_REF;
+    }
     
     template <> db0::object_model::StorageClass getStorageClass<ListObject>() {
         return db0::object_model::StorageClass::DB0_LIST;

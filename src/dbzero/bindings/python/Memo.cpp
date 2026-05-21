@@ -2,9 +2,11 @@
 // Copyright (c) 2025 DBZero Software sp. z o.o.
 
 #include "Memo.hpp"
+#include "EmbeddedObject.hpp"
 #include "PyToolkit.hpp"
 #include <iostream>
 #include <object.h>
+#include <type_traits>
 #include "PySnapshot.hpp"
 #include "PyInternalAPI.hpp"
 #include "Utils.hpp"
@@ -282,10 +284,24 @@ namespace db0::python
                 return -1;
             }
             
+            if constexpr (std::is_same_v<MemoImplT, MemoImmutableObject>) {
+                auto &initializer = db0::object_model::InitManager::instance.getInitializer(self->ext());
+                const Class *class_ptr = &initializer.getClass();
+                // Keep a freshly-created immutable object deferred while it has no durable references.
+                // It will be materialized later when it is referenced or embedded; default type tags are
+                // assigned only after materialization and must not force it here.
+                if (!class_ptr->isSingleton() && initializer.getRefCounts() == std::make_pair(0u, 0u)) {
+                    return 0;
+                }
+            }
+
             // invoke post-init on associated dbzero object
             auto &object = self->modifyExt();
             db0::FixtureLock fixture(object.getFixture());            
             object.postInit(fixture);
+            if constexpr (std::is_same_v<MemoImplT, MemoImmutableObject>) {
+                object.setLangObject(reinterpret_cast<PyObject *>(self));
+            }
             
             // need to call modifyExt again after postInit because the instance has just been created
             // and potentially needs to be included in the AtomicContext
@@ -629,12 +645,6 @@ namespace db0::python
         PY_API_FUNC    
         // assign value to a dbzero attribute
         try {
-            // must materialize the object before setting as an attribute
-            if (value && !db0::object_model::isMaterialized(value)) {
-                db0::FixtureLock lock(self->ext().getFixture());
-                db0::object_model::materialize(lock, value);
-            }
-            
             if (self->ext().hasInstance()) {
                 PyErr_SetString(PyExc_AttributeError, "Cannot modify an immutable memo object");
                 return -1;
@@ -1161,7 +1171,8 @@ namespace db0::python
     
     PyObject *tryPyMemoCheck(PyObject *py_obj)
     {
-        if (PyAnyMemo_Check(py_obj) || (PyType_Check(py_obj) && PyAnyMemoType_Check(reinterpret_cast<PyTypeObject*>(py_obj)))) {
+        if (PyAnyMemo_Check(py_obj) || PyEmbeddedMemo_Check(py_obj)
+            || (PyType_Check(py_obj) && PyAnyMemoType_Check(reinterpret_cast<PyTypeObject*>(py_obj)))) {
             Py_RETURN_TRUE;
         }
         Py_RETURN_FALSE;

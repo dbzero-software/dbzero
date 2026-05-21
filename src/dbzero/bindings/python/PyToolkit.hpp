@@ -29,6 +29,8 @@ namespace db0::object_model
 
 {
 
+    class o_tuple_item;
+    class o_embedded_object;
     class Object;
     class Class;
     class ClassFactory;
@@ -132,6 +134,10 @@ namespace db0::python
         static ObjectSharedPtr unloadWeakSet(db0::swine_ptr<Fixture>, Address, std::uint16_t instance_id = 0, AccessFlags = {});
         static ObjectSharedPtr unloadDict(db0::swine_ptr<Fixture>, Address, std::uint16_t instance_id = 0, AccessFlags = {});
         static ObjectSharedPtr unloadTuple(db0::swine_ptr<Fixture>, Address, std::uint16_t instance_id = 0, AccessFlags = {});
+        static ObjectSharedPtr unloadEmbeddedInstance(const db0::object_model::o_tuple_item &);
+        static ObjectSharedPtr unloadEmbeddedInstance(
+            db0::swine_ptr<Fixture> &, ObjectPtr root_object, const db0::object_model::o_tuple_item &
+        );
         // Unload dbzero block instance
         static ObjectSharedPtr unloadBlock(db0::swine_ptr<Fixture>, Address, std::uint16_t instance_id = 0, AccessFlags = {});
         
@@ -189,6 +195,7 @@ namespace db0::python
         static ObjectSharedPtr next(ObjectPtr py_object);
         static std::size_t length(ObjectPtr py_object);
         static ObjectSharedPtr getItem(ObjectPtr py_object, std::size_t i);
+        static ObjectSharedPtr getMappingItem(ObjectPtr py_object, ObjectPtr key);
         // Get value associated fixture UUID (e.g. enum value)
         static std::uint64_t getFixtureUUID(ObjectPtr py_object);
         // Get scoped type's associated fixture UUID (or 0x0)
@@ -207,6 +214,12 @@ namespace db0::python
         static bool isImmutable(TypeObjectPtr);
         static bool isProtectFields(TypeObjectPtr);
         static FlagSet<MemoOptions> getMemoFlags(TypeObjectPtr);
+        static bool hasMemoInstance(ObjectPtr);
+        static UniqueAddress getMemoUniqueAddress(ObjectPtr);
+        static bool isMemoDead(ObjectPtr);
+        static bool isMemoDropped(ObjectPtr);
+        static bool hasMemoAnyRefs(ObjectPtr);
+        static const object_model::Class &getMemoType(ObjectPtr);
         
         inline static void incRef(ObjectPtr py_object) {
             Py_INCREF(py_object);                
@@ -268,7 +281,8 @@ namespace db0::python
         // NOTE: returns nullptr if Python not initialized / defunct
         static std::unique_ptr<GIL_Lock> ensureLocked();
         
-        // decRef operation for memo objects
+        // ref-count operations for memo objects
+        static void incRefMemo(bool is_tag, ObjectPtr py_object);
         // @return true if reference count was decremented to zero (!hasRefs)
         static bool decRefMemo(bool is_tag, ObjectPtr py_object);
         

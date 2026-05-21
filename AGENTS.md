@@ -45,6 +45,7 @@ Types derived from `v_object` should follow the project-wide constructor pattern
 ### C++ style
 
 - Use camelCase for local helper variables, lambdas, and method names in C++ code.
+- Project types often avoid implicit bool conversion because it can hide subtle ownership, state, and null-check bugs. Use explicit double-negation checks such as `if (!!obj)` or `while (!!item)` when a type supports `operator!()`.
 
 ### Python binding wrapper access
 

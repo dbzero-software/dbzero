@@ -208,6 +208,10 @@ namespace db0::python
     
     template <typename MemoImplT>
     PyObject *getMaterializedMemoObject(MemoImplT *py_obj);
+    template <>
+    PyObject *getMaterializedMemoObject(MemoObject *py_obj);
+    template <>
+    PyObject *getMaterializedMemoObject(MemoImmutableObject *py_obj);
     
     // Retrieve prefix (its Fixture objects) from the optional argument "prefix"
     db0::swine_ptr<Fixture> getOptionalPrefixFromArg(db0::Snapshot &workspace, const char *prefix_name);
@@ -249,8 +253,4 @@ namespace db0::python
         std::optional<std::uint64_t> page_io_step_size = {});
     PyObject *tryCopyPrefix(PyObject *args, PyObject *kwargs);
     
-    extern template PyObject *getMaterializedMemoObject(MemoObject *);
-    extern template PyObject *getMaterializedMemoObject(MemoImmutableObject *);
-    
 }
-

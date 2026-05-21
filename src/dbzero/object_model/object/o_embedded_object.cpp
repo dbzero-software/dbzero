@@ -5,7 +5,9 @@
 
 #include <dbzero/bindings/python/PyToolkit.hpp>
 #include <dbzero/core/exception/Exceptions.hpp>
+#include <dbzero/object_model/class/Class.hpp>
 #include <dbzero/object_model/dict/o_py_dict.hpp>
+#include <dbzero/object_model/object/ObjectImmutableImpl.hpp>
 #include <dbzero/object_model/set/o_py_set.hpp>
 #include <dbzero/object_model/tuple/o_py_tuple.hpp>
 
@@ -28,6 +30,36 @@ namespace db0::object_model
         void writePyDict(void *buf, const void *source)
         {
             o_py_dict::__new(buf, const_cast<PyObject *>(static_cast<const PyObject *>(source)));
+        }
+
+        const ImmutableObjectInitializer &getInitializer(PyObject *pyObject)
+        {
+            using MemoImmutableObject = db0::python::PyToolkit::TypeManager::MemoImmutableObject;
+
+            assert(db0::python::PyToolkit::isMemoImmutableObject(pyObject));
+
+            const auto &object = db0::python::PyToolkit::getTypeManager()
+                .template extractObject<MemoImmutableObject>(pyObject);
+            if (object.hasInstance()) {
+                THROWF(db0::InputException)
+                    << "Only non-materialized immutable memo objects can be embedded";
+            }
+
+            auto *initializer = dynamic_cast<ImmutableObjectInitializer *>(
+                InitManager::instance.findInitializer(object)
+            );
+            if (!initializer) {
+                THROWF(db0::InputException)
+                    << "Non-materialized immutable memo object has no active initializer";
+            }
+            return *initializer;
+        }
+
+        void writeEmbeddedObject(void *buf, const void *source)
+        {
+            auto *pyObject = const_cast<PyObject *>(static_cast<const PyObject *>(source));
+            const auto &initializer = getInitializer(pyObject);
+            o_embedded_object::__new(buf, initializer.getClassPtr()->getClassRef(), initializer);
         }
 
         o_dict::Element fieldMapElementFromObject(
@@ -62,6 +94,12 @@ namespace db0::object_model
                     auto size = o_py_dict::measure(pyObject);
                     return o_dict::Element::embeddedDict(size, writePyDict, pyObject);
                 }
+                case StorageClass::OBJECT_REF:
+                case StorageClass::EMBEDDED_OBJECT: {
+                    const auto &initializer = getInitializer(pyObject);
+                    auto size = o_embedded_object::measure(initializer.getClassPtr()->getClassRef(), initializer);
+                    return o_dict::Element::embeddedObject(size, writeEmbeddedObject, pyObject);
+                }
                 default:
                     THROWF(db0::InputException)
                         << "Storage class cannot be stored in embedded field map: " << storageClass;
@@ -73,9 +111,13 @@ namespace db0::object_model
         {
             o_dict::ElementMap fieldMap;
             for (const auto &value: initializer.objects()) {
-                assert(value.m_loc.second == 0 && "Variable-length embedded fields must use default fidelity");
-                fieldMap[o_dict::Element::integer(value.m_loc.first)] =
-                    fieldMapElementFromObject(value.m_storage_class, value.m_object);
+                auto key = o_dict::Element::integer(value.m_loc.first);
+                if (!value.m_object) {
+                    fieldMap.erase(key);
+                } else {
+                    assert(value.m_loc.second == 0 && "Variable-length embedded fields must use default fidelity");
+                    fieldMap[key] = fieldMapElementFromObject(value.m_storage_class, value.m_object);
+                }
             }
             return fieldMap;
         }
@@ -128,6 +170,18 @@ namespace db0::object_model
             (o_dict::type(), fieldMap);
     }
 
+    o_embedded_object::o_embedded_object(
+        std::uint32_t classRefValue, const PosVT::Data &posVtData, unsigned int posVtOffset,
+        const XValue *indexVtBegin, const XValue *indexVtEnd
+    )
+    {
+        arrangeMembers()
+            (db0::packed_int32::type(), classRefValue)
+            (PosVT::type(), posVtData, posVtOffset)
+            (IndexVT::type(), indexVtBegin, indexVtEnd)
+            (o_dict::type(), o_dict::ElementMap());
+    }
+
     std::uint32_t o_embedded_object::getClassRef() const
     {
         return classRef().value();
@@ -138,7 +192,17 @@ namespace db0::object_model
         return getDynAfter(classRef(), PosVT::type());
     }
 
+    PosVT &o_embedded_object::pos_vt()
+    {
+        return getDynAfter(classRef(), PosVT::type());
+    }
+
     const IndexVT &o_embedded_object::index_vt() const
+    {
+        return getDynAfter(pos_vt(), IndexVT::type());
+    }
+
+    IndexVT &o_embedded_object::index_vt()
     {
         return getDynAfter(pos_vt(), IndexVT::type());
     }
@@ -187,6 +251,18 @@ namespace db0::object_model
             (PosVT::type(), posVtData, posVtOffset)
             (IndexVT::type(), indexVtData.first, indexVtData.second)
             (o_dict::type(), fieldMap);
+    }
+
+    std::size_t o_embedded_object::measure(
+        std::uint32_t classRefValue, const PosVT::Data &posVtData, unsigned int posVtOffset,
+        const XValue *indexVtBegin, const XValue *indexVtEnd
+    )
+    {
+        return measureMembers()
+            (db0::packed_int32::type(), classRefValue)
+            (PosVT::type(), posVtData, posVtOffset)
+            (IndexVT::type(), indexVtBegin, indexVtEnd)
+            (o_dict::type(), o_dict::ElementMap());
     }
 
     const db0::packed_int32 &o_embedded_object::classRef() const

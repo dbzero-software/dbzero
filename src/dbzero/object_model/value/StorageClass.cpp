@@ -61,6 +61,9 @@ namespace db0::object_model
             // determine string type dynamically
             return PreStorageClass::STRING_REF;
         }
+        if (type_id == TypeId::MEMO_IMMUTABLE_OBJECT) {
+            return PreStorageClass::OBJECT_REF;
+        }
         
         auto storage_map = allow_packed ? &m_storage_class_packed_map : &m_storage_class_map;
         auto int_id = static_cast<std::size_t>(type_id);
@@ -165,6 +168,12 @@ namespace std
             case StorageClass::PACK_2: return os << "PACK_2";
             case StorageClass::OBJECT_WEAK_REF: return os << "OBJECT_WEAK_REF";
             case StorageClass::OBJECT_LONG_WEAK_REF: return os << "OBJECT_LONG_WEAK_REF";
+            case StorageClass::EMBEDDED_STRING: return os << "EMBEDDED_STRING";
+            case StorageClass::EMBEDDED_BYTES: return os << "EMBEDDED_BYTES";
+            case StorageClass::EMBEDDED_TUPLE: return os << "EMBEDDED_TUPLE";
+            case StorageClass::EMBEDDED_SET: return os << "EMBEDDED_SET";
+            case StorageClass::EMBEDDED_DICT: return os << "EMBEDDED_DICT";
+            case StorageClass::EMBEDDED_OBJECT: return os << "EMBEDDED_OBJECT";
             case StorageClass::PACKED_INT32: return os << "PACKED_INT32";
             case StorageClass::INVALID: return os << "INVALID";
             default: return os << "ERROR!";
