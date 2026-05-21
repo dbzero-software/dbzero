@@ -23,6 +23,7 @@
 #include <dbzero/workspace/Workspace.hpp>
 
 #include <cstring>
+#include <functional>
 
 using namespace std;
 using namespace db0;
@@ -76,6 +77,88 @@ namespace tests
             reinterpret_cast<PyTypeObject *>(db0::python::PyAPI_wrapPyClass(nullptr, args.get(), kwargs.get())),
             false
         );
+    }
+
+    static db0::python::shared_py_object<db0::python::MemoImmutableObject *> makeImmutableMemoHoldingReference(
+        PyTypeObject *pyMemoType, const std::shared_ptr<Class> &nestedClass,
+        std::pair<std::uint32_t, std::uint32_t> nestedLoc, Address referencedAddress
+    )
+    {
+        auto pyMemo = Py_OWN(reinterpret_cast<db0::python::MemoImmutableObject *>(
+            db0::python::MemoObjectStub_new(pyMemoType)
+        ));
+        pyMemo->makeNew(nestedClass);
+        auto *nestedInitializer = dynamic_cast<ImmutableObjectInitializer *>(
+            InitManager::instance.findInitializer(pyMemo->ext())
+        );
+        EXPECT_NE(nestedInitializer, nullptr);
+        nestedInitializer->set(nestedLoc, StorageClass::OBJECT_REF, Value(referencedAddress));
+        return pyMemo;
+    }
+
+    static void assertDestroyImmutableRootUnrefsEmbeddedCollectionReference(
+        const char *fieldName, StorageClass fieldStorageClass,
+        const std::function<db0::python::shared_py_object<PyObject *>(
+            db0::python::MemoImmutableObject *
+        )> &makePayload
+    )
+    {
+        Py_Initialize();
+
+        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
+        auto fixture = workspace.getFixture(ObjectInitializerTest::prefix_name);
+        auto rootClass = getTestClass(fixture);
+        auto referencedClass = getTestClass(fixture);
+        auto pyMemoType = makeImmutableMemoType();
+        ASSERT_TRUE(pyMemoType.get());
+        auto nestedClass = fixture->get<ClassFactory>().getOrCreateType(pyMemoType.get());
+        auto rootLoc = rootClass->addField(fieldName, 0).get(0).getIndexAndOffset();
+        auto nestedLoc = nestedClass->addField("held", 0).get(0).getIndexAndOffset();
+        rootClass->flush();
+        nestedClass->flush();
+
+        {
+            Object referenced(referencedClass);
+            {
+                db0::FixtureLock lock(fixture);
+                referenced.postInit(lock);
+            }
+            referenced.incRef(false);
+            referenced.incRef(false);
+            ASSERT_EQ(referenced.getRefCounts().second, 2u);
+
+            auto pyMemo = makeImmutableMemoHoldingReference(
+                pyMemoType.get(), nestedClass, nestedLoc, referenced.getAddress()
+            );
+            ASSERT_TRUE(pyMemo.get());
+
+            auto payload = makePayload(pyMemo.get());
+            ASSERT_TRUE(payload.get());
+
+            ObjectImmutableImpl root(rootClass);
+            auto *rootInitializer = dynamic_cast<ImmutableObjectInitializer *>(
+                InitManager::instance.findInitializer(root)
+            );
+            ASSERT_NE(rootInitializer, nullptr);
+            rootInitializer->setObject(
+                rootLoc, fieldStorageClass, Value(0),
+                ImmutableObjectInitializer::ObjectSharedPtr(payload.get())
+            );
+
+            {
+                db0::FixtureLock lock(fixture);
+                root.postInit(lock);
+            }
+
+            root.destroy();
+            rootClass->flush();
+            ASSERT_EQ(referenced.getRefCounts().second, 1u);
+        }
+
+        rootClass.reset();
+        referencedClass.reset();
+        nestedClass.reset();
+        workspace.close();
     }
 
     TEST_F( ObjectInitializerTest, testIncompletePosVT )
@@ -846,6 +929,185 @@ namespace tests
             rootInitializer->setObject(
                 rootLoc, StorageClass::OBJECT_REF, Value(0),
                 ImmutableObjectInitializer::ObjectSharedPtr(reinterpret_cast<PyObject *>(pyOuterMemo.get()))
+            );
+
+            {
+                db0::FixtureLock lock(fixture);
+                root.postInit(lock);
+            }
+
+            root.destroy();
+            rootClass->flush();
+            ASSERT_EQ(referenced.getRefCounts().second, 1u);
+        }
+
+        rootClass.reset();
+        referencedClass.reset();
+        nestedClass.reset();
+        workspace.close();
+    }
+
+    TEST_F( ObjectInitializerTest, testDestroyImmutableRootUnrefsEmbeddedMemoInsideTupleField )
+    {
+        assertDestroyImmutableRootUnrefsEmbeddedCollectionReference(
+            "items", StorageClass::DB0_TUPLE,
+            [](db0::python::MemoImmutableObject *pyMemo) {
+                auto tuple = Py_OWN(PyTuple_New(1));
+                Py_INCREF(pyMemo);
+                db0::python::PySafeTuple_SetItem(
+                    tuple.get(), 0, Py_OWN(reinterpret_cast<PyObject *>(pyMemo))
+                );
+                return tuple;
+            }
+        );
+    }
+
+    TEST_F( ObjectInitializerTest, testDestroyImmutableRootUnrefsEmbeddedMemoInsideListField )
+    {
+        assertDestroyImmutableRootUnrefsEmbeddedCollectionReference(
+            "items", StorageClass::DB0_LIST,
+            [](db0::python::MemoImmutableObject *pyMemo) {
+                auto list = Py_OWN(PyList_New(1));
+                Py_INCREF(pyMemo);
+                db0::python::PySafeList_SetItem(
+                    list.get(), 0, Py_OWN(reinterpret_cast<PyObject *>(pyMemo))
+                );
+                return list;
+            }
+        );
+    }
+
+    TEST_F( ObjectInitializerTest, testDestroyImmutableRootUnrefsEmbeddedMemoInsideSetField )
+    {
+        assertDestroyImmutableRootUnrefsEmbeddedCollectionReference(
+            "items", StorageClass::DB0_SET,
+            [](db0::python::MemoImmutableObject *pyMemo) {
+                auto set = Py_OWN(PySet_New(nullptr));
+                Py_INCREF(pyMemo);
+                db0::python::PySafeSet_Add(set.get(), Py_OWN(reinterpret_cast<PyObject *>(pyMemo)));
+                return set;
+            }
+        );
+    }
+
+    TEST_F( ObjectInitializerTest, testDestroyImmutableRootUnrefsEmbeddedMemoDictValue )
+    {
+        assertDestroyImmutableRootUnrefsEmbeddedCollectionReference(
+            "items", StorageClass::DB0_DICT,
+            [](db0::python::MemoImmutableObject *pyMemo) {
+                auto dict = Py_OWN(PyDict_New());
+                Py_INCREF(pyMemo);
+                db0::python::PySafeDict_SetItem(
+                    dict.get(), Py_OWN(PyUnicode_FromString("child")),
+                    Py_OWN(reinterpret_cast<PyObject *>(pyMemo))
+                );
+                return dict;
+            }
+        );
+    }
+
+    TEST_F( ObjectInitializerTest, testDestroyImmutableRootUnrefsEmbeddedMemoDictKey )
+    {
+        assertDestroyImmutableRootUnrefsEmbeddedCollectionReference(
+            "items", StorageClass::DB0_DICT,
+            [](db0::python::MemoImmutableObject *pyMemo) {
+                auto dict = Py_OWN(PyDict_New());
+                Py_INCREF(pyMemo);
+                db0::python::PySafeDict_SetItem(
+                    dict.get(), Py_OWN(reinterpret_cast<PyObject *>(pyMemo)),
+                    Py_OWN(PyUnicode_FromString("child"))
+                );
+                return dict;
+            }
+        );
+    }
+
+    TEST_F( ObjectInitializerTest, testDestroyImmutableRootUnrefsEmbeddedMemoInsideDeepNestedCollection )
+    {
+        assertDestroyImmutableRootUnrefsEmbeddedCollectionReference(
+            "items", StorageClass::DB0_DICT,
+            [](db0::python::MemoImmutableObject *pyMemo) {
+                auto set = Py_OWN(PySet_New(nullptr));
+                Py_INCREF(pyMemo);
+                db0::python::PySafeSet_Add(set.get(), Py_OWN(reinterpret_cast<PyObject *>(pyMemo)));
+
+                auto tuple = Py_OWN(PyTuple_New(1));
+                db0::python::PySafeTuple_SetItem(tuple.get(), 0, std::move(set));
+
+                auto dict = Py_OWN(PyDict_New());
+                db0::python::PySafeDict_SetItem(
+                    dict.get(), Py_OWN(PyUnicode_FromString("outer")), std::move(tuple)
+                );
+                return dict;
+            }
+        );
+    }
+
+    TEST_F( ObjectInitializerTest, testDestroyImmutableRootUnrefsEmbeddedMemoInsideCollectionInsideEmbeddedMemo )
+    {
+        Py_Initialize();
+
+        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
+        auto fixture = workspace.getFixture(prefix_name);
+        auto rootClass = getTestClass(fixture);
+        auto referencedClass = getTestClass(fixture);
+        auto pyMemoType = makeImmutableMemoType();
+        ASSERT_TRUE(pyMemoType.get());
+        auto nestedClass = fixture->get<ClassFactory>().getOrCreateType(pyMemoType.get());
+        auto rootLoc = rootClass->addField("outer", 0).get(0).getIndexAndOffset();
+        auto outerCollectionLoc = nestedClass->addField("items", 0).get(0).getIndexAndOffset();
+        auto innerHeldLoc = nestedClass->addField("held", 0).get(0).getIndexAndOffset();
+        rootClass->flush();
+        nestedClass->flush();
+
+        {
+            Object referenced(referencedClass);
+            {
+                db0::FixtureLock lock(fixture);
+                referenced.postInit(lock);
+            }
+            referenced.incRef(false);
+            referenced.incRef(false);
+            ASSERT_EQ(referenced.getRefCounts().second, 2u);
+
+            auto pyInnerMemo = makeImmutableMemoHoldingReference(
+                pyMemoType.get(), nestedClass, innerHeldLoc, referenced.getAddress()
+            );
+            ASSERT_TRUE(pyInnerMemo.get());
+
+            auto pyOuterMemo = Py_OWN(reinterpret_cast<db0::python::MemoImmutableObject *>(
+                db0::python::MemoObjectStub_new(pyMemoType.get())
+            ));
+            pyOuterMemo->makeNew(nestedClass);
+            auto *outerInitializer = dynamic_cast<ImmutableObjectInitializer *>(
+                InitManager::instance.findInitializer(pyOuterMemo->ext())
+            );
+            ASSERT_NE(outerInitializer, nullptr);
+
+            auto nestedTuple = Py_OWN(PyTuple_New(1));
+            Py_INCREF(pyInnerMemo.get());
+            db0::python::PySafeTuple_SetItem(
+                nestedTuple.get(), 0, Py_OWN(reinterpret_cast<PyObject *>(pyInnerMemo.get()))
+            );
+            outerInitializer->setObject(
+                outerCollectionLoc, StorageClass::DB0_TUPLE, Value(0),
+                ImmutableObjectInitializer::ObjectSharedPtr(nestedTuple.get())
+            );
+
+            auto rootTuple = Py_OWN(PyTuple_New(1));
+            Py_INCREF(pyOuterMemo.get());
+            db0::python::PySafeTuple_SetItem(
+                rootTuple.get(), 0, Py_OWN(reinterpret_cast<PyObject *>(pyOuterMemo.get()))
+            );
+
+            ObjectImmutableImpl root(rootClass);
+            auto *rootInitializer = dynamic_cast<ImmutableObjectInitializer *>(
+                InitManager::instance.findInitializer(root)
+            );
+            ASSERT_NE(rootInitializer, nullptr);
+            rootInitializer->setObject(
+                rootLoc, StorageClass::DB0_TUPLE, Value(0),
+                ImmutableObjectInitializer::ObjectSharedPtr(rootTuple.get())
             );
 
             {
