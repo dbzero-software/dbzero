@@ -2,7 +2,7 @@
 // Copyright (c) 2025 DBZero Software sp. z o.o.
 
 #include "Memo.hpp"
-#include "EmbeddedObject.hpp"
+#include <dbzero/bindings/python/embedded/EmbeddedObject.hpp>
 #include "PyToolkit.hpp"
 #include <iostream>
 #include <object.h>

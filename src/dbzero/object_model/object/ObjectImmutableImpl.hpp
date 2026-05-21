@@ -31,7 +31,6 @@ namespace db0::object_model
         ObjectSharedPtr get(const char *field_name) const;
 
         void postInit(FixtureLock &);
-        void postInit(FixtureLock &, const std::function<void(const ImmutableObjectInitializer &)> &);
         void setLangObject(ObjectPtr) const;
         void destroy();
 

@@ -4,17 +4,24 @@
 #include <gtest/gtest.h>
 #include <Python.h>
 #include <datetime.h>
+#include <dbzero/bindings/python/Memo.hpp>
+#include <dbzero/bindings/python/PyAPI.hpp>
 #include <dbzero/bindings/python/PySafeAPI.hpp>
 #include <dbzero/bindings/python/shared_py_object.hpp>
 #include <dbzero/bindings/python/types/DateTime.hpp>
 #include <dbzero/bindings/python/types/PyDecimal.hpp>
+#include <utils/SubClass.hpp>
 #include <utils/TestBase.hpp>
 #include <dbzero/core/serialization/bounded_buf_t.hpp>
 #include <dbzero/core/vspace/v_object.hpp>
+#include <dbzero/object_model/ObjectModel.hpp>
+#include <dbzero/object_model/object/ObjectImmutableImpl.hpp>
+#include <dbzero/object_model/object/o_embedded_object.hpp>
 #include <dbzero/object_model/dict/o_dict.hpp>
 #include <dbzero/object_model/set/o_set.hpp>
 #include <dbzero/object_model/tuple/o_py_tuple.hpp>
 #include <dbzero/object_model/tuple/o_tuple.hpp>
+#include <dbzero/workspace/Workspace.hpp>
 
 #include <limits>
 #include <stdexcept>
@@ -76,6 +83,36 @@ namespace tests
             size += o_tuple_item::measure(element);
         }
         return size;
+    }
+
+    static db0::python::shared_py_object<PyTypeObject *> makeMemoType()
+    {
+        static std::uint64_t memoTypeIndex = 0;
+        auto className = std::string("EmbeddedTupleNestedImmutable") + std::to_string(memoTypeIndex);
+        auto typeId = "tests/" + className;
+        ++memoTypeIndex;
+
+        if (PyRun_SimpleString(("class " + className + ": pass\n").c_str()) != 0) {
+            return {};
+        }
+
+        auto mainModule = Py_BORROW(PyImport_AddModule("__main__"));
+        auto pyClass = Py_OWN(PyObject_GetAttrString(mainModule.get(), className.c_str()));
+        auto args = Py_OWN(PyTuple_Pack(1, pyClass.get()));
+        auto kwargs = Py_OWN(PyDict_New());
+        auto pyTypeId = Py_OWN(PyUnicode_FromString(typeId.c_str()));
+        auto pyImmutable = Py_OWN(PyBool_FromLong(1));
+        if (!mainModule.get() || !pyClass.get() || !args.get() || !kwargs.get()
+            || !pyTypeId.get() || !pyImmutable.get()) {
+            return {};
+        }
+        db0::python::PySafeDict_SetItemString(kwargs.get(), "id", std::move(pyTypeId));
+        db0::python::PySafeDict_SetItemString(kwargs.get(), "immutable", std::move(pyImmutable));
+
+        return db0::python::shared_py_object<PyTypeObject *>(
+            reinterpret_cast<PyTypeObject *>(db0::python::PyAPI_wrapPyClass(nullptr, args.get(), kwargs.get())),
+            false
+        );
     }
 
     TEST_F( EmbeddedTupleTest , testTupleStoresInlineAndVariableLengthElements )
@@ -360,6 +397,45 @@ namespace tests
         ASSERT_EQ(tuple->item(0).itemKind(), StorageClass::NONE);
         ASSERT_EQ(tuple->item(1).itemKind(), StorageClass::EMBEDDED_STRING);
         ASSERT_EQ(asString(tuple->item(1)), "list item");
+    }
+
+    TEST_F( EmbeddedTupleTest , testPyTupleConstructsFromImmutableMemoElement )
+    {
+        Py_Initialize();
+
+        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
+        auto fixture = workspace.getFixture("embedded-tuple-nested-memo");
+        auto nestedClass = getTestClass(fixture);
+        auto pyMemoType = makeMemoType();
+        ASSERT_TRUE(pyMemoType.get());
+
+        auto pyMemo = Py_OWN(reinterpret_cast<db0::python::MemoImmutableObject *>(
+            db0::python::MemoObjectStub_new(pyMemoType.get())
+        ));
+        pyMemo->makeNew(nestedClass);
+        auto *nestedInitializer = dynamic_cast<ImmutableObjectInitializer *>(
+            InitManager::instance.findInitializer(pyMemo->ext())
+        );
+        ASSERT_NE(nestedInitializer, nullptr);
+        nestedInitializer->set({0, 0}, StorageClass::INT64, Value(23));
+
+        auto pyTuple = Py_OWN(PyTuple_New(1));
+        PySafeTuple_SetItem(*pyTuple, 0, Py_OWN(Py_NewRef(reinterpret_cast<PyObject *>(pyMemo.get()))));
+
+        auto memspace = getMemspace();
+        v_object<o_py_tuple> tuple(memspace, *pyTuple);
+
+        ASSERT_EQ(tuple->size(), 1u);
+        ASSERT_EQ(tuple->item(0).itemKind(), StorageClass::EMBEDDED_OBJECT);
+
+        const auto &nestedObject = o_embedded_object::__const_ref(tuple->item(0).embeddedPayload().begin());
+        ASSERT_EQ(nestedObject.getClassRef(), nestedClass->getClassRef());
+        auto fixedValue = nestedObject.fixedValue(0);
+        ASSERT_TRUE(fixedValue.has_value());
+        ASSERT_EQ(fixedValue->m_kind, StorageClass::INT64);
+        ASSERT_EQ(fixedValue->m_value, 23u);
+
+        workspace.close();
     }
 
     TEST_F( EmbeddedTupleTest , testPyTupleConstructsDeeplyNestedCollections )

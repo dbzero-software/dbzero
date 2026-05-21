@@ -2,7 +2,8 @@
 // Copyright (c) 2025 DBZero Software sp. z o.o.
 
 #include "PyToolkit.hpp"
-#include "EmbeddedObject.hpp"
+#include <dbzero/bindings/python/embedded/EmbeddedObject.hpp>
+#include <dbzero/bindings/python/embedded/EmbeddedTuple.hpp>
 #include "Memo.hpp"
 #include "MemoExpiredRef.hpp"
 #include "PyInternalAPI.hpp"
@@ -18,6 +19,7 @@
 #include <dbzero/core/memory/mptr.hpp>
 #include <dbzero/object_model/class.hpp>
 #include <dbzero/object_model/object.hpp>
+#include <dbzero/object_model/object/o_embedded_object.hpp>
 #include <dbzero/object_model/tuple/o_tuple.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/bindings/python/types/DateTime.hpp>
@@ -32,6 +34,9 @@
 #include <dbzero/bindings/python/types/PyEnum.hpp>
 #include <dbzero/bindings/python/types/PyTag.hpp>
 #include <dbzero/bindings/python/PySafeAPI.hpp>
+#include <dbzero/bindings/python/types/DateTime.hpp>
+#include <dbzero/bindings/python/types/PyDecimal.hpp>
+#include <dbzero/object_model/tuple/o_py_tuple.hpp>
 
 namespace db0::python
 
@@ -64,36 +69,67 @@ namespace db0::python
             }
             return reinterpret_cast<MemoAnyObject *>(pyObject)->ext().hasRefs();
         }
-    }
 
-    PyToolkit::ObjectSharedPtr PyToolkit::unloadEmbeddedInstance(const db0::object_model::o_tuple_item &item)
-    {
-        switch (item.itemKind()) {
-            case StorageClass::STRING_REF:
-            case StorageClass::EMBEDDED_STRING: {
-                auto str = item.stringPayload().get();
-                auto result = Py_OWN(PyUnicode_FromStringAndSize(str.get_raw(), str.size()));
-                if (!result) {
-                    THROWF(db0::InputException) << "Failed to convert embedded string";
-                }
-                return result;
+        Py_ssize_t embeddedSequenceSize(PyObject *sequence)
+        {
+            if (PyTuple_Check(sequence)) {
+                return PyTuple_GET_SIZE(sequence);
             }
-            case StorageClass::DB0_BYTES:
-            case StorageClass::EMBEDDED_BYTES: {
-                const auto &bytes = item.bytesPayload();
-                auto result = Py_OWN(PyBytes_FromStringAndSize(
-                    reinterpret_cast<const char *>(bytes.getBuffer()), bytes.size()
-                ));
-                if (!result) {
-                    THROWF(db0::InputException) << "Failed to convert embedded bytes";
-                }
-                return result;
+            if (PyList_Check(sequence)) {
+                return PyList_GET_SIZE(sequence);
             }
-            default:
-                THROWF(db0::InputException)
-                    << "Unsupported embedded immutable member storage class: " << item.itemKind();
+            return -1;
         }
-        return {};
+
+        PyObject *embeddedSequenceItem(PyObject *sequence, Py_ssize_t index)
+        {
+            if (PyTuple_Check(sequence)) {
+                return PyTuple_GET_ITEM(sequence, index);
+            }
+            return PyList_GET_ITEM(sequence, index);
+        }
+
+        void transformEmbeddedTupleObjects(
+            db0::swine_ptr<Fixture> &fixture, db0::object_model::ClassFactory &classFactory,
+            PyObject *rootObject, PyObject *sourceSequence, const db0::object_model::o_py_tuple &embeddedTuple
+        )
+        {
+            // During immutable materialization, tuple/list fields are copied into the root object's embedded
+            // storage. Any non-materialized immutable memo object originally present in that Python sequence
+            // must then be morphed in place into an embedded memo view. The Python object keeps its identity,
+            // but its native payload now points at the embedded object stored under rootObject. Walk the source
+            // Python sequence in lockstep with the persisted embedded tuple so nested tuple/list elements can
+            // be fixed up recursively.
+            auto sourceSize = embeddedSequenceSize(sourceSequence);
+            assert(sourceSize >= 0);
+            assert(static_cast<std::size_t>(sourceSize) == embeddedTuple.size());
+
+            for (Py_ssize_t index = 0; index < sourceSize; ++index) {
+                auto *sourceItem = embeddedSequenceItem(sourceSequence, index);
+                const auto &embeddedItem = embeddedTuple.item(static_cast<std::size_t>(index));
+
+                if (PyEmbeddedMemo_Check(sourceItem)) {
+                    continue;
+                }
+
+                if (PyMemo_Check<MemoImmutableObject>(sourceItem)) {
+                    assert(embeddedItem.itemKind() == db0::object_model::StorageClass::EMBEDDED_OBJECT);
+                    const auto &embeddedObject = db0::object_model::o_embedded_object::__const_ref(
+                        embeddedItem.embeddedPayload().begin()
+                    );
+                    PyToolkit::transformEmbeddedObject(fixture, rootObject, sourceItem, embeddedObject);
+                    continue;
+                }
+
+                if (PyTuple_Check(sourceItem) || PyList_Check(sourceItem)) {
+                    assert(embeddedItem.itemKind() == db0::object_model::StorageClass::EMBEDDED_TUPLE);
+                    const auto &nestedTuple = db0::object_model::o_py_tuple::__const_ref(
+                        embeddedItem.embeddedPayload().begin()
+                    );
+                    transformEmbeddedTupleObjects(fixture, classFactory, rootObject, sourceItem, nestedTuple);
+                }
+            }
+        }
     }
 
     PyToolkit::ObjectSharedPtr PyToolkit::unloadEmbeddedInstance(
@@ -101,6 +137,30 @@ namespace db0::python
     )
     {
         switch (item.itemKind()) {
+            case StorageClass::NONE:
+                return Py_BORROW(Py_None);
+            case StorageClass::BOOLEAN:
+                return Py_OWN(PyBool_FromLong(item.boolPayload().value()));
+            case StorageClass::INT64:
+                return Py_OWN(PyLong_FromLongLong(item.intPayload().value()));
+            case StorageClass::PACKED_INT32:
+                return Py_OWN(PyLong_FromUnsignedLong(item.packedIntPayload().value()));
+            case StorageClass::FP_NUMERIC64:
+                return Py_OWN(PyFloat_FromDouble(item.doublePayload().value()));
+            case StorageClass::PTIME64:
+                return Py_OWN(PyLong_FromUnsignedLongLong(item.uint64Payload().value()));
+            case StorageClass::DATE:
+                return Py_OWN(uint64ToPyDate(item.uint64Payload().value()));
+            case StorageClass::DATETIME:
+                return Py_OWN(uint64ToPyDatetime(item.uint64Payload().value()));
+            case StorageClass::DATETIME_TZ:
+                return Py_OWN(uint64ToPyDatetimeWithTZ(item.uint64Payload().value()));
+            case StorageClass::TIME:
+                return Py_OWN(uint64ToPyTime(item.uint64Payload().value()));
+            case StorageClass::TIME_TZ:
+                return Py_OWN(uint64ToPyTimeWithTz(item.uint64Payload().value()));
+            case StorageClass::DECIMAL:
+                return Py_OWN(uint64ToPyDecimal(item.uint64Payload().value()));
             case StorageClass::STRING_REF:
             case StorageClass::EMBEDDED_STRING: {
                 auto str = item.stringPayload().get();
@@ -120,6 +180,13 @@ namespace db0::python
                     THROWF(db0::InputException) << "Failed to convert embedded bytes";
                 }
                 return result;
+            }
+            case StorageClass::EMBEDDED_TUPLE: {
+                if (!rootObject) {
+                    THROWF(db0::InputException) << "Embedded tuple retrieval requires a root memo object";
+                }
+                const auto &tuple = db0::object_model::o_py_tuple::__const_ref(item.embeddedPayload().begin());
+                return makeEmbeddedTuple(rootObject, tuple);
             }
             case StorageClass::EMBEDDED_OBJECT: {
                 if (!rootObject) {
@@ -141,6 +208,31 @@ namespace db0::python
                     << "Unsupported embedded immutable member storage class: " << item.itemKind();
         }
         return {};
+    }
+
+    void PyToolkit::transformEmbeddedObject(
+        db0::swine_ptr<Fixture> &fixture, ObjectPtr rootObject, ObjectPtr sourceObject,
+        const db0::object_model::o_embedded_object &embeddedObject
+    )
+    {
+        if (PyEmbeddedMemo_Check(sourceObject)) {
+            return;
+        }
+
+        assert(PyMemo_Check<MemoImmutableObject>(sourceObject));
+        auto &classFactory = fixture->get<db0::object_model::ClassFactory>();
+        auto type = classFactory.getTypeByClassRef(embeddedObject.getClassRef()).m_class;
+        auto *embeddedMemo = reinterpret_cast<MemoImmutableObject *>(sourceObject);
+        transformMemoImmutableObjectToEmbedded(embeddedMemo, rootObject, embeddedObject, std::move(type));
+    }
+
+    void PyToolkit::transformEmbeddedTuple(
+        db0::swine_ptr<Fixture> &fixture, ObjectPtr rootObject, ObjectPtr sourceSequence,
+        const db0::object_model::o_py_tuple &embeddedTuple
+    )
+    {
+        auto &classFactory = fixture->get<db0::object_model::ClassFactory>();
+        transformEmbeddedTupleObjects(fixture, classFactory, rootObject, sourceSequence, embeddedTuple);
     }
 
     bool PyToolkit::hasMemoInstance(ObjectPtr pyObject)

@@ -15,7 +15,6 @@
 #include <dbzero/object_model/ObjectModel.hpp>
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/object_model/tags/TagIndex.hpp>
-#include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/bindings/python/Memo.hpp>
 #include <dbzero/bindings/python/PyAPI.hpp>
 #include <dbzero/bindings/python/PyToolkit.hpp>
@@ -230,6 +229,11 @@ DB0_PACKED_END
 
     class VInstanceMapTagIndexTest: public FixtureTestBase
     {
+        void SetUp() override
+        {
+            auto fixture = getFixture();
+            db0::object_model::initializer()(fixture, true, false, false);
+        }
     };
 
     void initializeDbzeroPythonBindingsOnce()
@@ -410,8 +414,7 @@ DB0_PACKED_END
     {
         using TagIndex = db0::object_model::TagIndex;
 
-        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
-        auto fixture = workspace.getFixture("v-instance-map-composite-tag");
+        auto fixture = getFixture();
         db0::object_model::ClassFactory class_factory(fixture);
         db0::object_model::EnumFactory enum_factory(fixture);
         auto mutation_log = fixture->addMutationHandler();
@@ -452,15 +455,13 @@ DB0_PACKED_END
         update_child_tag_index.reset();
         child_tag_index.reset();
         memo_ptr.reset();
-        workspace.close();
     }
 
     TEST_F(VInstanceMapTagIndexTest, testFlushForwardsToCompositeTagIndexes)
     {
         using TagIndex = db0::object_model::TagIndex;
 
-        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
-        auto fixture = workspace.getFixture("v-instance-map-composite-flush");
+        auto fixture = getFixture();
         db0::object_model::ClassFactory class_factory(fixture);
         db0::object_model::EnumFactory enum_factory(fixture);
         auto mutation_log = fixture->addMutationHandler();
@@ -487,15 +488,13 @@ DB0_PACKED_END
         assertTagIndexContainsObject(*child_tag_index, composite_tag, memo_ptr->ext().getUniqueAddress());
         child_tag_index.reset();
         memo_ptr.reset();
-        workspace.close();
     }
 
     TEST_F(VInstanceMapTagIndexTest, testFlushReturnsFalseWhenTagIndexContainsNoElements)
     {
         using TagIndex = db0::object_model::TagIndex;
 
-        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
-        auto fixture = workspace.getFixture("v-instance-map-composite-flush-empty");
+        auto fixture = getFixture();
         db0::object_model::ClassFactory class_factory(fixture);
         db0::object_model::EnumFactory enum_factory(fixture);
         auto mutation_log = fixture->addMutationHandler();
@@ -528,15 +527,13 @@ DB0_PACKED_END
 
         child_tag_index.reset();
         memo_ptr.reset();
-        workspace.close();
     }
 
     TEST_F(VInstanceMapTagIndexTest, testRollbackForwardsToCompositeTagIndexes)
     {
         using TagIndex = db0::object_model::TagIndex;
 
-        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
-        auto fixture = workspace.getFixture("v-instance-map-composite-rollback");
+        auto fixture = getFixture();
         db0::object_model::ClassFactory class_factory(fixture);
         db0::object_model::EnumFactory enum_factory(fixture);
         auto mutation_log = fixture->addMutationHandler();
@@ -563,15 +560,13 @@ DB0_PACKED_END
         ASSERT_TRUE(child_tag_index->empty());
         child_tag_index.reset();
         memo_ptr.reset();
-        workspace.close();
     }
 
     TEST_F(VInstanceMapTagIndexTest, testCloseForwardsToCompositeTagIndexes)
     {
         using TagIndex = db0::object_model::TagIndex;
 
-        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
-        auto fixture = workspace.getFixture("v-instance-map-composite-close");
+        auto fixture = getFixture();
         db0::object_model::ClassFactory class_factory(fixture);
         db0::object_model::EnumFactory enum_factory(fixture);
         auto mutation_log = fixture->addMutationHandler();
@@ -598,15 +593,13 @@ DB0_PACKED_END
         ASSERT_TRUE(child_tag_index->empty());
         child_tag_index.reset();
         memo_ptr.reset();
-        workspace.close();
     }
 
     TEST_F(VInstanceMapTagIndexTest, testCommitForwardsToCompositeTagIndexes)
     {
         using TagIndex = db0::object_model::TagIndex;
 
-        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
-        auto fixture = workspace.getFixture("v-instance-map-composite-commit");
+        auto fixture = getFixture();
         db0::object_model::ClassFactory class_factory(fixture);
         db0::object_model::EnumFactory enum_factory(fixture);
         auto mutation_log = fixture->addMutationHandler();
@@ -642,15 +635,13 @@ DB0_PACKED_END
         child_tag_index.reset();
         reopened_child.reset();
         memo_ptr.reset();
-        workspace.close();
     }
 
     TEST_F(VInstanceMapTagIndexTest, testDetachForwardsToCompositeTagIndexes)
     {
         using TagIndex = db0::object_model::TagIndex;
 
-        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
-        auto fixture = workspace.getFixture("v-instance-map-composite-detach");
+        auto fixture = getFixture();
         db0::object_model::ClassFactory class_factory(fixture);
         db0::object_model::EnumFactory enum_factory(fixture);
         auto mutation_log = fixture->addMutationHandler();
@@ -676,7 +667,6 @@ DB0_PACKED_END
         assertTagIndexContainsObject(*child_tag_index, composite_tag, memo_ptr->ext().getUniqueAddress());
         child_tag_index.reset();
         memo_ptr.reset();
-        workspace.close();
     }
 
 }

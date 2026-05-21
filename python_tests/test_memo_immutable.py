@@ -51,6 +51,12 @@ class MemoImmutablePreboundNestedHolder:
 
 
 @db0.memo(immutable=True, no_default_tags=True)
+class MemoImmutableTupleHolder:
+    def __init__(self, payload):
+        self.payload = payload
+
+
+@db0.memo(immutable=True, no_default_tags=True)
 class MemoImmutableReadInConstructor:
     def __init__(self, data, payload):
         self.data = data
@@ -145,6 +151,47 @@ def test_prebound_immutable_nested_object_embeds_into_owner(db0_fixture):
     assert obj.nested.name == "prebound child"
     assert inner.name == "prebound child"
     assert inner.count == 8
+    assert isinstance(inner, MemoImmutableNestedPayload)
+    assert db0.is_memo(inner)
+    with pytest.raises(Exception):
+        db0.uuid(inner)
+
+
+def test_read_embedded_tuple_field(db0_fixture):
+    payload = tuple(f"alpha-{index}" for index in range(12)) + (7, b"bytes", None)
+    obj = MemoImmutableTupleHolder(payload)
+    db0.tags(obj).add("keep-embedded-tuple")
+
+    assert type(obj.payload).__name__ == "EmbeddedTuple"
+    assert len(obj.payload) == len(payload)
+    assert obj.payload[0] == "alpha-0"
+    assert obj.payload[12] == 7
+    assert obj.payload[-2] == b"bytes"
+    assert obj.payload.count("alpha-3") == 1
+    assert obj.payload.index("alpha-3") == 3
+    assert tuple(obj.payload) == payload
+    assert repr(obj.payload) == repr(payload)
+
+
+def test_embedded_list_field_is_exposed_as_embedded_tuple(db0_fixture):
+    payload = [f"alpha-{index}" for index in range(12)] + [7]
+    obj = MemoImmutableTupleHolder(payload)
+    db0.tags(obj).add("keep-embedded-list")
+
+    assert type(obj.payload).__name__ == "EmbeddedTuple"
+    assert tuple(obj.payload) == tuple(payload)
+
+
+def test_embedded_tuple_with_prebound_immutable_object_element(db0_fixture):
+    inner = MemoImmutableNestedPayload(name="tuple child", count=11)
+    obj = MemoImmutableTupleHolder(("prefix", inner))
+    db0.tags(obj).add("keep-embedded-tuple-object")
+
+    assert obj.payload[0] == "prefix"
+    assert obj.payload[1].name == "tuple child"
+    assert obj.payload[1].count == 11
+    assert inner.name == "tuple child"
+    assert inner.count == 11
     assert isinstance(inner, MemoImmutableNestedPayload)
     assert db0.is_memo(inner)
     with pytest.raises(Exception):

@@ -7,6 +7,8 @@
 #include <dbzero/core/exception/Exceptions.hpp>
 #include <dbzero/object_model/class/Class.hpp>
 #include <dbzero/object_model/object/ObjectInitializer.hpp>
+#include <dbzero/object_model/object/o_embedded_object.hpp>
+#include <dbzero/object_model/tuple/o_py_tuple.hpp>
 #include <dbzero/object_model/value/Member.hpp>
 
 #include <limits>
@@ -71,16 +73,48 @@ namespace db0::object_model
                 unrefEmbeddedObject(fixture, o_embedded_object::__const_ref(value.embeddedPayload().begin()));
             }
         }
+
+        void transformEmbeddedObjectValues(
+            db0::swine_ptr<Fixture> &fixture, ObjectImmutableImpl &object, ObjectImmutableImpl::ObjectPtr rootObject,
+            const ImmutableObjectInitializer &initializer
+        )
+        {
+            if (!rootObject) {
+                return;
+            }
+
+            for (const auto &value: initializer.objects()) {
+                if (value.m_storage_class == StorageClass::DELETED) {
+                    continue;
+                }
+                assert(value.m_object.get());
+
+                auto *embeddedValue = object->variableValue(value.m_loc.first);
+                assert(embeddedValue);
+
+                if (value.m_storage_class == StorageClass::EMBEDDED_OBJECT) {
+                    assert(embeddedValue->itemKind() == StorageClass::EMBEDDED_OBJECT);
+                    const auto &embeddedObject = o_embedded_object::__const_ref(
+                        embeddedValue->embeddedPayload().begin()
+                    );
+                    LangConfig::LangToolkit::transformEmbeddedObject(
+                        fixture, rootObject, value.m_object.get(), embeddedObject
+                    );
+                    continue;
+                }
+
+                if (value.m_storage_class == StorageClass::DB0_TUPLE || value.m_storage_class == StorageClass::DB0_LIST) {
+                    assert(embeddedValue->itemKind() == StorageClass::EMBEDDED_TUPLE);
+                    const auto &embeddedTuple = o_py_tuple::__const_ref(embeddedValue->embeddedPayload().begin());
+                    LangConfig::LangToolkit::transformEmbeddedTuple(
+                        fixture, rootObject, value.m_object.get(), embeddedTuple
+                    );
+                }
+            }
+        }
     }
 
     void ObjectImmutableImpl::postInit(FixtureLock &fixture)
-    {
-        postInit(fixture, {});
-    }
-
-    void ObjectImmutableImpl::postInit(
-        FixtureLock &fixture, const std::function<void(const ImmutableObjectInitializer &)> &preClose
-    )
     {
         if (!this->hasInstance()) {
             auto &initializer = InitManager::instance.getInitializer(*this);
@@ -111,9 +145,7 @@ namespace db0::object_model
             if (type.isSingleton()) {
                 type.setSingletonAddress(*this);
             }
-            if (preClose) {
-                preClose(*immutableInitializer);
-            }
+            transformEmbeddedObjectValues(*fixture, *this, m_lang_object, *immutableInitializer);
             initializer.close();
         }
 
