@@ -18,7 +18,7 @@ namespace tests
 
     using namespace db0;
     using SlabRecycler = db0::Recycler<db0::SlabItem>;
-    
+
     // a proxy class to expose protected members for testing
     class MetaAllocatorProxy: public MetaAllocator
     {
@@ -41,7 +41,7 @@ namespace tests
             : m_recycler(2u << 30, m_dirty_meter)
         {
         }
-        
+
         void SetUp() override
         {
             using StorageT = db0::Storage0;
@@ -50,26 +50,34 @@ namespace tests
             m_dirty_meter = 0;
             m_recycler.clear();
         }
-        
-        void TearDown() override 
+
+        void TearDown() override
         {
             m_prefix->close();
             m_prefix = nullptr;
             m_dirty_meter = 0;
             m_recycler.clear();
         }
-        
+
     protected:
         // in bytes
         static constexpr std::size_t PAGE_SIZE = 4096;
         static constexpr std::size_t SLAB_SIZE = 4u << 20;
         static constexpr std::size_t SMALL_SLAB_SIZE = 64 * 4096;
-        
+
         std::atomic<std::size_t> m_dirty_meter = 0;
         CacheRecycler m_recycler;
         std::shared_ptr<Prefix> m_prefix;
+
+        void assertFindsAllocation(MetaAllocator &allocator, Address query, Address expected_address,
+            std::size_t expected_size) const
+        {
+            auto result = allocator.findAllocation(query);
+            ASSERT_EQ(result.address, expected_address);
+            ASSERT_EQ(result.size, expected_size);
+        }
     };
-    
+
     TEST_F( MetaAllocatorTests , testAddressPoolFunction )
     {
         auto page_size = 4096;
@@ -84,14 +92,14 @@ namespace tests
                 addr += page_size;
                 expected_addresses.push_back(addr);
                 addr += page_size;
-                expected_addresses.push_back(addr);            
+                expected_addresses.push_back(addr);
             }
             addr += slab_size * slab_count;
         }
 
         for (unsigned int i = 0; i < expected_addresses.size(); ++i) {
             ASSERT_EQ(Address::fromOffset(expected_addresses[i]), f(i));
-        }        
+        }
     }
 
     TEST_F( MetaAllocatorTests , testReverseAddressPoolFunction )
@@ -108,33 +116,33 @@ namespace tests
                 addr += page_size;
                 expected_addresses.push_back(addr);
                 addr += page_size;
-                expected_addresses.push_back(addr);            
+                expected_addresses.push_back(addr);
             }
             addr += slab_size * slab_count;
         }
-        
+
         for (unsigned int i = 0; i < expected_addresses.size(); ++i) {
             ASSERT_EQ(rf(Address::fromOffset(expected_addresses[i])), i);
-        }        
-    }
-    
-    TEST_F( MetaAllocatorTests , testMetaAllocatorCanBeInitialized )
-    { 
-        // prepare prefix before first use
-        MetaAllocator::formatPrefix(m_prefix, PAGE_SIZE, SLAB_SIZE);
-        MetaAllocator cut(m_prefix);        
+        }
     }
 
-    TEST_F( MetaAllocatorTests , testMetaAllocatorCanAllocateFromNewSlab )
-    { 
+    TEST_F( MetaAllocatorTests , testMetaAllocatorCanBeInitialized )
+    {
         // prepare prefix before first use
         MetaAllocator::formatPrefix(m_prefix, PAGE_SIZE, SLAB_SIZE);
         MetaAllocator cut(m_prefix);
-        
+    }
+
+    TEST_F( MetaAllocatorTests , testMetaAllocatorCanAllocateFromNewSlab )
+    {
+        // prepare prefix before first use
+        MetaAllocator::formatPrefix(m_prefix, PAGE_SIZE, SLAB_SIZE);
+        MetaAllocator cut(m_prefix);
+
         std::vector<std::size_t> alloc_sizes = { 100, 200, 300, 400, 500, 600, 700, 800, 900 };
         std::uint64_t last_address = 0;
         for (auto alloc_size: alloc_sizes) {
-            auto ptr = cut.alloc(alloc_size);            
+            auto ptr = cut.alloc(alloc_size);
             ASSERT_TRUE(ptr.getOffset() > last_address);
             last_address = ptr;
         }
@@ -145,26 +153,26 @@ namespace tests
     {
         // prepare prefix before first use
         MetaAllocator::formatPrefix(m_prefix, PAGE_SIZE, SLAB_SIZE);
-        
+
         {
             // first assign from a new slab
             MetaAllocatorProxy cut(m_prefix);
-            std::vector<std::size_t> alloc_sizes = { 100, 200, 300, 400, 500, 600, 700, 800, 900 };                
+            std::vector<std::size_t> alloc_sizes = { 100, 200, 300, 400, 500, 600, 700, 800, 900 };
             for (auto alloc_size: alloc_sizes) {
                 auto ptr = cut.alloc(alloc_size);
                 ASSERT_EQ(cut.getSlabId(ptr), 0);
             }
             cut.close();
         }
-        
+
         // open again and try to allocate
         MetaAllocatorProxy cut(m_prefix);
         auto ptr = cut.alloc(100);
         // the allocation should be in the same slab
-        ASSERT_EQ(cut.getSlabId(ptr), 0);    
-        cut.close();    
+        ASSERT_EQ(cut.getSlabId(ptr), 0);
+        cut.close();
     }
-    
+
     TEST_F( MetaAllocatorTests , testMetaAllocatorCanAllocateFromMultipleExistingSlabs )
     {
         MetaAllocator::formatPrefix(m_prefix, PAGE_SIZE, SMALL_SLAB_SIZE);
@@ -185,7 +193,7 @@ namespace tests
         ASSERT_TRUE(cut.getSlabId(ptr) > 0);
         cut.close();
     }
-    
+
     TEST_F( MetaAllocatorTests , testMetaAllocatorRemainingCapacityIsTrackedPerSlab )
     {
         MetaAllocator::formatPrefix(m_prefix, PAGE_SIZE, SMALL_SLAB_SIZE);
@@ -219,13 +227,13 @@ namespace tests
             // make allocations until the 2 slabs are occupied
             MetaAllocator cut(m_prefix, &recycler);
             while (cut.getSlabCount() < 2) {
-                cut.alloc(100);            
+                cut.alloc(100);
             }
             cut.close();
         }
         ASSERT_EQ(recycler.size(), 0);
     }
-    
+
     TEST_F( MetaAllocatorTests , testMetaAllocatorRemainingCapacityIsPersistedOnClose )
     {
         MetaAllocator::formatPrefix(m_prefix, PAGE_SIZE, SMALL_SLAB_SIZE);
@@ -243,12 +251,12 @@ namespace tests
             }
             cut.close();
         }
-        
+
         MetaAllocator cut(m_prefix, &recycler);
         ASSERT_TRUE(cut.getRemainingCapacity(slab_ids[0]) < 100);
         ASSERT_TRUE(cut.getRemainingCapacity(slab_ids[1]) > 100);
     }
-    
+
     TEST_F( MetaAllocatorTests , testMetaAllocatorCanGetAllocSize )
     {
         srand(191231u);
@@ -274,7 +282,106 @@ namespace tests
             ASSERT_EQ(cut.getAllocSize(addresses[i]), alloc_sizes[i]);
         }
     }
-    
+
+    TEST_F( MetaAllocatorTests , testMetaAllocatorCanFindAllocationByInnerAddressAfterReopen )
+    {
+        srand(191231u);
+        MetaAllocator::formatPrefix(m_prefix, PAGE_SIZE, SMALL_SLAB_SIZE);
+        SlabRecycler recycler;
+        std::vector<std::size_t> alloc_sizes;
+        std::vector<Address> addresses;
+        auto count = 1000;
+        {
+            MetaAllocator cut(m_prefix, &recycler);
+            for (int i = 0; i < count; ++i) {
+                auto alloc_size = rand() % 1000 + 32;
+                alloc_sizes.push_back(alloc_size);
+                addresses.push_back(cut.alloc(alloc_size));
+            }
+            cut.close();
+        }
+
+        MetaAllocator cut(m_prefix, &recycler);
+        for (int i = 0; i < count; ++i) {
+            assertFindsAllocation(cut, addresses[i] + static_cast<Address::offset_t>(alloc_sizes[i] - 1),
+                addresses[i], alloc_sizes[i]);
+        }
+    }
+
+    TEST_F( MetaAllocatorTests , testMetaAllocatorFindAllocationExactAddress )
+    {
+        MetaAllocator::formatPrefix(m_prefix, PAGE_SIZE, SMALL_SLAB_SIZE);
+        SlabRecycler recycler;
+        MetaAllocator cut(m_prefix, &recycler);
+
+        auto address = cut.alloc(128);
+        assertFindsAllocation(cut, address, address, 128);
+        cut.close();
+    }
+
+    TEST_F( MetaAllocatorTests , testMetaAllocatorFindAllocationLastByte )
+    {
+        MetaAllocator::formatPrefix(m_prefix, PAGE_SIZE, SMALL_SLAB_SIZE);
+        SlabRecycler recycler;
+        MetaAllocator cut(m_prefix, &recycler);
+
+        auto address = cut.alloc(128);
+        assertFindsAllocation(cut, address + static_cast<Address::offset_t>(127), address, 128);
+        cut.close();
+    }
+
+    TEST_F( MetaAllocatorTests , testMetaAllocatorFindAllocationRejectsEndBoundary )
+    {
+        MetaAllocator::formatPrefix(m_prefix, PAGE_SIZE, SMALL_SLAB_SIZE);
+        SlabRecycler recycler;
+        MetaAllocator cut(m_prefix, &recycler);
+
+        auto address = cut.alloc(128);
+        ASSERT_THROW(cut.findAllocation(address + static_cast<Address::offset_t>(128)), db0::BadAddressException);
+        cut.close();
+    }
+
+    TEST_F( MetaAllocatorTests , testMetaAllocatorFindAllocationValidatesRealm )
+    {
+        MetaAllocator::formatPrefix(m_prefix, PAGE_SIZE, SMALL_SLAB_SIZE);
+        SlabRecycler recycler;
+        MetaAllocator cut(m_prefix, &recycler);
+
+        auto address = cut.alloc(128, 0, false, 1);
+        assertFindsAllocation(cut, address + static_cast<Address::offset_t>(12), address, 128);
+        cut.findAllocation(address + static_cast<Address::offset_t>(12), 1);
+        ASSERT_THROW(cut.findAllocation(address + static_cast<Address::offset_t>(12), 0), db0::BadAddressException);
+        cut.close();
+    }
+
+    TEST_F( MetaAllocatorTests , testMetaAllocatorFindAllocationRejectsFlushedFree )
+    {
+        MetaAllocator::formatPrefix(m_prefix, PAGE_SIZE, SMALL_SLAB_SIZE);
+        SlabRecycler recycler;
+        MetaAllocator cut(m_prefix, &recycler);
+
+        auto address = cut.alloc(128);
+        cut.free(address);
+        cut.flush();
+        ASSERT_THROW(cut.findAllocation(address + static_cast<Address::offset_t>(12)), db0::BadAddressException);
+        cut.close();
+    }
+
+    TEST_F( MetaAllocatorTests , testMetaAllocatorFindAllocationHidesDeferredFree )
+    {
+        MetaAllocator::formatPrefix(m_prefix, PAGE_SIZE, SMALL_SLAB_SIZE);
+        SlabRecycler recycler;
+        MetaAllocator cut(m_prefix, &recycler);
+
+        auto address = cut.alloc(128);
+        cut.findAllocation(address + static_cast<Address::offset_t>(12));
+
+        cut.free(address);
+        ASSERT_THROW(cut.findAllocation(address), db0::BadAddressException);
+        ASSERT_THROW(cut.findAllocation(address + static_cast<Address::offset_t>(12)), db0::BadAddressException);
+        cut.close();
+    }
+
     TEST_F( MetaAllocatorTests , testMetaAllocatorCanFree )
     {
         srand(191231u);
@@ -302,9 +409,9 @@ namespace tests
                 cut.free(addresses[index]);
                 alloc_sizes[index] = 0;
             }
-        }       
+        }
     }
-    
+
     TEST_F( MetaAllocatorTests , testMetaAllocatorCanReleaseEmptySlab )
     {
         srand(191231u);
@@ -324,7 +431,7 @@ namespace tests
             ASSERT_EQ(cut.getSlabCount(), addr_map.size());
             cut.close();
         }
-        
+
         // Remove from the highest slabs first
         auto slab_count = addr_map.size();
         MetaAllocator cut(m_prefix, &recycler, false);
@@ -336,7 +443,7 @@ namespace tests
             ASSERT_EQ(cut.getSlabCount(), slab_count);
         }
     }
-    
+
     TEST_F( MetaAllocatorTests , testMetaAllocatorAllocSpeed )
     {
         /*
@@ -344,7 +451,7 @@ namespace tests
         for comparison the regular malloc operation did 13.7 allocs / sec
         */
         MetaAllocator::formatPrefix(m_prefix, PAGE_SIZE, 64 * 1024 * 1024);
-        SlabRecycler recycler;        
+        SlabRecycler recycler;
         MetaAllocator cut(m_prefix, &recycler);
         // measure speed
         auto start = std::chrono::high_resolution_clock::now();
@@ -371,7 +478,7 @@ namespace tests
         MetaAllocator::formatPrefix(m_prefix, PAGE_SIZE, SMALL_SLAB_SIZE);
         SlabRecycler recycler;
         MetaAllocator cut(m_prefix, &recycler);
-        auto private_slab = cut.reserveNewSlab();        
+        auto private_slab = cut.reserveNewSlab();
         std::pair<std::uint64_t, std::uint64_t> range {
             private_slab->getAddress(), private_slab->getAddress() + static_cast<offset_t>(private_slab->size())
         };
@@ -389,18 +496,18 @@ namespace tests
         }
         cut.close();
     }
-    
+
     TEST_F( MetaAllocatorTests , testMetaAllocatorFirstAllocatedAddress )
-    {        
+    {
         MetaAllocator::formatPrefix(m_prefix, PAGE_SIZE, SMALL_SLAB_SIZE);
         SlabRecycler recycler;
         MetaAllocator cut(m_prefix, &recycler);
         ASSERT_EQ(cut.alloc(8), cut.getFirstAddress());
         cut.close();
     }
-    
+
     TEST_F( MetaAllocatorTests , testMetaAllocatorLocalityAwareAllocation )
-    {        
+    {
         MetaAllocator::formatPrefix(m_prefix, PAGE_SIZE, SMALL_SLAB_SIZE);
         SlabRecycler recycler;
         MetaAllocatorProxy cut(m_prefix, &recycler);
@@ -416,5 +523,5 @@ namespace tests
         ASSERT_NE(cut.getSlabId(addr_0), cut.getSlabId(addr_2));
         cut.close();
     }
-    
+
 }

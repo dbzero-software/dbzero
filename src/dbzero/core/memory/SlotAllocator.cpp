@@ -31,13 +31,13 @@ namespace db0
     {
         SlabAllocator &m_allocator;
         std::vector<Address> m_pending_free;
-        
+
         ScopedAllocBuf(SlabAllocator &allocator)
             : m_allocator(allocator)
         {
         }
 
-        ~ScopedAllocBuf() 
+        ~ScopedAllocBuf()
         {
             for (auto addr: m_pending_free) {
                 m_allocator.free(addr);
@@ -48,32 +48,32 @@ namespace db0
             m_pending_free.push_back(addr);
         }
     };
-    
-    std::optional<Address> SlotAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num, 
+
+    std::optional<Address> SlotAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num,
         bool aligned, unsigned char realm_id, unsigned char locality)
     {
         if (!slot_num) {
             return m_allocator_ptr->tryAlloc(size, 0, aligned, realm_id, locality);
         }
-        
+
         return select(slot_num).tryAlloc(size, 0, aligned, realm_id, locality);
     }
-    
-    std::optional<UniqueAddress> SlotAllocator::tryAllocUnique(std::size_t size, std::uint32_t slot_num, 
+
+    std::optional<UniqueAddress> SlotAllocator::tryAllocUnique(std::size_t size, std::uint32_t slot_num,
         bool aligned, unsigned char realm_id, unsigned char locality)
     {
         if (!slot_num) {
             return m_allocator_ptr->tryAllocUnique(size, 0, aligned, realm_id, locality);
         }
-        
+
         return select(slot_num).tryAllocUnique(size, 0, aligned, realm_id, locality);
     }
-    
+
     void SlotAllocator::free(Address address) {
         // can free from the general allocator
         m_allocator_ptr->free(address);
     }
-    
+
     std::size_t SlotAllocator::getAllocSize(Address address) const {
         return m_allocator_ptr->getAllocSize(address);
     }
@@ -85,9 +85,35 @@ namespace db0
     bool SlotAllocator::isAllocated(Address address, std::size_t *size_of_result) const {
         return m_allocator_ptr->isAllocated(address, size_of_result);
     }
-    
+
     bool SlotAllocator::isAllocated(Address address, unsigned char realm_id, std::size_t *size_of_result) const {
         return m_allocator_ptr->isAllocated(address, realm_id, size_of_result);
+    }
+
+    Allocator::AllocationInfo SlotAllocator::findAllocation(Address address) const
+    {
+        return m_allocator_ptr->findAllocation(address);
+    }
+
+    Allocator::AllocationInfo SlotAllocator::findAllocation(Address address, unsigned char realm_id) const
+    {
+        return m_allocator_ptr->findAllocation(address, realm_id);
+    }
+
+    Allocator::AllocationInfo SlotAllocator::findAllocation(Address address, std::uint32_t slot_num) const
+    {
+        if (slot_num == 0) {
+            return findAllocation(address);
+        }
+        return getSlot(slot_num).findAllocation(address);
+    }
+
+    Allocator::AllocationInfo SlotAllocator::findAllocation(Address address, std::uint32_t slot_num, unsigned char realm_id) const
+    {
+        if (slot_num == 0) {
+            return findAllocation(address, realm_id);
+        }
+        return getSlot(slot_num).findAllocation(address, realm_id);
     }
 
     void SlotAllocator::commit() const
@@ -99,7 +125,7 @@ namespace db0
             }
         }
     }
-    
+
     void SlotAllocator::detach() const
     {
         m_allocator_ptr->detach();
@@ -109,7 +135,7 @@ namespace db0
             }
         }
     }
-    
+
     Allocator &SlotAllocator::select(std::uint32_t slot_num)
     {
         if (slot_num == 0) {
@@ -118,7 +144,7 @@ namespace db0
         assert(slot_num < m_slots.size() && m_slots[slot_num]);
         return *m_slots[slot_num];
     }
-    
+
     SlabAllocator &SlotAllocator::getSlot(std::uint32_t slot_num) const
     {
         if (!slot_num || slot_num >= m_slots.size() || !m_slots[slot_num]) {
@@ -126,7 +152,7 @@ namespace db0
         }
         return *m_slots[slot_num];
     }
-    
+
     bool SlotAllocator::inRange(Address address) const {
         return m_allocator_ptr->inRange(address);
     }
@@ -138,5 +164,5 @@ namespace db0
         }
         return getSlot(slot_num).getRange(0);
     }
-    
+
 }

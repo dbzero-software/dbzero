@@ -20,15 +20,17 @@ namespace db0
     public:
         using AllocCallbackT = std::function<void(std::size_t, std::uint32_t, bool, std::optional<Address>)>;
         EmbeddedAllocator() = default;
-        
-        std::optional<Address> tryAlloc(std::size_t size, std::uint32_t, 
+
+        std::optional<Address> tryAlloc(std::size_t size, std::uint32_t,
             bool aligned = false, unsigned char realm_id = 0, unsigned char locality = 0) override;
-        
+
         void free(Address) override;
 
         std::size_t getAllocSize(Address) const override;
 
         bool isAllocated(Address, std::size_t *size_of_result = nullptr) const override;
+
+        AllocationInfo findAllocation(Address) const override;
 
         void commit() const override;
 
@@ -42,5 +44,5 @@ namespace db0
         std::unordered_map<Address, std::size_t> m_allocations;
         AllocCallbackT m_alloc_callback;
     };
-    
+
 }

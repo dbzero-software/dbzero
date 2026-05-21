@@ -8,7 +8,7 @@ namespace db0
 
 {
 
-    std::optional<Address> EmbeddedAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num, 
+    std::optional<Address> EmbeddedAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num,
         bool aligned, unsigned char, unsigned char)
     {
         auto new_address = Address::fromOffset(4096 * ++m_count);
@@ -18,14 +18,14 @@ namespace db0
         }
         return new_address;
     }
-    
+
     void EmbeddedAllocator::free(Address address)
     {
         auto it = m_allocations.find(address);
         if (it == m_allocations.end()) {
             THROWF(db0::InternalException) << "address not found: " << address;
         }
-        m_allocations.erase(it);        
+        m_allocations.erase(it);
     }
 
     std::size_t EmbeddedAllocator::getAllocSize(Address address) const
@@ -36,7 +36,7 @@ namespace db0
         }
         return it->second;
     }
-    
+
     bool EmbeddedAllocator::isAllocated(Address address, std::size_t *size_of_result) const
     {
         auto it = m_allocations.find(address);
@@ -46,9 +46,21 @@ namespace db0
         if (size_of_result) {
             *size_of_result = it->second;
         }
-        return true;        
+        return true;
     }
-    
+
+    Allocator::AllocationInfo EmbeddedAllocator::findAllocation(Address address) const
+    {
+        for (auto &alloc: m_allocations) {
+            auto begin = alloc.first.getOffset();
+            auto end = begin + alloc.second;
+            if (address.getOffset() >= begin && address.getOffset() < end) {
+                return AllocationInfo { alloc.first, alloc.second };
+            }
+        }
+        THROWF(db0::BadAddressException) << "Invalid address: " << address << THROWF_END;
+    }
+
     void EmbeddedAllocator::commit() const {
         // nothing to do
     }
@@ -56,9 +68,9 @@ namespace db0
     void EmbeddedAllocator::detach() const {
         // nothing to do
     }
-    
+
     void EmbeddedAllocator::setAllocCallback(AllocCallbackT callback) {
         this->m_alloc_callback = callback;
     }
-    
+
 }

@@ -38,7 +38,7 @@ namespace db0
     {
         // For aligned allocations the begin address must be also aligned
         assert(m_begin_addr % m_page_size == 0);
-        
+
         // apply dynamic bound on the CRDT allocator to prevent allocating addresses overlapping with the admin space
         // include ADMIN_MARGIN bitspace allocations to allow margin for the admin space to grow
         // NOTE: CRDT allocator's dynamic bounds are specified as relative to the allocator's base address
@@ -51,18 +51,18 @@ namespace db0
             std::uint32_t b0 = (b1 >= admin_margin_bytes) ? b1 - admin_margin_bytes : 0;
             return std::make_tuple(b0, b1, b2);
         });
-        
+
         // provide CRDT allocator's dynamic bound to the bitspace (this is for address validation/ collision prevention purposes)
         // NOTE: the bitspace bounds use the absolute address
         m_bitspace.setDynamicBounds([this]() {
             return m_begin_addr + static_cast<offset_t>(m_allocator.getMaxAddr());
         });
     }
-    
+
     SlabAllocator::~SlabAllocator()
     {
     }
-    
+
     std::optional<Address> SlabAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num,
         bool aligned, unsigned char, unsigned char)
     {
@@ -76,11 +76,11 @@ namespace db0
         }
         return std::nullopt;
     }
-    
+
     void SlabAllocator::free(Address address) {
         m_allocator.free(makeRelative(address));
     }
-    
+
     std::size_t SlabAllocator::getAllocSize(Address address) const {
         return m_allocator.getAllocSize(makeRelative(address));
     }
@@ -92,16 +92,29 @@ namespace db0
     bool SlabAllocator::isAllocated(Address address, std::size_t *size_of_result) const {
         return m_allocator.isAllocated(makeRelative(address), size_of_result);
     }
-    
+
     bool SlabAllocator::isAllocated(Address address, unsigned char, std::size_t *size_of_result) const {
         return m_allocator.isAllocated(makeRelative(address), size_of_result);
     }
-    
+
+    Allocator::AllocationInfo SlabAllocator::findAllocation(Address address) const
+    {
+        if (!inRange(address)) {
+            THROWF(db0::BadAddressException) << "Invalid address: " << address;
+        }
+        auto result = m_allocator.findAllocation(makeRelative(address));
+        return AllocationInfo { makeAbsolute(static_cast<std::uint32_t>(result.first)), result.second };
+    }
+
+    Allocator::AllocationInfo SlabAllocator::findAllocation(Address address, unsigned char) const {
+        return findAllocation(address);
+    }
+
     Address SlabAllocator::headerAddr(Address begin_addr, std::uint32_t size) {
         return begin_addr + static_cast<offset_t>(size) - static_cast<offset_t>(o_slab_header::sizeOf());
     }
-    
-    std::size_t SlabAllocator::formatSlab(std::shared_ptr<Prefix> prefix, Address begin_addr, 
+
+    std::size_t SlabAllocator::formatSlab(std::shared_ptr<Prefix> prefix, Address begin_addr,
         std::uint32_t size, std::size_t page_size)
     {
         auto admin_size = calculateAdminSpaceSize(page_size);
@@ -109,11 +122,11 @@ namespace db0
         if (size <= admin_size + admin_margin_bytes) {
             THROWF(db0::InternalException) << "Slab size too small: " << size;
         }
-        
+
         if (size % page_size != 0) {
             THROWF(db0::InternalException) << "Slab size not multiple of page size: " << size << " % " << page_size;
         }
-        
+
         // put bitspace right before the header (at the end of the slab)
         BitSpace<SlabAllocatorConfig::SLAB_BITSPACE_SIZE()>::create(
             prefix, headerAddr(begin_addr, size), page_size, -1
@@ -123,21 +136,21 @@ namespace db0
         BitSpace<SlabAllocatorConfig::SLAB_BITSPACE_SIZE()> bitspace(
             prefix, headerAddr(begin_addr, size), page_size, -1
         );
-        
+
         // Create the CRDT allocator data structures on top of the bitspace
         AllocSetT allocs(bitspace, page_size);
         BlankSetT blanks(bitspace, page_size);
         AlignedBlankSetT aligned_blanks(bitspace, page_size, CompT(page_size), page_size);
         StripeSetT stripes(bitspace, page_size);
-        LimitedVector<std::uint16_t> alloc_counter(bitspace, page_size);        
+        LimitedVector<std::uint16_t> alloc_counter(bitspace, page_size);
         alloc_counter.reserve(SlabAllocatorConfig::SLAB_BITSPACE_SIZE());
         // calculate size initially available to CRTD allocator
         std::uint32_t crdt_size = static_cast<std::uint32_t>(size - admin_size - admin_margin_bytes);
         assert(crdt_size > 0);
-        
+
         // register the initial blank - associated with the relative address = 0
         CRDT_Allocator::insertBlank(blanks, aligned_blanks, { crdt_size, 0 }, page_size);
-        
+
         // create a temporary memspace only to allocate the header under a known address
         OneShotAllocator osa(headerAddr(begin_addr, size), o_slab_header::sizeOf());
         Memspace memspace(Memspace::tag_from_reference(), prefix, osa);
@@ -154,11 +167,11 @@ namespace db0
             );
         return crdt_size;
     }
-    
+
     const std::size_t SlabAllocator::getSlabSize() const {
         return m_slab_size;
     }
-    
+
     const std::size_t SlabAllocator::getAdminSpaceSize(bool include_margin) const
     {
         auto result = m_begin_addr.getOffset() + m_slab_size - m_bitspace.getBaseAddress() + m_bitspace.span() * m_page_size;
@@ -168,7 +181,7 @@ namespace db0
         }
         return result;
     }
-    
+
     std::size_t SlabAllocator::calculateAdminSpaceSize(std::size_t page_size)
     {
         auto result = BitSpace<SlabAllocatorConfig::SLAB_BITSPACE_SIZE()>::sizeOf() + o_slab_header::sizeOf();
@@ -180,11 +193,11 @@ namespace db0
         result += LimitedVectorT::DP_REQ(SlabAllocatorConfig::SLAB_BITSPACE_SIZE(), page_size) * page_size;
         return result;
     }
-    
+
     std::size_t SlabAllocator::getMaxAllocSize() const {
         return m_slab_size - calculateAdminSpaceSize(m_page_size) - ADMIN_MARGIN() * m_page_size;
     }
-    
+
     std::size_t SlabAllocator::getLostCapacity() const
     {
         if (!m_initial_lost_capacity) {
@@ -194,7 +207,7 @@ namespace db0
         assert(result >= 0);
         return static_cast<std::size_t>(result);
     }
-    
+
     std::size_t SlabAllocator::getRemainingCapacity() const
     {
         if (!m_initial_remaining_capacity) {
@@ -203,11 +216,11 @@ namespace db0
         std::int64_t result = (std::int64_t)*m_initial_remaining_capacity - m_allocator.getAllocDelta() - (getAdminSpaceSize(true) - m_initial_admin_size);
         return result > 0 ? result : 0;
     }
-    
+
     const Prefix &SlabAllocator::getPrefix() const {
         return *m_prefix;
     }
-        
+
     bool SlabAllocator::empty() const {
         return m_allocs.empty();
     }
@@ -223,7 +236,7 @@ namespace db0
     Address SlabAllocator::getFirstAddress() {
         return Address::fromOffset(CRDT_Allocator::getFirstAddress());
     }
-    
+
     void SlabAllocator::commit() const
     {
         m_header.commit();
@@ -233,9 +246,9 @@ namespace db0
         m_aligned_blanks.commit();
         m_stripes.commit();
         m_alloc_counter.commit();
-        m_allocator.commit();        
+        m_allocator.commit();
     }
-    
+
     void SlabAllocator::detach() const
     {
         m_header.detach();
@@ -247,7 +260,7 @@ namespace db0
         m_alloc_counter.detach();
         m_allocator.detach();
     }
-    
+
     bool SlabAllocator::tryMakeAddressUnique(Address address, std::uint16_t &instance_id)
     {
         // make sure high 14 bits are 0
@@ -259,10 +272,10 @@ namespace db0
         }
         assert(instance_id > 0);
         assert(instance_id <= UniqueAddress::INSTANCE_ID_MAX);
-        
+
         return true;
     }
-    
+
     UniqueAddress SlabAllocator::tryMakeAddressUnique(Address address)
     {
         std::uint16_t instance_id;
@@ -272,17 +285,17 @@ namespace db0
         // unable to make the address unique
         return {};
     }
-    
-    bool SlabAllocator::inRange(Address address) const 
+
+    bool SlabAllocator::inRange(Address address) const
     {
-        return (address.getOffset() >= m_begin_addr.getOffset()) && 
+        return (address.getOffset() >= m_begin_addr.getOffset()) &&
             (address.getOffset() < m_begin_addr.getOffset() + m_slab_size);
     }
-    
+
     std::pair<Address, std::optional<Address> > SlabAllocator::getRange(std::uint32_t slot_num) const
     {
         assert(!slot_num && "SlabAllocator does not support slots");
         return { m_begin_addr, m_begin_addr + static_cast<offset_t>(m_slab_size) };
     }
-    
+
 }

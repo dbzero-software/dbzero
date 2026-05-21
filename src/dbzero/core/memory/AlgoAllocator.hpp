@@ -22,13 +22,15 @@ namespace db0
 
         std::optional<Address> tryAlloc(std::size_t size, std::uint32_t slot_num = 0,
             bool aligned = false, unsigned char realm_id = 0, unsigned char locality = 0) override;
-        
+
         void free(Address) override;
 
         std::size_t getAllocSize(Address) const override;
 
         bool isAllocated(Address, std::size_t *size_of_result = nullptr) const override;
-        
+
+        AllocationInfo findAllocation(Address) const override;
+
         void commit() const override;
 
         void detach() const override;
@@ -42,12 +44,12 @@ namespace db0
          * Reset the allocator to the initial state (as if no allocation was done)
         */
         void reset();
-        
+
         /**
          * Get the first assigned i.e. the root address
         */
         Address getRootAddress() const;
-        
+
     private:
         AddressPoolF m_address_pool_f;
         ReverseAddressPoolF m_reverse_address_pool_f;

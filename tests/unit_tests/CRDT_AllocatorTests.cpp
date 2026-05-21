@@ -4,6 +4,7 @@
 #include <gtest/gtest.h>
 #include <cstdint>
 #include <iostream>
+#include <limits>
 #include <dbzero/core/memory/BitSpace.hpp>
 #include <dbzero/core/crdt/CRDT_Allocator.hpp>
 #include <utils/TestWorkspace.hpp>
@@ -36,7 +37,7 @@ namespace tests
             m_blanks.reset();
             m_aligned_blanks.reset();
             m_stripes.reset();
-            m_bitspace.clear();    
+            m_bitspace.clear();
         }
 
     protected:
@@ -56,7 +57,7 @@ namespace tests
         std::unique_ptr<AlignedBlankSetT> m_aligned_blanks;
         std::unique_ptr<StripeSetT> m_stripes;
 
-        void init(std::size_t max_addr, const std::vector<std::pair<std::uint32_t, std::uint32_t>> &blanks = {}, 
+        void init(std::size_t max_addr, const std::vector<std::pair<std::uint32_t, std::uint32_t>> &blanks = {},
             std::optional<std::uint32_t> min_aligned_alloc_size = {})
         {
             using CompT = typename AlignedBlankSetT::CompT;
@@ -79,18 +80,30 @@ namespace tests
                 }
             }
         }
+
+        db0::CRDT_Allocator makeAllocator(std::uint32_t max_address = MAX_ADDRESS) {
+            return db0::CRDT_Allocator(*m_allocs, *m_blanks, *m_aligned_blanks, *m_stripes, max_address, page_size);
+        }
+
+        void assertFindsAllocation(db0::CRDT_Allocator &allocator, std::uint64_t query,
+            std::uint64_t expected_address, std::size_t expected_size) const
+        {
+            auto result = allocator.findAllocation(query);
+            ASSERT_EQ(result.first, expected_address);
+            ASSERT_EQ(result.second, expected_size);
+        }
     };
-    
+
     TEST_F( CRDT_AllocatorTests , testCRDT_AllocatorCanAllocFromBlanks )
     {
         db0::CRDT_Allocator cut(*m_allocs, *m_blanks, *m_aligned_blanks, *m_stripes, MAX_ADDRESS, page_size);
         cut.alloc(8);
 
         ASSERT_EQ(m_allocs->size(), 1);
-        ASSERT_EQ(m_blanks->size(), 1);        
+        ASSERT_EQ(m_blanks->size(), 1);
         ASSERT_EQ(m_stripes->size(), 1);
     }
-    
+
     TEST_F( CRDT_AllocatorTests , testCRDT_AllocatorCanAllocFromStripes )
     {
         db0::CRDT_Allocator cut(*m_allocs, *m_blanks, *m_aligned_blanks, *m_stripes, MAX_ADDRESS, page_size);
@@ -100,7 +113,7 @@ namespace tests
         cut.alloc(8);
 
         ASSERT_EQ(m_allocs->size(), 2);
-        ASSERT_EQ(m_blanks->size(), 1);        
+        ASSERT_EQ(m_blanks->size(), 1);
         ASSERT_EQ(m_stripes->size(), 1);
     }
 
@@ -129,7 +142,7 @@ namespace tests
         cut.alloc(11);
 
         ASSERT_EQ(m_allocs->size(), 4);
-        ASSERT_EQ(m_blanks->size(), 1);        
+        ASSERT_EQ(m_blanks->size(), 1);
         ASSERT_EQ(m_stripes->size(), 2);
 
         // the subsequent allocations done from existing stripes
@@ -150,7 +163,7 @@ namespace tests
         }
         ASSERT_TRUE(fill_map.all());
     }
-    
+
     TEST_F( CRDT_AllocatorTests , testCRDT_AllocatorGetAllocSize )
     {
         db0::CRDT_Allocator cut(*m_allocs, *m_blanks, *m_aligned_blanks, *m_stripes, MAX_ADDRESS, page_size);
@@ -166,20 +179,86 @@ namespace tests
             ASSERT_EQ(cut.getAllocSize(addresses[i]), sizes[i]);
         }
     }
-    
+
+    TEST_F( CRDT_AllocatorTests , testCRDT_AllocatorCanFindAllocationByInnerAddress )
+    {
+        auto cut = makeAllocator();
+        auto address = cut.alloc(33);
+
+        assertFindsAllocation(cut, address + 17, address, 33u);
+    }
+
+    TEST_F( CRDT_AllocatorTests , testCRDT_AllocatorFindAllocationExactAddress )
+    {
+        auto cut = makeAllocator();
+        auto address = cut.alloc(33);
+        assertFindsAllocation(cut, address, address, 33u);
+    }
+
+    TEST_F( CRDT_AllocatorTests , testCRDT_AllocatorFindAllocationLastByte )
+    {
+        auto cut = makeAllocator();
+        auto address = cut.alloc(33);
+        assertFindsAllocation(cut, address + 32, address, 33u);
+    }
+
+    TEST_F( CRDT_AllocatorTests , testCRDT_AllocatorFindAllocationRejectsEndBoundary )
+    {
+        auto cut = makeAllocator();
+        auto address = cut.alloc(33);
+        ASSERT_THROW(cut.findAllocation(address + 33), db0::BadAddressException);
+    }
+
+    TEST_F( CRDT_AllocatorTests , testCRDT_AllocatorFindAllocationRejectsAddressOverUInt32 )
+    {
+        auto cut = makeAllocator();
+        ASSERT_THROW(cut.findAllocation(std::numeric_limits<std::uint32_t>::max() + 1ULL), db0::BadAddressException);
+    }
+
+    TEST_F( CRDT_AllocatorTests , testCRDT_AllocatorFindAllocationRejectsEmptyAllocatorAddress )
+    {
+        auto cut = makeAllocator();
+        ASSERT_THROW(cut.findAllocation(0), db0::BadAddressException);
+    }
+
+    TEST_F( CRDT_AllocatorTests , testCRDT_AllocatorFindAllocationSkipsFreedFillMapUnit )
+    {
+        auto cut = makeAllocator();
+        std::vector<std::uint64_t> addresses;
+        for (int i = 0; i < 10; ++i) {
+            addresses.push_back(cut.alloc(8));
+        }
+
+        cut.free(addresses[5]);
+
+        ASSERT_THROW(cut.findAllocation(addresses[5]), db0::BadAddressException);
+        ASSERT_THROW(cut.findAllocation(addresses[5] + 7), db0::BadAddressException);
+
+        assertFindsAllocation(cut, addresses[4] + 7, addresses[4], 8u);
+        assertFindsAllocation(cut, addresses[6], addresses[6], 8u);
+    }
+
+    TEST_F( CRDT_AllocatorTests , testCRDT_AllocatorFindAllocationRejectsFullyFreedAllocation )
+    {
+        auto cut = makeAllocator();
+        auto address = cut.alloc(33);
+        cut.free(address);
+        ASSERT_THROW(cut.findAllocation(address), db0::BadAddressException);
+    }
+
     TEST_F( CRDT_AllocatorTests , testCRDT_AllocatorFreeFromAllocs )
     {
         db0::CRDT_Allocator cut(*m_allocs, *m_blanks, *m_aligned_blanks, *m_stripes, 64 * page_size, page_size);
         std::vector<std::size_t> sizes = { 16, 16, 16, 1, 2, 4 };
         std::vector<std::uint64_t> addresses;
-        
+
         for (auto size : sizes) {
             addresses.push_back(cut.alloc(size));
         }
-        
+
         ASSERT_EQ(m_blanks->size(), 1);
         ASSERT_EQ(m_stripes->size(), 4);
-        
+
         cut.free(addresses[0]);
         cut.free(addresses[1]);
         cut.free(addresses[2]);
@@ -190,7 +269,7 @@ namespace tests
         cut.free(addresses[4]);
         ASSERT_EQ(m_stripes->size(), 2);
         ASSERT_EQ(m_blanks->size(), 3);
-        
+
         cut.free(addresses[3]);
         ASSERT_EQ(m_stripes->size(), 1);
         ASSERT_EQ(m_blanks->size(), 2);
@@ -212,12 +291,12 @@ namespace tests
             if (last_alloc_count && alloc_count > *last_alloc_count) {
                 if (!stripe_sizes.empty() && stripe_sizes.back() == current_stripe_size) {
                     break;
-                }                
+                }
                 stripe_sizes.push_back(current_stripe_size);
                 current_stripe_size = 0;
             }
             ++current_stripe_size;
-            last_alloc_count = alloc_count;            
+            last_alloc_count = alloc_count;
         }
         // validate stripe sizes
         ASSERT_EQ(stripe_sizes.size(), 4);
@@ -225,7 +304,7 @@ namespace tests
             ASSERT_TRUE(stripe_sizes[i] > stripe_sizes[i - 1]);
         }
     }
-    
+
     TEST_F( CRDT_AllocatorTests , DISABLED_testCRDT_AllocatorCanReclaimSpaceFromStripes )
     {
         db0::CRDT_Allocator cut(*m_allocs, *m_blanks, *m_aligned_blanks, *m_stripes, MAX_ADDRESS, page_size);
@@ -255,13 +334,13 @@ namespace tests
             }
         }
         ASSERT_EQ(m_allocs->size(), *last_alloc_count);
-        
+
         // now try a different size alloc, the space should be reclaimed from stripes
         ASSERT_NO_THROW(cut.alloc(11));
         ASSERT_NO_THROW(cut.alloc(15));
         ASSERT_NO_THROW(cut.alloc(31));
     }
-    
+
     TEST_F( CRDT_AllocatorTests , testCRDT_AllocatorFromStripeCanBeConstrainedWithDynamicBounds )
     {
         std::uint32_t admin_span = 200;
@@ -272,7 +351,7 @@ namespace tests
             std::uint32_t b0 = (b1 >= admin_span) ? b1 - admin_span : 0;
             return { b0, b1, b2 };
         };
-        
+
         db0::CRDT_Allocator cut(*m_allocs, *m_blanks, *m_aligned_blanks, *m_stripes, MAX_ADDRESS, page_size);
         cut.setDynamicBound(bounds_fn);
 
@@ -294,11 +373,11 @@ namespace tests
     {
         srand(5916412u);
         db0::CRDT_Allocator cut(*m_allocs, *m_blanks, *m_aligned_blanks, *m_stripes, MAX_ADDRESS, page_size);
-        
+
         std::vector<std::size_t> alloc_sizes;
         std::vector<std::uint64_t> addresses;
         auto count = 100;
-        {            
+        {
             // make random allocations
             for (int i = 0; i < count; ++i) {
                 auto alloc_size = rand() % 50 + 1;
@@ -307,9 +386,9 @@ namespace tests
                     alloc_sizes.push_back(alloc_size);
                     addresses.push_back(*ptr);
                 }
-            }          
+            }
         }
-        
+
         // free selected addresses in random order
         for (int i = 0; i < count / 5; ++i) {
             auto index = rand() % addresses.size();
@@ -317,9 +396,9 @@ namespace tests
                 cut.free(addresses[index]);
                 alloc_sizes[index] = 0;
             }
-        }           
+        }
     }
-    
+
     TEST_F( CRDT_AllocatorTests , testCRDT_AllocatorAllocSpeed )
     {
         auto max_addr = 64 * 1024 * 1024;
@@ -338,13 +417,13 @@ namespace tests
         std::cout << "Total bytes: " << total_bytes << std::endl;
         std::cout << "MB / sec : " << (total_bytes / 1024.0 / 1024.0) * 1000.0 / elapsed.count() << std::endl;
     }
-    
+
     TEST_F( CRDT_AllocatorTests , testCRDT_AllocatorFirstAllocatedAddress )
     {
         db0::CRDT_Allocator cut(*m_allocs, *m_blanks, *m_aligned_blanks, *m_stripes, MAX_ADDRESS, page_size);
         ASSERT_EQ(cut.alloc(8), db0::CRDT_Allocator::getFirstAddress());
     }
-    
+
     TEST_F( CRDT_AllocatorTests , testCRDT_PageAlignedAllocs )
     {
         auto capacity = page_size * 3 * 100;
@@ -360,7 +439,7 @@ namespace tests
             ASSERT_EQ(addr % page_size, 0);
         }
     }
-    
+
     TEST_F( CRDT_AllocatorTests , testCRDT_AlignedAllocsFromSmallBlanks )
     {
         auto capacity = page_size * 256;
@@ -376,7 +455,7 @@ namespace tests
         for (auto alloc_size: { 8192, 2000, 100, 4 }) {
             auto addr = cut.alloc(alloc_size, true);
             // make sure is page aligned
-            ASSERT_EQ(addr % page_size, 0);            
+            ASSERT_EQ(addr % page_size, 0);
         }
     }
 
@@ -400,5 +479,5 @@ namespace tests
         auto blank_ptr = m_blanks->upper_equal_bound(Blank(2304, 0));
         ASSERT_EQ((*blank_ptr.first).m_size, 5617);
     }
-    
+
 }
