@@ -75,9 +75,9 @@ namespace db0
          * @return the allocation base address and full allocation size
          * @throws BadAddressException if no allocation contains address
         */
-        virtual std::optional<AllocationInfo> findAllocation(Address) const;
+        virtual AllocationInfo findAllocation(Address) const;
         // findAllocation version with realm_id validation
-        virtual std::optional<AllocationInfo> findAllocation(Address, unsigned char realm_id) const;
+        virtual AllocationInfo findAllocation(Address, unsigned char realm_id) const;
 
         /**
          * Prepare the allocator for the next transaction

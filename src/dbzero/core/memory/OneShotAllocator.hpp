@@ -26,7 +26,7 @@ namespace db0
 
         bool isAllocated(Address, std::size_t *size_of_result = nullptr) const override;
 
-        std::optional<AllocationInfo> findAllocation(Address) const override;
+        AllocationInfo findAllocation(Address) const override;
 
         void commit() const override;
 

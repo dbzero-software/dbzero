@@ -90,17 +90,17 @@ namespace db0
         return m_allocator_ptr->isAllocated(address, realm_id, size_of_result);
     }
 
-    std::optional<Allocator::AllocationInfo> SlotAllocator::findAllocation(Address address) const
+    Allocator::AllocationInfo SlotAllocator::findAllocation(Address address) const
     {
         return m_allocator_ptr->findAllocation(address);
     }
 
-    std::optional<Allocator::AllocationInfo> SlotAllocator::findAllocation(Address address, unsigned char realm_id) const
+    Allocator::AllocationInfo SlotAllocator::findAllocation(Address address, unsigned char realm_id) const
     {
         return m_allocator_ptr->findAllocation(address, realm_id);
     }
 
-    std::optional<Allocator::AllocationInfo> SlotAllocator::findAllocation(Address address, std::uint32_t slot_num) const
+    Allocator::AllocationInfo SlotAllocator::findAllocation(Address address, std::uint32_t slot_num) const
     {
         if (slot_num == 0) {
             return findAllocation(address);
@@ -108,7 +108,7 @@ namespace db0
         return getSlot(slot_num).findAllocation(address);
     }
 
-    std::optional<Allocator::AllocationInfo> SlotAllocator::findAllocation(Address address, std::uint32_t slot_num, unsigned char realm_id) const
+    Allocator::AllocationInfo SlotAllocator::findAllocation(Address address, std::uint32_t slot_num, unsigned char realm_id) const
     {
         if (slot_num == 0) {
             return findAllocation(address, realm_id);

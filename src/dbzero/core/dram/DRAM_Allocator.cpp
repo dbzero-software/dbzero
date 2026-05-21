@@ -118,7 +118,7 @@ namespace db0
         return true;
     }
 
-    std::optional<Allocator::AllocationInfo> DRAM_Allocator::findAllocation(Address address) const
+    Allocator::AllocationInfo DRAM_Allocator::findAllocation(Address address) const
     {
         auto pageId = address / m_page_size;
         if (pageId < FIRST_PAGE_ID || pageId >= m_next_page_id || m_free_pages.find(pageId) != m_free_pages.end()) {

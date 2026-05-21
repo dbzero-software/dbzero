@@ -35,7 +35,7 @@ namespace db0
 
         bool isAllocated(Address, std::size_t *size_of_result = nullptr) const override;
 
-        std::optional<AllocationInfo> findAllocation(Address) const override;
+        AllocationInfo findAllocation(Address) const override;
 
         void commit() const override;
 
@@ -168,7 +168,7 @@ namespace db0
     }
 
     template <typename BitSetT>
-    std::optional<Allocator::AllocationInfo> BitsetAllocator<BitSetT>::findAllocation(Address address) const
+    Allocator::AllocationInfo BitsetAllocator<BitSetT>::findAllocation(Address address) const
     {
         auto innerOffset = address % m_alloc_size;
         auto baseAddress = address - innerOffset;

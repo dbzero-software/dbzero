@@ -37,9 +37,8 @@ namespace tests
 
         void assertFindsAllocation(AllocatorT &allocator, Address query, Address expectedAddress) {
             auto result = allocator.findAllocation(query);
-            ASSERT_TRUE(result);
-            ASSERT_EQ(result->address, expectedAddress);
-            ASSERT_EQ(result->size, PAGE_SIZE);
+            ASSERT_EQ(result.address, expectedAddress);
+            ASSERT_EQ(result.size, PAGE_SIZE);
         }
     };
 
@@ -89,9 +88,8 @@ namespace tests
         std::size_t offset = 128;
         ASSERT_EQ(cut.getAllocSize(ptr1 + offset), page_size - offset);
         auto result = cut.findAllocation(ptr1 + offset);
-        ASSERT_TRUE(result);
-        ASSERT_EQ(result->address, ptr1);
-        ASSERT_EQ(result->size, page_size);
+        ASSERT_EQ(result.address, ptr1);
+        ASSERT_EQ(result.size, page_size);
         ASSERT_THROW(cut.findAllocation(ptr1 + page_size), db0::BadAddressException);
         ASSERT_THROW(cut.findAllocation(Address::fromOffset(page_size * 123)), db0::BadAddressException);
     }
@@ -109,9 +107,8 @@ namespace tests
         auto ptr2 = cut.alloc(page_size);
         ASSERT_TRUE(ptr2 < ptr1);
         auto result = cut.findAllocation(ptr1 + static_cast<Address::offset_t>(123));
-        ASSERT_TRUE(result);
-        ASSERT_EQ(result->address, ptr1);
-        ASSERT_EQ(result->size, page_size);
+        ASSERT_EQ(result.address, ptr1);
+        ASSERT_EQ(result.size, page_size);
     }
 
     TEST_F( BitsetAllocatorTests , testBitsetAllocatorFindAllocationExactAddress )

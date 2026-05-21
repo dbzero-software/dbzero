@@ -51,9 +51,8 @@ namespace tests
             std::size_t expected_size) const
         {
             auto result = allocator.findAllocation(query);
-            ASSERT_TRUE(result);
-            ASSERT_EQ(result->address, expected_address);
-            ASSERT_EQ(result->size, expected_size);
+            ASSERT_EQ(result.address, expected_address);
+            ASSERT_EQ(result.size, expected_size);
         }
     };
 
@@ -155,16 +154,14 @@ namespace tests
         auto slotAddress = cut.alloc(80, 1);
 
         auto general = cut.findAllocation(generalAddress + static_cast<Address::offset_t>(13));
-        ASSERT_TRUE(general);
-        ASSERT_EQ(general->address, generalAddress);
-        ASSERT_EQ(general->size, 64u);
+        ASSERT_EQ(general.address, generalAddress);
+        ASSERT_EQ(general.size, 64u);
 
         ASSERT_THROW(cut.findAllocation(slotAddress + static_cast<Address::offset_t>(19)), db0::BadAddressException);
 
         auto slot = cut.findAllocation(slotAddress + static_cast<Address::offset_t>(19), static_cast<std::uint32_t>(1));
-        ASSERT_TRUE(slot);
-        ASSERT_EQ(slot->address, slotAddress);
-        ASSERT_EQ(slot->size, 80u);
+        ASSERT_EQ(slot.address, slotAddress);
+        ASSERT_EQ(slot.size, 80u);
         ASSERT_THROW(cut.findAllocation(slotAddress + static_cast<Address::offset_t>(80), static_cast<std::uint32_t>(1)), db0::BadAddressException);
         ASSERT_THROW(cut.findAllocation(Address::fromOffset(32 * 1024 * 1024)), db0::BadAddressException);
     }
@@ -176,9 +173,8 @@ namespace tests
         ASSERT_EQ(cut.alloc(256), address);
 
         auto result = cut.findAllocation(address + static_cast<Address::offset_t>(255));
-        ASSERT_TRUE(result);
-        ASSERT_EQ(result->address, address);
-        ASSERT_EQ(result->size, 256u);
+        ASSERT_EQ(result.address, address);
+        ASSERT_EQ(result.size, 256u);
         ASSERT_THROW(cut.findAllocation(address + static_cast<Address::offset_t>(256)), db0::BadAddressException);
 
         cut.free(address);

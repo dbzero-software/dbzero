@@ -88,8 +88,8 @@ DB0_PACKED_END
         bool isAllocated(Address, std::size_t *size_of_result = nullptr) const override;
         bool isAllocated(Address, unsigned char realm_id, std::size_t *size_of_result = nullptr) const override;
 
-        std::optional<AllocationInfo> findAllocation(Address) const override;
-        std::optional<AllocationInfo> findAllocation(Address, unsigned char realm_id) const override;
+        AllocationInfo findAllocation(Address) const override;
+        AllocationInfo findAllocation(Address, unsigned char realm_id) const override;
 
         void commit() const override;
 

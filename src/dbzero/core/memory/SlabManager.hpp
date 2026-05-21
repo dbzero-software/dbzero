@@ -55,8 +55,8 @@ namespace db0
         bool isAllocated(Address address, std::size_t *size_of_result) const;
         bool isAllocated(Address address, std::uint32_t slab_id, std::size_t *size_of_result) const;
 
-        std::optional<Allocator::AllocationInfo> findAllocation(Address address) const;
-        std::optional<Allocator::AllocationInfo> findAllocation(Address address, std::uint32_t slab_id) const;
+        Allocator::AllocationInfo findAllocation(Address address) const;
+        Allocator::AllocationInfo findAllocation(Address address, std::uint32_t slab_id) const;
 
         unsigned int getSlabCount() const {
             return (nextSlabId() - m_realm_id) / NUM_REALMS;

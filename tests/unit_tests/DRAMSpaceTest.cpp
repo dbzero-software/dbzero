@@ -33,9 +33,8 @@ namespace tests
 
         void assertFindsAllocation(DRAM_Allocator &allocator, Address query, Address expected_address) const {
             auto result = allocator.findAllocation(query);
-            ASSERT_TRUE(result);
-            ASSERT_EQ(result->address, expected_address);
-            ASSERT_EQ(result->size, m_page_size);
+            ASSERT_EQ(result.address, expected_address);
+            ASSERT_EQ(result.size, m_page_size);
         }
     };
 

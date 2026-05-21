@@ -54,7 +54,7 @@ namespace db0
         return true;
     }
 
-    std::optional<Allocator::AllocationInfo> OneShotAllocator::findAllocation(Address address) const
+    Allocator::AllocationInfo OneShotAllocator::findAllocation(Address address) const
     {
         if (!m_allocated || address < m_addr || address.getOffset() >= m_addr.getOffset() + m_size) {
             THROWF(db0::BadAddressException) << "Invalid address: " << address;

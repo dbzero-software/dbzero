@@ -49,7 +49,7 @@ namespace db0
         return true;
     }
 
-    std::optional<Allocator::AllocationInfo> EmbeddedAllocator::findAllocation(Address address) const
+    Allocator::AllocationInfo EmbeddedAllocator::findAllocation(Address address) const
     {
         for (auto &alloc: m_allocations) {
             auto begin = alloc.first.getOffset();

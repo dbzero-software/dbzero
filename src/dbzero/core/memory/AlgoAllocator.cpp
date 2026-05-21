@@ -63,7 +63,7 @@ namespace db0
         return true;
     }
 
-    std::optional<Allocator::AllocationInfo> AlgoAllocator::findAllocation(Address address) const
+    Allocator::AllocationInfo AlgoAllocator::findAllocation(Address address) const
     {
         auto offset = address % m_alloc_size;
         auto baseAddress = address - offset;

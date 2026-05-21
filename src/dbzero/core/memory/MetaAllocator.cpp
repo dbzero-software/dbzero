@@ -269,14 +269,14 @@ namespace db0
         return m_realms[realm_id].isAllocated(address, slab_id, size_of_result);
     }
 
-    std::optional<Allocator::AllocationInfo> MetaAllocator::findAllocation(Address address) const
+    Allocator::AllocationInfo MetaAllocator::findAllocation(Address address) const
     {
         auto slab_id = m_slab_id_function(address);
         auto realm_id = getRealmID(slab_id);
         return m_realms[realm_id].findAllocation(address, slab_id);
     }
 
-    std::optional<Allocator::AllocationInfo> MetaAllocator::findAllocation(Address address, unsigned char realm_id) const
+    Allocator::AllocationInfo MetaAllocator::findAllocation(Address address, unsigned char realm_id) const
     {
         auto slab_id = m_slab_id_function(address);
         if (realm_id != getRealmID(slab_id)) {

@@ -58,9 +58,8 @@ namespace tests
 
         void assertFindsAllocation(db0::AlgoAllocator &allocator, Address query, Address expectedAddress) const {
             auto result = allocator.findAllocation(query);
-            ASSERT_TRUE(result);
-            ASSERT_EQ(result->address, expectedAddress);
-            ASSERT_EQ(result->size, PAGE_SIZE);
+            ASSERT_EQ(result.address, expectedAddress);
+            ASSERT_EQ(result.size, PAGE_SIZE);
         }
     };
 

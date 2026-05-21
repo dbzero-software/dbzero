@@ -97,7 +97,7 @@ namespace db0
         return m_allocator.isAllocated(makeRelative(address), size_of_result);
     }
 
-    std::optional<Allocator::AllocationInfo> SlabAllocator::findAllocation(Address address) const
+    Allocator::AllocationInfo SlabAllocator::findAllocation(Address address) const
     {
         if (!inRange(address)) {
             THROWF(db0::BadAddressException) << "Invalid address: " << address;
@@ -106,7 +106,7 @@ namespace db0
         return AllocationInfo { makeAbsolute(static_cast<std::uint32_t>(result.first)), result.second };
     }
 
-    std::optional<Allocator::AllocationInfo> SlabAllocator::findAllocation(Address address, unsigned char) const {
+    Allocator::AllocationInfo SlabAllocator::findAllocation(Address address, unsigned char) const {
         return findAllocation(address);
     }
 

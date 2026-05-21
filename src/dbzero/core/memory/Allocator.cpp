@@ -50,13 +50,13 @@ namespace db0
         return isAllocated(address, size_of_result);
     }
 
-    std::optional<Allocator::AllocationInfo> Allocator::findAllocation(Address) const
+    Allocator::AllocationInfo Allocator::findAllocation(Address) const
     {
         THROWF(InternalException)
             << "Allocator: allocation lookup by inner address not supported by: " << typeid(*this).name() << THROWF_END;
     }
 
-    std::optional<Allocator::AllocationInfo> Allocator::findAllocation(Address address, unsigned char) const {
+    Allocator::AllocationInfo Allocator::findAllocation(Address address, unsigned char) const {
         return findAllocation(address);
     }
 

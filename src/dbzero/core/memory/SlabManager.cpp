@@ -733,11 +733,11 @@ namespace db0
         return ((*slab)->isAllocated(address, size_of_result));
     }
 
-    std::optional<Allocator::AllocationInfo> SlabManager::findAllocation(Address address) const {
+    Allocator::AllocationInfo SlabManager::findAllocation(Address address) const {
         return findAllocation(address, m_slab_id_func(address));
     }
 
-    std::optional<Allocator::AllocationInfo> SlabManager::findAllocation(Address address, std::uint32_t slab_id) const
+    Allocator::AllocationInfo SlabManager::findAllocation(Address address, std::uint32_t slab_id) const
     {
         assert(m_slab_id_func(address) == slab_id);
         auto slab = tryFind(slab_id);
@@ -745,7 +745,7 @@ namespace db0
             THROWF(db0::BadAddressException) << "Invalid address: " << address;
         }
         auto result = (*slab)->findAllocation(address);
-        if (m_deferred_free_ops.find(result->address) != m_deferred_free_ops.end()) {
+        if (m_deferred_free_ops.find(result.address) != m_deferred_free_ops.end()) {
             THROWF(db0::BadAddressException) << "Invalid address: " << address;
         }
         return result;

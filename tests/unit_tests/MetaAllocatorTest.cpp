@@ -73,9 +73,8 @@ namespace tests
             std::size_t expected_size) const
         {
             auto result = allocator.findAllocation(query);
-            ASSERT_TRUE(result);
-            ASSERT_EQ(result->address, expected_address);
-            ASSERT_EQ(result->size, expected_size);
+            ASSERT_EQ(result.address, expected_address);
+            ASSERT_EQ(result.size, expected_size);
         }
     };
 
@@ -350,7 +349,7 @@ namespace tests
 
         auto address = cut.alloc(128, 0, false, 1);
         assertFindsAllocation(cut, address + static_cast<Address::offset_t>(12), address, 128);
-        ASSERT_TRUE(cut.findAllocation(address + static_cast<Address::offset_t>(12), 1));
+        cut.findAllocation(address + static_cast<Address::offset_t>(12), 1);
         ASSERT_THROW(cut.findAllocation(address + static_cast<Address::offset_t>(12), 0), db0::BadAddressException);
         cut.close();
     }
@@ -375,7 +374,7 @@ namespace tests
         MetaAllocator cut(m_prefix, &recycler);
 
         auto address = cut.alloc(128);
-        ASSERT_TRUE(cut.findAllocation(address + static_cast<Address::offset_t>(12)));
+        cut.findAllocation(address + static_cast<Address::offset_t>(12));
 
         cut.free(address);
         ASSERT_THROW(cut.findAllocation(address), db0::BadAddressException);
