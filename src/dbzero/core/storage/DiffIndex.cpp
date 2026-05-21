@@ -206,6 +206,14 @@ namespace db0
     void DiffIndex::refresh() {
         super_t::refresh();
     }
+
+    void DiffIndex::reopen(Address address) {
+        super_t::reopen(address);
+    }
+
+    bool DiffIndex::isOpen() const {
+        return super_t::isOpen();
+    }
     
     void DiffIndex::commit() {
         super_t::commit();

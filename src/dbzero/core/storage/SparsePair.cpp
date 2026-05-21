@@ -43,7 +43,27 @@ namespace db0
     void SparsePair::refresh()
     {
         m_sparse_index.refresh();
-        m_diff_index.refresh();
+        // A read-only storage may be opened before the writer's DRAM changelog
+        // update is visible, leaving SparsePair with unopened indexes. Refreshing
+        // later can apply the DRAM pages that contain the sparse index, but the
+        // diff index address is only available from the freshly opened sparse
+        // index header. Without reopening the diff index from that address,
+        // BDevStorage::completeRefresh() can see a DRAM changelog state ahead of
+        // getMaxStateNum() and report a false inconsistency.
+        //
+        // Reproduced by BDevStorageTest.testNoLoadReaderCanRefreshAfterWriterCommit
+        // and observed as intermittent Python failures in
+        // test_refreshing_group_by_results on concurrent read-only open.
+        if (!!m_sparse_index.m_index) {
+            auto diffIndexAddress = Address::fromOffset(m_sparse_index.getExtraData());
+            if (!m_diff_index.isOpen() || m_diff_index.getIndexAddress() != diffIndexAddress) {
+                m_diff_index.reopen(diffIndexAddress);
+            } else {
+                m_diff_index.refresh();
+            }
+        } else {
+            m_diff_index.refresh();
+        }
     }
     
     std::size_t SparsePair::size() const {

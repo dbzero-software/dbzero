@@ -431,6 +431,30 @@ namespace tests
         cut.close();
         reader.join();
     }
+
+    TEST_F( BDevStorageTest , testNoLoadReaderCanRefreshAfterWriterCommit )
+    {
+        std::size_t page_size = 4096;
+        BDevStorage::create(file_name, page_size);
+
+        BDevStorage reader(file_name, AccessType::READ_ONLY, {}, {}, { StorageOptions::NO_LOAD });
+
+        std::vector<char> data(page_size, 'r');
+        {
+            BDevStorage writer(file_name, AccessType::READ_WRITE);
+            writer.write(0, 1, data.size(), data.data());
+            writer.flush();
+            writer.close();
+        }
+
+        ASSERT_NO_THROW(reader.refresh());
+        ASSERT_EQ(reader.getMaxStateNum(), 1u);
+
+        std::vector<char> buffer(page_size);
+        reader.read(0, 1, buffer.size(), buffer.data(), { AccessOptions::read });
+        ASSERT_TRUE(equal(data, buffer));
+        reader.close();
+    }
     
     TEST_F( BDevStorageTest , testSparseIndexDurability )
     {   
