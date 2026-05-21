@@ -111,3 +111,15 @@ def test_create_large_objects_low_cache(db0_slab_size):
             print(f"Memory usage: {get_memory_usage() - init_mem_usage}")
             print(f"Base lock usage: {db0.get_base_lock_usage() if 'D' in db0.build_flags() else 'unavailable'}")
             report_bytes += report_bytes_step
+
+
+@pytest.mark.stress_test
+@pytest.mark.parametrize("db0_slab_size", [{"slab_size": 1024 * 1024 * 1024}], indirect=True)
+def test_low_cache_close_after_volume_churn(db0_slab_size):
+    init_mem_usage = get_memory_usage()
+    db0.set_cache_size(4 * 1024 * 1024)
+    buf = db0.list()
+    for _ in range(10000):
+        obj = MemoTestClass(rand_array(8 * 1024 + 8192))
+        buf.append(obj)
+    print(f"Memory usage: {get_memory_usage() - init_mem_usage}")

@@ -11,6 +11,7 @@
 #include <memory>
 #include <chrono>
 #include <condition_variable>
+#include <exception>
 
 namespace db0
 
@@ -37,6 +38,8 @@ namespace db0
         void run();
 
         void stop();        
+
+        void rethrowIfFailed() const;
         
         void setInterval(std::uint64_t interval_ms);
 
@@ -47,13 +50,15 @@ namespace db0
     protected:
         std::atomic<std::uint64_t> m_interval_ms;
         std::condition_variable m_cv;
-        std::mutex m_mutex;
+        mutable std::mutex m_mutex;
         bool m_stopped = false;
+        std::exception_ptr m_failure;
 
         std::vector<weak_swine_ptr<Fixture>> m_fixtures;
 
         virtual void prepareContext() = 0;
         virtual void closeContext() = 0;
+        virtual void abortContext() noexcept = 0;
     };
     
     /**
@@ -85,6 +90,7 @@ namespace db0
 
         void prepareContext() override;
         void closeContext() override;
+        void abortContext() noexcept override;
     };
 
     /**
@@ -108,6 +114,7 @@ namespace db0
 
         void prepareContext() override;
         void closeContext() override;
+        void abortContext() noexcept override;
     };
     
 } 
