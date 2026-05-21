@@ -51,7 +51,7 @@ namespace db0::object_model
     o_tuple_item::Element o_tuple_item::Element::string(std::string_view value)
     {
         Element result;
-        result.m_kind = StorageClass::STRING_REF;
+        result.m_kind = StorageClass::EMBEDDED_STRING;
         result.m_payload.m_string_value = value;
         return result;
     }
@@ -59,7 +59,7 @@ namespace db0::object_model
     o_tuple_item::Element o_tuple_item::Element::bytes(const std::byte *data, std::size_t size)
     {
         Element result;
-        result.m_kind = StorageClass::DB0_BYTES;
+        result.m_kind = StorageClass::EMBEDDED_BYTES;
         result.m_payload.m_bytes_value = { data, size };
         return result;
     }
@@ -128,7 +128,7 @@ namespace db0::object_model
     o_tuple_item::Element o_tuple_item::Element::embeddedTuple(const void *data, std::size_t size)
     {
         Element result;
-        result.m_kind = StorageClass::DB0_TUPLE;
+        result.m_kind = StorageClass::EMBEDDED_TUPLE;
         result.m_payload.m_bytes_value = { reinterpret_cast<const std::byte *>(data), size };
         return result;
     }
@@ -136,7 +136,7 @@ namespace db0::object_model
     o_tuple_item::Element o_tuple_item::Element::embeddedSet(const void *data, std::size_t size)
     {
         Element result;
-        result.m_kind = StorageClass::DB0_SET;
+        result.m_kind = StorageClass::EMBEDDED_SET;
         result.m_payload.m_bytes_value = { reinterpret_cast<const std::byte *>(data), size };
         return result;
     }
@@ -144,7 +144,7 @@ namespace db0::object_model
     o_tuple_item::Element o_tuple_item::Element::embeddedDict(const void *data, std::size_t size)
     {
         Element result;
-        result.m_kind = StorageClass::DB0_DICT;
+        result.m_kind = StorageClass::EMBEDDED_DICT;
         result.m_payload.m_bytes_value = { reinterpret_cast<const std::byte *>(data), size };
         return result;
     }
@@ -152,7 +152,7 @@ namespace db0::object_model
     o_tuple_item::Element o_tuple_item::Element::embeddedObject(const void *data, std::size_t size)
     {
         Element result;
-        result.m_kind = StorageClass::OBJECT_REF;
+        result.m_kind = StorageClass::EMBEDDED_OBJECT;
         result.m_payload.m_bytes_value = { reinterpret_cast<const std::byte *>(data), size };
         return result;
     }
@@ -162,7 +162,7 @@ namespace db0::object_model
     )
     {
         Element result;
-        result.m_kind = StorageClass::DB0_TUPLE;
+        result.m_kind = StorageClass::EMBEDDED_TUPLE;
         result.m_payload.m_bytes_value = { nullptr, size, writer, source };
         return result;
     }
@@ -172,7 +172,7 @@ namespace db0::object_model
     )
     {
         Element result;
-        result.m_kind = StorageClass::DB0_SET;
+        result.m_kind = StorageClass::EMBEDDED_SET;
         result.m_payload.m_bytes_value = { nullptr, size, writer, source };
         return result;
     }
@@ -182,7 +182,17 @@ namespace db0::object_model
     )
     {
         Element result;
-        result.m_kind = StorageClass::DB0_DICT;
+        result.m_kind = StorageClass::EMBEDDED_DICT;
+        result.m_payload.m_bytes_value = { nullptr, size, writer, source };
+        return result;
+    }
+
+    o_tuple_item::Element o_tuple_item::Element::embeddedObject(
+        std::size_t size, BytesView::Writer writer, const void *source
+    )
+    {
+        Element result;
+        result.m_kind = StorageClass::EMBEDDED_OBJECT;
         result.m_payload.m_bytes_value = { nullptr, size, writer, source };
         return result;
     }
@@ -247,13 +257,15 @@ namespace db0::object_model
         case StorageClass::FP_NUMERIC64:
             return sizeOfMembers()(o_simple<double>::type());
         case StorageClass::STRING_REF:
+        case StorageClass::EMBEDDED_STRING:
             return sizeOfMembers()(o_string::type());
         case StorageClass::DB0_BYTES:
+        case StorageClass::EMBEDDED_BYTES:
             return sizeOfMembers()(o_binary::type());
-        case StorageClass::DB0_TUPLE:
-        case StorageClass::DB0_SET:
-        case StorageClass::DB0_DICT:
-        case StorageClass::OBJECT_REF:
+        case StorageClass::EMBEDDED_TUPLE:
+        case StorageClass::EMBEDDED_SET:
+        case StorageClass::EMBEDDED_DICT:
+        case StorageClass::EMBEDDED_OBJECT:
             return sizeOfMembers()(o_binary::type());
         case StorageClass::PTIME64:
         case StorageClass::DATE:
@@ -283,13 +295,15 @@ namespace db0::object_model
         case StorageClass::FP_NUMERIC64:
             return measureMembers()(o_simple<double>::type(), element.doubleValue());
         case StorageClass::STRING_REF:
+        case StorageClass::EMBEDDED_STRING:
             return measureMembers()(o_string::type(), element.stringValue());
         case StorageClass::DB0_BYTES:
+        case StorageClass::EMBEDDED_BYTES:
             return measureMembers()(o_binary::type(), element.bytesData(), element.bytesSize());
-        case StorageClass::DB0_TUPLE:
-        case StorageClass::DB0_SET:
-        case StorageClass::DB0_DICT:
-        case StorageClass::OBJECT_REF:
+        case StorageClass::EMBEDDED_TUPLE:
+        case StorageClass::EMBEDDED_SET:
+        case StorageClass::EMBEDDED_DICT:
+        case StorageClass::EMBEDDED_OBJECT:
             return measureMembers()(o_binary::type(), element.bytesData(), element.bytesSize());
         case StorageClass::PTIME64:
         case StorageClass::DATE:
@@ -324,15 +338,17 @@ namespace db0::object_model
             arrangeMembers()(o_simple<double>::type(), element.doubleValue());
             return;
         case StorageClass::STRING_REF:
+        case StorageClass::EMBEDDED_STRING:
             arrangeMembers()(o_string::type(), element.stringValue());
             return;
         case StorageClass::DB0_BYTES:
+        case StorageClass::EMBEDDED_BYTES:
             arrangeMembers()(o_binary::type(), element.bytesData(), element.bytesSize());
             return;
-        case StorageClass::DB0_TUPLE:
-        case StorageClass::DB0_SET:
-        case StorageClass::DB0_DICT:
-        case StorageClass::OBJECT_REF:
+        case StorageClass::EMBEDDED_TUPLE:
+        case StorageClass::EMBEDDED_SET:
+        case StorageClass::EMBEDDED_DICT:
+        case StorageClass::EMBEDDED_OBJECT:
             if (element.m_payload.m_bytes_value.m_writer) {
                 arrangeMembers()(
                     o_binary::type(), element.bytesSize(), element.m_payload.m_bytes_value.m_writer,

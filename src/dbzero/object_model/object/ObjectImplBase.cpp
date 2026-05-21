@@ -9,6 +9,7 @@
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/object_model/class.hpp>
 #include <dbzero/object_model/value.hpp>
+#include <dbzero/object_model/object/EmbeddingMeasure.hpp>
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/object_model/object/ObjectImmutableImpl.hpp>
 #include <dbzero/object_model/list/List.hpp>
@@ -31,7 +32,31 @@ namespace db0::object_model
         }
         return static_cast<std::uint8_t>(value);
     }
-    
+
+    bool canStorePreInitEmbeddedValue(StorageClass storageClass)
+    {
+        switch (storageClass) {
+            case StorageClass::STRING_REF:
+            case StorageClass::POOLED_STRING:
+            case StorageClass::STR64:
+            case StorageClass::DB0_BYTES:
+            case StorageClass::DB0_BYTES_ARRAY:
+            case StorageClass::DB0_LIST:
+            case StorageClass::DB0_TUPLE:
+            case StorageClass::DB0_SET:
+            case StorageClass::DB0_DICT:
+            case StorageClass::OBJECT_REF:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    bool shouldEmbedd(TypeId typeId, StorageClass storageClass, LangConfig::ObjectPtr value)
+    {
+        return canStorePreInitEmbeddedValue(storageClass) && shouldEmbedValue(typeId, storageClass, value);
+    }
+
     template <typename T, typename ImplT>
     ObjectImplBase<T, ImplT>::ObjectImplBase(tag_as_dropped, UniqueAddress addr, unsigned int ext_refs)
         : super_t(tag_as_dropped(), addr, ext_refs)
@@ -137,6 +162,11 @@ namespace db0::object_model
     template <typename T, typename ImplT>
     void ObjectImplBase<T, ImplT>::postInit(FixtureLock &fixture)
     {
+        if constexpr (std::is_same_v<ImplT, ObjectImmutableImpl>) {
+            assert(false && "ObjectImmutableImpl::postInit must be used for immutable objects");
+            return;
+        }
+
         if (!this->hasInstance()) {
             auto &initializer = InitManager::instance.getInitializer(*this);
             PosVT::Data pos_vt_data;
@@ -149,8 +179,8 @@ namespace db0::object_model
             assert(this->m_type);
             
             auto &type = *this->m_type;
-            super_t::init(*fixture, type.getClassRef(), initializer.getRefCounts(),
-                safeCast<std::uint8_t>(type.getNumBases() + 1, "Too many base classes"), 
+            auto numTypeTags = safeCast<std::uint8_t>(type.getNumBases() + 1, "Too many base classes");
+            super_t::init(*fixture, type.getClassRef(), initializer.getRefCounts(), numTypeTags,
                 pos_vt_data, pos_vt_offset, index_vt_data.first, index_vt_data.second,
                 getAccessOptions(type)
             );
@@ -230,7 +260,11 @@ namespace db0::object_model
         auto fixture = initializer.getFixture();
         auto &type = initializer.getClass();
         auto storage_class = recognizeType(*fixture, type_id, obj_ptr);
-        auto storage_fidelity = getStorageFidelity(storage_class);
+        bool embedValue = false;
+        if constexpr (std::is_same_v<ImplT, ObjectImmutableImpl>) {
+            embedValue = shouldEmbedd(type_id, storage_class, obj_ptr);
+        }
+        auto storage_fidelity = embedValue ? 0 : getStorageFidelity(storage_class);
         
         // Find an already existing field index
         auto [member_id, is_init_var] = type.findField(field_name);
@@ -250,9 +284,22 @@ namespace db0::object_model
             // register a regular member with the initializer
             // NOTE: a new member receives the no-cache flag if set (at the type level)
             auto member_flags = type.isNoCache() ? AccessFlags { AccessOptions::no_cache } : AccessFlags();
-            initializer.set(member_id.get(0).getIndexAndOffset(), storage_class,
-                createMember<LangToolkit>(fixture, type_id, storage_class, obj_ptr, member_flags)
-            );
+            auto loc = member_id.get(0).getIndexAndOffset();
+            if constexpr (std::is_same_v<ImplT, ObjectImmutableImpl>) {
+                if (embedValue) {
+                    auto &immutableInitializer = dynamic_cast<ImmutableObjectInitializer &>(initializer);
+                    auto embeddedStorageClass = storage_class == StorageClass::OBJECT_REF
+                        ? StorageClass::EMBEDDED_OBJECT
+                        : storage_class;
+                    immutableInitializer.setObject(loc, embeddedStorageClass, {}, ObjectSharedPtr(obj_ptr));
+                } else {
+                    auto value = createMember<LangToolkit>(fixture, type_id, storage_class, obj_ptr, member_flags);
+                    initializer.set(loc, storage_class, value);
+                }
+            } else {
+                auto value = createMember<LangToolkit>(fixture, type_id, storage_class, obj_ptr, member_flags);
+                initializer.set(loc, storage_class, value);
+            }
         } else {
             if (member_id.hasFidelity(0)) {
                 // remove any existing regular initialization
@@ -266,7 +313,8 @@ namespace db0::object_model
             auto value = lofi_store<2>::create(loc.second, 
                 createMember<LangToolkit>(fixture, type_id, storage_class, obj_ptr, {}).m_store);
             // register a lo-fi member with the initializer (using mask)
-            initializer.set(loc, storage_class, value, lofi_store<2>::mask(loc.second));
+            auto mask = lofi_store<2>::mask(loc.second);
+            initializer.set(loc, storage_class, value, mask);
         }
     }
     
@@ -771,6 +819,8 @@ namespace db0::object_model
     template <typename T, typename ImplT>
     void ObjectImplBase<T, ImplT>::destroy()
     {
+        // Explicit destroy already owns the drop path; avoid recursive GC0 drop while unregistering.
+        this->unregister(true);
         if (this->hasInstance()) {
             // associated class type (may require unloading)
             auto type = this->m_type;
@@ -1027,8 +1077,6 @@ namespace db0::object_model
     void ObjectImplBase<T, ImplT>::detach() const
     {
         this->m_type->detach();
-        // invalidate since detach is not supported by the MorphingBIndex
-        this->m_kv_index = nullptr;
         super_t::detach();
     }
     
@@ -1036,9 +1084,6 @@ namespace db0::object_model
     void ObjectImplBase<T, ImplT>::commit() const
     {
         this->m_type->commit();
-        if (m_kv_index) {
-            m_kv_index->commit();
-        }
         super_t::commit();
         // reset the silent-mutation flag
         this->m_touched = false;

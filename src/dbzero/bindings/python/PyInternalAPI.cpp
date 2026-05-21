@@ -2,11 +2,14 @@
 // Copyright (c) 2025 DBZero Software sp. z o.o.
 
 #include "PyInternalAPI.hpp"
+#include "EmbeddedObject.hpp"
 #include "PyToolkit.hpp"
 #include "Memo.hpp"
 #include <dbzero/object_model/class/ClassFactory.hpp>
 #include <dbzero/object_model/class/Class.hpp>
 #include <dbzero/object_model/object/Object.hpp>
+#include <dbzero/object_model/object/ObjectInitializer.hpp>
+#include <dbzero/object_model/object/o_embedded_object.hpp>
 #include <dbzero/object_model/value/TypeUtils.hpp>
 #include <dbzero/object_model/index/Index.hpp>
 #include <dbzero/core/exception/Exceptions.hpp>
@@ -796,19 +799,78 @@ namespace db0::python
         }
     }
     
-    template <typename MemoImplT>
-    PyObject *getMaterializedMemoObject(MemoImplT *memo_obj)
+    PyObject *materializeMemoObject(MemoObject *memo_obj)
     {
         if (memo_obj->ext().hasInstance()) {
             Py_INCREF(memo_obj);
             return memo_obj;
         }
-        
+
         db0::FixtureLock lock(memo_obj->ext().getFixture());
         // materialize by calling postInit
         memo_obj->modifyExt().postInit(lock);
+        if (!memo_obj->ext().getType().isNoCache()) {
+            memo_obj->ext().getFixture()->getLangCache().add(memo_obj->ext().getAddress(), memo_obj);
+        }
         Py_INCREF(memo_obj);
         return memo_obj;
+    }
+
+    PyObject *materializeMemoObject(MemoImmutableObject *memo_obj)
+    {
+        if (memo_obj->ext().hasInstance()) {
+            Py_INCREF(memo_obj);
+            return memo_obj;
+        }
+
+        auto fixture = memo_obj->ext().getFixture();
+        db0::FixtureLock lock(fixture);
+        // materialize by calling postInit
+        memo_obj->modifyExt().postInit(lock, [&](const auto &initializer) {
+            auto &classFactory = fixture->get<db0::object_model::ClassFactory>();
+            for (const auto &value: initializer.objects()) {
+                if (value.m_storage_class == db0::object_model::StorageClass::DELETED) {
+                    continue;
+                }
+                if (value.m_storage_class != db0::object_model::StorageClass::EMBEDDED_OBJECT) {
+                    continue;
+                }
+                assert(value.m_object.get());
+
+                auto *pyObject = value.m_object.get();
+                assert(PyMemo_Check<MemoImmutableObject>(pyObject));
+
+                auto *embeddedValue = (memo_obj->ext())->variableValue(value.m_loc.first);
+                assert(embeddedValue);
+                assert(embeddedValue->itemKind() == db0::object_model::StorageClass::EMBEDDED_OBJECT);
+                const auto &embeddedObject = db0::object_model::o_embedded_object::__const_ref(
+                    embeddedValue->embeddedPayload().begin()
+                );
+                auto type = classFactory.getTypeByClassRef(embeddedObject.getClassRef()).m_class;
+                auto *embeddedMemo = reinterpret_cast<MemoImmutableObject *>(pyObject);
+                transformMemoImmutableObjectToEmbedded(
+                    embeddedMemo, reinterpret_cast<PyObject *>(memo_obj), embeddedObject, std::move(type)
+                );
+            }
+        });
+        memo_obj->modifyExt().setLangObject(reinterpret_cast<PyObject *>(memo_obj));
+        if (!memo_obj->ext().getType().isNoCache()) {
+            fixture->getLangCache().add(memo_obj->ext().getAddress(), memo_obj);
+        }
+        Py_INCREF(memo_obj);
+        return memo_obj;
+    }
+
+    template <>
+    PyObject *getMaterializedMemoObject<MemoObject>(MemoObject *memo_obj)
+    {
+        return materializeMemoObject(memo_obj);
+    }
+
+    template <>
+    PyObject *getMaterializedMemoObject<MemoImmutableObject>(MemoImmutableObject *memo_obj)
+    {
+        return materializeMemoObject(memo_obj);
     }
     
     shared_py_object<PyObject*> tryUnloadObjectFromCache(LangCacheView &lang_cache, Address address,
@@ -1097,7 +1159,4 @@ namespace db0::python
     }
 #endif
 
-    template PyObject *getMaterializedMemoObject(MemoObject *);
-    template PyObject *getMaterializedMemoObject(MemoImmutableObject *);
-    
 }

@@ -206,6 +206,11 @@ namespace db0::python
         bool isSimplePyType(ObjectPtr) const;
 
         bool isSimplePyTypeId(TypeId type_id) const;
+
+        TypeObjectPtr getEmbeddedMemoType(
+            TypeObjectPtr memo_type, const std::function<TypeObjectPtr(TypeObjectPtr)> &create_type
+        );
+        bool isEmbeddedMemoType(TypeObjectPtr type) const;
         
         // Decode either of: None, False or True from a lo-fi code
         ObjectSharedPtr getLangConstant(unsigned int) const;
@@ -223,6 +228,8 @@ namespace db0::python
         std::unordered_map<std::string, TypeObjectSharedPtr> m_type_cache;        
         // lang enums by name variant
         std::unordered_map<std::string, ObjectSharedPtr> m_enum_cache;
+        // Heap shadow types used to expose embedded immutable memo objects as instances of their Python memo class.
+        std::unordered_map<TypeObjectPtr, TypeObjectSharedPtr> m_embedded_memo_types;
         mutable ObjectSharedPtr m_py_bad_prefix_error;
         // error associated with missing / invalid type accessed (e.g. missing import)
         mutable ObjectSharedPtr m_py_class_not_found_error;

@@ -117,7 +117,10 @@ namespace db0::python
             }
             for (auto &pair: m_enum_cache) {
                 pair.second.steal(); 
-            }        
+            }
+            for (auto &pair: m_embedded_memo_types) {
+                pair.second.steal();
+            }
             m_py_bad_prefix_error.steal();        
             m_py_class_not_found_error.steal();        
             m_py_reference_error.steal();            
@@ -559,6 +562,37 @@ namespace db0::python
         for (auto &item: m_type_registry) {
             item.second.close();
         }
+        m_embedded_memo_types.clear();
+    }
+
+    PyTypeManager::TypeObjectPtr PyTypeManager::getEmbeddedMemoType(
+        TypeObjectPtr memo_type, const std::function<TypeObjectPtr(TypeObjectPtr)> &create_type
+    )
+    {
+        auto existing = m_embedded_memo_types.find(memo_type);
+        if (existing != m_embedded_memo_types.end()) {
+            return existing->second.get();
+        }
+
+        auto *embedded_type = create_type(memo_type);
+        if (!embedded_type) {
+            return nullptr;
+        }
+        m_embedded_memo_types[memo_type] = TypeObjectSharedPtr(embedded_type, false);
+        return embedded_type;
+    }
+
+    bool PyTypeManager::isEmbeddedMemoType(TypeObjectPtr type) const
+    {
+        if (!type) {
+            return false;
+        }
+        for (const auto &[_, embedded_type]: m_embedded_memo_types) {
+            if (embedded_type.get() == type) {
+                return true;
+            }
+        }
+        return false;
     }
     
     PyTypeManager::ObjectPtr PyTypeManager::getBadPrefixError() const {
@@ -602,8 +636,7 @@ namespace db0::python
     
     bool PyTypeManager::isMemoBase(TypeObjectPtr py_type) const
     {
-        assert(m_memo_base_type);
-        return py_type == m_memo_base_type;
+        return m_memo_base_type && py_type == m_memo_base_type;
     }
 
     bool PyTypeManager::isdbzeroTypeId(TypeId type_id) const {

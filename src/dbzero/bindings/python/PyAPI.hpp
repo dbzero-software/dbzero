@@ -203,6 +203,7 @@ namespace db0::python
     template <typename T> db0::object_model::StorageClass getStorageClass();
 
     template <> db0::object_model::StorageClass getStorageClass<MemoObject>();
+    template <> db0::object_model::StorageClass getStorageClass<MemoImmutableObject>();
     template <> db0::object_model::StorageClass getStorageClass<ListObject>();
 
 }

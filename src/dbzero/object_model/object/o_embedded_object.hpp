@@ -41,16 +41,26 @@ DB0_PACKED_BEGIN
         using Element = o_tuple_item::Element;
 
         o_embedded_object(std::uint32_t classRef, const ImmutableObjectInitializer &initializer);
+        o_embedded_object(
+            std::uint32_t classRef, const PosVT::Data &posVtData, unsigned int posVtOffset,
+            const XValue *indexVtBegin = nullptr, const XValue *indexVtEnd = nullptr
+        );
 
         std::uint32_t getClassRef() const;
         const PosVT &pos_vt() const;
+        PosVT &pos_vt();
         const IndexVT &index_vt() const;
+        IndexVT &index_vt();
         const o_dict &field_map() const;
         std::optional<FixedValue> fixedValue(std::uint32_t index, unsigned int fidelityOffset = 0) const;
         const o_tuple_item *variableValue(std::uint32_t index) const;
         std::size_t sizeOf() const;
 
         static std::size_t measure(std::uint32_t classRef, const ImmutableObjectInitializer &initializer);
+        static std::size_t measure(
+            std::uint32_t classRef, const PosVT::Data &posVtData, unsigned int posVtOffset,
+            const XValue *indexVtBegin = nullptr, const XValue *indexVtEnd = nullptr
+        );
 
         template <typename BufT> static std::size_t safeSizeOf(BufT buf)
         {

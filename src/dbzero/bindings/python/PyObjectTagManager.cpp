@@ -106,6 +106,17 @@ namespace db0::python
             if (!PyAnyMemo_Check(args[i])) {
                 THROWF(db0::InputException) << "All arguments must be dbzero memo objects";
             }
+            if (PyMemo_Check<MemoObject>(args[i])) {
+                auto *memoObject = reinterpret_cast<MemoObject *>(args[i]);
+                if (!memoObject->ext().hasInstance()) {
+                    auto materialized = Py_OWN(getMaterializedMemoObject(memoObject));
+                }
+            } else if (PyMemo_Check<MemoImmutableObject>(args[i])) {
+                auto *memoObject = reinterpret_cast<MemoImmutableObject *>(args[i]);
+                if (!memoObject->ext().hasInstance()) {
+                    auto materialized = Py_OWN(getMaterializedMemoObject(memoObject));
+                }
+            }
         }
         
         auto tags_obj = Py_OWN(PyObjectTagManager_new(&PyObjectTagManagerType, NULL, NULL));        

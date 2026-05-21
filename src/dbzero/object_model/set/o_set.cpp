@@ -273,7 +273,12 @@ namespace db0::object_model
     {
         auto lhsIsInt = lhs.m_kind == StorageClass::INT64 || lhs.m_kind == StorageClass::PACKED_INT32;
         auto rhsIsInt = rhs.m_kind == StorageClass::INT64 || rhs.m_kind == StorageClass::PACKED_INT32;
-        if (lhs.m_kind != rhs.m_kind && !(lhsIsInt && rhsIsInt)) {
+        auto lhsIsString = lhs.m_kind == StorageClass::STRING_REF || lhs.m_kind == StorageClass::EMBEDDED_STRING;
+        auto rhsIsString = rhs.m_kind == StorageClass::STRING_REF || rhs.m_kind == StorageClass::EMBEDDED_STRING;
+        auto lhsIsBytes = lhs.m_kind == StorageClass::DB0_BYTES || lhs.m_kind == StorageClass::EMBEDDED_BYTES;
+        auto rhsIsBytes = rhs.m_kind == StorageClass::DB0_BYTES || rhs.m_kind == StorageClass::EMBEDDED_BYTES;
+        if (lhs.m_kind != rhs.m_kind && !(lhsIsInt && rhsIsInt) && !(lhsIsString && rhsIsString)
+            && !(lhsIsBytes && rhsIsBytes)) {
             return false;
         }
 
@@ -288,13 +293,15 @@ namespace db0::object_model
         case StorageClass::FP_NUMERIC64:
             return lhs.doubleValue() == rhs.doubleValue();
         case StorageClass::STRING_REF:
+        case StorageClass::EMBEDDED_STRING:
             return lhs.m_payload.m_string_value == rhs.m_payload.m_string_value;
         case StorageClass::DB0_BYTES:
+        case StorageClass::EMBEDDED_BYTES:
             return lhs.bytesSize() == rhs.bytesSize() && bytesEqual(lhs.bytesData(), rhs.bytesData(), lhs.bytesSize());
-        case StorageClass::DB0_TUPLE:
-        case StorageClass::DB0_SET:
-        case StorageClass::DB0_DICT:
-        case StorageClass::OBJECT_REF:
+        case StorageClass::EMBEDDED_TUPLE:
+        case StorageClass::EMBEDDED_SET:
+        case StorageClass::EMBEDDED_DICT:
+        case StorageClass::EMBEDDED_OBJECT:
             return lhs.bytesSize() == rhs.bytesSize() && bytesEqual(lhs.bytesData(), rhs.bytesData(), lhs.bytesSize());
         case StorageClass::PTIME64:
         case StorageClass::DATE:
@@ -314,7 +321,16 @@ namespace db0::object_model
     {
         auto itemIsInt = item.itemKind() == StorageClass::INT64 || item.itemKind() == StorageClass::PACKED_INT32;
         auto elementIsInt = element.m_kind == StorageClass::INT64 || element.m_kind == StorageClass::PACKED_INT32;
-        if (item.itemKind() != element.m_kind && !(itemIsInt && elementIsInt)) {
+        auto itemIsString = item.itemKind() == StorageClass::STRING_REF
+            || item.itemKind() == StorageClass::EMBEDDED_STRING;
+        auto elementIsString = element.m_kind == StorageClass::STRING_REF
+            || element.m_kind == StorageClass::EMBEDDED_STRING;
+        auto itemIsBytes = item.itemKind() == StorageClass::DB0_BYTES
+            || item.itemKind() == StorageClass::EMBEDDED_BYTES;
+        auto elementIsBytes = element.m_kind == StorageClass::DB0_BYTES
+            || element.m_kind == StorageClass::EMBEDDED_BYTES;
+        if (item.itemKind() != element.m_kind && !(itemIsInt && elementIsInt)
+            && !(itemIsString && elementIsString) && !(itemIsBytes && elementIsBytes)) {
             return false;
         }
 
@@ -333,14 +349,16 @@ namespace db0::object_model
             case StorageClass::FP_NUMERIC64:
                 return item.doublePayload().value() == element.doubleValue();
             case StorageClass::STRING_REF:
+            case StorageClass::EMBEDDED_STRING:
                 return item.stringPayload().toString() == element.stringValue();
             case StorageClass::DB0_BYTES:
+            case StorageClass::EMBEDDED_BYTES:
                 return item.bytesPayload().size() == element.bytesSize()
                     && bytesEqual(item.bytesPayload().begin(), element.bytesData(), element.bytesSize());
-            case StorageClass::DB0_TUPLE:
-            case StorageClass::DB0_SET:
-            case StorageClass::DB0_DICT:
-            case StorageClass::OBJECT_REF:
+            case StorageClass::EMBEDDED_TUPLE:
+            case StorageClass::EMBEDDED_SET:
+            case StorageClass::EMBEDDED_DICT:
+            case StorageClass::EMBEDDED_OBJECT:
                 return item.embeddedPayload().size() == element.bytesSize()
                     && bytesEqual(item.embeddedPayload().begin(), element.bytesData(), element.bytesSize());
             case StorageClass::PTIME64:
@@ -421,19 +439,21 @@ namespace db0::object_model
                 return Element::integer(static_cast<std::int64_t>(item.packedIntPayload().value()));
             case StorageClass::FP_NUMERIC64:
                 return Element::floating(item.doublePayload().value());
-            case StorageClass::STRING_REF: {
+            case StorageClass::STRING_REF:
+            case StorageClass::EMBEDDED_STRING: {
                 auto str = item.stringPayload().get();
                 return Element::string(std::string_view(str.get_raw(), str.size()));
             }
             case StorageClass::DB0_BYTES:
+            case StorageClass::EMBEDDED_BYTES:
                 return Element::bytes(item.bytesPayload().begin(), item.bytesPayload().size());
-            case StorageClass::DB0_TUPLE:
+            case StorageClass::EMBEDDED_TUPLE:
                 return Element::embeddedTuple(item.embeddedPayload().begin(), item.embeddedPayload().size());
-            case StorageClass::DB0_SET:
+            case StorageClass::EMBEDDED_SET:
                 return Element::embeddedSet(item.embeddedPayload().begin(), item.embeddedPayload().size());
-            case StorageClass::DB0_DICT:
+            case StorageClass::EMBEDDED_DICT:
                 return Element::embeddedDict(item.embeddedPayload().begin(), item.embeddedPayload().size());
-            case StorageClass::OBJECT_REF:
+            case StorageClass::EMBEDDED_OBJECT:
                 return Element::embeddedObject(item.embeddedPayload().begin(), item.embeddedPayload().size());
             case StorageClass::PTIME64:
                 return Element::timestamp(item.uint64Payload().value());
@@ -458,6 +478,8 @@ namespace db0::object_model
     std::uint32_t o_set::elementHash(const Element &element)
     {
         auto seedKind = element.m_kind == StorageClass::PACKED_INT32 ? StorageClass::INT64 : element.m_kind;
+        seedKind = seedKind == StorageClass::EMBEDDED_STRING ? StorageClass::STRING_REF : seedKind;
+        seedKind = seedKind == StorageClass::EMBEDDED_BYTES ? StorageClass::DB0_BYTES : seedKind;
         auto seed = 0x9e3779b9U ^ static_cast<std::uint32_t>(seedKind);
         switch (element.m_kind) {
         case StorageClass::NONE:
@@ -470,15 +492,17 @@ namespace db0::object_model
         case StorageClass::FP_NUMERIC64:
             return hashBytes(&element.m_payload.m_double_value, sizeof(element.m_payload.m_double_value), seed);
         case StorageClass::STRING_REF:
+        case StorageClass::EMBEDDED_STRING:
             return hashBytes(
                 element.m_payload.m_string_value.data(), element.m_payload.m_string_value.size(), seed
             );
         case StorageClass::DB0_BYTES:
+        case StorageClass::EMBEDDED_BYTES:
             return hashBytes(element.bytesData(), element.bytesSize(), seed);
-        case StorageClass::DB0_TUPLE:
-        case StorageClass::DB0_SET:
-        case StorageClass::DB0_DICT:
-        case StorageClass::OBJECT_REF: {
+        case StorageClass::EMBEDDED_TUPLE:
+        case StorageClass::EMBEDDED_SET:
+        case StorageClass::EMBEDDED_DICT:
+        case StorageClass::EMBEDDED_OBJECT: {
             if (element.m_payload.m_bytes_value.m_writer) {
                 std::vector<std::byte> payload(element.bytesSize());
                 element.m_payload.m_bytes_value.m_writer(payload.data(), element.m_payload.m_bytes_value.m_source);
@@ -503,6 +527,8 @@ namespace db0::object_model
     std::uint32_t o_set::itemHash(const Item &item)
     {
         auto seedKind = item.itemKind() == StorageClass::PACKED_INT32 ? StorageClass::INT64 : item.itemKind();
+        seedKind = seedKind == StorageClass::EMBEDDED_STRING ? StorageClass::STRING_REF : seedKind;
+        seedKind = seedKind == StorageClass::EMBEDDED_BYTES ? StorageClass::DB0_BYTES : seedKind;
         auto seed = 0x9e3779b9U ^ static_cast<std::uint32_t>(seedKind);
         switch (item.itemKind()) {
         case StorageClass::NONE:
@@ -523,16 +549,18 @@ namespace db0::object_model
             auto value = item.doublePayload().value();
             return hashBytes(&value, sizeof(value), seed);
         }
-        case StorageClass::STRING_REF: {
+        case StorageClass::STRING_REF:
+        case StorageClass::EMBEDDED_STRING: {
             auto str = item.stringPayload().get();
             return hashBytes(str.get_raw(), str.size(), seed);
         }
         case StorageClass::DB0_BYTES:
+        case StorageClass::EMBEDDED_BYTES:
             return hashBytes(item.bytesPayload().begin(), item.bytesPayload().size(), seed);
-        case StorageClass::DB0_TUPLE:
-        case StorageClass::DB0_SET:
-        case StorageClass::DB0_DICT:
-        case StorageClass::OBJECT_REF:
+        case StorageClass::EMBEDDED_TUPLE:
+        case StorageClass::EMBEDDED_SET:
+        case StorageClass::EMBEDDED_DICT:
+        case StorageClass::EMBEDDED_OBJECT:
             return hashBytes(item.embeddedPayload().begin(), item.embeddedPayload().size(), seed);
         case StorageClass::PTIME64:
         case StorageClass::DATE:

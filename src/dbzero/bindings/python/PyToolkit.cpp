@@ -2,6 +2,7 @@
 // Copyright (c) 2025 DBZero Software sp. z o.o.
 
 #include "PyToolkit.hpp"
+#include "EmbeddedObject.hpp"
 #include "Memo.hpp"
 #include "MemoExpiredRef.hpp"
 #include "PyInternalAPI.hpp"
@@ -17,6 +18,7 @@
 #include <dbzero/core/memory/mptr.hpp>
 #include <dbzero/object_model/class.hpp>
 #include <dbzero/object_model/object.hpp>
+#include <dbzero/object_model/tuple/o_tuple.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/bindings/python/types/DateTime.hpp>
 #include <dbzero/bindings/python/iter/PyObjectIterable.hpp>
@@ -38,6 +40,156 @@ namespace db0::python
 
     PyToolkit::PyWorkspace PyToolkit::m_py_workspace;
     SafeRMutex PyToolkit::m_api_mutex;
+
+    namespace
+    {
+        std::uint16_t getMemoInstanceId(PyObject *pyObject)
+        {
+            if (PyMemo_Check<MemoObject>(pyObject)) {
+                return reinterpret_cast<MemoObject *>(pyObject)->ext().getInstanceId();
+            }
+            if (PyMemo_Check<MemoImmutableObject>(pyObject)) {
+                return reinterpret_cast<MemoImmutableObject *>(pyObject)->ext().getInstanceId();
+            }
+            return reinterpret_cast<MemoAnyObject *>(pyObject)->ext().getInstanceId();
+        }
+
+        bool memoHasRefs(PyObject *pyObject)
+        {
+            if (PyMemo_Check<MemoObject>(pyObject)) {
+                return reinterpret_cast<MemoObject *>(pyObject)->ext().hasRefs();
+            }
+            if (PyMemo_Check<MemoImmutableObject>(pyObject)) {
+                return reinterpret_cast<MemoImmutableObject *>(pyObject)->ext().hasRefs();
+            }
+            return reinterpret_cast<MemoAnyObject *>(pyObject)->ext().hasRefs();
+        }
+    }
+
+    PyToolkit::ObjectSharedPtr PyToolkit::unloadEmbeddedInstance(const db0::object_model::o_tuple_item &item)
+    {
+        switch (item.itemKind()) {
+            case StorageClass::STRING_REF:
+            case StorageClass::EMBEDDED_STRING: {
+                auto str = item.stringPayload().get();
+                auto result = Py_OWN(PyUnicode_FromStringAndSize(str.get_raw(), str.size()));
+                if (!result) {
+                    THROWF(db0::InputException) << "Failed to convert embedded string";
+                }
+                return result;
+            }
+            case StorageClass::DB0_BYTES:
+            case StorageClass::EMBEDDED_BYTES: {
+                const auto &bytes = item.bytesPayload();
+                auto result = Py_OWN(PyBytes_FromStringAndSize(
+                    reinterpret_cast<const char *>(bytes.getBuffer()), bytes.size()
+                ));
+                if (!result) {
+                    THROWF(db0::InputException) << "Failed to convert embedded bytes";
+                }
+                return result;
+            }
+            default:
+                THROWF(db0::InputException)
+                    << "Unsupported embedded immutable member storage class: " << item.itemKind();
+        }
+        return {};
+    }
+
+    PyToolkit::ObjectSharedPtr PyToolkit::unloadEmbeddedInstance(
+        db0::swine_ptr<Fixture> &fixture, ObjectPtr rootObject, const db0::object_model::o_tuple_item &item
+    )
+    {
+        switch (item.itemKind()) {
+            case StorageClass::STRING_REF:
+            case StorageClass::EMBEDDED_STRING: {
+                auto str = item.stringPayload().get();
+                auto result = Py_OWN(PyUnicode_FromStringAndSize(str.get_raw(), str.size()));
+                if (!result) {
+                    THROWF(db0::InputException) << "Failed to convert embedded string";
+                }
+                return result;
+            }
+            case StorageClass::DB0_BYTES:
+            case StorageClass::EMBEDDED_BYTES: {
+                const auto &bytes = item.bytesPayload();
+                auto result = Py_OWN(PyBytes_FromStringAndSize(
+                    reinterpret_cast<const char *>(bytes.getBuffer()), bytes.size()
+                ));
+                if (!result) {
+                    THROWF(db0::InputException) << "Failed to convert embedded bytes";
+                }
+                return result;
+            }
+            case StorageClass::EMBEDDED_OBJECT: {
+                if (!rootObject) {
+                    THROWF(db0::InputException) << "Embedded object retrieval requires a root memo object";
+                }
+                const auto &embeddedObject = db0::object_model::o_embedded_object::__const_ref(
+                    item.embeddedPayload().begin()
+                );
+                auto &classFactory = fixture->get<db0::object_model::ClassFactory>();
+                auto type = classFactory.getTypeByClassRef(embeddedObject.getClassRef()).m_class;
+                auto memoType = classFactory.getLangType(*type);
+                if (memoType.get()) {
+                    return makeEmbeddedMemoObject(rootObject, embeddedObject, std::move(type), memoType.get());
+                }
+                return makeEmbeddedObject(rootObject, embeddedObject, std::move(type));
+            }
+            default:
+                THROWF(db0::InputException)
+                    << "Unsupported embedded immutable member storage class: " << item.itemKind();
+        }
+        return {};
+    }
+
+    bool PyToolkit::hasMemoInstance(ObjectPtr pyObject)
+    {
+        if (PyMemo_Check<MemoImmutableObject>(pyObject)) {
+            return reinterpret_cast<MemoImmutableObject *>(pyObject)->ext().hasInstance();
+        }
+        return getTypeManager().extractAnyObject(pyObject).hasInstance();
+    }
+
+    UniqueAddress PyToolkit::getMemoUniqueAddress(ObjectPtr pyObject)
+    {
+        if (PyMemo_Check<MemoImmutableObject>(pyObject)) {
+            return reinterpret_cast<MemoImmutableObject *>(pyObject)->ext().getUniqueAddress();
+        }
+        return getTypeManager().extractAnyObject(pyObject).getUniqueAddress();
+    }
+
+    bool PyToolkit::isMemoDead(ObjectPtr pyObject)
+    {
+        if (PyMemo_Check<MemoImmutableObject>(pyObject)) {
+            return reinterpret_cast<MemoImmutableObject *>(pyObject)->ext().isDead();
+        }
+        return getTypeManager().extractAnyObject(pyObject).isDead();
+    }
+
+    bool PyToolkit::isMemoDropped(ObjectPtr pyObject)
+    {
+        if (PyMemo_Check<MemoImmutableObject>(pyObject)) {
+            return reinterpret_cast<MemoImmutableObject *>(pyObject)->ext().isDropped();
+        }
+        return getTypeManager().extractAnyObject(pyObject).isDropped();
+    }
+
+    bool PyToolkit::hasMemoAnyRefs(ObjectPtr pyObject)
+    {
+        if (PyMemo_Check<MemoImmutableObject>(pyObject)) {
+            return reinterpret_cast<MemoImmutableObject *>(pyObject)->ext().hasAnyRefs();
+        }
+        return getTypeManager().extractAnyObject(pyObject).hasAnyRefs();
+    }
+
+    const object_model::Class &PyToolkit::getMemoType(ObjectPtr pyObject)
+    {
+        if (PyMemo_Check<MemoImmutableObject>(pyObject)) {
+            return reinterpret_cast<MemoImmutableObject *>(pyObject)->ext().getType();
+        }
+        return getTypeManager().extractAnyObject(pyObject).getType();
+    }
     
     void PyToolkit::throwErrorWithPyErrorCheck(const std::string& message, const std::string& error_detail) {
         if (PyErr_Occurred()) {
@@ -240,19 +392,18 @@ namespace db0::python
         
         if (obj_ptr.get()) {
             // only validate instance ID if provided
-            auto &memo = reinterpret_cast<MemoAnyObject*>(obj_ptr.get())->ext();
             if (instance_id) {
                 // NOTE: we first must check if this is really a memo object
                 if (!isAnyMemoObject(obj_ptr.get())) {
                     return false;
                 }
                 
-                if (memo.getInstanceId() != instance_id) {
+                if (getMemoInstanceId(obj_ptr.get()) != instance_id) {
                     return false;
                 }
             }
             // NOTE: objects with no references (either from dbzero or other lang types) are considered deleted            
-            return PyToolkit::hasLangRefs(*obj_ptr) || memo.hasRefs();
+            return PyToolkit::hasLangRefs(*obj_ptr) || memoHasRefs(obj_ptr.get());
         }
         
         // Check if object's stem can be unloaded (and has refs)
@@ -274,7 +425,7 @@ namespace db0::python
                 if (!isAnyMemoObject(obj_ptr.get())) {
                     return {};
                 }
-                if (reinterpret_cast<MemoAnyObject*>(obj_ptr.get())->ext().getInstanceId() != instance_id) {                
+                if (getMemoInstanceId(obj_ptr.get()) != instance_id) {
                     return {};
                 }
             }
@@ -282,6 +433,52 @@ namespace db0::python
             return obj_ptr;
         }
         
+        std::shared_ptr<Class> type;
+        shared_py_object<PyTypeObject *> lang_type;
+        auto immutableStem = [&]() {
+            try {
+                auto stem = db0::object_model::ObjectImmutableImpl::tryUnloadStem(
+                    fixture, address, instance_id, access_mode
+                );
+                if (!stem) {
+                    return decltype(stem)();
+                }
+                auto typeInfo = class_factory.getTypeByClassRef(stem->getClassRef());
+                if (!typeInfo.m_class->isImmutable()) {
+                    return decltype(stem)();
+                }
+                type = typeInfo.m_class;
+                lang_type = typeInfo.m_lang_type;
+                return stem;
+            } catch (...) {
+                return db0::object_model::ObjectImmutableImpl::ObjectStem();
+            }
+        }();
+
+        if (!!immutableStem) {
+            if (!lang_type_ptr) {
+                if (!lang_type) {
+                    lang_type = class_factory.getLangType(*type);
+                }
+                lang_type_ptr = lang_type.get();
+            }
+
+            if (!lang_type_ptr) {
+                lang_type_ptr = PyToolkit::getTypeManager().getMemoBaseType().get();
+            }
+
+            auto *memo_ptr = reinterpret_cast<MemoImmutableObject *>(lang_type_ptr->tp_alloc(lang_type_ptr, 0));
+            memo_ptr->unload(
+                fixture, std::move(immutableStem), type, db0::object_model::ObjectImmutableImpl::with_type_hint{}
+            );
+            memo_ptr->ext().setLangObject(reinterpret_cast<PyObject *>(memo_ptr));
+            obj_ptr = Py_OWN(reinterpret_cast<PyObject *>(memo_ptr));
+            if (!memo_ptr->ext().isNoCache()) {
+                lang_cache.add(address, obj_ptr.get());
+            }
+            return obj_ptr;
+        }
+
         // Unload from backend otherwise
         auto stem = db0::object_model::Object::tryUnloadStem(
             fixture, address, instance_id, access_mode
@@ -290,7 +487,9 @@ namespace db0::python
             // object not found
             return {};
         }
-        auto [type, lang_type] = class_factory.getTypeByClassRef(stem->getClassRef());
+        auto typeInfo = class_factory.getTypeByClassRef(stem->getClassRef());
+        type = typeInfo.m_class;
+        lang_type = typeInfo.m_lang_type;
         
         if (!lang_type_ptr) {
             if (!lang_type) {
@@ -647,6 +846,15 @@ namespace db0::python
         auto item = Py_OWN(PySequence_GetItem(py_object, i));
         if (!item) {
             THROWF(db0::InputException) << "Unable to get sequence item at index ";
+        }
+        return item;
+    }
+
+    PyToolkit::ObjectSharedPtr PyToolkit::getMappingItem(ObjectPtr py_object, ObjectPtr key)
+    {
+        auto item = Py_OWN(PyObject_GetItem(py_object, key));
+        if (!item) {
+            THROWF(db0::InputException) << "Unable to get mapping item";
         }
         return item;
     }
@@ -1010,6 +1218,24 @@ namespace db0::python
         return py_object != nullptr;
     }
     
+    template <typename MemoImplT>
+    void incRefMemoImpl(bool is_tag, MemoImplT *memo_obj)
+    {
+        memo_obj->modifyExt().incRef(is_tag);
+    }
+
+    void PyToolkit::incRefMemo(bool is_tag, ObjectPtr py_object)
+    {
+        if (PyMemo_Check<MemoObject>(py_object)) {
+            incRefMemoImpl<MemoObject>(is_tag, reinterpret_cast<MemoObject*>(py_object));
+        } else if (PyMemo_Check<MemoImmutableObject>(py_object)) {
+            incRefMemoImpl<MemoImmutableObject>(is_tag, reinterpret_cast<MemoImmutableObject*>(py_object));
+        } else {
+            assert(false);
+            THROWF(db0::InputException) << "Invalid memo object type for incRefMemo" << THROWF_END;
+        }
+    }
+
     template <typename MemoImplT>
     bool decRefMemoImpl(bool is_tag, MemoImplT *memo_obj)
     {

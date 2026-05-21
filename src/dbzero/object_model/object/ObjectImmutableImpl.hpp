@@ -6,6 +6,8 @@
 #include "ObjectImplBase.hpp"
 #include "o_immutable_object.hpp"
 
+#include <functional>
+
 namespace db0::object_model
 
 {
@@ -23,6 +25,32 @@ namespace db0::object_model
             : super_t(std::forward<Args>(args)...)
         {
         }
+
+        ObjectSharedPtr tryGet(MemberLoc, bool *is_auto_generated = nullptr) const;
+        ObjectSharedPtr tryGet(const char *field_name, bool *is_auto_generated = nullptr) const;
+        ObjectSharedPtr get(const char *field_name) const;
+
+        void postInit(FixtureLock &);
+        void postInit(FixtureLock &, const std::function<void(const ImmutableObjectInitializer &)> &);
+        void setLangObject(ObjectPtr) const;
+        void destroy();
+
+        static ObjectSharedPtr tryGetEmbeddedField(
+            db0::swine_ptr<Fixture> &, ObjectPtr root_object, const o_embedded_object &,
+            const FieldInfo &, AccessFlags member_flags
+        );
+
+    protected:
+        friend super_t;
+
+        ObjectSharedPtr tryGetEmbeddedField(const FieldInfo &) const;
+        void getMembersImpl(std::unordered_set<std::string> &) const;
+        void dropMembers(db0::swine_ptr<Fixture> &, Class &) const;
+
+    private:
+        ObjectPtr getLangObject() const;
+
+        mutable ObjectPtr m_lang_object = nullptr;
     };
     
 }

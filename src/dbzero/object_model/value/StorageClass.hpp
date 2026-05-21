@@ -116,6 +116,14 @@ namespace db0::object_model
         DELETED = static_cast<int>(PreStorageClass::DELETED),
         CALLABLE = static_cast<int>(PreStorageClass::CALLABLE),
         DB0_WEAK_SET = static_cast<int>(PreStorageClass::DB0_WEAK_SET),
+        // Embedded variable-length payloads stored inside another immutable object.
+        // Count down from the top range so future PreStorageClass values can grow upward without collision.
+        EMBEDDED_STRING = std::numeric_limits<std::uint8_t>::max() - 8,
+        EMBEDDED_BYTES = std::numeric_limits<std::uint8_t>::max() - 7,
+        EMBEDDED_TUPLE = std::numeric_limits<std::uint8_t>::max() - 6,
+        EMBEDDED_SET = std::numeric_limits<std::uint8_t>::max() - 5,
+        EMBEDDED_DICT = std::numeric_limits<std::uint8_t>::max() - 4,
+        EMBEDDED_OBJECT = std::numeric_limits<std::uint8_t>::max() - 3,
         // Embedded immutable integer encoded with packed-int storage.
         PACKED_INT32 = std::numeric_limits<std::uint8_t>::max() - 2,
         // weak reference to other (Memo) instance from a foreign prefix

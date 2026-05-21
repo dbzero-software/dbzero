@@ -6,6 +6,12 @@
 #include <Python.h>
 #include "shared_py_object.hpp"
 
+// Python 3.11 introduced Py_TPFLAGS_MANAGED_DICT. Older supported versions do
+// not define it, so treat it as an absent flag when normalizing heap type flags.
+#ifndef Py_TPFLAGS_MANAGED_DICT
+#define Py_TPFLAGS_MANAGED_DICT 0
+#endif
+
 namespace db0::python
 
 {
