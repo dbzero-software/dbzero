@@ -11,7 +11,7 @@
 namespace db0
 
 {
-    
+
     class SlabAllocator;
 
     /**
@@ -24,14 +24,14 @@ namespace db0
 
         // initialize slot-specific allocator
         void setSlot(std::uint32_t slot_num, std::shared_ptr<SlabAllocator> slot_allocator);
-        
-        std::optional<Address> tryAlloc(std::size_t size, std::uint32_t slot_num = 0, 
+
+        std::optional<Address> tryAlloc(std::size_t size, std::uint32_t slot_num = 0,
             bool aligned = false, unsigned char realm_id = 0, unsigned char locality = 0) override;
-        
+
         // Unique allocations are not supported because of the limited slot's address space
-        std::optional<UniqueAddress> tryAllocUnique(std::size_t size, std::uint32_t slot_num = 0, 
+        std::optional<UniqueAddress> tryAllocUnique(std::size_t size, std::uint32_t slot_num = 0,
             bool aligned = false, unsigned char realm_id = 0, unsigned char locality = 0) override;
-        
+
         void free(Address) override;
 
         std::size_t getAllocSize(Address) const override;
@@ -39,19 +39,24 @@ namespace db0
 
         bool isAllocated(Address, std::size_t *size_of_result = nullptr) const override;
         bool isAllocated(Address, unsigned char realm_id, std::size_t *size_of_result = nullptr) const override;
-        
+
+        AllocationInfo findAllocation(Address) const override;
+        AllocationInfo findAllocation(Address, unsigned char realm_id) const override;
+        AllocationInfo findAllocation(Address, std::uint32_t slot_num) const;
+        AllocationInfo findAllocation(Address, std::uint32_t slot_num, unsigned char realm_id) const;
+
         void commit() const override;
 
         void detach() const override;
-        
+
         bool inRange(Address) const override;
 
         std::shared_ptr<Allocator> getAllocator() const { return m_allocator; }
 
         SlabAllocator &getSlot(std::uint32_t slot_num) const;
-        
+
         std::pair<Address, std::optional<Address> > getRange(std::uint32_t slot_num = 0) const override;
-        
+
     private:
         std::shared_ptr<Allocator> m_allocator;
         Allocator *m_allocator_ptr;
@@ -60,4 +65,4 @@ namespace db0
         Allocator &select(std::uint32_t slot_num);
     };
 
-}   
+}
