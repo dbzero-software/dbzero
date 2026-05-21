@@ -12,10 +12,10 @@ namespace db0
     AlgoAllocator::AlgoAllocator(AddressPoolF f, ReverseAddressPoolF rf, std::size_t alloc_size)
         : m_address_pool_f(f)
         , m_reverse_address_pool_f(rf)
-        , m_alloc_size(alloc_size)        
+        , m_alloc_size(alloc_size)
     {
     }
-    
+
     std::optional<Address> AlgoAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num,
         bool aligned, unsigned char, unsigned char)
     {
@@ -24,7 +24,7 @@ namespace db0
         assert(size == m_alloc_size && "AlgoAllocator: invalid alloc size requested");
         return m_address_pool_f(m_next_i++);
     }
-    
+
     void AlgoAllocator::free(Address address)
     {
         if (address % m_alloc_size != 0) {
@@ -39,7 +39,7 @@ namespace db0
             --m_next_i;
         }
     }
-    
+
     std::size_t AlgoAllocator::getAllocSize(Address address) const
     {
         auto offset = address % m_alloc_size;
@@ -49,7 +49,7 @@ namespace db0
         }
         return m_alloc_size - offset;
     }
-    
+
     bool AlgoAllocator::isAllocated(Address address, std::size_t *size_of_result) const
     {
         auto offset = address % m_alloc_size;
@@ -62,25 +62,41 @@ namespace db0
         }
         return true;
     }
-    
+
+    std::optional<Allocator::AllocationInfo> AlgoAllocator::findAllocation(Address address) const
+    {
+        auto offset = address % m_alloc_size;
+        auto baseAddress = address - offset;
+        unsigned int i;
+        try {
+            i = m_reverse_address_pool_f(baseAddress);
+        } catch (const db0::AbstractException &) {
+            THROWF(db0::BadAddressException) << "Invalid address: " << address << THROWF_END;
+        }
+        if (i >= m_next_i) {
+            THROWF(db0::BadAddressException) << "Invalid address: " << address;
+        }
+        return AllocationInfo { baseAddress, m_alloc_size };
+    }
+
     void AlgoAllocator::reset() {
         m_next_i = 0;
     }
-    
+
     Address AlgoAllocator::getRootAddress() const {
         return m_address_pool_f(0);
     }
-    
+
     void AlgoAllocator::setMaxAddress(Address max_address)
     {
         auto offset = max_address % m_alloc_size;
         m_next_i = m_reverse_address_pool_f(max_address - offset) + 1;
     }
-    
+
     void AlgoAllocator::commit() const
     {
     }
-    
+
     void AlgoAllocator::detach() const
     {
     }

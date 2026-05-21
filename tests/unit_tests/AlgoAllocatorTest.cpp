@@ -19,7 +19,7 @@ namespace tests
     public:
         virtual void SetUp() override {
             // set up the address pool functions
-            m_pool_f = [](unsigned int i) -> Address { 
+            m_pool_f = [](unsigned int i) -> Address {
                 return Address::fromOffset(i * (PAGE_SIZE + SLAB_SIZE * PAGE_SIZE));
             };
 
@@ -27,13 +27,13 @@ namespace tests
                 if (address % (PAGE_SIZE + SLAB_SIZE * PAGE_SIZE) != 0) {
                     THROWF(db0::InternalException) << "AlgoAllocatorTests: invalid address " << address;
                 }
-                return address / (PAGE_SIZE + SLAB_SIZE * PAGE_SIZE); 
+                return address / (PAGE_SIZE + SLAB_SIZE * PAGE_SIZE);
             };
         }
 
-        virtual void TearDown() override {            
+        virtual void TearDown() override {
         }
-        
+
     protected:
         static constexpr unsigned int PAGE_SIZE = 4096;
         // as number of pages
@@ -42,23 +42,23 @@ namespace tests
         db0::AlgoAllocator::AddressPoolF m_pool_f;
         db0::AlgoAllocator::ReverseAddressPoolF m_reverse_pool_f;
     };
-    
+
     TEST_F( AlgoAllocatorTests , testAlgoAllocatorAllocatesMonotonicAddresses )
-    { 
+    {
         db0::AlgoAllocator cut(m_pool_f, m_reverse_pool_f, PAGE_SIZE);
         std::uint64_t last_address = 0;
         for (int i = 0;i < 100;++i) {
-            auto address = cut.alloc(PAGE_SIZE);            
+            auto address = cut.alloc(PAGE_SIZE);
             ASSERT_TRUE(address >= last_address);
             last_address = address;
         }
     }
-    
+
     TEST_F( AlgoAllocatorTests , testAlgoAllocatorThrowsOnInvalidFree )
     {
         db0::AlgoAllocator cut(m_pool_f, m_reverse_pool_f, PAGE_SIZE);
         for (int i = 0;i < 10;++i) {
-            cut.alloc(PAGE_SIZE);            
+            cut.alloc(PAGE_SIZE);
         }
         // unaligned address is OK (inner address)
         ASSERT_NO_THROW(cut.free(Address::fromOffset(7 * (PAGE_SIZE + SLAB_SIZE * PAGE_SIZE) + 13)));
@@ -70,7 +70,7 @@ namespace tests
     {
         db0::AlgoAllocator cut(m_pool_f, m_reverse_pool_f, PAGE_SIZE);
         for (int i = 0;i < 10;++i) {
-            cut.alloc(PAGE_SIZE);            
+            cut.alloc(PAGE_SIZE);
         }
         ASSERT_EQ(PAGE_SIZE, cut.getAllocSize(Address::fromOffset(0)));
         // inner address
@@ -78,5 +78,21 @@ namespace tests
         // address out of range
         ASSERT_ANY_THROW(cut.getAllocSize(Address::fromOffset(11 * (PAGE_SIZE + SLAB_SIZE * PAGE_SIZE))));
     }
-    
+
+    TEST_F( AlgoAllocatorTests , testAlgoAllocatorCanFindAllocationByInnerAddress )
+    {
+        db0::AlgoAllocator cut(m_pool_f, m_reverse_pool_f, PAGE_SIZE);
+        for (int i = 0;i < 10;++i) {
+            cut.alloc(PAGE_SIZE);
+        }
+
+        auto address = Address::fromOffset(7 * (PAGE_SIZE + SLAB_SIZE * PAGE_SIZE));
+        auto result = cut.findAllocation(address + static_cast<Address::offset_t>(13));
+        ASSERT_TRUE(result);
+        ASSERT_EQ(result->address, address);
+        ASSERT_EQ(result->size, PAGE_SIZE);
+        ASSERT_THROW(cut.findAllocation(Address::fromOffset(11 * (PAGE_SIZE + SLAB_SIZE * PAGE_SIZE))), db0::BadAddressException);
+        ASSERT_THROW(cut.findAllocation(address + static_cast<Address::offset_t>(PAGE_SIZE)), db0::BadAddressException);
+    }
+
 }

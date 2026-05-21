@@ -94,9 +94,9 @@ namespace db0
     {
         // address validity not checked here
         auto offset = address % m_page_size;
-        return m_page_size - offset;    
+        return m_page_size - offset;
     }
-    
+
     bool DRAM_Allocator::isAllocated(Address address, std::size_t *size_of_result) const
     {
         auto page_id = address / m_page_size;
@@ -113,15 +113,24 @@ namespace db0
         }
         if (size_of_result) {
             auto offset = address % m_page_size;
-            *size_of_result = m_page_size - offset;    
+            *size_of_result = m_page_size - offset;
         }
         return true;
     }
-    
+
+    std::optional<Allocator::AllocationInfo> DRAM_Allocator::findAllocation(Address address) const
+    {
+        auto pageId = address / m_page_size;
+        if (pageId < FIRST_PAGE_ID || pageId >= m_next_page_id || m_free_pages.find(pageId) != m_free_pages.end()) {
+            THROWF(db0::BadAddressException) << "Invalid address: " << address;
+        }
+        return AllocationInfo { Address::fromOffset(pageId * m_page_size), m_page_size };
+    }
+
     Address DRAM_Allocator::firstAlloc() const {
         return Address::fromOffset(FIRST_PAGE_ID * m_page_size);
     }
-        
+
     void DRAM_Allocator::commit() const
     {
     }

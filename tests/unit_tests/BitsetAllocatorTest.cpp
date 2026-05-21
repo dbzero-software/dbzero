@@ -14,37 +14,37 @@ namespace tests
 
     using Address = db0::Address;
 
-    class BitsetAllocatorTests: public testing::Test 
+    class BitsetAllocatorTests: public testing::Test
     {
     public:
-        virtual void SetUp() override {            
+        virtual void SetUp() override {
         }
 
         virtual void TearDown() override {
-            
+
         }
 
     protected:
         db0::TestWorkspace m_workspace;
     };
-    
+
     TEST_F( BitsetAllocatorTests , testAllocAssignsValidAddresses )
-    {        
+    {
         std::size_t page_size = 4096;
         auto memspace = m_workspace.getMemspace("my-test-prefix_1");
-        
+
         auto base_addr = Address::fromOffset(0);
         db0::BitsetAllocator<db0::VFixedBitset<123> > cut(db0::VFixedBitset<123>(memspace), base_addr, page_size, 1);
         auto ptr1 = cut.alloc(page_size);
         auto ptr2 = cut.alloc(page_size);
         ASSERT_NE(ptr1, ptr2);
     }
-    
+
     TEST_F( BitsetAllocatorTests , testAllocThenFree )
-    {        
+    {
         std::size_t page_size = 4096;
         auto memspace = m_workspace.getMemspace("my-test-prefix_1");
-                
+
         auto base_addr = Address::fromOffset(0);
         db0::BitsetAllocator<db0::VFixedBitset<123> > cut(db0::VFixedBitset<123>(memspace), base_addr, page_size, 1);
         auto ptr1 = cut.alloc(page_size);
@@ -56,25 +56,31 @@ namespace tests
         ASSERT_ANY_THROW(cut.getAllocSize(ptr2));
         // allocates the same range again
         auto ptr3 = cut.alloc(page_size);
-        ASSERT_EQ(ptr2, ptr3);        
+        ASSERT_EQ(ptr2, ptr3);
         // get alloc size works for allocated ranges
         ASSERT_EQ(page_size, cut.getAllocSize(ptr1));
         ASSERT_EQ(page_size, cut.getAllocSize(ptr3));
     }
-    
+
     TEST_F( BitsetAllocatorTests , testBitsetAllocatorCanHandleSubAddresses )
     {
         // this functionality allows allocating some range and then requesting a subrange of it
         std::size_t page_size = 4096;
         auto memspace = m_workspace.getMemspace("my-test-prefix_1");
-        
+
         auto base_addr = Address::fromOffset(0);
         db0::BitsetAllocator<db0::VFixedBitset<123> > cut(db0::VFixedBitset<123>(memspace), base_addr, page_size, 1);
         auto ptr1 = cut.alloc(page_size);
         std::size_t offset = 128;
         ASSERT_EQ(cut.getAllocSize(ptr1 + offset), page_size - offset);
+        auto result = cut.findAllocation(ptr1 + offset);
+        ASSERT_TRUE(result);
+        ASSERT_EQ(result->address, ptr1);
+        ASSERT_EQ(result->size, page_size);
+        ASSERT_THROW(cut.findAllocation(ptr1 + page_size), db0::BadAddressException);
+        ASSERT_THROW(cut.findAllocation(Address::fromOffset(page_size * 123)), db0::BadAddressException);
     }
-    
+
     TEST_F( BitsetAllocatorTests , testBitsetAllocatorCanAllocateInNegativeDirection )
     {
         // this functionality allows allocating some range and then requesting a subrange of it
@@ -87,6 +93,10 @@ namespace tests
         ASSERT_EQ(ptr1.getOffset(), page_size * 1024 - page_size);
         auto ptr2 = cut.alloc(page_size);
         ASSERT_TRUE(ptr2 < ptr1);
+        auto result = cut.findAllocation(ptr1 + static_cast<Address::offset_t>(123));
+        ASSERT_TRUE(result);
+        ASSERT_EQ(result->address, ptr1);
+        ASSERT_EQ(result->size, page_size);
     }
-    
-}   
+
+}

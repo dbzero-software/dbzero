@@ -18,20 +18,20 @@ namespace tests
 {
 
     using namespace db0;
-    
-    class DRAMSpaceTest: public testing::Test 
+
+    class DRAMSpaceTest: public testing::Test
     {
     public:
-        virtual void SetUp() override {            
+        virtual void SetUp() override {
         }
 
-        virtual void TearDown() override {            
+        virtual void TearDown() override {
         }
 
     protected:
-        const std::size_t m_page_size = 4096;        
+        const std::size_t m_page_size = 4096;
     };
-    
+
     TEST_F( DRAMSpaceTest, testDRAMSpaceCanAlloc )
     {
         auto cut = DRAMSpace::create(m_page_size);
@@ -60,7 +60,7 @@ namespace tests
 
     TEST_F( DRAMSpaceTest, testDRAMSpaceCanReuseAddress )
     {
-        auto cut = DRAMSpace::create(m_page_size);        
+        auto cut = DRAMSpace::create(m_page_size);
         cut.alloc(m_page_size);
         auto addr_2 = cut.alloc(m_page_size);
         cut.free(addr_2);
@@ -76,13 +76,13 @@ namespace tests
         for (std::uint64_t i = 0; 100 < 3; ++i) {
             sgb_tree.insert(i);
         }
-        
+
         std::uint64_t i = 0;
         for (auto it = sgb_tree.cbegin(); !it.is_end(); ++it, ++i) {
-            ASSERT_EQ(*it, i);            
+            ASSERT_EQ(*it, i);
         }
     }
-    
+
     TEST_F( DRAMSpaceTest, testDRAMSpaceInsertSpeed )
     {
         // use 16kb page
@@ -98,7 +98,7 @@ namespace tests
         for (int i = 0; i < item_count; ++i) {
             values.push_back(rand());
         }
-        
+
         // measure speed
         {
             auto start = std::chrono::high_resolution_clock::now();
@@ -110,7 +110,7 @@ namespace tests
 
             std::cout << "SGB_Tree inserted " << item_count << " items in " << elapsed.count() << " ms" << std::endl;
         }
-        
+
         // the same test with std::set
         std::set<std::uint64_t> std_set;
         {
@@ -124,7 +124,7 @@ namespace tests
             std::cout << "std::set inserted " << item_count << " items in " << elapsed.count() << " ms" << std::endl;
         }
     }
-    
+
     TEST_F( DRAMSpaceTest, testDRAMAllocatorCanBeCreatedWithAllocs )
     {
         std::unordered_set<std::size_t> allocs { 1, 2, 3, 9, 15 };
@@ -134,14 +134,28 @@ namespace tests
             ASSERT_NO_THROW(cut.free(Address::fromOffset(addr)));
         }
     }
-    
+
+    TEST_F( DRAMSpaceTest, testDRAMAllocatorCanFindAllocationByInnerAddress )
+    {
+        DRAM_Allocator cut(m_page_size);
+        auto address = cut.alloc(m_page_size);
+        auto result = cut.findAllocation(address + static_cast<Address::offset_t>(31));
+        ASSERT_TRUE(result);
+        ASSERT_EQ(result->address, address);
+        ASSERT_EQ(result->size, m_page_size);
+        ASSERT_THROW(cut.findAllocation(Address::fromOffset(0)), db0::BadAddressException);
+
+        cut.free(address);
+        ASSERT_THROW(cut.findAllocation(address + static_cast<Address::offset_t>(31)), db0::BadAddressException);
+    }
+
     TEST_F( DRAMSpaceTest, testVBVectorCanBePutOnDRAMSpace )
     {
         // use 4KiB, 16KiB page sizes
         std::vector<std::size_t> page_sizes { 4u << 10, 16u << 10 };
-        for (auto page_size: page_sizes) {        
+        for (auto page_size: page_sizes) {
             auto cut = DRAMSpace::create(page_size);
-            
+
             // Using std::uint32_t as capacity type to handle large page size
             using BVectorT = db0::v_bvector<std::uint64_t>;
             // NOTE: must be created as fixed-block to DRAM space requirements
@@ -152,5 +166,5 @@ namespace tests
             ASSERT_EQ(b_vector.size(), 10000u);
         }
     }
-    
+
 }
