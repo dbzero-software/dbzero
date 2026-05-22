@@ -90,17 +90,78 @@ namespace db0::object_model
             return begin;
         }
 
-        std::uint32_t countInputGroups(const std::vector<std::uint64_t> &offsets)
+        class OffsetGroupRanges
         {
-            std::size_t groupCount = 0;
-            auto *groupBegin = offsets.data();
-            auto *end = groupBegin + offsets.size();
-            while (groupBegin < end) {
-                scanInputGroup(groupBegin, end);
-                ++groupCount;
+        public:
+            class const_iterator
+            {
+            public:
+                const_iterator() = default;
+
+                const_iterator(const std::uint64_t *cursor, const std::uint64_t *end)
+                    : m_cursor(cursor)
+                    , m_end(end)
+                {
+                    advance();
+                }
+
+                o_packed_offset_group_range operator*() const
+                {
+                    return m_range;
+                }
+
+                const_iterator &operator++()
+                {
+                    advance();
+                    return *this;
+                }
+
+                bool operator==(const const_iterator &other) const
+                {
+                    return m_range.begin == other.m_range.begin;
+                }
+
+                bool operator!=(const const_iterator &other) const
+                {
+                    return !(*this == other);
+                }
+
+            private:
+                void advance()
+                {
+                    if (m_cursor >= m_end) {
+                        m_range = { m_end, m_end };
+                        return;
+                    }
+                    auto *rangeBegin = scanInputGroup(m_cursor, m_end);
+                    m_range = { rangeBegin, m_cursor };
+                }
+
+                const std::uint64_t *m_cursor = nullptr;
+                const std::uint64_t *m_end = nullptr;
+                o_packed_offset_group_range m_range;
+            };
+
+            explicit OffsetGroupRanges(const std::vector<std::uint64_t> &offsets)
+                : m_begin(offsets.data())
+                , m_end(offsets.data() + offsets.size())
+            {
             }
-            return checkedUint32(groupCount, "Offset index group count");
-        }
+
+            const_iterator begin() const
+            {
+                return const_iterator(m_begin, m_end);
+            }
+
+            const_iterator end() const
+            {
+                return const_iterator(m_end, m_end);
+            }
+
+        private:
+            const std::uint64_t *m_begin = nullptr;
+            const std::uint64_t *m_end = nullptr;
+        };
     }
 
     o_packed_offset_group::o_packed_offset_group(const std::uint64_t *begin, const std::uint64_t *end)
@@ -114,6 +175,11 @@ namespace db0::object_model
         for (auto *it = begin; it != end; ++it) {
             writePacked64WithWidth(cursor, *it, packedSize);
         }
+    }
+
+    o_packed_offset_group::o_packed_offset_group(o_packed_offset_group_range range)
+        : o_packed_offset_group(range.begin, range.end)
+    {
     }
 
     std::uint32_t o_packed_offset_group::size() const
@@ -196,6 +262,11 @@ namespace db0::object_model
             (static_cast<std::size_t>(packedSize) * count);
     }
 
+    std::size_t o_packed_offset_group::measure(o_packed_offset_group_range range)
+    {
+        return measure(range.begin, range.end);
+    }
+
     const db0::packed_int32 &o_packed_offset_group::packedSizeMember() const
     {
         return getDynFirst(db0::packed_int32::type());
@@ -217,19 +288,8 @@ namespace db0::object_model
     }
 
     o_packed_offset_index::o_packed_offset_index(const std::vector<std::uint64_t> &offsets)
-        : super_t()
+        : super_t(OffsetGroupRanges(offsets))
     {
-        auto &list = getSuper();
-        list.count = countInputGroups(offsets);
-        auto *listBegin = reinterpret_cast<std::byte *>(&list);
-        auto arranger = db0::Foundation::Arranger(listBegin, listBegin + list_t::measure());
-        auto *groupBegin = offsets.data();
-        auto *end = groupBegin + offsets.size();
-        while (groupBegin < end) {
-            auto *groupStart = scanInputGroup(groupBegin, end);
-            arranger = arranger(o_packed_offset_group::type(), groupStart, groupBegin);
-        }
-        list.size_of = arranger;
     }
 
     std::size_t o_packed_offset_index::size() const
@@ -262,13 +322,6 @@ namespace db0::object_model
 
     std::size_t o_packed_offset_index::measure(const std::vector<std::uint64_t> &offsets)
     {
-        auto result = list_t::measure();
-        auto *groupBegin = offsets.data();
-        auto *end = groupBegin + offsets.size();
-        while (groupBegin < end) {
-            auto *groupStart = scanInputGroup(groupBegin, end);
-            result += o_packed_offset_group::measure(groupStart, groupBegin);
-        }
-        return result;
+        return list_t::measure(OffsetGroupRanges(offsets));
     }
 }

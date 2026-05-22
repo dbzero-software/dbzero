@@ -16,6 +16,12 @@ namespace db0::object_model
 {
 
 DB0_PACKED_BEGIN
+    struct o_packed_offset_group_range
+    {
+        const std::uint64_t *begin = nullptr;
+        const std::uint64_t *end = nullptr;
+    };
+
     class DB0_PACKED_ATTR o_packed_offset_group: public db0::o_base<o_packed_offset_group, 0, false>
     {
     protected:
@@ -24,6 +30,7 @@ DB0_PACKED_BEGIN
 
     public:
         o_packed_offset_group(const std::uint64_t *begin, const std::uint64_t *end);
+        explicit o_packed_offset_group(o_packed_offset_group_range range);
 
         std::uint32_t size() const;
         bool empty() const;
@@ -36,6 +43,7 @@ DB0_PACKED_BEGIN
         std::size_t sizeOf() const;
 
         static std::size_t measure(const std::uint64_t *begin, const std::uint64_t *end);
+        static std::size_t measure(o_packed_offset_group_range range);
 
         template <typename BufT> static std::size_t safeSizeOf(BufT buf)
         {
@@ -58,10 +66,10 @@ DB0_PACKED_END
 
 DB0_PACKED_BEGIN
     class DB0_PACKED_ATTR o_packed_offset_index:
-        public db0::o_ext<o_packed_offset_index, db0::o_list<o_packed_offset_group>, 0, false>
+        public db0::o_ext<o_packed_offset_index, db0::o_list<o_packed_offset_group, true>, 0, false>
     {
     public:
-        using list_t = db0::o_list<o_packed_offset_group>;
+        using list_t = db0::o_list<o_packed_offset_group, true>;
         using super_t = db0::o_ext<o_packed_offset_index, list_t, 0, false>;
         using const_iterator = list_t::const_iterator;
 

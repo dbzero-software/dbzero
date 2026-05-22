@@ -22,7 +22,7 @@ namespace tests
 
     static_assert(
         std::is_base_of<
-            db0::o_ext<o_packed_offset_index, db0::o_list<o_packed_offset_group>, 0, false>,
+            db0::o_ext<o_packed_offset_index, db0::o_list<o_packed_offset_group, true>, 0, false>,
             o_packed_offset_index
         >::value,
         "Derived overlaid types must use o_ext"
@@ -223,7 +223,7 @@ namespace tests
         v_object<o_packed_offset_index> oneByteIndex(memspace, oneByteOffsets);
         v_object<o_packed_offset_index> mixedIndex(memspace, mixedOffsets);
 
-        ASSERT_LE(oneByteIndex->sizeOf(), 20u);
+        ASSERT_EQ(oneByteIndex->sizeOf(), 7u);
         ASSERT_LT(oneByteIndex->sizeOf(), mixedIndex->sizeOf());
         ASSERT_EQ(oneByteIndex->sizeOf(), o_packed_offset_index::safeSizeOf(
             reinterpret_cast<const std::byte *>(oneByteIndex.getData())
