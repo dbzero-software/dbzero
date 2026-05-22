@@ -72,11 +72,37 @@ namespace db0::python
         return *m_type;
     }
 
+    db0::swine_ptr<Fixture> EmbeddedObjectRef::fixture() const
+    {
+        return reinterpret_cast<MemoImmutableObject *>(m_root_object)->ext().getFixture();
+    }
+
+    std::uint64_t EmbeddedObjectRef::offset() const
+    {
+        const auto *root = reinterpret_cast<const std::byte *>(
+            reinterpret_cast<MemoImmutableObject *>(m_root_object)->ext().operator->()
+        );
+        const auto *embedded = reinterpret_cast<const std::byte *>(m_embedded_object);
+        assert(root <= embedded);
+        return static_cast<std::uint64_t>(embedded - root);
+    }
+
+    db0::Address EmbeddedObjectRef::address() const
+    {
+        return reinterpret_cast<MemoImmutableObject *>(m_root_object)->ext().getAddress() + offset();
+    }
+
+    db0::UniqueAddress EmbeddedObjectRef::uniqueAddress() const
+    {
+        auto rootUniqueAddress = reinterpret_cast<MemoImmutableObject *>(m_root_object)->ext().getUniqueAddress();
+        return db0::UniqueAddress(address(), rootUniqueAddress.getInstanceId());
+    }
+
     namespace
     {
         EmbeddedObjectRef &embeddedMemoRef(MemoImmutableObject *object)
         {
-            return *reinterpret_cast<EmbeddedObjectRef *>(const_cast<MemoImmutableObject::ExtT *>(&object->ext()));
+            return getEmbeddedMemoRef(object);
         }
 
         db0::swine_ptr<Fixture> getRootFixture(PyObject *rootObject)
@@ -693,5 +719,40 @@ namespace db0::python
     bool PyEmbeddedMemo_Check(PyObject *object)
     {
         return object && PyEmbeddedMemoType_Check(Py_TYPE(object));
+    }
+
+    EmbeddedObjectRef &getEmbeddedMemoRef(MemoImmutableObject *object)
+    {
+        return *reinterpret_cast<EmbeddedObjectRef *>(const_cast<MemoImmutableObject::ExtT *>(&object->ext()));
+    }
+
+    const EmbeddedObjectRef &getEmbeddedMemoRef(const MemoImmutableObject *object)
+    {
+        return *reinterpret_cast<const EmbeddedObjectRef *>(&object->ext());
+    }
+
+    db0::swine_ptr<Fixture> getEmbeddedMemoFixture(PyObject *object)
+    {
+        assert(PyEmbeddedMemo_Check(object));
+        return getEmbeddedMemoRef(reinterpret_cast<MemoImmutableObject *>(object)).fixture();
+    }
+
+    db0::Address getEmbeddedMemoAddress(PyObject *object)
+    {
+        assert(PyEmbeddedMemo_Check(object));
+        return getEmbeddedMemoRef(reinterpret_cast<MemoImmutableObject *>(object)).address();
+    }
+
+    db0::UniqueAddress getEmbeddedMemoUniqueAddress(PyObject *object)
+    {
+        assert(PyEmbeddedMemo_Check(object));
+        return getEmbeddedMemoRef(reinterpret_cast<MemoImmutableObject *>(object)).uniqueAddress();
+    }
+
+    void incEmbeddedMemoRef(PyObject *object, bool isTag)
+    {
+        assert(PyEmbeddedMemo_Check(object));
+        auto *rootObject = getEmbeddedMemoRef(reinterpret_cast<MemoImmutableObject *>(object)).rootObject();
+        reinterpret_cast<MemoImmutableObject *>(rootObject)->modifyExt().incRef(isTag);
     }
 }

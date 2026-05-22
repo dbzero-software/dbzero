@@ -193,8 +193,10 @@ namespace db0
         db0::swine_ptr<db0::Fixture> &fixture, ObjectPtr lang_value)
     {
         assert(pre_storage_class == PreStorageClass::OBJECT_WEAK_REF || pre_storage_class == PreStorageClass::OBJECT_REF);
-        const auto &obj = LangToolkit::getTypeManager().extractAnyObject(lang_value);
-        if (*obj.getFixture() != *fixture.get()) {
+        const auto &typeManager = LangToolkit::getTypeManager();
+        const auto objFixture = typeManager.extractObjectFixture(lang_value);
+        if (*objFixture != *fixture.get()) {
+            typeManager.validateForeignObjectReference(lang_value);
             // must use long weak-ref instead, since referenced object is from a foreign prefix
             return StorageClass::OBJECT_LONG_WEAK_REF;
         }
@@ -206,8 +208,10 @@ namespace db0
     {
         
         assert(pre_storage_class == PreStorageClass::OBJECT_WEAK_REF || pre_storage_class == PreStorageClass::OBJECT_REF);
-        const auto &obj = LangToolkit::getTypeManager().extractAnyObject(lang_value);
-        if (*obj.getFixture() != fixture) {
+        const auto &typeManager = LangToolkit::getTypeManager();
+        const auto objFixture = typeManager.extractObjectFixture(lang_value);
+        if (*objFixture != fixture) {
+            typeManager.validateForeignObjectReference(lang_value);
             // must use long weak-ref instead, since referenced object is from a foreign prefix
             return StorageClass::OBJECT_LONG_WEAK_REF;
         }

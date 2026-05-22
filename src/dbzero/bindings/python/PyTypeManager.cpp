@@ -7,6 +7,7 @@
 #include <chrono>
 #include "Memo.hpp"
 #include "PyWeakProxy.hpp"
+#include <dbzero/bindings/python/embedded/EmbeddedObject.hpp>
 #include <dbzero/bindings/python/collections/PyList.hpp>
 #include <dbzero/bindings/python/collections/PySet.hpp>
 #include <dbzero/bindings/python/collections/PyWeakSet.hpp>
@@ -140,6 +141,9 @@ namespace db0::python
         if (PyMemoType_Check<MemoImmutableObject>(py_type)) {
             return TypeId::MEMO_IMMUTABLE_OBJECT;
         }
+        if (PyEmbeddedMemoType_Check(py_type)) {
+            return TypeId::MEMO_IMMUTABLE_OBJECT;
+        }
         
         // check with the static types next
         auto it = m_id_map.find(reinterpret_cast<PyObject*>(py_type));
@@ -220,6 +224,39 @@ namespace db0::python
             THROWF(db0::InputException) << "Expected a memo object" << THROWF_END;
         }
         return reinterpret_cast<MemoAnyObject*>(obj_ptr)->modifyExt();
+    }
+
+    db0::swine_ptr<db0::Fixture> PyTypeManager::extractObjectFixture(ObjectPtr obj_ptr) const
+    {
+        if (PyEmbeddedMemo_Check(obj_ptr)) {
+            return getEmbeddedMemoFixture(obj_ptr);
+        }
+        return extractAnyObject(obj_ptr).getFixture();
+    }
+
+    void PyTypeManager::validateForeignObjectReference(ObjectPtr obj_ptr) const
+    {
+        if (PyEmbeddedMemo_Check(obj_ptr)) {
+            THROWF(db0::InputException)
+                << "Embedded immutable object references cannot cross prefixes";
+        }
+    }
+
+    db0::UniqueAddress PyTypeManager::extractObjectUniqueAddress(ObjectPtr obj_ptr) const
+    {
+        if (PyEmbeddedMemo_Check(obj_ptr)) {
+            return getEmbeddedMemoUniqueAddress(obj_ptr);
+        }
+        return extractAnyObject(obj_ptr).getUniqueAddress();
+    }
+
+    void PyTypeManager::incObjectRef(ObjectPtr obj_ptr) const
+    {
+        if (PyEmbeddedMemo_Check(obj_ptr)) {
+            incEmbeddedMemoRef(obj_ptr, false);
+            return;
+        }
+        extractMutableAnyObject(obj_ptr).incRef(false);
     }
     
     template <typename MemoImplT> typename MemoImplT::ExtT &

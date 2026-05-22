@@ -4,6 +4,7 @@
 #include "PyInternalAPI.hpp"
 #include "PyToolkit.hpp"
 #include "Memo.hpp"
+#include <dbzero/bindings/python/embedded/EmbeddedObject.hpp>
 #include <dbzero/object_model/class/ClassFactory.hpp>
 #include <dbzero/object_model/class/Class.hpp>
 #include <dbzero/object_model/object/Object.hpp>
@@ -677,6 +678,9 @@ namespace db0::python
     
     PyObject *tryGetAddress(PyObject *py_obj)
     {
+        if (PyEmbeddedMemo_Check(py_obj)) {
+            return PyLong_FromUnsignedLongLong(getEmbeddedMemoAddress(py_obj).getValue());
+        }
         if (PyAnyMemo_Check(py_obj)) {
             return PyLong_FromUnsignedLongLong(
                 reinterpret_cast<MemoAnyObject*>(py_obj)->ext().getAddress().getValue()

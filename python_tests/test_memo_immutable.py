@@ -173,8 +173,55 @@ def test_prebound_immutable_nested_object_embeds_into_owner(db0_fixture):
     assert inner.count == 8
     assert isinstance(inner, MemoImmutableNestedPayload)
     assert db0.is_memo(inner)
-    with pytest.raises(Exception):
-        db0.uuid(inner)
+    assert db0.uuid(inner) != db0.uuid(obj)
+
+
+@pytest.mark.skip(
+    reason="TODO: embedded immutable references can be created, but unreferencing by inner address is not implemented yet."
+)
+def test_regular_memo_can_reference_embedded_immutable_nested_object(db0_fixture):
+    outer = MemoImmutableNestedHolder(name="referenced child", count=21, label="root")
+    db0.tags(outer).add("keep-reference-source")
+    inner = outer.nested
+
+    holder = MemoSetReferenceHolder(inner)
+
+    assert db0.uuid(inner) != db0.uuid(outer)
+    assert db0.uuid(holder)
+
+
+@pytest.mark.skip(
+    reason="TODO: embedded immutable references can be created, but unreferencing by inner address is not implemented yet."
+)
+def test_db0_collections_can_store_embedded_immutable_nested_object_reference(db0_fixture):
+    outer = MemoImmutableNestedHolder(name="collection child", count=22, label="root")
+    db0.tags(outer).add("keep-collection-source")
+    inner = outer.nested
+
+    list_holder = MemoSetReferenceHolder(db0.list([inner]))
+    set_holder = MemoSetReferenceHolder(db0.set([inner]))
+    dict_holder = MemoSetReferenceHolder(db0.dict({"child": inner, inner: "value"}))
+
+    assert db0.uuid(inner) != db0.uuid(outer)
+    assert db0.uuid(list_holder)
+    assert db0.uuid(set_holder)
+    assert db0.uuid(dict_holder)
+
+
+@pytest.mark.skip(
+    reason="TODO: embedded immutable references can be created, but unreferencing by inner address is not implemented yet."
+)
+def test_index_can_store_embedded_immutable_nested_object_reference(db0_fixture):
+    outer = MemoImmutableNestedHolder(name="index child", count=23, label="root")
+    db0.tags(outer).add("keep-index-source")
+    inner = outer.nested
+    index = db0.index()
+
+    index.add(1, inner)
+    index.flush()
+
+    assert db0.uuid(inner) != db0.uuid(outer)
+    assert len(index) == 1
 
 
 def test_read_embedded_tuple_field(db0_fixture):
@@ -216,8 +263,7 @@ def test_embedded_tuple_with_prebound_immutable_object_element(db0_fixture):
     assert inner.count == 11
     assert isinstance(inner, MemoImmutableNestedPayload)
     assert db0.is_memo(inner)
-    with pytest.raises(Exception):
-        db0.uuid(inner)
+    assert db0.uuid(inner) != db0.uuid(obj)
 
 
 def test_read_embedded_set_field_after_reopen(db0_fixture):
@@ -258,8 +304,7 @@ def test_embedded_set_with_prebound_immutable_object_element(db0_fixture):
     assert inner.count == 13
     assert isinstance(inner, MemoImmutableNestedPayload)
     assert db0.is_memo(inner)
-    with pytest.raises(Exception):
-        db0.uuid(inner)
+    assert db0.uuid(inner) != db0.uuid(obj)
 
 
 def test_python_set_lookup_survives_prebound_immutable_object_embedding(db0_fixture):
@@ -271,8 +316,7 @@ def test_python_set_lookup_survives_prebound_immutable_object_embedding(db0_fixt
     assert inner in values
     assert "marker" in values
     assert inner.name == "python set embedded child"
-    with pytest.raises(Exception):
-        db0.uuid(inner)
+    assert db0.uuid(inner) != db0.uuid(obj)
 
 
 def test_python_set_accepts_transient_immutable_object(db0_fixture):
@@ -385,8 +429,7 @@ def test_embedded_dict_with_prebound_immutable_object_value(db0_fixture):
     assert inner.count == 37
     assert isinstance(inner, MemoImmutableNestedPayload)
     assert db0.is_memo(inner)
-    with pytest.raises(Exception):
-        db0.uuid(inner)
+    assert db0.uuid(inner) != db0.uuid(obj)
 
 
 def test_embedded_dict_with_prebound_immutable_object_key(db0_fixture):
@@ -400,8 +443,7 @@ def test_embedded_dict_with_prebound_immutable_object_key(db0_fixture):
     assert inner in obj.payload
     assert inner.name == "dict key child"
     assert inner.count == 41
-    with pytest.raises(Exception):
-        db0.uuid(inner)
+    assert db0.uuid(inner) != db0.uuid(obj)
 
 
 def test_embedded_dict_recursively_exposes_nested_collections(db0_fixture):

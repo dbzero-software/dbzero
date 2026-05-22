@@ -16,6 +16,7 @@
 // FIXME: remove Python dependency
 #include <dbzero/bindings/python/PySafeAPI.hpp>
 #include <dbzero/bindings/python/PyWeakProxy.hpp>
+#include <dbzero/bindings/python/embedded/EmbeddedObject.hpp>
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/object_model/object/ObjectAnyImpl.hpp>
 #include <dbzero/object_model/object/ObjectImmutableImpl.hpp>
@@ -85,6 +86,8 @@ namespace db0::object_model
         return db0::v_object<db0::o_string>(*fixture, PyUnicode_AsUTF8(obj_ptr), access_mode).getAddress();
     }
     
+    struct EmbeddedMemoObject {};
+
     // OBJECT specialization (mutable or immutable)
     template <typename MemoObjectT> Value createObjectMember(db0::swine_ptr<Fixture> &fixture,
         PyObjectPtr obj_ptr, StorageClass storage_class, AccessFlags access_flags)
@@ -94,6 +97,29 @@ namespace db0::object_model
         // auto_harden=false: moveTo is not implemented for MEMO_OBJECT types;
         // cross-prefix objects are handled by auto-wrap (weak proxy) instead
         return resolveForFixture(fixture, obj, obj_ptr, storage_class, access_flags, false);
+    }
+
+    template <> Value createObjectMember<EmbeddedMemoObject>(db0::swine_ptr<Fixture> &fixture,
+        PyObjectPtr obj_ptr, StorageClass, AccessFlags)
+    {
+        assert(db0::python::PyEmbeddedMemo_Check(obj_ptr));
+        auto embeddedFixture = db0::python::getEmbeddedMemoFixture(obj_ptr);
+        if (*embeddedFixture != *fixture) {
+            THROWF(db0::InputException)
+                << "Embedded immutable object references cannot cross prefixes";
+        }
+        db0::python::incEmbeddedMemoRef(obj_ptr, false);
+        return db0::python::getEmbeddedMemoAddress(obj_ptr);
+    }
+
+    Value createMemoImmutableObjectMember(db0::swine_ptr<Fixture> &fixture,
+        PyObjectPtr obj_ptr, StorageClass storage_class, AccessFlags access_flags)
+    {
+        using MemoImmutableObject = PyToolkit::TypeManager::MemoImmutableObject;
+        if (db0::python::PyEmbeddedMemo_Check(obj_ptr)) {
+            return createObjectMember<EmbeddedMemoObject>(fixture, obj_ptr, storage_class, access_flags);
+        }
+        return createObjectMember<MemoImmutableObject>(fixture, obj_ptr, storage_class, access_flags);
     }
 
     // LIST specialization
@@ -356,7 +382,6 @@ namespace db0::object_model
         std::vector<Value (*)(db0::swine_ptr<Fixture> &, PyObjectPtr, StorageClass, AccessFlags)> &functions)
     {
         using MemoObject = PyToolkit::TypeManager::MemoObject;
-        using MemoImmutableObject = PyToolkit::TypeManager::MemoImmutableObject;
         
         functions.resize(static_cast<int>(TypeId::COUNT));
         std::fill(functions.begin(), functions.end(), nullptr);
@@ -365,7 +390,7 @@ namespace db0::object_model
         functions[static_cast<int>(TypeId::FLOAT)] = createMember<TypeId::FLOAT, PyToolkit>;
         functions[static_cast<int>(TypeId::STRING)] = createMember<TypeId::STRING, PyToolkit>;
         functions[static_cast<int>(TypeId::MEMO_OBJECT)] = createObjectMember<MemoObject>;
-        functions[static_cast<int>(TypeId::MEMO_IMMUTABLE_OBJECT)] = createObjectMember<MemoImmutableObject>;
+        functions[static_cast<int>(TypeId::MEMO_IMMUTABLE_OBJECT)] = createMemoImmutableObjectMember;
         functions[static_cast<int>(TypeId::DB0_LIST)] = createMember<TypeId::DB0_LIST, PyToolkit>;
         functions[static_cast<int>(TypeId::DB0_INDEX)] = createMember<TypeId::DB0_INDEX, PyToolkit>;
         functions[static_cast<int>(TypeId::DB0_SET)] = createMember<TypeId::DB0_SET, PyToolkit>;

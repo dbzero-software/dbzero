@@ -7,6 +7,7 @@
 #include "MemoExpiredRef.hpp"
 #include "PyAPI.hpp"
 #include "PyInternalAPI.hpp"
+#include <dbzero/bindings/python/embedded/EmbeddedObject.hpp>
 #include <dbzero/bindings/python/types/PyEnum.hpp>
 #include <dbzero/bindings/python/types/PyObjectId.hpp>
 #include <dbzero/bindings/python/collections/PyList.hpp>
@@ -34,6 +35,9 @@ namespace db0::python
 
     // IMMUTABLE OBJECT specialization
     template <> db0::swine_ptr<Fixture> getFixtureOf<TypeId::MEMO_IMMUTABLE_OBJECT>(PyObject *py_value) {
+        if (PyEmbeddedMemo_Check(py_value)) {
+            return getEmbeddedMemoFixture(py_value);
+        }
         return reinterpret_cast<MemoImmutableObject*>(py_value)->ext().getFixture();
     }
 
@@ -147,6 +151,16 @@ namespace db0::python
 
     // IMMUTABLE OBJECT specialization
     template <> PyObject *tryGetUUID<TypeId::MEMO_IMMUTABLE_OBJECT>(PyObject *py_value) {
+        if (PyEmbeddedMemo_Check(py_value)) {
+            db0::object_model::ObjectId object_id;
+            object_id.m_fixture_uuid = getEmbeddedMemoFixture(py_value)->getUUID();
+            object_id.m_address = getEmbeddedMemoUniqueAddress(py_value);
+            object_id.m_storage_class = getStorageClass<MemoImmutableObject>();
+
+            char buffer[ObjectId::maxEncodedSize() + 1];
+            object_id.toBase32(buffer);
+            return PyUnicode_FromString(buffer);
+        }
         return tryGetUUIDOf(reinterpret_cast<MemoImmutableObject*>(py_value));
     }
 

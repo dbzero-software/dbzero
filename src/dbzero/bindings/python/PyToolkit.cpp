@@ -170,6 +170,9 @@ namespace db0::python
 
     bool PyToolkit::hasMemoInstance(ObjectPtr pyObject)
     {
+        if (PyEmbeddedMemo_Check(pyObject)) {
+            return true;
+        }
         if (PyMemo_Check<MemoImmutableObject>(pyObject)) {
             return reinterpret_cast<MemoImmutableObject *>(pyObject)->ext().hasInstance();
         }
@@ -178,6 +181,9 @@ namespace db0::python
 
     UniqueAddress PyToolkit::getMemoUniqueAddress(ObjectPtr pyObject)
     {
+        if (PyEmbeddedMemo_Check(pyObject)) {
+            return getEmbeddedMemoUniqueAddress(pyObject);
+        }
         if (PyMemo_Check<MemoImmutableObject>(pyObject)) {
             return reinterpret_cast<MemoImmutableObject *>(pyObject)->ext().getUniqueAddress();
         }
@@ -186,6 +192,9 @@ namespace db0::python
 
     bool PyToolkit::isMemoDead(ObjectPtr pyObject)
     {
+        if (PyEmbeddedMemo_Check(pyObject)) {
+            return false;
+        }
         if (PyMemo_Check<MemoImmutableObject>(pyObject)) {
             return reinterpret_cast<MemoImmutableObject *>(pyObject)->ext().isDead();
         }
@@ -194,6 +203,9 @@ namespace db0::python
 
     bool PyToolkit::isMemoDropped(ObjectPtr pyObject)
     {
+        if (PyEmbeddedMemo_Check(pyObject)) {
+            return false;
+        }
         if (PyMemo_Check<MemoImmutableObject>(pyObject)) {
             return reinterpret_cast<MemoImmutableObject *>(pyObject)->ext().isDropped();
         }
@@ -202,6 +214,9 @@ namespace db0::python
 
     bool PyToolkit::hasMemoAnyRefs(ObjectPtr pyObject)
     {
+        if (PyEmbeddedMemo_Check(pyObject)) {
+            return true;
+        }
         if (PyMemo_Check<MemoImmutableObject>(pyObject)) {
             return reinterpret_cast<MemoImmutableObject *>(pyObject)->ext().hasAnyRefs();
         }
@@ -210,6 +225,9 @@ namespace db0::python
 
     const object_model::Class &PyToolkit::getMemoType(ObjectPtr pyObject)
     {
+        if (PyEmbeddedMemo_Check(pyObject)) {
+            return getEmbeddedMemoRef(reinterpret_cast<MemoImmutableObject *>(pyObject)).type();
+        }
         if (PyMemo_Check<MemoImmutableObject>(pyObject)) {
             return reinterpret_cast<MemoImmutableObject *>(pyObject)->ext().getType();
         }
@@ -893,7 +911,7 @@ namespace db0::python
     }
 
     bool PyToolkit::isAnyMemoObject(ObjectPtr py_object) {
-        return PyAnyMemo_Check(py_object);
+        return PyAnyMemo_Check(py_object) || PyEmbeddedMemo_Check(py_object);
     }
 
     bool PyToolkit::isMemoObject(ObjectPtr py_object) {
@@ -901,7 +919,7 @@ namespace db0::python
     }
 
     bool PyToolkit::isMemoImmutableObject(ObjectPtr py_object) {
-        return PyMemo_Check<MemoImmutableObject>(py_object);
+        return PyMemo_Check<MemoImmutableObject>(py_object) || PyEmbeddedMemo_Check(py_object);
     }
     
     PyToolkit::ObjectPtr PyToolkit::getUUID(ObjectPtr py_object) {
@@ -947,6 +965,8 @@ namespace db0::python
             return reinterpret_cast<PyEnumValue*>(py_object)->ext().m_fixture.safe_lock()->getUUID();
         } else if (PyAnyMemo_Check(py_object)) {
             return reinterpret_cast<MemoAnyObject*>(py_object)->ext().getFixture()->getUUID();
+        } else if (PyEmbeddedMemo_Check(py_object)) {
+            return getEmbeddedMemoFixture(py_object)->getUUID();
         } else if (PyObjectIterable_Check(py_object)) {
             return reinterpret_cast<PyObjectIterable*>(py_object)->ext().getFixture()->getUUID();
         } else if (PyObjectIterator_Check(py_object)) {
