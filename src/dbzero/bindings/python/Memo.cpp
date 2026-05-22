@@ -308,11 +308,11 @@ namespace db0::python
 
             // invoke post-init on associated dbzero object
             auto &object = self->modifyExt();
-            db0::FixtureLock fixture(object.getFixture());            
-            object.postInit(fixture);
+            db0::FixtureLock fixture(object.getFixture());
             if constexpr (std::is_same_v<MemoImplT, MemoImmutableObject>) {
                 object.setLangObject(reinterpret_cast<PyObject *>(self));
             }
+            object.postInit(fixture);
             
             // need to call modifyExt again after postInit because the instance has just been created
             // and potentially needs to be included in the AtomicContext

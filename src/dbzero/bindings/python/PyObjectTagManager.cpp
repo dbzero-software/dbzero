@@ -4,6 +4,7 @@
 #include "PyObjectTagManager.hpp"
 #include "Memo.hpp"
 #include "PyInternalAPI.hpp"
+#include "PyToolkit.hpp"
 
 namespace db0::python
 
@@ -103,7 +104,7 @@ namespace db0::python
     {
         // all arguments must be Memo objects
         for (Py_ssize_t i = 0; i < nargs; ++i) {
-            if (!PyAnyMemo_Check(args[i])) {
+            if (!PyToolkit::isAnyMemoObject(args[i])) {
                 THROWF(db0::InputException) << "All arguments must be dbzero memo objects";
             }
             if (PyMemo_Check<MemoObject>(args[i])) {

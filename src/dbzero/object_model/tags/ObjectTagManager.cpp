@@ -90,11 +90,12 @@ namespace db0::object_model
     
     ObjectTagManager::ObjectInfo::ObjectInfo(ObjectPtr memo_ptr)
         : m_lang_ptr(memo_ptr)
-        , m_object_ptr(&ObjectTagManager::LangToolkit::getTypeManager().extractAnyObject(memo_ptr))
-        , m_tag_index_ptr(&m_object_ptr->getFixture()->get<TagIndex>())
-        , m_type(m_object_ptr->getClassPtr())
-        , m_access_mode(m_object_ptr->getFixture()->getAccessType())
-        , m_has_tags(LangToolkit::hasTagRefs(memo_ptr))
+        , m_fixture(ObjectTagManager::LangToolkit::getTypeManager().extractObjectFixture(memo_ptr))
+        , m_tag_index_ptr(&m_fixture->get<TagIndex>())
+        , m_type(&LangToolkit::getMemoType(memo_ptr))
+        , m_access_mode(m_fixture->getAccessType())
+        , m_is_embedded(LangToolkit::isEmbeddedMemoObject(memo_ptr))
+        , m_has_tags(!m_is_embedded && LangToolkit::hasTagRefs(memo_ptr))
     {
     }    
 
@@ -136,7 +137,7 @@ namespace db0::object_model
             while (type) {
                 // also add type as tag (once)
                 tag_index.addTag(m_lang_ptr.get(), type->getAddress(), true);
-                type = type->tryGetBaseClass();
+                type = type->getBaseClassPtr();
             }
             m_has_tags = true;
         }
@@ -246,7 +247,7 @@ namespace db0::object_model
     }
     
     db0::swine_ptr<Fixture> ObjectTagManager::ObjectInfo::getFixture() const {
-        return m_object_ptr ? m_object_ptr->getFixture() : db0::swine_ptr<Fixture>();
+        return m_fixture;
     }
  
     void ObjectTagManager::onUpdated()

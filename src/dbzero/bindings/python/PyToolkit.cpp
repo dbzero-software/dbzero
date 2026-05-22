@@ -973,6 +973,10 @@ namespace db0::python
         return PyAnyMemo_Check(py_object) || PyEmbeddedMemo_Check(py_object);
     }
 
+    bool PyToolkit::isEmbeddedMemoObject(ObjectPtr py_object) {
+        return PyEmbeddedMemo_Check(py_object);
+    }
+
     bool PyToolkit::isMemoObject(ObjectPtr py_object) {
         return PyMemo_Check<MemoObject>(py_object);
     }
@@ -1330,7 +1334,9 @@ namespace db0::python
 
     void PyToolkit::incRefMemo(bool is_tag, ObjectPtr py_object)
     {
-        if (PyMemo_Check<MemoObject>(py_object)) {
+        if (PyEmbeddedMemo_Check(py_object)) {
+            incEmbeddedMemoRef(py_object, is_tag);
+        } else if (PyMemo_Check<MemoObject>(py_object)) {
             incRefMemoImpl<MemoObject>(is_tag, reinterpret_cast<MemoObject*>(py_object));
         } else if (PyMemo_Check<MemoImmutableObject>(py_object)) {
             incRefMemoImpl<MemoImmutableObject>(is_tag, reinterpret_cast<MemoImmutableObject*>(py_object));
@@ -1350,7 +1356,10 @@ namespace db0::python
 
     bool PyToolkit::decRefMemo(bool is_tag, ObjectPtr py_object)
     {
-        if (PyMemo_Check<MemoObject>(py_object)) {
+        if (PyEmbeddedMemo_Check(py_object)) {
+            auto *rootObject = getEmbeddedMemoRef(reinterpret_cast<MemoImmutableObject *>(py_object)).rootObject();
+            return decRefMemoImpl<MemoImmutableObject>(is_tag, reinterpret_cast<MemoImmutableObject*>(rootObject));
+        } else if (PyMemo_Check<MemoObject>(py_object)) {
             return decRefMemoImpl<MemoObject>(is_tag, reinterpret_cast<MemoObject*>(py_object));
         } else if (PyMemo_Check<MemoImmutableObject>(py_object)) {
             return decRefMemoImpl<MemoImmutableObject>(is_tag, reinterpret_cast<MemoImmutableObject*>(py_object));

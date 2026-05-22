@@ -833,6 +833,14 @@ namespace db0::python
         if (!memo_obj->ext().getType().isNoCache()) {
             fixture->getLangCache().add(memo_obj->ext().getAddress(), memo_obj);
         }
+        const object_model::Class *class_ptr = &memo_obj->ext().getType();
+        if (class_ptr->assignDefaultTags()) {
+            auto &tag_index = fixture->get<object_model::TagIndex>();
+            while (class_ptr) {
+                tag_index.addTag(reinterpret_cast<PyObject *>(memo_obj), class_ptr->getAddress(), true);
+                class_ptr = class_ptr->getBaseClassPtr();
+            }
+        }
         Py_INCREF(memo_obj);
         return memo_obj;
     }

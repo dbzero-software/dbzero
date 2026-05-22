@@ -292,10 +292,72 @@ namespace db0::object_model
     {
     }
 
+    o_packed_offset_index::const_iterator::const_iterator(
+        list_t::const_iterator group, list_t::const_iterator end
+    )
+        : m_group(group)
+        , m_end(end)
+    {
+        skipEmptyGroups();
+    }
+
+    void o_packed_offset_index::const_iterator::skipEmptyGroups()
+    {
+        while (m_group != m_end && m_group->empty()) {
+            ++m_group;
+        }
+        if (m_group == m_end) {
+            m_index = 0;
+        }
+    }
+
+    std::uint64_t o_packed_offset_index::const_iterator::operator*() const
+    {
+        return m_group->at(m_index);
+    }
+
+    o_packed_offset_index::const_iterator &o_packed_offset_index::const_iterator::operator++()
+    {
+        ++m_index;
+        if (m_group != m_end && m_index >= m_group->size()) {
+            ++m_group;
+            m_index = 0;
+            skipEmptyGroups();
+        }
+        return *this;
+    }
+
+    o_packed_offset_index::const_iterator o_packed_offset_index::const_iterator::operator++(int)
+    {
+        auto result = *this;
+        ++(*this);
+        return result;
+    }
+
+    bool o_packed_offset_index::const_iterator::operator==(const const_iterator &other) const
+    {
+        return m_group == other.m_group && (m_group == m_end || m_index == other.m_index);
+    }
+
+    bool o_packed_offset_index::const_iterator::operator!=(const const_iterator &other) const
+    {
+        return !(*this == other);
+    }
+
+    o_packed_offset_index::const_iterator o_packed_offset_index::begin() const
+    {
+        return const_iterator(getSuper().begin(), getSuper().end());
+    }
+
+    o_packed_offset_index::const_iterator o_packed_offset_index::end() const
+    {
+        return const_iterator(getSuper().end(), getSuper().end());
+    }
+
     std::size_t o_packed_offset_index::size() const
     {
         std::size_t result = 0;
-        for (auto it = begin(); it != end(); ++it) {
+        for (auto it = getSuper().begin(); it != getSuper().end(); ++it) {
             result += it->size();
         }
         return result;
@@ -308,7 +370,7 @@ namespace db0::object_model
         }
 
         auto targetPackedSize = checkedPackedSize(db0::packed_int64::measure(value));
-        for (auto it = begin(); it != end(); ++it) {
+        for (auto it = getSuper().begin(); it != getSuper().end(); ++it) {
             if (targetPackedSize < it->elementSize()) {
                 return false;
             }

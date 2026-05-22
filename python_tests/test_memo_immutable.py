@@ -181,6 +181,56 @@ class MemoImmutableDeepRoot:
         self.label = "deep-root"
 
 
+@db0.memo(immutable=True)
+class MemoImmutableDefaultTagLeaf:
+    def __init__(self, name, count):
+        self.name = name
+        self.count = count
+
+
+@db0.memo(immutable=True)
+class MemoImmutableDefaultTagMiddle:
+    def __init__(self, name, count):
+        self.name = name
+        self.leaf = MemoImmutableDefaultTagLeaf(name=f"{name}-leaf", count=count)
+
+
+@db0.memo(immutable=True)
+class MemoImmutableDefaultTagRoot:
+    def __init__(self, name, count):
+        self.middle = MemoImmutableDefaultTagMiddle(name=name, count=count)
+        self.label = "default-tag-root"
+
+
+@db0.memo(immutable=True)
+class MemoImmutableDefaultTagBase:
+    def __init__(self, name):
+        self.name = name
+
+
+@db0.memo(immutable=True)
+class MemoImmutableDefaultTagDerived(MemoImmutableDefaultTagBase):
+    def __init__(self, name, count):
+        super().__init__(name)
+        self.count = count
+
+
+@db0.memo(immutable=True)
+class MemoImmutableDefaultTagDerivedLeaf(MemoImmutableDefaultTagDerived):
+    def __init__(self, name, count, marker):
+        super().__init__(name=name, count=count)
+        self.marker = marker
+
+
+@db0.memo(immutable=True)
+class MemoImmutableDefaultTagInheritanceRoot:
+    def __init__(self, name, count):
+        self.child = MemoImmutableDefaultTagDerived(name=name, count=count)
+        self.leaf = MemoImmutableDefaultTagDerivedLeaf(
+            name=f"{name}-leaf", count=count + 1, marker="deep-derived"
+        )
+
+
 @db0.memo(immutable=True, no_default_tags=True)
 class MemoImmutableTupleHolder:
     def __init__(self, payload):
@@ -335,6 +385,252 @@ def test_tag_and_find_immutable_instance(db0_fixture):
     obj_1 = MemoImmutableClass1(data="immutable data", value=42)
     db0.tags(obj_1).add("tag1", "tag2")
     assert list(db0.find("tag1")) == [obj_1]
+
+
+def test_tag_and_find_embedded_immutable_instance(db0_fixture):
+    root = MemoImmutableNestedHolder(name="tagged embedded child", count=106, label="root")
+    root = db0.materialized(root)
+    root_uuid = db0.uuid(root)
+    nested = root.nested
+    nested_uuid = db0.uuid(nested)
+
+    db0.tags(nested).add("embedded-tag")
+
+    result = list(db0.find("embedded-tag"))
+    assert len(result) == 1
+    assert isinstance(result[0], MemoImmutableNestedPayload)
+    assert result[0].name == "tagged embedded child"
+    assert result[0].count == 106
+    assert db0.uuid(result[0]) == nested_uuid
+    assert db0.uuid(result[0]) != root_uuid
+
+
+def test_typed_find_embedded_immutable_instance(db0_fixture):
+    root = MemoImmutableNestedHolder(name="typed tagged embedded child", count=107, label="root")
+    root = db0.materialized(root)
+    db0.uuid(root)
+    nested_uuid = db0.uuid(root.nested)
+
+    db0.tags(root.nested).add("embedded-typed-tag")
+
+    typed_result = list(db0.find(MemoImmutableNestedPayload, "embedded-typed-tag"))
+    root_result = list(db0.find(MemoImmutableNestedHolder, "embedded-typed-tag"))
+    assert len(typed_result) == 1
+    assert typed_result[0].name == "typed tagged embedded child"
+    assert db0.uuid(typed_result[0]) == nested_uuid
+    assert root_result == []
+
+
+def test_tagged_embedded_immutable_instance_survives_reopen(db0_fixture):
+    root = MemoImmutableNestedHolder(name="reopened tagged embedded child", count=108, label="root")
+    root = db0.materialized(root)
+    db0.uuid(root)
+    nested_uuid = db0.uuid(root.nested)
+    db0.tags(root.nested).add("embedded-reopen-tag")
+
+    del root
+    gc.collect()
+    db0.commit()
+    db0.close()
+    db0.init(DB0_DIR)
+    db0.open("my-test-prefix", "rw")
+
+    result = list(db0.find("embedded-reopen-tag"))
+    assert len(result) == 1
+    assert isinstance(result[0], MemoImmutableNestedPayload)
+    assert result[0].name == "reopened tagged embedded child"
+    assert result[0].count == 108
+    assert db0.uuid(result[0]) == nested_uuid
+
+
+def test_tag_and_find_deep_embedded_immutable_instance(db0_fixture):
+    root = MemoImmutableDeepRoot(name="deep tagged embedded", count=109)
+    root = db0.materialized(root)
+    db0.uuid(root)
+    leaf_uuid = db0.uuid(root.middle.leaf)
+
+    db0.tags(root.middle.leaf).add("embedded-deep-tag")
+
+    result = list(db0.find(MemoImmutableDeepLeaf, "embedded-deep-tag"))
+    assert len(result) == 1
+    assert result[0].name == "deep tagged embedded-leaf"
+    assert result[0].count == 109
+    assert db0.uuid(result[0]) == leaf_uuid
+
+
+def test_find_embedded_immutable_instances_by_default_type_tags(db0_fixture):
+    root = db0.materialized(MemoImmutableDefaultTagRoot(name="type-only embedded", count=125))
+    root_uuid = db0.uuid(root)
+    middle_uuid = db0.uuid(root.middle)
+    leaf_uuid = db0.uuid(root.middle.leaf)
+
+    root_result = list(db0.find(MemoImmutableDefaultTagRoot))
+    middle_result = list(db0.find(MemoImmutableDefaultTagMiddle))
+    leaf_result = list(db0.find(MemoImmutableDefaultTagLeaf))
+
+    assert [db0.uuid(item) for item in root_result] == [root_uuid]
+    assert [db0.uuid(item) for item in middle_result] == [middle_uuid]
+    assert middle_result[0].name == "type-only embedded"
+    assert [db0.uuid(item) for item in leaf_result] == [leaf_uuid]
+    assert leaf_result[0].name == "type-only embedded-leaf"
+    assert leaf_result[0].count == 125
+
+
+def test_find_embedded_immutable_instances_by_type_respects_no_default_tags(db0_fixture):
+    root = db0.materialized(MemoImmutableDeepRoot(name="no default type-only embedded", count=126))
+    assert root.middle.leaf.count == 126
+
+    assert list(db0.find(MemoImmutableDeepRoot)) == []
+    assert list(db0.find(MemoImmutableDeepMiddle)) == []
+    assert list(db0.find(MemoImmutableDeepLeaf)) == []
+
+
+def test_find_embedded_immutable_instances_by_base_type_default_tags(db0_fixture):
+    root = db0.materialized(MemoImmutableDefaultTagInheritanceRoot(name="base type embedded", count=127))
+    child_uuid = db0.uuid(root.child)
+    leaf_uuid = db0.uuid(root.leaf)
+
+    base_result = list(db0.find(MemoImmutableDefaultTagBase))
+    derived_result = list(db0.find(MemoImmutableDefaultTagDerived))
+    leaf_result = list(db0.find(MemoImmutableDefaultTagDerivedLeaf))
+
+    assert [db0.uuid(item) for item in base_result] == [child_uuid, leaf_uuid]
+    assert [db0.uuid(item) for item in derived_result] == [child_uuid, leaf_uuid]
+    assert [db0.uuid(item) for item in leaf_result] == [leaf_uuid]
+    assert isinstance(base_result[0], MemoImmutableDefaultTagDerived)
+    assert base_result[0].name == "base type embedded"
+    assert base_result[0].count == 127
+    assert isinstance(base_result[1], MemoImmutableDefaultTagDerivedLeaf)
+    assert base_result[1].name == "base type embedded-leaf"
+    assert base_result[1].count == 128
+    assert base_result[1].marker == "deep-derived"
+
+
+def test_find_mixed_regular_immutable_and_embedded_tagged_instances(db0_fixture):
+    tag = "mixed-tagged-memo-instances"
+    regular = MemoRegularFetchUUIDPayload(name="mixed regular", count=111)
+    immutable = db0.materialized(MemoImmutableClass1(data="mixed immutable", value=112))
+    shallow_root = db0.materialized(MemoImmutableNestedHolder(
+        name="mixed shallow embedded", count=113, label="root"
+    ))
+    deep_root = db0.materialized(MemoImmutableDeepRoot(name="mixed deep embedded", count=114))
+    shallow_embedded = shallow_root.nested
+    deep_embedded = deep_root.middle.leaf
+
+    regular_uuid = db0.uuid(regular)
+    immutable_uuid = db0.uuid(immutable)
+    shallow_uuid = db0.uuid(shallow_embedded)
+    deep_uuid = db0.uuid(deep_embedded)
+    expected_uuids = {regular_uuid, immutable_uuid, shallow_uuid, deep_uuid}
+
+    db0.tags(regular).add(tag)
+    db0.tags(immutable).add(tag)
+    db0.tags(shallow_embedded).add(tag)
+    db0.tags(deep_embedded).add(tag)
+
+    result = list(db0.find(tag))
+    by_uuid = {db0.uuid(item): item for item in result}
+    assert set(by_uuid) == expected_uuids
+
+    assert isinstance(by_uuid[db0.uuid(regular)], MemoRegularFetchUUIDPayload)
+    assert by_uuid[db0.uuid(regular)].name == "mixed regular"
+    assert isinstance(by_uuid[db0.uuid(immutable)], MemoImmutableClass1)
+    assert by_uuid[db0.uuid(immutable)].data == "mixed immutable"
+    assert isinstance(by_uuid[db0.uuid(shallow_embedded)], MemoImmutableNestedPayload)
+    assert by_uuid[db0.uuid(shallow_embedded)].name == "mixed shallow embedded"
+    assert isinstance(by_uuid[db0.uuid(deep_embedded)], MemoImmutableDeepLeaf)
+    assert by_uuid[db0.uuid(deep_embedded)].name == "mixed deep embedded-leaf"
+
+    assert [db0.uuid(item) for item in db0.find(shallow_embedded, tag)] == [db0.uuid(shallow_embedded)]
+    assert [db0.uuid(item) for item in db0.find(deep_embedded, tag)] == [db0.uuid(deep_embedded)]
+
+
+def test_remove_tag_from_embedded_immutable_instance(db0_fixture):
+    root = MemoImmutableNestedHolder(name="remove embedded child", count=110, label="root")
+    root = db0.materialized(root)
+    nested_uuid = db0.uuid(root.nested)
+    db0.tags(root.nested).add("embedded-remove-unsupported-tag")
+
+    assert [db0.uuid(item) for item in db0.find("embedded-remove-unsupported-tag")] == [nested_uuid]
+    assert [db0.uuid(item) for item in db0.find(
+        MemoImmutableNestedPayload, "embedded-remove-unsupported-tag"
+    )] == [nested_uuid]
+
+    db0.tags(root.nested).remove("embedded-remove-unsupported-tag")
+
+    assert list(db0.find("embedded-remove-unsupported-tag")) == []
+    assert list(db0.find(MemoImmutableNestedPayload, "embedded-remove-unsupported-tag")) == []
+
+
+def test_remove_tags_from_deep_embedded_immutable_instance_with_iterable_and_operator(db0_fixture):
+    root = db0.materialized(MemoImmutableDeepRoot(name="deep untag embedded", count=119))
+    leaf_uuid = db0.uuid(root.middle.leaf)
+    tags = db0.tags(root.middle.leaf)
+    tags.add(["embedded-remove-one", "embedded-remove-two", "embedded-remove-three"])
+
+    assert [db0.uuid(item) for item in db0.find("embedded-remove-one")] == [leaf_uuid]
+    assert [db0.uuid(item) for item in db0.find("embedded-remove-two")] == [leaf_uuid]
+    assert [db0.uuid(item) for item in db0.find("embedded-remove-three")] == [leaf_uuid]
+
+    tags.remove(["embedded-remove-one", "embedded-remove-two"])
+    tags -= "embedded-remove-three"
+
+    assert list(db0.find("embedded-remove-one")) == []
+    assert list(db0.find("embedded-remove-two")) == []
+    assert list(db0.find("embedded-remove-three")) == []
+
+
+def test_embedded_immutable_root_drops_after_last_tag_removed(db0_fixture):
+    root = db0.materialized(MemoImmutableNestedHolder(
+        name="drop after embedded untag", count=120, label="root"
+    ))
+    root_uuid = db0.uuid(root)
+    nested = root.nested
+    db0.tags(nested).add("embedded-only-keepalive")
+    del nested
+    del root
+    gc.collect()
+
+    db0.commit()
+    assert db0.exists(root_uuid)
+
+    nested = next(iter(db0.find("embedded-only-keepalive")))
+    db0.tags(nested).remove("embedded-only-keepalive")
+    del nested
+    gc.collect()
+    db0.commit()
+
+    with pytest.raises(Exception):
+        db0.fetch(root_uuid)
+
+
+def test_removing_embedded_tags_preserves_other_mixed_tagged_instances(db0_fixture):
+    tag = "mixed-tag-removal"
+    regular = MemoRegularFetchUUIDPayload(name="mixed remove regular", count=121)
+    immutable = db0.materialized(MemoImmutableClass1(data="mixed remove immutable", value=122))
+    shallow_root = db0.materialized(MemoImmutableNestedHolder(
+        name="mixed remove shallow embedded", count=123, label="root"
+    ))
+    deep_root = db0.materialized(MemoImmutableDeepRoot(name="mixed remove deep embedded", count=124))
+    shallow_embedded = shallow_root.nested
+    deep_embedded = deep_root.middle.leaf
+    regular_uuid = db0.uuid(regular)
+    immutable_uuid = db0.uuid(immutable)
+    shallow_uuid = db0.uuid(shallow_embedded)
+    deep_uuid = db0.uuid(deep_embedded)
+
+    db0.tags(regular).add(tag)
+    db0.tags(immutable).add(tag)
+    db0.tags(shallow_embedded).add(tag)
+    db0.tags(deep_embedded).add(tag)
+    assert {db0.uuid(item) for item in db0.find(tag)} == {
+        regular_uuid, immutable_uuid, shallow_uuid, deep_uuid
+    }
+
+    db0.tags(shallow_embedded).remove(tag)
+    db0.tags(deep_embedded).remove(tag)
+
+    assert {db0.uuid(item) for item in db0.find(tag)} == {regular_uuid, immutable_uuid}
 
 
 def test_read_embedded_immutable_string_after_reopen(db0_fixture):
@@ -544,6 +840,62 @@ def test_index_can_store_embedded_immutable_nested_object_reference(db0_fixture)
     assert len(retrieved) == 1
     assert retrieved[0].name == "index child"
     assert retrieved[0].count == 23
+
+
+def test_index_retrieves_mixed_regular_immutable_and_embedded_instances(db0_fixture):
+    regular = MemoRegularFetchUUIDPayload(name="index mixed regular", count=115)
+    immutable = db0.materialized(MemoImmutableClass1(data="index mixed immutable", value=116))
+    shallow_root = db0.materialized(MemoImmutableNestedHolder(
+        name="index mixed shallow embedded", count=117, label="root"
+    ))
+    deep_root = db0.materialized(MemoImmutableDeepRoot(name="index mixed deep embedded", count=118))
+    shallow_embedded = shallow_root.nested
+    deep_embedded = deep_root.middle.leaf
+
+    regular_uuid = db0.uuid(regular)
+    immutable_uuid = db0.uuid(immutable)
+    shallow_uuid = db0.uuid(shallow_embedded)
+    deep_uuid = db0.uuid(deep_embedded)
+    expected_uuids = {regular_uuid, immutable_uuid, shallow_uuid, deep_uuid}
+
+    index = db0.index()
+    index.add(1, regular)
+    index.add(2, immutable)
+    index.add(3, shallow_embedded)
+    index.add(4, deep_embedded)
+    index.flush()
+
+    retrieved = list(index.select())
+    by_uuid = {db0.uuid(item): item for item in retrieved}
+    assert set(by_uuid) == expected_uuids
+    assert isinstance(by_uuid[regular_uuid], MemoRegularFetchUUIDPayload)
+    assert by_uuid[regular_uuid].name == "index mixed regular"
+    assert isinstance(by_uuid[immutable_uuid], MemoImmutableClass1)
+    assert by_uuid[immutable_uuid].data == "index mixed immutable"
+    assert isinstance(by_uuid[shallow_uuid], MemoImmutableNestedPayload)
+    assert by_uuid[shallow_uuid].name == "index mixed shallow embedded"
+    assert isinstance(by_uuid[deep_uuid], MemoImmutableDeepLeaf)
+    assert by_uuid[deep_uuid].name == "index mixed deep embedded-leaf"
+
+    holder = MemoSetReferenceHolder(index)
+    db0.tags(holder).add("keep-index-mixed-retrieval")
+    holder_id = db0.uuid(holder)
+    del regular, immutable, shallow_embedded, deep_embedded, shallow_root, deep_root, index, holder
+    gc.collect()
+
+    db0.commit()
+    db0.close()
+    db0.init(DB0_DIR)
+    db0.open("my-test-prefix", "rw")
+
+    reopened_index = db0.fetch(holder_id).payload
+    reopened = list(reopened_index.select())
+    reopened_by_uuid = {db0.uuid(item): item for item in reopened}
+    assert set(reopened_by_uuid) == expected_uuids
+    assert reopened_by_uuid[regular_uuid].name == "index mixed regular"
+    assert reopened_by_uuid[immutable_uuid].data == "index mixed immutable"
+    assert reopened_by_uuid[shallow_uuid].name == "index mixed shallow embedded"
+    assert reopened_by_uuid[deep_uuid].name == "index mixed deep embedded-leaf"
 
 
 def test_index_remove_unrefs_embedded_immutable_nested_object_reference(db0_fixture):
