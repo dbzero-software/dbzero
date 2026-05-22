@@ -222,6 +222,7 @@ DB0_PACKED_END
 
     using packed_int32 = o_packed_int<std::uint32_t>;
     using packed_int64 = o_packed_int<std::uint64_t>;
+    using packed_uint32 = o_packed_int<std::uint32_t>;
     using nullable_packed_int32 = o_packed_int<std::uint32_t, true>;
     using nullable_packed_int64 = o_packed_int<std::uint64_t, true>;
     

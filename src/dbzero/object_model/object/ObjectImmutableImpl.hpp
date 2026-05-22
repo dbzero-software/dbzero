@@ -29,6 +29,7 @@ namespace db0::object_model
         ObjectSharedPtr tryGet(MemberLoc, bool *is_auto_generated = nullptr) const;
         ObjectSharedPtr tryGet(const char *field_name, bool *is_auto_generated = nullptr) const;
         ObjectSharedPtr get(const char *field_name) const;
+        ObjectSharedPtr getEmbeddedInstanceAtOffset(std::uint64_t offset) const;
 
         void postInit(FixtureLock &);
         void setLangObject(ObjectPtr) const;

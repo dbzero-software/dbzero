@@ -106,10 +106,13 @@ Implementation requirements:
 - Field retrieval returns an object view of the root object that exposes only the nested fields for read access.
 - The view must maintain the lock or lifetime guard of the top-level object while nested fields are accessed.
 - References to embedded objects point to a memory location inside the root allocation and also carry the nested member offset. The offset may be deeply nested.
+- Embedded object offsets are byte offsets relative to the persisted `o_immutable_object` data structure overlaid on the root allocation, not relative to the C++ `ObjectImmutableImpl` wrapper instance.
 - The lifecycle of an embedded object is tied to the root instance because the root owns the allocation containing the full embedded tree.
 - The embedded member is identified by its own address, but that address is inside the allocation and is not the allocation start.
 - The allocator must be able to recover allocation metadata from an inner address. This allows embedded object addresses to use the same 50-bit representation as regular object addresses.
 - A parent object can still be referenced by the parent allocation address.
+- Root immutable objects store an exact compact index of valid nested embedded-object offsets. Lookup by offset must validate against this index and raise a bad-address error for invalid, out-of-range, or non-object offsets.
+- The offset index uses packed integer encoding grouped by packed size class so offsets remain compact while supporting logarithmic exact membership checks. Most offsets are expected to fit in 3-4 packed bytes, but the representation must support larger offsets.
 
 ## Object Views
 

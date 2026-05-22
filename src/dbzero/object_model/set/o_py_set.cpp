@@ -20,19 +20,34 @@ namespace db0::object_model
 {
     namespace
     {
-        void writePyTuple(void *buf, const void *source)
+        void writePyTuple(void *buf, const void *source, EmbeddedObjectOffsetCollector *context)
         {
-            o_py_tuple::__new(buf, const_cast<PyObject *>(static_cast<const PyObject *>(source)));
+            auto *pyObject = const_cast<PyObject *>(static_cast<const PyObject *>(source));
+            if (context) {
+                o_py_tuple::__new(buf, pyObject, *context);
+            } else {
+                o_py_tuple::__new(buf, pyObject);
+            }
         }
 
-        void writePySet(void *buf, const void *source)
+        void writePySet(void *buf, const void *source, EmbeddedObjectOffsetCollector *context)
         {
-            o_py_set::__new(buf, const_cast<PyObject *>(static_cast<const PyObject *>(source)));
+            auto *pyObject = const_cast<PyObject *>(static_cast<const PyObject *>(source));
+            if (context) {
+                o_py_set::__new(buf, pyObject, *context);
+            } else {
+                o_py_set::__new(buf, pyObject);
+            }
         }
 
-        void writePyDict(void *buf, const void *source)
+        void writePyDict(void *buf, const void *source, EmbeddedObjectOffsetCollector *context)
         {
-            o_py_dict::__new(buf, const_cast<PyObject *>(static_cast<const PyObject *>(source)));
+            auto *pyObject = const_cast<PyObject *>(static_cast<const PyObject *>(source));
+            if (context) {
+                o_py_dict::__new(buf, pyObject, *context);
+            } else {
+                o_py_dict::__new(buf, pyObject);
+            }
         }
 
         const ImmutableObjectInitializer &getInitializer(PyObject *pyObject)
@@ -58,15 +73,52 @@ namespace db0::object_model
             return *initializer;
         }
 
-        void writeEmbeddedObject(void *buf, const void *source)
+        void writeEmbeddedObject(void *buf, const void *source, EmbeddedObjectOffsetCollector *context)
         {
             auto *pyObject = const_cast<PyObject *>(static_cast<const PyObject *>(source));
             const auto &initializer = getInitializer(pyObject);
-            o_embedded_object::__new(buf, initializer.getClassPtr()->getClassRef(), initializer);
+            if (context) {
+                context->add(buf);
+                o_embedded_object::__new(buf, initializer.getClassPtr()->getClassRef(), initializer, *context);
+            } else {
+                o_embedded_object::__new(buf, initializer.getClassPtr()->getClassRef(), initializer);
+            }
         }
     }
 
     o_py_set::o_py_set(PyObject *iterable)
+        : o_set()
+    {
+        std::uint32_t count = 0;
+        std::uint32_t elementsByteSize = 0;
+        std::size_t capacity = 0;
+        std::uint32_t bucketByteSize = 0;
+        count = setSize(iterable);
+        elementsByteSize = checkedUint32Size(measureElements(iterable), "Python set elements byte size");
+        capacity = hashIndexCapacity(count);
+        bucketByteSize = checkedUint32Size(
+            measureCollisionBuckets(iterable, capacity), "Python set bucket byte size"
+        );
+
+        auto arranger = arrangeSetMembers(count, elementsByteSize, bucketByteSize);
+        auto iterator = Py_OWN(PyObject_GetIter(iterable));
+        if (!iterator) {
+            PyErr_Clear();
+            THROWF(db0::InputException) << "o_py_set expects a Python set";
+        }
+
+        Py_FOR(item, iterator) {
+            arranger = arranger(Item::type(), elementFromPythonObject(*item));
+        }
+        if (PyErr_Occurred()) {
+            PyErr_Clear();
+            THROWF(db0::InputException) << "Unable to iterate Python set";
+        }
+
+        finishSetConstruction(arranger.ptr(), elementsByteSize, capacity, bucketByteSize);
+    }
+
+    o_py_set::o_py_set(PyObject *iterable, EmbeddedObjectOffsetCollector &offsetCollector)
         : o_set()
     {
         auto count = setSize(iterable);
@@ -84,7 +136,7 @@ namespace db0::object_model
         }
 
         Py_FOR(item, iterator) {
-            arranger = arranger(Item::type(), elementFromPythonObject(*item));
+            arranger = arranger(Item::type(), elementFromPythonObject(*item, &offsetCollector));
         }
         if (PyErr_Occurred()) {
             PyErr_Clear();
@@ -125,6 +177,13 @@ namespace db0::object_model
 
     o_py_set::Element o_py_set::elementFromPythonObject(PyObject *object)
     {
+        return elementFromPythonObject(object, nullptr);
+    }
+
+    o_py_set::Element o_py_set::elementFromPythonObject(
+        PyObject *object, EmbeddedObjectOffsetCollector *offsetCollector
+    )
+    {
         auto &typeManager = db0::python::PyToolkit::getTypeManager();
         auto typeId = typeManager.getTypeId(object);
 
@@ -164,15 +223,15 @@ namespace db0::object_model
         }
         case db0::bindings::TypeId::LIST:
         case db0::bindings::TypeId::TUPLE:
-            return Element::embeddedTuple(o_py_tuple::measure(object), writePyTuple, object);
+            return Element::embeddedTuple(o_py_tuple::measure(object), writePyTuple, object, offsetCollector);
         case db0::bindings::TypeId::SET:
-            return Element::embeddedSet(o_py_set::measure(object), writePySet, object);
+            return Element::embeddedSet(o_py_set::measure(object), writePySet, object, offsetCollector);
         case db0::bindings::TypeId::DICT:
-            return Element::embeddedDict(o_py_dict::measure(object), writePyDict, object);
+            return Element::embeddedDict(o_py_dict::measure(object), writePyDict, object, offsetCollector);
         case db0::bindings::TypeId::MEMO_IMMUTABLE_OBJECT: {
             const auto &initializer = getInitializer(object);
             auto size = o_embedded_object::measure(initializer.getClassPtr()->getClassRef(), initializer);
-            return Element::embeddedObject(size, writeEmbeddedObject, object);
+            return Element::embeddedObject(size, writeEmbeddedObject, object, offsetCollector);
         }
         default:
             break;

@@ -280,6 +280,13 @@ namespace db0::object_model
             ObjectInitializer
         >;
 
+        for (auto i = 0u; i < m_active_count; ++i) {
+            if (m_initializers[i]->operator==(object)) {
+                closeAt(i);
+                break;
+            }
+        }
+
         auto initAt = [&](std::uint32_t loc) {
             if (m_initializers[loc] && typeid(*m_initializers[loc]) == typeid(InitializerT)) {
                 static_cast<InitializerT *>(m_initializers[loc].get())->init(object, std::forward<Args>(args)...);

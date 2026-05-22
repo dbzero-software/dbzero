@@ -6,6 +6,7 @@
 #include <dbzero/core/compiler_attributes.hpp>
 #include <dbzero/object_model/object_header.hpp>
 #include "o_embedded_object.hpp"
+#include "o_packed_offset_index.hpp"
 #include <dbzero/core/vspace/v_object.hpp>
 
 namespace db0::object_model
@@ -27,6 +28,7 @@ DB0_PACKED_BEGIN
 
         o_embedded_object &embeddedObject();
         const o_embedded_object &embeddedObject() const;
+        const o_packed_offset_index &embeddedObjectOffsets() const;
         
         PosVT &pos_vt();
         const PosVT &pos_vt() const;
@@ -60,7 +62,18 @@ DB0_PACKED_BEGIN
         template <typename BufT> static std::size_t safeSizeOf(BufT buf)
         {
             return super_t::sizeOfMembers(buf)
-                (o_embedded_object::type());
+                (o_embedded_object::type())
+                (o_packed_offset_index::type());
+        }
+
+        static constexpr std::size_t dynamicOffset()
+        {
+            return super_t::baseSize();
+        }
+
+        static std::size_t measureBaseWithEmbeddedSize(std::size_t embeddedSize)
+        {
+            return super_t::baseSize() + embeddedSize;
         }
         
         void incRef(bool is_tag);

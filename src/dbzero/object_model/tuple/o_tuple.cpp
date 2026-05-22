@@ -158,42 +158,46 @@ namespace db0::object_model
     }
 
     o_tuple_item::Element o_tuple_item::Element::embeddedTuple(
-        std::size_t size, BytesView::Writer writer, const void *source
+        std::size_t size, BytesView::Writer writer, const void *source,
+        EmbeddedObjectOffsetCollector *context
     )
     {
         Element result;
         result.m_kind = StorageClass::EMBEDDED_TUPLE;
-        result.m_payload.m_bytes_value = { nullptr, size, writer, source };
+        result.m_payload.m_bytes_value = { nullptr, size, writer, source, context };
         return result;
     }
 
     o_tuple_item::Element o_tuple_item::Element::embeddedSet(
-        std::size_t size, BytesView::Writer writer, const void *source
+        std::size_t size, BytesView::Writer writer, const void *source,
+        EmbeddedObjectOffsetCollector *context
     )
     {
         Element result;
         result.m_kind = StorageClass::EMBEDDED_SET;
-        result.m_payload.m_bytes_value = { nullptr, size, writer, source };
+        result.m_payload.m_bytes_value = { nullptr, size, writer, source, context };
         return result;
     }
 
     o_tuple_item::Element o_tuple_item::Element::embeddedDict(
-        std::size_t size, BytesView::Writer writer, const void *source
+        std::size_t size, BytesView::Writer writer, const void *source,
+        EmbeddedObjectOffsetCollector *context
     )
     {
         Element result;
         result.m_kind = StorageClass::EMBEDDED_DICT;
-        result.m_payload.m_bytes_value = { nullptr, size, writer, source };
+        result.m_payload.m_bytes_value = { nullptr, size, writer, source, context };
         return result;
     }
 
     o_tuple_item::Element o_tuple_item::Element::embeddedObject(
-        std::size_t size, BytesView::Writer writer, const void *source
+        std::size_t size, BytesView::Writer writer, const void *source,
+        EmbeddedObjectOffsetCollector *context
     )
     {
         Element result;
         result.m_kind = StorageClass::EMBEDDED_OBJECT;
-        result.m_payload.m_bytes_value = { nullptr, size, writer, source };
+        result.m_payload.m_bytes_value = { nullptr, size, writer, source, context };
         return result;
     }
 
@@ -352,7 +356,7 @@ namespace db0::object_model
             if (element.m_payload.m_bytes_value.m_writer) {
                 arrangeMembers()(
                     o_binary::type(), element.bytesSize(), element.m_payload.m_bytes_value.m_writer,
-                    element.m_payload.m_bytes_value.m_source
+                    element.m_payload.m_bytes_value.m_source, element.m_payload.m_bytes_value.m_context
                 );
             } else {
                 arrangeMembers()(o_binary::type(), element.bytesData(), element.bytesSize());

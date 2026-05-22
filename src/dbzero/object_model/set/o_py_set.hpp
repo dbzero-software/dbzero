@@ -14,12 +14,14 @@ using PyObject = _object;
 
 namespace db0::object_model
 {
+    struct EmbeddedObjectOffsetCollector;
 
 DB0_PACKED_BEGIN
     class DB0_PACKED_ATTR o_py_set: public o_set
     {
     public:
         explicit o_py_set(PyObject *iterable);
+        o_py_set(PyObject *iterable, EmbeddedObjectOffsetCollector &offsetCollector);
 
         static std::size_t measure(PyObject *iterable);
 
@@ -40,6 +42,9 @@ DB0_PACKED_BEGIN
 
     private:
         static Element elementFromPythonObject(PyObject *object);
+        static Element elementFromPythonObject(
+            PyObject *object, EmbeddedObjectOffsetCollector *offsetCollector
+        );
         static std::uint32_t setSize(PyObject *set);
         static std::size_t measureElements(PyObject *set);
         static std::size_t measureCollisionBuckets(PyObject *set, std::size_t capacity);

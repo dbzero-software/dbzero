@@ -17,19 +17,34 @@ namespace db0::object_model
 {
     namespace
     {
-        void writePyTuple(void *buf, const void *source)
+        void writePyTuple(void *buf, const void *source, EmbeddedObjectOffsetCollector *context)
         {
-            o_py_tuple::__new(buf, const_cast<PyObject *>(static_cast<const PyObject *>(source)));
+            auto *pyObject = const_cast<PyObject *>(static_cast<const PyObject *>(source));
+            if (context) {
+                o_py_tuple::__new(buf, pyObject, *context);
+            } else {
+                o_py_tuple::__new(buf, pyObject);
+            }
         }
 
-        void writePySet(void *buf, const void *source)
+        void writePySet(void *buf, const void *source, EmbeddedObjectOffsetCollector *context)
         {
-            o_py_set::__new(buf, const_cast<PyObject *>(static_cast<const PyObject *>(source)));
+            auto *pyObject = const_cast<PyObject *>(static_cast<const PyObject *>(source));
+            if (context) {
+                o_py_set::__new(buf, pyObject, *context);
+            } else {
+                o_py_set::__new(buf, pyObject);
+            }
         }
 
-        void writePyDict(void *buf, const void *source)
+        void writePyDict(void *buf, const void *source, EmbeddedObjectOffsetCollector *context)
         {
-            o_py_dict::__new(buf, const_cast<PyObject *>(static_cast<const PyObject *>(source)));
+            auto *pyObject = const_cast<PyObject *>(static_cast<const PyObject *>(source));
+            if (context) {
+                o_py_dict::__new(buf, pyObject, *context);
+            } else {
+                o_py_dict::__new(buf, pyObject);
+            }
         }
 
         const ImmutableObjectInitializer &getInitializer(PyObject *pyObject)
@@ -55,11 +70,16 @@ namespace db0::object_model
             return *initializer;
         }
 
-        void writeEmbeddedObject(void *buf, const void *source)
+        void writeEmbeddedObject(void *buf, const void *source, EmbeddedObjectOffsetCollector *context)
         {
             auto *pyObject = const_cast<PyObject *>(static_cast<const PyObject *>(source));
             const auto &initializer = getInitializer(pyObject);
-            o_embedded_object::__new(buf, initializer.getClassPtr()->getClassRef(), initializer);
+            if (context) {
+                context->add(buf);
+                o_embedded_object::__new(buf, initializer.getClassPtr()->getClassRef(), initializer, *context);
+            } else {
+                o_embedded_object::__new(buf, initializer.getClassPtr()->getClassRef(), initializer);
+            }
         }
     }
 
@@ -74,6 +94,22 @@ namespace db0::object_model
         arranger = arranger(db0::packed_int32::type(), elementsByteSize);
         for (std::size_t i = 0; i < count; ++i) {
             arranger = arranger(o_tuple_item::type(), elementFromPythonObject(sequenceItem(sequence, i)));
+        }
+    }
+
+    o_py_tuple::o_py_tuple(PyObject *sequence, EmbeddedObjectOffsetCollector &offsetCollector)
+        : o_tuple<>()
+    {
+        auto count = static_cast<std::uint32_t>(sequenceSize(sequence));
+        auto elementsByteSize = static_cast<std::uint32_t>(measureElements(sequence));
+
+        auto arranger = arrangeMembers();
+        arranger = arranger(db0::packed_int32::type(), count);
+        arranger = arranger(db0::packed_int32::type(), elementsByteSize);
+        for (std::size_t i = 0; i < count; ++i) {
+            arranger = arranger(
+                o_tuple_item::type(), elementFromPythonObject(sequenceItem(sequence, i), &offsetCollector)
+            );
         }
     }
 
@@ -103,6 +139,13 @@ namespace db0::object_model
     }
 
     o_py_tuple::Element o_py_tuple::elementFromPythonObject(PyObject *object)
+    {
+        return elementFromPythonObject(object, nullptr);
+    }
+
+    o_py_tuple::Element o_py_tuple::elementFromPythonObject(
+        PyObject *object, EmbeddedObjectOffsetCollector *offsetCollector
+    )
     {
         auto &typeManager = db0::python::PyToolkit::getTypeManager();
         auto typeId = typeManager.getTypeId(object);
@@ -143,15 +186,15 @@ namespace db0::object_model
         }
         case db0::bindings::TypeId::LIST:
         case db0::bindings::TypeId::TUPLE:
-            return Element::embeddedTuple(o_py_tuple::measure(object), writePyTuple, object);
+            return Element::embeddedTuple(o_py_tuple::measure(object), writePyTuple, object, offsetCollector);
         case db0::bindings::TypeId::SET:
-            return Element::embeddedSet(o_py_set::measure(object), writePySet, object);
+            return Element::embeddedSet(o_py_set::measure(object), writePySet, object, offsetCollector);
         case db0::bindings::TypeId::DICT:
-            return Element::embeddedDict(o_py_dict::measure(object), writePyDict, object);
+            return Element::embeddedDict(o_py_dict::measure(object), writePyDict, object, offsetCollector);
         case db0::bindings::TypeId::MEMO_IMMUTABLE_OBJECT: {
             const auto &initializer = getInitializer(object);
             auto size = o_embedded_object::measure(initializer.getClassPtr()->getClassRef(), initializer);
-            return Element::embeddedObject(size, writeEmbeddedObject, object);
+            return Element::embeddedObject(size, writeEmbeddedObject, object, offsetCollector);
         }
         default:
             break;
