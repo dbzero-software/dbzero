@@ -117,6 +117,22 @@ namespace tests
         ASSERT_FALSE(index->contains(999'999'999));
     }
 
+    TEST_F( PackedOffsetIndexTest, testIteratorYieldsOffsetsAcrossPackedGroups )
+    {
+        std::vector<std::uint64_t> offsets {
+            1, 2, 127, 128, 16'383, 16'384, 2'097'151, 2'097'152, 268'435'456
+        };
+        auto memspace = getMemspace();
+        v_object<o_packed_offset_index> index(memspace, offsets);
+
+        std::vector<std::uint64_t> result;
+        for (auto it = index->begin(); it != index->end(); ++it) {
+            result.push_back(*it);
+        }
+
+        ASSERT_EQ(result, offsets);
+    }
+
     TEST_F( PackedOffsetIndexTest, testWidthBoundaryGroupsUseSortedInput )
     {
         std::vector<std::uint64_t> offsets {

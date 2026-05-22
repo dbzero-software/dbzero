@@ -46,10 +46,11 @@ namespace db0::object_model
         struct ObjectInfo
         {
             ObjectSharedPtr m_lang_ptr;
-            const ObjectAnyImpl *m_object_ptr = nullptr;
+            db0::swine_ptr<Fixture> m_fixture;
             TagIndex *m_tag_index_ptr = nullptr;
-            std::shared_ptr<Class> m_type;
+            const Class *m_type = nullptr;
             AccessType m_access_mode;
+            bool m_is_embedded = false;
             // has any tags already assigned
             bool m_has_tags = false;
 

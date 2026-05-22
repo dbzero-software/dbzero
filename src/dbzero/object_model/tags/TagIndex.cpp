@@ -589,11 +589,10 @@ namespace db0::object_model
     void TagIndex::buildActiveValues() const
     {
         for (auto &item: m_active_cache) {
-            auto &memo = LangToolkit::getTypeManager().extractAnyObject(item.first);
             // NOTE: defunct objects and mid-init objects (still in __init__, no address yet)
             // must be skipped — their placeholder stays zero and is preserved for the next flush.
-            if (!memo.isDefunct() && memo.hasInstance()) {
-                auto object_addr = memo.getUniqueAddress();
+            if (!LangToolkit::isMemoDead(item.first) && LangToolkit::hasMemoInstance(item.first)) {
+                auto object_addr = LangToolkit::getMemoUniqueAddress(item.first);
                 assert(object_addr.isValid());
                 // initialize active value with the actual object address
                 item.second = object_addr;
@@ -671,8 +670,8 @@ namespace db0::object_model
         }
         
         // Memo instance is directly fed into the FT_FixedKeyIterator
-        if (type_id == TypeId::MEMO_OBJECT) {
-            auto addr = LangToolkit::getTypeManager().extractAnyObject(arg).getUniqueAddress();
+        if (type_id == TypeId::MEMO_OBJECT || type_id == TypeId::MEMO_IMMUTABLE_OBJECT) {
+            auto addr = LangToolkit::getMemoUniqueAddress(arg);
             factory.add(std::make_unique<FT_FixedKeyIterator<UniqueAddress> >(&addr, &addr + 1));
             return true;
         }
@@ -825,7 +824,7 @@ namespace db0::object_model
         using TypeId = db0::bindings::TypeId;
 
         auto typeId = LangToolkit::getTypeManager().getTypeId(arg);
-        if (typeId == TypeId::MEMO_OBJECT) {
+        if (typeId == TypeId::MEMO_OBJECT || typeId == TypeId::MEMO_IMMUTABLE_OBJECT) {
             return tryAddShortTagFromMemo(arg);
         }
         if (typeId == TypeId::DB0_TAG) {
@@ -853,6 +852,8 @@ namespace db0::object_model
             return getShortTagFromFieldDef(py_arg);
         } else if (type_id == TypeId::DB0_CLASS) {
             return getShortTagFromClass(py_arg);
+        } else if (type_id == TypeId::MEMO_OBJECT || type_id == TypeId::MEMO_IMMUTABLE_OBJECT) {
+            return LangToolkit::getMemoUniqueAddress(py_arg).getAddress().getOffset();
         }
         THROWF(db0::InputException) << "Unable to interpret object of type: " << LangToolkit::getTypeName(py_arg)
             << " as a tag" << THROWF_END;
@@ -969,7 +970,7 @@ namespace db0::object_model
     {
         if (type_id == TypeId::STRING) {
             return addShortTagFromString(py_arg, inc_ref);
-        } else if (type_id == TypeId::MEMO_OBJECT) {
+        } else if (type_id == TypeId::MEMO_OBJECT || type_id == TypeId::MEMO_IMMUTABLE_OBJECT) {
             return tryAddShortTagFromMemo(py_arg);
         } else if (type_id == TypeId::DB0_TAG) {
             return tryAddShortTagFromTag(py_arg);
@@ -993,13 +994,12 @@ namespace db0::object_model
     std::optional<TagIndex::ShortTagT> TagIndex::tryAddShortTagFromMemo(ObjectPtr py_arg) const
     {
         assert(LangToolkit::isAnyMemoObject(py_arg));
-        auto &py_obj = LangToolkit::getTypeManager().extractAnyObject(py_arg);
-        if (py_obj.getFixtureUUID() != m_fixture_uuid) {
+        if (LangToolkit::getFixtureUUID(py_arg) != m_fixture_uuid) {
             // must be added as long tag
             return std::nullopt;
         }
         // NOTE: we use only the offset part as tag - to distinguish from enum and class tags (high bits)
-        return py_obj.getAddress().getOffset();
+        return LangToolkit::getMemoUniqueAddress(py_arg).getAddress().getOffset();
     }
     
     std::optional<TagIndex::ShortTagT> TagIndex::tryAddShortTagFromTag(ObjectPtr py_arg) const
@@ -1025,7 +1025,8 @@ namespace db0::object_model
     bool TagIndex::isShortTag(ObjectPtr py_arg) const
     {
         auto type_id = LangToolkit::getTypeManager().getTypeId(py_arg);
-        return type_id == TypeId::STRING || type_id == TypeId::MEMO_OBJECT || type_id == TypeId::DB0_ENUM_VALUE || 
+        return type_id == TypeId::STRING || type_id == TypeId::MEMO_OBJECT ||
+            type_id == TypeId::MEMO_IMMUTABLE_OBJECT || type_id == TypeId::DB0_ENUM_VALUE ||
             type_id == TypeId::DB0_FIELD_DEF || type_id == TypeId::DB0_ENUM_VALUE_REPR;
     }
 
@@ -1089,7 +1090,7 @@ namespace db0::object_model
         // must check for string since it's is an iterable as well
         if (type_id == TypeId::DB0_TAG) {
             return getLongTagFromTag(py_arg);
-        } else if (type_id == TypeId::MEMO_OBJECT) {
+        } else if (type_id == TypeId::MEMO_OBJECT || type_id == TypeId::MEMO_IMMUTABLE_OBJECT) {
             return getLongTagFromMemo(py_arg); 
         } else if (type_id == TypeId::STRING || !LangToolkit::isIterable(py_arg)) {
             THROWF(db0::InputException) << "Invalid argument (iterable expected)" << THROWF_END;
@@ -1322,8 +1323,10 @@ namespace db0::object_model
     LongTagT TagIndex::getLongTagFromMemo(ObjectPtr py_arg) const
     {
         assert(LangToolkit::isAnyMemoObject(py_arg));
-        auto &py_obj = LangToolkit::getTypeManager().extractAnyObject(py_arg);
-        return { py_obj.getFixtureUUID(), py_obj.getAddress().getOffset() };
+        return {
+            LangToolkit::getFixtureUUID(py_arg),
+            LangToolkit::getMemoUniqueAddress(py_arg).getAddress().getOffset()
+        };
     }
     
     bool TagIndex::isPendingUpdate(UniqueAddress addr) const {
@@ -1332,8 +1335,7 @@ namespace db0::object_model
     
     void TagIndex::revert(ObjectPtr memo_ptr) const
     {
-        auto &memo = LangToolkit::getTypeManager().extractAnyObject(memo_ptr);
-        auto addr = memo.getUniqueAddress();
+        auto addr = LangToolkit::getMemoUniqueAddress(memo_ptr);
         if (m_batch_op_short) {
             m_batch_op_short->revert(addr);
         }

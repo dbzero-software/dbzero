@@ -12,6 +12,7 @@
 #include <dbzero/object_model/object/ObjectInitializer.hpp>
 #include <dbzero/object_model/object/o_embedded_object.hpp>
 #include <dbzero/object_model/set/o_py_set.hpp>
+#include <dbzero/object_model/tags/TagIndex.hpp>
 #include <dbzero/object_model/tuple/o_py_tuple.hpp>
 #include <dbzero/object_model/value/Member.hpp>
 
@@ -196,6 +197,47 @@ namespace db0::object_model
             }
         }
 
+        unsigned int assignDefaultTypeTags(
+            db0::swine_ptr<Fixture> &fixture, ObjectImmutableImpl::ObjectPtr object
+        )
+        {
+            auto *classPtr = &db0::python::PyToolkit::getMemoType(object);
+            if (!classPtr->assignDefaultTags()) {
+                return 0;
+            }
+
+            auto &tagIndex = fixture->get<TagIndex>();
+            unsigned int result = 0;
+            while (classPtr) {
+                tagIndex.addTag(object, classPtr->getAddress(), true);
+                classPtr = classPtr->getBaseClassPtr();
+                ++result;
+            }
+            return result;
+        }
+
+        unsigned int assignEmbeddedDefaultTypeTags(
+            db0::swine_ptr<Fixture> &fixture, ObjectImmutableImpl &object,
+            ObjectImmutableImpl::ObjectPtr rootObject
+        )
+        {
+            const auto &offsetIndex = object->getOffsetIndex();
+            if (!rootObject) {
+                if (offsetIndex.size() > 0) {
+                    THROWF(db0::InternalException)
+                        << "Embedded immutable type tag assignment requires an initialized root language object";
+                }
+                return 0;
+            }
+
+            unsigned int result = 0;
+            for (auto offset: offsetIndex) {
+                auto embeddedObject = object.getEmbeddedInstanceAtOffset(offset);
+                result += assignDefaultTypeTags(fixture, embeddedObject.get());
+            }
+            return result;
+        }
+
     }
 
     void ObjectImmutableImpl::postInit(FixtureLock &fixture)
@@ -230,6 +272,11 @@ namespace db0::object_model
                 type.setSingletonAddress(*this);
             }
             transformEmbeddedObjectValues(*fixture, *this, m_lang_object, *immutableInitializer);
+            if (m_lang_object) {
+                this->modify().m_num_type_tags = safeNumTypeTags(
+                    (*this)->m_num_type_tags + assignEmbeddedDefaultTypeTags(*fixture, *this, m_lang_object)
+                );
+            }
             initializer.close();
         }
 
@@ -250,6 +297,15 @@ namespace db0::object_model
     {
         m_lang_object = nullptr;
         super_t::destroy();
+    }
+
+    void ObjectImmutableImpl::dropInstance(FixtureLock &)
+    {
+        auto uniqueAddress = this->getUniqueAddress();
+        auto extRefs = this->getExtRefs();
+        this->destroy();
+        this->~ObjectImmutableImpl();
+        new ((void *)this) ObjectImmutableImpl(tag_as_dropped(), uniqueAddress, extRefs);
     }
 
     ObjectImmutableImpl::ObjectSharedPtr ObjectImmutableImpl::tryGet(

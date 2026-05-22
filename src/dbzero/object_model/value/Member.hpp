@@ -93,6 +93,8 @@ namespace db0::object_model
     // unreference a member (decref / destroy where applicable)
     template <StorageClass storage_class, typename LangToolkit> void unrefMember(
         db0::swine_ptr<Fixture> &fixture, Value value);
+
+    void unrefAnyMemoObject(db0::swine_ptr<Fixture> &fixture, UniqueAddress address);
     
     // register StorageClass specializations
     template <typename LangToolkit> void registerUnrefMemberFunctions(

@@ -212,6 +212,8 @@ namespace db0::python
     {
         if (PyAnyMemo_Check(obj_ptr)) {
             return reinterpret_cast<const MemoAnyObject*>(obj_ptr)->ext();
+        } else if (PyMemo_Check<MemoImmutableObject>(obj_ptr)) {
+            return reinterpret_cast<const MemoAnyObject*>(obj_ptr)->ext();
         } else if (PyWeakProxy_Check(obj_ptr)) {
             return reinterpret_cast<const PyWeakProxy*>(obj_ptr)->get()->ext();
         }
@@ -220,10 +222,10 @@ namespace db0::python
 
     PyTypeManager::ObjectAnyImpl &PyTypeManager::extractMutableAnyObject(ObjectPtr obj_ptr) const
     {
-        if (!PyAnyMemo_Check(obj_ptr)) {
-            THROWF(db0::InputException) << "Expected a memo object" << THROWF_END;
+        if (PyAnyMemo_Check(obj_ptr) || PyMemo_Check<MemoImmutableObject>(obj_ptr)) {
+            return reinterpret_cast<MemoAnyObject*>(obj_ptr)->modifyExt();
         }
-        return reinterpret_cast<MemoAnyObject*>(obj_ptr)->modifyExt();
+        THROWF(db0::InputException) << "Expected a memo object" << THROWF_END;
     }
 
     db0::swine_ptr<db0::Fixture> PyTypeManager::extractObjectFixture(ObjectPtr obj_ptr) const

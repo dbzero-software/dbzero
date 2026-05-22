@@ -34,6 +34,7 @@ namespace db0::object_model
         void postInit(FixtureLock &);
         void setLangObject(ObjectPtr) const;
         void destroy();
+        void dropInstance(FixtureLock &);
 
         static ObjectSharedPtr tryGetEmbeddedField(
             db0::swine_ptr<Fixture> &, ObjectPtr root_object, const o_embedded_object &,

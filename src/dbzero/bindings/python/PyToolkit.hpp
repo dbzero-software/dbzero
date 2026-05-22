@@ -190,6 +190,7 @@ namespace db0::python
         // either memo or immutable type
         static bool isAnyMemoType(TypeObjectPtr py_type);
         static bool isAnyMemoObject(ObjectPtr py_object);
+        static bool isEmbeddedMemoObject(ObjectPtr py_object);
         static bool isMemoObject(ObjectPtr py_object);
         static bool isMemoImmutableObject(ObjectPtr py_object);
         static bool isEnumValue(ObjectPtr py_object);

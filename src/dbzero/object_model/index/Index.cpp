@@ -605,8 +605,8 @@ namespace db0::object_model
         const_cast<Builder&>(m_builder).rollback();
         if (hasRangeTree()) {
             auto fixture = this->getFixture();
-            auto unref_func = [&fixture](Address obj_addr) {
-                unrefMember<StorageClass::OBJECT_REF, LangToolkit>(fixture, obj_addr);
+            auto unref_func = [&fixture](UniqueAddress objAddr) {
+                unrefAnyMemoObject(fixture, objAddr);
             };
             switch ((*this)->m_data_type) {
                 case IndexDataType::Int64: {
@@ -675,8 +675,8 @@ namespace db0::object_model
             return;
         }
         auto fixture = this->getFixture();
-        auto unref_func = [&fixture](Address obj_addr) {
-            unrefMember<StorageClass::OBJECT_REF, LangToolkit>(fixture, obj_addr);
+        auto unref_func = [&fixture](UniqueAddress objAddr) {
+            unrefAnyMemoObject(fixture, objAddr);
         };
         switch ((*this)->m_data_type) {
             case IndexDataType::Int64:
