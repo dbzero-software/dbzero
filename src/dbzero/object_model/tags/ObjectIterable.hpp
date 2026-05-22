@@ -47,7 +47,7 @@ namespace db0::object_model
         // a common base for full-text and sorted iterators
         using BaseIterator = db0::FT_IteratorBase;
         using FilterFunc = std::function<bool(ObjectPtr)>;
-        
+
         ObjectIterable(ObjectIterable &&) = default;
         
         // Construct from a full-text query iterator

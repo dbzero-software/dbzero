@@ -155,9 +155,9 @@ namespace tests
         ASSERT_NE(variableValue, nullptr);
         ASSERT_EQ(variableValue->itemKind(), StorageClass::EMBEDDED_STRING);
         ASSERT_EQ(variableValue->stringPayload().toString(), "root variable string");
-        ASSERT_EQ(&object->embeddedObject().pos_vt(), &object->pos_vt());
-        ASSERT_EQ(&object->embeddedObject().index_vt(), &object->index_vt());
-        ASSERT_EQ(&object->embeddedObject().field_map(), &object->field_map());
+        ASSERT_EQ(&object->getObject().pos_vt(), &object->pos_vt());
+        ASSERT_EQ(&object->getObject().index_vt(), &object->index_vt());
+        ASSERT_EQ(&object->getObject().field_map(), &object->field_map());
     }
 
     TEST_F( EmbeddedObjectTest , testEmbeddedObjectStoresVariableFieldsInDictMap )

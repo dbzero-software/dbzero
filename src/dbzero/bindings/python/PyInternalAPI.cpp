@@ -142,21 +142,22 @@ namespace db0::python
         auto addr = object_id.m_address;
         if (storage_class == db0::object_model::StorageClass::OBJECT_REF) {
             auto &class_factory = db0::object_model::getClassFactory(*fixture);
-            // FIXME: this may be sped up if unloading object is avoided
-            auto result = PyToolkit::tryUnloadObject(fixture, addr, class_factory, nullptr, addr.getInstanceId());
+            // Keep exists() non-throwing for deleted root objects. Embedded-address fetch
+            // resolution is handled by fetchObject(); existence checks for embedded UUIDs
+            // are not part of this feature slice.
+            auto result = PyToolkit::tryUnloadObject(fixture, addr.getAddress(), class_factory, nullptr, addr.getInstanceId());
             if (!result.get()) {
                 return false;
             }
 
             // validate type if requested
-            auto &memo = reinterpret_cast<MemoObject*>(result.get())->ext();
             if (py_expected_type) {
                 // in other cases the type must match the actual object type
                 auto expected_class = class_factory.tryGetExistingType(py_expected_type);
                 if (!expected_class) {
                     return false;
                 }
-                if (memo.getType() != *expected_class) {
+                if (PyToolkit::getMemoType(result.get()) != *expected_class) {
                     return false;
                 }
             }
@@ -190,18 +191,17 @@ namespace db0::python
                 // in other cases the type must match the actual object type
                 auto expected_class = class_factory.getOrCreateType(py_expected_type);
                 // honor class-specific access flags (e.g. type-level no_cache)
-                auto result = PyToolkit::unloadObject(fixture, addr, class_factory, nullptr, addr.getInstanceId(),
+                auto result = PyToolkit::unloadAnyObject(fixture, addr.getAddress(), class_factory, nullptr, addr.getInstanceId(),
                     expected_class->getInstanceFlags()
                 );
-                auto &memo = reinterpret_cast<MemoObject*>(result.get())->ext();
                 // NOTE: base types should be accepted
-                if (!memo.getType().isBaseClass(*expected_class)) {
+                if (!PyToolkit::getMemoType(result.get()).isBaseClass(*expected_class)) {
                     THROWF(db0::InputException) << "Object type mismatch";
                 }
                 return result;
             } else {
                 // unload without type validation
-                return PyToolkit::unloadObject(fixture, addr, class_factory, py_expected_type, addr.getInstanceId());
+                return PyToolkit::unloadAnyObject(fixture, addr.getAddress(), class_factory, py_expected_type, addr.getInstanceId());
             }
         } else if (storage_class == db0::object_model::StorageClass::DB0_CLASS) {
             auto &class_factory = db0::object_model::getClassFactory(*fixture);

@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <cassert>
 #include <cstdint>
 #include <dbzero/core/serialization/FixedVersioned.hpp>
 #include <dbzero/core/serialization/Fixed.hpp>
@@ -49,7 +50,12 @@ DB0_PACKED_BEGIN
     // Unique header for objects with unique instance id
     struct DB0_PACKED_ATTR o_unique_header: public o_fixed_ext<o_unique_header, o_object_header>
     {
-        // instance ID is decoded from object's address (see. db0::getInstanceId)
+        static constexpr std::uint16_t INSTANCE_ID_MASK = 0x3fff;
+        static constexpr std::uint16_t RESERVED_FLAG = 0x4000;
+        static constexpr std::uint16_t IMMUTABLE_FLAG = 0x8000;
+        // instance ID is decoded from object's address (see. db0::getInstanceId).
+        // The top 2 bits are not part of the instance ID; one stores the immutable-object flag
+        // and the other is intentionally left unused for a future object-header flag.
         std::uint16_t m_instance_id = 0;
         
         o_unique_header() = default;
@@ -61,6 +67,27 @@ DB0_PACKED_BEGIN
         o_unique_header(std::pair<std::uint32_t, std::uint32_t> ref_counts)
             : o_fixed_ext<o_unique_header, o_object_header>(ref_counts)
         {
+        }
+
+        inline std::uint16_t getInstanceId() const
+        {
+            return m_instance_id & INSTANCE_ID_MASK;
+        }
+
+        inline void setInstanceId(std::uint16_t instance_id)
+        {
+            assert((instance_id & ~INSTANCE_ID_MASK) == 0);
+            m_instance_id = (m_instance_id & ~INSTANCE_ID_MASK) | instance_id;
+        }
+
+        inline bool isImmutableObject() const
+        {
+            return (m_instance_id & IMMUTABLE_FLAG) != 0;
+        }
+
+        inline void setImmutableObject()
+        {
+            m_instance_id |= IMMUTABLE_FLAG;
         }
     };
 DB0_PACKED_END

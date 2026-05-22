@@ -882,7 +882,7 @@ namespace tests
         ASSERT_NE(embeddedValue, nullptr);
         ASSERT_EQ(embeddedValue->itemKind(), StorageClass::EMBEDDED_OBJECT);
         auto offset = offsetOfEmbeddedObject(*root.operator->(), *embeddedValue);
-        ASSERT_TRUE(root->embeddedObjectOffsets().contains(offset));
+        ASSERT_TRUE(root->getOffsetIndex().contains(offset));
 
         auto embedded = root.getEmbeddedInstanceAtOffset(offset);
         ASSERT_TRUE(embedded.get());
@@ -975,7 +975,7 @@ namespace tests
         auto *innerValue = outerObject.variableValue(outerLoc.first);
         ASSERT_NE(innerValue, nullptr);
         auto innerOffset = offsetOfEmbeddedObject(*root.operator->(), *innerValue);
-        ASSERT_TRUE(root->embeddedObjectOffsets().contains(innerOffset));
+        ASSERT_TRUE(root->getOffsetIndex().contains(innerOffset));
 
         auto embedded = root.getEmbeddedInstanceAtOffset(innerOffset);
         ASSERT_TRUE(embedded.get());

@@ -192,6 +192,9 @@ namespace db0::python
     
     PyObject *tryIndexObject_range(IndexObject *py_index, PyObject *args, PyObject *kwargs)
     {
+        using ObjectIterable = db0::object_model::ObjectIterable;
+        using QueryObserver = db0::object_model::QueryObserver;
+
         // optional low, optional high, optional null_first (boolean)
         static const char *kwlist[] = {"low", "high", "null_first", NULL};
         PyObject *low = NULL, *high = NULL;
@@ -204,7 +207,10 @@ namespace db0::python
         // construct range iterator
         auto iter_factory = index.range(low, high, null_first);        
         auto py_iter_obj = PyObjectIterableDefault_new();
-        py_iter_obj->makeNew(index.getFixture(), std::move(iter_factory));
+        py_iter_obj->makeNew(
+            index.getFixture(), std::move(iter_factory), nullptr, nullptr, std::vector<std::unique_ptr<QueryObserver> >{},
+            std::vector<ObjectIterable::FilterFunc>{}
+        );
         return py_iter_obj.steal();
     }
     

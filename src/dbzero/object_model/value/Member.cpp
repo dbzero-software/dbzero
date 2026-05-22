@@ -19,7 +19,6 @@
 #include <dbzero/bindings/python/embedded/EmbeddedObject.hpp>
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/object_model/object/ObjectAnyImpl.hpp>
-#include <dbzero/object_model/object/ObjectImmutableImpl.hpp>
 
 namespace db0::object_model
 
@@ -109,7 +108,7 @@ namespace db0::object_model
                 << "Embedded immutable object references cannot cross prefixes";
         }
         db0::python::incEmbeddedMemoRef(obj_ptr, false);
-        return db0::python::getEmbeddedMemoAddress(obj_ptr);
+        return db0::python::getEmbeddedMemoUniqueAddress(obj_ptr);
     }
 
     Value createMemoImmutableObjectMember(db0::swine_ptr<Fixture> &fixture,
@@ -452,6 +451,17 @@ namespace db0::object_model
         auto &class_factory = fixture->template get<ClassFactory>();
         return PyToolkit::unloadObject(fixture, value.asAddress(), class_factory);
     }
+
+    // EMBEDDED_OBJECT_REF specialization
+    template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::EMBEDDED_OBJECT_REF, PyToolkit>(
+        db0::swine_ptr<Fixture> &fixture, Value value, unsigned int, AccessFlags access_mode)
+    {
+        auto embeddedAddress = value.asUniqueAddress();
+        auto &classFactory = fixture->template get<ClassFactory>();
+        return PyToolkit::unloadEmbeddedObject(
+            fixture, embeddedAddress.getAddress(), classFactory, nullptr, embeddedAddress.getInstanceId(), access_mode
+        );
+    }
     
     // DB0_LIST specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DB0_LIST, PyToolkit>(
@@ -693,6 +703,7 @@ namespace db0::object_model
         functions[static_cast<int>(StorageClass::FP_NUMERIC64)] = unloadMember<StorageClass::FP_NUMERIC64, PyToolkit>;
         functions[static_cast<int>(StorageClass::STRING_REF)] = unloadMember<StorageClass::STRING_REF, PyToolkit>;
         functions[static_cast<int>(StorageClass::OBJECT_REF)] = unloadMember<StorageClass::OBJECT_REF, PyToolkit>;
+        functions[static_cast<int>(StorageClass::EMBEDDED_OBJECT_REF)] = unloadMember<StorageClass::EMBEDDED_OBJECT_REF, PyToolkit>;
         functions[static_cast<int>(StorageClass::DB0_LIST)] = unloadMember<StorageClass::DB0_LIST, PyToolkit>;
         functions[static_cast<int>(StorageClass::DB0_INDEX)] = unloadMember<StorageClass::DB0_INDEX, PyToolkit>;
         functions[static_cast<int>(StorageClass::DB0_SET)] = unloadMember<StorageClass::DB0_SET, PyToolkit>;
@@ -779,6 +790,13 @@ namespace db0::object_model
         using MemoObject = PyToolkit::TypeManager::MemoObject;
         unrefMemoObject<Object, MemoObject, PyToolkit>(fixture, value.asAddress());
     }
+
+    template <> void unrefMember<StorageClass::EMBEDDED_OBJECT_REF, PyToolkit>(
+        db0::swine_ptr<Fixture> &, Value)
+    {
+        // Embedded immutable references point inside the root allocation. Retrieval is implemented
+        // for this feature slice; unreferencing embedded references is intentionally deferred.
+    }
     
     template <> void unrefMember<StorageClass::DB0_LIST, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value) 
@@ -848,6 +866,7 @@ namespace db0::object_model
         functions.resize(static_cast<int>(StorageClass::COUNT));
         std::fill(functions.begin(), functions.end(), nullptr);
         functions[static_cast<int>(StorageClass::OBJECT_REF)] = unrefMember<StorageClass::OBJECT_REF, PyToolkit>;
+        functions[static_cast<int>(StorageClass::EMBEDDED_OBJECT_REF)] = unrefMember<StorageClass::EMBEDDED_OBJECT_REF, PyToolkit>;
         functions[static_cast<int>(StorageClass::DB0_LIST)] = unrefMember<StorageClass::DB0_LIST, PyToolkit>;
         functions[static_cast<int>(StorageClass::DB0_INDEX)] = unrefMember<StorageClass::DB0_INDEX, PyToolkit>;
         functions[static_cast<int>(StorageClass::DB0_SET)] = unrefMember<StorageClass::DB0_SET, PyToolkit>;

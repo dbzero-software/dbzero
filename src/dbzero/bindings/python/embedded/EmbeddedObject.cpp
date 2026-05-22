@@ -355,6 +355,29 @@ namespace db0::python
             return hash == -1 ? -2 : hash;
         }
 
+        PyObject *tryEmbeddedMemoRichCompare(MemoImmutableObject *self, PyObject *other, int op)
+        {
+            if (op != Py_EQ && op != Py_NE) {
+                Py_RETURN_NOTIMPLEMENTED;
+            }
+
+            bool isEqual = false;
+            if (PyEmbeddedMemo_Check(other)) {
+                auto &lhs = embeddedMemoRef(self);
+                auto &rhs = embeddedMemoRef(reinterpret_cast<MemoImmutableObject *>(other));
+                isEqual = lhs.fixture()->getUUID() == rhs.fixture()->getUUID()
+                    && lhs.uniqueAddress() == rhs.uniqueAddress();
+            }
+
+            return PyBool_fromBool(op == Py_EQ ? isEqual : !isEqual);
+        }
+
+        PyObject *PyAPI_EmbeddedMemo_richcompare(MemoImmutableObject *self, PyObject *other, int op)
+        {
+            PY_API_FUNC
+            return runSafe(tryEmbeddedMemoRichCompare, self, other, op);
+        }
+
         static PyMethodDef EmbeddedMemo_methods[] = {
             {"__dir__", (PyCFunction)PyAPI_EmbeddedMemo_dir, METH_NOARGS, nullptr},
             {NULL}
@@ -376,6 +399,7 @@ namespace db0::python
                 {Py_tp_methods, reinterpret_cast<void *>(EmbeddedMemo_methods)},
                 {Py_tp_getset, reinterpret_cast<void *>(EmbeddedMemo_getsets)},
                 {Py_tp_hash, reinterpret_cast<void *>(PyAPI_EmbeddedMemo_hash)},
+                {Py_tp_richcompare, reinterpret_cast<void *>(PyAPI_EmbeddedMemo_richcompare)},
                 {Py_tp_repr, reinterpret_cast<void *>(PyAPI_EmbeddedMemo_str)},
                 {Py_tp_str, reinterpret_cast<void *>(PyAPI_EmbeddedMemo_str)},
                 {0, 0}

@@ -141,7 +141,7 @@ namespace db0::object_model
         }
         // Unload from a verified address
         ObjectStem stem(db0::tag_verified(), fixture->myPtr(address), size_of, access_mode);
-        if (instance_id && stem->m_header.m_instance_id != instance_id) {
+        if (instance_id && stem->m_header.getInstanceId() != instance_id) {
             // instance ID validation failed
             return {};
         }        

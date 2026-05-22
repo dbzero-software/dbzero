@@ -5,6 +5,7 @@
 
 #include <dbzero/core/compiler_attributes.hpp>
 #include <dbzero/object_model/object_header.hpp>
+#include "o_object.hpp"
 #include "o_embedded_object.hpp"
 #include "o_packed_offset_index.hpp"
 #include <dbzero/core/vspace/v_object.hpp>
@@ -14,21 +15,19 @@ namespace db0::object_model
 {
 
 DB0_PACKED_BEGIN
-    class DB0_PACKED_ATTR o_immutable_object: public db0::o_base<o_immutable_object, 0, false>
+    class DB0_PACKED_ATTR o_immutable_object: public db0::o_ext<o_immutable_object, o_object_base, 0, false>
     {
     protected:
-        using super_t = db0::o_base<o_immutable_object, 0, false>;
+        using super_t = db0::o_ext<o_immutable_object, o_object_base, 0, false>;
 
     public:
         static constexpr unsigned char REALM_ID = 1;
-        // common object header
-        o_unique_header m_header;        
         // number of auto-assigned type tags
         std::uint8_t m_num_type_tags = 0;
 
-        o_embedded_object &embeddedObject();
-        const o_embedded_object &embeddedObject() const;
-        const o_packed_offset_index &embeddedObjectOffsets() const;
+        o_embedded_object &getObject();
+        const o_embedded_object &getObject() const;
+        const o_packed_offset_index &getOffsetIndex() const;
         
         PosVT &pos_vt();
         const PosVT &pos_vt() const;
@@ -66,14 +65,14 @@ DB0_PACKED_BEGIN
                 (o_packed_offset_index::type());
         }
 
-        static constexpr std::size_t dynamicOffset()
+        static std::size_t dynamicOffset()
         {
-            return super_t::baseSize();
+            return super_t::measureBase(std::pair<std::uint32_t, std::uint32_t>());
         }
 
         static std::size_t measureBaseWithEmbeddedSize(std::size_t embeddedSize)
         {
-            return super_t::baseSize() + embeddedSize;
+            return dynamicOffset() + embeddedSize;
         }
         
         void incRef(bool is_tag);
