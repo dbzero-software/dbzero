@@ -162,5 +162,11 @@ namespace db0
         assert(m_allocator_ptr);
         return m_allocator_ptr->isAllocated(address, realm_id, size_of_result);
     }
+
+    Allocator::AllocationInfo Memspace::findAllocation(Address address, unsigned char realm_id) const
+    {
+        assert(m_allocator_ptr);
+        return m_allocator_ptr->findAllocation(address, realm_id);
+    }
     
 }

@@ -10,6 +10,7 @@
 #include <dbzero/bindings/python/MemoObject.hpp>
 #include <dbzero/bindings/python/PyTypes.hpp>
 #include <dbzero/bindings/python/PyWrapper.hpp>
+#include <dbzero/core/memory/Address.hpp>
 #include <dbzero/core/memory/swine_ptr.hpp>
 
 namespace db0
@@ -43,6 +44,10 @@ namespace db0::python
         PyObject *rootObject() const;
         const db0::object_model::o_embedded_object &embeddedObject() const;
         db0::object_model::Class &type() const;
+        db0::swine_ptr<db0::Fixture> fixture() const;
+        db0::Address address() const;
+        db0::UniqueAddress uniqueAddress() const;
+        std::uint64_t offset() const;
 
     private:
         PyObject *m_root_object = nullptr;
@@ -91,4 +96,10 @@ namespace db0::python
 
     bool PyEmbeddedMemo_Check(PyObject *object);
     bool PyEmbeddedMemoType_Check(PyTypeObject *type);
+    EmbeddedObjectRef &getEmbeddedMemoRef(MemoImmutableObject *object);
+    const EmbeddedObjectRef &getEmbeddedMemoRef(const MemoImmutableObject *object);
+    db0::swine_ptr<db0::Fixture> getEmbeddedMemoFixture(PyObject *object);
+    db0::Address getEmbeddedMemoAddress(PyObject *object);
+    db0::UniqueAddress getEmbeddedMemoUniqueAddress(PyObject *object);
+    void incEmbeddedMemoRef(PyObject *object, bool isTag);
 }

@@ -8,6 +8,7 @@
 #include <vector>
 #include <dbzero/bindings/python/collections/PyTuple.hpp>
 #include <dbzero/bindings/python/Memo.hpp>
+#include <dbzero/bindings/python/embedded/EmbeddedObject.hpp>
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/object_model/class/ClassFactory.hpp>
 #include <dbzero/object_model/class/Class.hpp>
@@ -72,6 +73,9 @@ namespace db0::python
 
     template <> std::int64_t getPyHashImpl<TypeId::MEMO_IMMUTABLE_OBJECT>(db0::swine_ptr<Fixture> &, PyObject *key)
     {
+        if (PyEmbeddedMemo_Check(key)) {
+            return getEmbeddedMemoUniqueAddress(key).getValue();
+        }
         auto &obj = reinterpret_cast<MemoImmutableObject*>(key)->ext();
         if (!obj.hasInstance()) {
             THROWF(db0::InputException) << "Memo immutable object is not initialized" << THROWF_END;

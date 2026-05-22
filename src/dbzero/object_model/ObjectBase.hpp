@@ -156,7 +156,7 @@ namespace db0
         UniqueAddress getUniqueAddress() const
         {
             assert(hasInstance());
-            return UniqueAddress(this->getAddress(), (*this)->m_header.m_instance_id);
+            return UniqueAddress(this->getAddress(), (*this)->m_header.getInstanceId());
         }
 
         // Get unique object's instance ID
@@ -164,7 +164,7 @@ namespace db0
         std::uint16_t getInstanceId() const
         {
             assert(hasInstance());
-            return (*this)->m_header.m_instance_id;
+            return (*this)->m_header.getInstanceId();
         }
         
         static bool checkUnload(db0::swine_ptr<Fixture> &fixture, Address address) {
@@ -186,7 +186,7 @@ namespace db0
             if (instance_id || check_has_refs) {
                 // NOTE: here we use trusted size_of retrieved from the allocator
                 auto stem = BaseT(db0::tag_verified(), fixture->myPtr(address), size_of);
-                if (instance_id && stem->m_header.m_instance_id == instance_id) {
+                if (instance_id && stem->m_header.getInstanceId() != instance_id) {
                     return false;
                 }
                 if (check_has_refs && !stem->hasRefs()) {
@@ -219,7 +219,7 @@ namespace db0
             assert(fixture);
             if constexpr (Unique) {
                auto instance_id = has_fixture<BaseT>::initUnique(fixture, std::forward<Args>(args)...);
-               this->modify().m_header.m_instance_id = instance_id;
+               this->modify().m_header.setInstanceId(instance_id);
             } else {
                has_fixture<BaseT>::init(fixture, std::forward<Args>(args)...);
             }

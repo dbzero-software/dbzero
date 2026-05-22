@@ -3,6 +3,7 @@
 
 #include "StorageClass.hpp"
 #include <dbzero/core/exception/Exceptions.hpp>
+#include <dbzero/bindings/python/embedded/EmbeddedObject.hpp>
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/object_model/object/ObjectAnyImpl.hpp>
 
@@ -168,6 +169,7 @@ namespace std
             case StorageClass::PACK_2: return os << "PACK_2";
             case StorageClass::OBJECT_WEAK_REF: return os << "OBJECT_WEAK_REF";
             case StorageClass::OBJECT_LONG_WEAK_REF: return os << "OBJECT_LONG_WEAK_REF";
+            case StorageClass::EMBEDDED_OBJECT_REF: return os << "EMBEDDED_OBJECT_REF";
             case StorageClass::EMBEDDED_STRING: return os << "EMBEDDED_STRING";
             case StorageClass::EMBEDDED_BYTES: return os << "EMBEDDED_BYTES";
             case StorageClass::EMBEDDED_TUPLE: return os << "EMBEDDED_TUPLE";
@@ -193,8 +195,18 @@ namespace db0
         db0::swine_ptr<db0::Fixture> &fixture, ObjectPtr lang_value)
     {
         assert(pre_storage_class == PreStorageClass::OBJECT_WEAK_REF || pre_storage_class == PreStorageClass::OBJECT_REF);
-        const auto &obj = LangToolkit::getTypeManager().extractAnyObject(lang_value);
-        if (*obj.getFixture() != *fixture.get()) {
+        if (pre_storage_class == PreStorageClass::OBJECT_REF && db0::python::PyEmbeddedMemo_Check(lang_value)) {
+            auto embeddedFixture = db0::python::getEmbeddedMemoFixture(lang_value);
+            if (*embeddedFixture != *fixture.get()) {
+                THROWF(db0::InputException)
+                    << "Embedded immutable object references cannot cross prefixes";
+            }
+            return StorageClass::EMBEDDED_OBJECT_REF;
+        }
+        const auto &typeManager = LangToolkit::getTypeManager();
+        const auto objFixture = typeManager.extractObjectFixture(lang_value);
+        if (*objFixture != *fixture.get()) {
+            typeManager.validateForeignObjectReference(lang_value);
             // must use long weak-ref instead, since referenced object is from a foreign prefix
             return StorageClass::OBJECT_LONG_WEAK_REF;
         }
@@ -206,8 +218,18 @@ namespace db0
     {
         
         assert(pre_storage_class == PreStorageClass::OBJECT_WEAK_REF || pre_storage_class == PreStorageClass::OBJECT_REF);
-        const auto &obj = LangToolkit::getTypeManager().extractAnyObject(lang_value);
-        if (*obj.getFixture() != fixture) {
+        if (pre_storage_class == PreStorageClass::OBJECT_REF && db0::python::PyEmbeddedMemo_Check(lang_value)) {
+            auto embeddedFixture = db0::python::getEmbeddedMemoFixture(lang_value);
+            if (*embeddedFixture != fixture) {
+                THROWF(db0::InputException)
+                    << "Embedded immutable object references cannot cross prefixes";
+            }
+            return StorageClass::EMBEDDED_OBJECT_REF;
+        }
+        const auto &typeManager = LangToolkit::getTypeManager();
+        const auto objFixture = typeManager.extractObjectFixture(lang_value);
+        if (*objFixture != fixture) {
+            typeManager.validateForeignObjectReference(lang_value);
             // must use long weak-ref instead, since referenced object is from a foreign prefix
             return StorageClass::OBJECT_LONG_WEAK_REF;
         }

@@ -14,6 +14,8 @@
 #include "PyTypes.hpp"
 #include <dbzero/bindings/python/types/PyEnumType.hpp>
 #include <dbzero/bindings/python/MemoTypeDecoration.hpp>
+#include <dbzero/core/memory/Address.hpp>
+#include <dbzero/core/memory/swine_ptr.hpp>
 #include "MemoObject.hpp"
 
 namespace db0
@@ -21,6 +23,7 @@ namespace db0
 {
 
     class ProcessTimer;
+    class Fixture;
 
 }
 
@@ -130,6 +133,10 @@ namespace db0::python
         // Extracts reference to common object part from a memo instance
         const ObjectAnyImpl &extractAnyObject(ObjectPtr) const;
         ObjectAnyImpl &extractMutableAnyObject(ObjectPtr) const;
+        db0::swine_ptr<db0::Fixture> extractObjectFixture(ObjectPtr) const;
+        void validateForeignObjectReference(ObjectPtr) const;
+        db0::UniqueAddress extractObjectUniqueAddress(ObjectPtr) const;
+        void incObjectRef(ObjectPtr) const;
         
         const ObjectAnyImpl *tryExtractObject(ObjectPtr memo_ptr) const;        
 

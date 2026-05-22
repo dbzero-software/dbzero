@@ -118,6 +118,7 @@ namespace db0::object_model
         DB0_WEAK_SET = static_cast<int>(PreStorageClass::DB0_WEAK_SET),
         // Embedded variable-length payloads stored inside another immutable object.
         // Count down from the top range so future PreStorageClass values can grow upward without collision.
+        EMBEDDED_OBJECT_REF = std::numeric_limits<std::uint8_t>::max() - 9,
         EMBEDDED_STRING = std::numeric_limits<std::uint8_t>::max() - 8,
         EMBEDDED_BYTES = std::numeric_limits<std::uint8_t>::max() - 7,
         EMBEDDED_TUPLE = std::numeric_limits<std::uint8_t>::max() - 6,
@@ -181,6 +182,9 @@ namespace db0
     {
         if (storage_class == StorageClass::OBJECT_LONG_WEAK_REF) {
             return PreStorageClass::OBJECT_WEAK_REF;
+        }
+        if (storage_class == StorageClass::EMBEDDED_OBJECT_REF) {
+            return PreStorageClass::OBJECT_REF;
         }
         return static_cast<PreStorageClass>(static_cast<int>(storage_class));
     }

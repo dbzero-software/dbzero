@@ -359,14 +359,16 @@ namespace db0::object_model
                 (IndexVT::type(), indexVtData.first, indexVtData.second)
                 (o_dict::type(), fieldMap);
         }
+
     }
 
     o_immutable_object::o_immutable_object(std::uint32_t class_ref, 
         std::pair<std::uint32_t, std::uint32_t> ref_counts, std::uint8_t num_type_tags,
         const ImmutableObjectInitializer &initializer)
-        : m_header(ref_counts)
+        : super_t(ref_counts)
         , m_num_type_tags(num_type_tags)
     {
+        m_header.setImmutableObject();
         std::vector<std::uint64_t> offsets;
         EmbeddedObjectOffsetCollector offsetCollector{ reinterpret_cast<const std::byte *>(this), &offsets };
         auto arranger = arrangeMembers();
@@ -377,81 +379,82 @@ namespace db0::object_model
     o_immutable_object::o_immutable_object(std::uint32_t class_ref, 
         std::pair<std::uint32_t, std::uint32_t> ref_counts, std::uint8_t num_type_tags, const PosVT::Data &pos_vt_data, 
         unsigned int pos_vt_offset, const XValue *index_vt_begin, const XValue *index_vt_end)
-        : m_header(ref_counts)        
+        : super_t(ref_counts)
         , m_num_type_tags(num_type_tags)
     {
+        m_header.setImmutableObject();
         auto arranger = arrangeMembers();
         arranger = arranger(o_embedded_object::type(), class_ref, pos_vt_data, pos_vt_offset, index_vt_begin, index_vt_end);
         arranger(o_packed_offset_index::type(), std::vector<std::uint64_t>());
     }
 
     std::size_t o_immutable_object::measure(std::uint32_t class_ref,
-        std::pair<std::uint32_t, std::uint32_t>, std::uint8_t, const ImmutableObjectInitializer &initializer)
+        std::pair<std::uint32_t, std::uint32_t> ref_counts, std::uint8_t, const ImmutableObjectInitializer &initializer)
     {
         MeasureScratch scratch;
         auto offsets = worstCaseOffsetIndexValues(countEmbeddedMemoObjectsInInitializer(initializer));
-        return super_t::measureMembers()
+        return super_t::measureMembersFromBase(ref_counts)
             (measureEmbeddedObjectNoWriters(class_ref, initializer, scratch))
             (o_packed_offset_index::type(), offsets);
     }
-    
+
     std::size_t o_immutable_object::measure(std::uint32_t class_ref,
-        std::pair<std::uint32_t, std::uint32_t>, std::uint8_t, const PosVT::Data &pos_vt_data, unsigned int pos_vt_offset, 
+        std::pair<std::uint32_t, std::uint32_t> ref_counts, std::uint8_t, const PosVT::Data &pos_vt_data, unsigned int pos_vt_offset,
         const XValue *index_vt_begin, const XValue *index_vt_end)
     {
-        return super_t::measureMembers()
+        return super_t::measureMembersFromBase(ref_counts)
             (o_embedded_object::type(), class_ref, pos_vt_data, pos_vt_offset, index_vt_begin, index_vt_end)
             (o_packed_offset_index::type(), std::vector<std::uint64_t>());
     }
 
-    o_embedded_object &o_immutable_object::embeddedObject()
+    o_embedded_object &o_immutable_object::getObject()
     {
         return getDynFirst(o_embedded_object::type());
     }
 
-    const o_embedded_object &o_immutable_object::embeddedObject() const
+    const o_embedded_object &o_immutable_object::getObject() const
     {
         return getDynFirst(o_embedded_object::type());
     }
 
-    const o_packed_offset_index &o_immutable_object::embeddedObjectOffsets() const
+    const o_packed_offset_index &o_immutable_object::getOffsetIndex() const
     {
-        return getDynAfter(embeddedObject(), o_packed_offset_index::type());
+        return getDynAfter(getObject(), o_packed_offset_index::type());
     }
 
     const PosVT &o_immutable_object::pos_vt() const {
-        return embeddedObject().pos_vt();
+        return getObject().pos_vt();
     }
 
     PosVT &o_immutable_object::pos_vt() {
-        return embeddedObject().pos_vt();
+        return getObject().pos_vt();
     }
 
     std::uint32_t o_immutable_object::getClassRef() const {
-        return embeddedObject().getClassRef();
+        return getObject().getClassRef();
     }
     
     const IndexVT &o_immutable_object::index_vt() const {
-        return embeddedObject().index_vt();
+        return getObject().index_vt();
     }
     
     IndexVT &o_immutable_object::index_vt() {
-        return embeddedObject().index_vt();
+        return getObject().index_vt();
     }
 
     const o_dict &o_immutable_object::field_map() const
     {
-        return embeddedObject().field_map();
+        return getObject().field_map();
     }
 
     std::optional<FixedValue> o_immutable_object::fixedValue(std::uint32_t index, unsigned int fidelityOffset) const
     {
-        return embeddedObject().fixedValue(index, fidelityOffset);
+        return getObject().fixedValue(index, fidelityOffset);
     }
 
     const o_tuple_item *o_immutable_object::variableValue(std::uint32_t index) const
     {
-        return embeddedObject().variableValue(index);
+        return getObject().variableValue(index);
     }
     
     void o_immutable_object::incRef(bool is_tag) {

@@ -300,7 +300,7 @@ namespace db0::object_model
         std::uint64_t offset
     ) const
     {
-        if (!this->hasInstance() || !(*this)->embeddedObjectOffsets().contains(offset)) {
+        if (!this->hasInstance() || !(*this)->getOffsetIndex().contains(offset)) {
             THROWF(db0::BadAddressException) << "Invalid embedded immutable object offset: " << offset;
         }
 
@@ -446,7 +446,7 @@ namespace db0::object_model
     void ObjectImmutableImpl::dropMembers(db0::swine_ptr<Fixture> &fixture, Class &classRef) const
     {
         super_t::dropMembers(fixture, classRef);
-        unrefEmbeddedObject(fixture, (*this)->embeddedObject());
+        unrefEmbeddedObject(fixture, (*this)->getObject());
     }
     
 }

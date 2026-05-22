@@ -90,25 +90,12 @@ namespace db0::object_model
         return skipped;
     }
     
-    ObjectIterator::ObjectSharedPtr ObjectIterator::unload(db0::swine_ptr<Fixture> &fixture, Address address) const
-    {
-        // Unload with type and lang type hints
-        if (m_type && m_lang_type.get()) {
-            return LangToolkit::unloadObject(
-                fixture, address, m_type, m_lang_type.get(), m_access_mode, &m_class_factory
-            );
-        } else {
-            // Memo type or lang type is missing. We try to resolve both here.
-            return LangToolkit::unloadObject(
-                fixture, address, m_class_factory, m_lang_type.get(), 0, m_access_mode
-            );
-        }
-    }
-    
     ObjectIterator::ObjectSharedPtr ObjectIterator::unload(Address address) const
     {
         auto fixture = getFixture();
-        return unload(fixture, address);
+        return LangToolkit::unloadAnyObject(
+            fixture, address, m_class_factory, m_lang_type.get(), 0, m_access_mode
+        );
     }
 
 }

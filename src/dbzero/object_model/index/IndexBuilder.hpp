@@ -95,7 +95,7 @@ namespace db0::object_model
         std::function<void(UniqueAddress)> add_callback = [&](UniqueAddress address) {
             auto it = m_object_cache.find(address);
             assert(it != m_object_cache.end());
-            m_type_manager.extractMutableAnyObject(it->second.get()).incRef(false);
+            m_type_manager.incObjectRef(it->second.get());
         };
         
         std::function<void(UniqueAddress)> erase_callback = [&](UniqueAddress address) {
@@ -111,7 +111,7 @@ namespace db0::object_model
     template <typename KeyT>
     UniqueAddress IndexBuilder<KeyT>::addToCache(ObjectPtr obj_ptr)
     {
-        auto obj_addr = m_type_manager.extractAnyObject(obj_ptr).getUniqueAddress();
+        auto obj_addr = m_type_manager.extractObjectUniqueAddress(obj_ptr);
         if (m_object_cache.find(obj_addr) == m_object_cache.end()) {
             m_object_cache.emplace(obj_addr, obj_ptr);
         }

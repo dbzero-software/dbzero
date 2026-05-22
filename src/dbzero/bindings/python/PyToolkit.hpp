@@ -13,6 +13,7 @@
 #include "PyLocks.hpp"
 #include "MemoObject.hpp"
 #include <dbzero/core/collections/pools/StringPools.hpp>
+#include <dbzero/core/memory/Allocator.hpp>
 #include <dbzero/core/memory/swine_ptr.hpp>
 #include <dbzero/core/threading/SafeRMutex.hpp>
 
@@ -107,6 +108,11 @@ namespace db0::python
             TypeObjectPtr lang_class = nullptr, std::uint16_t instance_id = 0, AccessFlags = {});
         static ObjectSharedPtr tryUnloadObject(db0::swine_ptr<Fixture> &, Address, const ClassFactory &,
             TypeObjectPtr lang_class = nullptr, std::uint16_t instance_id = 0, AccessFlags = {});
+        static ObjectSharedPtr unloadAnyObject(db0::swine_ptr<Fixture> &, Address, const ClassFactory &,
+            TypeObjectPtr lang_class = nullptr, std::uint16_t instance_id = 0, AccessFlags = {});
+        static ObjectSharedPtr unloadEmbeddedObject(db0::swine_ptr<Fixture> &, Address, const ClassFactory &,
+            TypeObjectPtr lang_class = nullptr, std::uint16_t instance_id = 0, AccessFlags = {},
+            ObjectSharedPtr root_object = {}, const Allocator::AllocationInfo *allocation_info = nullptr);
         static ObjectSharedPtr unloadObject(db0::swine_ptr<Fixture> &, Address, TypeObjectPtr lang_class = nullptr,
             std::uint16_t instance_id = 0, AccessFlags = {});
         
