@@ -111,6 +111,7 @@ Implementation requirements:
 - The embedded member is identified by its own address, but that address is inside the allocation and is not the allocation start.
 - The allocator must be able to recover allocation metadata from an inner address. This allows embedded object addresses to use the same 50-bit representation as regular object addresses.
 - A parent object can still be referenced by the parent allocation address.
+- Strong references to embedded objects increment the root allocation's reference count, and deleting the holding object must decrement that same root reference by resolving the embedded address back to its allocation base.
 - Root immutable objects store an exact compact index of valid nested embedded-object offsets. Lookup by offset must validate against this index and raise a bad-address error for invalid, out-of-range, or non-object offsets.
 - The offset index uses packed integer encoding grouped by packed size class so offsets remain compact while supporting logarithmic exact membership checks. Most offsets are expected to fit in 3-4 packed bytes, but the representation must support larger offsets.
 

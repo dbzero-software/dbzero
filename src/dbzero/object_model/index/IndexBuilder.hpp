@@ -9,6 +9,7 @@
 namespace db0::object_model
 
 {
+    void unrefAnyMemoObject(db0::swine_ptr<Fixture> &fixture, UniqueAddress address);
 
     /**
      * Wraps extends the RangeTree::Builder providing persistency cache for dbzero instances
@@ -101,7 +102,8 @@ namespace db0::object_model
         std::function<void(UniqueAddress)> erase_callback = [&](UniqueAddress address) {
             auto it = m_object_cache.find(address);
             assert(it != m_object_cache.end());
-            m_type_manager.extractMutableAnyObject(it->second.get()).decRef(false);
+            auto fixture = m_type_manager.extractObjectFixture(it->second.get());
+            unrefAnyMemoObject(fixture, address);
         };        
         
         super_t::flush(index, &add_callback, &erase_callback);

@@ -19,6 +19,7 @@
 #include <dbzero/bindings/python/embedded/EmbeddedObject.hpp>
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/object_model/object/ObjectAnyImpl.hpp>
+#include <dbzero/object_model/object/ObjectImmutableImpl.hpp>
 
 namespace db0::object_model
 
@@ -729,32 +730,73 @@ namespace db0::object_model
     }
     
     template <typename T, typename MemoImplT, typename LangToolkit>
-    void unrefMemoObject(db0::swine_ptr<Fixture> &fixture, Address address)
+    void unrefCachedMemoObject(
+        db0::swine_ptr<Fixture> &fixture, typename LangToolkit::ObjectPtr objPtr, bool isTag)
     {
-        auto obj_ptr = fixture->getLangCache().get(address);
-        if (obj_ptr.get()) {
-            db0::FixtureLock lock(fixture);
-            // decref cached instance via language specific wrapper type
-            auto lang_wrapper = reinterpret_cast<MemoImplT*>(obj_ptr.get());
-            auto &object = lang_wrapper->modifyExt();
-            object.decRef(false);
-            if (!object.hasRefs()) {
-                // NOTE: we'll drop the object immediately on condition it has no language references
-                if (!LangToolkit::hasLangRefs(*obj_ptr)) {
-                    auto unique_addr = object.getUniqueAddress();                    
-                    // drop dbzero instance, replacing it with a "null" placeholder
-                    object.dropInstance(lock);
-                    // might also be removed from lang cache                    
-                    fixture->getLangCache().erase(unique_addr);                    
-                }
-            }
-        } else {
-            T object(fixture, address);
-            object.decRef(false);
-            // member will be deleted by GC0 if its ref-count = 0
+        db0::FixtureLock lock(fixture);
+        auto langWrapper = reinterpret_cast<MemoImplT *>(objPtr);
+        auto &object = langWrapper->modifyExt();
+        object.decRef(isTag);
+        if (!object.hasRefs() && !LangToolkit::hasLangRefs(objPtr)) {
+            auto uniqueAddress = object.getUniqueAddress();
+            object.dropInstance(lock);
+            fixture->getLangCache().erase(uniqueAddress);
         }
     }
 
+    template <typename T>
+    void unrefUncachedMemoObject(
+        db0::swine_ptr<Fixture> &fixture, typename T::ObjectStem &&stem, bool isTag)
+    {
+        auto type = fixture->template get<ClassFactory>().getTypeByClassRef(stem->getClassRef()).m_class;
+        T object(fixture, std::move(stem), std::move(type));
+        object.decRef(isTag);
+    }
+
+    template <typename T, typename MemoImplT, typename LangToolkit>
+    void unrefMemoObject(db0::swine_ptr<Fixture> &fixture, Address address)
+    {
+        auto objPtr = fixture->getLangCache().get(address);
+        if (objPtr.get()) {
+            unrefCachedMemoObject<T, MemoImplT, LangToolkit>(fixture, objPtr.get(), false);
+            return;
+        }
+
+        auto allocation = fixture->findAllocation(address, ObjectAnyImpl::REALM_ID);
+        typename T::ObjectStem stem(db0::tag_verified(), fixture->myPtr(allocation.address), allocation.size);
+        unrefUncachedMemoObject<T>(fixture, std::move(stem), false);
+    }
+
+    void unrefAnyMemoObject(db0::swine_ptr<Fixture> &fixture, UniqueAddress address)
+    {
+        auto allocation = fixture->findAllocation(address.getAddress(), ObjectAnyImpl::REALM_ID);
+        auto rootAddress = allocation.address;
+
+        auto objPtr = fixture->getLangCache().get(rootAddress);
+        if (objPtr.get()) {
+            if (db0::python::PyMemo_Check<PyToolkit::TypeManager::MemoImmutableObject>(objPtr.get())) {
+                unrefCachedMemoObject<
+                    ObjectImmutableImpl, PyToolkit::TypeManager::MemoImmutableObject, PyToolkit
+                >(fixture, objPtr.get(), false);                
+            } else {
+                unrefCachedMemoObject<Object, PyToolkit::TypeManager::MemoObject, PyToolkit>(
+                    fixture, objPtr.get(), false
+                );
+            }
+            return;
+        }
+
+        std::size_t sizeOf = allocation.size;
+        ObjectAnyImpl::ObjectStem commonStem(db0::tag_verified(), fixture->myPtr(rootAddress), sizeOf);
+        if (commonStem->m_header.isImmutableObject()) {
+            auto stem = ObjectAnyImpl::castStem<ObjectImmutableImpl::ObjectStem>(std::move(commonStem));
+            unrefUncachedMemoObject<ObjectImmutableImpl>(fixture, std::move(stem), false);            
+        } else {
+            auto stem = ObjectAnyImpl::castStem<Object::ObjectStem>(std::move(commonStem));
+            unrefUncachedMemoObject<Object>(fixture, std::move(stem), false);
+        }
+    }
+    
     // Unreference any ObjectBase-derived type (except Memo types)
     template <typename T, typename LangToolkit>
     void unrefObjectBase(db0::swine_ptr<Fixture> &fixture, Address address)
@@ -792,10 +834,9 @@ namespace db0::object_model
     }
 
     template <> void unrefMember<StorageClass::EMBEDDED_OBJECT_REF, PyToolkit>(
-        db0::swine_ptr<Fixture> &, Value)
+        db0::swine_ptr<Fixture> &fixture, Value value)
     {
-        // Embedded immutable references point inside the root allocation. Retrieval is implemented
-        // for this feature slice; unreferencing embedded references is intentionally deferred.
+        unrefAnyMemoObject(fixture, value.asUniqueAddress());
     }
     
     template <> void unrefMember<StorageClass::DB0_LIST, PyToolkit>(

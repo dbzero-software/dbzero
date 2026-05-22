@@ -443,6 +443,50 @@ def test_regular_memo_can_reference_embedded_immutable_nested_object(db0_fixture
     assert reopened.payload.count == 21
 
 
+def test_immutable_instance_drops_when_holding_memo_object_is_deleted(db0_fixture):
+    obj = MemoImmutableClass1(data="held immutable root", value=31)
+    db0.tags(obj).add("temporary-held-immutable-root")
+    obj_id = db0.uuid(obj)
+    holder = MemoSetReferenceHolder(obj)
+    db0.tags(obj).remove("temporary-held-immutable-root")
+    del obj
+    gc.collect()
+
+    db0.commit()
+    assert db0.exists(obj_id)
+
+    db0.delete(holder)
+    del holder
+    gc.collect()
+    db0.commit()
+
+    with pytest.raises(Exception):
+        db0.fetch(obj_id)
+
+
+def test_immutable_instance_supported_by_embedded_ref_drops_when_holding_memo_object_is_deleted(db0_fixture):
+    outer = MemoImmutableNestedHolder(name="held embedded child", count=32, label="root")
+    db0.tags(outer).add("temporary-held-embedded-root")
+    outer_id = db0.uuid(outer)
+    inner = outer.nested
+    holder = MemoSetReferenceHolder(inner)
+    db0.tags(outer).remove("temporary-held-embedded-root")
+    del inner
+    del outer
+    gc.collect()
+
+    db0.commit()
+    assert db0.exists(outer_id)
+
+    db0.delete(holder)
+    del holder
+    gc.collect()
+    db0.commit()
+
+    with pytest.raises(Exception):
+        db0.fetch(outer_id)
+
+
 def test_db0_collections_can_store_embedded_immutable_nested_object_reference(db0_fixture):
     outer = MemoImmutableNestedHolder(name="collection child", count=22, label="root")
     db0.tags(outer).add("keep-collection-source")
@@ -500,6 +544,51 @@ def test_index_can_store_embedded_immutable_nested_object_reference(db0_fixture)
     assert len(retrieved) == 1
     assert retrieved[0].name == "index child"
     assert retrieved[0].count == 23
+
+
+def test_index_remove_unrefs_embedded_immutable_nested_object_reference(db0_fixture):
+    outer = MemoImmutableNestedHolder(name="index remove child", count=24, label="root")
+    db0.tags(outer).add("temporary-index-remove-source")
+    inner = outer.nested
+    outer_id = db0.uuid(outer)
+    index = db0.index()
+
+    index.add(1, inner)
+    index.flush()
+    db0.tags(outer).remove("temporary-index-remove-source")
+    del outer
+    del inner
+    gc.collect()
+
+    stored = list(index.select())[0]
+    index.remove(1, stored)
+    del stored
+    gc.collect()
+    db0.commit()
+
+    with pytest.raises(Exception):
+        db0.fetch(outer_id)
+
+
+def test_index_clear_unrefs_embedded_immutable_nested_object_reference(db0_fixture):
+    outer = MemoImmutableNestedHolder(name="index clear child", count=25, label="root")
+    db0.tags(outer).add("temporary-index-clear-source")
+    inner = outer.nested
+    outer_id = db0.uuid(outer)
+    index = db0.index()
+
+    index.add(1, inner)
+    db0.commit()
+    db0.tags(outer).remove("temporary-index-clear-source")
+    del outer
+    del inner
+    gc.collect()
+
+    index.clear()
+    db0.commit()
+
+    with pytest.raises(Exception):
+        db0.fetch(outer_id)
 
 
 def test_read_embedded_tuple_field(db0_fixture):

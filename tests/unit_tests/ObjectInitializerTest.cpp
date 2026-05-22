@@ -1314,6 +1314,83 @@ namespace tests
         workspace.close();
     }
 
+    TEST_F( ObjectInitializerTest, testDestroyObjectUnrefsHeldEmbeddedMemoReference )
+    {
+        Py_Initialize();
+
+        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
+        auto fixture = workspace.getFixture(prefix_name);
+        auto rootClass = getTestClass(fixture);
+        auto holderClass = getTestClass(fixture);
+        auto pyMemoType = makeImmutableMemoType();
+        ASSERT_TRUE(pyMemoType.get());
+        auto nestedClass = fixture->get<ClassFactory>().getOrCreateType(pyMemoType.get());
+        auto rootLoc = rootClass->addField("child", 0).get(0).getIndexAndOffset();
+        auto nestedLoc = nestedClass->addField("value", 0).get(0).getIndexAndOffset();
+        auto holderLoc = holderClass->addField("held", 0).get(0).getIndexAndOffset();
+        rootClass->flush();
+        nestedClass->flush();
+        holderClass->flush();
+
+        {
+            auto pyNestedMemo = Py_OWN(reinterpret_cast<db0::python::MemoImmutableObject *>(
+                db0::python::MemoObjectStub_new(pyMemoType.get())
+            ));
+            pyNestedMemo->makeNew(nestedClass);
+            auto *nestedInitializer = dynamic_cast<ImmutableObjectInitializer *>(
+                InitManager::instance.findInitializer(pyNestedMemo->ext())
+            );
+            ASSERT_NE(nestedInitializer, nullptr);
+            nestedInitializer->set(nestedLoc, StorageClass::INT64, Value(17));
+
+            ObjectImmutableImpl root(rootClass);
+            auto *rootInitializer = dynamic_cast<ImmutableObjectInitializer *>(
+                InitManager::instance.findInitializer(root)
+            );
+            ASSERT_NE(rootInitializer, nullptr);
+            rootInitializer->setObject(
+                rootLoc, StorageClass::OBJECT_REF, Value(0),
+                ImmutableObjectInitializer::ObjectSharedPtr(reinterpret_cast<PyObject *>(pyNestedMemo.get()))
+            );
+
+            {
+                db0::FixtureLock lock(fixture);
+                root.postInit(lock);
+            }
+            root.incRef(false);
+            ASSERT_EQ(root.getRefCounts().second, 1u);
+
+            auto *embeddedValue = root->variableValue(rootLoc.first);
+            ASSERT_NE(embeddedValue, nullptr);
+            ASSERT_EQ(embeddedValue->itemKind(), StorageClass::EMBEDDED_OBJECT);
+            auto embeddedOffset = offsetOfEmbeddedObject(*root.operator->(), *embeddedValue);
+            auto embeddedAddress = db0::UniqueAddress(
+                root.getAddress() + embeddedOffset, root.getUniqueAddress().getInstanceId()
+            );
+
+            root.incRef(false);
+            Object holder(holderClass);
+            auto *holderInitializer = InitManager::instance.findInitializer(holder);
+            ASSERT_NE(holderInitializer, nullptr);
+            holderInitializer->set(holderLoc, StorageClass::EMBEDDED_OBJECT_REF, Value(embeddedAddress));
+            {
+                db0::FixtureLock lock(fixture);
+                holder.postInit(lock);
+            }
+            ASSERT_EQ(root.getRefCounts().second, 2u);
+
+            holder.destroy();
+            ASSERT_EQ(root.getRefCounts().second, 1u);
+
+            root.destroy();
+        }
+
+        rootClass.reset();
+        holderClass.reset();
+        nestedClass.reset();
+        workspace.close();
+    }
+
     TEST_F( ObjectInitializerTest, testImmutablePreInitChangingRegularValueToLoFiClearsEmbeddedObject )
     {
         Py_Initialize();
