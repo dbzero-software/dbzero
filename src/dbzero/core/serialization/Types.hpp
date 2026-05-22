@@ -8,6 +8,11 @@
 #include <dbzero/core/serialization/Fixed.hpp>
 #include <dbzero/core/compiler_attributes.hpp>
 
+namespace db0::object_model
+{
+    struct EmbeddedObjectOffsetCollector;
+}
+
 namespace db0 
 
 {
@@ -116,7 +121,19 @@ DB0_PACKED_BEGIN
 
         o_binary(const std::vector<std::byte> &);
 
-        o_binary(std::size_t size, void (*write)(void *, const void *), const void *source);
+        // Optional context lets writer-backed payloads receive construction-only state.
+        // A null context is used by measurement and ordinary copy paths.
+        o_binary(
+            std::size_t size,
+            void (*write)(void *, const void *, db0::object_model::EmbeddedObjectOffsetCollector *),
+            const void *source
+        );
+
+        o_binary(
+            std::size_t size,
+            void (*write)(void *, const void *, db0::object_model::EmbeddedObjectOffsetCollector *),
+            const void *source, db0::object_model::EmbeddedObjectOffsetCollector *context
+        );
 
     public:
         /**

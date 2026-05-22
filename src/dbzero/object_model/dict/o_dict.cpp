@@ -602,7 +602,10 @@ namespace db0::object_model
         case StorageClass::EMBEDDED_OBJECT: {
             if (element.m_payload.m_bytes_value.m_writer) {
                 std::vector<std::byte> payload(element.bytesSize());
-                element.m_payload.m_bytes_value.m_writer(payload.data(), element.m_payload.m_bytes_value.m_source);
+                element.m_payload.m_bytes_value.m_writer(
+                    payload.data(), element.m_payload.m_bytes_value.m_source,
+                    element.m_payload.m_bytes_value.m_context
+                );
                 return hashBytes(payload.data(), payload.size(), seed);
             }
             return hashBytes(element.bytesData(), element.bytesSize(), seed);

@@ -15,6 +15,7 @@
 #include <dbzero/object_model/class/Class.hpp>
 #include <dbzero/object_model/class/ClassFactory.hpp>
 #include <dbzero/object_model/dict/o_py_dict.hpp>
+#include <dbzero/object_model/object/ObjectInitializer.hpp>
 #include <dbzero/object_model/object/ObjectImmutableImpl.hpp>
 #include <dbzero/object_model/object/o_embedded_object.hpp>
 #include <dbzero/object_model/set/o_py_set.hpp>
@@ -629,6 +630,7 @@ namespace db0::python
         if (PyObject_GC_IsTracked(object)) {
             PyObject_GC_UnTrack(object);
         }
+        InitManager::instance.tryCloseInitializer(object->ext());
         object->destroy();
         new ((void *)const_cast<MemoImmutableObject::ExtT *>(&object->ext()))
             EmbeddedObjectRef(rootObject, &embeddedObject, std::move(type));

@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -17,6 +18,22 @@
 
 namespace db0::object_model
 {
+    struct EmbeddedObjectOffsetCollector
+    {
+        const std::byte *m_root = nullptr;
+        std::vector<std::uint64_t> *m_offsets = nullptr;
+
+        void add(const void *object) const
+        {
+            assert(m_root);
+            assert(m_offsets);
+            auto offset = static_cast<std::uint64_t>(
+                reinterpret_cast<const std::byte *>(object) - m_root
+            );
+            assert(m_offsets->empty() || m_offsets->back() < offset);
+            m_offsets->push_back(offset);
+        }
+    };
 
     struct FixedValue
     {
@@ -41,6 +58,10 @@ DB0_PACKED_BEGIN
         using Element = o_tuple_item::Element;
 
         o_embedded_object(std::uint32_t classRef, const ImmutableObjectInitializer &initializer);
+        o_embedded_object(
+            std::uint32_t classRef, const ImmutableObjectInitializer &initializer,
+            EmbeddedObjectOffsetCollector &offsetCollector
+        );
         o_embedded_object(
             std::uint32_t classRef, const PosVT::Data &posVtData, unsigned int posVtOffset,
             const XValue *indexVtBegin = nullptr, const XValue *indexVtEnd = nullptr
@@ -78,6 +99,10 @@ DB0_PACKED_BEGIN
         o_embedded_object() = default;
 
     private:
+        void construct(
+            std::uint32_t classRef, const ImmutableObjectInitializer &initializer,
+            EmbeddedObjectOffsetCollector *offsetCollector
+        );
         const db0::packed_int32 &classRef() const;
     };
 DB0_PACKED_END

@@ -20,19 +20,34 @@ namespace db0::object_model
 {
     namespace
     {
-        void writePyTuple(void *buf, const void *source)
+        void writePyTuple(void *buf, const void *source, EmbeddedObjectOffsetCollector *context)
         {
-            o_py_tuple::__new(buf, const_cast<PyObject *>(static_cast<const PyObject *>(source)));
+            auto *pyObject = const_cast<PyObject *>(static_cast<const PyObject *>(source));
+            if (context) {
+                o_py_tuple::__new(buf, pyObject, *context);
+            } else {
+                o_py_tuple::__new(buf, pyObject);
+            }
         }
 
-        void writePySet(void *buf, const void *source)
+        void writePySet(void *buf, const void *source, EmbeddedObjectOffsetCollector *context)
         {
-            o_py_set::__new(buf, const_cast<PyObject *>(static_cast<const PyObject *>(source)));
+            auto *pyObject = const_cast<PyObject *>(static_cast<const PyObject *>(source));
+            if (context) {
+                o_py_set::__new(buf, pyObject, *context);
+            } else {
+                o_py_set::__new(buf, pyObject);
+            }
         }
 
-        void writePyDict(void *buf, const void *source)
+        void writePyDict(void *buf, const void *source, EmbeddedObjectOffsetCollector *context)
         {
-            o_py_dict::__new(buf, const_cast<PyObject *>(static_cast<const PyObject *>(source)));
+            auto *pyObject = const_cast<PyObject *>(static_cast<const PyObject *>(source));
+            if (context) {
+                o_py_dict::__new(buf, pyObject, *context);
+            } else {
+                o_py_dict::__new(buf, pyObject);
+            }
         }
 
         const ImmutableObjectInitializer &getInitializer(PyObject *pyObject)
@@ -58,15 +73,52 @@ namespace db0::object_model
             return *initializer;
         }
 
-        void writeEmbeddedObject(void *buf, const void *source)
+        void writeEmbeddedObject(void *buf, const void *source, EmbeddedObjectOffsetCollector *context)
         {
             auto *pyObject = const_cast<PyObject *>(static_cast<const PyObject *>(source));
             const auto &initializer = getInitializer(pyObject);
-            o_embedded_object::__new(buf, initializer.getClassPtr()->getClassRef(), initializer);
+            if (context) {
+                context->add(buf);
+                o_embedded_object::__new(buf, initializer.getClassPtr()->getClassRef(), initializer, *context);
+            } else {
+                o_embedded_object::__new(buf, initializer.getClassPtr()->getClassRef(), initializer);
+            }
         }
     }
 
     o_py_dict::o_py_dict(PyObject *dict)
+        : o_dict()
+    {
+        std::uint32_t count = 0;
+        std::uint32_t pairsByteSize = 0;
+        std::size_t capacity = 0;
+        std::uint32_t bucketByteSize = 0;
+        count = dictSize(dict);
+        pairsByteSize = checkedUint32Size(measurePairs(dict), "Python dict pairs byte size");
+        capacity = hashIndexCapacity(count);
+        bucketByteSize = checkedUint32Size(
+            measureCollisionBuckets(dict, capacity), "Python dict bucket byte size"
+        );
+
+        auto arranger = arrangeDictMembers(count, pairsByteSize, bucketByteSize);
+        auto iterator = Py_OWN(PyObject_GetIter(dict));
+        if (!iterator) {
+            PyErr_Clear();
+            THROWF(db0::InputException) << "o_py_dict expects a Python dict";
+        }
+
+        Py_FOR(key, iterator) {
+            arranger = arranger(Pair::type(), elementFromPythonObject(*key), valueFromPythonDict(dict, *key));
+        }
+        if (PyErr_Occurred()) {
+            PyErr_Clear();
+            THROWF(db0::InputException) << "Unable to iterate Python dict";
+        }
+
+        finishDictConstruction(arranger.ptr(), pairsByteSize, capacity, bucketByteSize);
+    }
+
+    o_py_dict::o_py_dict(PyObject *dict, EmbeddedObjectOffsetCollector &offsetCollector)
         : o_dict()
     {
         auto count = dictSize(dict);
@@ -84,7 +136,11 @@ namespace db0::object_model
         }
 
         Py_FOR(key, iterator) {
-            arranger = arranger(Pair::type(), elementFromPythonObject(*key), valueFromPythonDict(dict, *key));
+            arranger = arranger(
+                Pair::type(),
+                elementFromPythonObject(*key, &offsetCollector),
+                valueFromPythonDict(dict, *key, &offsetCollector)
+            );
         }
         if (PyErr_Occurred()) {
             PyErr_Clear();
@@ -125,6 +181,13 @@ namespace db0::object_model
 
     o_py_dict::Element o_py_dict::elementFromPythonObject(PyObject *object)
     {
+        return elementFromPythonObject(object, nullptr);
+    }
+
+    o_py_dict::Element o_py_dict::elementFromPythonObject(
+        PyObject *object, EmbeddedObjectOffsetCollector *offsetCollector
+    )
+    {
         auto &typeManager = db0::python::PyToolkit::getTypeManager();
         auto typeId = typeManager.getTypeId(object);
 
@@ -164,15 +227,15 @@ namespace db0::object_model
         }
         case db0::bindings::TypeId::LIST:
         case db0::bindings::TypeId::TUPLE:
-            return Element::embeddedTuple(o_py_tuple::measure(object), writePyTuple, object);
+            return Element::embeddedTuple(o_py_tuple::measure(object), writePyTuple, object, offsetCollector);
         case db0::bindings::TypeId::SET:
-            return Element::embeddedSet(o_py_set::measure(object), writePySet, object);
+            return Element::embeddedSet(o_py_set::measure(object), writePySet, object, offsetCollector);
         case db0::bindings::TypeId::DICT:
-            return Element::embeddedDict(o_py_dict::measure(object), writePyDict, object);
+            return Element::embeddedDict(o_py_dict::measure(object), writePyDict, object, offsetCollector);
         case db0::bindings::TypeId::MEMO_IMMUTABLE_OBJECT: {
             const auto &initializer = getInitializer(object);
             auto size = o_embedded_object::measure(initializer.getClassPtr()->getClassRef(), initializer);
-            return Element::embeddedObject(size, writeEmbeddedObject, object);
+            return Element::embeddedObject(size, writeEmbeddedObject, object, offsetCollector);
         }
         default:
             break;
@@ -184,6 +247,13 @@ namespace db0::object_model
 
     o_py_dict::Element o_py_dict::valueFromPythonDict(PyObject *dict, PyObject *key)
     {
+        return valueFromPythonDict(dict, key, nullptr);
+    }
+
+    o_py_dict::Element o_py_dict::valueFromPythonDict(
+        PyObject *dict, PyObject *key, EmbeddedObjectOffsetCollector *offsetCollector
+    )
+    {
         auto *value = PyDict_GetItemWithError(dict, key);
         if (!value) {
             if (PyErr_Occurred()) {
@@ -191,7 +261,7 @@ namespace db0::object_model
             }
             THROWF(db0::InputException) << "Unable to read Python dict value";
         }
-        return elementFromPythonObject(value);
+        return elementFromPythonObject(value, offsetCollector);
     }
 
     std::uint32_t o_py_dict::dictSize(PyObject *dict)

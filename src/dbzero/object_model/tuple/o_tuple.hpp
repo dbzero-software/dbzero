@@ -17,6 +17,7 @@
 
 namespace db0::object_model
 {
+    struct EmbeddedObjectOffsetCollector;
 
 DB0_PACKED_BEGIN
     class DB0_PACKED_ATTR o_tuple_item: public db0::o_base<o_tuple_item, 0, false>
@@ -30,12 +31,15 @@ DB0_PACKED_BEGIN
         {
             struct BytesView
             {
-                using Writer = void (*)(void *, const void *);
+                using Writer = void (*)(void *, const void *, EmbeddedObjectOffsetCollector *);
 
                 const std::byte *m_data = nullptr;
                 std::size_t m_size = 0;
                 Writer m_writer = nullptr;
                 const void *m_source = nullptr;
+                // Optional construction context. Immutable object creation uses it to pass
+                // the embedded-offset collector; measurement leaves it null.
+                EmbeddedObjectOffsetCollector *m_context = nullptr;
             };
 
             StorageClass m_kind = StorageClass::UNDEFINED;
@@ -69,10 +73,22 @@ DB0_PACKED_BEGIN
             static Element embeddedSet(const void *data, std::size_t size);
             static Element embeddedDict(const void *data, std::size_t size);
             static Element embeddedObject(const void *data, std::size_t size);
-            static Element embeddedTuple(std::size_t size, BytesView::Writer writer, const void *source);
-            static Element embeddedSet(std::size_t size, BytesView::Writer writer, const void *source);
-            static Element embeddedDict(std::size_t size, BytesView::Writer writer, const void *source);
-            static Element embeddedObject(std::size_t size, BytesView::Writer writer, const void *source);
+            static Element embeddedTuple(
+                std::size_t size, BytesView::Writer writer, const void *source,
+                EmbeddedObjectOffsetCollector *context = nullptr
+            );
+            static Element embeddedSet(
+                std::size_t size, BytesView::Writer writer, const void *source,
+                EmbeddedObjectOffsetCollector *context = nullptr
+            );
+            static Element embeddedDict(
+                std::size_t size, BytesView::Writer writer, const void *source,
+                EmbeddedObjectOffsetCollector *context = nullptr
+            );
+            static Element embeddedObject(
+                std::size_t size, BytesView::Writer writer, const void *source,
+                EmbeddedObjectOffsetCollector *context = nullptr
+            );
 
             std::int64_t intValue() const;
             std::uint64_t uint64Value() const;

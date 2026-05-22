@@ -17,19 +17,34 @@ namespace db0::object_model
     {
         constexpr std::uint64_t PACK2_MASK = 0x3;
 
-        void writePyTuple(void *buf, const void *source)
+        void writePyTuple(void *buf, const void *source, EmbeddedObjectOffsetCollector *context)
         {
-            o_py_tuple::__new(buf, const_cast<PyObject *>(static_cast<const PyObject *>(source)));
+            auto *pyObject = const_cast<PyObject *>(static_cast<const PyObject *>(source));
+            if (context) {
+                o_py_tuple::__new(buf, pyObject, *context);
+            } else {
+                o_py_tuple::__new(buf, pyObject);
+            }
         }
 
-        void writePySet(void *buf, const void *source)
+        void writePySet(void *buf, const void *source, EmbeddedObjectOffsetCollector *context)
         {
-            o_py_set::__new(buf, const_cast<PyObject *>(static_cast<const PyObject *>(source)));
+            auto *pyObject = const_cast<PyObject *>(static_cast<const PyObject *>(source));
+            if (context) {
+                o_py_set::__new(buf, pyObject, *context);
+            } else {
+                o_py_set::__new(buf, pyObject);
+            }
         }
 
-        void writePyDict(void *buf, const void *source)
+        void writePyDict(void *buf, const void *source, EmbeddedObjectOffsetCollector *context)
         {
-            o_py_dict::__new(buf, const_cast<PyObject *>(static_cast<const PyObject *>(source)));
+            auto *pyObject = const_cast<PyObject *>(static_cast<const PyObject *>(source));
+            if (context) {
+                o_py_dict::__new(buf, pyObject, *context);
+            } else {
+                o_py_dict::__new(buf, pyObject);
+            }
         }
 
         const ImmutableObjectInitializer &getInitializer(PyObject *pyObject)
@@ -55,15 +70,21 @@ namespace db0::object_model
             return *initializer;
         }
 
-        void writeEmbeddedObject(void *buf, const void *source)
+        void writeEmbeddedObject(void *buf, const void *source, EmbeddedObjectOffsetCollector *context)
         {
             auto *pyObject = const_cast<PyObject *>(static_cast<const PyObject *>(source));
             const auto &initializer = getInitializer(pyObject);
-            o_embedded_object::__new(buf, initializer.getClassPtr()->getClassRef(), initializer);
+            if (context) {
+                context->add(buf);
+                o_embedded_object::__new(buf, initializer.getClassPtr()->getClassRef(), initializer, *context);
+            } else {
+                o_embedded_object::__new(buf, initializer.getClassPtr()->getClassRef(), initializer);
+            }
         }
 
         o_dict::Element fieldMapElementFromObject(
-            StorageClass storageClass, ImmutableObjectInitializer::ObjectSharedPtr object
+            StorageClass storageClass, ImmutableObjectInitializer::ObjectSharedPtr object,
+            EmbeddedObjectOffsetCollector *offsetCollector
         )
         {
             auto *pyObject = object.get();
@@ -84,21 +105,21 @@ namespace db0::object_model
                 case StorageClass::DB0_LIST:
                 case StorageClass::DB0_TUPLE: {
                     auto size = o_py_tuple::measure(pyObject);
-                    return o_dict::Element::embeddedTuple(size, writePyTuple, pyObject);
+                    return o_dict::Element::embeddedTuple(size, writePyTuple, pyObject, offsetCollector);
                 }
                 case StorageClass::DB0_SET: {
                     auto size = o_py_set::measure(pyObject);
-                    return o_dict::Element::embeddedSet(size, writePySet, pyObject);
+                    return o_dict::Element::embeddedSet(size, writePySet, pyObject, offsetCollector);
                 }
                 case StorageClass::DB0_DICT: {
                     auto size = o_py_dict::measure(pyObject);
-                    return o_dict::Element::embeddedDict(size, writePyDict, pyObject);
+                    return o_dict::Element::embeddedDict(size, writePyDict, pyObject, offsetCollector);
                 }
                 case StorageClass::OBJECT_REF:
                 case StorageClass::EMBEDDED_OBJECT: {
                     const auto &initializer = getInitializer(pyObject);
                     auto size = o_embedded_object::measure(initializer.getClassPtr()->getClassRef(), initializer);
-                    return o_dict::Element::embeddedObject(size, writeEmbeddedObject, pyObject);
+                    return o_dict::Element::embeddedObject(size, writeEmbeddedObject, pyObject, offsetCollector);
                 }
                 default:
                     THROWF(db0::InputException)
@@ -107,7 +128,9 @@ namespace db0::object_model
             return o_dict::Element::none();
         }
 
-        o_dict::ElementMap buildEmbeddedFieldMap(const ImmutableObjectInitializer &initializer)
+        o_dict::ElementMap buildEmbeddedFieldMap(
+            const ImmutableObjectInitializer &initializer, EmbeddedObjectOffsetCollector *offsetCollector
+        )
         {
             o_dict::ElementMap fieldMap;
             for (const auto &value: initializer.objects()) {
@@ -116,7 +139,9 @@ namespace db0::object_model
                     fieldMap.erase(key);
                 } else {
                     assert(value.m_loc.second == 0 && "Variable-length embedded fields must use default fidelity");
-                    fieldMap[key] = fieldMapElementFromObject(value.m_storage_class, value.m_object);
+                    fieldMap[key] = fieldMapElementFromObject(
+                        value.m_storage_class, value.m_object, offsetCollector
+                    );
                 }
             }
             return fieldMap;
@@ -159,10 +184,26 @@ namespace db0::object_model
         std::uint32_t classRefValue, const ImmutableObjectInitializer &initializer
     )
     {
+        construct(classRefValue, initializer, nullptr);
+    }
+
+    o_embedded_object::o_embedded_object(
+        std::uint32_t classRefValue, const ImmutableObjectInitializer &initializer,
+        EmbeddedObjectOffsetCollector &offsetCollector
+    )
+    {
+        construct(classRefValue, initializer, &offsetCollector);
+    }
+
+    void o_embedded_object::construct(
+        std::uint32_t classRefValue, const ImmutableObjectInitializer &initializer,
+        EmbeddedObjectOffsetCollector *offsetCollector
+    )
+    {
         PosVT::Data posVtData;
         unsigned int posVtOffset = 0;
         auto indexVtData = initializer.getData(posVtData, posVtOffset);
-        auto fieldMap = buildEmbeddedFieldMap(initializer);
+        auto fieldMap = buildEmbeddedFieldMap(initializer, offsetCollector);
         arrangeMembers()
             (db0::packed_int32::type(), classRefValue)
             (PosVT::type(), posVtData, posVtOffset)
@@ -245,7 +286,7 @@ namespace db0::object_model
         PosVT::Data posVtData;
         unsigned int posVtOffset = 0;
         auto indexVtData = initializer.getData(posVtData, posVtOffset);
-        auto fieldMap = buildEmbeddedFieldMap(initializer);
+        auto fieldMap = buildEmbeddedFieldMap(initializer, nullptr);
         return measureMembers()
             (db0::packed_int32::type(), classRefValue)
             (PosVT::type(), posVtData, posVtOffset)

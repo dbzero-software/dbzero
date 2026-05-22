@@ -47,6 +47,10 @@ Types derived from `v_object` should follow the project-wide constructor pattern
 - New durable instances are constructed from `Memspace &` plus any type-specific creation arguments.
 - Existing durable instances are reopened from `mptr` plus any type-specific runtime dependencies.
 
+### Overlaid type inheritance
+
+Variable-size overlaid types that derive from another overlaid type must use `db0::o_ext<Derived, BaseOverlay, VER, STORE_VER>` rather than directly inheriting from an `o_base`-derived overlay such as `o_list`. Direct inheritance bypasses `o_ext` sizing, version, and dynamic-area handling and can corrupt overlaid layout assumptions.
+
 ### C++ style
 
 - Use camelCase for local helper variables, lambdas, and method names in C++ code.

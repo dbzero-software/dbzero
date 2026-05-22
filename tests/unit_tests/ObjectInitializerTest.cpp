@@ -41,10 +41,18 @@ namespace tests
         static constexpr const char *file_name = "my-test-prefix_1.db0";
 
         void SetUp() override {
+            if (Py_IsInitialized()) {
+                PyErr_Clear();
+                PyGC_Collect();
+            }
             drop(file_name);
         }
 
         void TearDown() override {
+            if (Py_IsInitialized()) {
+                PyErr_Clear();
+                PyGC_Collect();
+            }
             drop(file_name);
         }
     };
@@ -94,6 +102,16 @@ namespace tests
         EXPECT_NE(nestedInitializer, nullptr);
         nestedInitializer->set(nestedLoc, StorageClass::OBJECT_REF, Value(referencedAddress));
         return pyMemo;
+    }
+
+    static std::uint64_t offsetOfEmbeddedObject(
+        const o_immutable_object &root, const o_tuple_item &embeddedItem
+    )
+    {
+        const auto &embeddedObject = o_embedded_object::__const_ref(embeddedItem.embeddedPayload().begin());
+        return static_cast<std::uint64_t>(
+            reinterpret_cast<const std::byte *>(&embeddedObject) - reinterpret_cast<const std::byte *>(&root)
+        );
     }
 
     static void assertDestroyImmutableRootUnrefsEmbeddedCollectionReference(
@@ -804,6 +822,176 @@ namespace tests
         }
 
         mockClass.reset();
+        nestedClass.reset();
+        workspace.close();
+    }
+
+    TEST_F( ObjectInitializerTest, testImmutableRetrievesEmbeddedMemoByOffset )
+    {
+        Py_Initialize();
+
+        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
+        auto fixture = workspace.getFixture(prefix_name);
+        auto rootMemoType = makeImmutableMemoType();
+        auto nestedMemoType = makeImmutableMemoType();
+        ASSERT_TRUE(rootMemoType.get());
+        ASSERT_TRUE(nestedMemoType.get());
+        auto rootClass = fixture->get<ClassFactory>().getOrCreateType(rootMemoType.get());
+        auto nestedClass = fixture->get<ClassFactory>().getOrCreateType(nestedMemoType.get());
+        auto rootLoc = rootClass->addField("inner", 0).get(0).getIndexAndOffset();
+        auto nestedLoc = nestedClass->addField("value", 0).get(0).getIndexAndOffset();
+        rootClass->flush();
+        nestedClass->flush();
+
+        auto pyRoot = Py_OWN(reinterpret_cast<db0::python::MemoImmutableObject *>(
+            db0::python::MemoObjectStub_new(rootMemoType.get())
+        ));
+        pyRoot->makeNew(rootClass);
+        auto pyNested = Py_OWN(reinterpret_cast<db0::python::MemoImmutableObject *>(
+            db0::python::MemoObjectStub_new(nestedMemoType.get())
+        ));
+        pyNested->makeNew(nestedClass);
+
+        auto *nestedInitializer = dynamic_cast<ImmutableObjectInitializer *>(
+            InitManager::instance.findInitializer(pyNested->ext())
+        );
+        ASSERT_NE(nestedInitializer, nullptr);
+        nestedInitializer->set(nestedLoc, StorageClass::INT64, Value(123));
+
+        auto *rootInitializer = dynamic_cast<ImmutableObjectInitializer *>(
+            InitManager::instance.findInitializer(pyRoot->ext())
+        );
+        ASSERT_NE(rootInitializer, nullptr);
+        rootInitializer->setObject(
+            rootLoc, StorageClass::OBJECT_REF, Value(0),
+            ImmutableObjectInitializer::ObjectSharedPtr(reinterpret_cast<PyObject *>(pyNested.get()))
+        );
+
+        {
+            db0::FixtureLock lock(fixture);
+            auto &root = pyRoot->modifyExt();
+            root.setLangObject(reinterpret_cast<PyObject *>(pyRoot.get()));
+            root.postInit(lock);
+            fixture->getLangCache().add(root.getAddress(), reinterpret_cast<PyObject *>(pyRoot.get()));
+        }
+
+        ASSERT_TRUE(nestedInitializer->closed());
+
+        const auto &root = pyRoot->ext();
+        auto *embeddedValue = root->variableValue(rootLoc.first);
+        ASSERT_NE(embeddedValue, nullptr);
+        ASSERT_EQ(embeddedValue->itemKind(), StorageClass::EMBEDDED_OBJECT);
+        auto offset = offsetOfEmbeddedObject(*root.operator->(), *embeddedValue);
+        ASSERT_TRUE(root->embeddedObjectOffsets().contains(offset));
+
+        auto embedded = root.getEmbeddedInstanceAtOffset(offset);
+        ASSERT_TRUE(embedded.get());
+        auto value = Py_OWN(PyObject_GetAttrString(embedded.get(), "value"));
+        ASSERT_TRUE(value.get());
+        ASSERT_EQ(PyLong_AsLong(value.get()), 123);
+
+        ASSERT_THROW(root.getEmbeddedInstanceAtOffset(0), db0::BadAddressException);
+        ASSERT_THROW(root.getEmbeddedInstanceAtOffset(offset + 1), db0::BadAddressException);
+
+        value.reset();
+        embedded.reset();
+        fixture->getLangCache().erase(root.getAddress());
+        const_cast<ObjectImmutableImpl &>(root).setLangObject(nullptr);
+        pyNested.reset();
+        pyRoot.reset();
+
+        rootClass.reset();
+        nestedClass.reset();
+        workspace.close();
+    }
+
+    TEST_F( ObjectInitializerTest, testImmutableRetrievesDeepEmbeddedMemoByOffset )
+    {
+        Py_Initialize();
+
+        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
+        auto fixture = workspace.getFixture(prefix_name);
+        auto rootMemoType = makeImmutableMemoType();
+        auto nestedMemoType = makeImmutableMemoType();
+        ASSERT_TRUE(rootMemoType.get());
+        ASSERT_TRUE(nestedMemoType.get());
+        auto rootClass = fixture->get<ClassFactory>().getOrCreateType(rootMemoType.get());
+        auto nestedClass = fixture->get<ClassFactory>().getOrCreateType(nestedMemoType.get());
+        auto rootLoc = rootClass->addField("outer", 0).get(0).getIndexAndOffset();
+        auto outerLoc = nestedClass->addField("inner", 0).get(0).getIndexAndOffset();
+        auto innerLoc = nestedClass->addField("value", 0).get(0).getIndexAndOffset();
+        rootClass->flush();
+        nestedClass->flush();
+
+        auto pyRoot = Py_OWN(reinterpret_cast<db0::python::MemoImmutableObject *>(
+            db0::python::MemoObjectStub_new(rootMemoType.get())
+        ));
+        pyRoot->makeNew(rootClass);
+        auto pyOuter = Py_OWN(reinterpret_cast<db0::python::MemoImmutableObject *>(
+            db0::python::MemoObjectStub_new(nestedMemoType.get())
+        ));
+        pyOuter->makeNew(nestedClass);
+        auto pyInner = Py_OWN(reinterpret_cast<db0::python::MemoImmutableObject *>(
+            db0::python::MemoObjectStub_new(nestedMemoType.get())
+        ));
+        pyInner->makeNew(nestedClass);
+
+        auto *innerInitializer = dynamic_cast<ImmutableObjectInitializer *>(
+            InitManager::instance.findInitializer(pyInner->ext())
+        );
+        ASSERT_NE(innerInitializer, nullptr);
+        innerInitializer->set(innerLoc, StorageClass::INT64, Value(456));
+
+        auto *outerInitializer = dynamic_cast<ImmutableObjectInitializer *>(
+            InitManager::instance.findInitializer(pyOuter->ext())
+        );
+        ASSERT_NE(outerInitializer, nullptr);
+        outerInitializer->setObject(
+            outerLoc, StorageClass::OBJECT_REF, Value(0),
+            ImmutableObjectInitializer::ObjectSharedPtr(reinterpret_cast<PyObject *>(pyInner.get()))
+        );
+
+        auto *rootInitializer = dynamic_cast<ImmutableObjectInitializer *>(
+            InitManager::instance.findInitializer(pyRoot->ext())
+        );
+        ASSERT_NE(rootInitializer, nullptr);
+        rootInitializer->setObject(
+            rootLoc, StorageClass::OBJECT_REF, Value(0),
+            ImmutableObjectInitializer::ObjectSharedPtr(reinterpret_cast<PyObject *>(pyOuter.get()))
+        );
+
+        {
+            db0::FixtureLock lock(fixture);
+            auto &root = pyRoot->modifyExt();
+            root.setLangObject(reinterpret_cast<PyObject *>(pyRoot.get()));
+            root.postInit(lock);
+            fixture->getLangCache().add(root.getAddress(), reinterpret_cast<PyObject *>(pyRoot.get()));
+        }
+
+        const auto &root = pyRoot->ext();
+        auto *outerValue = root->variableValue(rootLoc.first);
+        ASSERT_NE(outerValue, nullptr);
+        const auto &outerObject = o_embedded_object::__const_ref(outerValue->embeddedPayload().begin());
+        auto *innerValue = outerObject.variableValue(outerLoc.first);
+        ASSERT_NE(innerValue, nullptr);
+        auto innerOffset = offsetOfEmbeddedObject(*root.operator->(), *innerValue);
+        ASSERT_TRUE(root->embeddedObjectOffsets().contains(innerOffset));
+
+        auto embedded = root.getEmbeddedInstanceAtOffset(innerOffset);
+        ASSERT_TRUE(embedded.get());
+        auto value = Py_OWN(PyObject_GetAttrString(embedded.get(), "value"));
+        ASSERT_TRUE(value.get());
+        ASSERT_EQ(PyLong_AsLong(value.get()), 456);
+
+        value.reset();
+        embedded.reset();
+        fixture->getLangCache().erase(root.getAddress());
+        const_cast<ObjectImmutableImpl &>(root).setLangObject(nullptr);
+        pyInner.reset();
+        pyOuter.reset();
+        pyRoot.reset();
+
+        rootClass.reset();
         nestedClass.reset();
         workspace.close();
     }
