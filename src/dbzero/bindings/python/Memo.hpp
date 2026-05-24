@@ -37,6 +37,8 @@ namespace db0::python
     
     void MemoType_get_info(PyTypeObject *type, PyObject *dict);
     void MemoType_close(PyTypeObject *type);
+
+    bool isPersistentAttrName(const char *attr_name);
     
     template <typename MemoImplT>
     PyObject *MemoObject_set_prefix(MemoImplT *, const char *prefix_name);

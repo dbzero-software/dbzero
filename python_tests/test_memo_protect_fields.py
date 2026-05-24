@@ -100,6 +100,60 @@ class MemoImplicitlyProtectedDerivedFieldsClass(MemoProtectedDerivedFieldsClass)
     derived_value: float
 
 
+@db0.memo(immutable=True, protect_fields=True)
+@dataclass
+class MemoProtectedImmutableFieldsClass:
+    name: str
+    value: int
+
+
+@db0.memo(immutable=True, protect_fields=True)
+@dataclass
+class MemoProtectedImmutableBaseFieldsClass:
+    base_name: str
+
+
+@db0.memo(immutable=True)
+@dataclass
+class MemoProtectedImmutableDerivedFieldsClass(MemoProtectedImmutableBaseFieldsClass):
+    name: str
+    value: int
+
+
+@db0.memo(immutable=True, protect_fields=True)
+class MemoProtectedEmbeddedPayload:
+    def __init__(self, name, value):
+        self.name = name
+        self.value = value
+
+
+@db0.memo(immutable=True)
+class MemoProtectedEmbeddedHolder:
+    def __init__(self, name, value, label="holder"):
+        self.child = MemoProtectedEmbeddedPayload(name, value)
+        self.label = label
+
+
+@db0.memo(immutable=True, protect_fields=True)
+class MemoProtectedEmbeddedBase:
+    def __init__(self, base_name):
+        self.base_name = base_name
+
+
+@db0.memo(immutable=True)
+class MemoProtectedEmbeddedDerived(MemoProtectedEmbeddedBase):
+    def __init__(self, base_name, value, secret="hidden"):
+        super().__init__(base_name)
+        self.value = value
+        self.secret = secret
+
+
+@db0.memo(immutable=True)
+class MemoProtectedEmbeddedDerivedHolder:
+    def __init__(self, base_name, value, secret="hidden"):
+        self.child = MemoProtectedEmbeddedDerived(base_name, value, secret)
+
+
 def get_memo_class_object(obj):
     return db0.get_memo_class(obj).get_class()
 
@@ -1034,3 +1088,120 @@ def test_protected_field_getter_uses_contextvar_per_thread(db0_fixture):
 
     assert account_101.result() == (None, True)
     assert account_202.result() == (7, "alpha")
+
+
+def test_protected_immutable_field_getter_enforces_read_access(db0_fixture):
+    account_id = ContextVar("protected_immutable_account_id")
+    obj = MemoProtectedImmutableFieldsClass("alpha", 1)
+    db0.set_field_access(MemoProtectedImmutableFieldsClass, 123, (FieldAccess.READ,), "name")
+    db0._init_data_masking(account_id)
+    account_id.set(123)
+
+    assert obj.name == "alpha"
+    with pytest.raises(PermissionError, match="read"):
+        _ = obj.value
+
+
+def test_protected_immutable_field_getter_inherits_base_class_masks(db0_fixture):
+    account_id = ContextVar("protected_immutable_inherited_account_id")
+    obj = MemoProtectedImmutableDerivedFieldsClass("base", "alpha", 1)
+    db0.set_field_access(
+        MemoProtectedImmutableBaseFieldsClass,
+        123,
+        (FieldAccess.READ,),
+        "base_name",
+    )
+    db0.set_field_access(
+        MemoProtectedImmutableDerivedFieldsClass,
+        123,
+        (FieldAccess.READ,),
+        "name",
+    )
+    db0._init_data_masking(account_id)
+    account_id.set(123)
+
+    assert obj.base_name == "base"
+    assert obj.name == "alpha"
+    with pytest.raises(PermissionError, match="read"):
+        _ = obj.value
+
+
+def test_protected_embedded_field_getter_enforces_read_access(db0_fixture):
+    account_id = ContextVar("protected_embedded_account_id")
+    obj = db0.materialized(MemoProtectedEmbeddedHolder("alpha", 1))
+    db0.set_field_access(MemoProtectedEmbeddedPayload, 123, (FieldAccess.READ,), "name")
+    db0._init_data_masking(account_id)
+    account_id.set(123)
+
+    assert obj.child.name == "alpha"
+    with pytest.raises(PermissionError, match="read"):
+        _ = obj.child.value
+
+
+def test_protected_embedded_field_getter_returns_missing_value_placeholder(db0_fixture):
+    account_id = ContextVar("protected_embedded_placeholder_account_id")
+    missing_value = object()
+    obj = db0.materialized(MemoProtectedEmbeddedHolder("alpha", 1))
+    db0.set_field_access(MemoProtectedEmbeddedPayload, 123, (FieldAccess.READ,), "name")
+    db0._init_data_masking(account_id, missing_value_placeholder=missing_value)
+    account_id.set(123)
+
+    assert obj.child.value is missing_value
+
+
+def test_protected_embedded_field_getter_uses_debug_account_rules(db0_fixture):
+    account_id = ContextVar("protected_embedded_debug_account_id")
+    obj = db0.materialized(MemoProtectedEmbeddedHolder("alpha", 1))
+    db0._init_data_masking(account_id, mode="DEBUG")
+
+    account_id.set(-1)
+    assert obj.child.name == "alpha"
+    assert obj.child.value == 1
+
+    account_id.set(-3)
+    with pytest.raises(RuntimeError, match="invalid.*account"):
+        _ = obj.child.name
+
+
+def test_protected_embedded_field_getter_inherits_base_class_masks(db0_fixture):
+    account_id = ContextVar("protected_embedded_inherited_account_id")
+    obj = db0.materialized(MemoProtectedEmbeddedDerivedHolder("base", 7, "secret"))
+    db0.set_field_access(MemoProtectedEmbeddedBase, 123, (FieldAccess.READ,), "base_name")
+    db0.set_field_access(MemoProtectedEmbeddedDerived, 123, (FieldAccess.READ,), "value")
+    db0._init_data_masking(account_id)
+    account_id.set(123)
+
+    assert obj.child.base_name == "base"
+    assert obj.child.value == 7
+    with pytest.raises(PermissionError, match="read"):
+        _ = obj.child.secret
+
+
+def test_protected_embedded_field_getter_survives_reopen(db0_fixture):
+    account_id = ContextVar("protected_embedded_reopen_account_id")
+    obj = db0.materialized(MemoProtectedEmbeddedHolder("alpha", 1))
+    db0.tags(obj).add("keep-protected-embedded")
+    obj_id = db0.uuid(obj)
+    db0.set_field_access(MemoProtectedEmbeddedPayload, 123, (FieldAccess.READ,), "name")
+    db0.commit()
+
+    db0.close()
+    db0.init(DB0_DIR)
+    db0.open("my-test-prefix")
+    db0._init_data_masking(account_id)
+    account_id.set(123)
+
+    reopened = db0.fetch(obj_id)
+    assert reopened.child.name == "alpha"
+    with pytest.raises(PermissionError, match="read"):
+        _ = reopened.child.value
+
+
+def test_protected_embedded_dict_omits_denied_fields(db0_fixture):
+    account_id = ContextVar("protected_embedded_dict_account_id")
+    obj = db0.materialized(MemoProtectedEmbeddedHolder("alpha", 1))
+    db0.set_field_access(MemoProtectedEmbeddedPayload, 123, (FieldAccess.READ,), "name")
+    db0._init_data_masking(account_id)
+    account_id.set(123)
+
+    assert obj.child.__dict__ == {"name": "alpha"}

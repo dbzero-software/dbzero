@@ -5,6 +5,7 @@
 
 #include <dbzero/bindings/python/Memo.hpp>
 #include <dbzero/bindings/python/MemoObject.hpp>
+#include <dbzero/bindings/python/ProtectedFieldAccess.hpp>
 #include <dbzero/bindings/python/PyInternalAPI.hpp>
 #include <dbzero/bindings/python/PySafeAPI.hpp>
 #include <dbzero/bindings/python/PyToolkit.hpp>
@@ -119,9 +120,8 @@ namespace db0::python
             );
         }
 
-        ObjectSharedPtr tryGetMember(EmbeddedObjectRef &embeddedRef, const char *attrName)
+        ObjectSharedPtr tryGetMember(EmbeddedObjectRef &embeddedRef, const MemberLoc &memberLoc)
         {
-            auto memberLoc = embeddedRef.type().findField(attrName);
             if (!memberLoc.first) {
                 return {};
             }
@@ -173,7 +173,7 @@ namespace db0::python
             return result;
         }
 
-        PyObject *tryEmbeddedObjectGetAttr(EmbeddedObject *self, PyObject *attr)
+        PyObject *tryEmbeddedRefGetAttr(PyObject *self, EmbeddedObjectRef &embeddedRef, PyObject *attr)
         {
             const char *attrName = PyUnicode_AsUTF8(attr);
             if (!attrName) {
@@ -181,10 +181,19 @@ namespace db0::python
                 return nullptr;
             }
 
-            if (!(attrName[0] == '_' && attrName[1] == 'X' && attrName[2] == '_' && attrName[3] == '_')) {
-                auto fixture = getRootFixture(self->ext().rootObject());
+            if (isPersistentAttrName(attrName)) {
+                auto fixture = getRootFixture(embeddedRef.rootObject());
                 fixture->refreshIfUpdated();
-                auto member = tryGetMember(self->modifyExt(), attrName);
+                auto memberLoc = embeddedRef.type().findField(attrName);
+                if (memberLoc.first) {
+                    auto masked = checkProtectedFieldReadAccess(
+                        embeddedRef.type(), fixture, memberLoc, attrName
+                    );
+                    if (masked || PyErr_Occurred()) {
+                        return masked;
+                    }
+                }
+                auto member = tryGetMember(embeddedRef, memberLoc);
                 if (member.get()) {
                     return member.steal();
                 }
@@ -196,28 +205,12 @@ namespace db0::python
         PyObject *PyAPI_EmbeddedObject_getattro(EmbeddedObject *self, PyObject *attr)
         {
             PY_API_FUNC
-            return runSafe(tryEmbeddedObjectGetAttr, self, attr);
+            return runSafe(tryEmbeddedRefGetAttr, reinterpret_cast<PyObject *>(self), self->modifyExt(), attr);
         }
 
         PyObject *tryEmbeddedMemoGetAttr(MemoImmutableObject *self, PyObject *attr)
         {
-            const char *attrName = PyUnicode_AsUTF8(attr);
-            if (!attrName) {
-                PyErr_SetString(PyExc_AttributeError, "Invalid attribute name");
-                return nullptr;
-            }
-
-            if (!(attrName[0] == '_' && attrName[1] == 'X' && attrName[2] == '_' && attrName[3] == '_')) {
-                auto &embeddedRef = embeddedMemoRef(self);
-                auto fixture = getRootFixture(embeddedRef.rootObject());
-                fixture->refreshIfUpdated();
-                auto member = tryGetMember(embeddedRef, attrName);
-                if (member.get()) {
-                    return member.steal();
-                }
-            }
-
-            return PyObject_GenericGetAttr(reinterpret_cast<PyObject *>(self), attr);
+            return tryEmbeddedRefGetAttr(reinterpret_cast<PyObject *>(self), embeddedMemoRef(self), attr);
         }
 
         PyObject *PyAPI_EmbeddedMemo_getattro(MemoImmutableObject *self, PyObject *attr)
@@ -332,8 +325,16 @@ namespace db0::python
             }
 
             auto &type = embeddedMemoRef(self).type();
+            auto fixture = getRootFixture(embeddedMemoRef(self).rootObject());
             for (const auto &name: getEmbeddedMemberNames(embeddedMemoRef(self).embeddedObject(), type)) {
-                auto value = tryGetMember(embeddedMemoRef(self), name.c_str());
+                auto memberLoc = type.findField(name.c_str());
+                if (!checkProtectedFieldAccess(type, fixture, FieldMaskOptions::READ, memberLoc, name.c_str())) {
+                    if (PyErr_Occurred()) {
+                        return nullptr;
+                    }
+                    continue;
+                }
+                auto value = tryGetMember(embeddedMemoRef(self), memberLoc);
                 if (!value.get()) {
                     continue;
                 }
