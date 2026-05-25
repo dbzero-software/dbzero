@@ -75,6 +75,33 @@ namespace db0::python
             return reinterpret_cast<MemoAnyObject *>(pyObject)->ext().hasRefs();
         }
 
+        bool isEmbeddedObject(PyObject *pyObject)
+        {
+            return pyObject && Py_TYPE(pyObject) == &EmbeddedObjectType;
+        }
+
+        std::optional<db0::UniqueAddress> tryGetEmbeddedUniqueAddress(PyObject *pyObject)
+        {
+            if (PyEmbeddedMemo_Check(pyObject)) {
+                return getEmbeddedMemoRef(reinterpret_cast<MemoImmutableObject *>(pyObject)).uniqueAddress();
+            }
+            if (isEmbeddedObject(pyObject)) {
+                return reinterpret_cast<EmbeddedObject *>(pyObject)->ext().uniqueAddress();
+            }
+            return std::nullopt;
+        }
+
+        bool shouldCacheEmbeddedObject(PyObject *pyObject)
+        {
+            if (PyEmbeddedMemo_Check(pyObject)) {
+                return !getEmbeddedMemoRef(reinterpret_cast<MemoImmutableObject *>(pyObject)).type().isNoCache();
+            }
+            if (isEmbeddedObject(pyObject)) {
+                return !reinterpret_cast<EmbeddedObject *>(pyObject)->ext().type().isNoCache();
+            }
+            return false;
+        }
+
         PyToolkit::TypeObjectPtr resolveUnloadLangType(
             const PyToolkit::ClassFactory &classFactory, const std::shared_ptr<db0::object_model::Class> &type,
             PyToolkit::TypeObjectSharedPtr langType, PyToolkit::TypeObjectPtr langTypeHint)
@@ -249,6 +276,17 @@ namespace db0::python
             return reinterpret_cast<MemoImmutableObject *>(pyObject)->ext().getType();
         }
         return getTypeManager().extractAnyObject(pyObject).getType();
+    }
+
+    const object_model::o_embedded_object &PyToolkit::getMemoImmutableObject(ObjectPtr pyObject)
+    {
+        if (PyEmbeddedMemo_Check(pyObject)) {
+            return getEmbeddedMemoRef(reinterpret_cast<MemoImmutableObject *>(pyObject)).embeddedObject();
+        }
+        if (isEmbeddedObject(pyObject)) {
+            return reinterpret_cast<EmbeddedObject *>(pyObject)->ext().embeddedObject();
+        }
+        return reinterpret_cast<MemoImmutableObject *>(pyObject)->ext()->getObject();
     }
     
     void PyToolkit::throwErrorWithPyErrorCheck(const std::string& message, const std::string& error_detail) {
@@ -575,6 +613,18 @@ namespace db0::python
         PyToolkit::TypeObjectPtr lang_type_ptr, std::uint16_t instance_id, AccessFlags access_mode,
         ObjectSharedPtr rootObject, const Allocator::AllocationInfo *allocationInfo)
     {
+        auto &langCache = fixture->getLangCache();
+        auto cachedObject = langCache.get(address);
+        if (!!cachedObject) {
+            if (instance_id) {
+                auto cachedAddress = tryGetEmbeddedUniqueAddress(cachedObject.get());
+                if (!cachedAddress || cachedAddress->getInstanceId() != instance_id) {
+                    THROWF(db0::InputException) << "Invalid UUID or object has been deleted";
+                }
+            }
+            return cachedObject;
+        }
+
         Allocator::AllocationInfo alloc_info;
         if (!allocationInfo) {
             alloc_info = fixture->findAllocation(address, db0::object_model::ObjectImmutableImpl::REALM_ID);
@@ -595,7 +645,11 @@ namespace db0::python
         }
         assert(!!rootObject);
         auto *rootMemo = reinterpret_cast<PyToolkit::TypeManager::MemoImmutableObject *>(rootObject.get());
-        return rootMemo->ext().getEmbeddedInstanceAtOffset(embeddedOffset);
+        auto embeddedObject = rootMemo->ext().getEmbeddedInstanceAtOffset(embeddedOffset);
+        if (shouldCacheEmbeddedObject(embeddedObject.get())) {
+            langCache.add(address, embeddedObject.get());
+        }
+        return embeddedObject;
     }
 
     PyToolkit::ObjectSharedPtr PyToolkit::unloadAnyObject(
@@ -615,6 +669,34 @@ namespace db0::python
 
         return unloadEmbeddedObject(
             fixture, address, class_factory, lang_type_ptr, instance_id, access_mode, rootObject, &allocation
+        );
+    }
+
+    PyToolkit::ObjectSharedPtr PyToolkit::unloadAnyObject(
+        db0::swine_ptr<Fixture> &fixture, Address address, std::shared_ptr<Class> type_hint,
+        TypeObjectPtr lang_type_ptr, std::uint16_t instance_id, AccessFlags access_mode)
+    {
+        auto allocation = fixture->findAllocation(address, db0::object_model::ObjectImmutableImpl::REALM_ID);
+        auto &classFactory = fixture->get<ClassFactory>();
+        if (!lang_type_ptr) {
+            auto langType = classFactory.hasLangType(*type_hint)
+                ? classFactory.getLangType(*type_hint)
+                : getTypeManager().getMemoBaseType();
+            lang_type_ptr = langType.get();
+        }
+        auto rootObject = unloadObject(
+            fixture, allocation.address, std::move(type_hint), lang_type_ptr, access_mode
+        );
+        auto *rootMemo = reinterpret_cast<MemoImmutableObject *>(rootObject.get());
+        if (instance_id && rootMemo->ext().getInstanceId() != instance_id) {
+            THROWF(db0::InputException) << "Invalid UUID or object has been deleted";
+        }
+        if (allocation.address == address) {
+            return rootObject;
+        }
+
+        return unloadEmbeddedObject(
+            fixture, address, classFactory, lang_type_ptr, instance_id, access_mode, rootObject, &allocation
         );
     }
 

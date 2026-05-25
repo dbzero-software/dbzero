@@ -117,6 +117,7 @@ DB0_PACKED_END
         static constexpr std::uint32_t SLOT_NUM = Fixture::TYPE_SLOT_NUM;
         static constexpr unsigned int PRIMARY_FIDELITY = 2;
         static constexpr std::uint16_t FIELD_SAFE_MIN_VERSION = 1;
+        static constexpr std::uint16_t CONTENT_INDEX_MIN_VERSION = 1;
         
         struct Member
         {
@@ -364,6 +365,7 @@ DB0_PACKED_END
         // callback for MemberID updates
         void onMemberIDUpdated(const MemberID &) const;
         void assertFieldSafeSupported() const;
+        void assertContentIndexSupported() const;
         void resetProtectFieldsCache() const;
         FieldSafe &ensureFieldSafe();
         void openFieldSafe() const;

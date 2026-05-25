@@ -112,6 +112,14 @@ def commit(prefix_name: Optional[str] = None) -> None:
     """
     ...
 
+def get_type_stats(type: type, prefix: Optional[str] = None) -> Dict[str, Any]:
+    """Retrieve statistics for a memo type.
+
+    For interned types, the result includes ``content_index["size"]`` with the
+    number of currently indexed intern candidates.
+    """
+    ...
+
 # Object retrieval and management
 
 def fetch(identifier: Union[str, type], expected_type: Optional[type] = None, prefix: Optional[str] = None) -> Memo:

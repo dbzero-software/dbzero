@@ -343,6 +343,14 @@ namespace db0::object_model
         }
     }
 
+    void Class::assertContentIndexSupported() const
+    {
+        if ((*this)->getObjVer() < CONTENT_INDEX_MIN_VERSION) {
+            THROWF(db0::InputException) << "Class version too low to support ContentIndex. Current is: "
+                << (*this)->getObjVer() << ", for minimum support you need " << CONTENT_INDEX_MIN_VERSION;
+        }
+    }
+
     void Class::openFieldSafe() const
     {
         if ((*this)->getObjVer() >= FIELD_SAFE_MIN_VERSION && (*this)->m_field_safe_ptr && !m_field_safe) {
@@ -352,11 +360,13 @@ namespace db0::object_model
 
     void Class::openContentIndex() const
     {
+        assertContentIndexSupported();
         if ((*this)->m_content_index_ptr && !m_content_index) {
             auto fixture = getFixture();
             m_content_index.emplace(
                 fixture->myPtr((*this)->m_content_index_ptr.getAddress()),
-                fixture
+                fixture,
+                std::const_pointer_cast<Class>(shared_from_this())
             );
         }
     }
@@ -398,15 +408,20 @@ namespace db0::object_model
 
     bool Class::hasContentIndex() const
     {
+        if ((*this)->getObjVer() < CONTENT_INDEX_MIN_VERSION) {
+            return false;
+        }
         return !!(*this)->m_content_index_ptr;
     }
 
     ContentIndex &Class::getContentIndex()
     {
+        assertContentIndexSupported();
         openContentIndex();
         if (!m_content_index) {
             auto fixture = getFixture();
-            m_content_index.emplace(fixture);
+            auto type = shared_from_this();
+            m_content_index.emplace(fixture, type);
             modify().m_content_index_ptr = *m_content_index;
         }
         return *m_content_index;
@@ -414,6 +429,7 @@ namespace db0::object_model
 
     const ContentIndex &Class::getContentIndex() const
     {
+        assertContentIndexSupported();
         openContentIndex();
         if (!m_content_index) {
             THROWF(db0::InputException) << "ContentIndex is not initialized for class " << getName();

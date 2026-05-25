@@ -4,6 +4,7 @@
 #include <gtest/gtest.h>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include <dbzero/object_model/class/Class.hpp>
 #include <dbzero/object_model/object/ContentIndex.hpp>
@@ -83,7 +84,7 @@ namespace tests
         db0::swine_ptr<Fixture> m_fixture;
     };
 
-    TEST_F(ContentIndexTest, testLookupFindsInsertedEquivalentInitializer)
+    TEST_F(ContentIndexTest, testContainsFindsInsertedAddress)
     {
         auto type = makeClass("ContentIndexLookup");
         auto object = makeObject(type, 42);
@@ -91,12 +92,7 @@ namespace tests
 
         index.insert((*object)->getObject(), object->getUniqueAddress());
 
-        ObjectImmutableImpl probe(type);
-        auto &initializer = setInitializerValue(probe, type, 42);
-        auto result = index.lookup(initializer);
-
-        ASSERT_TRUE(result.has_value());
-        ASSERT_EQ(object->getUniqueAddress(), *result);
+        ASSERT_TRUE(index.contains((*object)->getObject(), object->getUniqueAddress()));
     }
 
     TEST_F(ContentIndexTest, testLookupMissesDifferentContent)
@@ -133,11 +129,9 @@ namespace tests
         auto &index = type->getContentIndex();
         index.insert((*object)->getObject(), object->getUniqueAddress());
         index.rollback();
+        ASSERT_EQ(index.size(), 0);
 
-        ObjectImmutableImpl probe(type);
-        auto &initializer = setInitializerValue(probe, type, 42);
-
-        ASSERT_FALSE(index.lookup(initializer).has_value());
+        ASSERT_FALSE(index.contains((*object)->getObject(), object->getUniqueAddress()));
     }
 
     TEST_F(ContentIndexTest, testRemoveHidesInsertedCandidate)
@@ -147,15 +141,15 @@ namespace tests
         auto &index = type->getContentIndex();
         index.insert((*object)->getObject(), object->getUniqueAddress());
 
-        ObjectImmutableImpl probe(type);
-        auto &initializer = setInitializerValue(probe, type, 42);
-        ASSERT_TRUE(index.lookup(initializer).has_value());
+        ASSERT_TRUE(index.contains((*object)->getObject(), object->getUniqueAddress()));
+        ASSERT_EQ(index.size(), 1);
 
         index.remove((*object)->getObject(), object->getUniqueAddress());
-        ASSERT_FALSE(index.lookup(initializer).has_value());
+        ASSERT_EQ(index.size(), 0);
+        ASSERT_FALSE(index.contains((*object)->getObject(), object->getUniqueAddress()));
     }
 
-    TEST_F(ContentIndexTest, testDuplicateInsertIsAccepted)
+    TEST_F(ContentIndexTest, testDuplicateInsertIsCountedOncePerAddress)
     {
         auto type = makeClass("ContentIndexDuplicateInsert");
         auto object = makeObject(type, 42);
@@ -164,15 +158,51 @@ namespace tests
 
         ASSERT_NO_THROW(index.insert((*object)->getObject(), object->getUniqueAddress()));
         ASSERT_NO_THROW(index.insert((*equivalentObject)->getObject(), equivalentObject->getUniqueAddress()));
-
-        ObjectImmutableImpl probe(type);
-        auto &initializer = setInitializerValue(probe, type, 42);
-        auto result = index.lookup(initializer);
-        ASSERT_TRUE(result.has_value());
-        ASSERT_TRUE(*result == object->getUniqueAddress() || *result == equivalentObject->getUniqueAddress());
+        ASSERT_EQ(index.size(), 2);
+        ASSERT_TRUE(index.contains((*object)->getObject(), object->getUniqueAddress()));
+        ASSERT_TRUE(index.contains((*equivalentObject)->getObject(), equivalentObject->getUniqueAddress()));
     }
 
-    TEST_F(ContentIndexTest, testLookupManyRealImmutableObjectReferences)
+    TEST_F(ContentIndexTest, testBucketRemainsReachableAcrossMorphingInsertAndRemove)
+    {
+        auto type = makeClass("ContentIndexBucketMorphing");
+        auto &index = type->getContentIndex();
+        std::vector<std::unique_ptr<ObjectImmutableImpl>> objects;
+        objects.reserve(8);
+
+        for (std::int64_t i = 0; i < 8; ++i) {
+            auto object = makeObject(type, 42);
+            index.insert((*object)->getObject(), object->getUniqueAddress());
+            objects.push_back(std::move(object));
+        }
+
+        ASSERT_EQ(index.size(), objects.size());
+        for (const auto &object : objects) {
+            ASSERT_TRUE(index.contains((*object)->getObject(), object->getUniqueAddress()))
+                << "address=" << object->getUniqueAddress();
+        }
+
+        std::vector<bool> removed(objects.size(), false);
+        std::vector<std::size_t> removedIndexes = {3, 6, 1, 5};
+        for (auto removedIndex : removedIndexes) {
+            auto removedAddress = objects[removedIndex]->getUniqueAddress();
+            index.remove((*objects[removedIndex])->getObject(), removedAddress);
+            removed[removedIndex] = true;
+
+            ASSERT_FALSE(index.contains((*objects[removedIndex])->getObject(), removedAddress))
+                << "removedIndex=" << removedIndex;
+            for (std::size_t i = 0; i < objects.size(); ++i) {
+                if (removed[i]) {
+                    continue;
+                }
+                ASSERT_TRUE(index.contains((*objects[i])->getObject(), objects[i]->getUniqueAddress()))
+                    << "remainingIndex=" << i << " removedIndex=" << removedIndex;
+            }
+        }
+        ASSERT_EQ(index.size(), objects.size() - removedIndexes.size());
+    }
+
+    TEST_F(ContentIndexTest, testContainsManyRealImmutableObjectReferences)
     {
         auto type = makeClass("ContentIndexManyImmutableObjects");
         auto &index = type->getContentIndex();
@@ -186,12 +216,10 @@ namespace tests
         }
 
         for (std::int64_t value = 0; value < 100; ++value) {
-            ObjectImmutableImpl probe(type);
-            auto &initializer = setInitializerValue(probe, type, value);
-            auto result = index.lookup(initializer);
-
-            ASSERT_TRUE(result.has_value()) << "value=" << value;
-            ASSERT_EQ(objects[static_cast<std::size_t>(value)]->getUniqueAddress(), *result) << "value=" << value;
+            ASSERT_TRUE(index.contains(
+                (*objects[static_cast<std::size_t>(value)])->getObject(),
+                objects[static_cast<std::size_t>(value)]->getUniqueAddress()
+            )) << "value=" << value;
         }
     }
 
@@ -206,14 +234,21 @@ namespace tests
         index.insert((*object)->getObject(), object->getUniqueAddress());
         type->commit();
 
-        Class reopened(m_fixture, type->getAddress());
-        ASSERT_TRUE(reopened.hasContentIndex());
-        ObjectImmutableImpl probe(type);
-        auto &initializer = setInitializerValue(probe, type, 42);
+        auto reopened = std::make_shared<Class>(m_fixture, type->getAddress());
+        ASSERT_TRUE(reopened->hasContentIndex());
+        ASSERT_TRUE(reopened->getContentIndex().contains((*object)->getObject(), object->getUniqueAddress()));
+    }
 
-        auto result = reopened.getContentIndex().lookup(initializer);
-        ASSERT_TRUE(result.has_value());
-        ASSERT_EQ(object->getUniqueAddress(), *result);
+    TEST_F(ContentIndexTest, testLegacyClassVersionDoesNotExposeContentIndex)
+    {
+        auto type = std::static_pointer_cast<SubClass>(makeClass("ContentIndexLegacyClass"));
+        type->forceObjVersionForTest(0);
+
+        ASSERT_FALSE(type->hasContentIndex());
+        ASSERT_THROW(type->getContentIndex(), db0::InputException);
+
+        const Class &constType = *type;
+        ASSERT_THROW(constType.getContentIndex(), db0::InputException);
     }
 
 }

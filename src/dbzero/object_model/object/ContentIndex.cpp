@@ -3,25 +3,41 @@
 
 #include "ContentIndex.hpp"
 
+#include <dbzero/object_model/class/ClassFactory.hpp>
 #include <dbzero/object_model/object/InternContent.hpp>
-#include <dbzero/object_model/object/ObjectImmutableImpl.hpp>
 #include <dbzero/object_model/object/o_immutable_object.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 
 namespace db0::object_model
 {
+    namespace
+    {
+        ContentIndex::TypeObjectSharedPtr tryResolveLangType(
+            const db0::swine_ptr<db0::Fixture> &fixture, const std::shared_ptr<Class> &type)
+        {
+            auto &classFactory = fixture->get<ClassFactory>();
+            if (classFactory.hasLangType(*type)) {
+                return classFactory.getLangType(*type);
+            }
+            return {};
+        }
+    }
 
-    ContentIndex::ContentIndex(db0::swine_ptr<db0::Fixture> &fixture)
+    ContentIndex::ContentIndex(db0::swine_ptr<db0::Fixture> &fixture, std::shared_ptr<Class> type)
         : super_t(*fixture)
         , m_fixture(fixture)
+        , m_class(std::move(type))
+        , m_lang_type(tryResolveLangType(fixture, m_class))
         , m_base_index(*fixture)
     {
         modify().m_base_index_ptr = m_base_index.getAddress();
     }
 
-    ContentIndex::ContentIndex(mptr ptr, db0::swine_ptr<db0::Fixture> &fixture)
+    ContentIndex::ContentIndex(mptr ptr, db0::swine_ptr<db0::Fixture> &fixture, std::shared_ptr<Class> type)
         : super_t(ptr)
         , m_fixture(fixture)
+        , m_class(std::move(type))
+        , m_lang_type(tryResolveLangType(fixture, m_class))
         , m_base_index(myPtr((*this)->m_base_index_ptr))
     {
     }
@@ -31,12 +47,20 @@ namespace db0::object_model
         assert(m_pending_updates.empty() && "ContentIndex::flush() or close() must be called before destruction");
     }
 
-    void ContentIndex::resyncBucket(
-        typename BaseIndexT::iterator &iterator, HashT hash, const BucketIndexT &bucket
-    ) const
+    void ContentIndex::resyncBucket(typename BaseIndexT::iterator &iterator, const BucketIndexT &bucket) const
     {
-        m_base_index.erase(iterator);
-        m_base_index.insert({hash, bucket});
+        iterator.modifyItem().value.m_index_address = bucket.getAddress();
+        iterator.modifyItem().value.m_type = bucket.getIndexType();
+    }
+
+    void ContentIndex::incrementSize() const
+    {
+        ++const_cast<ContentIndex *>(this)->modify().m_size;
+    }
+
+    void ContentIndex::decrementSize() const
+    {
+        --const_cast<ContentIndex *>(this)->modify().m_size;
     }
 
     void ContentIndex::applyInsert(HashT hash, UniqueAddress address) const
@@ -45,12 +69,20 @@ namespace db0::object_model
         if (iterator == m_base_index.end()) {
             BucketIndexT bucket(getMemspace(), address);
             m_base_index.insert({hash, bucket});
+            incrementSize();
             return;
         }
 
         auto bucket = (*iterator).value.getIndex(getMemspace());
+        if (bucket.contains(address)) {
+            return;
+        }
+        auto oldAddress = bucket.getAddress();
         bucket.insert(address);
-        resyncBucket(iterator, hash, bucket);
+        if (bucket.getAddress() != oldAddress) {
+            resyncBucket(iterator, bucket);
+        }
+        incrementSize();
     }
 
     void ContentIndex::applyRemove(HashT hash, UniqueAddress address) const
@@ -68,11 +100,16 @@ namespace db0::object_model
         if (bucket.size() == 1) {
             m_base_index.erase(iterator);
             bucket.destroy();
+            decrementSize();
             return;
         }
 
+        auto oldAddress = bucket.getAddress();
         bucket.erase(address);
-        resyncBucket(iterator, hash, bucket);
+        if (bucket.getAddress() != oldAddress) {
+            resyncBucket(iterator, bucket);
+        }
+        decrementSize();
     }
 
     void ContentIndex::insert(const o_embedded_object &key, UniqueAddress address) const
@@ -89,39 +126,47 @@ namespace db0::object_model
         m_pending_updates.push_back({false, hash, address});
     }
 
+    bool ContentIndex::contains(HashT hash, UniqueAddress address) const
+    {
+        flush();
+
+        auto iterator = m_base_index.find(hash);
+        if (iterator == m_base_index.end()) {
+            return false;
+        }
+
+        auto bucket = (*iterator).value.getIndex(getMemspace());
+        return bucket.contains(address);
+    }
+
+    bool ContentIndex::contains(const o_embedded_object &key, UniqueAddress address) const
+    {
+        auto fixture = m_fixture;
+        return contains(intern_hash(fixture, key), address);
+    }
+
+    bool ContentIndex::contains(const ImmutableObjectInitializer &initializer, UniqueAddress address) const
+    {
+        auto fixture = m_fixture;
+        return contains(intern_hash(fixture, initializer), address);
+    }
+
+    ContentIndex::LangToolkit::TypeObjectPtr ContentIndex::getLangType() const
+    {
+        if (!!m_lang_type) {
+            return m_lang_type.get();
+        }
+        m_lang_type = tryResolveLangType(m_fixture, m_class);
+        return m_lang_type.get();
+    }
+
     bool ContentIndex::candidateMatches(const ImmutableObjectInitializer &initializer, UniqueAddress candidate) const
     {
-        if (!candidate.isValid()) {
-            return false;
-        }
-
-        db0::Allocator::AllocationInfo allocation;
-        try {
-            allocation = m_fixture->findAllocation(candidate.getAddress(), ObjectImmutableImpl::REALM_ID);
-        } catch (const db0::AbstractException &) {
-            return false;
-        }
-
         auto fixture = m_fixture;
-        auto root = ObjectImmutableImpl::tryUnloadStem(
-            fixture, allocation.address, candidate.getInstanceId(), AccessFlags {}
+        auto candidateObject = LangToolkit::unloadAnyObject(
+            fixture, candidate.getAddress(), m_class, getLangType(), candidate.getInstanceId(), AccessFlags {}
         );
-        if (!root) {
-            return false;
-        }
-
-        if (candidate.getAddress() == allocation.address) {
-            return intern_compare(fixture, initializer, root->getObject()) == 0;
-        }
-
-        auto offset = candidate.getAddress().getOffset() - allocation.address.getOffset();
-        if (!root->getOffsetIndex().contains(offset)) {
-            return false;
-        }
-
-        const auto *rootBytes = reinterpret_cast<const std::byte *>(root.operator->());
-        const auto &embeddedObject = o_embedded_object::__const_ref(rootBytes + offset);
-        return intern_compare(fixture, initializer, embeddedObject) == 0;
+        return intern_compare(fixture, initializer, LangToolkit::getMemoImmutableObject(candidateObject.get())) == 0;
     }
 
     std::optional<UniqueAddress> ContentIndex::lookup(const ImmutableObjectInitializer &initializer) const
@@ -189,6 +234,12 @@ namespace db0::object_model
     bool ContentIndex::empty() const
     {
         return m_pending_updates.empty() && m_base_index.empty();
+    }
+
+    std::uint64_t ContentIndex::size() const
+    {
+        flush();
+        return (*this)->m_size;
     }
 
 }

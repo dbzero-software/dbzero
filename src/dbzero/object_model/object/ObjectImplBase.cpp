@@ -144,6 +144,16 @@ namespace db0::object_model
         : super_t(tag_as_dropped(), addr, ext_refs)
     {
     }
+
+    template <typename T, typename ImplT>
+    ObjectImplBase<T, ImplT>::ObjectImplBase(
+        typename super_t::tag_no_gc, db0::swine_ptr<Fixture> &fixture, ObjectStem &&stem, std::shared_ptr<Class> type
+    )
+        : super_t(typename super_t::tag_no_gc(), typename super_t::tag_from_stem(), fixture, std::move(stem))
+    {
+        this->m_type = type;
+        assert(hasValidClassRef());
+    }
     
     template <typename T, typename ImplT>
     ObjectImplBase<T, ImplT>::ObjectImplBase(std::shared_ptr<Class> db0_class)    

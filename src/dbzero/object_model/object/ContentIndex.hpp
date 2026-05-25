@@ -4,6 +4,7 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <vector>
 
@@ -13,6 +14,7 @@
 #include <dbzero/core/memory/Memspace.hpp>
 #include <dbzero/core/serialization/FixedVersioned.hpp>
 #include <dbzero/core/vspace/v_object.hpp>
+#include <dbzero/object_model/LangConfig.hpp>
 #include <dbzero/object_model/object/ObjectInitializer.hpp>
 #include <dbzero/object_model/object/o_embedded_object.hpp>
 
@@ -24,11 +26,14 @@ namespace db0
 namespace db0::object_model
 {
 
+    class Class;
+
 DB0_PACKED_BEGIN
     struct DB0_PACKED_ATTR o_content_index: public db0::o_fixed_versioned<o_content_index>
     {
         Address m_base_index_ptr = {};
-        std::array<std::uint64_t, 4> m_reserved = {0, 0, 0, 0};
+        std::uint64_t m_size = 0;
+        std::array<std::uint64_t, 3> m_reserved = {0, 0, 0};
     };
 DB0_PACKED_END
 
@@ -63,13 +68,17 @@ DB0_PACKED_END
         using BucketIndexT = ContentBucketIndex;
         using BucketItemT = db0::key_value<HashT, ContentBucketRef>;
         using BaseIndexT = db0::v_bindex<BucketItemT>;
+        using LangToolkit = LangConfig::LangToolkit;
+        using TypeObjectSharedPtr = typename LangToolkit::TypeObjectSharedPtr;
 
-        ContentIndex(db0::swine_ptr<db0::Fixture> &);
-        ContentIndex(mptr, db0::swine_ptr<db0::Fixture> &);
+        ContentIndex(db0::swine_ptr<db0::Fixture> &, std::shared_ptr<Class>);
+        ContentIndex(mptr, db0::swine_ptr<db0::Fixture> &, std::shared_ptr<Class>);
         ~ContentIndex();
 
         void insert(const o_embedded_object &, UniqueAddress) const;
         void remove(const o_embedded_object &, UniqueAddress) const;
+        bool contains(const o_embedded_object &, UniqueAddress) const;
+        bool contains(const ImmutableObjectInitializer &, UniqueAddress) const;
         std::optional<UniqueAddress> lookup(const ImmutableObjectInitializer &) const;
 
         void rollback();
@@ -78,9 +87,12 @@ DB0_PACKED_END
         void detach() const;
         void close();
         bool empty() const;
+        std::uint64_t size() const;
 
     private:
         db0::swine_ptr<db0::Fixture> m_fixture;
+        std::shared_ptr<Class> m_class;
+        mutable TypeObjectSharedPtr m_lang_type;
         mutable BaseIndexT m_base_index;
         struct PendingUpdate
         {
@@ -92,7 +104,11 @@ DB0_PACKED_END
 
         void applyInsert(HashT, UniqueAddress) const;
         void applyRemove(HashT, UniqueAddress) const;
-        void resyncBucket(typename BaseIndexT::iterator &, HashT, const BucketIndexT &) const;
+        void incrementSize() const;
+        void decrementSize() const;
+        bool contains(HashT, UniqueAddress) const;
+        void resyncBucket(typename BaseIndexT::iterator &, const BucketIndexT &) const;
+        typename LangToolkit::TypeObjectPtr getLangType() const;
         bool candidateMatches(const ImmutableObjectInitializer &, UniqueAddress) const;
     };
 

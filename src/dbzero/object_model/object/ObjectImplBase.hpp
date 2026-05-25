@@ -51,6 +51,7 @@ namespace db0::object_model
         
         // Construct as null / dropped object
         ObjectImplBase(tag_as_dropped, UniqueAddress, unsigned int ext_refs);
+        ObjectImplBase(typename super_t::tag_no_gc, db0::swine_ptr<Fixture> &, ObjectStem &&, std::shared_ptr<Class>);
         ObjectImplBase(const ObjectImplBase<T, ImplT> &) = delete;
         ObjectImplBase(ObjectImplBase<T, ImplT> &&) = delete;
 

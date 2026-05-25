@@ -9,6 +9,7 @@
 #include <dbzero/object_model/class/Class.hpp>
 #include <dbzero/object_model/class/ClassFactory.hpp>
 #include <dbzero/object_model/dict/o_py_dict.hpp>
+#include <dbzero/object_model/object/ObjectAnyImpl.hpp>
 #include <dbzero/object_model/object/ObjectInitializer.hpp>
 #include <dbzero/object_model/object/o_embedded_object.hpp>
 #include <dbzero/object_model/set/o_py_set.hpp>
@@ -250,6 +251,34 @@ namespace db0::object_model
             return result;
         }
 
+        void removeInternContentIndexEntries(
+            db0::swine_ptr<Fixture> &fixture, const ObjectImmutableImpl &object, Class &rootType
+        )
+        {
+            const auto &rootEmbeddedObject = object->getObject();
+            if (rootType.isIntern() && rootType.hasContentIndex()) {
+                rootType.getContentIndex().remove(rootEmbeddedObject, object.getUniqueAddress());
+            }
+
+            const auto &offsetIndex = object->getOffsetIndex();
+            if (offsetIndex.size() == 0) {
+                return;
+            }
+
+            auto &classFactory = fixture->get<ClassFactory>();
+            const auto *root = reinterpret_cast<const std::byte *>(object.operator->());
+            auto rootAddress = object.getAddress();
+            auto rootInstanceId = object.getUniqueAddress().getInstanceId();
+            for (auto offset: offsetIndex) {
+                const auto &embeddedObject = o_embedded_object::__const_ref(root + offset);
+                auto type = classFactory.getTypeByClassRef(embeddedObject.getClassRef()).m_class;
+                if (!type->isIntern() || !type->hasContentIndex()) {
+                    continue;
+                }
+                type->getContentIndex().remove(embeddedObject, UniqueAddress(rootAddress + offset, rootInstanceId));
+            }
+        }
+
     }
 
     std::optional<UniqueAddress> ObjectImmutableImpl::postInit(FixtureLock &fixture)
@@ -380,16 +409,21 @@ namespace db0::object_model
         std::uint64_t offset
     ) const
     {
+        auto fixture = this->getFixture();
+        auto rootObject = getLangObject();
+
+        const auto &embeddedObject = getEmbeddedObjectAtOffset(offset);
+        return makeEmbeddedObjectView(fixture, rootObject, embeddedObject);
+    }
+
+    const o_embedded_object &ObjectImmutableImpl::getEmbeddedObjectAtOffset(std::uint64_t offset) const
+    {
         if (!this->hasInstance() || !(*this)->getOffsetIndex().contains(offset)) {
             THROWF(db0::BadAddressException) << "Invalid embedded immutable object offset: " << offset;
         }
 
-        auto fixture = this->getFixture();
-        auto rootObject = getLangObject();
-
         const auto *root = reinterpret_cast<const std::byte *>(this->operator->());
-        const auto &embeddedObject = o_embedded_object::__const_ref(root + offset);
-        return makeEmbeddedObjectView(fixture, rootObject, embeddedObject);
+        return o_embedded_object::__const_ref(root + offset);
     }
 
     ObjectImmutableImpl::ObjectSharedPtr ObjectImmutableImpl::tryGetEmbeddedField(
@@ -525,6 +559,7 @@ namespace db0::object_model
 
     void ObjectImmutableImpl::dropMembers(db0::swine_ptr<Fixture> &fixture, Class &classRef) const
     {
+        removeInternContentIndexEntries(fixture, *this, classRef);
         super_t::dropMembers(fixture, classRef);
         unrefEmbeddedObject(fixture, (*this)->getObject());
     }

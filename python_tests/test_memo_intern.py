@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 # Copyright (c) 2025 DBZero Software sp. z o.o.
 
+import gc
 from dataclasses import dataclass
 
 import pytest
@@ -19,9 +20,21 @@ class MemoInternLeaf:
     name: str
 
 
+@db0.memo(immutable=True, intern=True)
+@dataclass
+class MemoInternLeafSibling:
+    name: str
+
+
 @db0.memo(immutable=True)
 @dataclass
 class MemoNonInternImmutableLeaf:
+    name: str
+
+
+@db0.memo(immutable=True, no_cache=True)
+@dataclass
+class MemoNoCacheImmutableLeaf:
     name: str
 
 
@@ -41,6 +54,12 @@ class MemoInternHolder:
 class MemoInternContainerHolder:
     def __init__(self, values):
         self.values = values
+
+
+@db0.memo(immutable=True)
+class MemoImmutableHolder:
+    def __init__(self, value):
+        self.value = value
 
 
 @db0.memo(immutable=True, intern=True)
@@ -114,12 +133,41 @@ def test_interned_object_reuses_materialized_reference(db0_fixture):
 def test_embedded_interned_object_reuses_embedded_instance(db0_fixture):
     leaf = MemoInternLeaf("embedded")
     holder = db0.materialized(MemoInternHolder(leaf))
+    db0.clear_cache()
     second = db0.materialized(MemoInternLeaf("embedded"))
 
     assert db0.uuid(leaf) == db0.uuid(holder.value)
     assert db0.uuid(second) == db0.uuid(leaf)
     assert leaf.name == "embedded"
     assert second.name == "embedded"
+
+
+def test_fetch_embedded_object_reuses_lang_cache_entry(db0_fixture):
+    leaf = MemoInternLeaf("embedded cache")
+    holder = db0.materialized(MemoInternHolder(leaf))
+    leaf_uuid = db0.uuid(holder.value)
+    db0.tags(holder).add("keep-embedded-cache")
+    db0.clear_cache()
+
+    first = db0.fetch(leaf_uuid, MemoInternLeaf)
+    second = db0.fetch(leaf_uuid, MemoInternLeaf)
+
+    assert second is first
+    assert second.name == "embedded cache"
+
+
+def test_fetch_no_cache_embedded_object_is_not_added_to_lang_cache(db0_fixture):
+    holder = db0.materialized(MemoImmutableHolder(MemoNoCacheImmutableLeaf("embedded no-cache")))
+    leaf_uuid = db0.uuid(holder.value)
+    db0.tags(holder).add("keep-embedded-no-cache")
+    db0.clear_cache()
+
+    first = db0.fetch(leaf_uuid, MemoNoCacheImmutableLeaf)
+    second = db0.fetch(leaf_uuid, MemoNoCacheImmutableLeaf)
+
+    assert second is not first
+    assert first.name == "embedded no-cache"
+    assert second.name == "embedded no-cache"
 
 
 def test_embedded_interned_object_reuses_after_commit_and_fetch(db0_fixture):
@@ -167,10 +215,25 @@ def test_embedded_interned_object_inside_container_reuses_embedded_instance(
 
 def test_standalone_interned_object_reuses_existing_instance(db0_fixture):
     first = db0.materialized(MemoInternLeaf("dedupe"))
+    db0.clear_cache()
     second = db0.materialized(MemoInternLeaf("dedupe"))
 
     assert db0.uuid(second) == db0.uuid(first)
     assert second.name == "dedupe"
+
+
+def test_standalone_intern_lookup_uses_bound_type(db0_fixture):
+    first = db0.materialized(MemoInternLeaf("same-content-bound-type"))
+    sibling = db0.materialized(MemoInternLeafSibling("same-content-bound-type"))
+    db0.clear_cache()
+    second = db0.materialized(MemoInternLeaf("same-content-bound-type"))
+    second_sibling = db0.materialized(MemoInternLeafSibling("same-content-bound-type"))
+
+    assert db0.uuid(second) == db0.uuid(first)
+    assert db0.uuid(second_sibling) == db0.uuid(sibling)
+    assert db0.uuid(second) != db0.uuid(second_sibling)
+    assert db0.get_type_stats(MemoInternLeaf)["content_index"]["size"] == 1
+    assert db0.get_type_stats(MemoInternLeafSibling)["content_index"]["size"] == 1
 
 
 def test_standalone_interned_object_keeps_distinct_content(db0_fixture):
@@ -261,6 +324,113 @@ def test_many_interned_materializations_reuse_root_and_embedded_candidates(db0_f
 
         assert db0.uuid(leaf) == canonical_uuids[name]
         assert leaf.name == name
+
+
+def test_dropped_standalone_interned_object_is_not_reused(db0_fixture):
+    obj = db0.materialized(MemoInternLeaf("dropped standalone"))
+    old_uuid = db0.uuid(obj)
+    assert db0._check_interned(old_uuid, MemoInternLeaf)
+    assert db0.get_type_stats(MemoInternLeaf)["content_index"]["size"] == 1
+    del obj
+    gc.collect()
+    db0.commit()
+
+    assert not db0.exists(old_uuid)
+    assert not db0._check_interned(old_uuid, MemoInternLeaf)
+    assert db0.get_type_stats(MemoInternLeaf)["content_index"]["size"] == 0
+    with pytest.raises(Exception):
+        db0.fetch(old_uuid, MemoInternLeaf)
+
+    replacement = db0.materialized(MemoInternLeaf("dropped standalone"))
+
+    assert replacement.name == "dropped standalone"
+    assert db0.exists(db0.uuid(replacement))
+    assert db0._check_interned(db0.uuid(replacement), MemoInternLeaf)
+
+
+def test_dropped_embedded_interned_object_is_not_reused(db0_fixture):
+    leaf = MemoInternLeaf("dropped embedded")
+    holder = db0.materialized(MemoInternHolder(leaf))
+    leaf_uuid = db0.uuid(leaf)
+    holder_uuid = db0.uuid(holder)
+    assert db0._check_interned(leaf_uuid, MemoInternLeaf)
+    assert db0.get_type_stats(MemoInternLeaf)["content_index"]["size"] == 1
+    del leaf, holder
+    gc.collect()
+    db0.commit()
+
+    assert not db0.exists(holder_uuid)
+    assert not db0.exists(leaf_uuid)
+    assert not db0._check_interned(leaf_uuid, MemoInternLeaf)
+    assert db0.get_type_stats(MemoInternLeaf)["content_index"]["size"] == 0
+
+    replacement = db0.materialized(MemoInternLeaf("dropped embedded"))
+
+    assert replacement.name == "dropped embedded"
+    assert db0.uuid(replacement) != leaf_uuid
+    assert db0.exists(db0.uuid(replacement))
+
+
+@pytest.mark.parametrize(
+    "make_values",
+    [
+        pytest.param(lambda leaf: ("prefix", leaf), id="tuple"),
+        pytest.param(lambda leaf: [leaf, "suffix"], id="list"),
+        pytest.param(lambda leaf: {"child": leaf}, id="dict-value"),
+    ],
+)
+def test_dropped_container_embedded_interned_object_is_not_reused(db0_fixture, make_values):
+    leaf = MemoInternLeaf("dropped container embedded")
+    holder = db0.materialized(MemoInternContainerHolder(make_values(leaf)))
+    leaf_uuid = db0.uuid(leaf)
+    holder_uuid = db0.uuid(holder)
+    assert db0._check_interned(leaf_uuid, MemoInternLeaf)
+    assert db0.get_type_stats(MemoInternLeaf)["content_index"]["size"] == 1
+    del leaf, holder
+    gc.collect()
+    db0.commit()
+
+    assert not db0.exists(holder_uuid)
+    assert not db0.exists(leaf_uuid)
+    assert not db0._check_interned(leaf_uuid, MemoInternLeaf)
+    assert db0.get_type_stats(MemoInternLeaf)["content_index"]["size"] == 0
+
+    replacement = db0.materialized(MemoInternLeaf("dropped container embedded"))
+
+    assert replacement.name == "dropped container embedded"
+    assert db0.uuid(replacement) != leaf_uuid
+    assert db0.exists(db0.uuid(replacement))
+
+
+def test_dropped_duplicate_intern_candidate_does_not_hide_live_candidate(db0_fixture):
+    live = db0.materialized(MemoInternLeaf("live duplicate"))
+    live_uuid = db0.uuid(live)
+    db0.tags(live).add("keep-live-duplicate")
+
+    duplicate_leaf = MemoInternLeaf("live duplicate")
+    holder = db0.materialized(MemoInternHolder(duplicate_leaf))
+    duplicate_uuid = db0.uuid(duplicate_leaf)
+    holder_uuid = db0.uuid(holder)
+    assert duplicate_uuid != live_uuid
+    assert db0._check_interned(live_uuid, MemoInternLeaf)
+    assert db0._check_interned(duplicate_uuid, MemoInternLeaf)
+    assert db0.get_type_stats(MemoInternLeaf)["content_index"]["size"] == 2
+
+    del duplicate_leaf, holder
+    gc.collect()
+    db0.commit()
+
+    assert db0.exists(live_uuid)
+    assert not db0.exists(holder_uuid)
+    assert not db0.exists(duplicate_uuid)
+    assert db0._check_interned(live_uuid, MemoInternLeaf)
+    assert not db0._check_interned(duplicate_uuid, MemoInternLeaf)
+    assert db0.get_type_stats(MemoInternLeaf)["content_index"]["size"] == 1
+
+    replacement = db0.materialized(MemoInternLeaf("live duplicate"))
+
+    assert db0.uuid(replacement) == live_uuid
+    assert replacement.name == "live duplicate"
 
 
 def test_interned_object_rejects_non_intern_immutable_reference(db0_fixture):

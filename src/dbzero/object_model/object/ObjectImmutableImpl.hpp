@@ -31,6 +31,7 @@ namespace db0::object_model
         ObjectSharedPtr tryGet(const char *field_name, bool *is_auto_generated = nullptr) const;
         ObjectSharedPtr get(const char *field_name) const;
         ObjectSharedPtr getEmbeddedInstanceAtOffset(std::uint64_t offset) const;
+        const o_embedded_object &getEmbeddedObjectAtOffset(std::uint64_t offset) const;
 
         // Returns the address of an existing durable instance on intern-index hit.
         // Returns std::nullopt when this call created a new durable instance or
