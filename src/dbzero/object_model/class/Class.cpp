@@ -346,6 +346,17 @@ namespace db0::object_model
         }
     }
 
+    void Class::openContentIndex() const
+    {
+        if ((*this)->m_content_index_ptr && !m_content_index) {
+            auto fixture = getFixture();
+            m_content_index.emplace(
+                fixture->myPtr((*this)->m_content_index_ptr.getAddress()),
+                fixture
+            );
+        }
+    }
+
     FieldSafe &Class::ensureFieldSafe()
     {
         if (m_field_safe) {
@@ -379,6 +390,31 @@ namespace db0::object_model
     bool Class::hasFieldSafe() const
     {
         return (*this)->getObjVer() >= FIELD_SAFE_MIN_VERSION && (*this)->m_field_safe_ptr;
+    }
+
+    bool Class::hasContentIndex() const
+    {
+        return !!(*this)->m_content_index_ptr;
+    }
+
+    ContentIndex &Class::getContentIndex()
+    {
+        openContentIndex();
+        if (!m_content_index) {
+            auto fixture = getFixture();
+            m_content_index.emplace(fixture);
+            modify().m_content_index_ptr = *m_content_index;
+        }
+        return *m_content_index;
+    }
+
+    const ContentIndex &Class::getContentIndex() const
+    {
+        openContentIndex();
+        if (!m_content_index) {
+            THROWF(db0::InputException) << "ContentIndex is not initialized for class " << getName();
+        }
+        return *m_content_index;
     }
 
     FieldSafe &Class::getFieldSafe()
@@ -706,6 +742,9 @@ namespace db0::object_model
         if (m_field_safe) {
             m_field_safe->detach();
         }
+        if (m_content_index) {
+            m_content_index->detach();
+        }
         super_t::detach();
     }
     
@@ -715,10 +754,16 @@ namespace db0::object_model
     
     void Class::flush() const {
         m_schema.flush();
+        if (m_content_index) {
+            m_content_index->flush();
+        }
     }
     
     void Class::rollback() {
         m_schema.rollback();
+        if (m_content_index) {
+            m_content_index->rollback();
+        }
     }
 
     void Class::commit() const
@@ -728,6 +773,9 @@ namespace db0::object_model
         m_schema.commit();
         if (m_field_safe) {
             m_field_safe->commit();
+        }
+        if (m_content_index) {
+            m_content_index->commit();
         }
         super_t::commit();
     }
