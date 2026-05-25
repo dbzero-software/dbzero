@@ -829,7 +829,15 @@ namespace db0::python
         db0::FixtureLock lock(fixture);
         // materialize by calling postInit
         memo_obj->modifyExt().setLangObject(reinterpret_cast<PyObject *>(memo_obj));
-        memo_obj->modifyExt().postInit(lock);
+        auto existingInternAddress = memo_obj->modifyExt().postInit(lock);
+        if (existingInternAddress) {
+            auto &classFactory = fixture->get<object_model::ClassFactory>();
+            auto internObject = PyToolkit::unloadAnyObject(
+                fixture, existingInternAddress->getAddress(), classFactory, nullptr,
+                existingInternAddress->getInstanceId(), memo_obj->ext().getAccessMode()
+            );
+            return internObject.steal();
+        }
         if (!memo_obj->ext().getType().isNoCache()) {
             fixture->getLangCache().add(memo_obj->ext().getAddress(), memo_obj);
         }
