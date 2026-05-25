@@ -30,6 +30,7 @@ def init(dbzero_root: str, **kwargs: Any) -> None:
         * cache_size (int, default 2 GiB) for main object cache size in bytes
         * lang_cache_size (int, default 1024) for language model data cache size
         * lock_flags (dict) to configure locking behavior when opening the prefix in read-write mode
+        * rpc (dict) to initialize optional db0_rpc client configuration
         * data_masking (dict) to initialize data masking via _init_data_masking
 
         Lock flags (dict):
@@ -52,7 +53,15 @@ def init(dbzero_root: str, **kwargs: Any) -> None:
     if "lock_flags" in kwargs:
         init_kwargs["lock_flags"] = kwargs["lock_flags"]
 
+    rpc = kwargs.get("rpc")
+    if rpc is not None and not isinstance(rpc, Mapping):
+        raise TypeError("rpc must be a mapping")
+
     _init(dbzero_root, **init_kwargs)
+
+    if rpc is not None:
+        import db0_rpc # pylint:disable=import-outside-toplevel
+        db0_rpc.init(**rpc)
 
     if "prefix" in kwargs:
         open_mode = "rw" if kwargs.get("read_write", True) else "r"
