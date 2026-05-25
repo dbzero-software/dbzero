@@ -5,6 +5,7 @@
 #include <Python.h>
 #include <utils/TestBase.hpp>
 #include <utils/SubClass.hpp>
+#include <utils/utils.hpp>
 #include <dbzero/bindings/python/Memo.hpp>
 #include <dbzero/bindings/python/PyAPI.hpp>
 #include <dbzero/bindings/python/PySafeAPI.hpp>
@@ -13,6 +14,7 @@
 #include <dbzero/core/vspace/v_object.hpp>
 #include <dbzero/object_model/ObjectModel.hpp>
 #include <dbzero/object_model/object/ObjectImmutableImpl.hpp>
+#include <dbzero/object_model/object/InternContent.hpp>
 #include <dbzero/object_model/object/o_immutable_object.hpp>
 #include <dbzero/object_model/object/o_embedded_object.hpp>
 #include <dbzero/object_model/set/o_set.hpp>
@@ -20,6 +22,7 @@
 #include <dbzero/workspace/Workspace.hpp>
 
 #include <stdexcept>
+#include <string>
 
 namespace tests
 {
@@ -39,6 +42,18 @@ namespace tests
     static ImmutableObjectInitializer &makeInitializer(ObjectInitializerManager &manager, int &object)
     {
         manager.addInitializerFor<ObjectImmutableImpl>(object, std::shared_ptr<Class>());
+        auto *initializer = dynamic_cast<ImmutableObjectInitializer *>(manager.findInitializer(object));
+        if (!initializer) {
+            throw std::runtime_error("immutable initializer not found");
+        }
+        return *initializer;
+    }
+
+    static ImmutableObjectInitializer &makeInitializer(
+        ObjectInitializerManager &manager, int &object, std::shared_ptr<Class> type
+    )
+    {
+        manager.addInitializerFor<ObjectImmutableImpl>(object, std::move(type));
         auto *initializer = dynamic_cast<ImmutableObjectInitializer *>(manager.findInitializer(object));
         if (!initializer) {
             throw std::runtime_error("immutable initializer not found");
@@ -124,6 +139,335 @@ namespace tests
         ASSERT_EQ(indexedValue.second, Value(123456789));
 
         ASSERT_FALSE(object->fixedValue(999).has_value());
+    }
+
+    TEST_F( EmbeddedObjectTest , testInternContentInitializerAndEmbeddedObjectMatch )
+    {
+        db0::tests::drop("intern-content-init.db0");
+        db0::tests::drop("intern-content-init.db0.lock");
+        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
+        auto fixture = workspace.getFixture("intern-content-init");
+        auto type = getTestClass(fixture);
+        type->addField("a", 0);
+        type->addField("b", 0);
+        type->flush();
+
+        auto memspace = getMemspace();
+        int sourceA = 0;
+        ObjectInitializerManager managerA;
+        auto &initializerA = makeInitializer(managerA, sourceA, type);
+        initializerA.set({2, 0}, StorageClass::INT64, Value(20));
+        initializerA.set({0, 0}, StorageClass::INT64, Value(10));
+
+        int sourceB = 0;
+        ObjectInitializerManager managerB;
+        auto &initializerB = makeInitializer(managerB, sourceB, type);
+        initializerB.set({0, 0}, StorageClass::INT64, Value(10));
+        initializerB.set({2, 0}, StorageClass::INT64, Value(20));
+
+        v_object<o_embedded_object> object(memspace, type->getClassRef(), initializerA);
+
+        ASSERT_EQ(intern_compare(fixture, initializerB, *object.getData()), 0);
+        ASSERT_EQ(intern_compare(fixture, initializerA, initializerB), 0);
+        ASSERT_EQ(intern_hash(fixture, initializerB), intern_hash(fixture, *object.getData()));
+
+        workspace.close();
+        db0::tests::drop("intern-content-init.db0");
+        db0::tests::drop("intern-content-init.db0.lock");
+    }
+
+    TEST_F( EmbeddedObjectTest , testInternCompareComplexInitializerMatchesEmbeddedObjectWithEmbeddedValues )
+    {
+        Py_Initialize();
+
+        db0::tests::drop("intern-content-complex.db0");
+        db0::tests::drop("intern-content-complex.db0.lock");
+        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
+        auto fixture = workspace.getFixture("intern-content-complex");
+        auto type = getTestClass(fixture);
+        type->addField("number", 0);
+        type->addField("when", 0);
+        type->addField("items", 0);
+        type->addField("attrs", 0);
+        type->flush();
+
+        auto makeItems = [] {
+            auto items = Py_OWN(PyList_New(3));
+            db0::python::PySafeList_SetItem(items.get(), 0, Py_OWN(PyLong_FromLong(7)));
+            db0::python::PySafeList_SetItem(items.get(), 1, Py_OWN(PyUnicode_FromString("seven")));
+            db0::python::PySafeList_SetItem(items.get(), 2, Py_OWN(PyBool_FromLong(1)));
+            return items;
+        };
+
+        auto makeAttrs = [] {
+            auto attrs = Py_OWN(PyDict_New());
+            db0::python::PySafeDict_SetItem(
+                attrs.get(), Py_OWN(PyUnicode_FromString("count")), Py_OWN(PyLong_FromLong(3))
+            );
+            db0::python::PySafeDict_SetItem(
+                attrs.get(), Py_OWN(PyUnicode_FromString("name")), Py_OWN(PyUnicode_FromString("dbzero"))
+            );
+            return attrs;
+        };
+
+        auto memspace = getMemspace();
+        auto objectItems = makeItems();
+        auto objectAttrs = makeAttrs();
+        int sourceObject = 0;
+        ObjectInitializerManager objectManager;
+        auto &objectInitializer = makeInitializer(objectManager, sourceObject, type);
+        objectInitializer.set({0, 0}, StorageClass::INT64, Value(123));
+        objectInitializer.set({20, 0}, StorageClass::DATE, Value(20260519));
+        objectInitializer.setObject(
+            {100, 0}, StorageClass::DB0_LIST, Value(0),
+            ImmutableObjectInitializer::ObjectSharedPtr(objectItems.get())
+        );
+        objectInitializer.setObject(
+            {102, 0}, StorageClass::DB0_DICT, Value(0),
+            ImmutableObjectInitializer::ObjectSharedPtr(objectAttrs.get())
+        );
+        v_object<o_embedded_object> object(memspace, type->getClassRef(), objectInitializer);
+
+        auto initializerItems = makeItems();
+        auto initializerAttrs = makeAttrs();
+        int sourceInitializer = 0;
+        ObjectInitializerManager initializerManager;
+        auto &initializer = makeInitializer(initializerManager, sourceInitializer, type);
+        initializer.set({20, 0}, StorageClass::DATE, Value(20260519));
+        initializer.setObject(
+            {102, 0}, StorageClass::DB0_DICT, Value(0),
+            ImmutableObjectInitializer::ObjectSharedPtr(initializerAttrs.get())
+        );
+        initializer.set({0, 0}, StorageClass::INT64, Value(123));
+        initializer.setObject(
+            {100, 0}, StorageClass::DB0_LIST, Value(0),
+            ImmutableObjectInitializer::ObjectSharedPtr(initializerItems.get())
+        );
+
+        ASSERT_EQ(intern_compare(fixture, initializer, *object.getData()), 0);
+        ASSERT_EQ(intern_compare(fixture, *object.getData(), initializer), 0);
+        ASSERT_EQ(intern_hash(fixture, initializer), intern_hash(fixture, *object.getData()));
+
+        workspace.close();
+        db0::tests::drop("intern-content-complex.db0");
+        db0::tests::drop("intern-content-complex.db0.lock");
+    }
+
+    TEST_F( EmbeddedObjectTest , testInternCompareInitializerMatchesEmbeddedObjectWithReferences )
+    {
+        Py_Initialize();
+
+        db0::tests::drop("intern-content-complex-ref.db0");
+        db0::tests::drop("intern-content-complex-ref.db0.lock");
+        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
+        auto fixture = workspace.getFixture("intern-content-complex-ref");
+        auto nestedClass = getTestClass(fixture);
+        auto rootClass = getTestClass(fixture);
+        rootClass->addField("embedded", 0);
+        rootClass->addField("resolved", 0);
+        rootClass->flush();
+        auto pyMemoType = makeMemoType();
+        ASSERT_TRUE(pyMemoType.get());
+
+        auto makeMemo = [&](std::int64_t value) {
+            auto pyMemo = Py_OWN(reinterpret_cast<db0::python::MemoImmutableObject *>(
+                db0::python::MemoObjectStub_new(pyMemoType.get())
+            ));
+            pyMemo->makeNew(nestedClass);
+            auto *initializer = dynamic_cast<ImmutableObjectInitializer *>(
+                InitManager::instance.findInitializer(pyMemo->ext())
+            );
+            if (!initializer) {
+                throw std::runtime_error("memo initializer not found");
+            }
+            initializer->set({0, 0}, StorageClass::INT64, Value(value));
+            return pyMemo;
+        };
+
+        auto embeddedMemoForObject = makeMemo(11);
+        auto embeddedMemoForInitializer = makeMemo(11);
+        auto resolvedMemo = makeMemo(22);
+
+        {
+            db0::FixtureLock lock(fixture);
+            auto &memo = resolvedMemo->modifyExt();
+            memo.setLangObject(reinterpret_cast<PyObject *>(resolvedMemo.get()));
+            memo.postInit(lock);
+            fixture->getLangCache().add(memo.getAddress(), reinterpret_cast<PyObject *>(resolvedMemo.get()));
+        }
+
+        auto memspace = getMemspace();
+        int sourceObject = 0;
+        ObjectInitializerManager objectManager;
+        auto &objectInitializer = makeInitializer(objectManager, sourceObject, rootClass);
+        objectInitializer.setObject(
+            {0, 0}, StorageClass::OBJECT_REF, Value(0),
+            ImmutableObjectInitializer::ObjectSharedPtr(reinterpret_cast<PyObject *>(embeddedMemoForObject.get()))
+        );
+        objectInitializer.set(
+            {1, 0}, StorageClass::OBJECT_REF, Value(resolvedMemo->ext().getUniqueAddress())
+        );
+        v_object<o_embedded_object> object(memspace, rootClass->getClassRef(), objectInitializer);
+
+        int sourceInitializer = 0;
+        ObjectInitializerManager initializerManager;
+        auto &initializer = makeInitializer(initializerManager, sourceInitializer, rootClass);
+        initializer.set(
+            {1, 0}, StorageClass::OBJECT_REF, Value(resolvedMemo->ext().getUniqueAddress())
+        );
+        initializer.setObject(
+            {0, 0}, StorageClass::OBJECT_REF, Value(0),
+            ImmutableObjectInitializer::ObjectSharedPtr(reinterpret_cast<PyObject *>(embeddedMemoForInitializer.get()))
+        );
+
+        ASSERT_EQ(intern_compare(fixture, initializer, *object.getData()), 0);
+        ASSERT_EQ(intern_compare(fixture, *object.getData(), initializer), 0);
+        ASSERT_EQ(intern_hash(fixture, initializer), intern_hash(fixture, *object.getData()));
+
+        workspace.close();
+        db0::tests::drop("intern-content-complex-ref.db0");
+        db0::tests::drop("intern-content-complex-ref.db0.lock");
+    }
+
+    TEST_F( EmbeddedObjectTest , testInternContentTraversesResolvedObjectReferences )
+    {
+        Py_Initialize();
+
+        db0::tests::drop("intern-content-ref.db0");
+        db0::tests::drop("intern-content-ref.db0.lock");
+        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
+        auto fixture = workspace.getFixture("intern-content-ref");
+        auto type = getTestClass(fixture);
+        auto pyMemoType = makeMemoType();
+        ASSERT_TRUE(pyMemoType.get());
+
+        auto pyMemo = Py_OWN(reinterpret_cast<db0::python::MemoImmutableObject *>(
+            db0::python::MemoObjectStub_new(pyMemoType.get())
+        ));
+        pyMemo->makeNew(type);
+        auto *memoInitializer = dynamic_cast<ImmutableObjectInitializer *>(
+            InitManager::instance.findInitializer(pyMemo->ext())
+        );
+        ASSERT_NE(memoInitializer, nullptr);
+        memoInitializer->set({0, 0}, StorageClass::INT64, Value(7));
+
+        {
+            db0::FixtureLock lock(fixture);
+            auto &memo = pyMemo->modifyExt();
+            memo.setLangObject(reinterpret_cast<PyObject *>(pyMemo.get()));
+            memo.postInit(lock);
+            fixture->getLangCache().add(memo.getAddress(), reinterpret_cast<PyObject *>(pyMemo.get()));
+        }
+
+        auto memspace = getMemspace();
+        int refSourceA = 0;
+        ObjectInitializerManager refManagerA;
+        auto &refInitializerA = makeInitializer(refManagerA, refSourceA);
+        refInitializerA.set({0, 0}, StorageClass::OBJECT_REF, Value(pyMemo->ext().getUniqueAddress()));
+        v_object<o_embedded_object> refObjectA(memspace, 88u, refInitializerA);
+
+        int refSourceB = 0;
+        ObjectInitializerManager refManagerB;
+        auto &refInitializerB = makeInitializer(refManagerB, refSourceB);
+        refInitializerB.set({0, 0}, StorageClass::OBJECT_REF, Value(pyMemo->ext().getUniqueAddress()));
+        v_object<o_embedded_object> refObjectB(memspace, 88u, refInitializerB);
+
+        ASSERT_EQ(intern_hash(fixture, *refObjectA.getData()), intern_hash(fixture, *refObjectB.getData()));
+        ASSERT_EQ(intern_compare(fixture, *refObjectA.getData(), *refObjectB.getData()), 0);
+
+        workspace.close();
+        db0::tests::drop("intern-content-ref.db0");
+        db0::tests::drop("intern-content-ref.db0.lock");
+    }
+
+    TEST_F( EmbeddedObjectTest , testInternContentOversizedValueFailsByStreamLimit )
+    {
+        Py_Initialize();
+
+        db0::tests::drop("intern-content-limit.db0");
+        db0::tests::drop("intern-content-limit.db0.lock");
+        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
+        auto fixture = workspace.getFixture("intern-content-limit");
+        auto type = getTestClass(fixture);
+
+        int source = 0;
+        ObjectInitializerManager manager;
+        auto &initializer = makeInitializer(manager, source, type);
+        auto bytes = Py_OWN(PyBytes_FromStringAndSize(nullptr, 1024 * 1024 + 1));
+        ASSERT_TRUE(bytes.get());
+        initializer.setObject(
+            {0, 0}, StorageClass::DB0_BYTES, Value(0),
+            ImmutableObjectInitializer::ObjectSharedPtr(bytes.get())
+        );
+
+        ASSERT_THROW((void)intern_hash(fixture, initializer), db0::InputException);
+
+        workspace.close();
+        db0::tests::drop("intern-content-limit.db0");
+        db0::tests::drop("intern-content-limit.db0.lock");
+    }
+
+    TEST_F( EmbeddedObjectTest , testInternContentNormalizesDictInsertionOrder )
+    {
+        Py_Initialize();
+
+        auto makeDict = [](bool reverse) {
+            auto dict = Py_OWN(PyDict_New());
+            if (!dict) {
+                throw std::runtime_error("dict allocation failed");
+            }
+
+            auto add = [&](long keyValue, long itemValue) {
+                auto key = Py_OWN(PyLong_FromLong(keyValue));
+                auto value = Py_OWN(PyLong_FromLong(itemValue));
+                if (!key || !value) {
+                    throw std::runtime_error("dict item allocation failed");
+                }
+                db0::python::PySafeDict_SetItem(dict.get(), std::move(key), value);
+            };
+
+            if (reverse) {
+                add(2, 20);
+                add(1, 10);
+            } else {
+                add(1, 10);
+                add(2, 20);
+            }
+            return dict;
+        };
+
+        db0::tests::drop("intern-content-dict.db0");
+        db0::tests::drop("intern-content-dict.db0.lock");
+        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
+        auto fixture = workspace.getFixture("intern-content-dict");
+
+        auto memspace = getMemspace();
+        auto dictA = makeDict(false);
+        int sourceA = 0;
+        ObjectInitializerManager managerA;
+        auto &initializerA = makeInitializer(managerA, sourceA);
+        initializerA.setObject(
+            {0, 0}, StorageClass::DB0_DICT, Value(0),
+            ImmutableObjectInitializer::ObjectSharedPtr(dictA.get())
+        );
+        v_object<o_embedded_object> objectA(memspace, 99u, initializerA);
+
+        auto dictB = makeDict(true);
+        int sourceB = 0;
+        ObjectInitializerManager managerB;
+        auto &initializerB = makeInitializer(managerB, sourceB);
+        initializerB.setObject(
+            {0, 0}, StorageClass::DB0_DICT, Value(0),
+            ImmutableObjectInitializer::ObjectSharedPtr(dictB.get())
+        );
+        v_object<o_embedded_object> objectB(memspace, 99u, initializerB);
+
+        ASSERT_EQ(intern_hash(fixture, *objectA.getData()), intern_hash(fixture, *objectB.getData()));
+        ASSERT_EQ(intern_compare(fixture, *objectA.getData(), *objectB.getData()), 0);
+
+        workspace.close();
+        db0::tests::drop("intern-content-dict.db0");
+        db0::tests::drop("intern-content-dict.db0.lock");
     }
 
     TEST_F( EmbeddedObjectTest , testImmutableRootEncapsulatesEmbeddedObjectStorage )
