@@ -173,6 +173,10 @@ def memo(cls: Optional[type] = None, **kwargs) -> type:
         materialized, removing this argument from the Python definition does not clear
         the persisted flag; use reset_protect_fields on the dbzero Class object instead.
         Derived memo classes inherit field protection and cannot disable it.
+    intern : bool, default False
+        If True, the persistent class is marked for interned immutable materialization.
+        This option requires immutable=True, and interned instances may only reference
+        other interned memo instances.
 
     Returns
     -------

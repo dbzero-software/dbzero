@@ -20,7 +20,6 @@ namespace db0::object_model
     std::uint64_t intern_hash(
         db0::swine_ptr<db0::Fixture> &fixture, const ImmutableObjectInitializer &initializer
     );
-
     int intern_compare(
         db0::swine_ptr<db0::Fixture> &fixture, const o_embedded_object &lhs, const o_embedded_object &rhs
     );

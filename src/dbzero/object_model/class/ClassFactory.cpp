@@ -71,6 +71,14 @@ namespace db0::object_model
         return false;
     }
 
+    void validateInternFlag(const Class &type, ClassFactory::TypeObjectPtr lang_type)
+    {
+        if (lang_type && type.isIntern() != ClassFactory::LangToolkit::isIntern(lang_type)) {
+            THROWF(db0::InputException)
+                << "Cannot change intern flag after memo class materialization: " << type.getName();
+        }
+    }
+
     o_class_factory::o_class_factory(Memspace &memspace)
         : m_class_map_ptrs { VClassMap(memspace), VClassMap(memspace), VClassMap(memspace), VClassMap(memspace) }
     {
@@ -159,6 +167,7 @@ namespace db0::object_model
                 if (memo_base) {
                     getOrCreateType(memo_base);
                 }
+                validateInternFlag(*type, lang_type);
                 if (LangToolkit::isProtectFields(lang_type) && !type->hasOwnProtectFields()) {
                     type->setProtectFields();
                 }
@@ -176,6 +185,7 @@ namespace db0::object_model
                 }
                 flags.set(ClassOptions::NO_DEFAULT_TAGS, LangToolkit::isNoDefaultTags(lang_type));
                 flags.set(ClassOptions::IMMUTABLE, LangToolkit::isImmutable(lang_type));
+                flags.set(ClassOptions::INTERN, LangToolkit::isIntern(lang_type));
                 auto memo_base = LangToolkit::getBaseMemoType(lang_type);
                 std::shared_ptr<Class> base_class;                
                 if (memo_base) {
@@ -211,6 +221,7 @@ namespace db0::object_model
             if (memo_base) {
                 getOrCreateType(memo_base);
             }
+            validateInternFlag(*it_cached->second, lang_type);
             if (LangToolkit::isProtectFields(lang_type) && !it_cached->second->hasOwnProtectFields()) {
                 it_cached->second->setProtectFields();
             }

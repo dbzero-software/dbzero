@@ -11,7 +11,7 @@
 #include <dbzero/object_model/value/StorageClass.hpp>
 #include "Schema.hpp"
 
-DEFINE_ENUM_VALUES(db0::ClassOptions, "SINGLETON", "NO_DEFAULT_TAGS", "IMMUTABLE", "PROTECT_FIELDS")
+DEFINE_ENUM_VALUES(db0::ClassOptions, "SINGLETON", "NO_DEFAULT_TAGS", "IMMUTABLE", "PROTECT_FIELDS", "INTERN")
 
 namespace db0::object_model
 
@@ -305,6 +305,10 @@ namespace db0::object_model
 
     bool Class::isImmutable() const {
         return (*this)->m_flags[ClassOptions::IMMUTABLE];
+    }
+
+    bool Class::isIntern() const {
+        return (*this)->m_flags[ClassOptions::INTERN];
     }
 
     bool Class::hasOwnProtectFields() const {

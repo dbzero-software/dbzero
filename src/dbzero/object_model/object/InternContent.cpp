@@ -593,7 +593,7 @@ namespace db0::object_model
                     return;
                 }
                 if (!db0::python::PyToolkit::isMemoImmutableObject(pyObject.get())) {
-                    THROWF(db0::InputException) << "Intern object reference does not resolve to an immutable object";
+                    THROWF(db0::InputException) << "intern object reference does not resolve to an immutable object";
                 }
                 const auto &memo = db0::python::PyToolkit::getTypeManager()
                     .template extractObject<db0::python::MemoImmutableObject>(pyObject.get());
@@ -840,12 +840,11 @@ namespace db0::object_model
                 using MemoImmutableObject = db0::python::PyToolkit::TypeManager::MemoImmutableObject;
 
                 if (db0::python::PyEmbeddedMemo_Check(pyObject)) {
-                    writeObject(db0::python::getEmbeddedMemoRef(reinterpret_cast<MemoImmutableObject *>(pyObject)).embeddedObject());
+                    auto &embeddedObject = db0::python::getEmbeddedMemoRef(
+                        reinterpret_cast<MemoImmutableObject *>(pyObject)
+                    ).embeddedObject();
+                    writeObject(embeddedObject);
                     return;
-                }
-
-                if (!db0::python::PyToolkit::isMemoImmutableObject(pyObject)) {
-                    THROWF(db0::InputException) << "Interned object content can only reference immutable memo objects";
                 }
 
                 const auto &memo = db0::python::PyToolkit::getTypeManager()

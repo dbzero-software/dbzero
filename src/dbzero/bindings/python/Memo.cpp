@@ -898,7 +898,8 @@ namespace db0::python
     
     PyObject *wrapPyType(PyTypeObject *base_class, bool is_singleton, bool no_default_tags, const char *prefix_name,
         const char *type_id, const char *file_name, std::vector<std::string> &&init_vars, PyObject *py_dyn_prefix_callable,
-        std::vector<Migration> &&migrations, bool no_cache, bool immutable, std::optional<bool> protect_fields_option)
+        std::vector<Migration> &&migrations, bool no_cache, bool immutable, bool intern,
+        std::optional<bool> protect_fields_option)
     {
         auto py_class = Py_BORROW(base_class);
         auto py_module = Py_OWN(findModule(*Py_OWN(PyObject_GetAttrString((PyObject*)*py_class, "__module__"))));
@@ -931,6 +932,9 @@ namespace db0::python
         if (!new_type) {
             return nullptr;
         }
+        if (intern && !immutable) {
+            THROWF(db0::InputException) << "intern=True requires immutable=True";
+        }
 
         auto base_memo_type = PyToolkit::getBaseMemoType(*new_type);
         bool inherited_protect_fields = base_memo_type
@@ -950,6 +954,9 @@ namespace db0::python
         }
         if (protect_fields) {
             type_flags.set(MemoOptions::PROTECT_FIELDS);
+        }
+        if (intern) {
+            type_flags.set(MemoOptions::INTERN);
         }
         auto type_info = MemoTypeDecoration(
             py_module,
@@ -990,13 +997,14 @@ namespace db0::python
         PyObject *py_migrations = nullptr;
         PyObject *py_no_cache = nullptr;
         PyObject *py_immutable = nullptr;
+        PyObject *py_intern = nullptr;
         PyObject *py_protect_fields = nullptr;
         
         static const char *kwlist[] = { "input", "singleton", "no_default_tags", "prefix", "id", "py_file", "py_init_vars", 
-            "py_dyn_prefix", "py_migrations", "no_cache", "immutable", "protect_fields", NULL };
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OOOOOOOOOOO", const_cast<char**>(kwlist), &class_obj, &py_singleton,
+            "py_dyn_prefix", "py_migrations", "no_cache", "immutable", "intern", "protect_fields", NULL };
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OOOOOOOOOOOO", const_cast<char**>(kwlist), &class_obj, &py_singleton,
             &py_no_default_tags, &py_prefix_name, &py_type_id, &py_file_name, &py_init_vars, &py_dyn_prefix, &py_migrations,
-            &py_no_cache, &py_immutable, &py_protect_fields))
+            &py_no_cache, &py_immutable, &py_intern, &py_protect_fields))
         {            
             return NULL;
         }
@@ -1005,6 +1013,7 @@ namespace db0::python
         bool no_default_tags = py_no_default_tags && PyObject_IsTrue(py_no_default_tags);
         bool no_cache = py_no_cache && PyObject_IsTrue(py_no_cache);
         bool immutable = py_immutable && PyObject_IsTrue(py_immutable);
+        bool intern = py_intern && PyObject_IsTrue(py_intern);
         std::optional<bool> protect_fields_option;
         if (py_protect_fields) {
             protect_fields_option = PyObject_IsTrue(py_protect_fields);
@@ -1043,7 +1052,7 @@ namespace db0::python
         
         auto migrations = extractMigrations(py_migrations);
         return wrapPyType(castToType(class_obj), is_singleton, no_default_tags, prefix_name, type_id, file_name, 
-            std::move(init_vars), py_dyn_prefix, std::move(migrations), no_cache, immutable, protect_fields_option
+            std::move(init_vars), py_dyn_prefix, std::move(migrations), no_cache, immutable, intern, protect_fields_option
         );
     }
     

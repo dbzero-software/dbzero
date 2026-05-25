@@ -1077,6 +1077,15 @@ namespace db0::python
         }
     }
 
+    bool PyToolkit::isIntern(TypeObjectPtr py_type)
+    {
+        if (isAnyMemoType(py_type)) {
+            return MemoTypeDecoration::get(py_type).getFlags()[MemoOptions::INTERN];
+        } else {
+            return false;
+        }
+    }
+
     bool PyToolkit::isProtectFields(TypeObjectPtr py_type)
     {
         if (isAnyMemoType(py_type)) {
