@@ -167,6 +167,36 @@ namespace db0::object_model
             db0::swine_ptr<db0::Fixture> *fixture, PyObject *dict, PyObject *lhsKey, PyObject *rhsKey
         );
 
+        db0::python::PyToolkit::ObjectSharedPtr resolveObjectRef(
+            db0::swine_ptr<db0::Fixture> *fixture, db0::UniqueAddress address
+        )
+        {
+            assert(fixture && *fixture);
+
+            auto &classFactory = (*fixture)->template get<ClassFactory>();
+            return db0::python::PyToolkit::unloadAnyObject(
+                *fixture, address.getAddress(), classFactory, nullptr, address.getInstanceId()
+            );
+        }
+
+        db0::python::PyToolkit::ObjectSharedPtr resolveObjectRef(
+            db0::swine_ptr<db0::Fixture> *fixture, StorageClass kind, Value value
+        )
+        {
+            assert(fixture && *fixture);
+
+            if (kind == StorageClass::OBJECT_REF) {
+                auto &classFactory = (*fixture)->template get<ClassFactory>();
+                return db0::python::PyToolkit::unloadObject(*fixture, value.asAddress(), classFactory);
+            }
+
+            auto uniqueAddress = value.asUniqueAddress();
+            if (!uniqueAddress.hasInstanceId()) {
+                THROWF(db0::InputException) << "Invalid intern object reference";
+            }
+            return resolveObjectRef(fixture, uniqueAddress);
+        }
+
         class InternStreamer
         {
         public:
@@ -424,7 +454,7 @@ namespace db0::object_model
                         return;
                     case StorageClass::OBJECT_REF:
                     case StorageClass::EMBEDDED_OBJECT_REF:
-                        writeObjectRef(value.asUniqueAddress());
+                        writeObjectRef(kind, value);
                         return;
                     default:
                         THROWF(db0::InternalException) << "Unsupported fixed intern content kind: " << kind;
@@ -575,17 +605,22 @@ namespace db0::object_model
                 m_sink.writeBytes(data, size);
             }
 
+            void writeObjectRef(StorageClass kind, Value value)
+            {
+                writeObjectRefObject(resolveObjectRef(m_fixture, kind, value));
+            }
+
             void writeObjectRef(db0::UniqueAddress address)
+            {
+                writeObjectRefObject(resolveObjectRef(m_fixture, address));
+            }
+
+            void writeObjectRefObject(const db0::python::PyToolkit::ObjectSharedPtr &pyObject)
             {
                 if (!m_fixture || !*m_fixture) {
                     THROWF(db0::InputException) << "Fixture is required for intern object references";
                 }
                 m_sink.charge(INTERN_REFERENCE_TRAVERSAL_CHARGE);
-
-                auto &classFactory = (*m_fixture)->template get<ClassFactory>();
-                auto pyObject = db0::python::PyToolkit::unloadAnyObject(
-                    *m_fixture, address.getAddress(), classFactory, nullptr, address.getInstanceId()
-                );
                 if (db0::python::PyEmbeddedMemo_Check(pyObject.get())) {
                     writeObject(db0::python::getEmbeddedMemoRef(
                         reinterpret_cast<db0::python::MemoImmutableObject *>(pyObject.get())
@@ -1425,10 +1460,10 @@ namespace db0::object_model
             int compareFixed(StorageClass lhsKind, Value lhs, StorageClass rhsKind, Value rhs)
             {
                 if (lhsKind == StorageClass::OBJECT_REF || lhsKind == StorageClass::EMBEDDED_OBJECT_REF) {
-                    return compareObjectRefToFixed(lhs.asUniqueAddress(), rhsKind, rhs);
+                    return compareObjectRefToFixed(lhsKind, lhs, rhsKind, rhs);
                 }
                 if (rhsKind == StorageClass::OBJECT_REF || rhsKind == StorageClass::EMBEDDED_OBJECT_REF) {
-                    return -compareObjectRefToFixed(rhs.asUniqueAddress(), lhsKind, lhs);
+                    return -compareObjectRefToFixed(rhsKind, rhs, lhsKind, lhs);
                 }
                 if (auto result = compareToken(getToken(lhsKind), getToken(rhsKind))) {
                     return result;
@@ -1465,7 +1500,7 @@ namespace db0::object_model
             int compare(StorageClass kind, Value value, const o_tuple_item &item)
             {
                 if (kind == StorageClass::OBJECT_REF || kind == StorageClass::EMBEDDED_OBJECT_REF) {
-                    return compareObjectRefToItem(value.asUniqueAddress(), item);
+                    return compareObjectRefToItem(kind, value, item);
                 }
                 if (auto result = compareToken(getToken(kind), getToken(item))) {
                     return result;
@@ -1686,16 +1721,16 @@ namespace db0::object_model
                 return next;
             }
 
-            int compareObjectRefToFixed(db0::UniqueAddress address, StorageClass kind, Value value)
+            int compareObjectRefToFixed(StorageClass lhsKind, Value lhs, StorageClass rhsKind, Value rhs)
             {
-                return withObjectRef(address, [&](const auto &lhs) {
-                    return compareObjectToFixed(lhs, kind, value);
+                return withObjectRef(lhsKind, lhs, [&](const auto &lhsObject) {
+                    return compareObjectToFixed(lhsObject, rhsKind, rhs);
                 });
             }
 
-            int compareObjectRefToItem(db0::UniqueAddress address, const o_tuple_item &item)
+            int compareObjectRefToItem(StorageClass kind, Value value, const o_tuple_item &item)
             {
-                return withObjectRef(address, [&](const auto &lhs) {
+                return withObjectRef(kind, value, [&](const auto &lhs) {
                     return compareObjectToItem(lhs, item);
                 });
             }
@@ -1703,7 +1738,7 @@ namespace db0::object_model
             template <typename ObjectT> int compareObjectToFixed(const ObjectT &lhs, StorageClass kind, Value value)
             {
                 if (kind == StorageClass::OBJECT_REF || kind == StorageClass::EMBEDDED_OBJECT_REF) {
-                    return withObjectRef(value.asUniqueAddress(), [&](const auto &rhs) {
+                    return withObjectRef(kind, value, [&](const auto &rhs) {
                         return compare(lhs, rhs);
                     });
                 }
@@ -1718,18 +1753,24 @@ namespace db0::object_model
                 return compare(lhs, o_embedded_object::__const_ref(item.embeddedPayload().begin()));
             }
 
+            template <typename FnT> int withObjectRef(StorageClass kind, Value value, FnT fn)
+            {
+                return withObjectRefObject(resolveObjectRef(m_fixture, kind, value), fn);
+            }
+
             template <typename FnT> int withObjectRef(db0::UniqueAddress address, FnT fn)
+            {
+                return withObjectRefObject(resolveObjectRef(m_fixture, address), fn);
+            }
+
+            template <typename FnT>
+            int withObjectRefObject(const db0::python::PyToolkit::ObjectSharedPtr &pyObject, FnT fn)
             {
                 if (!m_fixture || !*m_fixture) {
                     THROWF(db0::InputException) << "Fixture is required for intern object references";
                 }
                 m_lhsBudget.add(INTERN_REFERENCE_TRAVERSAL_CHARGE);
                 m_rhsBudget.add(INTERN_REFERENCE_TRAVERSAL_CHARGE);
-
-                auto &classFactory = (*m_fixture)->template get<ClassFactory>();
-                auto pyObject = db0::python::PyToolkit::unloadAnyObject(
-                    *m_fixture, address.getAddress(), classFactory, nullptr, address.getInstanceId()
-                );
                 if (db0::python::PyEmbeddedMemo_Check(pyObject.get())) {
                     return fn(db0::python::getEmbeddedMemoRef(
                         reinterpret_cast<db0::python::MemoImmutableObject *>(pyObject.get())
@@ -1776,7 +1817,7 @@ namespace db0::object_model
             int compareFixedToPythonObject(StorageClass lhsKind, Value lhs, StorageClass rhsKind, PyObject *rhs)
             {
                 if (lhsKind == StorageClass::OBJECT_REF || lhsKind == StorageClass::EMBEDDED_OBJECT_REF) {
-                    return withObjectRef(lhs.asUniqueAddress(), [&](const auto &lhsObject) {
+                    return withObjectRef(lhsKind, lhs, [&](const auto &lhsObject) {
                         return compareObjectToPythonObject(lhsObject, rhsKind, rhs);
                     });
                 }

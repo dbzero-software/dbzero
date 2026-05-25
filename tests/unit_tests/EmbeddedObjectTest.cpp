@@ -305,7 +305,7 @@ namespace tests
             ImmutableObjectInitializer::ObjectSharedPtr(reinterpret_cast<PyObject *>(embeddedMemoForObject.get()))
         );
         objectInitializer.set(
-            {1, 0}, StorageClass::OBJECT_REF, Value(resolvedMemo->ext().getUniqueAddress())
+            {1, 0}, StorageClass::OBJECT_REF, Value(resolvedMemo->ext().getAddress())
         );
         v_object<o_embedded_object> object(memspace, rootClass->getClassRef(), objectInitializer);
 
@@ -313,7 +313,7 @@ namespace tests
         ObjectInitializerManager initializerManager;
         auto &initializer = makeInitializer(initializerManager, sourceInitializer, rootClass);
         initializer.set(
-            {1, 0}, StorageClass::OBJECT_REF, Value(resolvedMemo->ext().getUniqueAddress())
+            {1, 0}, StorageClass::OBJECT_REF, Value(resolvedMemo->ext().getAddress())
         );
         initializer.setObject(
             {0, 0}, StorageClass::OBJECT_REF, Value(0),
@@ -363,13 +363,13 @@ namespace tests
         int refSourceA = 0;
         ObjectInitializerManager refManagerA;
         auto &refInitializerA = makeInitializer(refManagerA, refSourceA);
-        refInitializerA.set({0, 0}, StorageClass::OBJECT_REF, Value(pyMemo->ext().getUniqueAddress()));
+        refInitializerA.set({0, 0}, StorageClass::OBJECT_REF, Value(pyMemo->ext().getAddress()));
         v_object<o_embedded_object> refObjectA(memspace, 88u, refInitializerA);
 
         int refSourceB = 0;
         ObjectInitializerManager refManagerB;
         auto &refInitializerB = makeInitializer(refManagerB, refSourceB);
-        refInitializerB.set({0, 0}, StorageClass::OBJECT_REF, Value(pyMemo->ext().getUniqueAddress()));
+        refInitializerB.set({0, 0}, StorageClass::OBJECT_REF, Value(pyMemo->ext().getAddress()));
         v_object<o_embedded_object> refObjectB(memspace, 88u, refInitializerB);
 
         ASSERT_EQ(intern_hash(fixture, *refObjectA.getData()), intern_hash(fixture, *refObjectB.getData()));

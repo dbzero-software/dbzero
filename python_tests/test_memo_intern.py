@@ -2,6 +2,8 @@
 # Copyright (c) 2025 DBZero Software sp. z o.o.
 
 import gc
+import random
+import time
 from dataclasses import dataclass
 
 import pytest
@@ -70,6 +72,45 @@ class MemoInternComposite:
         self.payload = payload
 
 
+@db0.memo(immutable=True, intern=True, no_default_tags=True)
+class MemoInternStressObject:
+    def __init__(self, name, payload):
+        self.name = name
+        self.payload = payload
+
+
+def make_intern_stress_payload(index, variant):
+    address_items = [
+        ("street", f"{index % 997} Intern Ave"),
+        ("unit", index % 113),
+        ("zip", f"{10000 + index % 90000:05d}"),
+    ]
+    profile_items = [
+        ("bucket", index % 251),
+        ("rank", index // 251),
+        ("address", dict(reversed(address_items) if variant % 2 else address_items)),
+    ]
+    inner_items = [
+        ("profile", dict(reversed(profile_items) if variant % 3 == 0 else profile_items)),
+        ("flags", (index % 2 == 0, index % 5 == 0, index % 17)),
+        ("checksum", (index * 2654435761) & 0xFFFFFFFF),
+    ]
+    payload_items = [
+        ("inner", dict(reversed(inner_items) if variant % 5 == 0 else inner_items)),
+        ("label", f"group-{index % 4096}"),
+        ("values", (index, index % 31, index % 127)),
+    ]
+    return dict(reversed(payload_items) if variant % 7 == 0 else payload_items)
+
+
+def make_intern_stress_indexes(total_count, unique_count):
+    rng = random.Random(12648430)
+    indexes = list(range(unique_count))
+    indexes.extend(rng.randrange(unique_count) for _ in range(total_count - unique_count))
+    rng.shuffle(indexes)
+    return indexes
+
+
 def test_intern_flag_is_persisted_on_class(db0_fixture):
     obj = db0.materialized(MemoInternLeaf("alpha"))
 
@@ -113,11 +154,6 @@ def test_interned_object_can_reference_interned_immutable_instance(db0_fixture):
     assert holder.value.name == "nested"
 
 
-@pytest.mark.xfail(
-    raises=db0.ReferenceError,
-    strict=True,
-    reason="intern content currently decodes short OBJECT_REF values as UniqueAddress",
-)
 def test_interned_object_reuses_materialized_reference(db0_fixture):
     leaf = db0.materialized(MemoInternLeaf("materialized reference"))
     leaf_uuid = db0.uuid(leaf)
@@ -324,6 +360,33 @@ def test_many_interned_materializations_reuse_root_and_embedded_candidates(db0_f
 
         assert db0.uuid(leaf) == canonical_uuids[name]
         assert leaf.name == name
+
+
+@pytest.mark.stress_test
+def test_interned_memo_random_objects_deduplicate_to_unique_count(db0_fixture):
+    total_count = 50000
+    unique_count = 15000
+    indexes = make_intern_stress_indexes(total_count, unique_count)
+
+    objects = []
+    start = time.perf_counter()
+    for offset, index in enumerate(indexes):
+        obj = db0.materialized(
+            MemoInternStressObject(f"name-{index % 4096}", make_intern_stress_payload(index, offset))
+        )
+        objects.append(obj)
+
+    elapsed = time.perf_counter() - start
+    print(
+        f"Interned memo stress: {total_count} materializations in {elapsed:.3f}s "
+        f"({total_count / elapsed:.0f} ops/sec)"
+    )
+
+    stats = db0.get_type_stats(MemoInternStressObject)
+    assert stats["intern"] is True
+    assert stats["instances"] == unique_count
+    assert stats["content_index"]["size"] == unique_count
+    assert len({db0.uuid(obj) for obj in objects}) == unique_count
 
 
 def test_dropped_standalone_interned_object_is_not_reused(db0_fixture):
