@@ -305,6 +305,46 @@ def test_uuid_and_fetch_immutable_root_object(db0_fixture):
     assert reopened.value == 102
 
 
+def test_immutable_flag_cannot_change_to_mutable_after_materialization(db0_fixture):
+    @db0.memo(id="dbzero-software/dbzero/tests/immutable-stable-contract", immutable=True)
+    @dataclass
+    class MemoInitiallyImmutable:
+        name: str
+
+    db0.materialized(MemoInitiallyImmutable("alpha"))
+
+    @db0.memo(id="dbzero-software/dbzero/tests/immutable-stable-contract")
+    @dataclass
+    class MemoNoLongerImmutable:
+        name: str
+
+    with pytest.raises(RuntimeError, match="immutable flag"):
+        db0.materialized(MemoNoLongerImmutable("beta"))
+
+
+def test_fetch_rejects_immutable_class_redeclared_as_mutable(db0_fixture):
+    @db0.memo(id="dbzero-software/dbzero/tests/immutable-fetch-stable-contract", immutable=True)
+    @dataclass
+    class MemoInitiallyImmutable:
+        name: str
+
+    obj = db0.materialized(MemoInitiallyImmutable("alpha"))
+    obj_uuid = db0.uuid(obj)
+    db0.commit()
+
+    db0.close()
+    db0.init(DB0_DIR)
+    db0.open("my-test-prefix", "rw")
+
+    @db0.memo(id="dbzero-software/dbzero/tests/immutable-fetch-stable-contract")
+    @dataclass
+    class MemoNoLongerImmutable:
+        name: str
+
+    with pytest.raises(RuntimeError, match="immutable flag"):
+        db0.fetch(MemoNoLongerImmutable, obj_uuid)
+
+
 def test_uuid_and_fetch_embedded_nested_immutable_object(db0_fixture):
     root = MemoImmutableNestedHolder(name="embedded uuid", count=103, label="root")
     db0.tags(root).add("keep-embedded-fetch-uuid")
