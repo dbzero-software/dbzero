@@ -561,7 +561,7 @@ namespace db0::object_model
     {
         removeInternContentIndexEntries(fixture, *this, classRef);
         super_t::dropMembers(fixture, classRef);
-        unrefEmbeddedObject(fixture, (*this)->getObject());
+        unrefNestedEmbeddedObjects(fixture, (*this)->getObject());
     }
     
 }

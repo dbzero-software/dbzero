@@ -852,6 +852,33 @@ def test_immutable_instance_supported_by_embedded_ref_drops_when_holding_memo_ob
         db0.fetch(outer_id)
 
 
+def test_immutable_instance_supported_by_embedded_ref_drops_when_holding_immutable_object_is_deleted(db0_fixture):
+    outer = MemoImmutableNestedHolder(name="held by immutable embedded child", count=33, label="root")
+    db0.tags(outer).add("temporary-held-immutable-embedded-root")
+    outer_id = db0.uuid(outer)
+    inner = outer.nested
+    inner_id = db0.uuid(inner)
+    holder = MemoImmutablePreboundNestedHolder(inner, "immutable holder")
+    holder_id = db0.uuid(holder)
+    assert holder_id
+    assert db0.uuid(holder.nested) == inner_id
+    db0.tags(outer).remove("temporary-held-immutable-embedded-root")
+    del inner
+    del outer
+    gc.collect()
+
+    db0.commit()
+    assert db0.exists(outer_id)
+
+    db0.delete(holder)
+    del holder
+    gc.collect()
+    db0.commit()
+
+    with pytest.raises(Exception):
+        db0.fetch(outer_id)
+
+
 def test_db0_collections_can_store_embedded_immutable_nested_object_reference(db0_fixture):
     outer = MemoImmutableNestedHolder(name="collection child", count=22, label="root")
     db0.tags(outer).add("keep-collection-source")
