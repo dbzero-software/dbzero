@@ -46,6 +46,12 @@ class MemoNonInternMutableLeaf:
     name: str
 
 
+@db0.memo(no_default_tags=True)
+class MemoRegularInternReferenceHolder:
+    def __init__(self):
+        self.value = None
+
+
 @db0.memo(immutable=True, intern=True)
 class MemoInternHolder:
     def __init__(self, value):
@@ -159,6 +165,28 @@ def test_interned_object_can_reference_interned_immutable_instance(db0_fixture):
     holder = db0.materialized(MemoInternHolder(leaf))
 
     assert holder.value.name == "nested"
+
+
+def test_assigning_non_materialized_intern_to_existing_regular_memo_materializes_reference(db0_fixture):
+    holder = MemoRegularInternReferenceHolder()
+    db0.tags(holder).add("keep-regular-intern-reference-holder")
+    leaf = MemoInternLeaf("assigned")
+
+    holder.value = leaf
+
+    leaf_uuid = db0.uuid(leaf)
+    assert db0._check_interned(leaf_uuid, MemoInternLeaf)
+    assert db0.uuid(holder.value) == leaf_uuid
+    assert holder.value.name == "assigned"
+
+
+def test_uuid_materializes_non_materialized_intern_instance(db0_fixture):
+    leaf = MemoInternLeaf("uuid materialized")
+
+    leaf_uuid = db0.uuid(leaf)
+
+    assert db0._check_interned(leaf_uuid, MemoInternLeaf)
+    assert db0.fetch(leaf_uuid, MemoInternLeaf).name == "uuid materialized"
 
 
 def test_interned_object_reuses_materialized_reference(db0_fixture):

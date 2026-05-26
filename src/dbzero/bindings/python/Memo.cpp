@@ -1270,6 +1270,78 @@ namespace db0::python
         }
         return tryLoad(*result, kwargs, nullptr, load_stack_ptr);
     }
+
+    bool shouldSkipLoadMember(PyObject *py_exclude, PyObject *key_obj, bool &has_error)
+    {
+        if (py_exclude == nullptr || py_exclude == Py_None) {
+            return false;
+        }
+
+        int contains = PySequence_Contains(py_exclude, key_obj);
+        if (contains < 0) {
+            has_error = true;
+            return true;
+        }
+        return contains == 1;
+    }
+
+    PyObject *tryLoadDictMembers(PyObject *members, PyObject *kwargs, PyObject *py_exclude,
+        std::unordered_set<const void*> *load_stack_ptr)
+    {
+        auto py_result = Py_OWN(PyDict_New());
+        if (!py_result) {
+            return nullptr;
+        }
+
+        PyObject *key = nullptr;
+        PyObject *value = nullptr;
+        Py_ssize_t pos = 0;
+        bool has_error = false;
+        while (PyDict_Next(members, &pos, &key, &value)) {
+            if (shouldSkipLoadMember(py_exclude, key, has_error)) {
+                if (has_error) {
+                    return nullptr;
+                }
+                continue;
+            }
+
+            auto loaded = Py_OWN(tryLoad(value, kwargs, nullptr, load_stack_ptr, false));
+            if (!loaded) {
+                return nullptr;
+            }
+            PySafeDict_SetItem(*py_result, Py_BORROW(key), loaded);
+        }
+
+        return py_result.steal();
+    }
+
+    PyObject *tryLoadEmbeddedMemo(MemoImmutableObject *memo_obj, PyObject *kwargs, PyObject *py_exclude,
+        std::unordered_set<const void*> *load_stack_ptr, bool load_all)
+    {
+        auto *py_object = reinterpret_cast<PyObject *>(memo_obj);
+        if (!load_all) {
+            auto load_method = Py_OWN(PyObject_GetAttrString(py_object, "__load__"));
+            if (load_method.get()) {
+                if (PyCallable_Check(*load_method)) {
+                    return executeLoadFunction(*load_method, kwargs, py_exclude, load_stack_ptr);
+                }
+            } else if (PyErr_ExceptionMatches(PyExc_AttributeError)) {
+                PyErr_Clear();
+            } else {
+                return nullptr;
+            }
+        }
+
+        auto members = Py_OWN(PyObject_GetAttrString(py_object, "__dict__"));
+        if (!members) {
+            return nullptr;
+        }
+        if (!PyDict_Check(*members)) {
+            PyErr_SetString(PyExc_TypeError, "Embedded memo __dict__ did not return a dict");
+            return nullptr;
+        }
+        return tryLoadDictMembers(*members, kwargs, py_exclude, load_stack_ptr);
+    }
     
     template <typename MemoImplT>
     PyObject *tryLoadMemo(MemoImplT *memo_obj, PyObject *kwargs, PyObject *py_exclude,
@@ -1288,25 +1360,22 @@ namespace db0::python
         PyErr_Clear();
         
         auto py_result = Py_OWN(PyDict_New());
+        if (!py_result) {
+            return nullptr;
+        }
+
         bool has_error = false;
-        memo_obj->ext().forAll([&py_result, memo_obj, py_exclude, kwargs, &has_error, load_stack_ptr]
-            (const std::string &key, PyTypes::ObjectSharedPtr)
-        {
+        for (const auto &key: memo_obj->ext().getMembers()) {
             auto key_obj = Py_OWN(PyUnicode_FromString(key.c_str()));
             if (!key_obj) {
-                has_error = true;
-                return false;
+                return nullptr;
             }
 
-            if (py_exclude != nullptr && py_exclude != Py_None) {
-                int contains = PySequence_Contains(py_exclude, *key_obj);
-                if (contains < 0) {
-                    has_error = true;
-                    return false;
+            if (shouldSkipLoadMember(py_exclude, *key_obj, has_error)) {
+                if (has_error) {
+                    return nullptr;
                 }
-                if (contains == 1) {
-                    return true;
-                }
+                continue;
             }
 
             auto &memo_type = memo_obj->ext().getType();
@@ -1317,29 +1386,23 @@ namespace db0::python
                     member_loc, key.c_str()
                 )) {
                     if (PyErr_Occurred()) {
-                        has_error = true;
-                        return false;
+                        return nullptr;
                     }
-                    return true;
+                    continue;
                 }
             }
 
             auto attr = Py_OWN(PyAPI_MemoObject_getattro(memo_obj, *key_obj));
             if (!attr) {
-                has_error = true;
-                return false;
+                return nullptr;
             }
 
             auto res = Py_OWN(tryLoad(*attr, kwargs, nullptr, load_stack_ptr, false));
             if (!res) {
-                has_error = true;
+                return nullptr;
             } else {
                 PySafeDict_SetItemString(*py_result, key.c_str(), res);
             }
-            return !has_error;
-        });
-        if (has_error) {            
-            return nullptr;
         }
         return py_result.steal();
     }

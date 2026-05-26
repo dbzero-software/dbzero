@@ -305,6 +305,17 @@ def test_uuid_and_fetch_immutable_root_object(db0_fixture):
     assert reopened.value == 102
 
 
+def test_uuid_materializes_non_materialized_immutable_root_object(db0_fixture):
+    obj = MemoImmutableClass1(data="uuid materializes immutable", value=104)
+
+    obj_uuid = db0.uuid(obj)
+    db0.tags(obj).add("keep-uuid-materialized-immutable")
+
+    assert db0.fetch(obj_uuid) is obj
+    assert obj.data == "uuid materializes immutable"
+    assert obj.value == 104
+
+
 def test_immutable_flag_cannot_change_to_mutable_after_materialization(db0_fixture):
     @db0.memo(id="dbzero-software/dbzero/tests/immutable-stable-contract", immutable=True)
     @dataclass

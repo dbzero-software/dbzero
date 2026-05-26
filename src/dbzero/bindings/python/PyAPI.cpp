@@ -1715,7 +1715,7 @@ namespace db0::python
                 PyErr_SetString(PyExc_TypeError, "Invalid argument type. Exclude shoud be a sequence");
                 return NULL;
             }
-            if (!PyAnyMemo_Check(py_object)) {
+            if (!PyToolkit::isAnyMemoObject(py_object)) {
                 PyErr_SetString(PyExc_TypeError, "Exclude is only supported for memo objects");
                 return NULL;
             }

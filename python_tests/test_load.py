@@ -34,6 +34,53 @@ class LoadProtectedDerivedClass(LoadProtectedBaseClass):
     derived_value: str
 
 
+@db0.memo(immutable=True, no_default_tags=True)
+@dataclass
+class LoadImmutableLeaf:
+    name: str
+    count: int
+
+
+@db0.memo(immutable=True, intern=True, no_default_tags=True)
+@dataclass
+class LoadInternLeaf:
+    name: str
+    count: int
+
+
+@db0.memo(immutable=True, no_default_tags=True)
+class LoadImmutableHolder:
+    def __init__(self, value):
+        self.value = value
+
+
+@db0.memo(immutable=True, no_default_tags=True)
+class LoadImmutableDeepRoot:
+    def __init__(self):
+        self.branch = LoadImmutableHolder(LoadImmutableLeaf("deep", 9))
+        self.label = "root"
+
+
+@db0.memo(immutable=True, no_default_tags=True)
+class LoadImmutableCollections:
+    def __init__(self):
+        self.values = (
+            LoadImmutableLeaf("tuple", 1),
+            [LoadImmutableLeaf("list", 2)],
+            {"key": LoadImmutableLeaf("dict-value", 3)},
+        )
+
+
+@db0.memo(immutable=True, no_default_tags=True)
+class LoadImmutableCustom:
+    def __init__(self, name, count):
+        self.name = name
+        self.count = count
+
+    def __load__(self, **kwargs):
+        return {"custom": self.name, "count": self.count}
+
+
 def test_load_py_string():  
     assert db0.load("abc") == "abc"
 
@@ -73,6 +120,59 @@ def test_load_py_tuple_of_db0_classes(db0_fixture):
 def test_load_memo_types(db0_fixture):
     memo = MemoTestClass("string")
     assert db0.load(memo) == {"value": "string"}
+
+
+def test_load_immutable_memo_root(db0_fixture):
+    memo = LoadImmutableLeaf("immutable", 7)
+
+    assert db0.load(memo) == {"name": "immutable", "count": 7}
+
+
+def test_load_intern_memo_root(db0_fixture):
+    memo = LoadInternLeaf("intern", 8)
+
+    assert db0.load(memo) == {"name": "intern", "count": 8}
+
+
+def test_load_embedded_immutable_memo_directly(db0_fixture):
+    holder = LoadImmutableHolder(LoadImmutableLeaf("embedded", 4))
+
+    assert db0.load(holder.value) == {"name": "embedded", "count": 4}
+
+
+def test_load_deep_embedded_immutable_memo(db0_fixture):
+    root = LoadImmutableDeepRoot()
+
+    assert db0.load(root) == {
+        "branch": {"value": {"name": "deep", "count": 9}},
+        "label": "root",
+    }
+
+
+def test_load_embedded_immutable_memo_inside_collections(db0_fixture):
+    root = LoadImmutableCollections()
+
+    assert db0.load(root) == {
+        "values": (
+            {"name": "tuple", "count": 1},
+            [{"name": "list", "count": 2}],
+            {"key": {"name": "dict-value", "count": 3}},
+        )
+    }
+
+
+def test_load_exclude_on_immutable_and_embedded_memo(db0_fixture):
+    holder = LoadImmutableHolder(LoadImmutableLeaf("embedded", 4))
+
+    assert db0.load(holder, exclude=["value"]) == {}
+    assert db0.load(holder.value, exclude=["count"]) == {"name": "embedded"}
+
+
+def test_load_custom_immutable_memo(db0_fixture):
+    memo = LoadImmutableCustom("custom", 11)
+
+    assert db0.load(memo) == {"custom": "custom", "count": 11}
+    assert db0.load_all(memo) == {"name": "custom", "count": 11}
 
 
 def test_load_protected_memo_only_loads_readable_fields(db0_fixture):
