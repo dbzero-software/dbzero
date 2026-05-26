@@ -621,19 +621,6 @@ namespace db0::python
         return embedded_type;
     }
 
-    bool PyTypeManager::isEmbeddedMemoType(TypeObjectPtr type) const
-    {
-        if (!type) {
-            return false;
-        }
-        for (const auto &[_, embedded_type]: m_embedded_memo_types) {
-            if (embedded_type.get() == type) {
-                return true;
-            }
-        }
-        return false;
-    }
-    
     PyTypeManager::ObjectPtr PyTypeManager::getBadPrefixError() const {
         return m_py_bad_prefix_error.get();
     }

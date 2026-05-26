@@ -163,9 +163,13 @@ namespace db0::object_model
             db0::swine_ptr<db0::Fixture> *fixture, const o_dict_pair &lhs, const o_dict_pair &rhs
         );
         int compareWithFixture(db0::swine_ptr<db0::Fixture> *fixture, PyObject *lhs, PyObject *rhs);
-        int compareWithFixture(
-            db0::swine_ptr<db0::Fixture> *fixture, PyObject *dict, PyObject *lhsKey, PyObject *rhsKey
+        std::uint64_t hashWithFixture(db0::swine_ptr<db0::Fixture> *fixture, const o_tuple_item &item);
+        std::uint64_t hashWithFixture(db0::swine_ptr<db0::Fixture> *fixture, PyObject *object);
+        std::uint64_t hashPairWithFixture(db0::swine_ptr<db0::Fixture> *fixture, const o_dict_pair &pair);
+        std::uint64_t hashPythonDictPairWithFixture(
+            db0::swine_ptr<db0::Fixture> *fixture, PyObject *dict, PyObject *key
         );
+        std::uint64_t hashFieldWithFixture(db0::swine_ptr<db0::Fixture> *fixture, const FieldValue &field);
 
         db0::python::PyToolkit::ObjectSharedPtr resolveObjectRef(
             db0::swine_ptr<db0::Fixture> *fixture, db0::UniqueAddress address
@@ -220,82 +224,73 @@ namespace db0::object_model
                 writeFields(initializer);
             }
 
+            void writeTupleItemForHash(const o_tuple_item &item)
+            {
+                writeTupleItem(item);
+            }
+
+            void writePythonItemForHash(PyObject *object)
+            {
+                writePythonItem(object);
+            }
+
+            void writeDictPairForHash(const o_dict_pair &pair)
+            {
+                writeToken(m_sink, Token::Pair);
+                writeTupleItem(pair.key());
+                writeTupleItem(pair.value());
+            }
+
+            void writePythonDictPairForHash(PyObject *dict, PyObject *key)
+            {
+                auto *value = PyDict_GetItemWithError(dict, key);
+                if (!value) {
+                    PyErr_Clear();
+                    THROWF(db0::InputException) << "Unable to read Python dict value";
+                }
+                writeToken(m_sink, Token::Pair);
+                writePythonItem(key);
+                writePythonItem(value);
+            }
+
+            void writeFieldForHash(const FieldValue &field)
+            {
+                writeToken(m_sink, Token::Field);
+                m_sink.writeScalar<std::uint32_t>(field.m_index);
+                writeFieldValue(field);
+            }
+
         private:
             void writeFields(const o_embedded_object &object)
             {
-                writeOrderedFields(countObjectFields(object), [&](const FieldValue &previous) {
-                    FieldValue next;
-                    const auto &types = object.pos_vt().types();
-                    const auto &values = object.pos_vt().values();
-                    for (std::size_t i = 0; i < object.pos_vt().size(); ++i) {
-                        if (isFieldValue(types[i])) {
-                            updateNextField(
-                                next, previous, static_cast<std::uint32_t>(object.pos_vt().offset() + i),
-                                types[i], values[i]
-                            );
-                        }
-                    }
-                    for (const auto &value: object.index_vt().xvalues()) {
-                        if (isFieldValue(value.m_type)) {
-                            updateNextField(next, previous, value.getIndex(), value.m_type, value.m_value);
-                        }
-                    }
-                    for (const auto &entry: object.field_map()) {
-                        updateNextField(next, previous, getFieldIndex(entry.key()), entry.value());
-                    }
-                    return next;
+                writeUnorderedFields(countObjectFields(object), [&](auto &&emit) {
+                    forEachObjectField(object, emit);
                 });
             }
 
             void writeFields(const ImmutableObjectInitializer &initializer)
             {
-                writeOrderedFields(countInitializerFields(initializer), [&](const FieldValue &previous) {
-                    FieldValue next;
-                    PosVT::Data posVtData;
-                    unsigned int posVtOffset = 0;
-                    auto indexVtData = initializer.getData(posVtData, posVtOffset);
-
-                    for (std::size_t i = 0; i < posVtData.size(); ++i) {
-                        if (isFieldValue(posVtData.m_types[i])) {
-                            updateNextField(
-                                next, previous, static_cast<std::uint32_t>(posVtOffset + i),
-                                posVtData.m_types[i], posVtData.m_values[i]
-                            );
-                        }
-                    }
-                    for (auto value = indexVtData.first; value != indexVtData.second; ++value) {
-                        if (isFieldValue(value->m_type)) {
-                            updateNextField(
-                                next, previous, value->getIndex(), value->m_type, value->m_value
-                            );
-                        }
-                    }
-                    for (const auto &value: initializer.objects()) {
-                        if (!!value.m_object && value.m_storage_class != StorageClass::DELETED) {
-                            updateNextField(
-                                next, previous, value.m_loc.first,
-                                value.m_storage_class, value.m_object.get()
-                            );
-                        }
-                    }
-                    return next;
+                writeUnorderedFields(countInitializerFields(initializer), [&](auto &&emit) {
+                    forEachInitializerField(initializer, emit);
                 });
             }
 
-            template <typename NextFieldT> void writeOrderedFields(std::uint64_t count, NextFieldT nextField)
+            template <typename FieldIteratorT> void writeUnorderedFields(
+                std::uint64_t count, FieldIteratorT iterateFields
+            )
             {
                 writeToken(m_sink, Token::Field);
                 m_sink.writeScalar<std::uint64_t>(count);
-                FieldValue previous;
-                for (std::uint64_t emitted = 0; emitted < count; ++emitted) {
-                    auto next = nextField(previous);
-                    if (!next.m_valid) {
-                        THROWF(db0::InternalException) << "Unable to normalize intern fields";
-                    }
-                    m_sink.writeScalar<std::uint32_t>(next.m_index);
-                    writeFieldValue(next);
-                    previous = next;
+                std::uint64_t fieldHashSum = 0;
+                std::uint64_t emitted = 0;
+                iterateFields([&](const FieldValue &field) {
+                    fieldHashSum += hashFieldWithFixture(m_fixture, field);
+                    ++emitted;
+                });
+                if (emitted != count) {
+                    THROWF(db0::InternalException) << "Unable to normalize intern fields";
                 }
+                m_sink.writeScalar<std::uint64_t>(fieldHashSum);
             }
 
             std::uint64_t countObjectFields(const o_embedded_object &object) const
@@ -339,62 +334,82 @@ namespace db0::object_model
                 return kind != StorageClass::UNDEFINED && kind != StorageClass::DELETED;
             }
 
-            static void updateNextField(
-                FieldValue &next, const FieldValue &previous, std::uint32_t index, StorageClass kind, Value value
+            static FieldValue makeField(std::uint32_t index, StorageClass kind, Value value)
+            {
+                FieldValue field;
+                field.m_index = index;
+                field.m_kind = kind;
+                field.m_value = value;
+                field.m_valid = true;
+                return field;
+            }
+
+            static FieldValue makeField(std::uint32_t index, const o_tuple_item &item)
+            {
+                FieldValue field;
+                field.m_index = index;
+                field.m_item = &item;
+                field.m_valid = true;
+                return field;
+            }
+
+            static FieldValue makeField(std::uint32_t index, StorageClass kind, PyObject *object)
+            {
+                FieldValue field;
+                field.m_index = index;
+                field.m_kind = kind;
+                field.m_object = object;
+                field.m_valid = true;
+                return field;
+            }
+
+            template <typename EmitT> void forEachObjectField(const o_embedded_object &object, EmitT emit)
+            {
+                const auto &types = object.pos_vt().types();
+                const auto &values = object.pos_vt().values();
+                for (std::size_t i = 0; i < object.pos_vt().size(); ++i) {
+                    if (isFieldValue(types[i])) {
+                        emit(makeField(
+                            static_cast<std::uint32_t>(object.pos_vt().offset() + i), types[i], values[i]
+                        ));
+                    }
+                }
+                for (const auto &value: object.index_vt().xvalues()) {
+                    if (isFieldValue(value.m_type)) {
+                        emit(makeField(value.getIndex(), value.m_type, value.m_value));
+                    }
+                }
+                for (const auto &entry: object.field_map()) {
+                    emit(makeField(getFieldIndex(entry.key()), entry.value()));
+                }
+            }
+
+            template <typename EmitT> void forEachInitializerField(
+                const ImmutableObjectInitializer &initializer, EmitT emit
             )
             {
-                FieldValue candidate;
-                candidate.m_index = index;
-                candidate.m_kind = kind;
-                candidate.m_value = value;
-                candidate.m_valid = true;
-                if (isFieldAfter(candidate, previous) && isFieldBefore(candidate, next)) {
-                    next = candidate;
-                }
-            }
+                PosVT::Data posVtData;
+                unsigned int posVtOffset = 0;
+                auto indexVtData = initializer.getData(posVtData, posVtOffset);
 
-            static void updateNextField(
-                FieldValue &next, const FieldValue &previous, std::uint32_t index, const o_tuple_item &item
-            )
-            {
-                FieldValue candidate;
-                candidate.m_index = index;
-                candidate.m_item = &item;
-                candidate.m_valid = true;
-                if (isFieldAfter(candidate, previous) && isFieldBefore(candidate, next)) {
-                    next = candidate;
+                for (std::size_t i = 0; i < posVtData.size(); ++i) {
+                    if (isFieldValue(posVtData.m_types[i])) {
+                        emit(makeField(
+                            static_cast<std::uint32_t>(posVtOffset + i),
+                            posVtData.m_types[i], posVtData.m_values[i]
+                        ));
+                    }
                 }
-            }
-
-            static void updateNextField(
-                FieldValue &next, const FieldValue &previous, std::uint32_t index, StorageClass kind,
-                PyObject *object
-            )
-            {
-                FieldValue candidate;
-                candidate.m_index = index;
-                candidate.m_kind = kind;
-                candidate.m_object = object;
-                candidate.m_valid = true;
-                if (isFieldAfter(candidate, previous) && isFieldBefore(candidate, next)) {
-                    next = candidate;
+                for (auto value = indexVtData.first; value != indexVtData.second; ++value) {
+                    if (isFieldValue(value->m_type)) {
+                        emit(makeField(value->getIndex(), value->m_type, value->m_value));
+                    }
                 }
-            }
-
-            static bool isFieldAfter(const FieldValue &candidate, const FieldValue &previous)
-            {
-                if (!previous.m_valid) {
-                    return true;
+                for (const auto &value: initializer.objects()) {
+                    if (!!value.m_object && value.m_storage_class != StorageClass::DELETED) {
+                        emit(makeField(value.m_loc.first, value.m_storage_class, value.m_object.get()));
+                    }
                 }
-                return candidate.m_index > previous.m_index;
-            }
-
-            static bool isFieldBefore(const FieldValue &candidate, const FieldValue &next)
-            {
-                if (!next.m_valid) {
-                    return true;
-                }
-                return candidate.m_index < next.m_index;
             }
 
             void writeFieldValue(const FieldValue &field)
@@ -534,48 +549,22 @@ namespace db0::object_model
             {
                 writeToken(m_sink, Token::Set);
                 m_sink.writeScalar<std::uint64_t>(value.size());
-                const o_tuple_item *previous = nullptr;
-                for (std::uint64_t emitted = 0; emitted < value.size(); ++emitted) {
-                    const o_tuple_item *next = nullptr;
-                    for (const auto &item: value) {
-                        if (previous && compare(item, *previous) <= 0) {
-                            continue;
-                        }
-                        if (!next || compare(item, *next) < 0) {
-                            next = &item;
-                        }
-                    }
-                    if (!next) {
-                        THROWF(db0::InternalException) << "Unable to normalize unordered intern set content";
-                    }
-                    writeTupleItem(*next);
-                    previous = next;
+                std::uint64_t itemHashSum = 0;
+                for (const auto &item: value) {
+                    itemHashSum += hashWithFixture(m_fixture, item);
                 }
+                m_sink.writeScalar<std::uint64_t>(itemHashSum);
             }
 
             void writeDict(const o_py_dict &value)
             {
                 writeToken(m_sink, Token::Dict);
                 m_sink.writeScalar<std::uint64_t>(value.size());
-                const o_dict_pair *previous = nullptr;
-                for (std::uint64_t emitted = 0; emitted < value.size(); ++emitted) {
-                    const o_dict_pair *next = nullptr;
-                    for (const auto &pair: value) {
-                        if (previous && compare(pair, *previous) <= 0) {
-                            continue;
-                        }
-                        if (!next || compare(pair, *next) < 0) {
-                            next = &pair;
-                        }
-                    }
-                    if (!next) {
-                        THROWF(db0::InternalException) << "Unable to normalize unordered intern dict content";
-                    }
-                    writeToken(m_sink, Token::Pair);
-                    writeTupleItem(next->key());
-                    writeTupleItem(next->value());
-                    previous = next;
+                std::uint64_t pairHashSum = 0;
+                for (const auto &pair: value) {
+                    pairHashSum += hashPairWithFixture(m_fixture, pair);
                 }
+                m_sink.writeScalar<std::uint64_t>(pairHashSum);
             }
 
             int compare(const o_tuple_item &lhs, const o_tuple_item &rhs)
@@ -591,11 +580,6 @@ namespace db0::object_model
             int compare(PyObject *lhs, PyObject *rhs)
             {
                 return compareWithFixture(m_fixture, lhs, rhs);
-            }
-
-            int compare(PyObject *dict, PyObject *lhsKey, PyObject *rhsKey)
-            {
-                return compareWithFixture(m_fixture, dict, lhsKey, rhsKey);
             }
 
             void writeBytes(Token kind, const void *data, std::size_t size)
@@ -688,32 +672,20 @@ namespace db0::object_model
                 auto count = static_cast<std::uint64_t>(size);
                 writeToken(m_sink, Token::Set);
                 m_sink.writeScalar<std::uint64_t>(count);
-                PyObject *previous = nullptr;
-                for (std::uint64_t emitted = 0; emitted < count; ++emitted) {
-                    PyObject *next = nullptr;
-                    auto iterator = Py_OWN(PyObject_GetIter(set));
-                    if (!iterator) {
-                        PyErr_Clear();
-                        THROWF(db0::InputException) << "Intern set content expects a Python set";
-                    }
-                    Py_FOR(item, iterator) {
-                        if (previous && compare(*item, previous) <= 0) {
-                            continue;
-                        }
-                        if (!next || compare(*item, next) < 0) {
-                            next = *item;
-                        }
-                    }
-                    if (PyErr_Occurred()) {
-                        PyErr_Clear();
-                        THROWF(db0::InputException) << "Unable to iterate Python set";
-                    }
-                    if (!next) {
-                        THROWF(db0::InternalException) << "Unable to normalize Python set intern content";
-                    }
-                    writePythonItem(next);
-                    previous = next;
+                std::uint64_t itemHashSum = 0;
+                auto iterator = Py_OWN(PyObject_GetIter(set));
+                if (!iterator) {
+                    PyErr_Clear();
+                    THROWF(db0::InputException) << "Intern set content expects a Python set";
                 }
+                Py_FOR(item, iterator) {
+                    itemHashSum += hashWithFixture(m_fixture, *item);
+                }
+                if (PyErr_Occurred()) {
+                    PyErr_Clear();
+                    THROWF(db0::InputException) << "Unable to iterate Python set";
+                }
+                m_sink.writeScalar<std::uint64_t>(itemHashSum);
             }
 
             void writePythonDict(PyObject *dict)
@@ -729,45 +701,20 @@ namespace db0::object_model
                 auto count = static_cast<std::uint64_t>(size);
                 writeToken(m_sink, Token::Dict);
                 m_sink.writeScalar<std::uint64_t>(count);
-                PyObject *previous = nullptr;
-                for (std::uint64_t emitted = 0; emitted < count; ++emitted) {
-                    PyObject *next = nullptr;
-                    auto iterator = Py_OWN(PyObject_GetIter(dict));
-                    if (!iterator) {
-                        PyErr_Clear();
-                        THROWF(db0::InputException) << "Intern dict content expects a Python dict";
-                    }
-                    Py_FOR(key, iterator) {
-                        auto *value = PyDict_GetItemWithError(dict, *key);
-                        if (!value) {
-                            PyErr_Clear();
-                            THROWF(db0::InputException) << "Unable to read Python dict value";
-                        }
-                        (void)value;
-                        if (previous && compare(dict, *key, previous) <= 0) {
-                            continue;
-                        }
-                        if (!next || compare(dict, *key, next) < 0) {
-                            next = *key;
-                        }
-                    }
-                    if (PyErr_Occurred()) {
-                        PyErr_Clear();
-                        THROWF(db0::InputException) << "Unable to iterate Python dict";
-                    }
-                    if (!next) {
-                        THROWF(db0::InternalException) << "Unable to normalize Python dict intern content";
-                    }
-                    auto *value = PyDict_GetItemWithError(dict, next);
-                    if (!value) {
-                        PyErr_Clear();
-                        THROWF(db0::InputException) << "Unable to read Python dict value";
-                    }
-                    writeToken(m_sink, Token::Pair);
-                    writePythonItem(next);
-                    writePythonItem(value);
-                    previous = next;
+                std::uint64_t pairHashSum = 0;
+                auto iterator = Py_OWN(PyObject_GetIter(dict));
+                if (!iterator) {
+                    PyErr_Clear();
+                    THROWF(db0::InputException) << "Intern dict content expects a Python dict";
                 }
+                Py_FOR(key, iterator) {
+                    pairHashSum += hashPythonDictPairWithFixture(m_fixture, dict, *key);
+                }
+                if (PyErr_Occurred()) {
+                    PyErr_Clear();
+                    THROWF(db0::InputException) << "Unable to iterate Python dict";
+                }
+                m_sink.writeScalar<std::uint64_t>(pairHashSum);
             }
 
             std::size_t getPythonSequenceSize(PyObject *sequence) const
@@ -901,6 +848,43 @@ namespace db0::object_model
             HashSink &m_sink;
             db0::swine_ptr<db0::Fixture> *m_fixture = nullptr;
         };
+
+        std::uint64_t hashWithFixture(db0::swine_ptr<db0::Fixture> *fixture, const o_tuple_item &item)
+        {
+            HashSink sink;
+            InternStreamer(sink, fixture).writeTupleItemForHash(item);
+            return sink.getValue();
+        }
+
+        std::uint64_t hashWithFixture(db0::swine_ptr<db0::Fixture> *fixture, PyObject *object)
+        {
+            HashSink sink;
+            InternStreamer(sink, fixture).writePythonItemForHash(object);
+            return sink.getValue();
+        }
+
+        std::uint64_t hashPairWithFixture(db0::swine_ptr<db0::Fixture> *fixture, const o_dict_pair &pair)
+        {
+            HashSink sink;
+            InternStreamer(sink, fixture).writeDictPairForHash(pair);
+            return sink.getValue();
+        }
+
+        std::uint64_t hashPythonDictPairWithFixture(
+            db0::swine_ptr<db0::Fixture> *fixture, PyObject *dict, PyObject *key
+        )
+        {
+            HashSink sink;
+            InternStreamer(sink, fixture).writePythonDictPairForHash(dict, key);
+            return sink.getValue();
+        }
+
+        std::uint64_t hashFieldWithFixture(db0::swine_ptr<db0::Fixture> *fixture, const FieldValue &field)
+        {
+            HashSink sink;
+            InternStreamer(sink, fixture).writeFieldForHash(field);
+            return sink.getValue();
+        }
 
         class InternComparator
         {
@@ -1060,23 +1044,6 @@ namespace db0::object_model
                 return 0;
             }
 
-            int compare(PyObject *dict, PyObject *lhsKey, PyObject *rhsKey)
-            {
-                auto *lhsValue = PyDict_GetItemWithError(dict, lhsKey);
-                auto *rhsValue = PyDict_GetItemWithError(dict, rhsKey);
-                if (!lhsValue || !rhsValue) {
-                    PyErr_Clear();
-                    THROWF(db0::InputException) << "Unable to read Python dict value";
-                }
-                if (auto result = compareToken(Token::Pair, Token::Pair)) {
-                    return result;
-                }
-                if (auto result = compare(lhsKey, rhsKey)) {
-                    return result;
-                }
-                return compare(lhsValue, rhsValue);
-            }
-
         private:
             template <typename T> int compareScalar(T lhs, T rhs)
             {
@@ -1148,51 +1115,6 @@ namespace db0::object_model
                 return count;
             }
 
-            FieldValue nextField(const o_embedded_object &object, const FieldValue &previous)
-            {
-                FieldValue next;
-                const auto &types = object.pos_vt().types();
-                const auto &values = object.pos_vt().values();
-                for (std::size_t i = 0; i < object.pos_vt().size(); ++i) {
-                    if (isFieldValue(types[i])) {
-                        updateNextField(next, previous, static_cast<std::uint32_t>(object.pos_vt().offset() + i), types[i], values[i]);
-                    }
-                }
-                for (const auto &value: object.index_vt().xvalues()) {
-                    if (isFieldValue(value.m_type)) {
-                        updateNextField(next, previous, value.getIndex(), value.m_type, value.m_value);
-                    }
-                }
-                for (const auto &entry: object.field_map()) {
-                    updateNextField(next, previous, getFieldIndex(entry.key()), entry.value());
-                }
-                return next;
-            }
-
-            FieldValue nextField(const ImmutableObjectInitializer &initializer, const FieldValue &previous)
-            {
-                FieldValue next;
-                PosVT::Data posVtData;
-                unsigned int posVtOffset = 0;
-                auto indexVtData = initializer.getData(posVtData, posVtOffset);
-                for (std::size_t i = 0; i < posVtData.size(); ++i) {
-                    if (isFieldValue(posVtData.m_types[i])) {
-                        updateNextField(next, previous, static_cast<std::uint32_t>(posVtOffset + i), posVtData.m_types[i], posVtData.m_values[i]);
-                    }
-                }
-                for (auto value = indexVtData.first; value != indexVtData.second; ++value) {
-                    if (isFieldValue(value->m_type)) {
-                        updateNextField(next, previous, value->getIndex(), value->m_type, value->m_value);
-                    }
-                }
-                for (const auto &value: initializer.objects()) {
-                    if (!!value.m_object && value.m_storage_class != StorageClass::DELETED) {
-                        updateNextField(next, previous, value.m_loc.first, value.m_storage_class, value.m_object.get());
-                    }
-                }
-                return next;
-            }
-
             template <typename LhsT, typename RhsT> int compareFields(const LhsT &lhs, const RhsT &rhs)
             {
                 auto lhsCount = countFields(lhs);
@@ -1203,24 +1125,25 @@ namespace db0::object_model
                 if (auto result = compareScalar<std::uint64_t>(lhsCount, rhsCount)) {
                     return result;
                 }
-                FieldValue lhsPrevious;
-                FieldValue rhsPrevious;
-                for (std::uint64_t i = 0; i < lhsCount; ++i) {
-                    auto lhsNext = nextField(lhs, lhsPrevious);
-                    auto rhsNext = nextField(rhs, rhsPrevious);
-                    if (!lhsNext.m_valid || !rhsNext.m_valid) {
-                        THROWF(db0::InternalException) << "Unable to normalize intern fields";
+                auto rhsLookup = makeFieldLookup(rhs);
+                int compareResult = 0;
+                std::uint64_t emitted = 0;
+                forEachField(lhs, [&](const FieldValue &lhsField) {
+                    ++emitted;
+                    if (compareResult) {
+                        return;
                     }
-                    if (auto result = compareScalar<std::uint32_t>(lhsNext.m_index, rhsNext.m_index)) {
-                        return result;
+                    auto rhsField = rhsLookup.find(lhsField.m_index);
+                    if (!rhsField.m_valid) {
+                        compareResult = -1;
+                        return;
                     }
-                    if (auto result = compareFieldValue(lhsNext, rhsNext)) {
-                        return result;
-                    }
-                    lhsPrevious = lhsNext;
-                    rhsPrevious = rhsNext;
+                    compareResult = compareFieldValue(lhsField, rhsField);
+                });
+                if (emitted != lhsCount) {
+                    THROWF(db0::InternalException) << "Unable to compare intern fields";
                 }
-                return 0;
+                return compareResult;
             }
 
             std::uint64_t countFields(const o_embedded_object &object) const
@@ -1245,52 +1168,190 @@ namespace db0::object_model
 
             int compareInitializerFields(const ImmutableObjectInitializer &lhs, const ImmutableObjectInitializer &rhs)
             {
-                return compareFields(lhs, rhs);
+                return compareSequentialInitializerFields(lhs, rhs);
             }
 
-            static void updateNextField(FieldValue &next, const FieldValue &previous, std::uint32_t index, StorageClass kind, Value value)
+            static FieldValue makeField(std::uint32_t index, StorageClass kind, Value value)
             {
-                FieldValue candidate;
-                candidate.m_index = index;
-                candidate.m_kind = kind;
-                candidate.m_value = value;
-                candidate.m_valid = true;
-                if (isFieldAfter(candidate, previous) && isFieldBefore(candidate, next)) {
-                    next = candidate;
+                FieldValue field;
+                field.m_index = index;
+                field.m_kind = kind;
+                field.m_value = value;
+                field.m_valid = true;
+                return field;
+            }
+
+            static FieldValue makeField(std::uint32_t index, const o_tuple_item &item)
+            {
+                FieldValue field;
+                field.m_index = index;
+                field.m_item = &item;
+                field.m_valid = true;
+                return field;
+            }
+
+            static FieldValue makeField(std::uint32_t index, StorageClass kind, PyObject *object)
+            {
+                FieldValue field;
+                field.m_index = index;
+                field.m_kind = kind;
+                field.m_object = object;
+                field.m_valid = true;
+                return field;
+            }
+
+            struct ObjectFieldLookup
+            {
+                explicit ObjectFieldLookup(const o_embedded_object &object)
+                    : m_object(object)
+                {
+                }
+
+                FieldValue find(std::uint32_t index) const
+                {
+                    std::pair<StorageClass, Value> value;
+                    if (m_object.pos_vt().find(index, value) && InternComparator::isFieldValue(value.first)) {
+                        return InternComparator::makeField(index, value.first, value.second);
+                    }
+                    if (m_object.index_vt().find(index, value) && InternComparator::isFieldValue(value.first)) {
+                        return InternComparator::makeField(index, value.first, value.second);
+                    }
+                    if (auto *item = m_object.variableValue(index)) {
+                        return InternComparator::makeField(index, *item);
+                    }
+                    return {};
+                }
+
+                const o_embedded_object &m_object;
+            };
+
+            ObjectFieldLookup makeFieldLookup(const o_embedded_object &object) const
+            {
+                return ObjectFieldLookup(object);
+            }
+
+            struct InitializerFieldCursor
+            {
+                explicit InitializerFieldCursor(const ImmutableObjectInitializer &initializer)
+                    : m_objects(&initializer.objects())
+                {
+                    m_indexVtData = initializer.getData(m_posVtData, m_posVtOffset);
+                    m_indexValue = m_indexVtData.first;
+                }
+
+                FieldValue next()
+                {
+                    while (m_pos < m_posVtData.size()) {
+                        auto pos = m_pos++;
+                        if (InternComparator::isFieldValue(m_posVtData.m_types[pos])) {
+                            return InternComparator::makeField(
+                                static_cast<std::uint32_t>(m_posVtOffset + pos),
+                                m_posVtData.m_types[pos], m_posVtData.m_values[pos]
+                            );
+                        }
+                    }
+                    while (m_indexValue != m_indexVtData.second) {
+                        auto *value = m_indexValue++;
+                        if (InternComparator::isFieldValue(value->m_type)) {
+                            return InternComparator::makeField(
+                                value->getIndex(), value->m_type, value->m_value
+                            );
+                        }
+                    }
+                    while (m_objectPos < m_objects->size()) {
+                        const auto &value = (*m_objects)[m_objectPos++];
+                        if (!!value.m_object && value.m_storage_class != StorageClass::DELETED) {
+                            return InternComparator::makeField(
+                                value.m_loc.first, value.m_storage_class, value.m_object.get()
+                            );
+                        }
+                    }
+                    return {};
+                }
+
+                PosVT::Data m_posVtData;
+                unsigned int m_posVtOffset = 0;
+                std::size_t m_pos = 0;
+                std::pair<const XValue *, const XValue *> m_indexVtData = { nullptr, nullptr };
+                const XValue *m_indexValue = nullptr;
+                const std::vector<ImmutableObjectInitializer::ObjectValue> *m_objects = nullptr;
+                std::size_t m_objectPos = 0;
+            };
+
+            int compareSequentialInitializerFields(
+                const ImmutableObjectInitializer &lhs, const ImmutableObjectInitializer &rhs
+            )
+            {
+                auto lhsCount = countInitializerFields(lhs);
+                auto rhsCount = countInitializerFields(rhs);
+                if (auto result = compareToken(Token::Field, Token::Field)) {
+                    return result;
+                }
+                if (auto result = compareScalar<std::uint64_t>(lhsCount, rhsCount)) {
+                    return result;
+                }
+                InitializerFieldCursor lhsCursor(lhs);
+                InitializerFieldCursor rhsCursor(rhs);
+                for (std::uint64_t i = 0; i < lhsCount; ++i) {
+                    auto lhsField = lhsCursor.next();
+                    auto rhsField = rhsCursor.next();
+                    if (!lhsField.m_valid || !rhsField.m_valid) {
+                        THROWF(db0::InternalException) << "Unable to compare intern fields";
+                    }
+                    if (auto result = compareScalar<std::uint32_t>(lhsField.m_index, rhsField.m_index)) {
+                        return result;
+                    }
+                    if (auto result = compareFieldValue(lhsField, rhsField)) {
+                        return result;
+                    }
+                }
+                return 0;
+            }
+
+            template <typename EmitT> void forEachField(const o_embedded_object &object, EmitT emit)
+            {
+                const auto &types = object.pos_vt().types();
+                const auto &values = object.pos_vt().values();
+                for (std::size_t i = 0; i < object.pos_vt().size(); ++i) {
+                    if (isFieldValue(types[i])) {
+                        emit(makeField(
+                            static_cast<std::uint32_t>(object.pos_vt().offset() + i), types[i], values[i]
+                        ));
+                    }
+                }
+                for (const auto &value: object.index_vt().xvalues()) {
+                    if (isFieldValue(value.m_type)) {
+                        emit(makeField(value.getIndex(), value.m_type, value.m_value));
+                    }
+                }
+                for (const auto &entry: object.field_map()) {
+                    emit(makeField(getFieldIndex(entry.key()), entry.value()));
                 }
             }
 
-            static void updateNextField(FieldValue &next, const FieldValue &previous, std::uint32_t index, const o_tuple_item &item)
+            template <typename EmitT> void forEachField(const ImmutableObjectInitializer &initializer, EmitT emit)
             {
-                FieldValue candidate;
-                candidate.m_index = index;
-                candidate.m_item = &item;
-                candidate.m_valid = true;
-                if (isFieldAfter(candidate, previous) && isFieldBefore(candidate, next)) {
-                    next = candidate;
+                PosVT::Data posVtData;
+                unsigned int posVtOffset = 0;
+                auto indexVtData = initializer.getData(posVtData, posVtOffset);
+                for (std::size_t i = 0; i < posVtData.size(); ++i) {
+                    if (isFieldValue(posVtData.m_types[i])) {
+                        emit(makeField(
+                            static_cast<std::uint32_t>(posVtOffset + i),
+                            posVtData.m_types[i], posVtData.m_values[i]
+                        ));
+                    }
                 }
-            }
-
-            static void updateNextField(FieldValue &next, const FieldValue &previous, std::uint32_t index, StorageClass kind, PyObject *object)
-            {
-                FieldValue candidate;
-                candidate.m_index = index;
-                candidate.m_kind = kind;
-                candidate.m_object = object;
-                candidate.m_valid = true;
-                if (isFieldAfter(candidate, previous) && isFieldBefore(candidate, next)) {
-                    next = candidate;
+                for (auto value = indexVtData.first; value != indexVtData.second; ++value) {
+                    if (isFieldValue(value->m_type)) {
+                        emit(makeField(value->getIndex(), value->m_type, value->m_value));
+                    }
                 }
-            }
-
-            static bool isFieldAfter(const FieldValue &candidate, const FieldValue &previous)
-            {
-                return !previous.m_valid || candidate.m_index > previous.m_index;
-            }
-
-            static bool isFieldBefore(const FieldValue &candidate, const FieldValue &next)
-            {
-                return !next.m_valid || candidate.m_index < next.m_index;
+                for (const auto &value: initializer.objects()) {
+                    if (!!value.m_object && value.m_storage_class != StorageClass::DELETED) {
+                        emit(makeField(value.m_loc.first, value.m_storage_class, value.m_object.get()));
+                    }
+                }
             }
 
             std::uint32_t getFieldIndex(const o_tuple_item &key) const
@@ -1651,19 +1712,10 @@ namespace db0::object_model
                 if (auto result = compareScalar<std::uint64_t>(lhs.size(), rhs.size())) {
                     return result;
                 }
-                const o_tuple_item *lhsPrevious = nullptr;
-                const o_tuple_item *rhsPrevious = nullptr;
-                for (std::uint64_t emitted = 0; emitted < lhs.size(); ++emitted) {
-                    auto lhsNext = getNextSetItem(lhs, lhsPrevious);
-                    auto rhsNext = getNextSetItem(rhs, rhsPrevious);
-                    if (!lhsNext || !rhsNext) {
-                        THROWF(db0::InternalException) << "Unable to normalize unordered intern set content";
+                for (const auto &lhsItem: lhs) {
+                    if (!rhs.contains(lhsItem)) {
+                        return -1;
                     }
-                    if (auto result = compare(*lhsNext, *rhsNext)) {
-                        return result;
-                    }
-                    lhsPrevious = lhsNext;
-                    rhsPrevious = rhsNext;
                 }
                 return 0;
             }
@@ -1676,49 +1728,16 @@ namespace db0::object_model
                 if (auto result = compareScalar<std::uint64_t>(lhs.size(), rhs.size())) {
                     return result;
                 }
-                const o_dict_pair *lhsPrevious = nullptr;
-                const o_dict_pair *rhsPrevious = nullptr;
-                for (std::uint64_t emitted = 0; emitted < lhs.size(); ++emitted) {
-                    auto lhsNext = getNextDictPair(lhs, lhsPrevious);
-                    auto rhsNext = getNextDictPair(rhs, rhsPrevious);
-                    if (!lhsNext || !rhsNext) {
-                        THROWF(db0::InternalException) << "Unable to normalize unordered intern dict content";
+                for (const auto &lhsPair: lhs) {
+                    auto *rhsValue = rhs.get(lhsPair.key());
+                    if (!rhsValue) {
+                        return -1;
                     }
-                    if (auto result = compare(*lhsNext, *rhsNext)) {
+                    if (auto result = compare(lhsPair.value(), *rhsValue)) {
                         return result;
                     }
-                    lhsPrevious = lhsNext;
-                    rhsPrevious = rhsNext;
                 }
                 return 0;
-            }
-
-            const o_tuple_item *getNextSetItem(const o_py_set &value, const o_tuple_item *previous)
-            {
-                const o_tuple_item *next = nullptr;
-                for (const auto &item: value) {
-                    if (previous && compare(item, *previous) <= 0) {
-                        continue;
-                    }
-                    if (!next || compare(item, *next) < 0) {
-                        next = &item;
-                    }
-                }
-                return next;
-            }
-
-            const o_dict_pair *getNextDictPair(const o_py_dict &value, const o_dict_pair *previous)
-            {
-                const o_dict_pair *next = nullptr;
-                for (const auto &item: value) {
-                    if (previous && compare(item, *previous) <= 0) {
-                        continue;
-                    }
-                    if (!next || compare(item, *next) < 0) {
-                        next = &item;
-                    }
-                }
-                return next;
             }
 
             int compareObjectRefToFixed(StorageClass lhsKind, Value lhs, StorageClass rhsKind, Value rhs)
@@ -2137,19 +2156,24 @@ namespace db0::object_model
                 if (auto result = compareScalar<std::uint64_t>(lhsSize, rhsSize)) {
                     return result;
                 }
-                PyObject *lhsPrevious = nullptr;
-                PyObject *rhsPrevious = nullptr;
-                for (Py_ssize_t i = 0; i < lhsSize; ++i) {
-                    auto *lhsNext = getNextPythonSetItem(lhs, lhsPrevious);
-                    auto *rhsNext = getNextPythonSetItem(rhs, rhsPrevious);
-                    if (!lhsNext || !rhsNext) {
-                        THROWF(db0::InternalException) << "Unable to normalize Python set intern content";
+                auto iterator = Py_OWN(PyObject_GetIter(lhs));
+                if (!iterator) {
+                    PyErr_Clear();
+                    THROWF(db0::InputException) << "Intern set content expects a Python set";
+                }
+                Py_FOR(item, iterator) {
+                    auto contains = PySet_Contains(rhs, *item);
+                    if (contains < 0) {
+                        PyErr_Clear();
+                        THROWF(db0::InputException) << "Unable to lookup Python set item";
                     }
-                    if (auto result = compare(lhsNext, rhsNext)) {
-                        return result;
+                    if (!contains) {
+                        return -1;
                     }
-                    lhsPrevious = lhsNext;
-                    rhsPrevious = rhsNext;
+                }
+                if (PyErr_Occurred()) {
+                    PyErr_Clear();
+                    THROWF(db0::InputException) << "Unable to iterate Python set";
                 }
                 return 0;
             }
@@ -2170,44 +2194,22 @@ namespace db0::object_model
                 if (auto result = compareScalar<std::uint64_t>(lhsSize, rhs.size())) {
                     return result;
                 }
-                PyObject *lhsPrevious = nullptr;
-                const o_tuple_item *rhsPrevious = nullptr;
-                for (Py_ssize_t i = 0; i < lhsSize; ++i) {
-                    auto *lhsNext = getNextPythonSetItem(lhs, lhsPrevious);
-                    auto *rhsNext = getNextSetItem(rhs, rhsPrevious);
-                    if (!lhsNext || !rhsNext) {
-                        THROWF(db0::InternalException) << "Unable to normalize Python set intern content";
-                    }
-                    if (auto result = comparePythonItemToTupleItem(lhsNext, *rhsNext)) {
-                        return result;
-                    }
-                    lhsPrevious = lhsNext;
-                    rhsPrevious = rhsNext;
-                }
-                return 0;
-            }
-
-            PyObject *getNextPythonSetItem(PyObject *set, PyObject *previous)
-            {
-                PyObject *next = nullptr;
-                auto iterator = Py_OWN(PyObject_GetIter(set));
+                auto iterator = Py_OWN(PyObject_GetIter(lhs));
                 if (!iterator) {
                     PyErr_Clear();
                     THROWF(db0::InputException) << "Intern set content expects a Python set";
                 }
                 Py_FOR(item, iterator) {
-                    if (previous && compare(*item, previous) <= 0) {
-                        continue;
-                    }
-                    if (!next || compare(*item, next) < 0) {
-                        next = *item;
+                    auto element = o_py_set::elementFromPythonObject(*item);
+                    if (!rhs.contains(element)) {
+                        return -1;
                     }
                 }
                 if (PyErr_Occurred()) {
                     PyErr_Clear();
                     THROWF(db0::InputException) << "Unable to iterate Python set";
                 }
-                return next;
+                return 0;
             }
 
             int comparePythonDict(PyObject *lhs, PyObject *rhs)
@@ -2227,19 +2229,28 @@ namespace db0::object_model
                 if (auto result = compareScalar<std::uint64_t>(lhsSize, rhsSize)) {
                     return result;
                 }
-                PyObject *lhsPrevious = nullptr;
-                PyObject *rhsPrevious = nullptr;
-                for (Py_ssize_t i = 0; i < lhsSize; ++i) {
-                    auto *lhsNext = getNextPythonDictKey(lhs, lhsPrevious);
-                    auto *rhsNext = getNextPythonDictKey(rhs, rhsPrevious);
-                    if (!lhsNext || !rhsNext) {
-                        THROWF(db0::InternalException) << "Unable to normalize Python dict intern content";
+                auto iterator = Py_OWN(PyObject_GetIter(lhs));
+                if (!iterator) {
+                    PyErr_Clear();
+                    THROWF(db0::InputException) << "Intern dict content expects a Python dict";
+                }
+                Py_FOR(key, iterator) {
+                    auto *lhsValue = getPythonDictValue(lhs, *key);
+                    auto *rhsValue = PyDict_GetItemWithError(rhs, *key);
+                    if (!rhsValue) {
+                        if (PyErr_Occurred()) {
+                            PyErr_Clear();
+                            THROWF(db0::InputException) << "Unable to lookup Python dict key";
+                        }
+                        return -1;
                     }
-                    if (auto result = comparePythonDictPair(lhs, lhsNext, rhs, rhsNext)) {
+                    if (auto result = compare(lhsValue, rhsValue)) {
                         return result;
                     }
-                    lhsPrevious = lhsNext;
-                    rhsPrevious = rhsNext;
+                }
+                if (PyErr_Occurred()) {
+                    PyErr_Clear();
+                    THROWF(db0::InputException) << "Unable to iterate Python dict";
                 }
                 return 0;
             }
@@ -2260,77 +2271,37 @@ namespace db0::object_model
                 if (auto result = compareScalar<std::uint64_t>(lhsSize, rhs.size())) {
                     return result;
                 }
-                PyObject *lhsPrevious = nullptr;
-                const o_dict_pair *rhsPrevious = nullptr;
-                for (Py_ssize_t i = 0; i < lhsSize; ++i) {
-                    auto *lhsNext = getNextPythonDictKey(lhs, lhsPrevious);
-                    auto *rhsNext = getNextDictPair(rhs, rhsPrevious);
-                    if (!lhsNext || !rhsNext) {
-                        THROWF(db0::InternalException) << "Unable to normalize Python dict intern content";
-                    }
-                    if (auto result = comparePythonDictPairToPair(lhs, lhsNext, *rhsNext)) {
-                        return result;
-                    }
-                    lhsPrevious = lhsNext;
-                    rhsPrevious = rhsNext;
-                }
-                return 0;
-            }
-
-            PyObject *getNextPythonDictKey(PyObject *dict, PyObject *previous)
-            {
-                PyObject *next = nullptr;
-                auto iterator = Py_OWN(PyObject_GetIter(dict));
+                auto iterator = Py_OWN(PyObject_GetIter(lhs));
                 if (!iterator) {
                     PyErr_Clear();
                     THROWF(db0::InputException) << "Intern dict content expects a Python dict";
                 }
                 Py_FOR(key, iterator) {
-                    if (previous && compare(dict, *key, previous) <= 0) {
-                        continue;
+                    auto *lhsValue = getPythonDictValue(lhs, *key);
+                    auto element = o_py_dict::elementFromPythonObject(*key);
+                    auto *rhsValue = rhs.get(element);
+                    if (!rhsValue) {
+                        return -1;
                     }
-                    if (!next || compare(dict, *key, next) < 0) {
-                        next = *key;
+                    if (auto result = comparePythonItemToTupleItem(lhsValue, *rhsValue)) {
+                        return result;
                     }
                 }
                 if (PyErr_Occurred()) {
                     PyErr_Clear();
                     THROWF(db0::InputException) << "Unable to iterate Python dict";
                 }
-                return next;
+                return 0;
             }
 
-            int comparePythonDictPair(PyObject *lhsDict, PyObject *lhsKey, PyObject *rhsDict, PyObject *rhsKey)
+            PyObject *getPythonDictValue(PyObject *dict, PyObject *key)
             {
-                auto *lhsValue = PyDict_GetItemWithError(lhsDict, lhsKey);
-                auto *rhsValue = PyDict_GetItemWithError(rhsDict, rhsKey);
-                if (!lhsValue || !rhsValue) {
+                auto *value = PyDict_GetItemWithError(dict, key);
+                if (!value) {
                     PyErr_Clear();
                     THROWF(db0::InputException) << "Unable to read Python dict value";
                 }
-                if (auto result = compareToken(Token::Pair, Token::Pair)) {
-                    return result;
-                }
-                if (auto result = compare(lhsKey, rhsKey)) {
-                    return result;
-                }
-                return compare(lhsValue, rhsValue);
-            }
-
-            int comparePythonDictPairToPair(PyObject *lhsDict, PyObject *lhsKey, const o_dict_pair &rhs)
-            {
-                auto *lhsValue = PyDict_GetItemWithError(lhsDict, lhsKey);
-                if (!lhsValue) {
-                    PyErr_Clear();
-                    THROWF(db0::InputException) << "Unable to read Python dict value";
-                }
-                if (auto result = compareToken(Token::Pair, Token::Pair)) {
-                    return result;
-                }
-                if (auto result = comparePythonItemToTupleItem(lhsKey, rhs.key())) {
-                    return result;
-                }
-                return comparePythonItemToTupleItem(lhsValue, rhs.value());
+                return value;
             }
 
             int comparePythonMemo(PyObject *lhs, PyObject *rhs)
@@ -2434,12 +2405,6 @@ namespace db0::object_model
             return InternComparator(fixture).compare(lhs, rhs);
         }
 
-        int compareWithFixture(
-            db0::swine_ptr<db0::Fixture> *fixture, PyObject *dict, PyObject *lhsKey, PyObject *rhsKey
-        )
-        {
-            return InternComparator(fixture).compare(dict, lhsKey, rhsKey);
-        }
     }
 
     std::uint64_t intern_hash(db0::swine_ptr<db0::Fixture> &fixture, const o_embedded_object &object)

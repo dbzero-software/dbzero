@@ -184,6 +184,36 @@ namespace db0::object_model
         return false;
     }
 
+    bool o_set::contains(const Item &item) const
+    {
+        auto capacity = hashIndexCapacity(size());
+        if (capacity == 0) {
+            return false;
+        }
+
+        auto element = elementFromItem(item);
+        auto hash = itemHash(item);
+        const auto *entries = beginOfHashIndex();
+        auto slot = hash % capacity;
+        const auto &entry = entries[slot];
+        if (entry.isEmpty()) {
+            return false;
+        }
+
+        auto offset = entry.offset();
+        if (!entry.isBucket()) {
+            return itemEqualsElement(itemAtOffset(offset), element);
+        }
+
+        const auto &bucket = bucketAtOffset(offset);
+        for (const auto &bucketItem: bucket) {
+            if (itemEqualsElement(bucketItem, element)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     const o_set::Item &o_set::item(std::size_t index) const
     {
         auto it = begin();

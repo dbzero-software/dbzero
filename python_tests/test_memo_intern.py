@@ -79,6 +79,13 @@ class MemoInternStressObject:
         self.payload = payload
 
 
+@db0.memo(immutable=True, intern=True, no_default_tags=True)
+class MemoInternWideObject:
+    def __init__(self, items):
+        for name, value in items:
+            setattr(self, name, value)
+
+
 def make_intern_stress_payload(index, variant):
     address_items = [
         ("street", f"{index % 997} Intern Ave"),
@@ -326,6 +333,52 @@ def test_composite_interned_object_reuses_equivalent_content(db0_fixture):
     assert db0.uuid(different) != db0.uuid(first)
     assert second.name == "composite"
     assert second.count == 7
+
+
+def test_interned_dict_content_ignores_insertion_order(db0_fixture):
+    first = db0.materialized(MemoInternHolder({
+        "alpha": 1,
+        "nested": {"street": "Intern Ave", "unit": 7},
+        "flags": {"hot", "cold"},
+    }))
+    second = db0.materialized(MemoInternHolder({
+        "flags": {"cold", "hot"},
+        "nested": {"unit": 7, "street": "Intern Ave"},
+        "alpha": 1,
+    }))
+
+    assert db0.uuid(second) == db0.uuid(first)
+    assert db0.get_type_stats(MemoInternHolder)["content_index"]["size"] == 1
+
+
+def test_interned_dict_content_keeps_distinct_values(db0_fixture):
+    first = db0.materialized(MemoInternHolder({"alpha": 1, "nested": {"unit": 7}}))
+    second = db0.materialized(MemoInternHolder({"nested": {"unit": 8}, "alpha": 1}))
+
+    assert db0.uuid(second) != db0.uuid(first)
+    assert db0.get_type_stats(MemoInternHolder)["content_index"]["size"] == 2
+
+
+def test_interned_set_content_uses_hash_lookup(db0_fixture):
+    first = db0.materialized(MemoInternHolder({"value": {"alpha", "beta", "gamma"}}))
+    second = db0.materialized(MemoInternHolder({"value": {"gamma", "alpha", "beta"}}))
+
+    assert db0.uuid(second) == db0.uuid(first)
+    assert db0.get_type_stats(MemoInternHolder)["content_index"]["size"] == 1
+
+
+def test_interned_wide_object_fields_use_hash_lookup(db0_fixture):
+    items = [(f"field_{index:04d}", index * 17) for index in range(512)]
+    changed_items = list(items)
+    changed_items[257] = (changed_items[257][0], -1)
+
+    first = db0.materialized(MemoInternWideObject(items))
+    second = db0.materialized(MemoInternWideObject(list(reversed(items))))
+    different = db0.materialized(MemoInternWideObject(changed_items))
+
+    assert db0.uuid(second) == db0.uuid(first)
+    assert db0.uuid(different) != db0.uuid(first)
+    assert db0.get_type_stats(MemoInternWideObject)["content_index"]["size"] == 2
 
 
 def test_many_interned_materializations_reuse_root_and_embedded_candidates(db0_fixture):

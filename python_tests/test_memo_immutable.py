@@ -331,6 +331,24 @@ def test_uuid_and_fetch_embedded_nested_immutable_object(db0_fixture):
     assert reopened.count == 103
 
 
+def test_embedded_immutable_shadow_type_reused_for_public_operations(db0_fixture):
+    root_a = db0.materialized(MemoImmutableNestedHolder(name="embedded type cache a", count=131, label="root-a"))
+    root_b = db0.materialized(MemoImmutableNestedHolder(name="embedded type cache b", count=132, label="root-b"))
+    nested_a = root_a.nested
+    nested_b = root_b.nested
+
+    assert isinstance(nested_a, MemoImmutableNestedPayload)
+    assert type(nested_a) is type(nested_b)
+
+    nested_uuid = db0.uuid(nested_a)
+    db0.tags(nested_a).add("embedded-type-cache-tag")
+    result = list(db0.find(MemoImmutableNestedPayload, "embedded-type-cache-tag"))
+
+    assert len(result) == 1
+    assert db0.uuid(result[0]) == nested_uuid
+    assert result[0].name == "embedded type cache a"
+
+
 def test_uuid_and_fetch_deeply_embedded_immutable_objects(db0_fixture):
     root = MemoImmutableDeepRoot(name="deep embedded uuid", count=104)
     db0.tags(root).add("keep-deep-embedded-fetch-uuid")
