@@ -71,6 +71,22 @@ namespace db0::object_model
         return false;
     }
 
+    void validateInternFlag(const Class &type, ClassFactory::TypeObjectPtr lang_type)
+    {
+        if (lang_type && type.isIntern() != ClassFactory::LangToolkit::isIntern(lang_type)) {
+            THROWF(db0::InputException)
+                << "Cannot change intern flag after memo class materialization: " << type.getName();
+        }
+    }
+
+    void validateImmutableFlag(const Class &type, ClassFactory::TypeObjectPtr lang_type)
+    {
+        if (lang_type && type.isImmutable() && !ClassFactory::LangToolkit::isImmutable(lang_type)) {
+            THROWF(db0::InputException)
+                << "Cannot change immutable flag after memo class materialization: " << type.getName();
+        }
+    }
+
     o_class_factory::o_class_factory(Memspace &memspace)
         : m_class_map_ptrs { VClassMap(memspace), VClassMap(memspace), VClassMap(memspace), VClassMap(memspace) }
     {
@@ -159,6 +175,8 @@ namespace db0::object_model
                 if (memo_base) {
                     getOrCreateType(memo_base);
                 }
+                validateImmutableFlag(*type, lang_type);
+                validateInternFlag(*type, lang_type);
                 if (LangToolkit::isProtectFields(lang_type) && !type->hasOwnProtectFields()) {
                     type->setProtectFields();
                 }
@@ -176,6 +194,7 @@ namespace db0::object_model
                 }
                 flags.set(ClassOptions::NO_DEFAULT_TAGS, LangToolkit::isNoDefaultTags(lang_type));
                 flags.set(ClassOptions::IMMUTABLE, LangToolkit::isImmutable(lang_type));
+                flags.set(ClassOptions::INTERN, LangToolkit::isIntern(lang_type));
                 auto memo_base = LangToolkit::getBaseMemoType(lang_type);
                 std::shared_ptr<Class> base_class;                
                 if (memo_base) {
@@ -211,6 +230,8 @@ namespace db0::object_model
             if (memo_base) {
                 getOrCreateType(memo_base);
             }
+            validateImmutableFlag(*it_cached->second, lang_type);
+            validateInternFlag(*it_cached->second, lang_type);
             if (LangToolkit::isProtectFields(lang_type) && !it_cached->second->hasOwnProtectFields()) {
                 it_cached->second->setProtectFields();
             }
@@ -246,6 +267,8 @@ namespace db0::object_model
             m_pending_ptrs.push_back(ptr);
         }
         if (lang_type && !it_cached->second.m_lang_type) {
+            validateImmutableFlag(*it_cached->second.m_class, lang_type);
+            validateInternFlag(*it_cached->second.m_class, lang_type);
             it_cached->second.m_lang_type = lang_type;
             it_cached->second.m_class->setInitVars(LangToolkit::getInitVars(lang_type));
             it_cached->second.m_class->setRuntimeFlags(LangToolkit::getMemoFlags(lang_type));
@@ -315,6 +338,8 @@ namespace db0::object_model
             }
             // initialize the language model
             if (lang_type) {
+                validateImmutableFlag(*type, lang_type);
+                validateInternFlag(*type, lang_type);
                 type->setInitVars(LangToolkit::getInitVars(lang_type));
                 type->setRuntimeFlags(LangToolkit::getMemoFlags(lang_type));
                 if (LangToolkit::isProtectFields(lang_type) && !type->hasOwnProtectFields()) {
@@ -327,6 +352,8 @@ namespace db0::object_model
         }
         // register the lang type mapping if missing
         if (lang_type && !it_cached->second.m_lang_type) {
+            validateImmutableFlag(*it_cached->second.m_class, lang_type);
+            validateInternFlag(*it_cached->second.m_class, lang_type);
             it_cached->second.m_lang_type = lang_type;        
             it_cached->second.m_class->setInitVars(LangToolkit::getInitVars(lang_type));
             it_cached->second.m_class->setRuntimeFlags(LangToolkit::getMemoFlags(lang_type));

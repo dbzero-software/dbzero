@@ -17,11 +17,12 @@ namespace db0::object_model
         // instances of this type opted out of caching
         NO_CACHE = 0x0002,
         IMMUTABLE = 0x0004,
-        PROTECT_FIELDS = 0x0008
+        PROTECT_FIELDS = 0x0008,
+        INTERN = 0x0010
     };
     
     using MemoFlags = db0::FlagSet<MemoOptions>;
 
 }
 
-DECLARE_ENUM_VALUES(db0::object_model::MemoOptions, 4)
+DECLARE_ENUM_VALUES(db0::object_model::MemoOptions, 5)

@@ -8,6 +8,7 @@
 #include <utils/TestBase.hpp>
 #include <dbzero/bindings/python/Memo.hpp>
 #include <dbzero/bindings/python/PyAPI.hpp>
+#include <dbzero/bindings/python/PyToolkit.hpp>
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/object_model/object/ObjectImmutableImpl.hpp>
 #include <dbzero/object_model/object/o_embedded_object.hpp>

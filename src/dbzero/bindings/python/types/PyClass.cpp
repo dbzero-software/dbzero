@@ -105,6 +105,7 @@ namespace db0::python
         PySafeDict_SetItemString(*py_result, "singleton", Py_OWN(PyBool_fromBool(type.isSingleton())));
         PySafeDict_SetItemString(*py_result, "no_default_tags", Py_OWN(PyBool_fromBool(type.isNoDefaultTags())));
         PySafeDict_SetItemString(*py_result, "immutable", Py_OWN(PyBool_fromBool(type.isImmutable())));
+        PySafeDict_SetItemString(*py_result, "intern", Py_OWN(PyBool_fromBool(type.isIntern())));
         PySafeDict_SetItemString(*py_result, "protect_fields", Py_OWN(PyBool_fromBool(type.isProtectFields())));
         return py_result.steal();
     }

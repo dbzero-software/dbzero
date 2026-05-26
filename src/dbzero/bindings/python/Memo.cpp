@@ -898,7 +898,8 @@ namespace db0::python
     
     PyObject *wrapPyType(PyTypeObject *base_class, bool is_singleton, bool no_default_tags, const char *prefix_name,
         const char *type_id, const char *file_name, std::vector<std::string> &&init_vars, PyObject *py_dyn_prefix_callable,
-        std::vector<Migration> &&migrations, bool no_cache, bool immutable, std::optional<bool> protect_fields_option)
+        std::vector<Migration> &&migrations, bool no_cache, bool immutable, bool intern,
+        std::optional<bool> protect_fields_option)
     {
         auto py_class = Py_BORROW(base_class);
         auto py_module = Py_OWN(findModule(*Py_OWN(PyObject_GetAttrString((PyObject*)*py_class, "__module__"))));
@@ -931,6 +932,9 @@ namespace db0::python
         if (!new_type) {
             return nullptr;
         }
+        if (intern && !immutable) {
+            THROWF(db0::InputException) << "intern=True requires immutable=True";
+        }
 
         auto base_memo_type = PyToolkit::getBaseMemoType(*new_type);
         bool inherited_protect_fields = base_memo_type
@@ -950,6 +954,9 @@ namespace db0::python
         }
         if (protect_fields) {
             type_flags.set(MemoOptions::PROTECT_FIELDS);
+        }
+        if (intern) {
+            type_flags.set(MemoOptions::INTERN);
         }
         auto type_info = MemoTypeDecoration(
             py_module,
@@ -990,13 +997,14 @@ namespace db0::python
         PyObject *py_migrations = nullptr;
         PyObject *py_no_cache = nullptr;
         PyObject *py_immutable = nullptr;
+        PyObject *py_intern = nullptr;
         PyObject *py_protect_fields = nullptr;
         
         static const char *kwlist[] = { "input", "singleton", "no_default_tags", "prefix", "id", "py_file", "py_init_vars", 
-            "py_dyn_prefix", "py_migrations", "no_cache", "immutable", "protect_fields", NULL };
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OOOOOOOOOOO", const_cast<char**>(kwlist), &class_obj, &py_singleton,
+            "py_dyn_prefix", "py_migrations", "no_cache", "immutable", "intern", "protect_fields", NULL };
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OOOOOOOOOOOO", const_cast<char**>(kwlist), &class_obj, &py_singleton,
             &py_no_default_tags, &py_prefix_name, &py_type_id, &py_file_name, &py_init_vars, &py_dyn_prefix, &py_migrations,
-            &py_no_cache, &py_immutable, &py_protect_fields))
+            &py_no_cache, &py_immutable, &py_intern, &py_protect_fields))
         {            
             return NULL;
         }
@@ -1005,6 +1013,7 @@ namespace db0::python
         bool no_default_tags = py_no_default_tags && PyObject_IsTrue(py_no_default_tags);
         bool no_cache = py_no_cache && PyObject_IsTrue(py_no_cache);
         bool immutable = py_immutable && PyObject_IsTrue(py_immutable);
+        bool intern = py_intern && PyObject_IsTrue(py_intern);
         std::optional<bool> protect_fields_option;
         if (py_protect_fields) {
             protect_fields_option = PyObject_IsTrue(py_protect_fields);
@@ -1043,7 +1052,7 @@ namespace db0::python
         
         auto migrations = extractMigrations(py_migrations);
         return wrapPyType(castToType(class_obj), is_singleton, no_default_tags, prefix_name, type_id, file_name, 
-            std::move(init_vars), py_dyn_prefix, std::move(migrations), no_cache, immutable, protect_fields_option
+            std::move(init_vars), py_dyn_prefix, std::move(migrations), no_cache, immutable, intern, protect_fields_option
         );
     }
     
@@ -1261,6 +1270,78 @@ namespace db0::python
         }
         return tryLoad(*result, kwargs, nullptr, load_stack_ptr);
     }
+
+    bool shouldSkipLoadMember(PyObject *py_exclude, PyObject *key_obj, bool &has_error)
+    {
+        if (py_exclude == nullptr || py_exclude == Py_None) {
+            return false;
+        }
+
+        int contains = PySequence_Contains(py_exclude, key_obj);
+        if (contains < 0) {
+            has_error = true;
+            return true;
+        }
+        return contains == 1;
+    }
+
+    PyObject *tryLoadDictMembers(PyObject *members, PyObject *kwargs, PyObject *py_exclude,
+        std::unordered_set<const void*> *load_stack_ptr)
+    {
+        auto py_result = Py_OWN(PyDict_New());
+        if (!py_result) {
+            return nullptr;
+        }
+
+        PyObject *key = nullptr;
+        PyObject *value = nullptr;
+        Py_ssize_t pos = 0;
+        bool has_error = false;
+        while (PyDict_Next(members, &pos, &key, &value)) {
+            if (shouldSkipLoadMember(py_exclude, key, has_error)) {
+                if (has_error) {
+                    return nullptr;
+                }
+                continue;
+            }
+
+            auto loaded = Py_OWN(tryLoad(value, kwargs, nullptr, load_stack_ptr, false));
+            if (!loaded) {
+                return nullptr;
+            }
+            PySafeDict_SetItem(*py_result, Py_BORROW(key), loaded);
+        }
+
+        return py_result.steal();
+    }
+
+    PyObject *tryLoadEmbeddedMemo(MemoImmutableObject *memo_obj, PyObject *kwargs, PyObject *py_exclude,
+        std::unordered_set<const void*> *load_stack_ptr, bool load_all)
+    {
+        auto *py_object = reinterpret_cast<PyObject *>(memo_obj);
+        if (!load_all) {
+            auto load_method = Py_OWN(PyObject_GetAttrString(py_object, "__load__"));
+            if (load_method.get()) {
+                if (PyCallable_Check(*load_method)) {
+                    return executeLoadFunction(*load_method, kwargs, py_exclude, load_stack_ptr);
+                }
+            } else if (PyErr_ExceptionMatches(PyExc_AttributeError)) {
+                PyErr_Clear();
+            } else {
+                return nullptr;
+            }
+        }
+
+        auto members = Py_OWN(PyObject_GetAttrString(py_object, "__dict__"));
+        if (!members) {
+            return nullptr;
+        }
+        if (!PyDict_Check(*members)) {
+            PyErr_SetString(PyExc_TypeError, "Embedded memo __dict__ did not return a dict");
+            return nullptr;
+        }
+        return tryLoadDictMembers(*members, kwargs, py_exclude, load_stack_ptr);
+    }
     
     template <typename MemoImplT>
     PyObject *tryLoadMemo(MemoImplT *memo_obj, PyObject *kwargs, PyObject *py_exclude,
@@ -1279,25 +1360,22 @@ namespace db0::python
         PyErr_Clear();
         
         auto py_result = Py_OWN(PyDict_New());
+        if (!py_result) {
+            return nullptr;
+        }
+
         bool has_error = false;
-        memo_obj->ext().forAll([&py_result, memo_obj, py_exclude, kwargs, &has_error, load_stack_ptr]
-            (const std::string &key, PyTypes::ObjectSharedPtr)
-        {
+        for (const auto &key: memo_obj->ext().getMembers()) {
             auto key_obj = Py_OWN(PyUnicode_FromString(key.c_str()));
             if (!key_obj) {
-                has_error = true;
-                return false;
+                return nullptr;
             }
 
-            if (py_exclude != nullptr && py_exclude != Py_None) {
-                int contains = PySequence_Contains(py_exclude, *key_obj);
-                if (contains < 0) {
-                    has_error = true;
-                    return false;
+            if (shouldSkipLoadMember(py_exclude, *key_obj, has_error)) {
+                if (has_error) {
+                    return nullptr;
                 }
-                if (contains == 1) {
-                    return true;
-                }
+                continue;
             }
 
             auto &memo_type = memo_obj->ext().getType();
@@ -1308,29 +1386,23 @@ namespace db0::python
                     member_loc, key.c_str()
                 )) {
                     if (PyErr_Occurred()) {
-                        has_error = true;
-                        return false;
+                        return nullptr;
                     }
-                    return true;
+                    continue;
                 }
             }
 
             auto attr = Py_OWN(PyAPI_MemoObject_getattro(memo_obj, *key_obj));
             if (!attr) {
-                has_error = true;
-                return false;
+                return nullptr;
             }
 
             auto res = Py_OWN(tryLoad(*attr, kwargs, nullptr, load_stack_ptr, false));
             if (!res) {
-                has_error = true;
+                return nullptr;
             } else {
                 PySafeDict_SetItemString(*py_result, key.c_str(), res);
             }
-            return !has_error;
-        });
-        if (has_error) {            
-            return nullptr;
         }
         return py_result.steal();
     }

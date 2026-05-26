@@ -9,6 +9,7 @@
 #include <dbzero/object_model/class/Class.hpp>
 #include <dbzero/object_model/class/ClassFactory.hpp>
 #include <dbzero/object_model/dict/o_py_dict.hpp>
+#include <dbzero/object_model/object/ObjectAnyImpl.hpp>
 #include <dbzero/object_model/object/ObjectInitializer.hpp>
 #include <dbzero/object_model/object/o_embedded_object.hpp>
 #include <dbzero/object_model/set/o_py_set.hpp>
@@ -198,10 +199,10 @@ namespace db0::object_model
         }
 
         unsigned int assignDefaultTypeTags(
-            db0::swine_ptr<Fixture> &fixture, ObjectImmutableImpl::ObjectPtr object
+            db0::swine_ptr<Fixture> &fixture, ObjectImmutableImpl::ObjectPtr object, const Class &type
         )
         {
-            auto *classPtr = &db0::python::PyToolkit::getMemoType(object);
+            auto *classPtr = &type;
             if (!classPtr->assignDefaultTags()) {
                 return 0;
             }
@@ -216,7 +217,7 @@ namespace db0::object_model
             return result;
         }
 
-        unsigned int assignEmbeddedDefaultTypeTags(
+        unsigned int processEmbeddedObjects(
             db0::swine_ptr<Fixture> &fixture, ObjectImmutableImpl &object,
             ObjectImmutableImpl::ObjectPtr rootObject
         )
@@ -230,31 +231,79 @@ namespace db0::object_model
                 return 0;
             }
 
+            auto &classFactory = fixture->get<ClassFactory>();
+            const auto *root = reinterpret_cast<const std::byte *>(object.operator->());
+            auto rootAddress = object.getAddress();
+            auto rootInstanceId = object.getUniqueAddress().getInstanceId();
             unsigned int result = 0;
             for (auto offset: offsetIndex) {
-                auto embeddedObject = object.getEmbeddedInstanceAtOffset(offset);
-                result += assignDefaultTypeTags(fixture, embeddedObject.get());
+                const auto &embeddedObject = o_embedded_object::__const_ref(root + offset);
+                auto type = classFactory.getTypeByClassRef(embeddedObject.getClassRef()).m_class;
+                if (type->isIntern()) {
+                    type->getContentIndex().insert(
+                        embeddedObject, UniqueAddress(rootAddress + offset, rootInstanceId)
+                    );
+                }
+
+                auto embeddedObjectView = makeEmbeddedObjectView(fixture, rootObject, embeddedObject);
+                result += assignDefaultTypeTags(fixture, embeddedObjectView.get(), *type);
             }
             return result;
         }
 
+        void removeInternContentIndexEntries(
+            db0::swine_ptr<Fixture> &fixture, const ObjectImmutableImpl &object, Class &rootType
+        )
+        {
+            const auto &rootEmbeddedObject = object->getObject();
+            if (rootType.isIntern() && rootType.hasContentIndex()) {
+                rootType.getContentIndex().remove(rootEmbeddedObject, object.getUniqueAddress());
+            }
+
+            const auto &offsetIndex = object->getOffsetIndex();
+            if (offsetIndex.size() == 0) {
+                return;
+            }
+
+            auto &classFactory = fixture->get<ClassFactory>();
+            const auto *root = reinterpret_cast<const std::byte *>(object.operator->());
+            auto rootAddress = object.getAddress();
+            auto rootInstanceId = object.getUniqueAddress().getInstanceId();
+            for (auto offset: offsetIndex) {
+                const auto &embeddedObject = o_embedded_object::__const_ref(root + offset);
+                auto type = classFactory.getTypeByClassRef(embeddedObject.getClassRef()).m_class;
+                if (!type->isIntern() || !type->hasContentIndex()) {
+                    continue;
+                }
+                type->getContentIndex().remove(embeddedObject, UniqueAddress(rootAddress + offset, rootInstanceId));
+            }
+        }
+
     }
 
-    void ObjectImmutableImpl::postInit(FixtureLock &fixture)
+    std::optional<UniqueAddress> ObjectImmutableImpl::postInit(FixtureLock &fixture)
     {
         if (!this->hasInstance()) {
             auto &initializer = InitManager::instance.getInitializer(*this);
             auto *immutableInitializer = dynamic_cast<ImmutableObjectInitializer *>(&initializer);
             assert(immutableInitializer);
 
-            PosVT::Data posVtData;
-            unsigned int posVtOffset = 0;
-            auto indexVtData = initializer.getData(posVtData, posVtOffset);
-
             this->m_type = initializer.getClassPtr();
             assert(this->m_type);
 
             auto &type = *this->m_type;
+            if (type.isIntern()) {
+                auto candidate = type.getContentIndex().lookup(*immutableInitializer);
+                if (candidate) {
+                    initializer.close();
+                    return candidate;
+                }
+            }
+
+            PosVT::Data posVtData;
+            unsigned int posVtOffset = 0;
+            auto indexVtData = initializer.getData(posVtData, posVtOffset);
+
             auto numTypeTags = safeNumTypeTags(type.getNumBases() + 1);
 
             this->init(*fixture, type.getClassRef(), initializer.getRefCounts(), numTypeTags,
@@ -274,13 +323,17 @@ namespace db0::object_model
             transformEmbeddedObjectValues(*fixture, *this, m_lang_object, *immutableInitializer);
             if (m_lang_object) {
                 this->modify().m_num_type_tags = safeNumTypeTags(
-                    (*this)->m_num_type_tags + assignEmbeddedDefaultTypeTags(*fixture, *this, m_lang_object)
+                    (*this)->m_num_type_tags + processEmbeddedObjects(*fixture, *this, m_lang_object)
                 );
+            }
+            if (type.isIntern()) {
+                type.getContentIndex().insert((*this)->getObject(), this->getUniqueAddress());
             }
             initializer.close();
         }
 
         assert(this->hasInstance());
+        return std::nullopt;
     }
 
     void ObjectImmutableImpl::setLangObject(ObjectPtr object) const
@@ -356,16 +409,21 @@ namespace db0::object_model
         std::uint64_t offset
     ) const
     {
+        auto fixture = this->getFixture();
+        auto rootObject = getLangObject();
+
+        const auto &embeddedObject = getEmbeddedObjectAtOffset(offset);
+        return makeEmbeddedObjectView(fixture, rootObject, embeddedObject);
+    }
+
+    const o_embedded_object &ObjectImmutableImpl::getEmbeddedObjectAtOffset(std::uint64_t offset) const
+    {
         if (!this->hasInstance() || !(*this)->getOffsetIndex().contains(offset)) {
             THROWF(db0::BadAddressException) << "Invalid embedded immutable object offset: " << offset;
         }
 
-        auto fixture = this->getFixture();
-        auto rootObject = getLangObject();
-
         const auto *root = reinterpret_cast<const std::byte *>(this->operator->());
-        const auto &embeddedObject = o_embedded_object::__const_ref(root + offset);
-        return makeEmbeddedObjectView(fixture, rootObject, embeddedObject);
+        return o_embedded_object::__const_ref(root + offset);
     }
 
     ObjectImmutableImpl::ObjectSharedPtr ObjectImmutableImpl::tryGetEmbeddedField(
@@ -501,6 +559,7 @@ namespace db0::object_model
 
     void ObjectImmutableImpl::dropMembers(db0::swine_ptr<Fixture> &fixture, Class &classRef) const
     {
+        removeInternContentIndexEntries(fixture, *this, classRef);
         super_t::dropMembers(fixture, classRef);
         unrefEmbeddedObject(fixture, (*this)->getObject());
     }

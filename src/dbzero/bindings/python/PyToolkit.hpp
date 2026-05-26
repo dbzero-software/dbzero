@@ -23,6 +23,7 @@ namespace db0
 
     class Fixture;
     class ProcessTimer;
+    template <typename T, std::uint32_t SLOT_NUM, unsigned char REALM_ID> class v_object;
 
 }
 
@@ -110,6 +111,9 @@ namespace db0::python
             TypeObjectPtr lang_class = nullptr, std::uint16_t instance_id = 0, AccessFlags = {});
         static ObjectSharedPtr unloadAnyObject(db0::swine_ptr<Fixture> &, Address, const ClassFactory &,
             TypeObjectPtr lang_class = nullptr, std::uint16_t instance_id = 0, AccessFlags = {});
+        static ObjectSharedPtr unloadAnyObject(db0::swine_ptr<Fixture> &, Address,
+            std::shared_ptr<Class> type_hint, TypeObjectPtr lang_class = nullptr,
+            std::uint16_t instance_id = 0, AccessFlags = {});
         static ObjectSharedPtr unloadEmbeddedObject(db0::swine_ptr<Fixture> &, Address, const ClassFactory &,
             TypeObjectPtr lang_class = nullptr, std::uint16_t instance_id = 0, AccessFlags = {},
             ObjectSharedPtr root_object = {}, const Allocator::AllocationInfo *allocation_info = nullptr);
@@ -219,6 +223,7 @@ namespace db0::python
         static bool isNoCache(TypeObjectPtr);
         // type marked as immutable
         static bool isImmutable(TypeObjectPtr);
+        static bool isIntern(TypeObjectPtr);
         static bool isProtectFields(TypeObjectPtr);
         static FlagSet<MemoOptions> getMemoFlags(TypeObjectPtr);
         static bool hasMemoInstance(ObjectPtr);
@@ -227,6 +232,7 @@ namespace db0::python
         static bool isMemoDropped(ObjectPtr);
         static bool hasMemoAnyRefs(ObjectPtr);
         static const object_model::Class &getMemoType(ObjectPtr);
+        static const object_model::o_embedded_object &getMemoImmutableObject(ObjectPtr);
         
         inline static void incRef(ObjectPtr py_object) {
             Py_INCREF(py_object);                

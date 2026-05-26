@@ -305,6 +305,57 @@ def test_uuid_and_fetch_immutable_root_object(db0_fixture):
     assert reopened.value == 102
 
 
+def test_uuid_materializes_non_materialized_immutable_root_object(db0_fixture):
+    obj = MemoImmutableClass1(data="uuid materializes immutable", value=104)
+
+    obj_uuid = db0.uuid(obj)
+    db0.tags(obj).add("keep-uuid-materialized-immutable")
+
+    assert db0.fetch(obj_uuid) is obj
+    assert obj.data == "uuid materializes immutable"
+    assert obj.value == 104
+
+
+def test_immutable_flag_cannot_change_to_mutable_after_materialization(db0_fixture):
+    @db0.memo(id="dbzero-software/dbzero/tests/immutable-stable-contract", immutable=True)
+    @dataclass
+    class MemoInitiallyImmutable:
+        name: str
+
+    db0.materialized(MemoInitiallyImmutable("alpha"))
+
+    @db0.memo(id="dbzero-software/dbzero/tests/immutable-stable-contract")
+    @dataclass
+    class MemoNoLongerImmutable:
+        name: str
+
+    with pytest.raises(RuntimeError, match="immutable flag"):
+        db0.materialized(MemoNoLongerImmutable("beta"))
+
+
+def test_fetch_rejects_immutable_class_redeclared_as_mutable(db0_fixture):
+    @db0.memo(id="dbzero-software/dbzero/tests/immutable-fetch-stable-contract", immutable=True)
+    @dataclass
+    class MemoInitiallyImmutable:
+        name: str
+
+    obj = db0.materialized(MemoInitiallyImmutable("alpha"))
+    obj_uuid = db0.uuid(obj)
+    db0.commit()
+
+    db0.close()
+    db0.init(DB0_DIR)
+    db0.open("my-test-prefix", "rw")
+
+    @db0.memo(id="dbzero-software/dbzero/tests/immutable-fetch-stable-contract")
+    @dataclass
+    class MemoNoLongerImmutable:
+        name: str
+
+    with pytest.raises(RuntimeError, match="immutable flag"):
+        db0.fetch(MemoNoLongerImmutable, obj_uuid)
+
+
 def test_uuid_and_fetch_embedded_nested_immutable_object(db0_fixture):
     root = MemoImmutableNestedHolder(name="embedded uuid", count=103, label="root")
     db0.tags(root).add("keep-embedded-fetch-uuid")
@@ -329,6 +380,24 @@ def test_uuid_and_fetch_embedded_nested_immutable_object(db0_fixture):
     assert isinstance(reopened, MemoImmutableNestedPayload)
     assert reopened.name == "embedded uuid"
     assert reopened.count == 103
+
+
+def test_embedded_immutable_shadow_type_reused_for_public_operations(db0_fixture):
+    root_a = db0.materialized(MemoImmutableNestedHolder(name="embedded type cache a", count=131, label="root-a"))
+    root_b = db0.materialized(MemoImmutableNestedHolder(name="embedded type cache b", count=132, label="root-b"))
+    nested_a = root_a.nested
+    nested_b = root_b.nested
+
+    assert isinstance(nested_a, MemoImmutableNestedPayload)
+    assert type(nested_a) is type(nested_b)
+
+    nested_uuid = db0.uuid(nested_a)
+    db0.tags(nested_a).add("embedded-type-cache-tag")
+    result = list(db0.find(MemoImmutableNestedPayload, "embedded-type-cache-tag"))
+
+    assert len(result) == 1
+    assert db0.uuid(result[0]) == nested_uuid
+    assert result[0].name == "embedded type cache a"
 
 
 def test_uuid_and_fetch_deeply_embedded_immutable_objects(db0_fixture):

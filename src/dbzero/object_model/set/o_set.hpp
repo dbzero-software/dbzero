@@ -62,6 +62,7 @@ DB0_PACKED_BEGIN
         std::size_t size() const;
         bool empty() const;
         bool contains(const Element &element) const;
+        bool contains(const Item &item) const;
         const_iterator begin() const;
         const_iterator end() const;
         std::size_t sizeOf() const;

@@ -15,7 +15,10 @@
 #include <dbzero/object_model/list/List.hpp>
 #include <dbzero/object_model/tags/TagIndex.hpp>
 #include <dbzero/core/utils/uuid.hpp>
+#include <dbzero/bindings/python/Memo.hpp>
+#include <dbzero/bindings/python/PySafeAPI.hpp>
 #include <dbzero/bindings/python/PyWeakProxy.hpp>
+#include <dbzero/bindings/python/embedded/EmbeddedObject.hpp>
 
 namespace db0::object_model
 
@@ -52,6 +55,85 @@ namespace db0::object_model
         }
     }
 
+    void validateInternMemoReference(
+        db0::swine_ptr<Fixture> &fixture, const db0::python::PyToolkit::ObjectPtr pyObject
+    );
+
+    void validateInternContainerReferences(
+        db0::swine_ptr<Fixture> &fixture, const db0::python::PyToolkit::ObjectPtr pyObject
+    )
+    {
+        if (PyTuple_Check(pyObject) || PyList_Check(pyObject) || PySet_Check(pyObject)) {
+            auto iterator = Py_OWN(PyObject_GetIter(pyObject));
+            Py_FOR(item, iterator) {
+                validateInternMemoReference(fixture, item.get());
+            }
+            return;
+        }
+
+        if (PyDict_Check(pyObject)) {
+            PyObject *key = nullptr;
+            PyObject *value = nullptr;
+            Py_ssize_t pos = 0;
+            while (PyDict_Next(pyObject, &pos, &key, &value)) {
+                validateInternMemoReference(fixture, key);
+                validateInternMemoReference(fixture, value);
+            }
+        }
+    }
+
+    void validateInternMemoReference(
+        db0::swine_ptr<Fixture> &fixture, const db0::python::PyToolkit::ObjectPtr pyObject
+    )
+    {
+        using MemoImmutableObject = db0::python::PyToolkit::TypeManager::MemoImmutableObject;
+
+        if (db0::python::PyEmbeddedMemo_Check(pyObject)) {
+            auto embeddedFixture = db0::python::getEmbeddedMemoFixture(pyObject);
+            if (*embeddedFixture != *fixture) {
+                THROWF(db0::InputException)
+                    << "Embedded immutable object references cannot cross prefixes";
+            }
+            auto &classFactory = fixture->get<ClassFactory>();
+            auto &embeddedObject = db0::python::getEmbeddedMemoRef(
+                reinterpret_cast<MemoImmutableObject *>(pyObject)
+            ).embeddedObject();
+            auto type = classFactory.getTypeByClassRef(embeddedObject.getClassRef()).m_class;
+            if (!type->isIntern()) {
+                THROWF(db0::InputException) << "intern object reference must point to an intern memo class";
+            }
+            return;
+        }
+
+        if (db0::python::PyAnyMemo_Check(pyObject)) {
+            if (!db0::python::PyToolkit::isMemoImmutableObject(pyObject)) {
+                THROWF(db0::InputException) << "intern object reference must point to an immutable memo object";
+            }
+
+            const auto &memo = db0::python::PyToolkit::getTypeManager()
+                .template extractObject<MemoImmutableObject>(pyObject);
+            const Class *type = nullptr;
+            if (memo.hasInstance()) {
+                type = &memo.getType();
+            } else {
+                auto *initializer = dynamic_cast<ImmutableObjectInitializer *>(
+                    InitManager::instance.findInitializer(memo)
+                );
+                if (!initializer) {
+                    THROWF(db0::InputException) << "Non-materialized intern memo object has no initializer";
+                }
+                type = &initializer->getClass();
+            }
+
+            if (!type->isIntern()) {
+                THROWF(db0::InputException) << "intern object reference must point to an intern memo class";
+            }
+            return;
+        }
+
+        validateInternContainerReferences(fixture, pyObject);
+    }
+
     bool shouldEmbedd(TypeId typeId, StorageClass storageClass, LangConfig::ObjectPtr value)
     {
         return canStorePreInitEmbeddedValue(storageClass) && shouldEmbedValue(typeId, storageClass, value);
@@ -61,6 +143,16 @@ namespace db0::object_model
     ObjectImplBase<T, ImplT>::ObjectImplBase(tag_as_dropped, UniqueAddress addr, unsigned int ext_refs)
         : super_t(tag_as_dropped(), addr, ext_refs)
     {
+    }
+
+    template <typename T, typename ImplT>
+    ObjectImplBase<T, ImplT>::ObjectImplBase(
+        typename super_t::tag_no_gc, db0::swine_ptr<Fixture> &fixture, ObjectStem &&stem, std::shared_ptr<Class> type
+    )
+        : super_t(typename super_t::tag_no_gc(), typename super_t::tag_from_stem(), fixture, std::move(stem))
+    {
+        this->m_type = type;
+        assert(hasValidClassRef());
     }
     
     template <typename T, typename ImplT>
@@ -260,6 +352,11 @@ namespace db0::object_model
         auto fixture = initializer.getFixture();
         auto &type = initializer.getClass();
         auto storage_class = recognizeType(*fixture, type_id, obj_ptr);
+        if constexpr (std::is_same_v<ImplT, ObjectImmutableImpl>) {
+            if (type.isIntern()) {
+                validateInternMemoReference(fixture, obj_ptr);
+            }
+        }
         bool embedValue = false;
         if constexpr (std::is_same_v<ImplT, ObjectImmutableImpl>) {
             embedValue = shouldEmbedd(type_id, storage_class, obj_ptr);

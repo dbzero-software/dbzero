@@ -24,6 +24,7 @@ DB0_PACKED_BEGIN
         o_py_set(PyObject *iterable, EmbeddedObjectOffsetCollector &offsetCollector);
 
         static std::size_t measure(PyObject *iterable);
+        static Element elementFromPythonObject(PyObject *object);
 
         template <typename BufT> static std::size_t safeSizeOf(BufT buf)
         {
@@ -41,7 +42,6 @@ DB0_PACKED_BEGIN
         static db0::Foundation::Type<o_py_set> type();
 
     private:
-        static Element elementFromPythonObject(PyObject *object);
         static Element elementFromPythonObject(
             PyObject *object, EmbeddedObjectOffsetCollector *offsetCollector
         );

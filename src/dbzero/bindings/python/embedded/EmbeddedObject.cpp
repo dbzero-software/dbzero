@@ -738,7 +738,13 @@ namespace db0::python
 
     bool PyEmbeddedMemoType_Check(PyTypeObject *type)
     {
-        return PyToolkit::getTypeManager().isEmbeddedMemoType(type);
+        if (!type) {
+            return false;
+        }
+        auto expected = reinterpret_cast<destructor>(
+            static_cast<void(*)(MemoImmutableObject *)>(&PyAPI_EmbeddedMemo_del)
+        );
+        return type->tp_dealloc == expected;
     }
 
     bool PyEmbeddedMemo_Check(PyObject *object)

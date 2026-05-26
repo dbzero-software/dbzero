@@ -19,6 +19,7 @@
 #include <dbzero/core/utils/FlagSet.hpp>
 #include <dbzero/bindings/python/PyToolkit.hpp>
 #include <dbzero/object_model/ObjectBase.hpp>
+#include <dbzero/object_model/object/ContentIndex.hpp>
 #include <dbzero/object_model/value/Value.hpp>
 #include <dbzero/object_model/value/XValue.hpp>
 #include <dbzero/workspace/GC0.hpp>
@@ -37,14 +38,15 @@ namespace db0
         // instances of this type opted out of auto-assigned type tags
         NO_DEFAULT_TAGS = 0x0002,
         IMMUTABLE = 0x0004,
-        PROTECT_FIELDS = 0x0008
+        PROTECT_FIELDS = 0x0008,
+        INTERN = 0x0010
     };
 
     using ClassFlags = db0::FlagSet<ClassOptions>;
 
 }
 
-DECLARE_ENUM_VALUES(db0::ClassOptions, 4)
+DECLARE_ENUM_VALUES(db0::ClassOptions, 5)
 
 namespace db0::object_model
 
@@ -86,6 +88,7 @@ DB0_PACKED_BEGIN
 
         // Version 1 fields.
         db0_ptr<FieldSafe> m_field_safe_ptr;
+        db0_ptr<ContentIndex> m_content_index_ptr;
         
         o_class(RC_LimitedStringPool &, const std::string &name, std::optional<std::string> module_name,
             const VFieldMatrix &, const VFidelityVector &, const Schema &, const char *type_id, const char *prefix_name, ClassFlags,
@@ -114,6 +117,7 @@ DB0_PACKED_END
         static constexpr std::uint32_t SLOT_NUM = Fixture::TYPE_SLOT_NUM;
         static constexpr unsigned int PRIMARY_FIDELITY = 2;
         static constexpr std::uint16_t FIELD_SAFE_MIN_VERSION = 1;
+        static constexpr std::uint16_t CONTENT_INDEX_MIN_VERSION = 1;
         
         struct Member
         {
@@ -174,6 +178,7 @@ DB0_PACKED_END
         bool isSingleton() const;
         bool isNoDefaultTags() const;
         bool isImmutable() const;
+        bool isIntern() const;
         bool assignDefaultTags() const;
         bool isProtectFields() const;
         bool hasOwnProtectFields() const;
@@ -182,6 +187,9 @@ DB0_PACKED_END
         bool hasFieldSafe() const;
         FieldSafe &getFieldSafe();
         const FieldSafe &getFieldSafe() const;
+        bool hasContentIndex() const;
+        ContentIndex &getContentIndex();
+        const ContentIndex &getContentIndex() const;
         void setFieldAccess(const std::vector<std::uint64_t> &account_ids, FieldMaskFlags mask,
             const std::vector<std::string> &field_names);
         std::optional<FieldMaskFlags> tryGetFieldAccessByMember(std::uint64_t account_id, const Member &) const;
@@ -334,6 +342,7 @@ DB0_PACKED_END
         VFidelityVector m_fidelities;
         Schema m_schema;
         mutable std::optional<FieldSafe> m_field_safe;
+        mutable std::optional<ContentIndex> m_content_index;
         std::shared_ptr<Class> m_base_class_ptr;
         mutable std::optional<bool> m_protect_fields_cache;
         
@@ -356,9 +365,11 @@ DB0_PACKED_END
         // callback for MemberID updates
         void onMemberIDUpdated(const MemberID &) const;
         void assertFieldSafeSupported() const;
+        void assertContentIndexSupported() const;
         void resetProtectFieldsCache() const;
         FieldSafe &ensureFieldSafe();
         void openFieldSafe() const;
+        void openContentIndex() const;
         // translate member's field ID into a unique key
         FieldID getPrimaryKey(unsigned int index) const;
         

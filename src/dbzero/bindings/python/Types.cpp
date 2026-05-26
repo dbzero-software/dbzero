@@ -118,7 +118,12 @@ namespace db0::python
     
     template <typename T> PyObject *tryGetUUIDOf(T *self)
     {
-        auto &instance = self->ext();
+        auto materialized = Py_OWN(getMaterializedMemoObject(self));
+        if (!materialized) {
+            return nullptr;
+        }
+        auto *materializedMemo = reinterpret_cast<T *>(*materialized);
+        auto &instance = materializedMemo->ext();
         if (!instance.hasInstance()) {
             THROWF(db0::InputException) << "Cannot get UUID of an uninitialized object";
         }

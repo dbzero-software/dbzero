@@ -7,6 +7,7 @@
 #include "o_immutable_object.hpp"
 
 #include <functional>
+#include <optional>
 
 namespace db0::object_model
 
@@ -30,8 +31,12 @@ namespace db0::object_model
         ObjectSharedPtr tryGet(const char *field_name, bool *is_auto_generated = nullptr) const;
         ObjectSharedPtr get(const char *field_name) const;
         ObjectSharedPtr getEmbeddedInstanceAtOffset(std::uint64_t offset) const;
+        const o_embedded_object &getEmbeddedObjectAtOffset(std::uint64_t offset) const;
 
-        void postInit(FixtureLock &);
+        // Returns the address of an existing durable instance on intern-index hit.
+        // Returns std::nullopt when this call created a new durable instance or
+        // when the object was already initialized.
+        std::optional<UniqueAddress> postInit(FixtureLock &);
         void setLangObject(ObjectPtr) const;
         void destroy();
         void dropInstance(FixtureLock &);

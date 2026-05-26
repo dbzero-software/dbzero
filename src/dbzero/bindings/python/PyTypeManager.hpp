@@ -217,7 +217,6 @@ namespace db0::python
         TypeObjectPtr getEmbeddedMemoType(
             TypeObjectPtr memo_type, const std::function<TypeObjectPtr(TypeObjectPtr)> &create_type
         );
-        bool isEmbeddedMemoType(TypeObjectPtr type) const;
         
         // Decode either of: None, False or True from a lo-fi code
         ObjectSharedPtr getLangConstant(unsigned int) const;

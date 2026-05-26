@@ -11,7 +11,7 @@
 #include <dbzero/object_model/value/StorageClass.hpp>
 #include "Schema.hpp"
 
-DEFINE_ENUM_VALUES(db0::ClassOptions, "SINGLETON", "NO_DEFAULT_TAGS", "IMMUTABLE", "PROTECT_FIELDS")
+DEFINE_ENUM_VALUES(db0::ClassOptions, "SINGLETON", "NO_DEFAULT_TAGS", "IMMUTABLE", "PROTECT_FIELDS", "INTERN")
 
 namespace db0::object_model
 
@@ -307,6 +307,10 @@ namespace db0::object_model
         return (*this)->m_flags[ClassOptions::IMMUTABLE];
     }
 
+    bool Class::isIntern() const {
+        return (*this)->m_flags[ClassOptions::INTERN];
+    }
+
     bool Class::hasOwnProtectFields() const {
         return (*this)->m_flags[ClassOptions::PROTECT_FIELDS];
     }
@@ -339,10 +343,31 @@ namespace db0::object_model
         }
     }
 
+    void Class::assertContentIndexSupported() const
+    {
+        if ((*this)->getObjVer() < CONTENT_INDEX_MIN_VERSION) {
+            THROWF(db0::InputException) << "Class version too low to support ContentIndex. Current is: "
+                << (*this)->getObjVer() << ", for minimum support you need " << CONTENT_INDEX_MIN_VERSION;
+        }
+    }
+
     void Class::openFieldSafe() const
     {
         if ((*this)->getObjVer() >= FIELD_SAFE_MIN_VERSION && (*this)->m_field_safe_ptr && !m_field_safe) {
             m_field_safe.emplace(getFixture()->myPtr((*this)->m_field_safe_ptr.getAddress()), getFixture()->getVObjectCache());
+        }
+    }
+
+    void Class::openContentIndex() const
+    {
+        assertContentIndexSupported();
+        if ((*this)->m_content_index_ptr && !m_content_index) {
+            auto fixture = getFixture();
+            m_content_index.emplace(
+                fixture->myPtr((*this)->m_content_index_ptr.getAddress()),
+                fixture,
+                std::const_pointer_cast<Class>(shared_from_this())
+            );
         }
     }
 
@@ -379,6 +404,37 @@ namespace db0::object_model
     bool Class::hasFieldSafe() const
     {
         return (*this)->getObjVer() >= FIELD_SAFE_MIN_VERSION && (*this)->m_field_safe_ptr;
+    }
+
+    bool Class::hasContentIndex() const
+    {
+        if ((*this)->getObjVer() < CONTENT_INDEX_MIN_VERSION) {
+            return false;
+        }
+        return !!(*this)->m_content_index_ptr;
+    }
+
+    ContentIndex &Class::getContentIndex()
+    {
+        assertContentIndexSupported();
+        openContentIndex();
+        if (!m_content_index) {
+            auto fixture = getFixture();
+            auto type = shared_from_this();
+            m_content_index.emplace(fixture, type);
+            modify().m_content_index_ptr = *m_content_index;
+        }
+        return *m_content_index;
+    }
+
+    const ContentIndex &Class::getContentIndex() const
+    {
+        assertContentIndexSupported();
+        openContentIndex();
+        if (!m_content_index) {
+            THROWF(db0::InputException) << "ContentIndex is not initialized for class " << getName();
+        }
+        return *m_content_index;
     }
 
     FieldSafe &Class::getFieldSafe()
@@ -706,6 +762,9 @@ namespace db0::object_model
         if (m_field_safe) {
             m_field_safe->detach();
         }
+        if (m_content_index) {
+            m_content_index->detach();
+        }
         super_t::detach();
     }
     
@@ -715,10 +774,16 @@ namespace db0::object_model
     
     void Class::flush() const {
         m_schema.flush();
+        if (m_content_index) {
+            m_content_index->flush();
+        }
     }
     
     void Class::rollback() {
         m_schema.rollback();
+        if (m_content_index) {
+            m_content_index->rollback();
+        }
     }
 
     void Class::commit() const
@@ -728,6 +793,9 @@ namespace db0::object_model
         m_schema.commit();
         if (m_field_safe) {
             m_field_safe->commit();
+        }
+        if (m_content_index) {
+            m_content_index->commit();
         }
         super_t::commit();
     }

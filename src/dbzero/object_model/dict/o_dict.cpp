@@ -284,6 +284,38 @@ namespace db0::object_model
         return nullptr;
     }
 
+    const o_dict::Item *o_dict::get(const Item &key) const
+    {
+        auto capacity = hashIndexCapacity(size());
+        if (capacity == 0) {
+            return nullptr;
+        }
+
+        auto element = elementFromItem(key);
+        const auto *entries = beginOfHashIndex();
+        auto slot = itemHash(key) % capacity;
+        const auto &entry = entries[slot];
+        if (entry.isEmpty()) {
+            return nullptr;
+        }
+
+        auto offset = entry.offset();
+        if (!entry.isBucket()) {
+            const auto &pair = pairAtOffset(offset);
+            return itemEqualsElement(pair.key(), element) ? &pair.value() : nullptr;
+        }
+
+        const auto &bucket = bucketAtOffset(offset);
+        auto keyIt = bucket.keys().begin();
+        auto valueIt = bucket.values().begin();
+        for (; keyIt != bucket.keys().end(); ++keyIt, ++valueIt) {
+            if (itemEqualsElement(*keyIt, element)) {
+                return &*valueIt;
+            }
+        }
+        return nullptr;
+    }
+
     o_dict::const_iterator o_dict::begin() const
     {
         return const_iterator(reinterpret_cast<const Pair *>(beginOfPairs()));

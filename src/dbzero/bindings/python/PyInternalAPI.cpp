@@ -5,6 +5,9 @@
 #include "PyToolkit.hpp"
 #include "Memo.hpp"
 #include <dbzero/bindings/python/embedded/EmbeddedObject.hpp>
+#include <dbzero/bindings/python/embedded/EmbeddedDict.hpp>
+#include <dbzero/bindings/python/embedded/EmbeddedSet.hpp>
+#include <dbzero/bindings/python/embedded/EmbeddedTuple.hpp>
 #include <dbzero/object_model/class/ClassFactory.hpp>
 #include <dbzero/object_model/class/Class.hpp>
 #include <dbzero/object_model/object/Object.hpp>
@@ -37,6 +40,95 @@
 namespace db0::python
 
 {
+
+    namespace
+    {
+        PyObject *tryLoadSequenceAsTuple(
+            PyObject *sequence, PyObject *kwargs, std::unordered_set<const void*> *load_stack_ptr
+        )
+        {
+            auto size = PyObject_Length(sequence);
+            if (size < 0) {
+                return nullptr;
+            }
+
+            auto result = Py_OWN(PyTuple_New(size));
+            if (!result) {
+                return nullptr;
+            }
+
+            for (Py_ssize_t i = 0; i < size; ++i) {
+                auto item = Py_OWN(PySequence_GetItem(sequence, i));
+                if (!item) {
+                    return nullptr;
+                }
+                auto loaded = Py_OWN(tryLoad(*item, kwargs, nullptr, load_stack_ptr));
+                if (!loaded) {
+                    return nullptr;
+                }
+                PySafeTuple_SetItem(*result, i, loaded);
+            }
+            return result.steal();
+        }
+
+        PyObject *tryLoadIterableAsList(
+            PyObject *iterable, PyObject *kwargs, std::unordered_set<const void*> *load_stack_ptr
+        )
+        {
+            auto iterator = Py_OWN(PyObject_GetIter(iterable));
+            if (!iterator) {
+                return nullptr;
+            }
+
+            auto result = Py_OWN(PyList_New(0));
+            if (!result) {
+                return nullptr;
+            }
+
+            Py_FOR(item, iterator) {
+                auto loaded = Py_OWN(tryLoad(*item, kwargs, nullptr, load_stack_ptr));
+                if (!loaded) {
+                    return nullptr;
+                }
+                if (PyList_Append(*result, *loaded) < 0) {
+                    return nullptr;
+                }
+            }
+            return result.steal();
+        }
+
+        PyObject *tryLoadMappingAsDict(
+            PyObject *mapping, PyObject *kwargs, std::unordered_set<const void*> *load_stack_ptr
+        )
+        {
+            auto iterator = Py_OWN(PyObject_GetIter(mapping));
+            if (!iterator) {
+                return nullptr;
+            }
+
+            auto result = Py_OWN(PyDict_New());
+            if (!result) {
+                return nullptr;
+            }
+
+            Py_FOR(item, iterator) {
+                auto key = Py_OWN(tryLoad(*item, kwargs, nullptr, load_stack_ptr));
+                if (!key) {
+                    return nullptr;
+                }
+                auto value = Py_OWN(PyObject_GetItem(mapping, *item));
+                if (!value) {
+                    return nullptr;
+                }
+                auto loadedValue = Py_OWN(tryLoad(*value, kwargs, nullptr, load_stack_ptr));
+                if (!loadedValue) {
+                    return nullptr;
+                }
+                PySafeDict_SetItem(*result, key, loadedValue);
+            }
+            return result.steal();
+        }
+    }
     
     LoadGuard::LoadGuard(std::unordered_set<const void*> *load_stack_ptr, const void *arg_ptr)
         : m_load_stack_ptr(load_stack_ptr)         
@@ -752,6 +844,16 @@ namespace db0::python
             PyErr_SetString(PyExc_RecursionError, "Recursive loading detected");
             return nullptr;
         }
+
+        if (Py_TYPE(py_obj) == &EmbeddedTupleType) {
+            return tryLoadSequenceAsTuple(py_obj, kwargs, load_stack_ptr);
+        }
+        if (Py_TYPE(py_obj) == &EmbeddedSetType) {
+            return tryLoadIterableAsList(py_obj, kwargs, load_stack_ptr);
+        }
+        if (Py_TYPE(py_obj) == &EmbeddedDictType) {
+            return tryLoadMappingAsDict(py_obj, kwargs, load_stack_ptr);
+        }
         
         using TypeId = db0::bindings::TypeId;
         auto &type_manager = PyToolkit::getTypeManager();
@@ -794,6 +896,11 @@ namespace db0::python
         } else if (type_id == TypeId::MEMO_OBJECT) {
             return tryLoadMemo(reinterpret_cast<MemoObject*>(py_obj), kwargs, py_exclude, load_stack_ptr, load_all);
         } else if (type_id == TypeId::MEMO_IMMUTABLE_OBJECT) {
+            if (PyEmbeddedMemo_Check(py_obj)) {
+                return tryLoadEmbeddedMemo(
+                    reinterpret_cast<MemoImmutableObject*>(py_obj), kwargs, py_exclude, load_stack_ptr, load_all
+                );
+            }
             return tryLoadMemo(reinterpret_cast<MemoImmutableObject*>(py_obj), kwargs, py_exclude, load_stack_ptr, load_all);
         } else {
             THROWF(db0::InputException) << "__load__ not implemented for type: " 
@@ -829,7 +936,15 @@ namespace db0::python
         db0::FixtureLock lock(fixture);
         // materialize by calling postInit
         memo_obj->modifyExt().setLangObject(reinterpret_cast<PyObject *>(memo_obj));
-        memo_obj->modifyExt().postInit(lock);
+        auto existingInternAddress = memo_obj->modifyExt().postInit(lock);
+        if (existingInternAddress) {
+            auto &classFactory = fixture->get<object_model::ClassFactory>();
+            auto internObject = PyToolkit::unloadAnyObject(
+                fixture, existingInternAddress->getAddress(), classFactory, nullptr,
+                existingInternAddress->getInstanceId(), memo_obj->ext().getAccessMode()
+            );
+            return internObject.steal();
+        }
         if (!memo_obj->ext().getType().isNoCache()) {
             fixture->getLangCache().add(memo_obj->ext().getAddress(), memo_obj);
         }

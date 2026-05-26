@@ -27,6 +27,9 @@
 #include <dbzero/bindings/python/types/PyObjectId.hpp>
 #include <dbzero/bindings/python/types/PyClass.hpp>
 #include <dbzero/object_model/object/Object.hpp>
+#include <dbzero/object_model/object/ObjectImmutableImpl.hpp>
+#include <dbzero/object_model/class/Class.hpp>
+#include <dbzero/object_model/class/ClassFactory.hpp>
 #include <dbzero/object_model/tags/TagIndex.hpp>
 #include <dbzero/object_model/tags/QueryObserver.hpp>
 #include <dbzero/workspace/Workspace.hpp>
@@ -256,6 +259,100 @@ namespace db0::python
         
         PY_API_FUNC
         return runSafe(tryExists, py_id, reinterpret_cast<PyTypeObject*>(py_type), prefix_name);
+    }
+
+    bool checkInternedAddress(
+        db0::swine_ptr<Fixture> &fixture, object_model::ClassFactory &classFactory,
+        UniqueAddress address, const std::shared_ptr<object_model::Class> &expectedType
+    )
+    {
+        db0::Allocator::AllocationInfo allocation;
+        try {
+            allocation = fixture->findAllocation(address.getAddress(), object_model::ObjectImmutableImpl::REALM_ID);
+        } catch (const db0::AbstractException &) {
+            return false;
+        }
+
+        auto root = object_model::ObjectImmutableImpl::tryUnloadStem(
+            fixture, allocation.address, address.getInstanceId(), AccessFlags {}
+        );
+        if (!root) {
+            return false;
+        }
+
+        if (address.getAddress() == allocation.address) {
+            auto type = classFactory.getTypeByClassRef(root->getClassRef()).m_class;
+            if (expectedType && type->getAddress() != expectedType->getAddress()) {
+                return false;
+            }
+            if (!type->isIntern() || !type->hasContentIndex()) {
+                return false;
+            }
+            return type->getContentIndex().contains(root->getObject(), address);
+        }
+
+        auto offset = address.getAddress().getOffset() - allocation.address.getOffset();
+        if (!root->getOffsetIndex().contains(offset)) {
+            return false;
+        }
+
+        const auto *rootBytes = reinterpret_cast<const std::byte *>(root.operator->());
+        const auto &embeddedObject = object_model::o_embedded_object::__const_ref(rootBytes + offset);
+        auto type = classFactory.getTypeByClassRef(embeddedObject.getClassRef()).m_class;
+        if (expectedType && type->getAddress() != expectedType->getAddress()) {
+            return false;
+        }
+        if (!type->isIntern() || !type->hasContentIndex()) {
+            return false;
+        }
+        return type->getContentIndex().contains(embeddedObject, address);
+    }
+
+    PyObject *tryCheckInterned(const char *uuid, PyObject *pyType)
+    {
+        auto objectId = ObjectId::tryFromBase32(uuid);
+        if (!objectId || objectId.m_storage_class != db0::object_model::StorageClass::OBJECT_REF) {
+            Py_RETURN_FALSE;
+        }
+
+        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().tryGetFixture(objectId.m_fixture_uuid);
+        if (!fixture) {
+            Py_RETURN_FALSE;
+        }
+
+        bool result = false;
+        auto &classFactory = fixture->get<object_model::ClassFactory>();
+        if (pyType && pyType != Py_None) {
+            if (!PyType_Check(pyType)) {
+                THROWF(db0::InputException) << "type must be a dbzero memo type";
+            }
+            auto *memoType = reinterpret_cast<PyTypeObject *>(pyType);
+            if (!PyAnyMemoType_Check(memoType)) {
+                THROWF(db0::InputException) << "type must be a dbzero memo type";
+            }
+
+            auto type = classFactory.tryGetExistingType(memoType);
+            if (!type || !type->isIntern() || !type->hasContentIndex()) {
+                Py_RETURN_FALSE;
+            }
+            return PyBool_fromBool(checkInternedAddress(fixture, classFactory, objectId.m_address, type));
+        }
+
+        result = checkInternedAddress(fixture, classFactory, objectId.m_address, nullptr);
+        return PyBool_fromBool(result);
+    }
+
+    PyObject *PyAPI_checkInterned(PyObject *, PyObject *args)
+    {
+        const char *uuid = nullptr;
+        PyObject *pyType = nullptr;
+        if (!PyArg_ParseTuple(args, "s|O", &uuid, &pyType)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+            return NULL;
+        }
+
+        PY_API_FUNC
+        return runSafe(tryCheckInterned, uuid, pyType);
     }
 
     PyObject *tryOpen(PyObject *self, PyObject *args, PyObject *kwargs)
@@ -651,6 +748,106 @@ namespace db0::python
     {
         PY_API_FUNC
         return runSafe(tryGetPrefixStats, args, kwargs);
+    }
+
+    PyObject *tryGetTypeStats(PyObject *args, PyObject *kwargs)
+    {
+        PyObject *pyType = nullptr;
+        const char *prefixName = nullptr;
+        const char * const kwlist[] = {"type", "prefix", nullptr};
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|s:get_type_stats", const_cast<char**>(kwlist),
+                &pyType, &prefixName)) {
+            return nullptr;
+        }
+        if (!PyType_Check(pyType)) {
+            THROWF(db0::InputException) << "type must be a dbzero memo type";
+        }
+
+        auto *memoType = reinterpret_cast<PyTypeObject *>(pyType);
+        if (!PyAnyMemoType_Check(memoType)) {
+            THROWF(db0::InputException) << "type must be a dbzero memo type";
+        }
+
+        auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
+        db0::swine_ptr<Fixture> fixture;
+        if (prefixName) {
+            fixture = workspace.getFixture(prefixName, AccessType::READ_ONLY);
+        } else {
+            auto fixtureUuid = MemoTypeDecoration::get(memoType).getFixtureUUID(AccessType::READ_ONLY);
+            fixture = fixtureUuid
+                ? workspace.getFixture(fixtureUuid, AccessType::READ_ONLY)
+                : workspace.getCurrentFixture();
+        }
+        fixture->refreshIfUpdated();
+
+        auto type = fixture->get<object_model::ClassFactory>().tryGetExistingType(memoType);
+        if (!type && !prefixName) {
+            workspace.forEachFixture([&](const Fixture &existingFixture) {
+                if (!type && existingFixture != *fixture) {
+                    type = existingFixture.get<object_model::ClassFactory>().tryGetExistingType(memoType);
+                }
+                return !type;
+            });
+        }
+        if (!type) {
+            THROWF(db0::InputException) << "Class not found: " << PyToolkit::getTypeName(memoType);
+        }
+
+        auto stats = Py_OWN(PyDict_New());
+        if (!stats) {
+            return nullptr;
+        }
+
+        PySafeDict_SetItemString(*stats, "name", Py_OWN(PyUnicode_FromString(type->getName().c_str())));
+        if (auto moduleName = type->tryGetModuleName()) {
+            PySafeDict_SetItemString(*stats, "module", Py_OWN(PyUnicode_FromString(moduleName->c_str())));
+        } else {
+            PySafeDict_SetItemString(*stats, "module", Py_BORROW(Py_None));
+        }
+        if (auto typeId = type->getTypeId()) {
+            PySafeDict_SetItemString(*stats, "type_id", Py_OWN(PyUnicode_FromString(typeId->c_str())));
+        } else {
+            PySafeDict_SetItemString(*stats, "type_id", Py_BORROW(Py_None));
+        }
+        PySafeDict_SetItemString(*stats, "prefix", Py_OWN(PyUnicode_FromString(type->getFixture()->getPrefix().getName().c_str())));
+        PySafeDict_SetItemString(*stats, "uuid", Py_OWN(PyLong_FromUnsignedLongLong(type->getFixture()->getUUID())));
+        PySafeDict_SetItemString(*stats, "address", Py_OWN(PyLong_FromUnsignedLongLong(type->getAddress().getValue())));
+        PySafeDict_SetItemString(*stats, "class_ref", Py_OWN(PyLong_FromUnsignedLong(type->getClassRef())));
+        auto refCounts = type->getRefCounts();
+        auto instanceCount = refCounts.second > 0 ? refCounts.second - 1 : 0;
+        PySafeDict_SetItemString(*stats, "fields", Py_OWN(PyLong_FromSize_t(type->size())));
+        PySafeDict_SetItemString(*stats, "instances", Py_OWN(PyLong_FromUnsignedLong(instanceCount)));
+        PySafeDict_SetItemString(*stats, "immutable", Py_OWN(PyBool_fromBool(type->isImmutable())));
+        PySafeDict_SetItemString(*stats, "intern", Py_OWN(PyBool_fromBool(type->isIntern())));
+        PySafeDict_SetItemString(*stats, "singleton", Py_OWN(PyBool_fromBool(type->isSingleton())));
+        PySafeDict_SetItemString(*stats, "no_default_tags", Py_OWN(PyBool_fromBool(type->isNoDefaultTags())));
+        PySafeDict_SetItemString(*stats, "no_cache", Py_OWN(PyBool_fromBool(type->isNoCache())));
+
+        auto refCountsDict = Py_OWN(PyDict_New());
+        if (!refCountsDict) {
+            return nullptr;
+        }
+        PySafeDict_SetItemString(*refCountsDict, "tags", Py_OWN(PyLong_FromUnsignedLong(refCounts.first)));
+        PySafeDict_SetItemString(*refCountsDict, "objects", Py_OWN(PyLong_FromUnsignedLong(refCounts.second)));
+        PySafeDict_SetItemString(*stats, "ref_counts", refCountsDict);
+
+        if (type->isIntern()) {
+            auto contentIndex = Py_OWN(PyDict_New());
+            if (!contentIndex) {
+                return nullptr;
+            }
+            auto size = type->hasContentIndex() ? type->getContentIndex().size() : 0;
+            PySafeDict_SetItemString(*contentIndex, "size", Py_OWN(PyLong_FromUnsignedLongLong(size)));
+            PySafeDict_SetItemString(*stats, "content_index", contentIndex);
+        }
+
+        return stats.steal();
+    }
+
+    PyObject *getTypeStats(PyObject *self, PyObject *args, PyObject *kwargs)
+    {
+        PY_API_FUNC
+        return runSafe(tryGetTypeStats, args, kwargs);
     }
     
     PyObject *PyAPI_getSnapshot(PyObject *, PyObject *args, PyObject *kwargs)
@@ -1518,7 +1715,7 @@ namespace db0::python
                 PyErr_SetString(PyExc_TypeError, "Invalid argument type. Exclude shoud be a sequence");
                 return NULL;
             }
-            if (!PyAnyMemo_Check(py_object)) {
+            if (!PyToolkit::isAnyMemoObject(py_object)) {
                 PyErr_SetString(PyExc_TypeError, "Exclude is only supported for memo objects");
                 return NULL;
             }

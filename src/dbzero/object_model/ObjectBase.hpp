@@ -81,6 +81,11 @@ namespace db0
         {
             m_gc_registered = tryAddToGC0<T>(*fixture, this);
         }
+
+        ObjectBase(tag_no_gc, tag_from_stem, db0::swine_ptr<Fixture> &fixture, BaseT &&stem)
+            : has_fixture<BaseT>(typename has_fixture<BaseT>::tag_from_stem(), fixture, std::move(stem))
+        {
+        }
         
         ~ObjectBase()
         {      
