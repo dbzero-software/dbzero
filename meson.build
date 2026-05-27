@@ -64,12 +64,11 @@ if build_machine.system() == 'linux' or  build_machine.system() == 'darwin'
     
     add_project_arguments('-std=c++17', language : 'cpp')  
 else 
-    add_project_arguments(
-        '-ldl',
-        '-lm',
-        '-lpthread',
-        language : 'cpp')
-    add_project_arguments('-std:c++20', language : 'cpp')
+    if compiler_id == 'msvc'
+        add_project_arguments('/std:c++20', language : 'cpp')
+    else
+        add_project_arguments('-std=c++20', language : 'cpp')
+    endif
 endif
 
 enable_debug_exceptions = get_option('enable_debug_exceptions')

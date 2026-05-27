@@ -11,6 +11,14 @@
 #include "o_object.hpp"
 #include "o_immutable_object.hpp"
 
+#include <functional>
+#include <memory>
+#include <optional>
+#include <string>
+#include <unordered_set>
+#include <utility>
+#include <vector>
+
 namespace db0
 
 {

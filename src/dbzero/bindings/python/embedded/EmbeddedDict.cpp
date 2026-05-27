@@ -16,6 +16,7 @@
 #include <climits>
 #include <cmath>
 #include <sstream>
+#include <utility>
 
 namespace db0::python
 {
