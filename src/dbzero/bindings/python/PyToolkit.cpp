@@ -521,7 +521,7 @@ namespace db0::python
     static PyToolkit::ObjectSharedPtr tryUnloadObjectResolved(
         db0::swine_ptr<Fixture> &fixture, Address address, const PyToolkit::ClassFactory &class_factory,
         PyToolkit::TypeObjectPtr lang_type_ptr, std::uint16_t instance_id, AccessFlags access_mode,
-        const Allocator::AllocationInfo *allocationInfo)
+        const Allocator::AllocationInfo *allocationInfo, bool authorize_data_filter)
     {
         // try unloading from cache first
         auto &lang_cache = fixture->getLangCache();
@@ -537,6 +537,10 @@ namespace db0::python
                 if (getMemoInstanceId(obj_ptr.get()) != instance_id) {
                     return {};
                 }
+            }
+            if (authorize_data_filter) {
+                authorizeDataFilterFetch(
+                    fixture, PyToolkit::getMemoType(obj_ptr.get()), PyToolkit::getMemoUniqueAddress(obj_ptr.get()));
             }
             
             return obj_ptr;
@@ -565,6 +569,9 @@ namespace db0::python
             >(std::move(commonStem));
             auto typeInfo = class_factory.getTypeByClassRef(stem->getClassRef());
             auto type = typeInfo.m_class;
+            if (authorize_data_filter) {
+                authorizeDataFilterFetch(fixture, *type, UniqueAddress(address, stem->m_header.getInstanceId()));
+            }
             lang_type_ptr = resolveUnloadLangType(class_factory, type, typeInfo.m_lang_type, lang_type_ptr);
 
             auto *memo_ptr = reinterpret_cast<MemoImmutableObject *>(lang_type_ptr->tp_alloc(lang_type_ptr, 0));
@@ -584,6 +591,9 @@ namespace db0::python
         >(std::move(commonStem));
         auto typeInfo = class_factory.getTypeByClassRef(stem->getClassRef());
         auto type = typeInfo.m_class;
+        if (authorize_data_filter) {
+            authorizeDataFilterFetch(fixture, *type, UniqueAddress(address, stem->m_header.getInstanceId()));
+        }
         lang_type_ptr = resolveUnloadLangType(class_factory, type, typeInfo.m_lang_type, lang_type_ptr);
         
         // construct Python's memo object (placeholder for actual dbzero instance)
@@ -601,10 +611,12 @@ namespace db0::python
 
     PyToolkit::ObjectSharedPtr PyToolkit::tryUnloadObject(
         db0::swine_ptr<Fixture> &fixture, Address address, const ClassFactory &class_factory,
-        TypeObjectPtr lang_type_ptr, std::uint16_t instance_id, AccessFlags access_mode)
+        TypeObjectPtr lang_type_ptr, std::uint16_t instance_id, AccessFlags access_mode,
+        bool authorize_data_filter)
     {
         return tryUnloadObjectResolved(
-            fixture, address, class_factory, lang_type_ptr, instance_id, access_mode, nullptr
+            fixture, address, class_factory, lang_type_ptr, instance_id, access_mode, nullptr,
+            authorize_data_filter
         );
     }
     
@@ -637,7 +649,7 @@ namespace db0::python
         if (!rootObject) {
             rootObject = tryUnloadObjectResolved(
                 fixture, allocationInfo->address, class_factory, lang_type_ptr, instance_id, access_mode,
-                allocationInfo
+                allocationInfo, false
             );
             if (!rootObject) {
                 THROWF(db0::InputException) << "Invalid UUID or object has been deleted";
@@ -654,11 +666,13 @@ namespace db0::python
 
     PyToolkit::ObjectSharedPtr PyToolkit::unloadAnyObject(
         db0::swine_ptr<Fixture> &fixture, Address address, const ClassFactory &class_factory,
-        TypeObjectPtr lang_type_ptr, std::uint16_t instance_id, AccessFlags access_mode)
+        TypeObjectPtr lang_type_ptr, std::uint16_t instance_id, AccessFlags access_mode,
+        bool authorize_data_filter)
     {
         auto allocation = fixture->findAllocation(address, db0::object_model::ObjectImmutableImpl::REALM_ID);
         auto rootObject = tryUnloadObjectResolved(
-            fixture, allocation.address, class_factory, lang_type_ptr, instance_id, access_mode, &allocation
+            fixture, allocation.address, class_factory, lang_type_ptr, instance_id, access_mode, &allocation,
+            authorize_data_filter
         );
         if (!rootObject) {
             THROWF(db0::InputException) << "Invalid UUID or object has been deleted";
@@ -701,10 +715,11 @@ namespace db0::python
     }
 
     PyToolkit::ObjectSharedPtr PyToolkit::unloadObject(db0::swine_ptr<Fixture> &fixture, Address address,
-        const ClassFactory &class_factory, TypeObjectPtr lang_type_ptr, std::uint16_t instance_id, AccessFlags access_mode)
+        const ClassFactory &class_factory, TypeObjectPtr lang_type_ptr, std::uint16_t instance_id, AccessFlags access_mode,
+        bool authorize_data_filter)
     {
         auto result = tryUnloadObject(
-            fixture, address, class_factory, lang_type_ptr, instance_id, access_mode
+            fixture, address, class_factory, lang_type_ptr, instance_id, access_mode, authorize_data_filter
         );
         if (!result) {
             THROWF(db0::InputException) << "Invalid UUID or object has been deleted";            

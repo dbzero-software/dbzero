@@ -107,11 +107,14 @@ namespace db0::python
         // Unload with type resolution
         // optionally may use specific lang class (e.g. MemoBase)
         static ObjectSharedPtr unloadObject(db0::swine_ptr<Fixture> &, Address, const ClassFactory &,
-            TypeObjectPtr lang_class = nullptr, std::uint16_t instance_id = 0, AccessFlags = {});
+            TypeObjectPtr lang_class = nullptr, std::uint16_t instance_id = 0, AccessFlags = {},
+            bool authorize_data_filter = false);
         static ObjectSharedPtr tryUnloadObject(db0::swine_ptr<Fixture> &, Address, const ClassFactory &,
-            TypeObjectPtr lang_class = nullptr, std::uint16_t instance_id = 0, AccessFlags = {});
+            TypeObjectPtr lang_class = nullptr, std::uint16_t instance_id = 0, AccessFlags = {},
+            bool authorize_data_filter = false);
         static ObjectSharedPtr unloadAnyObject(db0::swine_ptr<Fixture> &, Address, const ClassFactory &,
-            TypeObjectPtr lang_class = nullptr, std::uint16_t instance_id = 0, AccessFlags = {});
+            TypeObjectPtr lang_class = nullptr, std::uint16_t instance_id = 0, AccessFlags = {},
+            bool authorize_data_filter = false);
         static ObjectSharedPtr unloadAnyObject(db0::swine_ptr<Fixture> &, Address,
             std::shared_ptr<Class> type_hint, TypeObjectPtr lang_class = nullptr,
             std::uint16_t instance_id = 0, AccessFlags = {});

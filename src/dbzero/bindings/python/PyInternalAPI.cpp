@@ -25,8 +25,10 @@
 #include <dbzero/workspace/Utils.hpp>
 #include <dbzero/object_model/tags/ObjectIterator.hpp>
 #include <dbzero/object_model/tags/TagIndex.hpp>
+#include <dbzero/object_model/tags/PredicateFactory.hpp>
 #include <dbzero/object_model/tags/QueryObserver.hpp>
 #include <dbzero/core/serialization/Serializable.hpp>
+#include <dbzero/core/memory/config.hpp>
 #include <dbzero/core/memory/SlabAllocator.hpp>
 #include <dbzero/core/storage/BDevStorage.hpp>
 #include <dbzero/workspace/Config.hpp>
@@ -36,6 +38,7 @@
 #include <dbzero/bindings/python/collections/PySet.hpp>
 #include <dbzero/bindings/python/types/PyEnum.hpp>
 #include <dbzero/bindings/python/types/PyClass.hpp>
+#include <dbzero/bindings/python/DataMasking.hpp>
 
 namespace db0::python
 
@@ -128,6 +131,51 @@ namespace db0::python
             }
             return result.steal();
         }
+
+        bool setFetchPermissionError(const char *message)
+        {
+            throw PermissionException(message);
+        }
+
+        void throwMissingObject()
+        {
+            THROWF(db0::InputException) << "Invalid UUID or object has been deleted";
+        }
+
+    }
+
+    bool authorizeDataFilterFetch(db0::swine_ptr<Fixture> &fixture, const db0::object_model::Class &type,
+        UniqueAddress address)
+    {
+        if (!type.isAccessControl()) {
+            return true;
+        }
+
+        auto filter_state = fixture->getFilterState();
+        if (!filter_state && !db0::Settings::m_data_filter_enabled) {
+            return setFetchPermissionError("data filter must be initialized before fetching an access-controlled type");
+        }
+        if (!filter_state) {
+            return true;
+        }
+
+        PyObject *py_predicate = nullptr;
+        if (PyContextVar_Get(filter_state->contextVar, NULL, &py_predicate) < 0) {
+            THROWF(db0::InputException) << "Unable to get data filter predicate: " << PyToolkit::getLastError();
+        }
+        auto owned_predicate = Py_OWN(py_predicate);
+        if (!py_predicate || py_predicate == Py_None) {
+            if (filter_state->mode == db0::DataMaskingMode::DEBUG) {
+                return true;
+            }
+            return setFetchPermissionError("data filter predicate is not set");
+        }
+        auto native_predicate = fixture->get<db0::object_model::PredicateFactory>().get(py_predicate);
+        if (fixture->get<db0::object_model::TagIndex>().contains(address, *native_predicate)) {
+            return true;
+        }
+        throwMissingObject();
+        return false;
     }
     
     LoadGuard::LoadGuard(std::unordered_set<const void*> *load_stack_ptr, const void *arg_ptr)
@@ -284,7 +332,7 @@ namespace db0::python
                 auto expected_class = class_factory.getOrCreateType(py_expected_type);
                 // honor class-specific access flags (e.g. type-level no_cache)
                 auto result = PyToolkit::unloadAnyObject(fixture, addr.getAddress(), class_factory, nullptr, addr.getInstanceId(),
-                    expected_class->getInstanceFlags()
+                    expected_class->getInstanceFlags(), true
                 );
                 // NOTE: base types should be accepted
                 if (!PyToolkit::getMemoType(result.get()).isBaseClass(*expected_class)) {
@@ -293,7 +341,8 @@ namespace db0::python
                 return result;
             } else {
                 // unload without type validation
-                return PyToolkit::unloadAnyObject(fixture, addr.getAddress(), class_factory, py_expected_type, addr.getInstanceId());
+                return PyToolkit::unloadAnyObject(fixture, addr.getAddress(), class_factory, py_expected_type,
+                    addr.getInstanceId(), {}, true);
             }
         } else if (storage_class == db0::object_model::StorageClass::DB0_CLASS) {
             auto &class_factory = db0::object_model::getClassFactory(*fixture);
@@ -336,6 +385,9 @@ namespace db0::python
 
         if (!type->isExistingSingleton()) {
             THROWF(db0::InputException) << "Singleton instance does not exist";
+        }
+        if (!authorizeDataFilterFetch(fixture, *type, type->getSingletonObjectId().m_address)) {
+            return nullptr;
         }
 
         MemoObject *memo_obj = reinterpret_cast<MemoObject*>(py_type->tp_alloc(py_type, 0));

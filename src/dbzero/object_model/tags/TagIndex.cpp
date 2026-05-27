@@ -661,6 +661,21 @@ namespace db0::object_model
         factory.add(std::move(ft_query));
         return true;
     }
+
+    bool TagIndex::contains(UniqueAddress address, const ObjectIterable &native_arg) const
+    {
+        std::vector<std::unique_ptr<QueryObserver> > query_observers;
+        auto native_query = native_arg.beginFTQuery(query_observers, -1);
+        if (!native_query || native_query->isEnd()) {
+            return false;
+        }
+
+        db0::FT_ANDIteratorFactory<UniqueAddress> factory;
+        factory.add(std::make_unique<FT_FixedKeyIterator<UniqueAddress> >(&address, &address + 1));
+        factory.add(std::move(native_query));
+        auto query = factory.release(-1);
+        return query && !query->isEnd();
+    }
     
     bool TagIndex::addIterator(ObjectPtr arg, db0::FT_IteratorFactory<UniqueAddress> &factory,
         std::vector<std::unique_ptr<QueryIterator> > &neg_iterators, std::vector<std::unique_ptr<QueryObserver> > &query_observers) const

@@ -65,10 +65,6 @@ namespace db0::python
             }
             return setFindPermissionError("data filter predicate is not set");
         }
-        if (!PyObjectIterable_Check(py_predicate)
-            || !reinterpret_cast<PyObjectIterable*>(py_predicate)->ext().isPredicateOnly()) {
-            return setFindPermissionError("data filter predicate must be created with db0.predicate");
-        }
         native_predicates.push_back(fixture->get<db0::object_model::PredicateFactory>().get(py_predicate));
         return true;
     }

@@ -95,6 +95,8 @@ DB0_PACKED_END
         std::unique_ptr<QueryIterator> find(ObjectPtr const *args, std::size_t nargs,
             std::shared_ptr<const Class> type, std::vector<std::unique_ptr<QueryObserver> > &observers, 
             bool no_result = false, const std::vector<const ObjectIterable*> &native_args = {}) const;
+
+        bool contains(UniqueAddress address, const ObjectIterable &native_arg) const;
         
         /**
          * Split query by all values from a specific tags_list (can be either short or long tag definitions)

@@ -16,6 +16,12 @@ import pytest
 from .conftest import DB0_DIR
 
 
+def allow_access_controlled_fetches():
+    predicate = ContextVar("allow_access_controlled_fetches")
+    predicate.set(None)
+    db0._init_data_filter(predicate, prefix=db0.get_current_prefix(), mode="DEBUG")
+
+
 @db0.enum(values=["CREATE", "READ", "UPDATE", "DELETE"])
 class FieldAccess:
     pass
@@ -293,6 +299,7 @@ def test_access_control_survives_redecoration_without_parameter(db0_fixture):
     class AccessControlledAfter:
         name: str
 
+    allow_access_controlled_fetches()
     obj = db0.fetch(AccessControlledAfter, obj_id)
     assert get_memo_class_object(obj).get_type_flags()["access_control"] is True
 
@@ -317,6 +324,7 @@ def test_explicit_false_does_not_clear_access_control(db0_fixture):
     class AccessControlledAfter:
         name: str
 
+    allow_access_controlled_fetches()
     obj = db0.fetch(AccessControlledAfter, obj_id)
     assert get_memo_class_object(obj).get_type_flags()["access_control"] is True
 
@@ -341,6 +349,7 @@ def test_access_control_can_be_enabled_after_class_materialization(db0_fixture):
     class AccessControlledAfter:
         name: str
 
+    allow_access_controlled_fetches()
     obj = db0.fetch(AccessControlledAfter, obj_id)
     assert get_memo_class_object(obj).get_type_flags()["access_control"] is True
 

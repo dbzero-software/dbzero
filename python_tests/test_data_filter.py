@@ -312,7 +312,7 @@ def test_data_filter_requires_predicate_object(db0_fixture):
     predicate.set(db0.find(FilteredFindPublicClass))
     db0._init_data_filter(predicate, prefix=db0.get_current_prefix())
 
-    with pytest.raises(PermissionError):
+    with pytest.raises(RuntimeError, match="db0.predicate"):
         db0.find(FilteredFindClass)
 
 
@@ -343,6 +343,82 @@ def test_data_filter_prefix_scope_only_filters_configured_prefix(db0_fixture):
 
     assert list(db0.find(DynamicPrefixFilteredFindClass, "visible", prefix=px_name)) == []
     assert list(db0.find(DynamicPrefixFilteredFindClass, "visible", prefix=other_prefix)) == [unfiltered]
+
+
+def test_data_filter_fetch_requires_data_filter_for_access_controlled_type(db0_fixture):
+    obj = FilteredFindClass("visible")
+
+    with pytest.raises(PermissionError):
+        db0.fetch(db0.uuid(obj))
+
+
+def test_data_filter_fetch_release_mode_requires_predicate(db0_fixture):
+    obj = FilteredFindClass("visible")
+    predicate.set(None)
+    db0._init_data_filter(predicate, prefix=db0.get_current_prefix())
+
+    with pytest.raises(PermissionError):
+        db0.fetch(db0.uuid(obj))
+
+
+def test_data_filter_fetch_debug_mode_allows_null_predicate(db0_fixture):
+    obj = FilteredFindClass("visible")
+    predicate.set(None)
+    db0._init_data_filter(predicate, prefix=db0.get_current_prefix(), mode="DEBUG")
+
+    assert db0.fetch(db0.uuid(obj)) is obj
+
+
+def test_data_filter_predicate_filters_access_controlled_fetch(db0_fixture):
+    allowed = FilteredFindClass("allowed")
+    denied = FilteredFindClass("denied")
+    db0.tags(allowed).add("grant")
+
+    predicate.set(db0.predicate("grant"))
+    db0._init_data_filter(predicate, prefix=db0.get_current_prefix())
+
+    assert db0.fetch(db0.uuid(allowed)) is allowed
+    with pytest.raises(RuntimeError, match="Invalid UUID or object has been deleted"):
+        db0.fetch(db0.uuid(denied))
+
+
+def test_data_filter_predicate_filters_access_controlled_snapshot_fetch(db0_fixture):
+    allowed = FilteredFindClass("snapshot-allowed")
+    denied = FilteredFindClass("snapshot-denied")
+    db0.tags(allowed).add("grant")
+    db0.commit()
+
+    predicate.set(db0.predicate("grant"))
+    db0._init_data_filter(predicate, prefix=db0.get_current_prefix())
+    snap = db0.snapshot()
+
+    assert snap.fetch(db0.uuid(allowed)).value == "snapshot-allowed"
+    with pytest.raises(RuntimeError, match="Invalid UUID or object has been deleted"):
+        snap.fetch(db0.uuid(denied))
+
+
+def test_data_filter_fetch_does_not_filter_public_type(db0_fixture):
+    obj = FilteredFindPublicClass("public")
+    predicate.set(db0.predicate("grant"))
+    db0._init_data_filter(predicate, prefix=db0.get_current_prefix())
+
+    assert db0.fetch(db0.uuid(obj)) is obj
+
+
+def test_data_filter_prefix_scope_only_filters_configured_prefix_fetch(db0_fixture):
+    px_name = db0.get_current_prefix().name
+    other_prefix = "unfiltered-data-filter-fetch-prefix"
+
+    filtered = DynamicPrefixFilteredFindClass("filtered", prefix=px_name)
+    db0.open(other_prefix)
+    unfiltered = DynamicPrefixFilteredFindClass("unfiltered", prefix=other_prefix)
+
+    predicate.set(db0.predicate("grant", prefix=px_name))
+    db0._init_data_filter(predicate, prefix=px_name)
+
+    with pytest.raises(RuntimeError, match="Invalid UUID or object has been deleted"):
+        db0.fetch(db0.uuid(filtered))
+    assert db0.fetch(db0.uuid(unfiltered)) is unfiltered
 
 
 def test_init_can_initialize_prefix_data_filter_after_opening_prefix(db0_fixture):
