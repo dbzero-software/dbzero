@@ -1067,6 +1067,15 @@ def find(*query_criteria: Union[Tag, List[Tag], Tuple[Tag], QueryObject, TagSet]
     """
     ...
 
+def predicate(*query_criteria: Union[Tag, List[Tag], Tuple[Tag], QueryObject, TagSet], prefix: Optional[str] = None) -> QueryObject:
+    """Build a predicate-only query for composing filters.
+
+    Predicate queries use the same criteria grammar as ``find`` and can be used
+    as criteria in other queries or as data-filter predicates. They do not allow
+    direct iteration, counting, truth testing, indexing, or slicing.
+    """
+    ...
+
 def no(predicate: Union[str, QueryObject], /) -> TagSet:
     """Create a negative predicate (NOT condition) for find queries.
 

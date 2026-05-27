@@ -41,17 +41,19 @@ class RestrictedData:
 
 A predicate is not limited to a plain list of tags. It can be any dbzero `ObjectIterable` query expression, including a complex tag-based statement composed from tags, object references, nested `find` queries, alternatives, negation, and other query operators.
 
+Predicates should be built with `db0.predicate(...)`, which uses the same query grammar as `db0.find(...)` but bypasses data-filter authorization during construction. Predicate queries are useful outside data filtering as composable query constraints, so they work even when data filtering is not enabled for a prefix. To avoid leaking protected data, predicate queries are not directly iterable and do not expose result cardinality: iteration, `len()`, truth testing, indexing, and slicing raise `PermissionError`. They may still be passed into `find`, serialized, and used as the value of a data-filter context variable.
+
 A simple predicate can grant access through an explicit tag relation:
 
 ```python
-pred = db0.find(db0.as_tag("GRANT-ACCESS", account))
+pred = db0.predicate(db0.as_tag("GRANT-ACCESS", account))
 predicate.set(pred)
 ```
 
 A more selective predicate can combine multiple query clauses:
 
 ```python
-pred = db0.find(
+pred = db0.predicate(
     [
         db0.as_tag("GRANT-ACCESS", account),
         db0.as_tag("GRANT-ACCESS", "PUBLIC"),
@@ -102,6 +104,7 @@ If prefix-level filtering is enabled:
 
 - A query without an explicit type raises `PermissionError`.
 - This applies to direct calls and deserialized queries.
+- Use `db0.predicate(...)`, not typeless `db0.find(...)`, to construct reusable predicate query expressions.
 
 If a query has an explicit type, dbzero checks whether that type requires access control. This type check happens even when prefix-level data filtering is disabled. If the type is access controlled but data filters are not initialized for the prefix, dbzero raises `PermissionError` explaining that data filtering must be initialized before the query can run.
 
@@ -110,7 +113,7 @@ If the type is access controlled and filtering is initialized:
 - Resolve the predicate from the configured `ContextVar`.
 - If the predicate is `None` and mode is not `DEBUG`, raise `PermissionError`.
 - If the predicate is `None` and mode is `DEBUG`, run the original typed query without adding a filter.
-- If the predicate is non-null, attach it to the query before sorting or range/index ordering is applied.
+- If the predicate is non-null, require it to be a predicate query created by `db0.predicate(...)`, then attach it to the query before sorting or range/index ordering is applied.
 
 Conceptually:
 

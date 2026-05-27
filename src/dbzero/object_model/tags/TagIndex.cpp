@@ -605,12 +605,13 @@ namespace db0::object_model
     }
     
     std::unique_ptr<TagIndex::QueryIterator> TagIndex::find(ObjectPtr const *args, std::size_t nargs,
-        std::shared_ptr<const Class> type, std::vector<std::unique_ptr<QueryObserver> > &observers, bool no_result) const
+        std::shared_ptr<const Class> type, std::vector<std::unique_ptr<QueryObserver> > &observers, bool no_result,
+        const std::vector<const ObjectIterable*> &native_args) const
     {
         db0::FT_ANDIteratorFactory<UniqueAddress> factory;
         // the negated root-level query components
         std::vector<std::unique_ptr<QueryIterator> > neg_iterators;
-        if (nargs > 0 || type) {
+        if (nargs > 0 || type || !native_args.empty()) {
             // flush pending updates before querying
             flush();
             // if the 1st argument is a type then resolve as a typed ObjectIterable
@@ -624,6 +625,10 @@ namespace db0::object_model
             while (result && (offset < nargs)) {
                 result &= addIterator(args[offset], factory, neg_iterators, observers);
                 ++offset;
+            }
+            for (auto *native_arg: native_args) {
+                assert(native_arg);
+                result &= addIterator(*native_arg, factory, neg_iterators, observers);
             }
             if (!result) {
                 // invalidate factory since no matching results exist
@@ -644,6 +649,17 @@ namespace db0::object_model
             // construct AND-not query iterator
             return std::make_unique<FT_ANDNOTIterator<UniqueAddress> >(std::move(neg_iterators), -1);
         }
+    }
+
+    bool TagIndex::addIterator(const ObjectIterable &obj_iter, db0::FT_IteratorFactory<UniqueAddress> &factory,
+        std::vector<std::unique_ptr<QueryIterator> > &neg_iterators, std::vector<std::unique_ptr<QueryObserver> > &query_observers) const
+    {
+        auto ft_query = obj_iter.beginFTQuery(query_observers, -1);
+        if (!ft_query || ft_query->isEnd()) {
+            return false;
+        }
+        factory.add(std::move(ft_query));
+        return true;
     }
     
     bool TagIndex::addIterator(ObjectPtr arg, db0::FT_IteratorFactory<UniqueAddress> &factory,
@@ -731,12 +747,7 @@ namespace db0::object_model
         if (type_id == TypeId::OBJECT_ITERABLE) {
             auto &obj_iter = LangToolkit::getTypeManager().extractObjectIterable(arg);
             // try interpreting the iterator as FT-query
-            auto ft_query = obj_iter.beginFTQuery(query_observers, -1);
-            if (!ft_query || ft_query->isEnd()) {
-                return false;
-            }
-            factory.add(std::move(ft_query));
-            return true;
+            return addIterator(obj_iter, factory, neg_iterators, query_observers);
         }
         
         if (type_id == TypeId::DB0_TAG_SET) {

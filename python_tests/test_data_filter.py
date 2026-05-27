@@ -19,6 +19,37 @@ class InitDataFilterClass:
     value: str
 
 
+@db0.memo(access_control=True)
+@dataclass
+class FilteredFindClass:
+    value: str
+
+
+@db0.memo(access_control=True)
+class DynamicPrefixFilteredFindClass:
+    def __init__(self, value: str, prefix=None):
+        db0.set_prefix(self, prefix)
+        self.value = value
+
+
+@db0.memo
+@dataclass
+class FilteredFindPublicClass:
+    value: str
+
+
+@db0.memo
+@dataclass
+class FilteredFindBaseClass:
+    value: str
+
+
+@db0.memo(access_control=True)
+@dataclass
+class FilteredFindDerivedClass(FilteredFindBaseClass):
+    extra: str
+
+
 def test_init_data_filter_prefix_scoped_lifecycle(db0_fixture):
     current_prefix = db0.get_current_prefix()
 
@@ -154,6 +185,164 @@ def test_init_can_initialize_workspace_data_filter(db0_fixture):
     obj = InitDataFilterClass("visible")
 
     assert obj.value == "visible"
+
+
+def test_predicate_can_be_built_without_data_filter_enabled(db0_fixture):
+    obj = FilteredFindPublicClass("allowed")
+    db0.tags(obj).add("grant")
+
+    pred = db0.predicate("grant")
+
+    assert [item.value for item in db0.find(FilteredFindPublicClass, pred)] == ["allowed"]
+
+
+def test_predicate_survives_serialization(db0_fixture):
+    obj = FilteredFindPublicClass("allowed")
+    db0.tags(obj).add("grant")
+
+    pred = db0.deserialize(db0.serialize(db0.predicate("grant")))
+
+    with pytest.raises(PermissionError):
+        list(pred)
+    assert [item.value for item in db0.find(FilteredFindPublicClass, pred)] == ["allowed"]
+
+
+def test_predicate_can_be_built_after_data_filter_enabled(db0_fixture):
+    db0._init_data_filter(predicate, prefix=db0.get_current_prefix(), mode="DEBUG")
+
+    pred = db0.predicate("grant")
+
+    with pytest.raises(PermissionError):
+        list(pred)
+
+
+def test_predicate_blocks_direct_data_access(db0_fixture):
+    pred = db0.predicate("grant")
+
+    with pytest.raises(PermissionError):
+        iter(pred)
+    with pytest.raises(PermissionError):
+        len(pred)
+    with pytest.raises(PermissionError):
+        bool(pred)
+    with pytest.raises(PermissionError):
+        pred[0]
+    with pytest.raises(PermissionError):
+        pred[:1]
+
+
+def test_data_filter_rejects_typeless_find(db0_fixture):
+    db0._init_data_filter(predicate, prefix=db0.get_current_prefix(), mode="DEBUG")
+
+    with pytest.raises(PermissionError):
+        db0.find("grant")
+
+
+def test_access_controlled_find_requires_data_filter(db0_fixture):
+    FilteredFindClass("visible")
+
+    with pytest.raises(PermissionError):
+        db0.find(FilteredFindClass)
+
+
+def test_data_filter_release_mode_requires_predicate(db0_fixture):
+    FilteredFindClass("visible")
+    predicate.set(None)
+    db0._init_data_filter(predicate, prefix=db0.get_current_prefix())
+
+    with pytest.raises(PermissionError):
+        db0.find(FilteredFindClass)
+
+
+def test_data_filter_debug_mode_allows_null_predicate(db0_fixture):
+    obj = FilteredFindClass("visible")
+    predicate.set(None)
+    db0._init_data_filter(predicate, prefix=db0.get_current_prefix(), mode="DEBUG")
+
+    assert list(db0.find(FilteredFindClass)) == [obj]
+
+
+def test_data_filter_predicate_filters_access_controlled_find(db0_fixture):
+    allowed = FilteredFindClass("allowed")
+    denied = FilteredFindClass("denied")
+    db0.tags(allowed).add(["visible", "grant"])
+    db0.tags(denied).add("visible")
+
+    predicate.set(db0.predicate("grant"))
+    db0._init_data_filter(predicate, prefix=db0.get_current_prefix())
+
+    assert list(db0.find(FilteredFindClass, "visible")) == [allowed]
+
+
+def test_data_filter_predicate_refreshes_after_matching_objects_are_committed(db0_fixture):
+    initial = FilteredFindClass("initial")
+    db0.tags(initial).add(["visible", "grant"])
+    db0.commit()
+
+    predicate.set(db0.predicate("grant"))
+    db0._init_data_filter(predicate, prefix=db0.get_current_prefix())
+
+    denied = FilteredFindClass("denied")
+    db0.tags(denied).add("visible")
+    assert list(db0.find(FilteredFindClass, "visible")) == [initial]
+
+    later = FilteredFindClass("later")
+    db0.tags(later).add(["visible", "grant"])
+    db0.commit()
+
+    assert list(db0.find(FilteredFindClass, "visible")) == [later, initial]
+
+
+@pytest.mark.skip(reason="TODO: preserve predicate expressions that initially resolve to no results")
+def test_data_filter_predicate_created_before_tag_exists_refreshes_after_commit(db0_fixture):
+    predicate.set(db0.predicate("grant"))
+    db0._init_data_filter(predicate, prefix=db0.get_current_prefix())
+
+    allowed = FilteredFindClass("allowed")
+    denied = FilteredFindClass("denied")
+    db0.tags(allowed).add(["visible", "grant"])
+    db0.tags(denied).add("visible")
+    db0.commit()
+
+    assert list(db0.find(FilteredFindClass, "visible")) == [allowed]
+
+
+def test_data_filter_requires_predicate_object(db0_fixture):
+    FilteredFindClass("visible")
+    predicate.set(db0.find(FilteredFindPublicClass))
+    db0._init_data_filter(predicate, prefix=db0.get_current_prefix())
+
+    with pytest.raises(PermissionError):
+        db0.find(FilteredFindClass)
+
+
+def test_data_filter_filters_access_controlled_derived_from_base_query(db0_fixture):
+    allowed = FilteredFindDerivedClass("allowed", "x")
+    denied = FilteredFindDerivedClass("denied", "y")
+    db0.tags(allowed).add(["visible", "grant"])
+    db0.tags(denied).add("visible")
+
+    predicate.set(db0.predicate("grant"))
+    db0._init_data_filter(predicate, prefix=db0.get_current_prefix())
+
+    assert list(db0.find(FilteredFindBaseClass, "visible")) == [allowed]
+
+
+def test_data_filter_prefix_scope_only_filters_configured_prefix(db0_fixture):
+    px_name = db0.get_current_prefix().name
+    other_prefix = "unfiltered-data-filter-find-prefix"
+
+    filtered = DynamicPrefixFilteredFindClass("filtered", prefix=px_name)
+    db0.tags(filtered).add("visible")
+    db0.open(other_prefix)
+    unfiltered = DynamicPrefixFilteredFindClass("unfiltered", prefix=other_prefix)
+    db0.tags(unfiltered).add("visible")
+
+    predicate.set(db0.predicate("grant", prefix=px_name))
+    db0._init_data_filter(predicate, prefix=px_name)
+
+    assert list(db0.find(DynamicPrefixFilteredFindClass, "visible", prefix=px_name)) == []
+    assert list(db0.find(DynamicPrefixFilteredFindClass, "visible", prefix=other_prefix)) == [unfiltered]
 
 
 def test_init_can_initialize_prefix_data_filter_after_opening_prefix(db0_fixture):

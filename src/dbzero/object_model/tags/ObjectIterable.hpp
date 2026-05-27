@@ -53,17 +53,17 @@ namespace db0::object_model
         // Construct from a full-text query iterator
         ObjectIterable(db0::swine_ptr<Fixture>, std::unique_ptr<QueryIterator> &&, std::shared_ptr<Class> = nullptr, 
             TypeObjectPtr lang_type = nullptr, std::vector<std::unique_ptr<QueryObserver> > && = {},
-            const std::vector<FilterFunc> & = {});
+            const std::vector<FilterFunc> & = {}, bool predicate_only = false);
 
         // Construct from a sorted iterator
         ObjectIterable(db0::swine_ptr<Fixture>, std::unique_ptr<SortedIterator> &&, std::shared_ptr<Class> = nullptr,
             TypeObjectPtr lang_type = nullptr, std::vector<std::unique_ptr<QueryObserver> > && = {},
-            const std::vector<FilterFunc> & = {});
+            const std::vector<FilterFunc> & = {}, bool predicate_only = false);
         
         // Construct from IteratorFactory (specialized on first use)
         ObjectIterable(db0::swine_ptr<Fixture>, std::shared_ptr<IteratorFactory> factory, std::shared_ptr<Class> = nullptr,
             TypeObjectPtr lang_type = nullptr, std::vector<std::unique_ptr<QueryObserver> > && = {},
-            const std::vector<FilterFunc> & = {});
+            const std::vector<FilterFunc> & = {}, bool predicate_only = false);
         
         // Construct with additional filters
         ObjectIterable(const ObjectIterable &, const std::vector<FilterFunc> &);
@@ -133,6 +133,8 @@ namespace db0::object_model
         void attachContext(ObjectPtr) const;
 
         bool empty() const;
+
+        bool isPredicateOnly() const;
         
     protected:
         mutable db0::weak_swine_ptr<Fixture> m_fixture;
@@ -148,12 +150,13 @@ namespace db0::object_model
         mutable ObjectSharedPtr m_lang_context;
         // object access mode (e.g. no_cache)
         const AccessFlags m_access_mode;
+        const bool m_predicate_only = false;
         
         // iter constructor
         ObjectIterable(db0::swine_ptr<Fixture>, const ClassFactory &, std::unique_ptr<QueryIterator> &&,
             std::unique_ptr<SortedIterator> &&, std::shared_ptr<IteratorFactory>, std::vector<std::unique_ptr<QueryObserver> > &&,
             std::vector<FilterFunc> &&filters, std::shared_ptr<Class>, TypeObjectPtr lang_type, const SliceDef & = {}, 
-            AccessFlags access_mode = {});
+            AccessFlags access_mode = {}, bool predicate_only = false);
         
         // get the base iterator, possibly initialized from the factory
         const BaseIterator &getBaseIterator(std::unique_ptr<BaseIterator> &) const;        

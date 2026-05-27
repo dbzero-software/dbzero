@@ -26,6 +26,7 @@ namespace db0::object_model
     using LongTagT = db0::LongTagT;
     class EnumFactory;
     class CompositeTagDef;
+    class ObjectIterable;
 
 DB0_PACKED_BEGIN    
     struct DB0_PACKED_ATTR o_tag_index: public o_fixed_versioned<o_tag_index>
@@ -88,10 +89,12 @@ DB0_PACKED_END
          * @param type optional type to match by
          * @param observer buffer to receive query observers (possibly inherited from inner queries)
          * @param no_result flag indicating if an empty query iterator should be returned
+         * @param native_args already-resolved native ObjectIterable queries to AND-combine with args
+         *   (used when the caller cannot or should not pass the original language object to query planning)
          */
         std::unique_ptr<QueryIterator> find(ObjectPtr const *args, std::size_t nargs,
             std::shared_ptr<const Class> type, std::vector<std::unique_ptr<QueryObserver> > &observers, 
-            bool no_result = false) const;
+            bool no_result = false, const std::vector<const ObjectIterable*> &native_args = {}) const;
         
         /**
          * Split query by all values from a specific tags_list (can be either short or long tag definitions)
@@ -225,6 +228,9 @@ DB0_PACKED_END
         std::optional<ShortTagT> tryAddShortTagFromMemo(ObjectPtr) const;
         
         bool addIterator(ObjectPtr, db0::FT_IteratorFactory<UniqueAddress> &factory,
+            std::vector<std::unique_ptr<QueryIterator> > &neg_iterators, 
+            std::vector<std::unique_ptr<QueryObserver> > &query_observers) const;
+        bool addIterator(const ObjectIterable &, db0::FT_IteratorFactory<UniqueAddress> &factory,
             std::vector<std::unique_ptr<QueryIterator> > &neg_iterators, 
             std::vector<std::unique_ptr<QueryObserver> > &query_observers) const;
         bool addCompositeIterator(const CompositeTagDef &, db0::FT_IteratorFactory<UniqueAddress> &factory,

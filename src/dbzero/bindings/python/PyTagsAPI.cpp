@@ -6,12 +6,16 @@
 #include "PySnapshot.hpp"
 #include <dbzero/object_model/tags/SplitIterator.hpp>
 #include <dbzero/object_model/tags/TagIndex.hpp>
+#include <dbzero/object_model/tags/PredicateFactory.hpp>
 #include <dbzero/bindings/python/iter/PyObjectIterable.hpp>
 #include <dbzero/bindings/python/iter/PyObjectIterator.hpp>
 #include <dbzero/bindings/python/iter/PyJoinIterable.hpp>
 #include <dbzero/bindings/python/iter/PyJoinIterator.hpp>
 #include <dbzero/bindings/python/types/PyEnum.hpp>
+#include <dbzero/bindings/python/DataMasking.hpp>
 #include <dbzero/object_model/tags/SelectModified.hpp>
+#include <dbzero/object_model/class/Class.hpp>
+#include <dbzero/core/memory/config.hpp>
 #include <dbzero/workspace/Snapshot.hpp>
 #include <dbzero/workspace/Workspace.hpp>
 
@@ -19,8 +23,58 @@ namespace db0::python
 
 {
 
+    bool setFindPermissionError(const char *message)
+    {
+        PyErr_SetString(PyExc_PermissionError, message);
+        return false;
+    }
+
+    // Enforces data-filter rules for protected find() calls and, when a filter
+    // is active, appends its refreshed predicate query to native_predicates so
+    // TagIndex::find() intersects the user query with the access-control query.
+    //
+    // PyContextVar_Get() returns a new reference. find_args only stores borrowed
+    // raw PyObject* values, so owned_predicates keeps that reference alive until
+    // TagIndex::find() has consumed find_args.
+    bool appendDataFilterPredicate(db0::swine_ptr<db0::Fixture> fixture, std::shared_ptr<db0::object_model::Class> type,
+        std::vector<std::shared_ptr<db0::object_model::ObjectIterable> > &native_predicates,
+        std::vector<shared_py_object<PyObject*> > &owned_predicates)
+    {
+        auto filter_state = fixture->getFilterState();
+        if (filter_state && !type) {
+            return setFindPermissionError("typeless find is not allowed when data filtering is enabled for the prefix");
+        }
+        if (!type || !type->isAccessControl()) {
+            return true;
+        }
+        if (!filter_state && !db0::Settings::m_data_filter_enabled) {
+            return setFindPermissionError("data filter must be initialized before querying an access-controlled type");
+        }
+        if (!filter_state) {
+            return true;
+        }
+
+        PyObject *py_predicate = nullptr;
+        if (PyContextVar_Get(filter_state->contextVar, NULL, &py_predicate) < 0) {
+            return false;
+        }
+        owned_predicates.emplace_back(Py_OWN(py_predicate));
+        if (!py_predicate || py_predicate == Py_None) {
+            if (filter_state->mode == db0::DataMaskingMode::DEBUG) {
+                return true;
+            }
+            return setFindPermissionError("data filter predicate is not set");
+        }
+        if (!PyObjectIterable_Check(py_predicate)
+            || !reinterpret_cast<PyObjectIterable*>(py_predicate)->ext().isPredicateOnly()) {
+            return setFindPermissionError("data filter predicate must be created with db0.predicate");
+        }
+        native_predicates.push_back(fixture->get<db0::object_model::PredicateFactory>().get(py_predicate));
+        return true;
+    }
+
     PyObject *findIn(db0::Snapshot &snapshot, PyObject* const *args, Py_ssize_t nargs,
-        PyObject *context, const char *prefix_name)
+        PyObject *context, const char *prefix_name, bool bypass_data_filters, bool predicate_only)
     {
         using ObjectIterable = db0::object_model::ObjectIterable;
         using TagIndex = db0::object_model::TagIndex;
@@ -34,11 +88,23 @@ namespace db0::python
             snapshot, args, nargs, find_args, type, lang_type, no_result, prefix_name
         );
         fixture->refreshIfUpdated();
+        std::vector<shared_py_object<PyObject*> > owned_predicates;
+        std::vector<std::shared_ptr<ObjectIterable> > native_predicates;
+        if (!bypass_data_filters && !appendDataFilterPredicate(fixture, type, native_predicates, owned_predicates)) {
+            return nullptr;
+        }
         auto &tag_index = fixture->get<TagIndex>();
         std::vector<std::unique_ptr<db0::object_model::QueryObserver> > query_observers;
-        auto query_iterator = tag_index.find(find_args.data(), find_args.size(), type, query_observers, no_result);
+        std::vector<const ObjectIterable*> native_predicate_ptrs;
+        native_predicate_ptrs.reserve(native_predicates.size());
+        for (const auto &native_predicate: native_predicates) {
+            native_predicate_ptrs.push_back(native_predicate.get());
+        }
+        auto query_iterator = tag_index.find(find_args.data(), find_args.size(), type, query_observers, no_result,
+            native_predicate_ptrs);
         auto iter_obj = PyObjectIterableDefault_new();
-        iter_obj->makeNew(fixture, std::move(query_iterator), type, lang_type, std::move(query_observers));
+        iter_obj->makeNew(fixture, std::move(query_iterator), type, lang_type, std::move(query_observers),
+            std::vector<ObjectIterable::FilterFunc>{}, predicate_only);
         if (context) {
             (iter_obj.get())->ext().attachContext(context);
         }
