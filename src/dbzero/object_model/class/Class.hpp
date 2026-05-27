@@ -39,14 +39,15 @@ namespace db0
         NO_DEFAULT_TAGS = 0x0002,
         IMMUTABLE = 0x0004,
         PROTECT_FIELDS = 0x0008,
-        INTERN = 0x0010
+        INTERN = 0x0010,
+        ACCESS_CONTROL = 0x0020
     };
 
     using ClassFlags = db0::FlagSet<ClassOptions>;
 
 }
 
-DECLARE_ENUM_VALUES(db0::ClassOptions, 5)
+DECLARE_ENUM_VALUES(db0::ClassOptions, 6)
 
 namespace db0::object_model
 
@@ -179,9 +180,13 @@ DB0_PACKED_END
         bool isNoDefaultTags() const;
         bool isImmutable() const;
         bool isIntern() const;
+        bool isAccessControl() const;
+        bool hasOwnAccessControl() const;
         bool assignDefaultTags() const;
         bool isProtectFields() const;
         bool hasOwnProtectFields() const;
+        void setAccessControl();
+        void setOwnAccessControl();
         void setProtectFields();
         void resetProtectFields();
         bool hasFieldSafe() const;
@@ -357,6 +362,7 @@ DB0_PACKED_END
         mutable MemberCacheT m_member_cache;
         // runtime flags
         bool m_no_cache = false;
+        bool m_access_control = false;
         
         // A function to retrieve the total number of instances of the schema
         std::function<unsigned int()> getTotalFunc() const;

@@ -2,6 +2,10 @@
 # Copyright (c) 2025 DBZero Software sp. z o.o.
 
 import asyncio
+import json
+import subprocess
+import sys
+import textwrap
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from contextvars import ContextVar
@@ -248,6 +252,161 @@ def test_protect_fields_can_be_enabled_after_class_materialization(db0_fixture):
 
     obj = db0.fetch(ProtectedAfter, obj_id)
     assert get_memo_class_object(obj).get_type_flags()["protect_fields"] is True
+
+
+def test_access_control_defaults_to_false(db0_fixture):
+    obj = MemoUnprotectedFieldsClass("alpha", 1)
+
+    assert get_memo_class_object(obj).get_type_flags()["access_control"] is False
+    assert db0.get_type_stats(MemoUnprotectedFieldsClass)["access_control"] is False
+
+
+def test_access_control_is_persisted_on_class(db0_fixture):
+    @db0.memo(access_control=True)
+    @dataclass
+    class AccessControlled:
+        name: str
+
+    obj = AccessControlled("alpha")
+
+    assert get_memo_class_object(obj).get_type_flags()["access_control"] is True
+    assert db0.get_type_stats(AccessControlled)["access_control"] is True
+
+
+def test_access_control_survives_redecoration_without_parameter(db0_fixture):
+    @db0.memo(id="dbzero-software/dbzero/tests/access-control-redecorated", access_control=True)
+    @dataclass
+    class AccessControlledBefore:
+        name: str
+
+    obj = AccessControlledBefore("alpha")
+    obj_id = db0.uuid(obj)
+    assert get_memo_class_object(obj).get_type_flags()["access_control"] is True
+    db0.commit()
+
+    db0.close()
+    db0.init(DB0_DIR)
+    db0.open("my-test-prefix")
+
+    @db0.memo(id="dbzero-software/dbzero/tests/access-control-redecorated")
+    @dataclass
+    class AccessControlledAfter:
+        name: str
+
+    obj = db0.fetch(AccessControlledAfter, obj_id)
+    assert get_memo_class_object(obj).get_type_flags()["access_control"] is True
+
+
+def test_explicit_false_does_not_clear_access_control(db0_fixture):
+    @db0.memo(id="dbzero-software/dbzero/tests/access-control-explicit-false", access_control=True)
+    @dataclass
+    class AccessControlledBefore:
+        name: str
+
+    obj = AccessControlledBefore("alpha")
+    obj_id = db0.uuid(obj)
+    assert get_memo_class_object(obj).get_type_flags()["access_control"] is True
+    db0.commit()
+
+    db0.close()
+    db0.init(DB0_DIR)
+    db0.open("my-test-prefix")
+
+    @db0.memo(id="dbzero-software/dbzero/tests/access-control-explicit-false", access_control=False)
+    @dataclass
+    class AccessControlledAfter:
+        name: str
+
+    obj = db0.fetch(AccessControlledAfter, obj_id)
+    assert get_memo_class_object(obj).get_type_flags()["access_control"] is True
+
+
+def test_access_control_can_be_enabled_after_class_materialization(db0_fixture):
+    @db0.memo(id="dbzero-software/dbzero/tests/access-control-enabled-later")
+    @dataclass
+    class AccessControlledBefore:
+        name: str
+
+    obj = AccessControlledBefore("alpha")
+    obj_id = db0.uuid(obj)
+    assert get_memo_class_object(obj).get_type_flags()["access_control"] is False
+    db0.commit()
+
+    db0.close()
+    db0.init(DB0_DIR)
+    db0.open("my-test-prefix")
+
+    @db0.memo(id="dbzero-software/dbzero/tests/access-control-enabled-later", access_control=True)
+    @dataclass
+    class AccessControlledAfter:
+        name: str
+
+    obj = db0.fetch(AccessControlledAfter, obj_id)
+    assert get_memo_class_object(obj).get_type_flags()["access_control"] is True
+
+
+def test_access_control_dynamically_propagates_to_loaded_base_class(db0_fixture):
+    @db0.memo(id="dbzero-software/dbzero/tests/access-control-base")
+    @dataclass
+    class AccessControlBase:
+        name: str
+
+    @db0.memo(id="dbzero-software/dbzero/tests/access-control-derived", access_control=True)
+    @dataclass
+    class AccessControlDerived(AccessControlBase):
+        value: int
+
+    base = AccessControlBase("base")
+    derived = AccessControlDerived("derived", 1)
+
+    assert get_memo_class_object(derived).get_type_flags()["access_control"] is True
+    assert get_memo_class_object(base).get_type_flags()["access_control"] is True
+    assert db0.get_type_stats(AccessControlBase)["access_control"] is True
+
+
+def test_access_control_base_is_not_persisted_by_derived_class(db0_fixture):
+    @db0.memo(id="dbzero-software/dbzero/tests/access-control-runtime-base")
+    @dataclass
+    class AccessControlBaseBefore:
+        name: str
+
+    @db0.memo(id="dbzero-software/dbzero/tests/access-control-runtime-derived", access_control=True)
+    @dataclass
+    class AccessControlDerivedBefore(AccessControlBaseBefore):
+        value: int
+
+    base = AccessControlBaseBefore("base")
+    _ = AccessControlDerivedBefore("derived", 1)
+    base_id = db0.uuid(base)
+    assert get_memo_class_object(base).get_type_flags()["access_control"] is True
+    db0.commit()
+
+    db0.close()
+    script = f"""
+import json
+from dataclasses import dataclass
+import dbzero as db0
+
+db0.init({DB0_DIR!r})
+db0.open("my-test-prefix")
+
+@db0.memo(id="dbzero-software/dbzero/tests/access-control-runtime-base")
+@dataclass
+class AccessControlBaseAfter:
+    name: str
+
+base = db0.fetch(AccessControlBaseAfter, {base_id!r})
+print(json.dumps(db0.get_memo_class(base).get_class().get_type_flags()["access_control"]))
+db0.close()
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", textwrap.dedent(script)],
+        check=True,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    assert json.loads(result.stdout) is False
 
 
 def test_reset_protect_fields_rejects_type_still_decorated_as_protected(db0_fixture):

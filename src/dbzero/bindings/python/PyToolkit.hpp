@@ -225,6 +225,7 @@ namespace db0::python
         static bool isImmutable(TypeObjectPtr);
         static bool isIntern(TypeObjectPtr);
         static bool isProtectFields(TypeObjectPtr);
+        static bool isAccessControl(TypeObjectPtr);
         static FlagSet<MemoOptions> getMemoFlags(TypeObjectPtr);
         static bool hasMemoInstance(ObjectPtr);
         static UniqueAddress getMemoUniqueAddress(ObjectPtr);

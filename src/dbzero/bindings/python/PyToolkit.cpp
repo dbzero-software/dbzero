@@ -1177,6 +1177,15 @@ namespace db0::python
         }
     }
 
+    bool PyToolkit::isAccessControl(TypeObjectPtr py_type)
+    {
+        if (isAnyMemoType(py_type)) {
+            return MemoTypeDecoration::get(py_type).getFlags()[MemoOptions::ACCESS_CONTROL];
+        } else {
+            return false;
+        }
+    }
+
     FlagSet<MemoOptions> PyToolkit::getMemoFlags(TypeObjectPtr py_type)
     {
         if (isAnyMemoType(py_type)) {
