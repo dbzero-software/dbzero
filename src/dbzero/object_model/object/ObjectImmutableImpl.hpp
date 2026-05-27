@@ -8,6 +8,8 @@
 
 #include <functional>
 #include <optional>
+#include <string>
+#include <unordered_set>
 
 namespace db0::object_model
 

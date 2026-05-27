@@ -5,6 +5,8 @@
 
 #include <cstring>
 #include <memory>
+#include <utility>
+#include <vector>
 
 #include <dbzero/bindings/TypeId.hpp>
 #include <dbzero/bindings/python/PySafeAPI.hpp>
