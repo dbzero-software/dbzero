@@ -614,14 +614,9 @@ namespace db0
         updateDataMaskingSettingsFlag();
     }
 
-    std::shared_ptr<DataMaskingState> Workspace::getDataMaskingState() const
-    {
-        return m_data_masking_state;
-    }
-
     std::shared_ptr<DataMaskingState> Workspace::getDataMaskingState(const PrefixName &prefix_name) const
     {
-        if (m_data_masking_state) {
+        if (!prefix_name || m_data_masking_state) {
             return m_data_masking_state;
         }
         auto it = m_prefix_data_masking_states.find(prefix_name.get());
@@ -662,14 +657,9 @@ namespace db0
         updateDataFilterSettingsFlag();
     }
 
-    std::shared_ptr<DataFilterState> Workspace::getDataFilterState() const
-    {
-        return m_data_filter_state;
-    }
-
     std::shared_ptr<DataFilterState> Workspace::getDataFilterState(const PrefixName &prefix_name) const
     {
-        if (m_data_filter_state) {
+        if (!prefix_name || m_data_filter_state) {
             return m_data_filter_state;
         }
         auto it = m_prefix_data_filter_states.find(prefix_name.get());

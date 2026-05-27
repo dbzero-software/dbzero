@@ -120,6 +120,14 @@ def get_type_stats(type: type, prefix: Optional[str] = None) -> Dict[str, Any]:
     """
     ...
 
+def get_prefix_stats(prefix: Optional[str] = None) -> Dict[str, Any]:
+    """Retrieve statistics for a prefix.
+
+    The result includes ``data_masking["enabled"]`` and ``data_filter["enabled"]``
+    to report whether the opened prefix has those runtime states attached.
+    """
+    ...
+
 # Object retrieval and management
 
 def fetch(identifier: Union[str, type], expected_type: Optional[type] = None, prefix: Optional[str] = None) -> Memo:

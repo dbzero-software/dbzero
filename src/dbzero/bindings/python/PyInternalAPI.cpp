@@ -672,6 +672,26 @@ namespace db0::python
         PySafeDict_SetItemString(*sp_dict, "size", Py_OWN(PyLong_FromLong(fixture->getLimitedStringPool().size())));
         PySafeDict_SetItemString(*stats_dict, "string_pool", sp_dict);
 
+        auto data_masking_dict = Py_OWN(PyDict_New());
+        if (!data_masking_dict) {
+            return nullptr;
+        }
+        PySafeDict_SetItemString(
+            *data_masking_dict,
+            "enabled",
+            Py_OWN(PyBool_fromBool(static_cast<bool>(fixture->getMaskingState()))));
+        PySafeDict_SetItemString(*stats_dict, "data_masking", data_masking_dict);
+
+        auto data_filter_dict = Py_OWN(PyDict_New());
+        if (!data_filter_dict) {
+            return nullptr;
+        }
+        PySafeDict_SetItemString(
+            *data_filter_dict,
+            "enabled",
+            Py_OWN(PyBool_fromBool(static_cast<bool>(fixture->getFilterState()))));
+        PySafeDict_SetItemString(*stats_dict, "data_filter", data_filter_dict);
+
         auto cache_dict = Py_OWN(PyDict_New());
         if (!cache_dict) {
             return nullptr;

@@ -1059,12 +1059,6 @@ namespace db0::python
         }
 
         for (const auto &prefixName: prefixes) {
-            if (!isOpenFixture(prefixName, "data filter")) {
-                return nullptr;
-            }
-        }
-
-        for (const auto &prefixName: prefixes) {
             auto prefix = PrefixName(prefixName);
             auto existingState = workspace.getDataFilterState(prefix);
             if (existingState) {

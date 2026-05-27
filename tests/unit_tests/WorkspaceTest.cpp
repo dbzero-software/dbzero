@@ -157,6 +157,14 @@ namespace tests
         ASSERT_EQ(snapshot_fixture->getMaskingState(), masking_state);
     }
 
+    TEST_F( WorkspaceTest , testInvalidPrefixNameRetrievesWorkspaceMaskingState )
+    {
+        auto masking_state = makeTestMaskingState(5);
+        m_workspace.initDataMasking(masking_state);
+
+        ASSERT_EQ(m_workspace.getDataMaskingState(PrefixName()), masking_state);
+    }
+
     TEST_F( WorkspaceTest , testSettingsDataMaskingEnabledTracksWorkspaceScopeOpenFixtures )
     {
         auto masking_state = makeTestMaskingState(3);
@@ -208,6 +216,24 @@ namespace tests
         auto snapshot_fixture = workspace_view->getFixture(fixture->getUUID(), AccessType::READ_ONLY);
 
         ASSERT_EQ(snapshot_fixture->getFilterState(), filter_state);
+    }
+
+    TEST_F( WorkspaceTest , testPrefixFilterStateIsAppliedWhenPrefixOpensLater )
+    {
+        auto filter_state = makeTestFilterState(6);
+        m_workspace.initDataFilter(getPrefixName(), filter_state);
+
+        auto fixture = m_workspace.getFixture(getPrefixName());
+
+        ASSERT_EQ(fixture->getFilterState(), filter_state);
+    }
+
+    TEST_F( WorkspaceTest , testInvalidPrefixNameRetrievesWorkspaceFilterState )
+    {
+        auto filter_state = makeTestFilterState(5);
+        m_workspace.initDataFilter(filter_state);
+
+        ASSERT_EQ(m_workspace.getDataFilterState(PrefixName()), filter_state);
     }
 
     TEST_F( WorkspaceTest , testSettingsDataFilterEnabledTracksWorkspaceScopeOpenFixtures )

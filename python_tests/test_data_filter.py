@@ -50,9 +50,13 @@ def test_init_data_filter_general_scope_lifecycle(db0_fixture):
         )
 
 
-def test_init_data_filter_requires_open_prefix(db0_fixture):
-    with pytest.raises(ValueError, match="open"):
-        db0._init_data_filter(predicate, prefix="not-opened")
+def test_init_data_filter_allows_prefix_before_open(db0_fixture):
+    prefix_name = "not-yet-opened-data-filter-prefix"
+    db0._init_data_filter(predicate, prefix=prefix_name, mode="DEBUG")
+    db0.open(prefix_name)
+
+    stats = db0.get_prefix_stats(prefix=prefix_name)
+    assert stats["data_filter"]["enabled"] is True
 
     db0.open("readonly-data-filter-prefix")
     db0.close("readonly-data-filter-prefix")
