@@ -44,6 +44,8 @@ namespace db0
 
         std::shared_ptr<DataMaskingState> getDataMaskingState() const override;
         std::shared_ptr<DataMaskingState> getDataMaskingState(const PrefixName &) const override;
+        std::shared_ptr<DataFilterState> getDataFilterState() const override;
+        std::shared_ptr<DataFilterState> getDataFilterState(const PrefixName &) const override;
 
         Snapshot &getHeadWorkspace() const override;
         

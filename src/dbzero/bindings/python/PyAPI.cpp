@@ -45,6 +45,7 @@
 #include <dbzero/core/threading/SafeRMutex.hpp>
 #include <cstring>
 #include <memory>
+#include <sstream>
 #include <vector>
 
 namespace db0::python
@@ -133,12 +134,14 @@ namespace db0::python
             return true;
         }
 
-        bool isOpenFixture(const std::string &prefixName)
+        bool isOpenFixture(const std::string &prefixName, const char *featureName)
         {
             auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
             auto fixture = workspace.tryFindFixture(PrefixName(prefixName));
             if (!fixture) {
-                PyErr_SetString(PyExc_ValueError, "data masking prefix must be open");
+                std::ostringstream message;
+                message << featureName << " prefix must be open";
+                PyErr_SetString(PyExc_ValueError, message.str().c_str());
                 return false;
             }
             return true;
@@ -971,7 +974,7 @@ namespace db0::python
         }
 
         for (const auto &prefixName: prefixes) {
-            if (!isOpenFixture(prefixName)) {
+            if (!isOpenFixture(prefixName, "data masking")) {
                 return nullptr;
             }
         }
@@ -997,6 +1000,90 @@ namespace db0::python
     {
         PY_API_FUNC
         return runSafe(tryInitDataMasking, args, kwargs);
+    }
+
+    PyObject *tryInitDataFilter(PyObject *args, PyObject *kwargs)
+    {
+        PyObject *pyContextVar = nullptr;
+        PyObject *pyPrefix = nullptr;
+        PyObject *pyMode = nullptr;
+        static const char *kwlist[] = {
+            "context_var", "prefix", "mode", NULL
+        };
+        if (!PyArg_ParseTupleAndKeywords(
+                args,
+                kwargs,
+                "O|OO:_init_data_filter",
+                const_cast<char**>(kwlist),
+                &pyContextVar,
+                &pyPrefix,
+                &pyMode)) {
+            return nullptr;
+        }
+
+        PyObject *contextValue = nullptr;
+        if (PyContextVar_Get(pyContextVar, NULL, &contextValue) < 0) {
+            PyErr_SetString(PyExc_TypeError, "context_var must be a contextvars.ContextVar");
+            return nullptr;
+        }
+        Py_XDECREF(contextValue);
+
+        auto mode = parseDataMaskingMode(pyMode);
+        if (PyErr_Occurred()) {
+            return nullptr;
+        }
+
+        auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
+        auto binding = std::make_shared<DataFilterState>(pyContextVar, mode);
+
+        if (!pyPrefix || pyPrefix == Py_None) {
+            auto existingState = workspace.getDataFilterState();
+            if (existingState) {
+                if (!existingState->matches(pyContextVar, mode)) {
+                    PyErr_SetString(PyExc_RuntimeError, "data filter binding for workspace cannot be changed");
+                    return nullptr;
+                }
+                Py_RETURN_NONE;
+            }
+            workspace.initDataFilter(binding);
+            Py_RETURN_NONE;
+        }
+
+        std::vector<std::string> prefixes;
+        if (!appendPrefixSpec(pyPrefix, prefixes)) {
+            return nullptr;
+        }
+        if (prefixes.empty()) {
+            PyErr_SetString(PyExc_ValueError, "prefix must include at least one prefix");
+            return nullptr;
+        }
+
+        for (const auto &prefixName: prefixes) {
+            if (!isOpenFixture(prefixName, "data filter")) {
+                return nullptr;
+            }
+        }
+
+        for (const auto &prefixName: prefixes) {
+            auto prefix = PrefixName(prefixName);
+            auto existingState = workspace.getDataFilterState(prefix);
+            if (existingState) {
+                if (!existingState->matches(pyContextVar, mode)) {
+                    PyErr_SetString(PyExc_RuntimeError, "data filter binding for fixture cannot be changed");
+                    return nullptr;
+                }
+                continue;
+            }
+            workspace.initDataFilter(prefix, binding);
+        }
+
+        Py_RETURN_NONE;
+    }
+
+    PyObject *initDataFilter(PyObject *, PyObject *args, PyObject *kwargs)
+    {
+        PY_API_FUNC
+        return runSafe(tryInitDataFilter, args, kwargs);
     }
 
     namespace

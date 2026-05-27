@@ -646,6 +646,14 @@ def _init_data_masking(
     """Initialize workspace-wide or prefix-scoped data masking for the current process."""
     ...
 
+def _init_data_filter(
+    context_var: Any,
+    prefix: Union[str, Any, Sequence[Any], None] = None,
+    mode: str = "RELEASE",
+) -> None:
+    """Initialize workspace-wide or prefix-scoped data filtering for the current process."""
+    ...
+
 # Cache management
 
 def clear_cache() -> None:

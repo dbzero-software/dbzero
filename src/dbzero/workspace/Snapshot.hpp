@@ -16,6 +16,7 @@ namespace db0
 
     class Fixture;
     struct DataMaskingState;
+    struct DataFilterState;
     class LangCache;
     class PrefixName;
     class ProcessTimer;
@@ -57,6 +58,8 @@ namespace db0
 
         virtual std::shared_ptr<DataMaskingState> getDataMaskingState() const;
         virtual std::shared_ptr<DataMaskingState> getDataMaskingState(const PrefixName &) const;
+        virtual std::shared_ptr<DataFilterState> getDataFilterState() const;
+        virtual std::shared_ptr<DataFilterState> getDataFilterState(const PrefixName &) const;
         
         db0::swine_ptr<Fixture> findFixture(const PrefixName &) const;
         

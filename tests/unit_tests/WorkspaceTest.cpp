@@ -27,6 +27,13 @@ namespace tests
             reinterpret_cast<DataMaskingState *>(value),
             [](DataMaskingState *) {});
     }
+
+    std::shared_ptr<DataFilterState> makeTestFilterState(std::uintptr_t value)
+    {
+        return std::shared_ptr<DataFilterState>(
+            reinterpret_cast<DataFilterState *>(value),
+            [](DataFilterState *) {});
+    }
     
     class WorkspaceTest: public testing::Test
     {
@@ -174,6 +181,59 @@ namespace tests
 
         m_workspace.close(fixture->getPrefix().getName());
         ASSERT_FALSE(Settings::m_data_masking_enabled);
+    }
+
+    TEST_F( WorkspaceTest , testWorkspaceViewFixtureByNameKeepsWorkspaceFilterState )
+    {
+        auto filter_state = makeTestFilterState(1);
+        m_workspace.initDataFilter(filter_state);
+
+        auto fixture = m_workspace.getFixture(getPrefixName());
+        fixture->commit();
+
+        auto workspace_view = m_workspace.getWorkspaceView(fixture->getStateNum());
+        auto snapshot_fixture = workspace_view->getFixture(getPrefixName(), AccessType::READ_ONLY);
+
+        ASSERT_EQ(snapshot_fixture->getFilterState(), filter_state);
+    }
+
+    TEST_F( WorkspaceTest , testWorkspaceViewFixtureByUuidKeepsPrefixFilterState )
+    {
+        auto fixture = m_workspace.getFixture(getPrefixName());
+        auto filter_state = makeTestFilterState(2);
+        m_workspace.initDataFilter(getPrefixName(), filter_state);
+        fixture->commit();
+
+        auto workspace_view = m_workspace.getWorkspaceView(fixture->getStateNum());
+        auto snapshot_fixture = workspace_view->getFixture(fixture->getUUID(), AccessType::READ_ONLY);
+
+        ASSERT_EQ(snapshot_fixture->getFilterState(), filter_state);
+    }
+
+    TEST_F( WorkspaceTest , testSettingsDataFilterEnabledTracksWorkspaceScopeOpenFixtures )
+    {
+        auto filter_state = makeTestFilterState(3);
+        m_workspace.initDataFilter(filter_state);
+        ASSERT_FALSE(Settings::m_data_filter_enabled);
+
+        auto fixture = m_workspace.getFixture(getPrefixName());
+        ASSERT_TRUE(Settings::m_data_filter_enabled);
+
+        m_workspace.close(fixture->getPrefix().getName());
+        ASSERT_FALSE(Settings::m_data_filter_enabled);
+    }
+
+    TEST_F( WorkspaceTest , testSettingsDataFilterEnabledTracksPrefixScopeOpenFixtures )
+    {
+        auto filter_state = makeTestFilterState(4);
+        m_workspace.initDataFilter(getPrefixName(), filter_state);
+        ASSERT_FALSE(Settings::m_data_filter_enabled);
+
+        auto fixture = m_workspace.getFixture(getPrefixName());
+        ASSERT_TRUE(Settings::m_data_filter_enabled);
+
+        m_workspace.close(fixture->getPrefix().getName());
+        ASSERT_FALSE(Settings::m_data_filter_enabled);
     }
     
     TEST_F( WorkspaceTest , testFreeCanBePerformedBetweenTransactions )
