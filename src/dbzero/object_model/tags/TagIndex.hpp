@@ -152,6 +152,8 @@ DB0_PACKED_END
         std::unique_ptr<QueryIterator> makeIterator(ShortTagT) const;
         std::unique_ptr<QueryIterator> makeIterator(const std::vector<ShortTagT> &tag_sequence,
             int direction = -1) const;
+        std::unique_ptr<QueryIterator> makeMissingIterator(std::vector<ShortTagT> &&tag_sequence,
+            int direction = -1) const;
         
     private:
         using TypeId = db0::bindings::TypeId;

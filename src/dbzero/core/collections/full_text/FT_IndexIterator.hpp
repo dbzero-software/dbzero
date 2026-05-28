@@ -309,10 +309,10 @@ namespace db0
 		// Deserialization cannot use the nested index address directly because child
 		// indexes must be resolved from the root TagIndex in the target snapshot.
 		if (m_index_key_sequence.empty()) {
-			db0::serial::write<std::uint64_t>(v, 1);
+			db0::serial::write<std::uint32_t>(v, 1);
 			db0::serial::write(v, *m_index_key);
 		} else {
-			db0::serial::write<std::uint64_t>(v, m_index_key_sequence.size());
+			db0::serial::write<std::uint32_t>(v, m_index_key_sequence.size());
 			for (auto const &index_key: m_index_key_sequence) {
 				db0::serial::write(v, index_key);
 			}

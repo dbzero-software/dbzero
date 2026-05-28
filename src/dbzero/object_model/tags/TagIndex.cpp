@@ -14,6 +14,7 @@
 #include <dbzero/core/collections/full_text/FT_ANDIterator.hpp>
 #include <dbzero/core/collections/full_text/FT_ANDNOTIterator.hpp>
 #include <dbzero/core/collections/full_text/FT_FixedKeyIterator.hpp>
+#include <dbzero/core/collections/full_text/FT_MissingIndexIterator.hpp>
 #include <dbzero/object_model/tags/TagSet.hpp>
 #include <dbzero/object_model/tags/TagDef.hpp>
 #include <dbzero/object_model/enum/Enum.hpp>
@@ -697,7 +698,20 @@ namespace db0::object_model
                 // query as the long-tag
                 return m_base_index_long.addIterator(factory, getLongTag(type_id, arg));
             } else {
-                return m_base_index_short.addIterator(factory, getShortTag(type_id, arg));
+                auto short_tag = getShortTag(type_id, arg);
+                if (m_base_index_short.addIterator(factory, short_tag)) {
+                    return true;
+                }
+                bool inc_ref = false;
+                auto missing_tag = tryAddShortTag(type_id, arg, inc_ref);
+                if (!missing_tag) {
+                    return false;
+                }
+                if (inc_ref) {
+                    m_inc_refed_tags.insert(*missing_tag);
+                }
+                factory.add(makeMissingIterator(std::vector<ShortTagT> { *missing_tag }));
+                return true;
             }
         }
         
@@ -795,7 +809,7 @@ namespace db0::object_model
     bool TagIndex::addCompositeIterator(const CompositeTagDef &tag,
         db0::FT_IteratorFactory<UniqueAddress> &factory) const
     {
-        if (tag.size() < 2 || !m_short_tag_index_map) {
+        if (tag.size() < 2) {
             return false;
         }
 
@@ -803,6 +817,28 @@ namespace db0::object_model
         auto first_key = tryGetCompositeKey(items[0].get());
         if (!first_key) {
             return false;
+        }
+
+        // Serialization needs the full root-to-leaf tag key path; lookup below
+        // only uses the current nested TagIndex plus the leaf key.
+        std::vector<ShortTagT> serialized_tag_sequence;
+        serialized_tag_sequence.reserve(items.size());
+        serialized_tag_sequence.push_back(*first_key);
+
+        auto add_missing_composite_iterator = [&]() {
+            for (std::size_t i = serialized_tag_sequence.size(); i < items.size(); ++i) {
+                auto tag_key = tryGetCompositeKey(items[i].get());
+                if (!tag_key) {
+                    return false;
+                }
+                serialized_tag_sequence.push_back(*tag_key);
+            }
+            factory.add(makeMissingIterator(std::move(serialized_tag_sequence)));
+            return true;
+        };
+
+        if (!m_short_tag_index_map) {
+            return add_missing_composite_iterator();
         }
 
         auto current_tag_index_ptr = m_short_tag_index_map->tryGet(
@@ -814,22 +850,19 @@ namespace db0::object_model
             m_mutation_log
         );
         if (!current_tag_index_ptr) {
-            return false;
+            return add_missing_composite_iterator();
         }
-
-        // Serialization needs the full root-to-leaf tag key path; lookup below
-        // only uses the current nested TagIndex plus the leaf key.
-        std::vector<ShortTagT> serialized_tag_sequence;
-        serialized_tag_sequence.reserve(items.size());
-        serialized_tag_sequence.push_back(*first_key);
 
         auto *current_tag_index = current_tag_index_ptr.get();
         for (std::size_t i = 1; i + 1 < items.size(); ++i) {
             auto tag_key = current_tag_index->tryGetCompositeKey(items[i].get());
-            if (!tag_key || !current_tag_index->m_short_tag_index_map) {
+            if (!tag_key) {
                 return false;
             }
             serialized_tag_sequence.push_back(*tag_key);
+            if (!current_tag_index->m_short_tag_index_map) {
+                return add_missing_composite_iterator();
+            }
             current_tag_index_ptr = current_tag_index->m_short_tag_index_map->tryGet(
                 *tag_key,
                 current_tag_index->m_class_factory,
@@ -839,7 +872,7 @@ namespace db0::object_model
                 current_tag_index->m_mutation_log
             );
             if (!current_tag_index_ptr) {
-                return false;
+                return add_missing_composite_iterator();
             }
             current_tag_index = current_tag_index_ptr.get();
         }
@@ -872,7 +905,11 @@ namespace db0::object_model
         // complete root-to-leaf sequence is attached only so serialized queries can
         // reopen the same nested index by traversing from the root during deserialize.
         serialized_tag_sequence.push_back(*leaf_key);
-        return m_base_index_short.addIterator(factory, *leaf_key, std::move(serialized_tag_sequence));
+        if (m_base_index_short.addIterator(factory, *leaf_key, std::vector<ShortTagT>(serialized_tag_sequence))) {
+            return true;
+        }
+        factory.add(makeMissingIterator(std::move(serialized_tag_sequence)));
+        return true;
     }
 
     std::optional<TagIndex::ShortTagT> TagIndex::tryGetCompositeKey(ObjectPtr arg) const
@@ -886,8 +923,17 @@ namespace db0::object_model
         if (typeId == TypeId::DB0_TAG) {
             return tryAddShortTagFromTag(arg);
         }
-        if (typeId == TypeId::STRING || typeId == TypeId::DB0_ENUM_VALUE || typeId == TypeId::DB0_ENUM_VALUE_REPR ||
+        if (typeId == TypeId::STRING || typeId == TypeId::DB0_ENUM_VALUE ||
             typeId == TypeId::DB0_FIELD_DEF || typeId == TypeId::DB0_CLASS)
+        {
+            bool inc_ref = false;
+            auto tag_key = tryAddShortTag(typeId, arg, inc_ref);
+            if (inc_ref && tag_key) {
+                m_inc_refed_tags.insert(*tag_key);
+            }
+            return tag_key;
+        }
+        if (typeId == TypeId::DB0_ENUM_VALUE_REPR)
         {
             return getShortTag(typeId, arg);
         }
@@ -1293,6 +1339,19 @@ namespace db0::object_model
 
         return current_tag_index->m_base_index_short.makeIterator(
             tag_sequence.back(), direction, std::vector<ShortTagT>(tag_sequence)
+        );
+    }
+
+    std::unique_ptr<TagIndex::QueryIterator> TagIndex::makeMissingIterator(std::vector<ShortTagT> &&tag_sequence,
+        int direction) const
+    {
+        if (tag_sequence.empty()) {
+            return nullptr;
+        }
+        return std::make_unique<db0::FT_MissingIndexIterator<UniqueAddress, ShortTagT> >(
+            m_fixture_uuid,
+            direction,
+            std::move(tag_sequence)
         );
     }
     

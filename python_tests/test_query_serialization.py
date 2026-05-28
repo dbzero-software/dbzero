@@ -85,6 +85,53 @@ def test_deserialize_query_from_bytes(db0_fixture, memo_tags):
     assert len(list(query)) == 10
 
 
+def test_deserialize_missing_tag_query_matches_after_tag_is_created(db0_fixture):
+    bytes = db0.serialize(db0.find("late-tag"))
+
+    first = MemoTestClass("first")
+    second = MemoTestClass("second")
+    db0.tags(first).add("late-tag")
+    db0.tags(second).add("other-tag")
+
+    assert [item.value for item in db0.deserialize(bytes)] == ["first"]
+
+
+def test_deserialize_missing_composite_tag_query_matches_after_tag_is_created(db0_fixture):
+    bytes = db0.serialize(db0.find(db0.as_tag("GRANT-READ", "tenant-late", "active")))
+
+    document_1 = CompositeTagDocument("doc-1")
+    document_2 = CompositeTagDocument("doc-2")
+    db0.tags(document_1).add(db0.as_tag("GRANT-READ", "tenant-late", "active"))
+    db0.tags(document_2).add(db0.as_tag("GRANT-READ", "tenant-late", "archived"))
+
+    assert [doc.title for doc in db0.deserialize(bytes)] == ["doc-1"]
+
+
+def test_deserialize_missing_tag_and_query_matches_after_tag_is_created(db0_fixture):
+    visible = MemoTestClass("visible")
+    hidden = MemoTestClass("hidden")
+    db0.tags(visible).add("visible")
+
+    bytes = db0.serialize(db0.find("visible", "late-tag"))
+
+    db0.tags(visible).add("late-tag")
+    db0.tags(hidden).add("late-tag")
+
+    assert [item.value for item in db0.deserialize(bytes)] == ["visible"]
+
+
+def test_deserialize_missing_tag_or_query_matches_after_tag_is_created(db0_fixture):
+    early = MemoTestClass("early")
+    late = MemoTestClass("late")
+    db0.tags(early).add("early-tag")
+
+    bytes = db0.serialize(db0.find(["early-tag", "late-tag"]))
+
+    db0.tags(late).add("late-tag")
+
+    assert {item.value for item in db0.deserialize(bytes)} == {"early", "late"}
+
+
 def test_deserialize_from_bytes_with_snapshot(db0_fixture, memo_tags):    
     db0.commit()
     snap = db0.snapshot()

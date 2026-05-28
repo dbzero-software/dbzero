@@ -340,7 +340,6 @@ def test_data_filter_predicate_refreshes_after_matching_objects_are_committed(db
     assert list(db0.find(FilteredFindClass, "visible")) == [later, initial]
 
 
-@pytest.mark.skip(reason="TODO: preserve predicate expressions that initially resolve to no results")
 def test_data_filter_predicate_created_before_tag_exists_refreshes_after_commit(db0_fixture):
     predicate.set(db0.predicate("grant"))
     db0._init_data_filter(predicate, prefix=db0.get_current_prefix())
