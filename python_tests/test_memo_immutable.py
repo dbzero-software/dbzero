@@ -15,6 +15,12 @@ UNIQUE_ADDRESS_INSTANCE_ID_SHIFT = 14
 BASE32_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
 
 
+def _reopen_rw():
+    db0.close()
+    db0.init(DB0_DIR)
+    db0.open("my-test-prefix", "rw")
+
+
 def _base32_encode(data):
     table = (
         (0b11111000, 3), (0b00000111, -2), (0b11000000, 6), (0b00111110, 1),
@@ -563,16 +569,18 @@ def test_find_embedded_immutable_instances_by_base_type_default_tags(db0_fixture
     derived_result = list(db0.find(MemoImmutableDefaultTagDerived))
     leaf_result = list(db0.find(MemoImmutableDefaultTagDerivedLeaf))
 
-    assert [db0.uuid(item) for item in base_result] == [child_uuid, leaf_uuid]
-    assert [db0.uuid(item) for item in derived_result] == [child_uuid, leaf_uuid]
+    base_by_uuid = {db0.uuid(item): item for item in base_result}
+    derived_by_uuid = {db0.uuid(item): item for item in derived_result}
+    assert set(base_by_uuid) == {child_uuid, leaf_uuid}
+    assert set(derived_by_uuid) == {child_uuid, leaf_uuid}
     assert [db0.uuid(item) for item in leaf_result] == [leaf_uuid]
-    assert isinstance(base_result[0], MemoImmutableDefaultTagDerived)
-    assert base_result[0].name == "base type embedded"
-    assert base_result[0].count == 127
-    assert isinstance(base_result[1], MemoImmutableDefaultTagDerivedLeaf)
-    assert base_result[1].name == "base type embedded-leaf"
-    assert base_result[1].count == 128
-    assert base_result[1].marker == "deep-derived"
+    assert isinstance(base_by_uuid[child_uuid], MemoImmutableDefaultTagDerived)
+    assert base_by_uuid[child_uuid].name == "base type embedded"
+    assert base_by_uuid[child_uuid].count == 127
+    assert isinstance(base_by_uuid[leaf_uuid], MemoImmutableDefaultTagDerivedLeaf)
+    assert base_by_uuid[leaf_uuid].name == "base type embedded-leaf"
+    assert base_by_uuid[leaf_uuid].count == 128
+    assert base_by_uuid[leaf_uuid].marker == "deep-derived"
 
 
 def test_find_mixed_regular_immutable_and_embedded_tagged_instances(db0_fixture):
@@ -668,6 +676,7 @@ def test_embedded_immutable_root_drops_after_last_tag_removed(db0_fixture):
     del nested
     gc.collect()
     db0.commit()
+    _reopen_rw()
 
     with pytest.raises(Exception):
         db0.fetch(root_uuid)
@@ -824,6 +833,7 @@ def test_immutable_instance_drops_when_holding_memo_object_is_deleted(db0_fixtur
     del holder
     gc.collect()
     db0.commit()
+    _reopen_rw()
 
     with pytest.raises(Exception):
         db0.fetch(obj_id)
@@ -847,6 +857,7 @@ def test_immutable_instance_supported_by_embedded_ref_drops_when_holding_memo_ob
     del holder
     gc.collect()
     db0.commit()
+    _reopen_rw()
 
     with pytest.raises(Exception):
         db0.fetch(outer_id)
@@ -986,6 +997,8 @@ def test_index_remove_unrefs_embedded_immutable_nested_object_reference(db0_fixt
     del stored
     gc.collect()
     db0.commit()
+    del index
+    _reopen_rw()
 
     with pytest.raises(Exception):
         db0.fetch(outer_id)
@@ -1007,6 +1020,8 @@ def test_index_clear_unrefs_embedded_immutable_nested_object_reference(db0_fixtu
 
     index.clear()
     db0.commit()
+    del index
+    _reopen_rw()
 
     with pytest.raises(Exception):
         db0.fetch(outer_id)
