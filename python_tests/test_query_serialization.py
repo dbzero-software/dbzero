@@ -4,6 +4,7 @@
 import pytest
 import dbzero as db0
 from .memo_test_types import MemoTestClass
+from .test_composite_tags import CompositeTagDocument
 
 
 def test_serialized_query_can_be_stored_as_member(db0_fixture):
@@ -101,3 +102,51 @@ def test_serialize_sliced_query(db0_fixture, memo_tags):
     bytes = db0.serialize(db0.find("tag1")[2:])
     query = db0.deserialize(bytes)
     assert len(query) == len(db0.find("tag1")[2:])
+
+
+def test_deserialize_nested_composite_tag_query_from_bytes(db0_fixture):
+    document_1 = CompositeTagDocument("doc-1")
+    document_2 = CompositeTagDocument("doc-2")
+    document_3 = CompositeTagDocument("doc-3")
+    document_4 = CompositeTagDocument("doc-4")
+
+    db0.tags(document_1).add(db0.as_tag("GRANT-READ", "tenant-1", "active"))
+    db0.tags(document_2).add(db0.as_tag("GRANT-READ", "tenant-1", "archived"))
+    db0.tags(document_3).add(db0.as_tag("GRANT-READ", "tenant-2", "active"))
+    db0.tags(document_4).add("active")
+
+    bytes = db0.serialize(db0.find(db0.as_tag("GRANT-READ", "tenant-1", "active")))
+    query = db0.deserialize(bytes)
+
+    assert [doc.title for doc in query] == ["doc-1"]
+
+
+def test_stored_nested_composite_tag_query_can_be_deserialized(db0_fixture):
+    document_1 = CompositeTagDocument("doc-1")
+    document_2 = CompositeTagDocument("doc-2")
+    document_3 = CompositeTagDocument("doc-3")
+
+    db0.tags(document_1).add(db0.as_tag("GRANT-READ", "tenant-1", "active"))
+    db0.tags(document_2).add(db0.as_tag("GRANT-READ", "tenant-1", "archived"))
+    db0.tags(document_3).add("active")
+
+    query_object = MemoTestClass(db0.find(db0.as_tag("GRANT-READ", "tenant-1", "active")))
+
+    assert [doc.title for doc in query_object.value] == ["doc-1"]
+
+
+def test_deserialize_nested_composite_tag_query_with_type_and_simple_tag(db0_fixture):
+    document_1 = CompositeTagDocument("doc-1")
+    document_2 = CompositeTagDocument("doc-2")
+    document_3 = CompositeTagDocument("doc-3")
+
+    db0.tags(document_1).add(db0.as_tag("GRANT-READ", "tenant-1", "active"), "visible")
+    db0.tags(document_2).add(db0.as_tag("GRANT-READ", "tenant-1", "active"), "hidden")
+    db0.tags(document_3).add("active", "visible")
+
+    bytes = db0.serialize(
+        db0.find(CompositeTagDocument, db0.as_tag("GRANT-READ", "tenant-1", "active"), "visible")
+    )
+    query = db0.deserialize(bytes)
+
+    assert [doc.title for doc in query] == ["doc-1"]

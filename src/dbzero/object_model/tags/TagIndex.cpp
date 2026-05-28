@@ -678,14 +678,15 @@ namespace db0::object_model
     }
     
     bool TagIndex::addIterator(ObjectPtr arg, db0::FT_IteratorFactory<UniqueAddress> &factory,
-        std::vector<std::unique_ptr<QueryIterator> > &neg_iterators, std::vector<std::unique_ptr<QueryObserver> > &query_observers) const
+        std::vector<std::unique_ptr<QueryIterator> > &neg_iterators,
+        std::vector<std::unique_ptr<QueryObserver> > &query_observers) const
     {
         using TypeId = db0::bindings::TypeId;
         using IterableSequence = TagMakerSequence<ForwardIterator, ObjectSharedPtr>;
         
         auto type_id = LangToolkit::getTypeManager().getTypeId(arg);
         if (type_id == TypeId::DB0_COMPOSITE_TAG) {
-            return addCompositeIterator(LangToolkit::getTypeManager().extractCompositeTag(arg), factory, query_observers);
+            return addCompositeIterator(LangToolkit::getTypeManager().extractCompositeTag(arg), factory);
         }
 
         // simple tag-convertible type
@@ -792,57 +793,86 @@ namespace db0::object_model
     }
 
     bool TagIndex::addCompositeIterator(const CompositeTagDef &tag,
-        db0::FT_IteratorFactory<UniqueAddress> &factory,
-        std::vector<std::unique_ptr<QueryObserver> > &query_observers) const
+        db0::FT_IteratorFactory<UniqueAddress> &factory) const
     {
         if (tag.size() < 2 || !m_short_tag_index_map) {
             return false;
         }
 
         auto const &items = tag.getItems();
-        auto firstKey = tryGetCompositeKey(items[0].get());
-        if (!firstKey) {
+        auto first_key = tryGetCompositeKey(items[0].get());
+        if (!first_key) {
             return false;
         }
 
-        auto currentTagIndexPtr = m_short_tag_index_map->tryGet(
-            *firstKey,
+        auto current_tag_index_ptr = m_short_tag_index_map->tryGet(
+            *first_key,
             m_class_factory,
             m_enum_factory,
             m_string_pool,
             m_cache,
             m_mutation_log
         );
-        if (!currentTagIndexPtr) {
+        if (!current_tag_index_ptr) {
             return false;
         }
 
-        auto *currentTagIndex = currentTagIndexPtr.get();
+        // Serialization needs the full root-to-leaf tag key path; lookup below
+        // only uses the current nested TagIndex plus the leaf key.
+        std::vector<ShortTagT> serialized_tag_sequence;
+        serialized_tag_sequence.reserve(items.size());
+        serialized_tag_sequence.push_back(*first_key);
+
+        auto *current_tag_index = current_tag_index_ptr.get();
         for (std::size_t i = 1; i + 1 < items.size(); ++i) {
-            auto key = currentTagIndex->tryGetCompositeKey(items[i].get());
-            if (!key || !currentTagIndex->m_short_tag_index_map) {
+            auto tag_key = current_tag_index->tryGetCompositeKey(items[i].get());
+            if (!tag_key || !current_tag_index->m_short_tag_index_map) {
                 return false;
             }
-            currentTagIndexPtr = currentTagIndex->m_short_tag_index_map->tryGet(
-                *key,
-                currentTagIndex->m_class_factory,
-                currentTagIndex->m_enum_factory,
-                currentTagIndex->m_string_pool,
-                currentTagIndex->m_cache,
-                currentTagIndex->m_mutation_log
+            serialized_tag_sequence.push_back(*tag_key);
+            current_tag_index_ptr = current_tag_index->m_short_tag_index_map->tryGet(
+                *tag_key,
+                current_tag_index->m_class_factory,
+                current_tag_index->m_enum_factory,
+                current_tag_index->m_string_pool,
+                current_tag_index->m_cache,
+                current_tag_index->m_mutation_log
             );
-            if (!currentTagIndexPtr) {
+            if (!current_tag_index_ptr) {
                 return false;
             }
-            currentTagIndex = currentTagIndexPtr.get();
+            current_tag_index = current_tag_index_ptr.get();
         }
 
-        std::vector<std::unique_ptr<QueryIterator> > negIterators;
-        auto result = currentTagIndex->addIterator(items.back().get(), factory, negIterators, query_observers);
-        if (!negIterators.empty()) {
-            THROWF(db0::InputException) << "Negated composite tag leaves are not supported" << THROWF_END;
+        return current_tag_index->addCompositeLeafIterator(
+            items.back().get(),
+            factory,
+            std::move(serialized_tag_sequence)
+        );
+    }
+    
+    bool TagIndex::addCompositeLeafIterator(ObjectPtr arg, db0::FT_IteratorFactory<UniqueAddress> &factory,
+        std::vector<ShortTagT> &&serialized_tag_sequence) const
+    {
+        using TypeId = db0::bindings::TypeId;
+
+        auto type_id = LangToolkit::getTypeManager().getTypeId(arg);
+        if (type_id == TypeId::DB0_COMPOSITE_TAG) {
+            THROWF(db0::InputException) << "Nested composite tag leaves are not supported" << THROWF_END;
         }
-        return result;
+        if (isLongTag(type_id, arg)) {
+            return m_base_index_long.addIterator(factory, getLongTag(type_id, arg));
+        }
+
+        auto leaf_key = tryGetCompositeKey(arg);
+        if (!leaf_key) {
+            return false;
+        }
+        // current TagIndex is already the correct nested index for lookup. The
+        // complete root-to-leaf sequence is attached only so serialized queries can
+        // reopen the same nested index by traversing from the root during deserialize.
+        serialized_tag_sequence.push_back(*leaf_key);
+        return m_base_index_short.addIterator(factory, *leaf_key, std::move(serialized_tag_sequence));
     }
 
     std::optional<TagIndex::ShortTagT> TagIndex::tryGetCompositeKey(ObjectPtr arg) const
@@ -1228,6 +1258,42 @@ namespace db0::object_model
     std::unique_ptr<TagIndex::QueryIterator> TagIndex::makeIterator(ShortTagT tag) const {
         flush();
         return m_base_index_short.makeIterator(tag);
+    }
+
+    std::unique_ptr<TagIndex::QueryIterator> TagIndex::makeIterator(const std::vector<ShortTagT> &tag_sequence,
+        int direction) const
+    {
+        if (tag_sequence.empty()) {
+            return nullptr;
+        }
+
+        flush();
+        auto const *current_tag_index = this;
+        std::vector<std::shared_ptr<TagIndex> > keep_alive;
+        keep_alive.reserve(tag_sequence.size() - 1);
+
+        for (std::size_t i = 0; i + 1 < tag_sequence.size(); ++i) {
+            if (!current_tag_index->m_short_tag_index_map) {
+                return nullptr;
+            }
+            auto child_tag_index = current_tag_index->m_short_tag_index_map->tryGet(
+                tag_sequence[i],
+                current_tag_index->m_class_factory,
+                current_tag_index->m_enum_factory,
+                current_tag_index->m_string_pool,
+                current_tag_index->m_cache,
+                current_tag_index->m_mutation_log
+            );
+            if (!child_tag_index) {
+                return nullptr;
+            }
+            current_tag_index = child_tag_index.get();
+            keep_alive.push_back(std::move(child_tag_index));
+        }
+
+        return current_tag_index->m_base_index_short.makeIterator(
+            tag_sequence.back(), direction, std::vector<ShortTagT>(tag_sequence)
+        );
     }
     
     std::uint64_t getFindFixtureUUID(TagIndex::ObjectPtr obj_ptr)

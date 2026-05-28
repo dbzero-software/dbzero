@@ -10,6 +10,7 @@
 #include "FT_ORXIterator.hpp"
 #include <dbzero/core/threading/ProgressiveMutex.hpp>
 #include "LongTag.hpp"
+#include <vector>
 
 namespace db0
 
@@ -36,11 +37,18 @@ namespace db0
          * @return false if no iterator collected (e.g. no such key)
         */
         bool addIterator(FT_IteratorFactory<KeyT> &, IndexKeyT key) const;
+        // index_key_sequence is optional serialization metadata for nested
+        // composite-tag queries; it is the root-to-leaf tag key path.
+        bool addIterator(FT_IteratorFactory<KeyT> &, IndexKeyT key, std::vector<IndexKeyT> &&index_key_sequence) const;
 
         /**
          * @param key either tag or class identifier        
         */
         std::unique_ptr<FT_Iterator<KeyT> > makeIterator(IndexKeyT key, int direction = -1) const;
+        // See addIterator overload above: index_key_sequence is not used for
+        // lookup, only to serialize enough context to reopen a nested tag path.
+        std::unique_ptr<FT_Iterator<KeyT> > makeIterator(IndexKeyT key, int direction,
+            std::vector<IndexKeyT> &&index_key_sequence) const;
         
         /**
          * Match all elements from the user provided sequence
