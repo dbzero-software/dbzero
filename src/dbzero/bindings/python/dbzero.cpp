@@ -15,6 +15,7 @@
 #include "PyTagSet.hpp"
 #include "PyAtomic.hpp"
 #include "PyLocked.hpp"
+#include "PyReadOnly.hpp"
 #include "PyWeakProxy.hpp"
 #include <dbzero/bindings/python/types/PyObjectId.hpp>
 #include <dbzero/bindings/python/collections/PyList.hpp>
@@ -71,6 +72,7 @@ static PyMethodDef dbzero_methods[] =
     {"get_snapshot_of", (PyCFunction)&py::PyAPI_getSnapshotOf, METH_FASTCALL, "Get snapshot associated with a specific object"},
     {"begin_atomic", (PyCFunction)&py::PyAPI_beginAtomic, METH_FASTCALL, "Opens a new atomic operation's context"},
     {"begin_locked", (PyCFunction)&py::PyAPI_beginLocked, METH_FASTCALL, "Enter a new locked section"},
+    {"begin_read_only", (PyCFunction)&py::PyAPI_beginReadOnly, METH_FASTCALL, "Enter a new read-only section"},
     {"describe", &py::describeObject, METH_VARARGS, "Get dbzero object's description"},
     {"rename_field", (PyCFunction)&py::renameField, METH_VARARGS | METH_KEYWORDS, "Get snapshot of dbzero state"},
     {"_init_data_masking", (PyCFunction)&py::initDataMasking, METH_VARARGS | METH_KEYWORDS, "Initialize data masking for specific prefixes"},
@@ -233,11 +235,16 @@ PyMODINIT_FUNC PyInit_dbzero(void)
         &py::PyTagType,
         &py::PyCompositeTagType,
         &py::PyLockedType,
+        &py::PyReadOnlyType,
         &py::PyWeakProxyType,
     };
     
     // register all types
     try {
+        if (py::initReadOnlyContextSupport() < 0) {
+            Py_DECREF(mod);
+            return NULL;
+        }
         for (auto py_type: types) {
             initPyType(types_mod, py_type);
         }

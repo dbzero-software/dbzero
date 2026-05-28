@@ -5,6 +5,7 @@
 #include <dbzero/object_model/class/Class.hpp>
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/workspace/Fixture.hpp>
+#include <dbzero/workspace/ReadOnlyContext.hpp>
 #include <dbzero/bindings/python/types/PyCompositeTag.hpp>
 #include <Python.h>
 
@@ -223,6 +224,9 @@ namespace db0::object_model
         if (m_access_mode != AccessType::READ_WRITE) {
             THROWF(db0::InputException) << "ObjectTagManager: cannot add tags to read-only object";
         }
+        if (db0::ReadOnlyContext::isActive()) {
+            THROWF(db0::InputException) << "dbzero read_only context forbids mutation";
+        }
         m_info.add(args, nargs);
         for (std::size_t i = 0; i < m_info_vec_size; ++i) {
             m_info_vec_ptr[i].add(args, nargs);
@@ -238,6 +242,9 @@ namespace db0::object_model
         
         if (m_access_mode != AccessType::READ_WRITE) {
             THROWF(db0::InputException) << "ObjectTagManager: cannot add tags to read-only object";
+        }
+        if (db0::ReadOnlyContext::isActive()) {
+            THROWF(db0::InputException) << "dbzero read_only context forbids mutation";
         }
         m_info.remove(args, nargs);
         for (std::size_t i = 0; i < m_info_vec_size; ++i) {

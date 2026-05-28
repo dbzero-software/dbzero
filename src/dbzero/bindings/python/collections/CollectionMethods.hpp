@@ -75,7 +75,7 @@ namespace db0::python
     int PyAPI_ObjectT_SetItem(ObjectT *py_obj, Py_ssize_t i, PyObject *value)
     {
         PY_API_FUNC
-        return runSafe(tryObjectT_SetItem<ObjectT>, py_obj, i, value);
+        return runSafe<-1>(tryObjectT_SetItem<ObjectT>, py_obj, i, value);
     }
 
     template <typename ObjectT>

@@ -25,9 +25,10 @@ All tests must pass before a change is considered complete.
 - Python tests: `./scripts/run_tests.sh`
 - Final Python test checks: `./scripts/run_tests.sh -j 6`
 - C++ tests after a `-t` build: `./build/release/tests.x`
+- Broad debug/release builds and full-suite checks are final handoff validation only; run them when the user explicitly asks for handoff.
 - Before final handoff, also verify the code in debug mode with a debug build (`./scripts/build.sh -d`) and the relevant Python tests against that debug build. Debug assertions are part of the required validation, not optional diagnostics.
 - During development, do not run stress tests by default; they are intentionally slow. Run focused tests specific to the feature or refactor being worked on before finalization.
-- If any C++ source under the native/core part of the project was modified, also run the C++ test suite (do not rely on the Python tests alone to cover native changes).
+- If any C++ source under the native/core part of the project was modified, also run the C++ test suite during final handoff validation (do not rely on the Python tests alone to cover native changes).
 
 Never mark a task done while tests are failing.
 
