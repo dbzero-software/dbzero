@@ -147,9 +147,9 @@ namespace db0::object_model
 
     template <typename T, typename ImplT>
     ObjectImplBase<T, ImplT>::ObjectImplBase(
-        typename super_t::tag_no_gc, db0::swine_ptr<Fixture> &fixture, ObjectStem &&stem, std::shared_ptr<Class> type
+        tag_no_gc, db0::swine_ptr<Fixture> &fixture, ObjectStem &&stem, std::shared_ptr<Class> type
     )
-        : super_t(typename super_t::tag_no_gc(), typename super_t::tag_from_stem(), fixture, std::move(stem))
+        : super_t(tag_no_gc(), typename super_t::tag_from_stem(), fixture, std::move(stem))
     {
         this->m_type = type;
         assert(hasValidClassRef());
