@@ -38,6 +38,18 @@ jobs:
     with:
       python-version: ${{ matrix.python-version }}
 
+  test-wheels-windows:
+    needs: build-windows
+    uses: ./.github/workflows/test-windows-wheel.yml
+    with:
+      python-version: "3.12"
+
+  test-wheels-macos:
+    needs: build-macos
+    uses: ./.github/workflows/test-mac-wheel.yml
+    with:
+      python-version: "3.12"
+
   stress-test-linux:
     needs: build-linux
     strategy:
