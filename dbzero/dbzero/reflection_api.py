@@ -77,11 +77,18 @@ class MethodParam(inspect.Parameter):
 class MemoMetaClass:
     """Memo class metadata info."""
 
-    def __init__(self, name, module, class_uuid, is_singleton=False, instance_uuid=None):
+    def __init__(self, name, module, class_uuid, type_flags=None, instance_uuid=None):
         self.__name = name
         self.__module = module
         self.__class_uuid = class_uuid
-        self.__is_singleton = is_singleton
+        self.__type_flags = type_flags or {
+            "singleton": False,
+            "no_default_tags": False,
+            "immutable": False,
+            "intern": False,
+            "protect_fields": False,
+            "access_control": False,
+        }
         self.__instance_uuid = instance_uuid
         self.__cls = None
     
@@ -117,7 +124,12 @@ class MemoMetaClass:
     @property
     def is_singleton(self):
         """Is Memo class a singleton."""
-        return self.__is_singleton
+        return self.__type_flags["singleton"]
+    
+    @property
+    def type_flags(self):
+        """Memo class type flags."""
+        return self.__type_flags
     
     @property
     def instance_uuid(self):

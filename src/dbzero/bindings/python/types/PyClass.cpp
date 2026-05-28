@@ -98,9 +98,8 @@ namespace db0::python
         return runSafe(tryGetTypeInfo, reinterpret_cast<ClassObject*>(self)->ext());
     }
 
-    PyObject *tryPyClassGetTypeFlags(PyObject *self)
+    PyObject *getTypeFlags(const db0::object_model::Class &type)
     {
-        auto &type = reinterpret_cast<ClassObject*>(self)->ext();
         auto py_result = Py_OWN(PyDict_New());
         PySafeDict_SetItemString(*py_result, "singleton", Py_OWN(PyBool_fromBool(type.isSingleton())));
         PySafeDict_SetItemString(*py_result, "no_default_tags", Py_OWN(PyBool_fromBool(type.isNoDefaultTags())));
@@ -109,6 +108,11 @@ namespace db0::python
         PySafeDict_SetItemString(*py_result, "protect_fields", Py_OWN(PyBool_fromBool(type.isProtectFields())));
         PySafeDict_SetItemString(*py_result, "access_control", Py_OWN(PyBool_fromBool(type.isAccessControl())));
         return py_result.steal();
+    }
+
+    PyObject *tryPyClassGetTypeFlags(PyObject *self)
+    {
+        return getTypeFlags(reinterpret_cast<ClassObject*>(self)->ext());
     }
 
     PyObject *PyAPI_PyClass_get_type_flags(PyObject *self, PyObject *)
@@ -154,24 +158,15 @@ namespace db0::python
     }
 
     PyObject *tryGetTypeInfo(const db0::object_model::Class &type)
-    {        
-        if (type.isSingleton()) {
-            // name, module, memo_uuid, is_singleton, singleton_uuid
-            return PySafeTuple_Pack(
-                Py_OWN(PyUnicode_FromString(type.getTypeName().c_str())),
-                Py_OWN(PyUnicode_FromString(type.getModuleName().c_str())),
-                Py_OWN(PyUnicode_FromString(type.getClassId().toUUIDString().c_str())),
-                Py_OWN(PyBool_fromBool(type.isSingleton())),
-                Py_OWN(getSingletonUUID(type))
-            );
-        } else {
-            // name, module, memo_uuid
-            return PySafeTuple_Pack(
-                Py_OWN(PyUnicode_FromString(type.getTypeName().c_str())),
-                Py_OWN(PyUnicode_FromString(type.getModuleName().c_str())),
-                Py_OWN(PyUnicode_FromString(type.getClassId().toUUIDString().c_str()))
-            );
-        }        
+    {
+        // name, module, memo_uuid, type_flags, singleton_uuid
+        return PySafeTuple_Pack(
+            Py_OWN(PyUnicode_FromString(type.getTypeName().c_str())),
+            Py_OWN(PyUnicode_FromString(type.getModuleName().c_str())),
+            Py_OWN(PyUnicode_FromString(type.getClassId().toUUIDString().c_str())),
+            Py_OWN(getTypeFlags(type)),
+            Py_OWN(getSingletonUUID(type))
+        );
     }
     
 }

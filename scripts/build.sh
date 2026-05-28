@@ -5,6 +5,7 @@ function show_help {
     echo "Use: build.sh [options]"
     echo " -h, --help                   Shows this help screen."
     echo " -j, --jobs                   Threads number. Max by default."
+    echo " -d, --debug                  Compile as debug. Note: debug build is by default."
     echo " -r, --release                Compile as release. Note: debug build is by default."
     echo " -s, --sanitize               Compile with sanitizers."
     echo " -i, --install                Install build in specified directory"
@@ -22,7 +23,7 @@ sanitizer="false"
 enable_debug_exceptions="true"
 build_tests="false"
 
-TEMP=`getopt -o hj:rtsie --long help,jobs:,release,tests,sanitize,install,debug_exceptions -n 'build.sh' -- "$@"`
+TEMP=`getopt -o hj:drtsie --long help,jobs:,debug,release,tests,sanitize,install,debug_exceptions -n 'build.sh' -- "$@"`
 if [ ! $? -eq 0 ]; then
     exit
 fi
@@ -32,6 +33,7 @@ while true ; do
     case "$1" in
         -h|--help) show_help ; shift ;;
         -s|--sanitize) sanitizer="true" ; shift ;;
+        -d|--debug) build_type="debug" ; shift ;;
         -r|--release) build_type="release" ; shift ;;
         -t|--tests) build_tests="true" ; shift ;;
         -e|--disable_debug_exceptions) enable_debug_exceptions="false" ; shift ;;

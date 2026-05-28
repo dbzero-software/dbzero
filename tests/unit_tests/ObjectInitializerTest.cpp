@@ -1384,6 +1384,8 @@ namespace tests
             ASSERT_EQ(root.getRefCounts().second, 1u);
 
             root.destroy();
+            holderClass->flush();
+            rootClass->flush();
         }
 
         rootClass.reset();

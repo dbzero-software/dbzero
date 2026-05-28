@@ -1087,9 +1087,13 @@ namespace db0::object_model
             << " as a tag" << THROWF_END;
     }
     
-    TagIndex::ShortTagT TagIndex::addShortTagFromString(ObjectPtr py_arg, bool &inc_ref) const
+    std::optional<TagIndex::ShortTagT> TagIndex::addShortTagFromString(ObjectPtr py_arg, bool &inc_ref) const
     {
         assert(LangToolkit::isString(py_arg));
+        if (m_fixture.safe_lock()->getAccessType() == AccessType::READ_ONLY) {
+            auto tag = getShortTagFromString(py_arg);
+            return tag ? std::optional<ShortTagT>(tag) : std::nullopt;
+        }
         return LangToolkit::addTagFromString(py_arg, m_string_pool, inc_ref);
     }
     

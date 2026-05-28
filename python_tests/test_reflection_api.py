@@ -93,6 +93,94 @@ def test_get_memo_classes_returns_singletons(db0_fixture):
     # try accessing the singleton by UUID
     obj = singletons[0].get_instance()
     assert obj == root
+
+
+def test_get_memo_classes_returns_type_flags(db0_fixture):
+    @db0.memo
+    class ReflectionFlagsDefault:
+        pass
+
+    @db0.memo(singleton=True)
+    class ReflectionFlagsSingleton:
+        pass
+
+    @db0.memo(protect_fields=True)
+    class ReflectionFlagsProtected:
+        pass
+
+    @db0.memo(immutable=True)
+    class ReflectionFlagsImmutable:
+        pass
+
+    @db0.memo(immutable=True, intern=True)
+    class ReflectionFlagsIntern:
+        pass
+
+    @db0.memo(access_control=True)
+    class ReflectionFlagsAccessControlled:
+        pass
+
+    @db0.memo(no_default_tags=True)
+    class ReflectionFlagsNoDefaultTags:
+        pass
+
+    _ = ReflectionFlagsDefault()
+    singleton = ReflectionFlagsSingleton()
+    _ = ReflectionFlagsProtected()
+    _ = db0.materialized(ReflectionFlagsImmutable())
+    _ = db0.materialized(ReflectionFlagsIntern())
+    _ = ReflectionFlagsAccessControlled()
+    _ = ReflectionFlagsNoDefaultTags()
+
+    expected_keys = {
+        "singleton",
+        "no_default_tags",
+        "immutable",
+        "intern",
+        "protect_fields",
+        "access_control",
+    }
+    memo_classes = list(db0.get_memo_classes())
+
+    def by_name(name):
+        return next(
+            memo_class for memo_class in memo_classes
+            if memo_class.name == name or memo_class.name.endswith(f".{name}")
+        )
+
+    def assert_flags(name, **expected):
+        memo_class = by_name(name)
+        flags = memo_class.type_flags
+        assert set(flags) == expected_keys
+        assert all(type(value) is bool for value in flags.values())
+        assert memo_class.is_singleton is flags["singleton"]
+        expected_flags = {key: False for key in expected_keys}
+        expected_flags.update(expected)
+        for key, value in expected_flags.items():
+            assert flags[key] is value
+
+    assert_flags("ReflectionFlagsDefault", singleton=False)
+    assert_flags("ReflectionFlagsSingleton", singleton=True)
+    assert by_name("ReflectionFlagsSingleton").instance_uuid == db0.uuid(singleton)
+    assert_flags("ReflectionFlagsProtected", protect_fields=True)
+    assert_flags("ReflectionFlagsImmutable", immutable=True)
+    assert_flags("ReflectionFlagsIntern", immutable=True, intern=True)
+    assert_flags("ReflectionFlagsAccessControlled", access_control=True)
+    assert_flags("ReflectionFlagsNoDefaultTags", no_default_tags=True)
+    assert by_name("ReflectionFlagsDefault").instance_uuid is None
+
+
+def test_get_memo_class_returns_type_flags(db0_fixture):
+    @db0.memo(immutable=True, no_default_tags=True)
+    class ReflectionSingleClassFlags:
+        pass
+
+    obj = db0.materialized(ReflectionSingleClassFlags())
+    memo_class = db0.get_memo_class(obj)
+
+    assert memo_class.type_flags == memo_class.get_class().get_type_flags()
+    assert memo_class.type_flags["immutable"] is True
+    assert memo_class.type_flags["no_default_tags"] is True
     
    
 def test_memo_class_get_attributes(db0_fixture):

@@ -228,7 +228,7 @@ DB0_PACKED_END
         std::optional<ShortTagT> tryAddShortTag(TypeId, ObjectPtr, bool &inc_ref) const;
         std::optional<ShortTagT> tryAddShortTag(ObjectPtr, bool &inc_ref) const;
         std::optional<ShortTagT> tryAddShortTag(ObjectSharedPtr, bool &inc_ref) const;
-        ShortTagT addShortTagFromString(ObjectPtr, bool &inc_ref) const;
+        std::optional<ShortTagT> addShortTagFromString(ObjectPtr, bool &inc_ref) const;
         // return 0x0 if object is from a different prefix (must be added as long tag)
         std::optional<ShortTagT> tryAddShortTagFromTag(ObjectPtr) const;        
         std::optional<ShortTagT> tryAddShortTagFromMemo(ObjectPtr) const;
