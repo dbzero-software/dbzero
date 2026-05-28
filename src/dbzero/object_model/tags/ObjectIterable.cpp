@@ -118,8 +118,7 @@ namespace db0::object_model
         
         std::unique_ptr<QueryIterator> query_iterator;
         std::unique_ptr<SortedIterator> sorted_iterator;
-        if (other.m_query_iterator || other.m_factory) {
-            assert(!other.m_sorted_iterator);
+        if (other.m_query_iterator || other.m_factory || !other.m_data_filter_predicates.empty()) {
             m_query_iterator = other.beginFTQuery(m_query_observers, -1);
         } else if (other.m_sorted_iterator) {
             m_sorted_iterator = other.m_sorted_iterator->beginSorted();
@@ -140,8 +139,7 @@ namespace db0::object_model
     {
         std::unique_ptr<QueryIterator> query_iterator;
         std::unique_ptr<SortedIterator> sorted_iterator;
-        if (other.m_query_iterator || other.m_factory) {
-            assert(!other.m_sorted_iterator);
+        if (other.m_query_iterator || other.m_factory || !other.m_data_filter_predicates.empty()) {
             m_query_iterator = other.beginFTQuery(m_query_observers, -1);
         } else if (other.m_sorted_iterator) {
             m_sorted_iterator = other.m_sorted_iterator->beginSorted();
@@ -430,14 +428,7 @@ namespace db0::object_model
             return result;
         }
 
-        std::unique_ptr<ObjectIterator::QueryIterator> iter;
-        if (m_factory) {
-            iter = m_factory->createFTIterator();
-        } else if (m_query_iterator) {
-            iter = m_query_iterator->beginTyped(-1);
-        } else if (m_sorted_iterator) {
-            iter = m_sorted_iterator->beginFTQuery();
-        }
+        auto iter = beginFTQuery(-1);
         
         std::size_t result = 0;
         if (iter) {
@@ -485,14 +476,7 @@ namespace db0::object_model
             return !obj_iter->next();
         }
 
-        std::unique_ptr<ObjectIterator::QueryIterator> iter;
-        if (m_factory) {
-            iter = m_factory->createFTIterator();
-        } else if (m_query_iterator) {
-            iter = m_query_iterator->beginTyped(-1);
-        } else if (m_sorted_iterator) {
-            iter = m_sorted_iterator->beginFTQuery();
-        }
+        auto iter = beginFTQuery(-1);
         
         if (iter) {
             Slice slice(iter.get(), m_slice_def);            

@@ -482,6 +482,34 @@ def test_data_filter_predicate_filters_typeless_index_range(db0_fixture):
     assert list(index.select()) == [allowed]
 
 
+def test_data_filter_predicate_filters_typeless_index_range_len_bool_and_slice(db0_fixture):
+    index = db0.index()
+    allowed = FilteredFindClass("range-count-allowed")
+    denied = FilteredFindClass("range-count-denied")
+    db0.tags(allowed).add("grant")
+    index.add(1, allowed)
+    index.add(2, denied)
+
+    predicate.set(db0.predicate("grant"))
+    db0._init_data_filter(predicate, prefix=db0.get_current_prefix())
+    query = index.select()
+
+    assert len(query) == 1
+    assert bool(query) is True
+    assert list(query[:1]) == [allowed]
+
+
+def test_data_filter_predicate_filters_typeless_index_range_bool_when_denied_only(db0_fixture):
+    index = db0.index()
+    denied = FilteredFindClass("range-bool-denied")
+    index.add(1, denied)
+
+    predicate.set(db0.predicate("grant"))
+    db0._init_data_filter(predicate, prefix=db0.get_current_prefix())
+
+    assert bool(index.select()) is False
+
+
 def test_data_filter_release_mode_requires_predicate_for_typeless_index_range(db0_fixture):
     index = db0.index()
     index.add(1, FilteredFindClass("range-denied"))
