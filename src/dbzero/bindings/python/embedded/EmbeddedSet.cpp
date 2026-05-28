@@ -225,7 +225,7 @@ namespace db0::python
     }
 
     PyTypeObject EmbeddedSetType = {
-        PyVarObject_HEAD_INIT(nullptr, 0)
+        PYVAROBJECT_HEAD_INIT_DESIGNATED,
         .tp_name = "dbzero.EmbeddedSet",
         .tp_basicsize = static_cast<Py_ssize_t>(EmbeddedSet::sizeOf()),
         .tp_itemsize = 0,
@@ -242,7 +242,7 @@ namespace db0::python
     };
 
     PyTypeObject EmbeddedSetIteratorType = {
-        PyVarObject_HEAD_INIT(nullptr, 0)
+        PYVAROBJECT_HEAD_INIT_DESIGNATED,
         .tp_name = "dbzero.EmbeddedSetIterator",
         .tp_basicsize = static_cast<Py_ssize_t>(EmbeddedSetIterator::sizeOf()),
         .tp_itemsize = 0,

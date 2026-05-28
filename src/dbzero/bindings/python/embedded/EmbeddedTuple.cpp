@@ -200,7 +200,7 @@ namespace db0::python
     }
 
     PyTypeObject EmbeddedTupleType = {
-        PyVarObject_HEAD_INIT(nullptr, 0)
+        PYVAROBJECT_HEAD_INIT_DESIGNATED,
         .tp_name = "dbzero.EmbeddedTuple",
         .tp_basicsize = static_cast<Py_ssize_t>(EmbeddedTuple::sizeOf()),
         .tp_itemsize = 0,

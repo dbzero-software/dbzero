@@ -15,6 +15,18 @@ jobs:
     uses: ./.github/workflows/build-linux-wheel.yml
     with:
       python-version: ${{ matrix.python-version }}
+
+  build-windows:
+    uses: ./.github/workflows/build-windows-wheel.yml
+    with:
+      python-version: "3.12"
+      python-tag: "312"
+      architecture: "AMD64"
+
+  build-macos:
+    uses: ./.github/workflows/build-mac-wheel.yml
+    with:
+      python-version: "3.12"
   
   test-wheels-linux:
     needs: build-linux
