@@ -24,7 +24,6 @@
 namespace db0::object_model
 
 {
-
     // DB0_WEAK_PROXY specialization (defined early so resolveForFixture can call it)
     template <> Value createMember<TypeId::DB0_WEAK_PROXY, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
         PyObjectPtr obj_ptr, StorageClass storage_class, AccessFlags)
@@ -450,17 +449,19 @@ namespace db0::object_model
         db0::swine_ptr<Fixture> &fixture, Value value, unsigned int, AccessFlags)
     {
         auto &class_factory = fixture->template get<ClassFactory>();
-        return PyToolkit::unloadObject(fixture, value.asAddress(), class_factory);
+        auto address = value.asAddress();
+        return PyToolkit::unloadObject(fixture, address, class_factory, nullptr, 0, {}, true);
     }
 
     // EMBEDDED_OBJECT_REF specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::EMBEDDED_OBJECT_REF, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value, unsigned int, AccessFlags access_mode)
     {
-        auto embeddedAddress = value.asUniqueAddress();
-        auto &classFactory = fixture->template get<ClassFactory>();
+        auto embedded_address = value.asUniqueAddress();
+        auto &class_factory = fixture->template get<ClassFactory>();
         return PyToolkit::unloadEmbeddedObject(
-            fixture, embeddedAddress.getAddress(), classFactory, nullptr, embeddedAddress.getInstanceId(), access_mode
+            fixture, embedded_address.getAddress(), class_factory, nullptr, embedded_address.getInstanceId(), access_mode,
+            {}, nullptr, true
         );
     }
     
@@ -639,9 +640,11 @@ namespace db0::object_model
         db0::swine_ptr<Fixture> &fixture, Value value, unsigned int, AccessFlags)
     {
         auto address = value.asUniqueAddress();
-        // NOTE: instance_id not validated since it's a trusted reference
-        if (PyToolkit::isExistingObject(fixture, address.getAddress())) {
-            return PyToolkit::unloadObject(fixture, address);
+        auto &class_factory = fixture->template get<ClassFactory>();
+        auto result = PyToolkit::tryUnloadObject(
+            fixture, address.getAddress(), class_factory, nullptr, address.getInstanceId(), {}, true);
+        if (!!result) {
+            return result;
         } else {
             // NOTE: expired objects are unloaded as MemoExpiredRef (placeholders)
             return PyToolkit::unloadExpiredRef(fixture, address.getAddress(), fixture->getUUID(), address);
@@ -655,9 +658,11 @@ namespace db0::object_model
         LongWeakRef weak_ref(fixture, value.asAddress());
         auto other_fixture = fixture->getWorkspace().getFixture(weak_ref->m_fixture_uuid);
         auto address = weak_ref->m_address;
-        if (PyToolkit::isExistingObject(other_fixture, address.getAddress())) {
-            // unload object from a foreign prefix
-            return PyToolkit::unloadObject(other_fixture, address);
+        auto &class_factory = other_fixture->template get<ClassFactory>();
+        auto result = PyToolkit::tryUnloadObject(
+            other_fixture, address.getAddress(), class_factory, nullptr, address.getInstanceId(), {}, true);
+        if (!!result) {
+            return result;
         } else {
             // NOTE: expired objects are unloaded as MemoExpiredRef (placeholders)
             return PyToolkit::unloadExpiredRef(fixture, weak_ref);

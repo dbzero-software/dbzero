@@ -120,7 +120,8 @@ namespace db0::python
             std::uint16_t instance_id = 0, AccessFlags = {});
         static ObjectSharedPtr unloadEmbeddedObject(db0::swine_ptr<Fixture> &, Address, const ClassFactory &,
             TypeObjectPtr lang_class = nullptr, std::uint16_t instance_id = 0, AccessFlags = {},
-            ObjectSharedPtr root_object = {}, const Allocator::AllocationInfo *allocation_info = nullptr);
+            ObjectSharedPtr root_object = {}, const Allocator::AllocationInfo *allocation_info = nullptr,
+            bool authorize_data_filter = false);
         static ObjectSharedPtr unloadObject(db0::swine_ptr<Fixture> &, Address, TypeObjectPtr lang_class = nullptr,
             std::uint16_t instance_id = 0, AccessFlags = {});
         

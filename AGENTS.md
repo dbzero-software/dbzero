@@ -53,7 +53,7 @@ Variable-size overlaid types that derive from another overlaid type must use `db
 
 ### C++ style
 
-- Use camelCase for local helper variables, lambdas, and method names in C++ code.
+- Use snake_case for parameter names and local variable names in C++ code. Parameter names should be concise yet informative. Keep method names consistent with the surrounding code.
 - Project types often avoid implicit bool conversion because it can hide subtle ownership, state, and null-check bugs. Use explicit double-negation checks such as `if (!!obj)` or `while (!!item)` when a type supports `operator!()`.
 
 ### Python binding wrapper access

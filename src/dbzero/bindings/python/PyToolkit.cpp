@@ -623,45 +623,55 @@ namespace db0::python
     PyToolkit::ObjectSharedPtr PyToolkit::unloadEmbeddedObject(
         db0::swine_ptr<Fixture> &fixture, Address address, const PyToolkit::ClassFactory &class_factory,
         PyToolkit::TypeObjectPtr lang_type_ptr, std::uint16_t instance_id, AccessFlags access_mode,
-        ObjectSharedPtr rootObject, const Allocator::AllocationInfo *allocationInfo)
+        ObjectSharedPtr root_object, const Allocator::AllocationInfo *alloc_info, bool authorize_data_filter)
     {
-        auto &langCache = fixture->getLangCache();
-        auto cachedObject = langCache.get(address);
-        if (!!cachedObject) {
+        auto &lang_cache = fixture->getLangCache();
+        auto cached_object = lang_cache.get(address);
+        if (!!cached_object) {
             if (instance_id) {
-                auto cachedAddress = tryGetEmbeddedUniqueAddress(cachedObject.get());
-                if (!cachedAddress || cachedAddress->getInstanceId() != instance_id) {
+                auto cached_address = tryGetEmbeddedUniqueAddress(cached_object.get());
+                if (!cached_address || cached_address->getInstanceId() != instance_id) {
                     THROWF(db0::InputException) << "Invalid UUID or object has been deleted";
                 }
             }
-            return cachedObject;
+            if (authorize_data_filter) {
+                authorizeDataFilterFetch(
+                    fixture, PyToolkit::getMemoType(cached_object.get()),
+                    PyToolkit::getMemoUniqueAddress(cached_object.get()));
+            }
+            return cached_object;
         }
 
-        Allocator::AllocationInfo alloc_info;
-        if (!allocationInfo) {
-            alloc_info = fixture->findAllocation(address, db0::object_model::ObjectImmutableImpl::REALM_ID);
-            allocationInfo = &alloc_info;
+        Allocator::AllocationInfo local_alloc_info;
+        if (!alloc_info) {
+            local_alloc_info = fixture->findAllocation(address, db0::object_model::ObjectImmutableImpl::REALM_ID);
+            alloc_info = &local_alloc_info;
         }
-        assert(allocationInfo);
-        auto embeddedOffset = address.getOffset() - allocationInfo->address.getOffset();
+        assert(alloc_info);
+        auto embedded_offset = address.getOffset() - alloc_info->address.getOffset();
 
         // Resolve the root object if not provided
-        if (!rootObject) {
-            rootObject = tryUnloadObjectResolved(
-                fixture, allocationInfo->address, class_factory, lang_type_ptr, instance_id, access_mode,
-                allocationInfo, false
+        if (!root_object) {
+            root_object = tryUnloadObjectResolved(
+                fixture, alloc_info->address, class_factory, lang_type_ptr, instance_id, access_mode,
+                alloc_info, false
             );
-            if (!rootObject) {
+            if (!root_object) {
                 THROWF(db0::InputException) << "Invalid UUID or object has been deleted";
             }
         }
-        assert(!!rootObject);
-        auto *rootMemo = reinterpret_cast<PyToolkit::TypeManager::MemoImmutableObject *>(rootObject.get());
-        auto embeddedObject = rootMemo->ext().getEmbeddedInstanceAtOffset(embeddedOffset);
-        if (shouldCacheEmbeddedObject(embeddedObject.get())) {
-            langCache.add(address, embeddedObject.get());
+        assert(!!root_object);
+        auto *root_memo = reinterpret_cast<PyToolkit::TypeManager::MemoImmutableObject *>(root_object.get());
+        auto embedded_object = root_memo->ext().getEmbeddedInstanceAtOffset(embedded_offset);
+        if (authorize_data_filter) {
+            authorizeDataFilterFetch(
+                fixture, PyToolkit::getMemoType(embedded_object.get()),
+                PyToolkit::getMemoUniqueAddress(embedded_object.get()));
         }
-        return embeddedObject;
+        if (shouldCacheEmbeddedObject(embedded_object.get())) {
+            lang_cache.add(address, embedded_object.get());
+        }
+        return embedded_object;
     }
 
     PyToolkit::ObjectSharedPtr PyToolkit::unloadAnyObject(
@@ -682,7 +692,8 @@ namespace db0::python
         }
 
         return unloadEmbeddedObject(
-            fixture, address, class_factory, lang_type_ptr, instance_id, access_mode, rootObject, &allocation
+            fixture, address, class_factory, lang_type_ptr, instance_id, access_mode, rootObject, &allocation,
+            authorize_data_filter
         );
     }
 

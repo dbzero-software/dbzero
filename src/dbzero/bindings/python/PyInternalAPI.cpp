@@ -174,8 +174,7 @@ namespace db0::python
         if (fixture->get<db0::object_model::TagIndex>().contains(address, *native_predicate)) {
             return true;
         }
-        throwMissingObject();
-        return false;
+        return setFetchPermissionError("data filter predicate does not include referenced object");
     }
     
     LoadGuard::LoadGuard(std::unordered_set<const void*> *load_stack_ptr, const void *arg_ptr)
@@ -326,23 +325,29 @@ namespace db0::python
         auto addr = object_id.m_address;
         if (storage_class == db0::object_model::StorageClass::OBJECT_REF) {
             auto &class_factory = db0::object_model::getClassFactory(*fixture);
-            // validate type if requested (no validation for MemoBase)
-            if (py_expected_type && !PyToolkit::getTypeManager().isMemoBase(py_expected_type)) {
-                // in other cases the type must match the actual object type
-                auto expected_class = class_factory.getOrCreateType(py_expected_type);
-                // honor class-specific access flags (e.g. type-level no_cache)
-                auto result = PyToolkit::unloadAnyObject(fixture, addr.getAddress(), class_factory, nullptr, addr.getInstanceId(),
-                    expected_class->getInstanceFlags(), true
-                );
-                // NOTE: base types should be accepted
-                if (!PyToolkit::getMemoType(result.get()).isBaseClass(*expected_class)) {
-                    THROWF(db0::InputException) << "Object type mismatch";
+            try {
+                // validate type if requested (no validation for MemoBase)
+                if (py_expected_type && !PyToolkit::getTypeManager().isMemoBase(py_expected_type)) {
+                    // in other cases the type must match the actual object type
+                    auto expected_class = class_factory.getOrCreateType(py_expected_type);
+                    // honor class-specific access flags (e.g. type-level no_cache)
+                    auto result = PyToolkit::unloadAnyObject(
+                        fixture, addr.getAddress(), class_factory, nullptr, addr.getInstanceId(),
+                        expected_class->getInstanceFlags(), true
+                    );
+                    // NOTE: base types should be accepted
+                    if (!PyToolkit::getMemoType(result.get()).isBaseClass(*expected_class)) {
+                        THROWF(db0::InputException) << "Object type mismatch";
+                    }
+                    return result;
                 }
-                return result;
-            } else {
                 // unload without type validation
                 return PyToolkit::unloadAnyObject(fixture, addr.getAddress(), class_factory, py_expected_type,
                     addr.getInstanceId(), {}, true);
+            } catch (const PermissionException &) {
+                // Explicit fetch must not reveal whether a denied object exists.
+                // Preserve the same public error used for missing or deleted UUIDs.
+                throwMissingObject();
             }
         } else if (storage_class == db0::object_model::StorageClass::DB0_CLASS) {
             auto &class_factory = db0::object_model::getClassFactory(*fixture);
@@ -386,8 +391,14 @@ namespace db0::python
         if (!type->isExistingSingleton()) {
             THROWF(db0::InputException) << "Singleton instance does not exist";
         }
-        if (!authorizeDataFilterFetch(fixture, *type, type->getSingletonObjectId().m_address)) {
-            return nullptr;
+        try {
+            if (!authorizeDataFilterFetch(fixture, *type, type->getSingletonObjectId().m_address)) {
+                return nullptr;
+            }
+        } catch (const PermissionException &) {
+            // Explicit fetch must not reveal whether a denied object exists.
+            // Preserve the same public error used for missing or deleted UUIDs.
+            throwMissingObject();
         }
 
         MemoObject *memo_obj = reinterpret_cast<MemoObject*>(py_type->tp_alloc(py_type, 0));

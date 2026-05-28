@@ -50,6 +50,18 @@ class FilteredFindDerivedClass(FilteredFindBaseClass):
     extra: str
 
 
+@db0.memo
+class FilteredReferenceHolder:
+    def __init__(self, payload):
+        self.payload = payload
+
+
+@db0.memo(immutable=True)
+class FilteredImmutableReferenceHolder:
+    def __init__(self, payload):
+        self.payload = payload
+
+
 def test_init_data_filter_prefix_scoped_lifecycle(db0_fixture):
     current_prefix = db0.get_current_prefix()
 
@@ -348,7 +360,7 @@ def test_data_filter_prefix_scope_only_filters_configured_prefix(db0_fixture):
 def test_data_filter_fetch_requires_data_filter_for_access_controlled_type(db0_fixture):
     obj = FilteredFindClass("visible")
 
-    with pytest.raises(PermissionError):
+    with pytest.raises(RuntimeError, match="Invalid UUID or object has been deleted"):
         db0.fetch(db0.uuid(obj))
 
 
@@ -357,7 +369,7 @@ def test_data_filter_fetch_release_mode_requires_predicate(db0_fixture):
     predicate.set(None)
     db0._init_data_filter(predicate, prefix=db0.get_current_prefix())
 
-    with pytest.raises(PermissionError):
+    with pytest.raises(RuntimeError, match="Invalid UUID or object has been deleted"):
         db0.fetch(db0.uuid(obj))
 
 
@@ -419,6 +431,58 @@ def test_data_filter_prefix_scope_only_filters_configured_prefix_fetch(db0_fixtu
     with pytest.raises(RuntimeError, match="Invalid UUID or object has been deleted"):
         db0.fetch(db0.uuid(filtered))
     assert db0.fetch(db0.uuid(unfiltered)) is unfiltered
+
+
+def test_data_filter_predicate_filters_mutable_memo_reference(db0_fixture):
+    allowed = FilteredFindClass("allowed")
+    denied = FilteredFindClass("denied")
+    db0.tags(allowed).add("grant")
+    allowed_holder = FilteredReferenceHolder(allowed)
+    denied_holder = FilteredReferenceHolder(denied)
+
+    predicate.set(db0.predicate("grant"))
+    db0._init_data_filter(predicate, prefix=db0.get_current_prefix())
+
+    assert allowed_holder.payload is allowed
+    with pytest.raises(PermissionError):
+        denied_holder.payload
+
+
+def test_data_filter_predicate_filters_reference_from_immutable_memo(db0_fixture):
+    allowed = FilteredFindClass("immutable-source-allowed")
+    denied = FilteredFindClass("immutable-source-denied")
+    db0.tags(allowed).add("grant")
+    allowed_holder = FilteredImmutableReferenceHolder(allowed)
+    denied_holder = FilteredImmutableReferenceHolder(denied)
+
+    predicate.set(db0.predicate("grant"))
+    db0._init_data_filter(predicate, prefix=db0.get_current_prefix())
+
+    assert allowed_holder.payload is allowed
+    with pytest.raises(PermissionError):
+        denied_holder.payload
+    db0.commit()
+
+
+def test_data_filter_predicate_filters_references_from_collections(db0_fixture):
+    allowed = FilteredFindClass("collection-allowed")
+    denied = FilteredFindClass("collection-denied")
+    db0.tags(allowed).add("grant")
+    list_holder = FilteredReferenceHolder(db0.list([allowed, denied]))
+    set_holder = FilteredReferenceHolder(db0.set([denied]))
+    dict_holder = FilteredReferenceHolder(db0.dict({"allowed": allowed, "denied": denied}))
+
+    predicate.set(db0.predicate("grant"))
+    db0._init_data_filter(predicate, prefix=db0.get_current_prefix())
+
+    assert list_holder.payload[0] is allowed
+    with pytest.raises(PermissionError):
+        list_holder.payload[1]
+    with pytest.raises(PermissionError):
+        next(iter(set_holder.payload))
+    assert dict_holder.payload["allowed"] is allowed
+    with pytest.raises(PermissionError):
+        dict_holder.payload["denied"]
 
 
 def test_init_can_initialize_prefix_data_filter_after_opening_prefix(db0_fixture):
