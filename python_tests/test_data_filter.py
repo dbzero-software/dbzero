@@ -243,11 +243,36 @@ def test_predicate_blocks_direct_data_access(db0_fixture):
         pred[:1]
 
 
-def test_data_filter_rejects_typeless_find(db0_fixture):
-    db0._init_data_filter(predicate, prefix=db0.get_current_prefix(), mode="DEBUG")
+def test_data_filter_predicate_filters_typeless_find(db0_fixture):
+    allowed = FilteredFindClass("allowed")
+    denied = FilteredFindClass("denied")
+    public = FilteredFindPublicClass("public")
+    db0.tags(allowed).add(["visible", "grant"])
+    db0.tags(denied).add("visible")
+    db0.tags(public).add("visible")
+
+    predicate.set(db0.predicate("grant"))
+    db0._init_data_filter(predicate, prefix=db0.get_current_prefix())
+
+    assert list(db0.find("visible")) == [allowed]
+
+
+def test_data_filter_release_mode_requires_predicate_for_typeless_find(db0_fixture):
+    FilteredFindClass("visible")
+    predicate.set(None)
+    db0._init_data_filter(predicate, prefix=db0.get_current_prefix())
 
     with pytest.raises(PermissionError):
-        db0.find("grant")
+        db0.find("visible")
+
+
+def test_data_filter_debug_mode_allows_null_predicate_for_typeless_find(db0_fixture):
+    obj = FilteredFindClass("visible")
+    db0.tags(obj).add("visible")
+    predicate.set(None)
+    db0._init_data_filter(predicate, prefix=db0.get_current_prefix(), mode="DEBUG")
+
+    assert list(db0.find("visible")) == [obj]
 
 
 def test_access_controlled_find_requires_data_filter(db0_fixture):
@@ -284,6 +309,16 @@ def test_data_filter_predicate_filters_access_controlled_find(db0_fixture):
     db0._init_data_filter(predicate, prefix=db0.get_current_prefix())
 
     assert list(db0.find(FilteredFindClass, "visible")) == [allowed]
+
+
+def test_data_filter_predicate_does_not_filter_typed_public_find(db0_fixture):
+    public = FilteredFindPublicClass("public")
+    db0.tags(public).add("visible")
+
+    predicate.set(db0.predicate("grant"))
+    db0._init_data_filter(predicate, prefix=db0.get_current_prefix())
+
+    assert list(db0.find(FilteredFindPublicClass, "visible")) == [public]
 
 
 def test_data_filter_predicate_refreshes_after_matching_objects_are_committed(db0_fixture):
@@ -431,6 +466,92 @@ def test_data_filter_prefix_scope_only_filters_configured_prefix_fetch(db0_fixtu
     with pytest.raises(RuntimeError, match="Invalid UUID or object has been deleted"):
         db0.fetch(db0.uuid(filtered))
     assert db0.fetch(db0.uuid(unfiltered)) is unfiltered
+
+
+def test_data_filter_predicate_filters_typeless_index_range(db0_fixture):
+    index = db0.index()
+    allowed = FilteredFindClass("range-allowed")
+    denied = FilteredFindClass("range-denied")
+    db0.tags(allowed).add("grant")
+    index.add(1, allowed)
+    index.add(2, denied)
+
+    predicate.set(db0.predicate("grant"))
+    db0._init_data_filter(predicate, prefix=db0.get_current_prefix())
+
+    assert list(index.select()) == [allowed]
+
+
+def test_data_filter_release_mode_requires_predicate_for_typeless_index_range(db0_fixture):
+    index = db0.index()
+    index.add(1, FilteredFindClass("range-denied"))
+    predicate.set(None)
+    db0._init_data_filter(predicate, prefix=db0.get_current_prefix())
+
+    with pytest.raises(PermissionError):
+        list(index.select())
+
+
+def test_data_filter_predicate_filters_deserialized_typeless_query(db0_fixture):
+    allowed = FilteredFindClass("serialized-allowed")
+    denied = FilteredFindClass("serialized-denied")
+    db0.tags(allowed).add(["visible", "grant"])
+    db0.tags(denied).add("visible")
+
+    query_bytes = db0.serialize(db0.find("visible"))
+    predicate.set(db0.predicate("grant"))
+    db0._init_data_filter(predicate, prefix=db0.get_current_prefix())
+
+    assert list(db0.deserialize(query_bytes)) == [allowed]
+
+
+def test_data_filter_predicate_is_not_serialized_with_typeless_query(db0_fixture):
+    first = FilteredFindClass("serialized-first")
+    second = FilteredFindClass("serialized-second")
+    db0.tags(first).add(["visible", "first-grant"])
+    db0.tags(second).add(["visible", "second-grant"])
+
+    predicate.set(db0.predicate("first-grant"))
+    db0._init_data_filter(predicate, prefix=db0.get_current_prefix())
+    query_bytes = db0.serialize(db0.find("visible"))
+
+    predicate.set(db0.predicate("second-grant"))
+
+    assert list(db0.deserialize(query_bytes)) == [second]
+
+
+def test_data_filter_predicate_is_not_serialized_with_index_range(db0_fixture):
+    index = db0.index()
+    first = FilteredFindClass("range-serialized-first")
+    second = FilteredFindClass("range-serialized-second")
+    db0.tags(first).add("first-grant")
+    db0.tags(second).add("second-grant")
+    index.add(1, first)
+    index.add(2, second)
+
+    predicate.set(db0.predicate("first-grant"))
+    db0._init_data_filter(predicate, prefix=db0.get_current_prefix())
+    query_bytes = db0.serialize(index.select())
+
+    predicate.set(db0.predicate("second-grant"))
+
+    assert list(db0.deserialize(query_bytes)) == [second]
+
+
+def test_data_filter_predicate_is_not_attached_to_predicate_query(db0_fixture):
+    first = FilteredFindPublicClass("predicate-first")
+    second = FilteredFindPublicClass("predicate-second")
+    db0.tags(first).add(["query-grant", "first-grant"])
+    db0.tags(second).add("query-grant")
+
+    predicate.set(db0.predicate("first-grant"))
+    db0._init_data_filter(predicate, prefix=db0.get_current_prefix(), mode="DEBUG")
+    query_predicate = db0.deserialize(db0.serialize(db0.predicate("query-grant")))
+
+    assert sorted(item.value for item in db0.find(FilteredFindPublicClass, query_predicate)) == [
+        "predicate-first",
+        "predicate-second",
+    ]
 
 
 def test_data_filter_predicate_filters_mutable_memo_reference(db0_fixture):

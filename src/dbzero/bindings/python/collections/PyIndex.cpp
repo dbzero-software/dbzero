@@ -205,12 +205,21 @@ namespace db0::python
         
         auto &index = py_index->ext();
         // construct range iterator
-        auto iter_factory = index.range(low, high, null_first);        
+        auto iter_factory = index.range(low, high, null_first);
+        auto fixture = index.getFixture();
+        std::vector<shared_py_object<PyObject*> > owned_predicates;
+        std::vector<std::shared_ptr<ObjectIterable> > native_predicates;
+        if (!appendDataFilterPredicate(fixture, nullptr, native_predicates, owned_predicates)) {
+            return nullptr;
+        }
         auto py_iter_obj = PyObjectIterableDefault_new();
         py_iter_obj->makeNew(
-            index.getFixture(), std::move(iter_factory), nullptr, nullptr, std::vector<std::unique_ptr<QueryObserver> >{},
+            fixture, std::move(iter_factory), nullptr, nullptr, std::vector<std::unique_ptr<QueryObserver> >{},
             std::vector<ObjectIterable::FilterFunc>{}
         );
+        if (!native_predicates.empty()) {
+            py_iter_obj->modifyExt().addDataFilterPredicates(std::move(native_predicates));
+        }
         return py_iter_obj.steal();
     }
     

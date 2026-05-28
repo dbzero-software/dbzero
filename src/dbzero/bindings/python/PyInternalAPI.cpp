@@ -176,6 +176,37 @@ namespace db0::python
         }
         return setFetchPermissionError("data filter predicate does not include referenced object");
     }
+
+    bool appendDataFilterPredicate(db0::swine_ptr<Fixture> fixture,
+        std::shared_ptr<db0::object_model::Class> type,
+        std::vector<std::shared_ptr<db0::object_model::ObjectIterable> > &native_predicates,
+        std::vector<shared_py_object<PyObject*> > &owned_predicates)
+    {
+        auto filter_state = fixture->getFilterState();
+        if (type && !type->isAccessControl()) {
+            return true;
+        }
+        if (type && !filter_state && !db0::Settings::m_data_filter_enabled) {
+            throw PermissionException("data filter must be initialized before querying an access-controlled type");
+        }
+        if (!filter_state) {
+            return true;
+        }
+
+        PyObject *py_predicate = nullptr;
+        if (PyContextVar_Get(filter_state->contextVar, NULL, &py_predicate) < 0) {
+            return false;
+        }
+        owned_predicates.emplace_back(Py_OWN(py_predicate));
+        if (!py_predicate || py_predicate == Py_None) {
+            if (filter_state->mode == db0::DataMaskingMode::DEBUG) {
+                return true;
+            }
+            throw PermissionException("data filter predicate is not set");
+        }
+        native_predicates.push_back(fixture->get<db0::object_model::PredicateFactory>().get(py_predicate));
+        return true;
+    }
     
     LoadGuard::LoadGuard(std::unordered_set<const void*> *load_stack_ptr, const void *arg_ptr)
         : m_load_stack_ptr(load_stack_ptr)         

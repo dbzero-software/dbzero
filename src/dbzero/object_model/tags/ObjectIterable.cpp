@@ -9,7 +9,9 @@
 #include <dbzero/object_model/class/ClassFactory.hpp>
 #include <dbzero/object_model/class/Class.hpp>
 #include <dbzero/core/collections/full_text/FT_Serialization.hpp>
+#include <dbzero/core/collections/full_text/FT_ANDIterator.hpp>
 #include <dbzero/core/collections/range_tree/RT_Serialization.hpp>
+#include <iterator>
 
 namespace db0::object_model
 
@@ -91,6 +93,7 @@ namespace db0::object_model
         , m_factory(factory)
         , m_query_observers(std::move(query_observers))
         , m_filters(std::move(filters))
+        , m_data_filter_predicates()
         , m_type(type)
         , m_lang_type(lang_type)
         , m_slice_def(slice_def)
@@ -104,6 +107,7 @@ namespace db0::object_model
         , m_class_factory(other.m_class_factory)
         , m_factory(other.m_factory)
         , m_filters(other.m_filters)
+        , m_data_filter_predicates(other.m_data_filter_predicates)
         , m_type(other.m_type)
         , m_lang_type(other.m_lang_type)
         , m_slice_def(other.m_slice_def)
@@ -127,6 +131,7 @@ namespace db0::object_model
         , m_class_factory(other.m_class_factory)
         , m_factory(other.m_factory)
         , m_filters(other.m_filters)
+        , m_data_filter_predicates(other.m_data_filter_predicates)
         , m_type(other.m_type)
         , m_lang_type(other.m_lang_type)
         , m_slice_def(other.m_slice_def.combineWith(slice_def))
@@ -152,6 +157,7 @@ namespace db0::object_model
         , m_factory(nullptr)
         , m_query_observers(std::move(query_observers))
         , m_filters(other.m_filters)
+        , m_data_filter_predicates(other.m_data_filter_predicates)
         , m_type(other.m_type)
         , m_lang_type(other.m_lang_type)
         , m_slice_def(other.m_slice_def)
@@ -169,6 +175,7 @@ namespace db0::object_model
         , m_factory(other.m_factory)
         , m_query_observers(std::move(query_observers))
         , m_filters(other.m_filters)
+        , m_data_filter_predicates(other.m_data_filter_predicates)
         , m_type(other.m_type)
         , m_lang_type(other.m_lang_type)
         , m_slice_def(other.m_slice_def)
@@ -183,7 +190,7 @@ namespace db0::object_model
     }
     
     bool ObjectIterable::isNull() const {
-        return !m_query_iterator && !m_sorted_iterator && !m_factory;
+        return !m_query_iterator && !m_sorted_iterator && !m_factory && m_data_filter_predicates.empty();
     }
     
     bool ObjectIterable::isSliced() const {
@@ -197,16 +204,55 @@ namespace db0::object_model
             return nullptr;
         }
 
-        // pull FT iterator from factory if available
         std::unique_ptr<ObjectIterator::QueryIterator> result;
         if (m_factory) {
-            return m_factory->createFTIterator();
-        } else {
-            if (!m_query_iterator) {
-                THROWF(db0::InputException) << "Invalid object iterator" << THROWF_END;
-            }
-            return m_query_iterator->beginTyped(direction);
+            result = m_factory->createFTIterator();
+        } else if (m_sorted_iterator) {
+            result = m_sorted_iterator->beginFTQuery();
+        } else if (m_query_iterator) {
+            result = m_query_iterator->beginTyped(direction);
+        } else if (m_data_filter_predicates.empty()) {
+            return nullptr;
         }
+
+        if (m_data_filter_predicates.empty()) {
+            return result;
+        }
+
+        db0::FT_ANDIteratorFactory<UniqueAddress> factory;
+        if (result) {
+            factory.add(std::move(result));
+        }
+        for (const auto &predicate: m_data_filter_predicates) {
+            if (!predicate) {
+                continue;
+            }
+            std::vector<std::unique_ptr<QueryObserver> > query_observers;
+            auto predicate_query = predicate->beginFTQuery(query_observers, direction);
+            if (!predicate_query || predicate_query->isEnd()) {
+                factory.clear();
+                return nullptr;
+            }
+            factory.add(std::move(predicate_query));
+        }
+        return factory.release(direction);
+    }
+
+    void ObjectIterable::addDataFilterPredicates(std::vector<std::shared_ptr<ObjectIterable> > &&predicates)
+    {
+        if (predicates.empty()) {
+            return;
+        }
+        m_data_filter_predicates.insert(
+            m_data_filter_predicates.end(),
+            std::make_move_iterator(predicates.begin()),
+            std::make_move_iterator(predicates.end())
+        );
+    }
+
+    bool ObjectIterable::hasDataFilterPredicates() const
+    {
+        return !m_data_filter_predicates.empty();
     }
 
     std::unique_ptr<ObjectIterable::QueryIterator> ObjectIterable::beginFTQuery(
@@ -221,7 +267,7 @@ namespace db0::object_model
         }
         return result;
     }
-    
+
     std::unique_ptr<SortedIterator> ObjectIterable::beginSorted() const
     {
         if (isNull()) {
@@ -240,11 +286,12 @@ namespace db0::object_model
     void ObjectIterable::serialize(std::vector<std::byte> &buf) const
     {
         auto fixture = getFixture();
+        bool base_is_null = !m_query_iterator && !m_sorted_iterator && !m_factory;
         // FIXTURE uuid
         db0::serial::write(buf, fixture->getUUID());
-        db0::serial::write<bool>(buf, this->isNull());
+        db0::serial::write<bool>(buf, base_is_null);
         db0::serial::write<bool>(buf, m_predicate_only);
-        if (this->isNull()) {
+        if (base_is_null) {
             return;
         }
         if (m_query_iterator) {

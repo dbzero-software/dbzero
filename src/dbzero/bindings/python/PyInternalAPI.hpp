@@ -5,8 +5,10 @@
 
 #include <Python.h>
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <stdexcept>
+#include <vector>
 #include <dbzero/bindings/python/types/PyObjectId.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/object_model/value/ObjectId.hpp>
@@ -86,6 +88,11 @@ namespace db0::python
 
     bool authorizeDataFilterFetch(db0::swine_ptr<Fixture> &fixture, const db0::object_model::Class &type,
         UniqueAddress address);
+
+    bool appendDataFilterPredicate(db0::swine_ptr<Fixture> fixture,
+        std::shared_ptr<db0::object_model::Class> type,
+        std::vector<std::shared_ptr<db0::object_model::ObjectIterable> > &native_predicates,
+        std::vector<shared_py_object<PyObject*> > &owned_predicates);
     
     /**
      * Open dbzero object from a specific fixture

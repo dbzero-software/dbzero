@@ -85,7 +85,8 @@ The descendant-to-base rule is necessary for typed base queries. If any `MemoBas
 
 The implementation must preserve these invariants:
 
-- Typeless `find` is not allowed for filtered prefixes.
+- Typeless queries are allowed for filtered prefixes, but are filtered by the current predicate.
+- Predicate filtering is bypassed only when an explicit result type is provided and that type is known not to require access control.
 - An access-controlled type cannot be queried unless data filtering has been initialized for the relevant prefix.
 - An access-controlled object cannot be fetched unless the current predicate includes it.
 - An access-controlled object cannot be exposed through an application-visible durable reference unless the current predicate includes it.
@@ -102,18 +103,18 @@ When `db0.find(...)` is called, dbzero first determines the requested prefix and
 
 If prefix-level filtering is enabled:
 
-- A query without an explicit type raises `PermissionError`.
-- This applies to direct calls and deserialized queries.
+- A query without an explicit type is allowed, but dbzero resolves the current predicate and intersects it with the query.
+- This applies to direct calls, deserialized queries, and index/range query objects.
 - Use `db0.predicate(...)`, not typeless `db0.find(...)`, to construct reusable predicate query expressions.
 
-If a query has an explicit type, dbzero checks whether that type requires access control. This type check happens even when prefix-level data filtering is disabled. If the type is access controlled but data filters are not initialized for the prefix, dbzero raises `PermissionError` explaining that data filtering must be initialized before the query can run.
+If a query has an explicit type, dbzero checks whether that type requires access control. This type check happens even when prefix-level data filtering is disabled. If the type is known not to require access control, dbzero runs the query unchanged. If the type is access controlled but data filters are not initialized for the prefix, dbzero raises `PermissionError` explaining that data filtering must be initialized before the query can run.
 
-If the type is access controlled and filtering is initialized:
+If filtering must be applied because the query is typeless or the type is access controlled:
 
 - Resolve the predicate from the configured `ContextVar`.
 - If the predicate is `None` and mode is not `DEBUG`, raise `PermissionError`.
 - If the predicate is `None` and mode is `DEBUG`, run the original typed query without adding a filter.
-- If the predicate is non-null, require it to be a predicate query created by `db0.predicate(...)`, then attach it to the query before sorting or range/index ordering is applied.
+- If the predicate is non-null, require it to be a predicate query created by `db0.predicate(...)`, then attach it as a discoverable data-filter branch before sorting or range/index ordering is applied.
 
 Conceptually:
 
@@ -215,6 +216,8 @@ This gives predicates snapshot-consistent behavior: a filtered snapshot query us
 
 Data predicates are authorization filters and must be composed as intersections. A predicate may already be a complex query expression; dbzero must treat that expression as a single authorization constraint and intersect it with the requested access query. It should be attached before sorting so ordering cannot influence authorization.
 
+Data-filter predicate branches may be physically present in executable query trees for performance. They must remain discoverable as authorization branches, and `db0.serialize(...)` must omit them from serialized query bytes. Serialized bytes represent the caller's base query, not the authorization state active when the query was serialized. `db0.predicate(...)` must never attach data filters to the predicate it constructs.
+
 This matters for:
 
 - Tag queries.
@@ -223,7 +226,7 @@ This matters for:
 - `index.sort(...)`.
 - `index.range(...)` and other index operations that can unload object groups without directly relying on tags.
 
-Initial implementation can use the existing query-composition path. Later speedups may push predicate filtering into specific index implementations, but those optimizations must preserve the same visible behavior and error policy.
+Initial implementation can use the existing query-composition path, provided data-filter branches remain identifiable and are skipped during serialization. Later speedups may push predicate filtering into specific index implementations, but those optimizations must preserve the same visible behavior and error policy.
 
 ## Type Metadata
 
@@ -241,7 +244,7 @@ The base-type propagation rule should be computed through the type hierarchy and
 
 ## Deserialized Queries
 
-Serialized query payloads must not bypass type and predicate checks. Query deserialization should preserve explicit type information and reject or mark typeless queries so the normal `find` authorization path can raise `PermissionError` under filtered prefixes.
+Serialized query payloads must not bypass type and predicate checks, but they must not include data-filter predicate branches. Query deserialization should preserve explicit type information and reject or mark typeless queries so normal evaluation-time authorization can raise `PermissionError` under filtered prefixes.
 
 Do not rely on the Python caller to re-wrap a deserialized query with a type or predicate.
 
@@ -284,7 +287,8 @@ Tests should cover:
 - `_init_data_filter` accepts one prefix, multiple prefixes, and `None`.
 - `_init_data_filter` defaults to `RELEASE` when `mode` is omitted or `None`.
 - `_init_data_filter` enables null predicates only when `mode="DEBUG"` is explicitly specified.
-- Typeless `find` raises `PermissionError` under a filtered prefix.
+- Typeless `find` under a filtered prefix returns only predicate-matching objects.
+- Typeless index/range queries under a filtered prefix return only predicate-matching objects.
 - Typeless `find` works normally for unfiltered prefixes.
 - Typed `find` on an unrestricted type is unchanged.
 - Typed `find` on an access-controlled type raises when filters are not initialized.
@@ -299,6 +303,6 @@ Tests should cover:
 - `fetch(Type, uuid)` follows the same authorization outcome as `fetch(uuid)`.
 - Application-visible member dereference raises when the referenced object is not in the predicate.
 - Internal maintenance paths such as reference counting, tag maintenance, index maintenance, and flush/reopen are not blocked by data filters.
-- Deserialized typeless queries cannot bypass the typeless-query rule.
+- Deserialized typeless queries receive predicate filtering when filtering is active.
 - Deserialized typed queries receive the same predicate filtering as direct typed queries.
 - Filtering uses the target object's prefix rather than only the current default prefix.
