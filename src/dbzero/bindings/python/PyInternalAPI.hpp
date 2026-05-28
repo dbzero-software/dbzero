@@ -5,7 +5,10 @@
 
 #include <Python.h>
 #include <cstdint>
+#include <memory>
 #include <optional>
+#include <stdexcept>
+#include <vector>
 #include <dbzero/bindings/python/types/PyObjectId.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/object_model/value/ObjectId.hpp>
@@ -40,6 +43,7 @@ namespace db0::object_model
 {
 
     class ObjectIterable;
+    class Class;
     
 }
 
@@ -49,6 +53,12 @@ namespace db0::python
         
     using ObjectId = db0::object_model::ObjectId;
     using ObjectIterable = db0::object_model::ObjectIterable;
+
+    class PermissionException : public std::runtime_error
+    {
+    public:
+        using std::runtime_error::runtime_error;
+    };
     
     class LoadGuard
     {
@@ -75,6 +85,14 @@ namespace db0::python
     PyObject *fetchMemoObject(db0::swine_ptr<Fixture> &, ObjectId);
 
     PyObject *fetchListObject(db0::swine_ptr<Fixture> &, ObjectId);
+
+    bool authorizeDataFilterFetch(db0::swine_ptr<Fixture> &fixture, const db0::object_model::Class &type,
+        UniqueAddress address);
+
+    bool appendDataFilterPredicate(db0::swine_ptr<Fixture> fixture,
+        std::shared_ptr<db0::object_model::Class> type,
+        std::vector<std::shared_ptr<db0::object_model::ObjectIterable> > &native_predicates,
+        std::vector<shared_py_object<PyObject*> > &owned_predicates);
     
     /**
      * Open dbzero object from a specific fixture
@@ -115,6 +133,9 @@ namespace db0::python
                 return returnError();
             }
             return result;
+        } catch (const PermissionException &e) {
+            PyErr_SetString(PyExc_PermissionError, e.what());
+            return returnError();
         } catch (const db0::BadAddressException &e) {
             PyErr_SetString(PyToolkit::getTypeManager().getReferenceError(), e.what());
             return returnError();

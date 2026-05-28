@@ -35,6 +35,7 @@ namespace db0::object_model
     class o_embedded_object;
     class o_py_tuple;
     class Object;
+    class ObjectIterable;
     class Class;
     class ClassFactory;
     struct EnumValue;
@@ -106,17 +107,21 @@ namespace db0::python
         // Unload with type resolution
         // optionally may use specific lang class (e.g. MemoBase)
         static ObjectSharedPtr unloadObject(db0::swine_ptr<Fixture> &, Address, const ClassFactory &,
-            TypeObjectPtr lang_class = nullptr, std::uint16_t instance_id = 0, AccessFlags = {});
+            TypeObjectPtr lang_class = nullptr, std::uint16_t instance_id = 0, AccessFlags = {},
+            bool authorize_data_filter = false);
         static ObjectSharedPtr tryUnloadObject(db0::swine_ptr<Fixture> &, Address, const ClassFactory &,
-            TypeObjectPtr lang_class = nullptr, std::uint16_t instance_id = 0, AccessFlags = {});
+            TypeObjectPtr lang_class = nullptr, std::uint16_t instance_id = 0, AccessFlags = {},
+            bool authorize_data_filter = false);
         static ObjectSharedPtr unloadAnyObject(db0::swine_ptr<Fixture> &, Address, const ClassFactory &,
-            TypeObjectPtr lang_class = nullptr, std::uint16_t instance_id = 0, AccessFlags = {});
+            TypeObjectPtr lang_class = nullptr, std::uint16_t instance_id = 0, AccessFlags = {},
+            bool authorize_data_filter = false);
         static ObjectSharedPtr unloadAnyObject(db0::swine_ptr<Fixture> &, Address,
             std::shared_ptr<Class> type_hint, TypeObjectPtr lang_class = nullptr,
             std::uint16_t instance_id = 0, AccessFlags = {});
         static ObjectSharedPtr unloadEmbeddedObject(db0::swine_ptr<Fixture> &, Address, const ClassFactory &,
             TypeObjectPtr lang_class = nullptr, std::uint16_t instance_id = 0, AccessFlags = {},
-            ObjectSharedPtr root_object = {}, const Allocator::AllocationInfo *allocation_info = nullptr);
+            ObjectSharedPtr root_object = {}, const Allocator::AllocationInfo *allocation_info = nullptr,
+            bool authorize_data_filter = false);
         static ObjectSharedPtr unloadObject(db0::swine_ptr<Fixture> &, Address, TypeObjectPtr lang_class = nullptr,
             std::uint16_t instance_id = 0, AccessFlags = {});
         
@@ -154,6 +159,7 @@ namespace db0::python
         // Unload from serialized bytes
         static ObjectSharedPtr deserializeObjectIterable(db0::swine_ptr<Fixture>, std::vector<std::byte>::const_iterator &iter,
             std::vector<std::byte>::const_iterator end);
+        static const db0::object_model::ObjectIterable &getPredicateIterable(ObjectPtr);
         static ObjectSharedPtr deserializeEnumValue(db0::swine_ptr<Fixture>, std::vector<std::byte>::const_iterator &iter,
             std::vector<std::byte>::const_iterator end);
         static ObjectSharedPtr deserializeEnumValueRepr(db0::swine_ptr<Fixture>, std::vector<std::byte>::const_iterator &iter,
@@ -225,6 +231,7 @@ namespace db0::python
         static bool isImmutable(TypeObjectPtr);
         static bool isIntern(TypeObjectPtr);
         static bool isProtectFields(TypeObjectPtr);
+        static bool isAccessControl(TypeObjectPtr);
         static FlagSet<MemoOptions> getMemoFlags(TypeObjectPtr);
         static bool hasMemoInstance(ObjectPtr);
         static UniqueAddress getMemoUniqueAddress(ObjectPtr);

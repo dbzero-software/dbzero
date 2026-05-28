@@ -87,6 +87,20 @@ namespace db0::object_model
         }
     }
 
+    void applyAccessControlFlag(Class &type, ClassFactory::TypeObjectPtr lang_type)
+    {
+        // A direct @memo(access_control=True) decoration is durable metadata for this
+        // class, so persist it when the language type is first attached or loaded.
+        if (lang_type && ClassFactory::LangToolkit::isAccessControl(lang_type) && !type.hasOwnAccessControl()) {
+            type.setOwnAccessControl();
+        // Classes reopened from storage may already own the durable flag. Re-apply the
+        // runtime state so access control is dynamically propagated to loaded bases
+        // without writing that inherited state into the base classes themselves.
+        } else if (type.hasOwnAccessControl()) {
+            type.setAccessControl();
+        }
+    }
+
     o_class_factory::o_class_factory(Memspace &memspace)
         : m_class_map_ptrs { VClassMap(memspace), VClassMap(memspace), VClassMap(memspace), VClassMap(memspace) }
     {
@@ -180,6 +194,7 @@ namespace db0::object_model
                 if (LangToolkit::isProtectFields(lang_type) && !type->hasOwnProtectFields()) {
                     type->setProtectFields();
                 }
+                applyAccessControlFlag(*type, lang_type);
             } else {
                 auto fixture = getFixture();
                 if (!checkAccessType(*fixture, AccessType::READ_WRITE)) {
@@ -195,6 +210,7 @@ namespace db0::object_model
                 flags.set(ClassOptions::NO_DEFAULT_TAGS, LangToolkit::isNoDefaultTags(lang_type));
                 flags.set(ClassOptions::IMMUTABLE, LangToolkit::isImmutable(lang_type));
                 flags.set(ClassOptions::INTERN, LangToolkit::isIntern(lang_type));
+                flags.set(ClassOptions::ACCESS_CONTROL, LangToolkit::isAccessControl(lang_type));
                 auto memo_base = LangToolkit::getBaseMemoType(lang_type);
                 std::shared_ptr<Class> base_class;                
                 if (memo_base) {
@@ -225,16 +241,6 @@ namespace db0::object_model
             
             it_cached = m_type_cache.insert({lang_type, type}).first;
             m_pending_types.push_back(lang_type);
-        } else {
-            auto memo_base = LangToolkit::getBaseMemoType(lang_type);
-            if (memo_base) {
-                getOrCreateType(memo_base);
-            }
-            validateImmutableFlag(*it_cached->second, lang_type);
-            validateInternFlag(*it_cached->second, lang_type);
-            if (LangToolkit::isProtectFields(lang_type) && !it_cached->second->hasOwnProtectFields()) {
-                it_cached->second->setProtectFields();
-            }
         }
         return it_cached->second;
     }
@@ -257,6 +263,7 @@ namespace db0::object_model
     std::shared_ptr<Class> ClassFactory::getType(ClassPtr ptr, std::shared_ptr<Class> type, TypeObjectPtr lang_type) const
     {
         auto it_cached = m_ptr_cache.find(ptr);
+        bool apply_lang_metadata = false;
         if (it_cached == m_ptr_cache.end()) {
             // try looking-up language specific type with the TypeManager
             if (!lang_type) {
@@ -265,6 +272,7 @@ namespace db0::object_model
             // add to by-pointer cache
             it_cached = m_ptr_cache.insert({ptr, ClassItem{ type, lang_type }}).first;
             m_pending_ptrs.push_back(ptr);
+            apply_lang_metadata = !!lang_type;
         }
         if (lang_type && !it_cached->second.m_lang_type) {
             validateImmutableFlag(*it_cached->second.m_class, lang_type);
@@ -272,9 +280,13 @@ namespace db0::object_model
             it_cached->second.m_lang_type = lang_type;
             it_cached->second.m_class->setInitVars(LangToolkit::getInitVars(lang_type));
             it_cached->second.m_class->setRuntimeFlags(LangToolkit::getMemoFlags(lang_type));
+            apply_lang_metadata = true;
         }
-        if (lang_type && LangToolkit::isProtectFields(lang_type) && !it_cached->second.m_class->hasOwnProtectFields()) {
-            it_cached->second.m_class->setProtectFields();
+        if (apply_lang_metadata) {
+            if (LangToolkit::isProtectFields(lang_type) && !it_cached->second.m_class->hasOwnProtectFields()) {
+                it_cached->second.m_class->setProtectFields();
+            }
+            applyAccessControlFlag(*it_cached->second.m_class, lang_type);
         }
         return it_cached->second.m_class;
     }
@@ -324,6 +336,7 @@ namespace db0::object_model
     ClassFactory::ClassItem ClassFactory::tryGetTypeByPtr(ClassPtr ptr, TypeObjectPtr lang_type) const
     {
         auto it_cached = m_ptr_cache.find(ptr);
+        bool apply_lang_metadata = false;
         if (it_cached == m_ptr_cache.end()) {
             // Since ptr points to existing instance, we can simply pull it from backend
             // note that Class has no associated language specific type object yet
@@ -345,6 +358,7 @@ namespace db0::object_model
                 if (LangToolkit::isProtectFields(lang_type) && !type->hasOwnProtectFields()) {
                     type->setProtectFields();
                 }
+                applyAccessControlFlag(*type, lang_type);
             }
             // register the mapping to language specific type object
             it_cached = m_ptr_cache.insert({ptr, ClassItem { type, lang_type }}).first;
@@ -357,9 +371,13 @@ namespace db0::object_model
             it_cached->second.m_lang_type = lang_type;        
             it_cached->second.m_class->setInitVars(LangToolkit::getInitVars(lang_type));
             it_cached->second.m_class->setRuntimeFlags(LangToolkit::getMemoFlags(lang_type));
+            apply_lang_metadata = true;
         }
-        if (lang_type && LangToolkit::isProtectFields(lang_type) && !it_cached->second.m_class->hasOwnProtectFields()) {
-            it_cached->second.m_class->setProtectFields();
+        if (apply_lang_metadata) {
+            if (LangToolkit::isProtectFields(lang_type) && !it_cached->second.m_class->hasOwnProtectFields()) {
+                it_cached->second.m_class->setProtectFields();
+            }
+            applyAccessControlFlag(*it_cached->second.m_class, lang_type);
         }
         return it_cached->second;
     }

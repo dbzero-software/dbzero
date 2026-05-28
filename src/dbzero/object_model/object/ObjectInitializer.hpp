@@ -289,6 +289,9 @@ namespace db0::object_model
 
         auto initAt = [&](std::uint32_t loc) {
             if (m_initializers[loc] && typeid(*m_initializers[loc]) == typeid(InitializerT)) {
+                if (!m_initializers[loc]->closed()) {
+                    m_initializers[loc]->reset();
+                }
                 static_cast<InitializerT *>(m_initializers[loc].get())->init(object, std::forward<Args>(args)...);
             } else {
                 m_initializers[loc].reset(new InitializerT(*this, loc, object, std::forward<Args>(args)...));

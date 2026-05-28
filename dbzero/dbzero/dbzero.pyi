@@ -120,6 +120,14 @@ def get_type_stats(type: type, prefix: Optional[str] = None) -> Dict[str, Any]:
     """
     ...
 
+def get_prefix_stats(prefix: Optional[str] = None) -> Dict[str, Any]:
+    """Retrieve statistics for a prefix.
+
+    The result includes ``data_masking["enabled"]`` and ``data_filter["enabled"]``
+    to report whether the opened prefix has those runtime states attached.
+    """
+    ...
+
 # Object retrieval and management
 
 def fetch(identifier: Union[str, type], expected_type: Optional[type] = None, prefix: Optional[str] = None) -> Memo:
@@ -646,6 +654,14 @@ def _init_data_masking(
     """Initialize workspace-wide or prefix-scoped data masking for the current process."""
     ...
 
+def _init_data_filter(
+    context_var: Any,
+    prefix: Union[str, Any, Sequence[Any], None] = None,
+    mode: str = "RELEASE",
+) -> None:
+    """Initialize workspace-wide or prefix-scoped data filtering for the current process."""
+    ...
+
 # Cache management
 
 def clear_cache() -> None:
@@ -1048,6 +1064,15 @@ def find(*query_criteria: Union[Tag, List[Tag], Tuple[Tag], QueryObject, TagSet]
     Find in specific prefix:
     
     >>> results = dbzero.find("tag1", prefix="customer-data")
+    """
+    ...
+
+def predicate(*query_criteria: Union[Tag, List[Tag], Tuple[Tag], QueryObject, TagSet], prefix: Optional[str] = None) -> QueryObject:
+    """Build a predicate-only query for composing filters.
+
+    Predicate queries use the same criteria grammar as ``find`` and can be used
+    as criteria in other queries or as data-filter predicates. They do not allow
+    direct iteration, counting, truth testing, indexing, or slicing.
     """
     ...
 

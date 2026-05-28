@@ -26,6 +26,7 @@ namespace db0::object_model
     using LongTagT = db0::LongTagT;
     class EnumFactory;
     class CompositeTagDef;
+    class ObjectIterable;
 
 DB0_PACKED_BEGIN    
     struct DB0_PACKED_ATTR o_tag_index: public o_fixed_versioned<o_tag_index>
@@ -88,10 +89,14 @@ DB0_PACKED_END
          * @param type optional type to match by
          * @param observer buffer to receive query observers (possibly inherited from inner queries)
          * @param no_result flag indicating if an empty query iterator should be returned
+         * @param native_args already-resolved native ObjectIterable queries to AND-combine with args
+         *   (used when the caller cannot or should not pass the original language object to query planning)
          */
         std::unique_ptr<QueryIterator> find(ObjectPtr const *args, std::size_t nargs,
             std::shared_ptr<const Class> type, std::vector<std::unique_ptr<QueryObserver> > &observers, 
-            bool no_result = false) const;
+            bool no_result = false, const std::vector<const ObjectIterable*> &native_args = {}) const;
+
+        bool contains(UniqueAddress address, const ObjectIterable &native_arg) const;
         
         /**
          * Split query by all values from a specific tags_list (can be either short or long tag definitions)
@@ -145,6 +150,10 @@ DB0_PACKED_END
         std::unique_ptr<QueryIterator> makeIterator(const TagDef &) const;
         std::unique_ptr<QueryIterator> makeIterator(const Class &) const;
         std::unique_ptr<QueryIterator> makeIterator(ShortTagT) const;
+        std::unique_ptr<QueryIterator> makeIterator(const std::vector<ShortTagT> &tag_sequence,
+            int direction = -1) const;
+        std::unique_ptr<QueryIterator> makeMissingIterator(std::vector<ShortTagT> &&tag_sequence,
+            int direction = -1) const;
         
     private:
         using TypeId = db0::bindings::TypeId;
@@ -219,7 +228,7 @@ DB0_PACKED_END
         std::optional<ShortTagT> tryAddShortTag(TypeId, ObjectPtr, bool &inc_ref) const;
         std::optional<ShortTagT> tryAddShortTag(ObjectPtr, bool &inc_ref) const;
         std::optional<ShortTagT> tryAddShortTag(ObjectSharedPtr, bool &inc_ref) const;
-        ShortTagT addShortTagFromString(ObjectPtr, bool &inc_ref) const;
+        std::optional<ShortTagT> addShortTagFromString(ObjectPtr, bool &inc_ref) const;
         // return 0x0 if object is from a different prefix (must be added as long tag)
         std::optional<ShortTagT> tryAddShortTagFromTag(ObjectPtr) const;        
         std::optional<ShortTagT> tryAddShortTagFromMemo(ObjectPtr) const;
@@ -227,8 +236,12 @@ DB0_PACKED_END
         bool addIterator(ObjectPtr, db0::FT_IteratorFactory<UniqueAddress> &factory,
             std::vector<std::unique_ptr<QueryIterator> > &neg_iterators, 
             std::vector<std::unique_ptr<QueryObserver> > &query_observers) const;
-        bool addCompositeIterator(const CompositeTagDef &, db0::FT_IteratorFactory<UniqueAddress> &factory,
+        bool addIterator(const ObjectIterable &, db0::FT_IteratorFactory<UniqueAddress> &factory,
+            std::vector<std::unique_ptr<QueryIterator> > &neg_iterators, 
             std::vector<std::unique_ptr<QueryObserver> > &query_observers) const;
+        bool addCompositeIterator(const CompositeTagDef &, db0::FT_IteratorFactory<UniqueAddress> &factory) const;
+        bool addCompositeLeafIterator(ObjectPtr, db0::FT_IteratorFactory<UniqueAddress> &factory,
+            std::vector<ShortTagT> &&serialized_tag_sequence) const;
         std::optional<ShortTagT> tryGetCompositeKey(ObjectPtr) const;
         
         bool isShortTag(ObjectPtr) const;

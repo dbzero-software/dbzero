@@ -16,7 +16,7 @@ All tests must pass before a change is considered complete.
 
 ### Building
 
-- Debug build: `./scripts/build.sh`
+- Debug build: `./scripts/build.sh -d` (equivalent to `./scripts/build.sh`; debug is the default)
 - Release build: `./scripts/build.sh -r`
 - Release build with C++ unit test binary: `./scripts/build.sh -r -t`
 
@@ -25,6 +25,7 @@ All tests must pass before a change is considered complete.
 - Python tests: `./scripts/run_tests.sh`
 - Final Python test checks: `./scripts/run_tests.sh -j 6`
 - C++ tests after a `-t` build: `./build/release/tests.x`
+- Before final handoff, also verify the code in debug mode with a debug build (`./scripts/build.sh -d`) and the relevant Python tests against that debug build. Debug assertions are part of the required validation, not optional diagnostics.
 - During development, do not run stress tests by default; they are intentionally slow. Run focused tests specific to the feature or refactor being worked on before finalization.
 - If any C++ source under the native/core part of the project was modified, also run the C++ test suite (do not rely on the Python tests alone to cover native changes).
 
@@ -53,7 +54,7 @@ Variable-size overlaid types that derive from another overlaid type must use `db
 
 ### C++ style
 
-- Use camelCase for local helper variables, lambdas, and method names in C++ code.
+- Use snake_case for parameter names and local variable names in C++ code. Parameter names should be concise yet informative. Keep method names consistent with the surrounding code.
 - Project types often avoid implicit bool conversion because it can hide subtle ownership, state, and null-check bugs. Use explicit double-negation checks such as `if (!!obj)` or `while (!!item)` when a type supports `operator!()`.
 
 ### Python binding wrapper access

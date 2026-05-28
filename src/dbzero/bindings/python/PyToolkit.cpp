@@ -521,7 +521,7 @@ namespace db0::python
     static PyToolkit::ObjectSharedPtr tryUnloadObjectResolved(
         db0::swine_ptr<Fixture> &fixture, Address address, const PyToolkit::ClassFactory &class_factory,
         PyToolkit::TypeObjectPtr lang_type_ptr, std::uint16_t instance_id, AccessFlags access_mode,
-        const Allocator::AllocationInfo *allocationInfo)
+        const Allocator::AllocationInfo *allocationInfo, bool authorize_data_filter)
     {
         // try unloading from cache first
         auto &lang_cache = fixture->getLangCache();
@@ -537,6 +537,10 @@ namespace db0::python
                 if (getMemoInstanceId(obj_ptr.get()) != instance_id) {
                     return {};
                 }
+            }
+            if (authorize_data_filter) {
+                authorizeDataFilterFetch(
+                    fixture, PyToolkit::getMemoType(obj_ptr.get()), PyToolkit::getMemoUniqueAddress(obj_ptr.get()));
             }
             
             return obj_ptr;
@@ -565,6 +569,9 @@ namespace db0::python
             >(std::move(commonStem));
             auto typeInfo = class_factory.getTypeByClassRef(stem->getClassRef());
             auto type = typeInfo.m_class;
+            if (authorize_data_filter) {
+                authorizeDataFilterFetch(fixture, *type, UniqueAddress(address, stem->m_header.getInstanceId()));
+            }
             lang_type_ptr = resolveUnloadLangType(class_factory, type, typeInfo.m_lang_type, lang_type_ptr);
 
             auto *memo_ptr = reinterpret_cast<MemoImmutableObject *>(lang_type_ptr->tp_alloc(lang_type_ptr, 0));
@@ -584,6 +591,9 @@ namespace db0::python
         >(std::move(commonStem));
         auto typeInfo = class_factory.getTypeByClassRef(stem->getClassRef());
         auto type = typeInfo.m_class;
+        if (authorize_data_filter) {
+            authorizeDataFilterFetch(fixture, *type, UniqueAddress(address, stem->m_header.getInstanceId()));
+        }
         lang_type_ptr = resolveUnloadLangType(class_factory, type, typeInfo.m_lang_type, lang_type_ptr);
         
         // construct Python's memo object (placeholder for actual dbzero instance)
@@ -601,64 +611,78 @@ namespace db0::python
 
     PyToolkit::ObjectSharedPtr PyToolkit::tryUnloadObject(
         db0::swine_ptr<Fixture> &fixture, Address address, const ClassFactory &class_factory,
-        TypeObjectPtr lang_type_ptr, std::uint16_t instance_id, AccessFlags access_mode)
+        TypeObjectPtr lang_type_ptr, std::uint16_t instance_id, AccessFlags access_mode,
+        bool authorize_data_filter)
     {
         return tryUnloadObjectResolved(
-            fixture, address, class_factory, lang_type_ptr, instance_id, access_mode, nullptr
+            fixture, address, class_factory, lang_type_ptr, instance_id, access_mode, nullptr,
+            authorize_data_filter
         );
     }
     
     PyToolkit::ObjectSharedPtr PyToolkit::unloadEmbeddedObject(
         db0::swine_ptr<Fixture> &fixture, Address address, const PyToolkit::ClassFactory &class_factory,
         PyToolkit::TypeObjectPtr lang_type_ptr, std::uint16_t instance_id, AccessFlags access_mode,
-        ObjectSharedPtr rootObject, const Allocator::AllocationInfo *allocationInfo)
+        ObjectSharedPtr root_object, const Allocator::AllocationInfo *alloc_info, bool authorize_data_filter)
     {
-        auto &langCache = fixture->getLangCache();
-        auto cachedObject = langCache.get(address);
-        if (!!cachedObject) {
+        auto &lang_cache = fixture->getLangCache();
+        auto cached_object = lang_cache.get(address);
+        if (!!cached_object) {
             if (instance_id) {
-                auto cachedAddress = tryGetEmbeddedUniqueAddress(cachedObject.get());
-                if (!cachedAddress || cachedAddress->getInstanceId() != instance_id) {
+                auto cached_address = tryGetEmbeddedUniqueAddress(cached_object.get());
+                if (!cached_address || cached_address->getInstanceId() != instance_id) {
                     THROWF(db0::InputException) << "Invalid UUID or object has been deleted";
                 }
             }
-            return cachedObject;
+            if (authorize_data_filter) {
+                authorizeDataFilterFetch(
+                    fixture, PyToolkit::getMemoType(cached_object.get()),
+                    PyToolkit::getMemoUniqueAddress(cached_object.get()));
+            }
+            return cached_object;
         }
 
-        Allocator::AllocationInfo alloc_info;
-        if (!allocationInfo) {
-            alloc_info = fixture->findAllocation(address, db0::object_model::ObjectImmutableImpl::REALM_ID);
-            allocationInfo = &alloc_info;
+        Allocator::AllocationInfo local_alloc_info;
+        if (!alloc_info) {
+            local_alloc_info = fixture->findAllocation(address, db0::object_model::ObjectImmutableImpl::REALM_ID);
+            alloc_info = &local_alloc_info;
         }
-        assert(allocationInfo);
-        auto embeddedOffset = address.getOffset() - allocationInfo->address.getOffset();
+        assert(alloc_info);
+        auto embedded_offset = address.getOffset() - alloc_info->address.getOffset();
 
         // Resolve the root object if not provided
-        if (!rootObject) {
-            rootObject = tryUnloadObjectResolved(
-                fixture, allocationInfo->address, class_factory, lang_type_ptr, instance_id, access_mode,
-                allocationInfo
+        if (!root_object) {
+            root_object = tryUnloadObjectResolved(
+                fixture, alloc_info->address, class_factory, lang_type_ptr, instance_id, access_mode,
+                alloc_info, false
             );
-            if (!rootObject) {
+            if (!root_object) {
                 THROWF(db0::InputException) << "Invalid UUID or object has been deleted";
             }
         }
-        assert(!!rootObject);
-        auto *rootMemo = reinterpret_cast<PyToolkit::TypeManager::MemoImmutableObject *>(rootObject.get());
-        auto embeddedObject = rootMemo->ext().getEmbeddedInstanceAtOffset(embeddedOffset);
-        if (shouldCacheEmbeddedObject(embeddedObject.get())) {
-            langCache.add(address, embeddedObject.get());
+        assert(!!root_object);
+        auto *root_memo = reinterpret_cast<PyToolkit::TypeManager::MemoImmutableObject *>(root_object.get());
+        auto embedded_object = root_memo->ext().getEmbeddedInstanceAtOffset(embedded_offset);
+        if (authorize_data_filter) {
+            authorizeDataFilterFetch(
+                fixture, PyToolkit::getMemoType(embedded_object.get()),
+                PyToolkit::getMemoUniqueAddress(embedded_object.get()));
         }
-        return embeddedObject;
+        if (shouldCacheEmbeddedObject(embedded_object.get())) {
+            lang_cache.add(address, embedded_object.get());
+        }
+        return embedded_object;
     }
 
     PyToolkit::ObjectSharedPtr PyToolkit::unloadAnyObject(
         db0::swine_ptr<Fixture> &fixture, Address address, const ClassFactory &class_factory,
-        TypeObjectPtr lang_type_ptr, std::uint16_t instance_id, AccessFlags access_mode)
+        TypeObjectPtr lang_type_ptr, std::uint16_t instance_id, AccessFlags access_mode,
+        bool authorize_data_filter)
     {
         auto allocation = fixture->findAllocation(address, db0::object_model::ObjectImmutableImpl::REALM_ID);
         auto rootObject = tryUnloadObjectResolved(
-            fixture, allocation.address, class_factory, lang_type_ptr, instance_id, access_mode, &allocation
+            fixture, allocation.address, class_factory, lang_type_ptr, instance_id, access_mode, &allocation,
+            authorize_data_filter
         );
         if (!rootObject) {
             THROWF(db0::InputException) << "Invalid UUID or object has been deleted";
@@ -668,7 +692,8 @@ namespace db0::python
         }
 
         return unloadEmbeddedObject(
-            fixture, address, class_factory, lang_type_ptr, instance_id, access_mode, rootObject, &allocation
+            fixture, address, class_factory, lang_type_ptr, instance_id, access_mode, rootObject, &allocation,
+            authorize_data_filter
         );
     }
 
@@ -701,10 +726,11 @@ namespace db0::python
     }
 
     PyToolkit::ObjectSharedPtr PyToolkit::unloadObject(db0::swine_ptr<Fixture> &fixture, Address address,
-        const ClassFactory &class_factory, TypeObjectPtr lang_type_ptr, std::uint16_t instance_id, AccessFlags access_mode)
+        const ClassFactory &class_factory, TypeObjectPtr lang_type_ptr, std::uint16_t instance_id, AccessFlags access_mode,
+        bool authorize_data_filter)
     {
         auto result = tryUnloadObject(
-            fixture, address, class_factory, lang_type_ptr, instance_id, access_mode
+            fixture, address, class_factory, lang_type_ptr, instance_id, access_mode, authorize_data_filter
         );
         if (!result) {
             THROWF(db0::InputException) << "Invalid UUID or object has been deleted";            
@@ -949,6 +975,18 @@ namespace db0::python
         py_iter->makeNew(std::move(*obj_iter));
         return shared_py_cast<PyObject*>(std::move(py_iter));
     }
+
+    const db0::object_model::ObjectIterable &PyToolkit::getPredicateIterable(ObjectPtr py_object)
+    {
+        if (!PyObjectIterable_Check(py_object)) {
+            THROWF(db0::InputException) << "Predicate object must be an ObjectIterable";
+        }
+        auto &predicate = reinterpret_cast<PyObjectIterable*>(py_object)->ext();
+        if (!predicate.isPredicateOnly()) {
+            THROWF(db0::InputException) << "Predicate object must be created with db0.predicate";
+        }
+        return predicate;
+    }
     
     PyToolkit::ObjectSharedPtr PyToolkit::deserializeEnumValue(db0::swine_ptr<Fixture> fixture,
         std::vector<std::byte>::const_iterator &iter, 
@@ -1172,6 +1210,15 @@ namespace db0::python
     {
         if (isAnyMemoType(py_type)) {
             return MemoTypeDecoration::get(py_type).getFlags()[MemoOptions::PROTECT_FIELDS];
+        } else {
+            return false;
+        }
+    }
+
+    bool PyToolkit::isAccessControl(TypeObjectPtr py_type)
+    {
+        if (isAnyMemoType(py_type)) {
+            return MemoTypeDecoration::get(py_type).getFlags()[MemoOptions::ACCESS_CONTROL];
         } else {
             return false;
         }

@@ -41,18 +41,33 @@ namespace db0
     std::unique_ptr<FT_Iterator<KeyT> > 
     FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::makeIterator(IndexKeyT key, int direction) const
     {
+        return makeIterator(key, direction, std::vector<IndexKeyT> { key });
+    }
+    
+    template <typename IndexKeyT, typename KeyT, typename IndexValueT>
+    std::unique_ptr<FT_Iterator<KeyT> > 
+    FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::makeIterator(IndexKeyT key, int direction,
+        std::vector<IndexKeyT> &&index_key_sequence) const
+    {
         using ListT = typename super_t::ListT;
         auto inverted_list_ptr = this->tryGetExistingInvertedList(key);
         if (!inverted_list_ptr) {
             return nullptr;
         }
         return std::unique_ptr<FT_Iterator<KeyT> >(
-            new FT_IndexIterator<ListT, KeyT, IndexKeyT>(*inverted_list_ptr, direction, key)
+            new FT_IndexIterator<ListT, KeyT, IndexKeyT>(*inverted_list_ptr, direction, key, std::move(index_key_sequence))
         );
     }
     
     template <typename IndexKeyT, typename KeyT, typename IndexValueT>
     bool FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::addIterator(FT_IteratorFactory<KeyT> &factory, IndexKeyT key) const
+    {
+        return addIterator(factory, key, std::vector<IndexKeyT> { key });
+    }
+    
+    template <typename IndexKeyT, typename KeyT, typename IndexValueT>
+    bool FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::addIterator(FT_IteratorFactory<KeyT> &factory, IndexKeyT key,
+        std::vector<IndexKeyT> &&index_key_sequence) const
     {
         using ListT = typename super_t::ListT;
         auto inverted_list_ptr = this->tryGetExistingInvertedList(key);
@@ -62,7 +77,7 @@ namespace db0
         
         // key inverted index
         factory.add(std::unique_ptr<FT_Iterator<KeyT> >(
-            new FT_IndexIterator<ListT, KeyT, IndexKeyT>(*inverted_list_ptr, -1, key))
+            new FT_IndexIterator<ListT, KeyT, IndexKeyT>(*inverted_list_ptr, -1, key, std::move(index_key_sequence)))
         );
         return true;
     }

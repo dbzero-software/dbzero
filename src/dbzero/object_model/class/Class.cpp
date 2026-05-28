@@ -11,7 +11,7 @@
 #include <dbzero/object_model/value/StorageClass.hpp>
 #include "Schema.hpp"
 
-DEFINE_ENUM_VALUES(db0::ClassOptions, "SINGLETON", "NO_DEFAULT_TAGS", "IMMUTABLE", "PROTECT_FIELDS", "INTERN")
+DEFINE_ENUM_VALUES(db0::ClassOptions, "SINGLETON", "NO_DEFAULT_TAGS", "IMMUTABLE", "PROTECT_FIELDS", "INTERN", "ACCESS_CONTROL")
 
 namespace db0::object_model
 
@@ -115,6 +115,9 @@ namespace db0::object_model
         if (isProtectFields()) {
             ensureFieldSafe();
         }
+        if (hasOwnAccessControl()) {
+            setAccessControl();
+        }
         m_schema.postInit(getTotalFunc());
     }
     
@@ -133,6 +136,9 @@ namespace db0::object_model
         if ((*this)->m_base_class_ref) {
             auto fixture = this->getFixture();
             m_base_class_ptr = getClassFactory(*fixture).getTypeByClassRef((*this)->m_base_class_ref).m_class;
+        }
+        if (hasOwnAccessControl()) {
+            setAccessControl();
         }
     }
     
@@ -311,6 +317,14 @@ namespace db0::object_model
         return (*this)->m_flags[ClassOptions::INTERN];
     }
 
+    bool Class::hasOwnAccessControl() const {
+        return (*this)->m_flags[ClassOptions::ACCESS_CONTROL];
+    }
+
+    bool Class::isAccessControl() const {
+        return m_access_control;
+    }
+
     bool Class::hasOwnProtectFields() const {
         return (*this)->m_flags[ClassOptions::PROTECT_FIELDS];
     }
@@ -389,6 +403,18 @@ namespace db0::object_model
         ensureFieldSafe();
         modify().m_flags.set(ClassOptions::PROTECT_FIELDS, true);
         resetProtectFieldsCache();
+    }
+
+    void Class::setAccessControl() {
+        m_access_control = true;
+        if (m_base_class_ptr) {
+            m_base_class_ptr->setAccessControl();
+        }
+    }
+
+    void Class::setOwnAccessControl() {
+        modify().m_flags.set(ClassOptions::ACCESS_CONTROL, true);
+        setAccessControl();
     }
 
     void Class::resetProtectFields() {
@@ -1164,6 +1190,9 @@ namespace db0::object_model
     
     void Class::setRuntimeFlags(FlagSet<MemoOptions> memo_options) {
         m_no_cache = memo_options[MemoOptions::NO_CACHE];
+        if (memo_options[MemoOptions::ACCESS_CONTROL]) {
+            setAccessControl();
+        }
     }
 
     bool Class::isBaseClass(const Class &other) const

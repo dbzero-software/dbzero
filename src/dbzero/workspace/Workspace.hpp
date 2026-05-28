@@ -35,6 +35,7 @@ namespace db0
     class AutoCommitThread;
     class AtomicContext;
     struct DataMaskingState;
+    struct DataFilterState;
     class LangCache;
     class Config;
     class WorkspaceView;
@@ -288,8 +289,14 @@ namespace db0
 
         void initDataMasking(std::shared_ptr<DataMaskingState>);
         void initDataMasking(const PrefixName &, std::shared_ptr<DataMaskingState>);
-        std::shared_ptr<DataMaskingState> getDataMaskingState() const override;
-        std::shared_ptr<DataMaskingState> getDataMaskingState(const PrefixName &) const override;
+        // Returns the data masking state configured for a prefix. Passing the default invalid PrefixName{}
+        // queries the workspace-global state, which applies to all prefixes.
+        std::shared_ptr<DataMaskingState> getDataMaskingState(const PrefixName & = {}) const override;
+        void initDataFilter(std::shared_ptr<DataFilterState>);
+        void initDataFilter(const PrefixName &, std::shared_ptr<DataFilterState>);
+        // Returns the data filter state configured for a prefix. Passing the default invalid PrefixName{}
+        // queries the workspace-global state, which applies to all prefixes.
+        std::shared_ptr<DataFilterState> getDataFilterState(const PrefixName & = {}) const override;
         
         std::shared_ptr<WorkspaceView> getWorkspaceView(
             std::optional<std::uint64_t> state_num = {},
@@ -342,6 +349,8 @@ namespace db0
         std::unordered_map<unsigned int, std::vector<std::pair<std::string, std::uint64_t> > > m_locked_section_log;
         std::shared_ptr<DataMaskingState> m_data_masking_state;
         std::unordered_map<std::string, std::shared_ptr<DataMaskingState> > m_prefix_data_masking_states;
+        std::shared_ptr<DataFilterState> m_data_filter_state;
+        std::unordered_map<std::string, std::shared_ptr<DataFilterState> > m_prefix_data_filter_states;
         // this is to prevent recursive cleanups (which might result in a deadlock)
         mutable std::atomic<bool> m_cleanup_pending = false;
         
@@ -355,6 +364,7 @@ namespace db0
         std::optional<std::size_t> getLangCacheSize() const;
         std::shared_ptr<WorkspaceView> getWorkspaceHeadView() const;
         void updateDataMaskingSettingsFlag() const;
+        void updateDataFilterSettingsFlag() const;
     };
     
 }

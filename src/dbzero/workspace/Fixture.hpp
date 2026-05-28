@@ -36,6 +36,7 @@ DB0_PACKED_BEGIN
     
     class GC0;
     struct DataMaskingState;
+    struct DataFilterState;
     class MetaAllocator;
     class Snapshot;
     class Workspace;
@@ -285,6 +286,8 @@ DB0_PACKED_BEGIN
 
         void initMaskingState(std::shared_ptr<DataMaskingState>);
         std::shared_ptr<DataMaskingState> getMaskingState() const;
+        void initFilterState(std::shared_ptr<DataFilterState>);
+        std::shared_ptr<DataFilterState> getFilterState() const;
         
     private:
         const AccessType m_access_type;
@@ -327,6 +330,7 @@ DB0_PACKED_BEGIN
         std::vector<std::function<void()> > m_flush_handlers;
         std::list<std::shared_ptr<MutationLog> > m_mutation_handlers;
         std::shared_ptr<DataMaskingState> m_masking_state;
+        std::shared_ptr<DataFilterState> m_filter_state;
         
         std::uint64_t getUUID(MetaAllocator &);
         

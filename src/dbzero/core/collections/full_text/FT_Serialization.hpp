@@ -142,12 +142,20 @@ namespace db0
         auto fixture = snapshot.getFixture(db0::serial::read<std::uint64_t>(iter, end));        
         int direction = db0::serial::read<std::int8_t>(iter, end);
         if (index_key_type_id == db0::serial::typeId<std::uint64_t>()) {
-            auto index_key = db0::serial::read<std::uint64_t>(iter, end);
+            auto index_key_count = db0::serial::read<std::uint32_t>(iter, end);
+            if (index_key_count == 0) {
+                THROWF(db0::InternalException) << "Serialized FT index iterator is missing index keys" << THROWF_END;
+            }
+            std::vector<std::uint64_t> index_keys;
+            index_keys.reserve(index_key_count);
+            for (std::uint32_t i = 0; i < index_key_count; ++i) {
+                index_keys.push_back(db0::serial::read<std::uint64_t>(iter, end));
+            }
             // use FT_Base index as the factory
             // NOTE: TagIndex only supports UniqueAddress key type
             if constexpr (std::is_same_v<KeyT, UniqueAddress>) {
                 auto &tag_index = fixture->get<db0::object_model::TagIndex>();
-                return tag_index.getBaseIndexShort().makeIterator(index_key, direction);
+                return tag_index.makeIterator(index_keys, direction);
             }
         }
         THROWF(db0::InternalException) << "Unsupported key type ID: " << key_type_id << THROWF_END;        

@@ -9,6 +9,7 @@
 #include <dbzero/core/collections/b_index/mb_index.hpp>
 #include <dbzero/core/serialization/Serializable.hpp>
 #include <optional>
+#include <vector>
 
 namespace db0
 
@@ -26,13 +27,18 @@ namespace db0
 		using super_t = FT_Iterator<key_t>;
 		using iterator = typename bindex_t::joinable_const_iterator;
 
-		FT_IndexIterator(const bindex_t &data, int direction, std::optional<IndexKeyT> index_key = {});
+		// index_key_sequence is serialization-only metadata. For plain tag
+		// iterators it is empty and index_key is enough. For nested composite
+		// tag iterators it stores the root-to-leaf tag key path so deserialize
+		// can traverse from the root TagIndex instead of persisting child index addresses.
+		FT_IndexIterator(const bindex_t &data, int direction, std::optional<IndexKeyT> index_key = {},
+			std::vector<IndexKeyT> &&index_key_sequence = {});
 
 		/**
          * Construct over already initialized simple iterator
          */
 		FT_IndexIterator(const bindex_t &data, int direction, const iterator &it,
-			std::optional<IndexKeyT> index_key = {});
+			std::optional<IndexKeyT> index_key = {}, std::vector<IndexKeyT> &&index_key_sequence = {});
 
         virtual ~FT_IndexIterator() = default;
         
@@ -87,9 +93,12 @@ namespace db0
         bool m_has_detach_key = false;
         key_t m_detach_key;
         const std::optional<IndexKeyT> m_index_key;
+		// Full root-to-leaf tag key path used only to reconstruct nested composite-tag
+		// iterators during deserialization. A plain tag iterator leaves this empty.
+		const std::vector<IndexKeyT> m_index_key_sequence;
 
 		FT_IndexIterator(std::uint64_t uid, const bindex_t &data, int direction, 
-			std::optional<IndexKeyT> index_key = {});
+			std::optional<IndexKeyT> index_key = {}, std::vector<IndexKeyT> &&index_key_sequence = {});
 
         /**
          * Get valid iterator after detach
@@ -110,32 +119,35 @@ namespace db0
 	
 	template <typename bindex_t, typename key_t, typename IndexKeyT>
 	FT_IndexIterator<bindex_t, key_t, IndexKeyT>::FT_IndexIterator(const bindex_t &data, int direction, 
-		std::optional<IndexKeyT> index_key)
+		std::optional<IndexKeyT> index_key, std::vector<IndexKeyT> &&index_key_sequence)
         : m_data(data)
         , m_direction(direction)
         , m_iterator(m_data.beginJoin(direction))
         , m_index_key(index_key)
+        , m_index_key_sequence(std::move(index_key_sequence))
     {
     }
 	
 	template <typename bindex_t, typename key_t, typename IndexKeyT>
 	FT_IndexIterator<bindex_t, key_t, IndexKeyT>::FT_IndexIterator(const bindex_t &data, int direction, const iterator &it,
-	    std::optional<IndexKeyT> index_key)
+	    std::optional<IndexKeyT> index_key, std::vector<IndexKeyT> &&index_key_sequence)
         : m_data(data)
         , m_direction(direction)
         , m_iterator(it)
         , m_index_key(index_key)
+        , m_index_key_sequence(std::move(index_key_sequence))
     {
     }
 
 	template <typename bindex_t, typename key_t, typename IndexKeyT>
 	FT_IndexIterator<bindex_t, key_t, IndexKeyT>::FT_IndexIterator(std::uint64_t uid, const bindex_t &data, int direction, 
-		std::optional<IndexKeyT> index_key)
+		std::optional<IndexKeyT> index_key, std::vector<IndexKeyT> &&index_key_sequence)
 		: FT_Iterator<key_t>(uid)
         , m_data(data)
         , m_direction(direction)
         , m_iterator(m_data.beginJoin(direction))
         , m_index_key(index_key)
+        , m_index_key_sequence(std::move(index_key_sequence))
     {
     }
 
@@ -196,7 +208,10 @@ namespace db0
 	
 	template <typename bindex_t, typename key_t, typename IndexKeyT>
 	std::unique_ptr<FT_Iterator<key_t> > FT_IndexIterator<bindex_t, key_t, IndexKeyT>::beginTyped(int direction) const {
-		return std::unique_ptr<FT_Iterator<key_t> >(new FT_IndexIterator(this->m_uid, m_data, direction, this->m_index_key));
+		return std::unique_ptr<FT_Iterator<key_t> >(
+			new FT_IndexIterator(this->m_uid, m_data, direction, this->m_index_key,
+				std::vector<IndexKeyT>(this->m_index_key_sequence))
+		);
 	}
 
 	template <typename bindex_t, typename key_t, typename IndexKeyT>
@@ -290,7 +305,18 @@ namespace db0
 		db0::serial::write<TypeIdType>(v, db0::serial::typeId<IndexKeyT>());
 		db0::serial::write(v, m_data.getMemspace().getUUID());
 		db0::serial::write<std::int8_t>(v, m_direction);		
-		db0::serial::write(v, *m_index_key);
+		// For nested composite tags, serialize the whole root-to-leaf key path.
+		// Deserialization cannot use the nested index address directly because child
+		// indexes must be resolved from the root TagIndex in the target snapshot.
+		if (m_index_key_sequence.empty()) {
+			db0::serial::write<std::uint32_t>(v, 1);
+			db0::serial::write(v, *m_index_key);
+		} else {
+			db0::serial::write<std::uint32_t>(v, m_index_key_sequence.size());
+			for (auto const &index_key: m_index_key_sequence) {
+				db0::serial::write(v, index_key);
+			}
+		}
 	}
 
 	template <typename bindex_t, typename key_t, typename IndexKeyT>

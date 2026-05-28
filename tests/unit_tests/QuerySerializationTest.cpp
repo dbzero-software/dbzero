@@ -114,4 +114,82 @@ namespace tests
         runTestCase(test);
     }
 
+    TEST_F( QuerySerializationTest , testCompositeTagPathIteratorCanBeDeserializedFromRoot )
+    {
+        auto fixture = getFixture();
+        FixedObjectList shared_object_list(100);
+        db0::object_model::ClassFactory class_factory(fixture);
+        db0::object_model::EnumFactory enum_factory(fixture);
+        VObjectCache cache(*fixture, shared_object_list);
+
+        auto &tag_index = fixture->addResource<TagIndex>(
+            *fixture, class_factory, enum_factory, fixture->getLimitedStringPool(), cache, fixture->addMutationHandler()
+        );
+
+        auto child = tag_index.addComposite(nullptr, 11);
+        auto grandchild = child->addComposite(nullptr, 22);
+        {
+            auto batch_data = grandchild->getBaseIndexShort().beginBatchUpdate();
+            batch_data->addTags({ makeUniqueAddr(101, 1), nullptr }, std::vector<std::uint64_t> { 33 });
+            batch_data->flush();
+        }
+        {
+            auto batch_data = tag_index.getBaseIndexShort().beginBatchUpdate();
+            batch_data->addTags({ makeUniqueAddr(202, 1), nullptr }, std::vector<std::uint64_t> { 33 });
+            batch_data->flush();
+        }
+
+        auto ft_query = tag_index.makeIterator(std::vector<TagIndex::ShortTagT> { 11, 22, 33 });
+        ASSERT_TRUE(ft_query);
+
+        std::vector<std::byte> buf;
+        ft_query->serialize(buf);
+
+        auto iter = buf.cbegin(), end = buf.cend();
+        auto cut = deserializeFT_Iterator<UniqueAddress>(m_workspace, iter, end);
+        ASSERT_TRUE(cut);
+        ASSERT_FALSE(cut->isEnd());
+
+        UniqueAddress value;
+        cut->next(&value);
+        ASSERT_EQ(value, makeUniqueAddr(101, 1));
+        ASSERT_TRUE(cut->isEnd());
+    }
+
+    TEST_F( QuerySerializationTest , testMissingTagIteratorCanBeDeserializedAfterTagIsCreated )
+    {
+        auto fixture = getFixture();
+        FixedObjectList shared_object_list(100);
+        db0::object_model::ClassFactory class_factory(fixture);
+        db0::object_model::EnumFactory enum_factory(fixture);
+        VObjectCache cache(*fixture, shared_object_list);
+
+        auto &tag_index = fixture->addResource<TagIndex>(
+            *fixture, class_factory, enum_factory, fixture->getLimitedStringPool(), cache, fixture->addMutationHandler()
+        );
+
+        auto ft_query = tag_index.makeMissingIterator(std::vector<TagIndex::ShortTagT> { 44 });
+        ASSERT_TRUE(ft_query);
+        ASSERT_TRUE(ft_query->isEnd());
+
+        std::vector<std::byte> buf;
+        ft_query->serialize(buf);
+
+        {
+            auto batch_data = tag_index.getBaseIndexShort().beginBatchUpdate();
+            batch_data->addTags({ makeUniqueAddr(303, 1), nullptr }, std::vector<std::uint64_t> { 44 });
+            batch_data->flush();
+        }
+
+        auto iter = buf.cbegin(), end = buf.cend();
+        auto cut = deserializeFT_Iterator<UniqueAddress>(m_workspace, iter, end);
+        ASSERT_TRUE(cut);
+        ASSERT_FALSE(cut->isEnd());
+
+        UniqueAddress value;
+        cut->next(&value);
+        ASSERT_EQ(value, makeUniqueAddr(303, 1));
+        ASSERT_TRUE(cut->isEnd());
+    }
+
 }

@@ -14,6 +14,7 @@
 #include <dbzero/object_model/tuple/Tuple.hpp>
 #include <dbzero/object_model/class/Class.hpp>
 #include <dbzero/object_model/tags/TagIndex.hpp>
+#include <dbzero/object_model/tags/PredicateFactory.hpp>
 #include <dbzero/object_model/index/Index.hpp>
 #include <dbzero/object_model/set/Set.hpp>
 #include <dbzero/object_model/dict/Dict.hpp>
@@ -28,6 +29,7 @@ namespace db0::object_model
     std::function<void(db0::swine_ptr<Fixture> &, bool is_new, bool read_only, bool is_snapshot)> initializer()
     {       
         using TagIndex = db0::object_model::TagIndex;
+        using PredicateFactory = db0::object_model::PredicateFactory;
         using ClassFactory = db0::object_model::ClassFactory;
         using EnumFactory = db0::object_model::EnumFactory;
         using Index = db0::object_model::Index;
@@ -59,6 +61,7 @@ namespace db0::object_model
                     fixture->getVObjectCache(),
                     fixture->addMutationHandler()
                 );
+                fixture->addResource<PredicateFactory>();
                 
                 // flush from tag index on fixture commit (or close on close)
                 fixture->addCloseHandler([&](bool commit) {
@@ -111,6 +114,7 @@ namespace db0::object_model
                     fixture->getVObjectCache(),
                     fixture->addMutationHandler()
                 );
+                fixture->addResource<PredicateFactory>();
                 
                 // flush from tag index on fixture commit (or close on close)
                 fixture->addCloseHandler([&](bool commit) {
