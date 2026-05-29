@@ -8,7 +8,7 @@ import textwrap
 
 
 def test_repeated_memo_graph_creation_with_tagged_shared_lookup_does_not_segfault(tmp_path):
-    """Regression for the statek Job construction segfault."""
+    """Regression for repeated memo graph construction with tagged shared lookup."""
     script = textwrap.dedent(
         f"""
         from dataclasses import dataclass
