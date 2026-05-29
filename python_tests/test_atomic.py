@@ -116,6 +116,21 @@ async def test_atomic_raises_inside_asyncio_task(db0_fixture):
             pass
 
 
+async def test_atomic_raises_before_cross_task_async_mutation_repro(db0_fixture):
+    obj = MemoTestClass(0)
+    atomic_started = asyncio.Event()
+
+    async def run_atomic():
+        with pytest.raises(RuntimeError, match=r"db0\.atomic is synchronous; use db0\.async_atomic\(\)"):
+            with db0.atomic():
+                atomic_started.set()
+                obj.value = 1
+
+    await asyncio.wait_for(run_atomic(), timeout=2)
+    assert not atomic_started.is_set()
+    assert obj.value == 0
+
+
 def test_async_atomic_requires_running_asyncio_task(db0_fixture):
     with pytest.raises(RuntimeError, match=r"db0\.async_atomic requires a running asyncio task"):
         db0.async_atomic()
@@ -334,7 +349,6 @@ def test_atomic_cancel_in_one_thread_must_not_revert_other_thread_mutation(db0_f
     assert obj.value == 2
 
 
-@pytest.mark.skip(reason=ATOMIC_ASYNC_REPRO_SKIP)
 async def test_atomic_cancel_in_one_async_task_must_not_revert_other_task_mutation(db0_fixture):
     obj = MemoTestClass(0)
     atomic_started = asyncio.Event()
@@ -342,14 +356,14 @@ async def test_atomic_cancel_in_one_async_task_must_not_revert_other_task_mutati
     atomic_can_exit = asyncio.Event()
 
     async def run_atomic():
-        with db0.atomic() as atomic:
+        async with db0.async_atomic() as atomic:
             atomic_started.set()
             await asyncio.wait_for(atomic_can_exit.wait(), timeout=5)
             atomic.cancel()
 
     async def run_mutation():
         await asyncio.wait_for(atomic_started.wait(), timeout=5)
-        with pytest.raises(RuntimeError, match="db0\\.atomic.*deadlock|deadlock.*db0\\.atomic"):
+        with pytest.raises(RuntimeError, match=r"db0\.async_atomic"):
             obj.value = 2
         mutation_attempted.set()
         atomic_can_exit.set()
