@@ -441,10 +441,6 @@ def test_atomic_cancel_type_change_then_close_does_not_corrupt_gc0(run_pytest_ch
     )
 
 
-@pytest.mark.skipif(
-    os.environ.get("DB0_ATOMIC_TYPE_CHANGE_CLOSE_CHILD") != "1",
-    reason="executed by test_atomic_cancel_type_change_then_close_does_not_corrupt_gc0",
-)
 @pytest.mark.skip(reason=ATOMIC_ROLLBACK_REPRO_SKIP)
 def test_atomic_cancel_type_change_then_close_does_not_corrupt_gc0_child(db0_no_autocommit):
     obj = MemoTestClass(1)
@@ -469,10 +465,6 @@ def test_atomic_cancel_tuple_value_restores_wrapper_state(run_pytest_child):
     )
 
 
-@pytest.mark.skipif(
-    os.environ.get("DB0_ATOMIC_CANCEL_TUPLE_VALUE_CHILD") != "1",
-    reason="executed by test_atomic_cancel_tuple_value_restores_wrapper_state",
-)
 @pytest.mark.skip(reason=ATOMIC_ROLLBACK_REPRO_SKIP)
 def test_atomic_cancel_tuple_value_restores_wrapper_state_child(db0_no_autocommit):
     obj = MemoTestClass(("initial",))
@@ -500,10 +492,6 @@ def test_atomic_cancel_tuple_value_releases_allocator_state(run_pytest_child):
     )
 
 
-@pytest.mark.skipif(
-    os.environ.get("DB0_ATOMIC_CANCEL_TUPLE_ALLOCATOR_CHILD") != "1",
-    reason="executed by test_atomic_cancel_tuple_value_releases_allocator_state",
-)
 @pytest.mark.skip(reason=ATOMIC_ROLLBACK_REPRO_SKIP)
 def test_atomic_cancel_tuple_value_releases_allocator_state_child(db0_no_autocommit):
     # A canceled tuple assignment must release only its own atomic allocation state.
@@ -516,6 +504,32 @@ def test_atomic_cancel_tuple_value_releases_allocator_state_child(db0_no_autocom
 
     assert obj.value == 0
     db0.commit()
+
+
+def test_atomic_cancel_string_value_restores_refcounted_member_state(run_pytest_child):
+    run_pytest_child(
+        "python_tests/test_atomic.py::test_atomic_cancel_string_value_restores_refcounted_member_state_child",
+        env_flag="DB0_ATOMIC_CANCEL_STRING_VALUE_CHILD",
+        failure_label="atomic cancel string-value child",
+    )
+
+
+@pytest.mark.skipif(
+    os.environ.get("DB0_ATOMIC_CANCEL_STRING_VALUE_CHILD") != "1",
+    reason="executed by test_atomic_cancel_string_value_restores_refcounted_member_state",
+)
+def test_atomic_cancel_string_value_restores_refcounted_member_state_child(db0_no_autocommit):
+    obj = MemoTestClass("initial")
+    db0.commit()
+
+    with db0.atomic() as atomic:
+        obj.value = "outer"
+        atomic.cancel()
+
+    # Regression for prefix-cache rollback: canceling a later allocation must
+    # not expose an older cached lock and hide the committed string allocation.
+    assert obj.value == "initial"
+    db0.close()
 
 
 def test_atomic_thread_constructor_waits_at_api_boundary_before_cancel(run_pytest_child):
