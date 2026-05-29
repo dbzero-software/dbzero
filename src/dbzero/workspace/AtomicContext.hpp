@@ -8,6 +8,8 @@
 #include <unordered_set>
 #include <vector>
 #include <mutex>
+#include <thread>
+#include <atomic>
 #include <dbzero/bindings/TypeId.hpp>
 
 namespace db0
@@ -63,8 +65,32 @@ namespace db0
         void close();
         
         static std::unique_lock<std::recursive_mutex> lock();
+        static bool isInAsyncTask();
+        static void assertSyncAtomicAllowed();
+        static void assertAsyncAtomicAllowed();
+        static void waitIfBlockedByActiveOwner(bool fail_same_thread = true);
+        static bool isOwnedByCurrentExecution();
+        static bool isMutatingApiAtomicOwner();
+        static void enterMutatingApiAtomicOwner();
+        static void exitMutatingApiAtomicOwner();
+        enum class OwnerRelation
+        {
+            inactive,
+            owner,
+            same_thread_non_owner,
+            other_thread,
+        };
+        static OwnerRelation getOwnerRelation();
+        static void waitIfBlockedByOwnerRelation(OwnerRelation, bool fail_same_thread = true);
         
     private:
+        struct ExecutionIdentity
+        {
+            std::thread::id thread_id;
+            void *py_thread_state = nullptr;
+            PyObjectPtr async_task = nullptr;
+        };
+
         std::shared_ptr<Workspace> m_workspace;
         AtomicContext *m_parent = nullptr;
         std::unordered_map<Address, ObjectSharedExtPtr> m_objects;
@@ -73,8 +99,17 @@ namespace db0
         // also acquired by the autocommit-thread to prevent auto-commit during atomic operation
         static std::recursive_mutex m_atomic_mutex;
         std::unique_lock<std::recursive_mutex> m_atomic_lock;
+        static std::mutex m_owner_state_mutex;
+        static ExecutionIdentity m_owner_identity;
+        static unsigned int m_active_depth;
+        static std::atomic<unsigned int> m_active_depth_fast;
+        static thread_local unsigned int m_mutating_api_atomic_owner_depth;
 
         bool isActive() const;
+        static ExecutionIdentity getCurrentExecutionIdentity();
+        static bool isSameExecution(const ExecutionIdentity &, const ExecutionIdentity &);
+        static void beginActiveOwner();
+        static void endActiveOwner();
     };
 
 }

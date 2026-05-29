@@ -130,7 +130,7 @@ namespace db0::python
             return NULL;
         }
 
-        PY_API_FUNC
+        PY_MUTATING_API_LOCK_FUNC(NULL)
         return runSafe(tryIndexObject_add, index_obj, args, nargs);
     }
 
@@ -151,7 +151,7 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "remove() takes exactly two arguments");
             return NULL;
         }    
-        PY_API_FUNC
+        PY_MUTATING_API_LOCK_FUNC(NULL)
         return runSafe(tryIndexObject_remove, index_obj, args, nargs);
     }
     
@@ -249,7 +249,7 @@ namespace db0::python
 
     PyObject *PyAPI_IndexObject_flush(IndexObject *self)
     {
-        PY_API_FUNC
+        PY_MUTATING_API_LOCK_FUNC(NULL)
         return runSafe(tryIndexObject_flush, self);
     }
 
@@ -262,7 +262,7 @@ namespace db0::python
 
     PyObject *PyAPI_IndexObject_clear(IndexObject *self)
     {
-        PY_API_FUNC
+        PY_MUTATING_API_LOCK_FUNC(NULL)
         return runSafe(tryIndexObject_clear, self);
     }
 

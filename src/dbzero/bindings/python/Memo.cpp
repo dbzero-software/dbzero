@@ -452,7 +452,7 @@ namespace db0::python
     template <>
     int PyAPI_MemoObject_setattro<MemoObject>(MemoObject *self, PyObject *attr, PyObject *value)
     {
-        PY_API_FUNC
+        PY_MUTATING_API_FUNC(-1)
 
         // assign value to a dbzero attribute
         const char* attr_name = PyUnicode_AsUTF8(attr);
@@ -519,9 +519,15 @@ namespace db0::python
                     return -1;
                 }
             } catch (const std::exception &e) {
+                if (PyErr_Occurred()) {
+                    return -1;
+                }
                 PyErr_SetString(PyExc_AttributeError, e.what());
                 return -1;
             } catch (...) {
+                if (PyErr_Occurred()) {
+                    return -1;
+                }
                 PyErr_SetString(PyExc_AttributeError, "Unknown exception");
                 return -1;
             }            

@@ -2,6 +2,7 @@
 // Copyright (c) 2025 DBZero Software sp. z o.o.
 
 #include "PyToolkit.hpp"
+#include <dbzero/workspace/AtomicContext.hpp>
 #include <dbzero/bindings/python/embedded/EmbeddedObject.hpp>
 #include <dbzero/bindings/python/embedded/EmbeddedDict.hpp>
 #include <dbzero/bindings/python/embedded/EmbeddedSet.hpp>
@@ -1374,6 +1375,8 @@ namespace db0::python
     
     SafeRLock PyToolkit::lockPyApi()
     {
+        db0::AtomicContext::waitIfBlockedByActiveOwner(false);
+
         if (m_api_mutex.isOwnedByThisThread()) {            
             // already locked by this thread
             return {};            

@@ -24,7 +24,7 @@ namespace db0::python
     template<typename ObjectT>
     PyObject *PyAPI_ObjectT_append(ObjectT *py_obj, PyObject *const *args, Py_ssize_t nargs)
     {
-        PY_API_FUNC
+        PY_MUTATING_API_FUNC(NULL)
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "append() takes exactly one argument");
             return NULL;
@@ -55,7 +55,7 @@ namespace db0::python
     template<typename ObjectT>
     PyObject *PyAPI_ObjectT_extend(ObjectT *py_obj, PyObject *const *args, Py_ssize_t nargs)
     {
-        PY_API_FUNC
+        PY_MUTATING_API_FUNC(NULL)
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "extend() takes one argument.");
             return NULL;
@@ -74,7 +74,7 @@ namespace db0::python
     template <typename ObjectT>
     int PyAPI_ObjectT_SetItem(ObjectT *py_obj, Py_ssize_t i, PyObject *value)
     {
-        PY_API_FUNC
+        PY_MUTATING_API_FUNC(-1)
         return runSafe<-1>(tryObjectT_SetItem<ObjectT>, py_obj, i, value);
     }
 
@@ -89,7 +89,7 @@ namespace db0::python
     template <typename ObjectT>
     PyObject* PyAPI_ObjectT_Insert(ObjectT *py_obj, PyObject *const *args, Py_ssize_t nargs)
     {        
-        PY_API_FUNC
+        PY_MUTATING_API_FUNC(NULL)
         if (nargs != 2) {
             PyErr_SetString(PyExc_TypeError, "insert() takes exactly two argument");
             return NULL;
@@ -161,7 +161,7 @@ namespace db0::python
     template<typename ObjectT>
     PyObject *PyAPI_ObjectT_pop(ObjectT *py_obj, PyObject *const *args, Py_ssize_t nargs)
     {
-        PY_API_FUNC
+        PY_MUTATING_API_FUNC(NULL)
         return runSafe(tryObjectT_pop<ObjectT>, py_obj, args, nargs);
     }
 
@@ -177,7 +177,7 @@ namespace db0::python
     template <typename ObjectT>
     PyObject *PyAPI_ObjectT_remove(ObjectT *py_obj, PyObject *const *args, Py_ssize_t nargs)
     {
-        PY_API_FUNC
+        PY_MUTATING_API_FUNC(NULL)
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "remove() takes one argument.");
             return NULL;

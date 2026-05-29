@@ -282,13 +282,11 @@ namespace db0
     template <typename T, typename BaseT, StorageClass _CLS, bool Unique>
     void ObjectBase<T, BaseT, _CLS, Unique>::beginModify(ObjectPtr ptr)
     {
-        if (hasInstance()) {
+        if (AtomicContext::isMutatingApiAtomicOwner() && hasInstance()) {
             auto fixture = this->tryGetFixture();
-            if (fixture) {
-                auto atomic_context_ptr = fixture->tryGetAtomicContext();
-                if (atomic_context_ptr) {
-                    atomic_context_ptr->add(this->getAddress(), ptr);
-                }
+            auto atomic_context_ptr = fixture ? fixture->tryGetAtomicContext() : nullptr;
+            if (atomic_context_ptr) {
+                atomic_context_ptr->add(this->getAddress(), ptr);
             }
         }
     }

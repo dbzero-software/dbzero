@@ -339,7 +339,7 @@ namespace db0::python
     
     PyObject *PyAPI_SetObject_add(SetObject *set_obj, PyObject *const *args, Py_ssize_t nargs)
     {
-        PY_API_FUNC
+        PY_MUTATING_API_FUNC(NULL)
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "add() takes exactly one argument");
             return NULL;
@@ -685,13 +685,13 @@ namespace db0::python
 
     PyObject *PyAPI_SetObject_remove(SetObject *set_obj, PyObject *const *args, Py_ssize_t nargs) 
     {
-        PY_API_FUNC
+        PY_MUTATING_API_FUNC(NULL)
         return runSafe(trySetObject_remove, set_obj, args, nargs, true);
     }
 
     PyObject *PyAPI_SetObject_discard(SetObject *set_obj, PyObject *const *args, Py_ssize_t nargs) 
     {
-        PY_API_FUNC
+        PY_MUTATING_API_FUNC(NULL)
         return runSafe(trySetObject_remove, set_obj, args, nargs, false);
     }
 
@@ -708,7 +708,7 @@ namespace db0::python
 
     PyObject *PyAPI_SetObject_pop(SetObject *set_obj, PyObject *const *args, Py_ssize_t nargs)
     {
-        PY_API_FUNC
+        PY_MUTATING_API_FUNC(NULL)
         return runSafe(trySetObject_pop, set_obj, args, nargs);
     }
 
@@ -721,7 +721,7 @@ namespace db0::python
 
     PyObject *PyAPI_SetObject_clear(SetObject *set_obj, PyObject *const *args, Py_ssize_t nargs)
     {
-        PY_API_FUNC        
+        PY_MUTATING_API_FUNC(NULL)
         return runSafe(trySetObject_clear, set_obj, args, nargs);
     }
 
@@ -746,7 +746,7 @@ namespace db0::python
 
     PyObject *PyAPI_SetObject_update(SetObject *self, PyObject * ob)
     {
-        PY_API_FUNC
+        PY_MUTATING_API_FUNC(NULL)
         return runSafe(trySetObject_update, self, ob);
     }
 
@@ -794,7 +794,7 @@ namespace db0::python
 
     PyObject *PyAPI_SetObject_intersection_in_place(SetObject *self, PyObject * ob)
     {
-        PY_API_FUNC
+        PY_MUTATING_API_FUNC(NULL)
         return runSafe(trySetObject_intersection_in_place, self, ob);
     }
 
@@ -819,7 +819,7 @@ namespace db0::python
 
     PyObject *PyAPI_SetObject_difference_in_place(SetObject *self, PyObject * ob)
     {
-        PY_API_FUNC
+        PY_MUTATING_API_FUNC(NULL)
         return runSafe(trySetObject_difference_in_place, self, ob);
     }
 
@@ -858,7 +858,7 @@ namespace db0::python
     
     PyObject *PyAPI_SetObject_symmetric_difference_in_place(SetObject *self, PyObject * ob)
     {
-        PY_API_FUNC
+        PY_MUTATING_API_FUNC(NULL)
         return runSafe(trySetObject_symmetric_difference_in_place, self, ob);
     }
     

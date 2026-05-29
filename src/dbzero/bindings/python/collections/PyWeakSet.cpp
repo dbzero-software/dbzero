@@ -75,7 +75,7 @@ namespace db0::python
 
     PyObject *PyAPI_WeakSetObject_add(WeakSetObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
-        PY_API_FUNC
+        PY_MUTATING_API_FUNC(NULL)
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "add() takes exactly one argument");
             return NULL;
@@ -108,13 +108,13 @@ namespace db0::python
 
     PyObject *PyAPI_WeakSetObject_remove(WeakSetObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
-        PY_API_FUNC
+        PY_MUTATING_API_FUNC(NULL)
         return runSafe(tryWeakSetObject_remove, self, args, nargs, true);
     }
 
     PyObject *PyAPI_WeakSetObject_discard(WeakSetObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
-        PY_API_FUNC
+        PY_MUTATING_API_FUNC(NULL)
         return runSafe(tryWeakSetObject_remove, self, args, nargs, false);
     }
 
@@ -127,7 +127,7 @@ namespace db0::python
 
     PyObject *PyAPI_WeakSetObject_clear(WeakSetObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
-        PY_API_FUNC
+        PY_MUTATING_API_FUNC(NULL)
         return runSafe(tryWeakSetObject_clear, self, args, nargs);
     }
 
