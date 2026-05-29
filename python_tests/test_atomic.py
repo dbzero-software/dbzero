@@ -309,7 +309,6 @@ async def test_thread_mutation_waits_for_async_atomic_owner(db0_fixture):
     assert obj.value == 2
 
 
-@pytest.mark.skip(reason=ATOMIC_THREAD_REPRO_SKIP)
 def test_atomic_cancel_in_one_thread_must_not_revert_other_thread_mutation(db0_fixture):
     obj = MemoTestClass(0)
     atomic_started = threading.Event()
@@ -375,7 +374,6 @@ async def test_atomic_cancel_in_one_async_task_must_not_revert_other_task_mutati
     assert obj.value == 2
 
 
-@pytest.mark.skip(reason=ATOMIC_COMMIT_REPRO_SKIP)
 def test_commit_from_other_thread_waits_for_atomic_owner(db0_no_autocommit):
     obj = MemoTestClass(0)
     atomic_started = threading.Event()
@@ -419,7 +417,6 @@ def test_commit_from_other_thread_waits_for_atomic_owner(db0_no_autocommit):
     assert obj.value == 1
 
 
-@pytest.mark.skip(reason=ATOMIC_COMMIT_REPRO_SKIP)
 def test_commit_inside_atomic_is_rejected(db0_no_autocommit):
     obj = MemoTestClass(0)
 
@@ -432,7 +429,6 @@ def test_commit_inside_atomic_is_rejected(db0_no_autocommit):
     assert obj.value == 1
 
 
-@pytest.mark.skip(reason=ATOMIC_ROLLBACK_REPRO_SKIP)
 def test_atomic_cancel_type_change_then_close_does_not_corrupt_gc0(run_pytest_child):
     run_pytest_child(
         "python_tests/test_atomic.py::test_atomic_cancel_type_change_then_close_does_not_corrupt_gc0_child",
@@ -441,7 +437,6 @@ def test_atomic_cancel_type_change_then_close_does_not_corrupt_gc0(run_pytest_ch
     )
 
 
-@pytest.mark.skip(reason=ATOMIC_ROLLBACK_REPRO_SKIP)
 def test_atomic_cancel_type_change_then_close_does_not_corrupt_gc0_child(db0_no_autocommit):
     obj = MemoTestClass(1)
     other = MemoTestClass(2)
@@ -456,7 +451,6 @@ def test_atomic_cancel_type_change_then_close_does_not_corrupt_gc0_child(db0_no_
     db0.close()
 
 
-@pytest.mark.skip(reason=ATOMIC_ROLLBACK_REPRO_SKIP)
 def test_atomic_cancel_tuple_value_restores_wrapper_state(run_pytest_child):
     run_pytest_child(
         "python_tests/test_atomic.py::test_atomic_cancel_tuple_value_restores_wrapper_state_child",
@@ -465,7 +459,6 @@ def test_atomic_cancel_tuple_value_restores_wrapper_state(run_pytest_child):
     )
 
 
-@pytest.mark.skip(reason=ATOMIC_ROLLBACK_REPRO_SKIP)
 def test_atomic_cancel_tuple_value_restores_wrapper_state_child(db0_no_autocommit):
     obj = MemoTestClass(("initial",))
     db0.commit()
@@ -483,7 +476,6 @@ def test_atomic_cancel_tuple_value_restores_wrapper_state_child(db0_no_autocommi
     assert obj.value == ("atomic", 1)
 
 
-@pytest.mark.skip(reason=ATOMIC_ROLLBACK_REPRO_SKIP)
 def test_atomic_cancel_tuple_value_releases_allocator_state(run_pytest_child):
     run_pytest_child(
         "python_tests/test_atomic.py::test_atomic_cancel_tuple_value_releases_allocator_state_child",
@@ -492,7 +484,6 @@ def test_atomic_cancel_tuple_value_releases_allocator_state(run_pytest_child):
     )
 
 
-@pytest.mark.skip(reason=ATOMIC_ROLLBACK_REPRO_SKIP)
 def test_atomic_cancel_tuple_value_releases_allocator_state_child(db0_no_autocommit):
     # A canceled tuple assignment must release only its own atomic allocation state.
     obj = MemoTestClass(0)
@@ -796,11 +787,9 @@ def test_atomic_index_add(db0_fixture):
     assert values == set([100, 200])
 
 
-@pytest.mark.skip(reason=ATOMIC_INDEX_NULL_KEY_REPRO_SKIP)
 def test_atomic_index_create(db0_fixture):
     # This is a focused repro for the pre-existing Index null-key lifecycle path.
-    # It aborts in debug teardown after the index is created in atomic and stores
-    # an object under None; keep it visible but skipped until Index owns the fix.
+    # It creates an index in atomic and stores an object under None.
     obj = MemoTestClass(None)
     with db0.atomic():
         obj.value = db0.index()    
@@ -916,11 +905,9 @@ def test_atomic_index_as_member(db0_fixture):
     assert len(list(root.value["x"].value.select(None, 100, null_first=True))) == 1
 
 
-@pytest.mark.skip(reason=ATOMIC_MULTI_PREFIX_REPRO_SKIP)
 def test_atomic_with_multiple_prefixes(db0_fixture):
-    # This isolates a multi-prefix atomic teardown abort that is separate from
-    # async_atomic ownership checks. Keep it registered as a focused skipped
-    # repro until cross-prefix atomic lifecycle handling is fixed.
+    # This isolates multi-prefix atomic lifecycle handling separately from
+    # async_atomic ownership checks.
     prefix = "test-data"
     obj = MemoScopedClass(None, prefix=prefix)    
     with db0.atomic():
@@ -930,10 +917,8 @@ def test_atomic_with_multiple_prefixes(db0_fixture):
     assert len(list(obj.value.select(None, 100, null_first=True))) == 1
     
 
-@pytest.mark.skip(reason=ATOMIC_MULTI_PREFIX_REPRO_SKIP)
 def test_multiple_atomic_index_updates_with_multiple_prefixes_issue_1(db0_fixture):
-    # Same cross-prefix index lifecycle family as test_atomic_with_multiple_prefixes;
-    # keep as an explicit skipped repro instead of letting debug teardown abort.
+    # Same cross-prefix index lifecycle family as test_atomic_with_multiple_prefixes.
     prefix = "test-data"
     obj = MemoScopedClass(None, prefix=prefix)    
     with db0.atomic():
@@ -949,10 +934,8 @@ def test_multiple_atomic_index_updates_with_multiple_prefixes_issue_1(db0_fixtur
     assert len(list(obj.value.select(None, 10, null_first=True))) == 2
 
     
-@pytest.mark.skip(reason=ATOMIC_MULTI_PREFIX_REPRO_SKIP)
 def test_multiple_atomic_index_updates_with_multiple_prefixes_issue_2(db0_fixture):
-    # Same cross-prefix index lifecycle family as test_atomic_with_multiple_prefixes;
-    # keep as an explicit skipped repro instead of letting debug teardown abort.
+    # Same cross-prefix index lifecycle family as test_atomic_with_multiple_prefixes.
     prefix = "test-data"
     obj = MemoScopedClass(None, prefix=prefix)
     index = 0
@@ -1065,7 +1048,6 @@ def test_nested_atomic_stress_test_1(db0_no_autocommit):
 
 
 @pytest.mark.stress_test
-@pytest.mark.skip(reason=ATOMIC_STRESS_REPRO_SKIP)
 def test_atomic_async_thread_deadlock_detection_stress(run_pytest_child):
     duration = float(os.environ.get("DB0_ATOMIC_STRESS_SECONDS", "60"))
     run_pytest_child(
@@ -1082,7 +1064,6 @@ def test_atomic_async_thread_deadlock_detection_stress(run_pytest_child):
     os.environ.get("DB0_ATOMIC_STRESS_CHILD") != "1",
     reason="stress workload is executed by test_atomic_async_thread_deadlock_detection_stress",
 )
-@pytest.mark.skip(reason=ATOMIC_STRESS_REPRO_SKIP)
 async def test_atomic_async_thread_deadlock_detection_stress_child(db0_no_autocommit):
     duration = float(os.environ.get("DB0_ATOMIC_STRESS_SECONDS", "60"))
     deadline = time.monotonic() + duration
@@ -1180,7 +1161,7 @@ async def test_atomic_async_thread_deadlock_detection_stress_child(db0_no_autoco
 
             async def owner():
                 async with async_atomic_gate:
-                    with db0.atomic() as atomic:
+                    async with db0.async_atomic() as atomic:
                         obj.value = ("async-owner", task_id, probe_index)
                         owner_started.set()
                         await asyncio.wait_for(mutation_attempted.wait(), timeout=2.0)
@@ -1191,7 +1172,7 @@ async def test_atomic_async_thread_deadlock_detection_stress_child(db0_no_autoco
 
             async def same_thread_mutator():
                 await asyncio.wait_for(owner_started.wait(), timeout=2.0)
-                with pytest.raises(RuntimeError, match="db0\\.atomic.*deadlock|deadlock.*db0\\.atomic"):
+                with pytest.raises(RuntimeError, match=r"db0\.async_atomic"):
                     obj.value = ("async-forbidden", task_id, probe_index)
                 inc("deadlocks")
                 mutation_attempted.set()
@@ -1207,10 +1188,10 @@ async def test_atomic_async_thread_deadlock_detection_stress_child(db0_no_autoco
             iteration += 1
             obj = objects[(iteration + task_id) % len(objects)]
             async with async_atomic_gate:
-                with db0.atomic() as outer:
+                async with db0.async_atomic() as outer:
                     obj.value = ("async-outer", task_id, iteration)
                     await asyncio.sleep(rng.random() / 1000)
-                    with db0.atomic() as inner:
+                    async with db0.async_atomic() as inner:
                         log.append(MemoTestClass(("async-log", task_id, iteration)))
                         index.add(10_000_000 + task_id * 1_000_000 + iteration, obj)
                         if rng.random() < 0.5:
