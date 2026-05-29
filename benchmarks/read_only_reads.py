@@ -8,13 +8,19 @@ slows existing read-heavy code when read_only is not active.
 Observed on this workspace:
 - CPU: 11th Gen Intel(R) Core(TM) i9-11950H @ 2.60GHz (2.61 GHz)
 - Python: 3.11.13
-- Build: release, default async-safe read_only implementation
+- Build: release, default async-safe read_only implementation, mutation-only atomic API guard
 - Command:
   PYTHONPATH=/src/dev/dbzero python3 benchmarks/read_only_reads.py --target-seconds 30
-- Result:
-  iterations=49685213
-  elapsed_seconds=29.750822
-  nanoseconds_per_read=598.786
+- Current result:
+  iterations=56095010
+  elapsed_seconds=30.795000
+  reads_per_second=1821562.283
+  nanoseconds_per_read=548.979
+- Previous recorded result:
+  iterations=53910152
+  elapsed_seconds=29.781574
+  reads_per_second=1810184.778
+  nanoseconds_per_read=552.430
 """
 
 import argparse

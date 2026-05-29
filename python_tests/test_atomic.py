@@ -4,11 +4,38 @@
 import time
 import gc
 import random
+import asyncio
+import threading
+import os
+import subprocess
+import sys
 import pytest
 import dbzero as db0
 from .memo_test_types import MemoTestClass, MemoTestSingleton, MemoScopedSingleton, MemoScopedClass
 from .conftest import DB0_DIR
 from datetime import datetime
+
+
+ATOMIC_THREAD_REPRO_SKIP = (
+    "atomic cross-thread/API-boundary repro kept disabled: observed non-owner "
+    "thread mutations can enter an active atomic scope or corrupt rollback state"
+)
+ATOMIC_ASYNC_REPRO_SKIP = (
+    "atomic asyncio repro kept disabled: observed same-thread async task wait "
+    "can deadlock without task-context-aware atomic ownership"
+)
+ATOMIC_COMMIT_REPRO_SKIP = (
+    "atomic commit synchronization repro kept disabled: commit/autocommit must "
+    "be serialized against active atomic operations"
+)
+ATOMIC_ROLLBACK_REPRO_SKIP = (
+    "atomic rollback corruption repro kept disabled: observed canceled atomic "
+    "tuple/type-change paths can leave stale wrapper or GC0 state"
+)
+ATOMIC_STRESS_REPRO_SKIP = (
+    "atomic async/thread stress repro kept disabled: observed abort during "
+    "teardown after mixed commits, cancels, nested atomic operations, and threads"
+)
 
 
 def rand_string(str_len):
@@ -66,6 +93,404 @@ def test_reading_after_atomic_cancel(db0_fixture):
         object_1.value = 951
         atomic.cancel()
     assert object_1.value == 123
+
+
+@pytest.mark.skip(reason=ATOMIC_THREAD_REPRO_SKIP)
+def test_atomic_cancel_in_one_thread_must_not_revert_other_thread_mutation(db0_fixture):
+    obj = MemoTestClass(0)
+    atomic_started = threading.Event()
+    mutation_attempting = threading.Event()
+    mutation_done = threading.Event()
+    errors = []
+
+    def run_atomic():
+        try:
+            with db0.atomic() as atomic:
+                atomic_started.set()
+                assert mutation_attempting.wait(timeout=5)
+                atomic.cancel()
+        except BaseException as exc:
+            errors.append(exc)
+
+    def run_mutation():
+        try:
+            assert atomic_started.wait(timeout=5)
+            mutation_attempting.set()
+            obj.value = 2
+            mutation_done.set()
+        except BaseException as exc:
+            errors.append(exc)
+
+    atomic_thread = threading.Thread(target=run_atomic)
+    mutation_thread = threading.Thread(target=run_mutation)
+    atomic_thread.start()
+    mutation_thread.start()
+    atomic_thread.join(timeout=10)
+    mutation_thread.join(timeout=10)
+
+    assert not atomic_thread.is_alive()
+    assert not mutation_thread.is_alive()
+    assert errors == []
+    assert mutation_done.is_set()
+    assert obj.value == 2
+
+
+@pytest.mark.skip(reason=ATOMIC_ASYNC_REPRO_SKIP)
+async def test_atomic_cancel_in_one_async_task_must_not_revert_other_task_mutation(db0_fixture):
+    obj = MemoTestClass(0)
+    atomic_started = asyncio.Event()
+    mutation_attempted = asyncio.Event()
+    atomic_can_exit = asyncio.Event()
+
+    async def run_atomic():
+        with db0.atomic() as atomic:
+            atomic_started.set()
+            await asyncio.wait_for(atomic_can_exit.wait(), timeout=5)
+            atomic.cancel()
+
+    async def run_mutation():
+        await asyncio.wait_for(atomic_started.wait(), timeout=5)
+        with pytest.raises(RuntimeError, match="db0\\.atomic.*deadlock|deadlock.*db0\\.atomic"):
+            obj.value = 2
+        mutation_attempted.set()
+        atomic_can_exit.set()
+
+    await asyncio.wait_for(asyncio.gather(run_atomic(), run_mutation()), timeout=10)
+    assert mutation_attempted.is_set()
+    assert obj.value == 0
+    obj.value = 2
+    assert obj.value == 2
+
+
+@pytest.mark.skip(reason=ATOMIC_COMMIT_REPRO_SKIP)
+def test_commit_from_other_thread_waits_for_atomic_owner(db0_no_autocommit):
+    obj = MemoTestClass(0)
+    atomic_started = threading.Event()
+    commit_attempting = threading.Event()
+    atomic_can_exit = threading.Event()
+    commit_done = threading.Event()
+    errors = []
+
+    def run_atomic():
+        try:
+            with db0.atomic():
+                obj.value = 1
+                atomic_started.set()
+                assert commit_attempting.wait(timeout=5)
+                assert not commit_done.wait(timeout=0.1)
+                atomic_can_exit.set()
+        except BaseException as exc:
+            errors.append(exc)
+
+    def run_commit():
+        try:
+            assert atomic_started.wait(timeout=5)
+            commit_attempting.set()
+            db0.commit()
+            commit_done.set()
+        except BaseException as exc:
+            errors.append(exc)
+
+    atomic_thread = threading.Thread(target=run_atomic)
+    commit_thread = threading.Thread(target=run_commit)
+    atomic_thread.start()
+    commit_thread.start()
+    atomic_thread.join(timeout=10)
+    commit_thread.join(timeout=10)
+
+    assert not atomic_thread.is_alive()
+    assert not commit_thread.is_alive()
+    assert atomic_can_exit.is_set()
+    assert commit_done.is_set()
+    assert errors == []
+    assert obj.value == 1
+
+
+@pytest.mark.skip(reason=ATOMIC_COMMIT_REPRO_SKIP)
+def test_commit_inside_atomic_is_rejected(db0_no_autocommit):
+    obj = MemoTestClass(0)
+
+    with db0.atomic():
+        obj.value = 1
+        with pytest.raises(RuntimeError, match="db0\\.commit cannot run inside an active db0\\.atomic"):
+            db0.commit()
+
+    db0.commit()
+    assert obj.value == 1
+
+
+@pytest.mark.skip(reason=ATOMIC_ROLLBACK_REPRO_SKIP)
+def test_atomic_cancel_type_change_then_close_does_not_corrupt_gc0():
+    env = os.environ.copy()
+    env["DB0_ATOMIC_TYPE_CHANGE_CLOSE_CHILD"] = "1"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-q",
+            "python_tests/test_atomic.py::test_atomic_cancel_type_change_then_close_does_not_corrupt_gc0_child",
+            "-s",
+        ],
+        cwd=os.getcwd(),
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert result.returncode == 0, (
+        f"atomic cancel type-change child failed with code {result.returncode}\n"
+        f"stdout:\n{result.stdout}\n"
+        f"stderr:\n{result.stderr}"
+    )
+
+
+@pytest.mark.skipif(
+    os.environ.get("DB0_ATOMIC_TYPE_CHANGE_CLOSE_CHILD") != "1",
+    reason="executed by test_atomic_cancel_type_change_then_close_does_not_corrupt_gc0",
+)
+@pytest.mark.skip(reason=ATOMIC_ROLLBACK_REPRO_SKIP)
+def test_atomic_cancel_type_change_then_close_does_not_corrupt_gc0_child(db0_no_autocommit):
+    obj = MemoTestClass(1)
+    other = MemoTestClass(2)
+    db0.commit()
+
+    with db0.atomic() as atomic:
+        obj.value = "outer"
+        atomic.cancel()
+
+    assert obj.value == 1
+    other.value = "ok"
+    db0.close()
+
+
+@pytest.mark.skip(reason=ATOMIC_ROLLBACK_REPRO_SKIP)
+def test_atomic_cancel_tuple_value_restores_wrapper_state():
+    env = os.environ.copy()
+    env["DB0_ATOMIC_CANCEL_TUPLE_VALUE_CHILD"] = "1"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-q",
+            "python_tests/test_atomic.py::test_atomic_cancel_tuple_value_restores_wrapper_state_child",
+            "-s",
+        ],
+        cwd=os.getcwd(),
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert result.returncode == 0, (
+        f"atomic cancel tuple-value child failed with code {result.returncode}\n"
+        f"stdout:\n{result.stdout}\n"
+        f"stderr:\n{result.stderr}"
+    )
+
+
+@pytest.mark.skipif(
+    os.environ.get("DB0_ATOMIC_CANCEL_TUPLE_VALUE_CHILD") != "1",
+    reason="executed by test_atomic_cancel_tuple_value_restores_wrapper_state",
+)
+@pytest.mark.skip(reason=ATOMIC_ROLLBACK_REPRO_SKIP)
+def test_atomic_cancel_tuple_value_restores_wrapper_state_child(db0_no_autocommit):
+    obj = MemoTestClass(("initial",))
+    db0.commit()
+
+    with db0.atomic() as atomic:
+        obj.value = ("atomic", 0)
+        atomic.cancel()
+
+    assert obj.value == ("initial",)
+
+    with db0.atomic():
+        obj.value = ("atomic", 1)
+    db0.commit()
+
+    assert obj.value == ("atomic", 1)
+
+
+@pytest.mark.skip(reason=ATOMIC_THREAD_REPRO_SKIP)
+def test_atomic_thread_constructor_waits_at_api_boundary_before_cancel():
+    env = os.environ.copy()
+    env["DB0_ATOMIC_THREAD_CONSTRUCTOR_WAIT_CHILD"] = "1"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-q",
+            "python_tests/test_atomic.py::test_atomic_thread_constructor_waits_at_api_boundary_before_cancel_child",
+            "-s",
+        ],
+        cwd=os.getcwd(),
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert result.returncode == 0, (
+        f"atomic/thread constructor child failed with code {result.returncode}\n"
+        f"stdout:\n{result.stdout}\n"
+        f"stderr:\n{result.stderr}"
+    )
+
+
+@pytest.mark.skipif(
+    os.environ.get("DB0_ATOMIC_THREAD_CONSTRUCTOR_WAIT_CHILD") != "1",
+    reason="executed by test_atomic_thread_constructor_waits_at_api_boundary_before_cancel",
+)
+@pytest.mark.skip(reason=ATOMIC_THREAD_REPRO_SKIP)
+def test_atomic_thread_constructor_waits_at_api_boundary_before_cancel_child(db0_no_autocommit):
+    obj = MemoTestClass(0)
+    db0.commit()
+    atomic_started = threading.Event()
+    constructor_attempting = threading.Event()
+    constructor_done = threading.Event()
+    errors = []
+
+    def run_constructor():
+        try:
+            assert atomic_started.wait(timeout=5)
+            constructor_attempting.set()
+            created = MemoTestClass(("thread-created",))
+            assert created.value == ("thread-created",)
+            constructor_done.set()
+        except BaseException as exc:
+            errors.append(exc)
+
+    thread = threading.Thread(target=run_constructor)
+    thread.start()
+
+    with db0.atomic() as atomic:
+        obj.value = ("atomic",)
+        atomic_started.set()
+        assert constructor_attempting.wait(timeout=5)
+        assert not constructor_done.wait(timeout=0.1)
+        atomic.cancel()
+
+    thread.join(timeout=5)
+    assert not thread.is_alive()
+    assert errors == []
+    assert constructor_done.is_set()
+    assert obj.value == 0
+    db0.commit()
+
+
+@pytest.mark.skip(reason=ATOMIC_STRESS_REPRO_SKIP)
+def test_atomic_async_cancel_while_thread_constructs_objects_does_not_corrupt_state():
+    env = os.environ.copy()
+    env["DB0_ATOMIC_ASYNC_THREAD_CONSTRUCT_CHILD"] = "1"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-q",
+            "python_tests/test_atomic.py::test_atomic_async_cancel_while_thread_constructs_objects_does_not_corrupt_state_child",
+            "-s",
+        ],
+        cwd=os.getcwd(),
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert result.returncode == 0, (
+        f"atomic async/thread construction child failed with code {result.returncode}\n"
+        f"stdout:\n{result.stdout}\n"
+        f"stderr:\n{result.stderr}"
+    )
+
+
+@pytest.mark.skipif(
+    os.environ.get("DB0_ATOMIC_ASYNC_THREAD_CONSTRUCT_CHILD") != "1",
+    reason="executed by test_atomic_async_cancel_while_thread_constructs_objects_does_not_corrupt_state",
+)
+@pytest.mark.skip(reason=ATOMIC_STRESS_REPRO_SKIP)
+async def test_atomic_async_cancel_while_thread_constructs_objects_does_not_corrupt_state_child(db0_no_autocommit):
+    objects = [MemoTestClass(i) for i in range(16)]
+    log = db0.list()
+    index = db0.index()
+    for key, obj in enumerate(objects):
+        index.add(key, obj)
+        log.append(obj)
+    db0.commit()
+    errors = []
+    stop = threading.Event()
+    deadline = time.monotonic() + 2.0
+    async_atomic_gate = asyncio.Lock()
+
+    async def async_atomic_owner(task_id):
+        rng = random.Random(0xA70B000 + task_id)
+        iteration = 0
+        while time.monotonic() < deadline and not stop.is_set():
+            iteration += 1
+            obj = objects[(iteration + task_id) % len(objects)]
+            async with async_atomic_gate:
+                with db0.atomic() as outer:
+                    obj.value = ("async-outer", task_id, iteration)
+                    await asyncio.sleep(rng.random() / 1000)
+                    with db0.atomic() as inner:
+                        item = MemoTestClass(("async-log", task_id, iteration))
+                        log.append(item)
+                        index.add(10_000_000 + task_id * 1_000_000 + iteration, obj)
+                        if rng.random() < 0.5:
+                            inner.cancel()
+                    if rng.random() < 0.25:
+                        outer.cancel()
+            await asyncio.sleep(0)
+
+    def thread_constructor(worker_id):
+        rng = random.Random(0xA70C000 + worker_id)
+        iteration = 0
+        try:
+            while time.monotonic() < deadline and not stop.is_set():
+                obj = objects[rng.randrange(len(objects))]
+                mode = rng.randrange(4)
+                iteration += 1
+
+                if mode == 0:
+                    obj.value = ("thread-plain", worker_id, iteration)
+                elif mode == 1:
+                    with db0.atomic() as atomic:
+                        obj.value = ("thread-atomic", worker_id, iteration)
+                        log.append(MemoTestClass(("thread-log", worker_id, iteration)))
+                        if rng.random() < 0.35:
+                            atomic.cancel()
+                elif mode == 2:
+                    with db0.atomic() as outer:
+                        obj.value = ("thread-outer", worker_id, iteration)
+                        with db0.atomic() as inner:
+                            nested = objects[(rng.randrange(len(objects)) + worker_id) % len(objects)]
+                            nested.value = ("thread-inner", worker_id, iteration)
+                            index.add(worker_id * 1_000_000 + iteration, nested)
+                            if rng.random() < 0.35:
+                                inner.cancel()
+                        if rng.random() < 0.35:
+                            outer.cancel()
+                elif rng.random() < 0.5:
+                    db0.commit()
+                else:
+                    _ = list(index.select(0, worker_id * 1_000_000 + iteration + 1))[:3]
+        except BaseException as exc:
+            errors.append(exc)
+            stop.set()
+
+    threads = [threading.Thread(target=thread_constructor, args=(i,)) for i in range(4)]
+    for thread in threads:
+        thread.start()
+    try:
+        await asyncio.wait_for(asyncio.gather(async_atomic_owner(0), async_atomic_owner(1)), timeout=5)
+    finally:
+        stop.set()
+        for thread in threads:
+            thread.join(timeout=5)
+
+    assert all(not thread.is_alive() for thread in threads)
+    assert errors == []
     
     
 def test_assign_tags_inside_atomic_operation(db0_fixture):
@@ -438,6 +863,204 @@ def test_nested_atomic_stress_test_1(db0_no_autocommit):
 
     assert len(buf) == expected_count
     assert state.value["counter"] == expected_count
+
+
+@pytest.mark.stress_test
+@pytest.mark.skip(reason=ATOMIC_STRESS_REPRO_SKIP)
+def test_atomic_async_thread_deadlock_detection_stress():
+    duration = float(os.environ.get("DB0_ATOMIC_STRESS_SECONDS", "60"))
+    env = os.environ.copy()
+    env["DB0_ATOMIC_STRESS_CHILD"] = "1"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-q",
+            "python_tests/test_atomic.py::test_atomic_async_thread_deadlock_detection_stress_child",
+            "-s",
+            "-o",
+            "faulthandler_timeout=10",
+        ],
+        cwd=os.getcwd(),
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=duration + 30,
+    )
+    assert result.returncode == 0, (
+        f"atomic async/thread stress child failed with code {result.returncode}\n"
+        f"stdout:\n{result.stdout}\n"
+        f"stderr:\n{result.stderr}"
+    )
+
+
+@pytest.mark.stress_test
+@pytest.mark.skipif(
+    os.environ.get("DB0_ATOMIC_STRESS_CHILD") != "1",
+    reason="stress workload is executed by test_atomic_async_thread_deadlock_detection_stress",
+)
+@pytest.mark.skip(reason=ATOMIC_STRESS_REPRO_SKIP)
+async def test_atomic_async_thread_deadlock_detection_stress_child(db0_no_autocommit):
+    duration = float(os.environ.get("DB0_ATOMIC_STRESS_SECONDS", "60"))
+    deadline = time.monotonic() + duration
+    stop_threads = threading.Event()
+    errors = []
+    async_atomic_gate = asyncio.Lock()
+    counters_lock = threading.Lock()
+    counters = {
+        "thread_ops": 0,
+        "async_ops": 0,
+        "deadlocks": 0,
+        "thread_cancels": 0,
+        "async_cancels": 0,
+    }
+
+    root = MemoTestClass({"thread": 0, "async": 0, "last": None})
+    objects = [MemoTestClass(i) for i in range(16)]
+    log = db0.list()
+    index = db0.index()
+    for key, obj in enumerate(objects):
+        index.add(key, obj)
+        log.append(obj)
+    db0.commit()
+
+    def inc(name, value=1):
+        with counters_lock:
+            counters[name] += value
+
+    def remember_error(exc):
+        with counters_lock:
+            errors.append(exc)
+
+    def maybe_cancel(atomic, rng, counter_name):
+        if rng.random() < 0.35:
+            atomic.cancel()
+            inc(counter_name)
+            return True
+        return False
+
+    def thread_worker(worker_id):
+        rng = random.Random(0xA70C000 + worker_id)
+        iteration = 0
+        try:
+            while not stop_threads.is_set() and time.monotonic() < deadline:
+                obj = objects[rng.randrange(len(objects))]
+                mode = rng.randrange(8)
+                iteration += 1
+
+                if mode == 0:
+                    obj.value = ("thread-plain", worker_id, iteration)
+                elif mode in (1, 2):
+                    with db0.atomic() as atomic:
+                        obj.value = ("thread-atomic", worker_id, iteration)
+                        root.value["thread"] = root.value["thread"] + 1
+                        log.append(MemoTestClass(("thread-log", worker_id, iteration)))
+                        maybe_cancel(atomic, rng, "thread_cancels")
+                elif mode in (3, 4):
+                    with db0.atomic() as outer:
+                        obj.value = ("thread-outer", worker_id, iteration)
+                        with db0.atomic() as inner:
+                            nested = objects[(rng.randrange(len(objects)) + worker_id) % len(objects)]
+                            nested.value = ("thread-inner", worker_id, iteration)
+                            index.add(worker_id * 1_000_000 + iteration, nested)
+                            maybe_cancel(inner, rng, "thread_cancels")
+                        maybe_cancel(outer, rng, "thread_cancels")
+                elif mode == 5:
+                    with db0.atomic():
+                        tag = f"atomic-thread-{worker_id}-{iteration % 11}"
+                        db0.tags(obj).add(tag)
+                        root.value["last"] = tag
+                elif mode == 6:
+                    if rng.random() < 0.5:
+                        db0.commit()
+                    else:
+                        with db0.atomic() as atomic:
+                            root.value["thread"] = root.value["thread"] + 1
+                            maybe_cancel(atomic, rng, "thread_cancels")
+                else:
+                    _ = obj.value
+                    _ = list(index.select(0, worker_id * 1_000_000 + iteration + 1))[:3]
+
+                inc("thread_ops")
+        except BaseException as exc:
+            remember_error(exc)
+            stop_threads.set()
+
+    async def async_deadlock_probe(task_id):
+        rng = random.Random(0xA70A000 + task_id)
+        probe_index = 0
+        while time.monotonic() < deadline and not stop_threads.is_set():
+            owner_started = asyncio.Event()
+            mutation_attempted = asyncio.Event()
+            obj = objects[(probe_index + task_id) % len(objects)]
+            probe_index += 1
+
+            async def owner():
+                async with async_atomic_gate:
+                    with db0.atomic() as atomic:
+                        obj.value = ("async-owner", task_id, probe_index)
+                        owner_started.set()
+                        await asyncio.wait_for(mutation_attempted.wait(), timeout=2.0)
+                        root.value["async"] = root.value["async"] + 1
+                        if rng.random() < 0.4:
+                            atomic.cancel()
+                            inc("async_cancels")
+
+            async def same_thread_mutator():
+                await asyncio.wait_for(owner_started.wait(), timeout=2.0)
+                with pytest.raises(RuntimeError, match="db0\\.atomic.*deadlock|deadlock.*db0\\.atomic"):
+                    obj.value = ("async-forbidden", task_id, probe_index)
+                inc("deadlocks")
+                mutation_attempted.set()
+
+            await asyncio.gather(owner(), same_thread_mutator())
+            inc("async_ops")
+            await asyncio.sleep(0)
+
+    async def async_nested_worker(task_id):
+        rng = random.Random(0xA70B000 + task_id)
+        iteration = 0
+        while time.monotonic() < deadline and not stop_threads.is_set():
+            iteration += 1
+            obj = objects[(iteration + task_id) % len(objects)]
+            async with async_atomic_gate:
+                with db0.atomic() as outer:
+                    obj.value = ("async-outer", task_id, iteration)
+                    await asyncio.sleep(rng.random() / 1000)
+                    with db0.atomic() as inner:
+                        log.append(MemoTestClass(("async-log", task_id, iteration)))
+                        index.add(10_000_000 + task_id * 1_000_000 + iteration, obj)
+                        if rng.random() < 0.5:
+                            inner.cancel()
+                            inc("async_cancels")
+                    if rng.random() < 0.25:
+                        outer.cancel()
+                        inc("async_cancels")
+            inc("async_ops")
+            await asyncio.sleep(0)
+
+    threads = [threading.Thread(target=thread_worker, args=(i,)) for i in range(4)]
+    for thread in threads:
+        thread.start()
+
+    try:
+        await asyncio.wait_for(asyncio.gather(
+            async_deadlock_probe(0),
+            async_deadlock_probe(1),
+            async_nested_worker(0),
+            async_nested_worker(1),
+        ), timeout=duration + 10)
+    finally:
+        stop_threads.set()
+        for thread in threads:
+            thread.join(timeout=10)
+
+    assert all(not thread.is_alive() for thread in threads)
+    assert errors == []
+    assert counters["deadlocks"] > 0
+    assert counters["thread_ops"] > 0
+    assert counters["async_ops"] > 0
 
 
 def test_atomic_deletion(db0_fixture):
