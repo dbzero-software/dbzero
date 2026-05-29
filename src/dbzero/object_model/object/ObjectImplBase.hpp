@@ -56,10 +56,11 @@ namespace db0::object_model
         using ObjectStem = ObjectVType<T>;
         using TypeInitializer = ObjectInitializer::TypeInitializer;
         using tag_as_dropped = typename super_t::tag_as_dropped;
+        using tag_no_gc = typename super_t::tag_no_gc;
         
         // Construct as null / dropped object
         ObjectImplBase(tag_as_dropped, UniqueAddress, unsigned int ext_refs);
-        ObjectImplBase(typename super_t::tag_no_gc, db0::swine_ptr<Fixture> &, ObjectStem &&, std::shared_ptr<Class>);
+        ObjectImplBase(tag_no_gc, db0::swine_ptr<Fixture> &, ObjectStem &&, std::shared_ptr<Class>);
         ObjectImplBase(const ObjectImplBase<T, ImplT> &) = delete;
         ObjectImplBase(ObjectImplBase<T, ImplT> &&) = delete;
 
