@@ -1375,8 +1375,6 @@ namespace db0::python
     
     SafeRLock PyToolkit::lockPyApi()
     {
-        db0::AtomicContext::waitIfBlockedByActiveOwner(false);
-
         if (m_api_mutex.isOwnedByThisThread()) {            
             // already locked by this thread
             return {};            
@@ -1388,12 +1386,21 @@ namespace db0::python
             return SafeRLock(m_api_mutex);
         }
 
-        // unlock GIL while waiting for the API mutex
-        PyThreadState *__save = PyEval_SaveThread();
-        auto result = SafeRLock(m_api_mutex);
-        // restore GIL
-        PyEval_RestoreThread(__save);
-        return result;
+        for (;;) {
+            // unlock GIL while waiting for the API mutex
+            PyThreadState *__save = PyEval_SaveThread();
+            auto result = SafeRLock(m_api_mutex);
+            // restore GIL
+            PyEval_RestoreThread(__save);
+
+            auto relation = db0::AtomicContext::getOwnerRelation();
+            if (relation != db0::AtomicContext::OwnerRelation::other_thread) {
+                return result;
+            }
+
+            result.unlock();
+            db0::AtomicContext::waitIfBlockedByOwnerRelation(relation, false);
+        }
     }
 
     PyToolkit::TypeObjectPtr PyToolkit::getBaseType(TypeObjectPtr py_object) {

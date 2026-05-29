@@ -19,6 +19,8 @@ All tests must pass before a change is considered complete.
 - Debug build: `./scripts/build.sh -d` (equivalent to `./scripts/build.sh`; debug is the default)
 - Release build: `./scripts/build.sh -r`
 - Release build with C++ unit test binary: `./scripts/build.sh -r -t`
+- For regular development and focused Python-side test runs, prefer the release build because it is significantly faster. Unless C++ tests are important for the current change, build without `-t`; skipping the C++ test binary is much faster.
+- Use a debug build when tracking a specific deep bug that needs assertions or debug-level checks, and before final handoff only when the user explicitly asks for handoff validation.
 
 ### Running tests
 

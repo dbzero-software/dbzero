@@ -601,10 +601,10 @@ async def test_atomic_async_cancel_while_thread_constructs_objects_does_not_corr
             iteration += 1
             obj = objects[(iteration + task_id) % len(objects)]
             async with async_atomic_gate:
-                with db0.atomic() as outer:
+                async with db0.async_atomic() as outer:
                     obj.value = ("async-outer", task_id, iteration)
                     await asyncio.sleep(rng.random() / 1000)
-                    with db0.atomic() as inner:
+                    async with db0.async_atomic() as inner:
                         item = MemoTestClass(("async-log", task_id, iteration))
                         log.append(item)
                         index.add(10_000_000 + task_id * 1_000_000 + iteration, obj)
