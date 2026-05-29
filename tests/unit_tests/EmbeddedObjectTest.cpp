@@ -176,6 +176,47 @@ namespace tests
         db0::tests::drop("intern-content-init.db0.lock");
     }
 
+    TEST_F( EmbeddedObjectTest , testInternContentInitializerAndEmbeddedObjectMatchPackedBoolValues )
+    {
+        db0::tests::drop("intern-content-pack2.db0");
+        db0::tests::drop("intern-content-pack2.db0.lock");
+        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
+        auto fixture = workspace.getFixture("intern-content-pack2");
+        auto type = getTestClass(fixture);
+        type->addField("read", 2);
+        type->addField("update", 2);
+        type->flush();
+
+        Value packedA;
+        lofi_store<2>::fromValue(packedA).set(0, Value::TRUE);
+        lofi_store<2>::fromValue(packedA).set(1, Value::FALSE);
+
+        Value packedB;
+        lofi_store<2>::fromValue(packedB).set(1, Value::FALSE);
+        lofi_store<2>::fromValue(packedB).set(0, Value::TRUE);
+
+        auto memspace = getMemspace();
+        int sourceA = 0;
+        ObjectInitializerManager managerA;
+        auto &initializerA = makeInitializer(managerA, sourceA, type);
+        initializerA.set({0, 0}, StorageClass::PACK_2, packedA);
+
+        int sourceB = 0;
+        ObjectInitializerManager managerB;
+        auto &initializerB = makeInitializer(managerB, sourceB, type);
+        initializerB.set({0, 0}, StorageClass::PACK_2, packedB);
+
+        v_object<o_embedded_object> object(memspace, type->getClassRef(), initializerA);
+
+        ASSERT_EQ(intern_compare(fixture, initializerB, *object.getData()), 0);
+        ASSERT_EQ(intern_compare(fixture, initializerA, initializerB), 0);
+        ASSERT_EQ(intern_hash(fixture, initializerB), intern_hash(fixture, *object.getData()));
+
+        workspace.close();
+        db0::tests::drop("intern-content-pack2.db0");
+        db0::tests::drop("intern-content-pack2.db0.lock");
+    }
+
     TEST_F( EmbeddedObjectTest , testInternCompareComplexInitializerMatchesEmbeddedObjectWithEmbeddedValues )
     {
         Py_Initialize();
