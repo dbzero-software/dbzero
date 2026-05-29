@@ -158,6 +158,81 @@ namespace db0::object_model
             }
         }
 
+        constexpr std::uint32_t PACKED_FIELD_KEY_FLAG = 0x80000000u;
+        constexpr std::uint32_t PACKED_FIELD_KEY_INDEX_MASK = 0x003FFFFFu;
+
+        std::uint32_t makePackedFieldKey(std::uint32_t index, std::uint32_t offset)
+        {
+            assert(index <= PACKED_FIELD_KEY_INDEX_MASK);
+            assert(offset <= FieldID::MAX_OFFSET);
+            return PACKED_FIELD_KEY_FLAG | (index << 6) | offset;
+        }
+
+        bool unpackPackedFieldKey(
+            std::uint32_t key, std::uint32_t &index, std::uint32_t &offset
+        )
+        {
+            if ((key & PACKED_FIELD_KEY_FLAG) == 0) {
+                return false;
+            }
+            index = (key >> 6) & PACKED_FIELD_KEY_INDEX_MASK;
+            offset = key & FieldID::MAX_OFFSET;
+            return true;
+        }
+
+        bool makePackedFieldValue(std::uint32_t key, std::uint64_t packed_value, FieldValue &field)
+        {
+            switch (packed_value) {
+                case Value::NONE:
+                    field = {};
+                    field.m_index = key;
+                    field.m_kind = StorageClass::NONE;
+                    field.m_valid = true;
+                    return true;
+                case Value::FALSE:
+                    field = {};
+                    field.m_index = key;
+                    field.m_kind = StorageClass::BOOLEAN;
+                    field.m_value = Value(0);
+                    field.m_valid = true;
+                    return true;
+                case Value::TRUE:
+                    field = {};
+                    field.m_index = key;
+                    field.m_kind = StorageClass::BOOLEAN;
+                    field.m_value = Value(1);
+                    field.m_valid = true;
+                    return true;
+                case Value::DELETED:
+                    return false;
+                default:
+                    THROWF(db0::InternalException) << "Invalid PACK_2 intern content value: " << packed_value;
+                    return false;
+            }
+        }
+
+        template <typename EmitT>
+        void emitPackedFields(std::uint32_t index, Value value, EmitT emit)
+        {
+            auto store = lofi_store<2>::fromValue(value);
+            for (auto it = store.begin(); !it.isEnd(); ++it) {
+                FieldValue field;
+                if (makePackedFieldValue(makePackedFieldKey(index, it.getOffset()), *it, field)) {
+                    emit(field);
+                }
+            }
+        }
+
+        std::uint64_t countPackedFields(Value value)
+        {
+            std::uint64_t count = 0;
+            auto store = lofi_store<2>::fromValue(value);
+            for (auto it = store.begin(); !it.isEnd(); ++it) {
+                count += *it == Value::DELETED ? 0 : 1;
+            }
+            return count;
+        }
+
         int compareWithFixture(
             db0::swine_ptr<db0::Fixture> *fixture, const o_tuple_item &lhs, const o_tuple_item &rhs
         );
@@ -299,11 +374,20 @@ namespace db0::object_model
             {
                 std::uint64_t count = 0;
                 const auto &types = object.pos_vt().types();
+                const auto &values = object.pos_vt().values();
                 for (std::size_t i = 0; i < object.pos_vt().size(); ++i) {
-                    count += isFieldValue(types[i]) ? 1 : 0;
+                    if (types[i] == StorageClass::PACK_2) {
+                        count += countPackedFields(values[i]);
+                    } else {
+                        count += isFieldValue(types[i]) ? 1 : 0;
+                    }
                 }
                 for (const auto &value: object.index_vt().xvalues()) {
-                    count += isFieldValue(value.m_type) ? 1 : 0;
+                    if (value.m_type == StorageClass::PACK_2) {
+                        count += countPackedFields(value.m_value);
+                    } else {
+                        count += isFieldValue(value.m_type) ? 1 : 0;
+                    }
                 }
                 for (const auto &entry: object.field_map()) {
                     (void)entry;
@@ -320,10 +404,18 @@ namespace db0::object_model
                 auto indexVtData = initializer.getData(posVtData, posVtOffset);
 
                 for (std::size_t i = 0; i < posVtData.size(); ++i) {
-                    count += isFieldValue(posVtData.m_types[i]) ? 1 : 0;
+                    if (posVtData.m_types[i] == StorageClass::PACK_2) {
+                        count += countPackedFields(posVtData.m_values[i]);
+                    } else {
+                        count += isFieldValue(posVtData.m_types[i]) ? 1 : 0;
+                    }
                 }
                 for (auto value = indexVtData.first; value != indexVtData.second; ++value) {
-                    count += isFieldValue(value->m_type) ? 1 : 0;
+                    if (value->m_type == StorageClass::PACK_2) {
+                        count += countPackedFields(value->m_value);
+                    } else {
+                        count += isFieldValue(value->m_type) ? 1 : 0;
+                    }
                 }
                 for (const auto &value: initializer.objects()) {
                     count += !!value.m_object && value.m_storage_class != StorageClass::DELETED ? 1 : 0;
@@ -370,14 +462,20 @@ namespace db0::object_model
                 const auto &types = object.pos_vt().types();
                 const auto &values = object.pos_vt().values();
                 for (std::size_t i = 0; i < object.pos_vt().size(); ++i) {
-                    if (isFieldValue(types[i])) {
+                    if (types[i] == StorageClass::PACK_2) {
+                        emitPackedFields(
+                            static_cast<std::uint32_t>(object.pos_vt().offset() + i), values[i], emit
+                        );
+                    } else if (isFieldValue(types[i])) {
                         emit(makeField(
                             static_cast<std::uint32_t>(object.pos_vt().offset() + i), types[i], values[i]
                         ));
                     }
                 }
                 for (const auto &value: object.index_vt().xvalues()) {
-                    if (isFieldValue(value.m_type)) {
+                    if (value.m_type == StorageClass::PACK_2) {
+                        emitPackedFields(value.getIndex(), value.m_value, emit);
+                    } else if (isFieldValue(value.m_type)) {
                         emit(makeField(value.getIndex(), value.m_type, value.m_value));
                     }
                 }
@@ -395,7 +493,9 @@ namespace db0::object_model
                 auto indexVtData = initializer.getData(posVtData, posVtOffset);
 
                 for (std::size_t i = 0; i < posVtData.size(); ++i) {
-                    if (isFieldValue(posVtData.m_types[i])) {
+                    if (posVtData.m_types[i] == StorageClass::PACK_2) {
+                        emitPackedFields(static_cast<std::uint32_t>(posVtOffset + i), posVtData.m_values[i], emit);
+                    } else if (isFieldValue(posVtData.m_types[i])) {
                         emit(makeField(
                             static_cast<std::uint32_t>(posVtOffset + i),
                             posVtData.m_types[i], posVtData.m_values[i]
@@ -403,7 +503,9 @@ namespace db0::object_model
                     }
                 }
                 for (auto value = indexVtData.first; value != indexVtData.second; ++value) {
-                    if (isFieldValue(value->m_type)) {
+                    if (value->m_type == StorageClass::PACK_2) {
+                        emitPackedFields(value->getIndex(), value->m_value, emit);
+                    } else if (isFieldValue(value->m_type)) {
                         emit(makeField(value->getIndex(), value->m_type, value->m_value));
                     }
                 }
@@ -1086,11 +1188,20 @@ namespace db0::object_model
             {
                 std::uint64_t count = 0;
                 const auto &types = object.pos_vt().types();
+                const auto &values = object.pos_vt().values();
                 for (std::size_t i = 0; i < object.pos_vt().size(); ++i) {
-                    count += isFieldValue(types[i]) ? 1 : 0;
+                    if (types[i] == StorageClass::PACK_2) {
+                        count += countPackedFields(values[i]);
+                    } else {
+                        count += isFieldValue(types[i]) ? 1 : 0;
+                    }
                 }
                 for (const auto &value: object.index_vt().xvalues()) {
-                    count += isFieldValue(value.m_type) ? 1 : 0;
+                    if (value.m_type == StorageClass::PACK_2) {
+                        count += countPackedFields(value.m_value);
+                    } else {
+                        count += isFieldValue(value.m_type) ? 1 : 0;
+                    }
                 }
                 for (const auto &entry: object.field_map()) {
                     (void)entry;
@@ -1106,10 +1217,18 @@ namespace db0::object_model
                 unsigned int posVtOffset = 0;
                 auto indexVtData = initializer.getData(posVtData, posVtOffset);
                 for (std::size_t i = 0; i < posVtData.size(); ++i) {
-                    count += isFieldValue(posVtData.m_types[i]) ? 1 : 0;
+                    if (posVtData.m_types[i] == StorageClass::PACK_2) {
+                        count += countPackedFields(posVtData.m_values[i]);
+                    } else {
+                        count += isFieldValue(posVtData.m_types[i]) ? 1 : 0;
+                    }
                 }
                 for (auto value = indexVtData.first; value != indexVtData.second; ++value) {
-                    count += isFieldValue(value->m_type) ? 1 : 0;
+                    if (value->m_type == StorageClass::PACK_2) {
+                        count += countPackedFields(value->m_value);
+                    } else {
+                        count += isFieldValue(value->m_type) ? 1 : 0;
+                    }
                 }
                 for (const auto &value: initializer.objects()) {
                     count += !!value.m_object && value.m_storage_class != StorageClass::DELETED ? 1 : 0;
@@ -1211,6 +1330,34 @@ namespace db0::object_model
 
                 FieldValue find(std::uint32_t index) const
                 {
+                    std::uint32_t packed_index = 0;
+                    std::uint32_t packed_offset = 0;
+                    if (unpackPackedFieldKey(index, packed_index, packed_offset)) {
+                        std::pair<StorageClass, Value> value;
+                        if (m_object.pos_vt().find(packed_index, value)
+                            && value.first == StorageClass::PACK_2
+                            && lofi_store<2>::fromValue(value.second).isSet(packed_offset))
+                        {
+                            FieldValue field;
+                            if (makePackedFieldValue(
+                                index, lofi_store<2>::fromValue(value.second).get(packed_offset), field
+                            )) {
+                                return field;
+                            }
+                        }
+                        if (m_object.index_vt().find(packed_index, value)
+                            && value.first == StorageClass::PACK_2
+                            && lofi_store<2>::fromValue(value.second).isSet(packed_offset))
+                        {
+                            FieldValue field;
+                            if (makePackedFieldValue(
+                                index, lofi_store<2>::fromValue(value.second).get(packed_offset), field
+                            )) {
+                                return field;
+                            }
+                        }
+                        return {};
+                    }
                     std::pair<StorageClass, Value> value;
                     if (m_object.pos_vt().find(index, value) && InternComparator::isFieldValue(value.first)) {
                         return InternComparator::makeField(index, value.first, value.second);
@@ -1243,9 +1390,27 @@ namespace db0::object_model
 
                 FieldValue next()
                 {
+                    if (m_pendingPos < m_pendingFields.size()) {
+                        return m_pendingFields[m_pendingPos++];
+                    }
+                    m_pendingFields.clear();
+                    m_pendingPos = 0;
                     while (m_pos < m_posVtData.size()) {
                         auto pos = m_pos++;
-                        if (InternComparator::isFieldValue(m_posVtData.m_types[pos])) {
+                        if (m_posVtData.m_types[pos] == StorageClass::PACK_2) {
+                            m_pendingFields.clear();
+                            emitPackedFields(
+                                static_cast<std::uint32_t>(m_posVtOffset + pos),
+                                m_posVtData.m_values[pos],
+                                [&](const FieldValue &field) {
+                                    m_pendingFields.push_back(field);
+                                }
+                            );
+                            if (!m_pendingFields.empty()) {
+                                m_pendingPos = 1;
+                                return m_pendingFields[0];
+                            }
+                        } else if (InternComparator::isFieldValue(m_posVtData.m_types[pos])) {
                             return InternComparator::makeField(
                                 static_cast<std::uint32_t>(m_posVtOffset + pos),
                                 m_posVtData.m_types[pos], m_posVtData.m_values[pos]
@@ -1254,7 +1419,19 @@ namespace db0::object_model
                     }
                     while (m_indexValue != m_indexVtData.second) {
                         auto *value = m_indexValue++;
-                        if (InternComparator::isFieldValue(value->m_type)) {
+                        if (value->m_type == StorageClass::PACK_2) {
+                            m_pendingFields.clear();
+                            emitPackedFields(
+                                value->getIndex(), value->m_value,
+                                [&](const FieldValue &field) {
+                                    m_pendingFields.push_back(field);
+                                }
+                            );
+                            if (!m_pendingFields.empty()) {
+                                m_pendingPos = 1;
+                                return m_pendingFields[0];
+                            }
+                        } else if (InternComparator::isFieldValue(value->m_type)) {
                             return InternComparator::makeField(
                                 value->getIndex(), value->m_type, value->m_value
                             );
@@ -1278,6 +1455,8 @@ namespace db0::object_model
                 const XValue *m_indexValue = nullptr;
                 const std::vector<ImmutableObjectInitializer::ObjectValue> *m_objects = nullptr;
                 std::size_t m_objectPos = 0;
+                std::vector<FieldValue> m_pendingFields;
+                std::size_t m_pendingPos = 0;
             };
 
             int compareSequentialInitializerFields(
@@ -1315,14 +1494,20 @@ namespace db0::object_model
                 const auto &types = object.pos_vt().types();
                 const auto &values = object.pos_vt().values();
                 for (std::size_t i = 0; i < object.pos_vt().size(); ++i) {
-                    if (isFieldValue(types[i])) {
+                    if (types[i] == StorageClass::PACK_2) {
+                        emitPackedFields(
+                            static_cast<std::uint32_t>(object.pos_vt().offset() + i), values[i], emit
+                        );
+                    } else if (isFieldValue(types[i])) {
                         emit(makeField(
                             static_cast<std::uint32_t>(object.pos_vt().offset() + i), types[i], values[i]
                         ));
                     }
                 }
                 for (const auto &value: object.index_vt().xvalues()) {
-                    if (isFieldValue(value.m_type)) {
+                    if (value.m_type == StorageClass::PACK_2) {
+                        emitPackedFields(value.getIndex(), value.m_value, emit);
+                    } else if (isFieldValue(value.m_type)) {
                         emit(makeField(value.getIndex(), value.m_type, value.m_value));
                     }
                 }
@@ -1337,7 +1522,9 @@ namespace db0::object_model
                 unsigned int posVtOffset = 0;
                 auto indexVtData = initializer.getData(posVtData, posVtOffset);
                 for (std::size_t i = 0; i < posVtData.size(); ++i) {
-                    if (isFieldValue(posVtData.m_types[i])) {
+                    if (posVtData.m_types[i] == StorageClass::PACK_2) {
+                        emitPackedFields(static_cast<std::uint32_t>(posVtOffset + i), posVtData.m_values[i], emit);
+                    } else if (isFieldValue(posVtData.m_types[i])) {
                         emit(makeField(
                             static_cast<std::uint32_t>(posVtOffset + i),
                             posVtData.m_types[i], posVtData.m_values[i]
@@ -1345,7 +1532,9 @@ namespace db0::object_model
                     }
                 }
                 for (auto value = indexVtData.first; value != indexVtData.second; ++value) {
-                    if (isFieldValue(value->m_type)) {
+                    if (value->m_type == StorageClass::PACK_2) {
+                        emitPackedFields(value->getIndex(), value->m_value, emit);
+                    } else if (isFieldValue(value->m_type)) {
                         emit(makeField(value->getIndex(), value->m_type, value->m_value));
                     }
                 }

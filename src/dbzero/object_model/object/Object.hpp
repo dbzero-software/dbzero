@@ -88,6 +88,7 @@ namespace db0::object_model
         KV_Index *addKV_First(const XValue &);
 
         KV_Index *tryGetKV_Index() const;
+        void syncKVIndexRef(KV_Index *);
         
         bool hasKV_Index() const;
 

@@ -623,7 +623,7 @@ namespace db0::python
     }
 
     PyTypeObject EmbeddedObjectType = {
-        PyVarObject_HEAD_INIT(nullptr, 0)
+        PYVAROBJECT_HEAD_INIT_DESIGNATED,
         .tp_name = "dbzero.EmbeddedObject",
         .tp_basicsize = static_cast<Py_ssize_t>(EmbeddedObject::sizeOf()),
         .tp_itemsize = 0,

@@ -290,6 +290,18 @@ namespace db0::object_model
     
         return m_kv_index.get();
     }
+
+    void Object::syncKVIndexRef(KV_Index *kv_index_ptr)
+    {
+        assert(kv_index_ptr);
+        auto address = kv_index_ptr->getAddress();
+        auto type = kv_index_ptr->getIndexType();
+        if ((*this)->m_kv_address != address || (*this)->m_kv_type != type) {
+            auto &object = this->modify();
+            object.m_kv_address = address;
+            object.m_kv_type = type;
+        }
+    }
     
     void Object::addToKVIndex(FixtureLock &fixture, FieldID field_id, unsigned int fidelity,
         StorageClass storage_class, Value value)
@@ -309,18 +321,10 @@ namespace db0::object_model
                 lofi_store<2>::fromValue(kv_value).set(field_id.getOffset(), value.m_store);
                 xvalue.m_value = kv_value;
                 kv_index_ptr->updateExisting(xvalue);
-                // in case of the IttyIndex updating an element changes the address/type
-                // which needs to be updated in the object
-                if (kv_index_ptr->getIndexType() == bindex::type::itty) {
-                    this->modify().m_kv_address = kv_index_ptr->getAddress();
-                    this->modify().m_kv_type = kv_index_ptr->getIndexType();
-                }
+                syncKVIndexRef(kv_index_ptr);
             } else {
-                if (kv_index_ptr->insert(xvalue)) {
-                    // type or address of the kv-index has changed which needs to be reflected                    
-                    this->modify().m_kv_address = kv_index_ptr->getAddress();
-                    this->modify().m_kv_type = kv_index_ptr->getIndexType();
-                }                                
+                kv_index_ptr->insert(xvalue);
+                syncKVIndexRef(kv_index_ptr);
             }
         }
                
@@ -345,21 +349,10 @@ namespace db0::object_model
                 // mark as deleted in kv-index
                 xvalue.m_type = StorageClass::DELETED;
                 kv_index_ptr->updateExisting(xvalue);
-                // in case of the IttyIndex updating an element changes the address/type
-                // which needs to be updated in the object
-                if (kv_index_ptr->getIndexType() == bindex::type::itty) {
-                    this->modify().m_kv_address = kv_index_ptr->getAddress();
-                    this->modify().m_kv_type = kv_index_ptr->getIndexType();
-                }
+                syncKVIndexRef(kv_index_ptr);
             } else {
-                auto old_addr = kv_index_ptr->getAddress();
                 kv_index_ptr->erase(xvalue);
-                auto new_addr = kv_index_ptr->getAddress();
-                if (new_addr != old_addr) {
-                    // type or address of the kv-index has changed which needs to be reflected
-                    this->modify().m_kv_address = new_addr;
-                    this->modify().m_kv_type = kv_index_ptr->getIndexType();
-                }
+                syncKVIndexRef(kv_index_ptr);
             }
             m_type->removeFromSchema(field_id, fidelity, getSchemaTypeId(xvalue.m_type));
         } else {
@@ -378,12 +371,7 @@ namespace db0::object_model
             }            
             xvalue.m_value = value;
             kv_index_ptr->updateExisting(xvalue);
-            // in case of the IttyIndex updating an element changes the address/type
-            // which needs to be updated in the object
-            if (kv_index_ptr->getIndexType() == bindex::type::itty) {
-                this->modify().m_kv_address = kv_index_ptr->getAddress();                    
-                this->modify().m_kv_type = kv_index_ptr->getIndexType();
-            }
+            syncKVIndexRef(kv_index_ptr);
 
             m_type->removeFromSchema(field_id, fidelity, old_type_id);
         }
@@ -447,18 +435,10 @@ namespace db0::object_model
                     auto new_type_id = getSchemaTypeId(storage_class, value);
                     m_type->updateSchema(field_id, fidelity, old_type_id, new_type_id);
                 }
-                // in case of the IttyIndex updating an element changes the address/type
-                // which needs to be updated in the object
-                if (kv_index_ptr->getIndexType() == bindex::type::itty) {
-                    this->modify().m_kv_address = kv_index_ptr->getAddress();
-                    this->modify().m_kv_type = kv_index_ptr->getIndexType();
-                }
+                syncKVIndexRef(kv_index_ptr);
             } else {
-                if (kv_index_ptr->insert(xvalue)) {
-                    // type or address of the kv-index has changed which needs to be reflected                    
-                    this->modify().m_kv_address = kv_index_ptr->getAddress();
-                    this->modify().m_kv_type = kv_index_ptr->getIndexType();
-                }
+                kv_index_ptr->insert(xvalue);
+                syncKVIndexRef(kv_index_ptr);
                 
                 m_type->addToSchema(field_id, fidelity, getSchemaTypeId(storage_class, value));
             }

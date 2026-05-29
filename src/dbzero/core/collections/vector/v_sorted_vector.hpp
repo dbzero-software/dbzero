@@ -871,8 +871,8 @@ DB0_PACKED_END
         */
         bool updateExisting(const data_t &data, data_t *old_data = nullptr)
         {
-            auto it = (*this)->find(data);
-            if (it == (*this)->end()) {
+            auto it = find(data);
+            if (it == end()) {
                 return false;
             }
             
@@ -887,8 +887,8 @@ DB0_PACKED_END
 
         bool findOne(data_t &data) const
         {
-            auto it = (*this)->find(data);
-            if (it == (*this)->end()) {
+            auto it = find(data);
+            if (it == end()) {
                 return false;
             }
 

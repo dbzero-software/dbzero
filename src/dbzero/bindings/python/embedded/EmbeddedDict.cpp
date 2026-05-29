@@ -425,7 +425,7 @@ namespace db0::python
     }
 
     PyTypeObject EmbeddedDictType = {
-        PyVarObject_HEAD_INIT(nullptr, 0)
+        PYVAROBJECT_HEAD_INIT_DESIGNATED,
         .tp_name = "dbzero.EmbeddedDict",
         .tp_basicsize = static_cast<Py_ssize_t>(EmbeddedDict::sizeOf()),
         .tp_itemsize = 0,
@@ -444,7 +444,7 @@ namespace db0::python
     };
 
     PyTypeObject EmbeddedDictIteratorType = {
-        PyVarObject_HEAD_INIT(nullptr, 0)
+        PYVAROBJECT_HEAD_INIT_DESIGNATED,
         .tp_name = "dbzero.EmbeddedDictIterator",
         .tp_basicsize = static_cast<Py_ssize_t>(EmbeddedDictIterator::sizeOf()),
         .tp_itemsize = 0,
