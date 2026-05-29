@@ -4,20 +4,21 @@
 #pragma once
 
 #include <Python.h>
+#include <mutex>
 
 #define PY_API_FUNC auto __api_lock = db0::python::PyToolkit::lockPyApi();
 #define PY_MUTATING_API_FUNC(error_result) \
-    auto __api_lock = db0::python::PyToolkit::lockPyApi(); \
     db0::python::AtomicMutationApiScope __atomic_mutation_api_scope; \
     if (!__atomic_mutation_api_scope.ok()) { \
         return error_result; \
-    }
+    } \
+    auto __api_lock = db0::python::PyToolkit::lockPyApi();
 #define PY_MUTATING_API_LOCK_FUNC(error_result) \
-    auto __api_lock = db0::python::PyToolkit::lockPyApi(); \
-    db0::python::AtomicMutationApiScope __atomic_mutation_api_scope(false); \
+    db0::python::AtomicMutationApiScope __atomic_mutation_api_scope; \
     if (!__atomic_mutation_api_scope.ok()) { \
         return error_result; \
-    }
+    } \
+    auto __api_lock = db0::python::PyToolkit::lockPyApi();
 
 namespace db0::python
 
@@ -40,6 +41,7 @@ namespace db0::python
     struct AtomicMutationApiScope
     {
         bool m_ok = true;
+        std::unique_lock<std::recursive_mutex> m_atomic_lock;
         bool m_atomic_owner = false;
 
         explicit AtomicMutationApiScope(bool register_atomic_owner = true);

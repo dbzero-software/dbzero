@@ -38,7 +38,10 @@ namespace db0::python
             return;
         }
 
-        db0::AtomicContext::waitIfBlockedByOwnerRelation(relation, false);
+        if (relation != db0::AtomicContext::OwnerRelation::owner) {
+            WithGIL_Unlocked no_gil;
+            m_atomic_lock = db0::AtomicContext::lock();
+        }
         if (register_atomic_owner && relation == db0::AtomicContext::OwnerRelation::owner) {
             db0::AtomicContext::enterMutatingApiAtomicOwner();
             m_atomic_owner = true;

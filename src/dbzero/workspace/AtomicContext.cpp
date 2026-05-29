@@ -94,6 +94,11 @@ namespace db0
             THROWF(db0::InternalException) << "atomic 'cancel' failed: operation already completed" << THROWF_END;
         }
 
+        bool registered_mutating_owner = false;
+        if (!isMutatingApiAtomicOwner()) {
+            enterMutatingApiAtomicOwner();
+            registered_mutating_owner = true;
+        }
         try {
             // all objects from context need to be detached
             auto &type_manager = LangToolkit::getTypeManager();
@@ -103,8 +108,14 @@ namespace db0
             m_objects.clear();
             m_workspace->cancelAtomic(this);
         } catch (...) {
+            if (registered_mutating_owner) {
+                exitMutatingApiAtomicOwner();
+            }
             m_atomic_lock.unlock();
             throw;
+        }
+        if (registered_mutating_owner) {
+            exitMutatingApiAtomicOwner();
         }
         // unlock the atomic mutex
         endActiveOwner();
@@ -124,6 +135,11 @@ namespace db0
             THROWF(db0::InternalException) << "atomic 'approve' failed: operation already completed" << THROWF_END;
         }
 
+        bool registered_mutating_owner = false;
+        if (!isMutatingApiAtomicOwner()) {
+            enterMutatingApiAtomicOwner();
+            registered_mutating_owner = true;
+        }
         try {
             // detach / flush all workspace objects
             m_workspace->detach();
@@ -141,8 +157,14 @@ namespace db0
             }
             m_objects.clear();
         } catch (...) {
+            if (registered_mutating_owner) {
+                exitMutatingApiAtomicOwner();
+            }
             m_atomic_lock.unlock();
             throw;
+        }
+        if (registered_mutating_owner) {
+            exitMutatingApiAtomicOwner();
         }
         // unlock the atomic mutext
         endActiveOwner();

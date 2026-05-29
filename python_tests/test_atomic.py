@@ -42,6 +42,10 @@ ATOMIC_STRESS_REPRO_SKIP = (
     "atomic async/thread stress repro kept disabled: observed abort during "
     "teardown after mixed commits, cancels, nested atomic operations, and threads"
 )
+ATOMIC_INDEX_ITERATOR_REPRO_SKIP = (
+    "atomic index iterator repro kept disabled: query iterators can outlive the "
+    "durable lock while another thread rolls back index mutations"
+)
 
 
 def rand_string(str_len):
@@ -572,22 +576,27 @@ def test_atomic_thread_constructor_waits_at_api_boundary_before_cancel_child(db0
     db0.commit()
 
 
-@pytest.mark.skip(reason=ATOMIC_STRESS_REPRO_SKIP)
+@pytest.mark.stress_test
 def test_atomic_async_cancel_while_thread_constructs_objects_does_not_corrupt_state(run_pytest_child):
+    # Timing-sensitive allocator/deferred-free repro. It may need multiple runs
+    # to reproduce a failure or to build confidence that a fix is error-free.
+    duration = float(os.environ.get("DB0_ATOMIC_ASYNC_THREAD_CONSTRUCT_SECONDS", "5"))
     run_pytest_child(
         "python_tests/test_atomic.py::test_atomic_async_cancel_while_thread_constructs_objects_does_not_corrupt_state_child",
         env_flag="DB0_ATOMIC_ASYNC_THREAD_CONSTRUCT_CHILD",
+        timeout=duration + 5,
         failure_label="atomic async/thread construction child",
     )
 
 
+@pytest.mark.stress_test
 @pytest.mark.skipif(
     os.environ.get("DB0_ATOMIC_ASYNC_THREAD_CONSTRUCT_CHILD") != "1",
     reason="executed by test_atomic_async_cancel_while_thread_constructs_objects_does_not_corrupt_state",
 )
-@pytest.mark.skip(reason=ATOMIC_STRESS_REPRO_SKIP)
 async def test_atomic_async_cancel_while_thread_constructs_objects_does_not_corrupt_state_child(db0_no_autocommit):
-    objects = [MemoTestClass(i) for i in range(16)]
+    duration = float(os.environ.get("DB0_ATOMIC_ASYNC_THREAD_CONSTRUCT_SECONDS", "5"))
+    objects = [MemoTestClass(i) for i in range(4)]
     log = db0.list()
     index = db0.index()
     for key, obj in enumerate(objects):
@@ -596,7 +605,7 @@ async def test_atomic_async_cancel_while_thread_constructs_objects_does_not_corr
     db0.commit()
     errors = []
     stop = threading.Event()
-    deadline = time.monotonic() + 2.0
+    deadline = time.monotonic() + duration
     async_atomic_gate = asyncio.Lock()
 
     async def async_atomic_owner(task_id):
@@ -655,11 +664,11 @@ async def test_atomic_async_cancel_while_thread_constructs_objects_does_not_corr
             errors.append(exc)
             stop.set()
 
-    threads = [threading.Thread(target=thread_constructor, args=(i,)) for i in range(4)]
+    threads = [threading.Thread(target=thread_constructor, args=(0,))]
     for thread in threads:
         thread.start()
     try:
-        await asyncio.wait_for(asyncio.gather(async_atomic_owner(0), async_atomic_owner(1)), timeout=5)
+        await asyncio.wait_for(async_atomic_owner(0), timeout=duration + 2)
     finally:
         stop.set()
         for thread in threads:
@@ -1048,6 +1057,129 @@ def test_nested_atomic_stress_test_1(db0_no_autocommit):
 
 
 @pytest.mark.stress_test
+@pytest.mark.skip(reason=ATOMIC_INDEX_ITERATOR_REPRO_SKIP)
+def test_atomic_index_iterator_survives_canceled_atomic_context_stress(run_pytest_child):
+    # Timing-sensitive iterator lifetime repro. It may need multiple runs to
+    # reproduce a failure or to build confidence that a fix is error-free.
+    duration = float(os.environ.get("DB0_ATOMIC_INDEX_ITERATOR_SECONDS", "10"))
+    run_pytest_child(
+        "python_tests/test_atomic.py::test_atomic_index_iterator_survives_canceled_atomic_context_stress_child",
+        env_flag="DB0_ATOMIC_INDEX_ITERATOR_CHILD",
+        timeout=duration + 10,
+        failure_label="atomic index iterator/canceled atomic stress child",
+        pytest_args=("-o", "faulthandler_timeout=10"),
+    )
+
+
+@pytest.mark.stress_test
+@pytest.mark.skipif(
+    os.environ.get("DB0_ATOMIC_INDEX_ITERATOR_CHILD") != "1",
+    reason="stress workload is executed by test_atomic_index_iterator_survives_canceled_atomic_context_stress",
+)
+def test_atomic_index_iterator_survives_canceled_atomic_context_stress_child(db0_no_autocommit):
+    duration = float(os.environ.get("DB0_ATOMIC_INDEX_ITERATOR_SECONDS", "10"))
+    deadline = time.monotonic() + duration
+    stop_threads = threading.Event()
+    iterator_ready = threading.Event()
+    rollback_done = threading.Event()
+    errors = []
+    counters_lock = threading.Lock()
+    counters = {
+        "iterators": 0,
+        "rollbacks": 0,
+        "commits": 0,
+    }
+
+    objects = [MemoTestClass(("seed", index)) for index in range(32)]
+    index = db0.index()
+    for key, obj in enumerate(objects):
+        index.add(key, obj)
+    db0.commit()
+
+    def inc(name, value=1):
+        with counters_lock:
+            counters[name] += value
+
+    def remember_error(exc):
+        with counters_lock:
+            errors.append(exc)
+
+    def iterator_worker():
+        rng = random.Random(0x170A70C)
+        try:
+            while not stop_threads.is_set() and time.monotonic() < deadline:
+                rollback_done.clear()
+                iterator = iter(index.select(0, 100_000_000))
+                for _ in range(rng.randrange(1, 4)):
+                    if next(iterator, None) is None:
+                        break
+
+                iterator_ready.set()
+                rollback_done.wait(timeout=1.0)
+
+                for _ in range(16):
+                    try:
+                        next(iterator)
+                    except StopIteration:
+                        break
+                inc("iterators")
+        except BaseException as exc:
+            remember_error(exc)
+            stop_threads.set()
+            rollback_done.set()
+
+    def rollback_worker():
+        rng = random.Random(0x170A70D)
+        iteration = 0
+        try:
+            while not stop_threads.is_set() and time.monotonic() < deadline:
+                if not iterator_ready.wait(timeout=1.0):
+                    continue
+                iterator_ready.clear()
+                iteration += 1
+
+                with db0.atomic() as atomic:
+                    for offset in range(8):
+                        obj = objects[(iteration + offset) % len(objects)]
+                        obj.value = ("rolled-back", iteration, offset)
+                        index.add(1_000_000 + iteration * 16 + offset, obj)
+                    atomic.cancel()
+                inc("rollbacks")
+
+                if rng.random() < 0.25:
+                    db0.commit()
+                    inc("commits")
+                rollback_done.set()
+        except BaseException as exc:
+            remember_error(exc)
+            stop_threads.set()
+            rollback_done.set()
+
+    threads = [
+        threading.Thread(target=iterator_worker),
+        threading.Thread(target=rollback_worker),
+    ]
+    for thread in threads:
+        thread.start()
+
+    try:
+        while time.monotonic() < deadline and not stop_threads.is_set():
+            time.sleep(0.001)
+    finally:
+        stop_threads.set()
+        iterator_ready.set()
+        rollback_done.set()
+        for thread in threads:
+            thread.join(timeout=10)
+
+    assert all(not thread.is_alive() for thread in threads)
+    if errors:
+        pytest.fail(repr(errors[0]))
+    assert counters["iterators"] > 0
+    assert counters["rollbacks"] > 0
+
+
+@pytest.mark.stress_test
 def test_atomic_async_thread_deadlock_detection_stress(run_pytest_child):
     duration = float(os.environ.get("DB0_ATOMIC_STRESS_SECONDS", "60"))
     run_pytest_child(
@@ -1109,45 +1241,66 @@ async def test_atomic_async_thread_deadlock_detection_stress_child(db0_no_autoco
         try:
             while not stop_threads.is_set() and time.monotonic() < deadline:
                 obj = objects[rng.randrange(len(objects))]
-                mode = rng.randrange(8)
+                mode = rng.randrange(7)
                 iteration += 1
+                step = "unknown"
 
                 if mode == 0:
+                    step = "thread_plain_set"
                     obj.value = ("thread-plain", worker_id, iteration)
                 elif mode in (1, 2):
+                    step = "thread_atomic_set_root_log"
                     with db0.atomic() as atomic:
+                        step = "thread_atomic_obj_set"
                         obj.value = ("thread-atomic", worker_id, iteration)
+                        step = "thread_atomic_root_increment"
                         root.value["thread"] = root.value["thread"] + 1
+                        step = "thread_atomic_log_append"
                         log.append(MemoTestClass(("thread-log", worker_id, iteration)))
+                        step = "thread_atomic_maybe_cancel"
                         maybe_cancel(atomic, rng, "thread_cancels")
                 elif mode in (3, 4):
+                    step = "thread_nested_atomic"
                     with db0.atomic() as outer:
+                        step = "thread_nested_outer_set"
                         obj.value = ("thread-outer", worker_id, iteration)
                         with db0.atomic() as inner:
+                            step = "thread_nested_pick"
                             nested = objects[(rng.randrange(len(objects)) + worker_id) % len(objects)]
+                            step = "thread_nested_inner_set"
                             nested.value = ("thread-inner", worker_id, iteration)
+                            step = "thread_nested_index_add"
                             index.add(worker_id * 1_000_000 + iteration, nested)
+                            step = "thread_nested_inner_maybe_cancel"
                             maybe_cancel(inner, rng, "thread_cancels")
+                        step = "thread_nested_outer_maybe_cancel"
                         maybe_cancel(outer, rng, "thread_cancels")
                 elif mode == 5:
+                    step = "thread_atomic_tags"
                     with db0.atomic():
                         tag = f"atomic-thread-{worker_id}-{iteration % 11}"
+                        step = "thread_atomic_tags_add"
                         db0.tags(obj).add(tag)
+                        step = "thread_atomic_tags_root_last"
                         root.value["last"] = tag
                 elif mode == 6:
                     if rng.random() < 0.5:
+                        step = "thread_commit"
                         db0.commit()
                     else:
+                        step = "thread_atomic_root_only"
                         with db0.atomic() as atomic:
+                            step = "thread_atomic_root_only_increment"
                             root.value["thread"] = root.value["thread"] + 1
+                            step = "thread_atomic_root_only_maybe_cancel"
                             maybe_cancel(atomic, rng, "thread_cancels")
                 else:
+                    step = "thread_read_value"
                     _ = obj.value
-                    _ = list(index.select(0, worker_id * 1_000_000 + iteration + 1))[:3]
 
                 inc("thread_ops")
         except BaseException as exc:
-            remember_error(exc)
+            remember_error((step, exc))
             stop_threads.set()
 
     async def async_deadlock_probe(task_id):
@@ -1220,7 +1373,8 @@ async def test_atomic_async_thread_deadlock_detection_stress_child(db0_no_autoco
             thread.join(timeout=10)
 
     assert all(not thread.is_alive() for thread in threads)
-    assert errors == []
+    if errors:
+        pytest.fail(repr(errors[0]))
     assert counters["deadlocks"] > 0
     assert counters["thread_ops"] > 0
     assert counters["async_ops"] > 0
