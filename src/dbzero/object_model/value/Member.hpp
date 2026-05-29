@@ -120,7 +120,8 @@ namespace db0::object_model
     /**
      * Invoke materialize before setting obj_ptr as a member
      * this is to materialize objects (where hasInstance = false) before using them as members
-    */    
+    */
+    PyToolkit::ObjectSharedPtr materializedMember(FixtureLock &fixture, PyObjectPtr obj_ptr, AccessFlags access_mode = {});
     void materialize(FixtureLock &fixture, PyObjectPtr obj_ptr);
     bool isMaterialized(PyObjectPtr obj_ptr);
     

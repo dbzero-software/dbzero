@@ -5,6 +5,9 @@ import gc
 import random
 import time
 from dataclasses import dataclass
+from dataclasses import field
+from itertools import product
+from typing import Optional
 
 import pytest
 import dbzero as db0
@@ -92,6 +95,26 @@ class MemoInternWideObject:
             setattr(self, name, value)
 
 
+@db0.memo(immutable=True, intern=True)
+@dataclass
+class MemoInternOptionalBoolMask:
+    create: Optional[bool] = None
+    read: Optional[bool] = None
+    update: Optional[bool] = None
+    delete: Optional[bool] = None
+
+
+@db0.memo
+class MemoInternOptionalBoolRecord:
+    pass
+
+
+@db0.memo
+@dataclass
+class MemoInternOptionalBoolHolder:
+    access_map: dict[type, dict[str, MemoInternOptionalBoolMask]] = field(default_factory=dict)
+
+
 def make_intern_stress_payload(index, variant):
     address_items = [
         ("street", f"{index % 997} Intern Ave"),
@@ -157,6 +180,35 @@ def test_intern_flag_cannot_change_after_class_materialization(db0_fixture):
                 self.name = name
 
         db0.materialized(MemoNoLongerIntern("beta"))
+
+
+def test_interned_optional_bool_packed_field_combinations(db0_fixture):
+    field_names = ("create", "read", "update", "delete")
+    values = (None, False, True)
+    seen_uuids = set()
+
+    for combination in product(values, repeat=len(field_names)):
+        kwargs = dict(zip(field_names, combination))
+
+        materialized = db0.materialized(MemoInternOptionalBoolMask(**kwargs))
+        duplicate = db0.materialized(MemoInternOptionalBoolMask(**kwargs))
+
+        assert tuple(getattr(materialized, name) for name in field_names) == combination
+        assert tuple(getattr(duplicate, name) for name in field_names) == combination
+        assert db0.uuid(duplicate) == db0.uuid(materialized)
+        seen_uuids.add(db0.uuid(materialized))
+
+    assert len(seen_uuids) == len(values) ** len(field_names)
+
+
+def test_embedded_interned_optional_bool_fields_in_nested_map(db0_fixture):
+    mask = MemoInternOptionalBoolMask(read=True, update=False)
+
+    holder = MemoInternOptionalBoolHolder({MemoInternOptionalBoolRecord: {"name": mask}})
+
+    stored_mask = holder.access_map[MemoInternOptionalBoolRecord]["name"]
+    assert stored_mask.read is True
+    assert stored_mask.update is False
 
 
 def test_interned_object_can_reference_interned_immutable_instance(db0_fixture):

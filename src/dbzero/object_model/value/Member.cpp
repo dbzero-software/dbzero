@@ -118,6 +118,14 @@ namespace db0::object_model
         if (db0::python::PyEmbeddedMemo_Check(obj_ptr)) {
             return createObjectMember<EmbeddedMemoObject>(fixture, obj_ptr, storage_class, access_flags);
         }
+        auto &object = PyToolkit::getTypeManager().extractMutableObject<MemoImmutableObject>(obj_ptr);
+        if (!object.hasInstance()) {
+            db0::FixtureLock lock(fixture);
+            auto materialized_object = materializedMember(lock, obj_ptr, access_flags);
+            return createObjectMember<MemoImmutableObject>(
+                fixture, materialized_object.get(), storage_class, access_flags
+            );
+        }
         return createObjectMember<MemoImmutableObject>(fixture, obj_ptr, storage_class, access_flags);
     }
 
@@ -450,6 +458,15 @@ namespace db0::object_model
     {
         auto &class_factory = fixture->template get<ClassFactory>();
         auto address = value.asAddress();
+        auto allocation = fixture->findAllocation(address, ObjectAnyImpl::REALM_ID);
+        ObjectAnyImpl::ObjectStem common_stem(
+            db0::tag_verified(), fixture->myPtr(allocation.address), allocation.size
+        );
+        if (common_stem->m_header.isImmutableObject()) {
+            return PyToolkit::unloadAnyObject(
+                fixture, address, class_factory, nullptr, common_stem->m_header.getInstanceId(), {}, true
+            );
+        }
         return PyToolkit::unloadObject(fixture, address, class_factory, nullptr, 0, {}, true);
     }
 
@@ -759,7 +776,8 @@ namespace db0::object_model
     }
 
     template <typename T, typename MemoImplT, typename LangToolkit>
-    void unrefMemoObject(db0::swine_ptr<Fixture> &fixture, Address address)
+    void unrefMemoObjectImpl(
+        db0::swine_ptr<Fixture> &fixture, Address address, typename T::ObjectStem &&stem)
     {
         auto objPtr = fixture->getLangCache().get(address);
         if (objPtr.get()) {
@@ -767,9 +785,29 @@ namespace db0::object_model
             return;
         }
 
-        auto allocation = fixture->findAllocation(address, ObjectAnyImpl::REALM_ID);
-        typename T::ObjectStem stem(db0::tag_verified(), fixture->myPtr(allocation.address), allocation.size);
         unrefUncachedMemoObject<T>(fixture, std::move(stem), false);
+    }
+
+    void unrefMemoObject(db0::swine_ptr<Fixture> &fixture, Address address)
+    {
+        auto allocation = fixture->findAllocation(address, ObjectAnyImpl::REALM_ID);
+        ObjectAnyImpl::ObjectStem common_stem(
+            db0::tag_verified(), fixture->myPtr(allocation.address), allocation.size
+        );
+
+        // OBJECT_REF stores a root object address without an instance id. This dispatch is
+        // not suitable for embedded immutable references; those must use EMBEDDED_OBJECT_REF.
+        if (common_stem->m_header.isImmutableObject()) {
+            auto stem = ObjectAnyImpl::castStem<ObjectImmutableImpl::ObjectStem>(std::move(common_stem));
+            unrefMemoObjectImpl<
+                ObjectImmutableImpl, PyToolkit::TypeManager::MemoImmutableObject, PyToolkit
+            >(fixture, address, std::move(stem));
+        } else {
+            auto stem = ObjectAnyImpl::castStem<Object::ObjectStem>(std::move(common_stem));
+            unrefMemoObjectImpl<
+                Object, PyToolkit::TypeManager::MemoObject, PyToolkit
+            >(fixture, address, std::move(stem));
+        }
     }
 
     void unrefAnyMemoObject(db0::swine_ptr<Fixture> &fixture, UniqueAddress address)
@@ -834,8 +872,7 @@ namespace db0::object_model
     template <> void unrefMember<StorageClass::OBJECT_REF, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value)
     {
-        using MemoObject = PyToolkit::TypeManager::MemoObject;
-        unrefMemoObject<Object, MemoObject, PyToolkit>(fixture, value.asAddress());
+        unrefMemoObject(fixture, value.asAddress());
     }
 
     template <> void unrefMember<StorageClass::EMBEDDED_OBJECT_REF, PyToolkit>(
@@ -932,11 +969,39 @@ namespace db0::object_model
         return !object_ptr || object_ptr->hasInstance();
     }
     
+    PyToolkit::ObjectSharedPtr materializedMember(FixtureLock &fixture, PyObjectPtr obj_ptr, AccessFlags access_mode)
+    {
+        using MemoImmutableObject = PyToolkit::TypeManager::MemoImmutableObject;
+
+        auto object_ptr = PyToolkit::getTypeManager().tryExtractMutableObject<MemoImmutableObject>(obj_ptr);
+        if (!object_ptr) {
+            THROWF(db0::InputException) << "Unable to materialize non-immutable memo object" << THROWF_END;
+        }
+        if (object_ptr->hasInstance()) {
+            return Py_BORROW(obj_ptr);
+        }
+
+        object_ptr->setLangObject(obj_ptr);
+        auto existing_intern_address = object_ptr->postInit(fixture);
+        if (!existing_intern_address) {
+            if (!object_ptr->getType().isNoCache()) {
+                (*fixture)->getLangCache().add(object_ptr->getAddress(), obj_ptr);
+            }
+            return Py_BORROW(obj_ptr);
+        }
+
+        auto &class_factory = (*fixture)->template get<ClassFactory>();
+        return PyToolkit::unloadAnyObject(
+            *fixture, existing_intern_address->getAddress(), class_factory, nullptr,
+            existing_intern_address->getInstanceId(), access_mode
+        );
+    }
+
     template <typename MemoImplT>
     void materializeImpl(FixtureLock &fixture, PyObjectPtr obj_ptr)
     {
         auto object_ptr = PyToolkit::getTypeManager().tryExtractMutableObject<MemoImplT>(obj_ptr);
-        if (object_ptr && !object_ptr->hasInstance()) {            
+        if (object_ptr && !object_ptr->hasInstance()) {
             object_ptr->postInit(fixture);
         }
     }
@@ -949,7 +1014,7 @@ namespace db0::object_model
         if (PyToolkit::isMemoObject(obj_ptr)) {
             materializeImpl<MemoObject>(fixture, obj_ptr);
         } else if (PyToolkit::isMemoImmutableObject(obj_ptr)) {
-            materializeImpl<MemoImmutableObject>(fixture, obj_ptr);            
+            materializeImpl<MemoImmutableObject>(fixture, obj_ptr);
         } else {
             assert(false && "Unsupported memo object type");
             THROWF(db0::InputException) << "Unable to materialize non-memo object" << THROWF_END;
