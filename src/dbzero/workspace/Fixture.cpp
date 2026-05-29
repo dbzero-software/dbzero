@@ -540,7 +540,6 @@ namespace db0
         assert(!m_atomic_context_stack.empty());
         assert(m_atomic_context_stack.back() == context);
         m_atomic_context_stack.pop_back();
-        m_meta_allocator.cancelAtomic();
         getGC0().cancelAtomic();
         // rollback any uncommited changes
         rollback();
@@ -553,7 +552,8 @@ namespace db0
         m_string_pool.detach();
         m_object_catalogue.detach();
         m_v_object_cache.cancelAtomic();
-        Memspace::cancelAtomic();        
+        Memspace::cancelAtomic();
+        m_meta_allocator.cancelAtomic();
     }
     
     AtomicContext *Fixture::tryGetAtomicContext() const {

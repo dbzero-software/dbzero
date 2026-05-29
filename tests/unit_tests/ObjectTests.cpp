@@ -8,6 +8,8 @@
 #include <dbzero/workspace/PrefixName.hpp>
 #include <dbzero/object_model/ObjectModel.hpp>
 #include <dbzero/object_model/object/Object.hpp>
+#include <dbzero/object_model/tuple/Tuple.hpp>
+#include <dbzero/core/serialization/string.hpp>
 #include <dbzero/core/vspace/v_object.hpp>
 
 using namespace std;
@@ -18,6 +20,32 @@ using namespace db0::object_model;
 namespace tests
 
 {
+
+    namespace
+    {
+        Address makeString(db0::swine_ptr<Fixture> &fixture, const char *value)
+        {
+            return v_object<o_string>(*fixture, value).getAddress();
+        }
+
+        Address makeTuple(db0::swine_ptr<Fixture> &fixture, std::initializer_list<o_typed_item> items)
+        {
+            Tuple tuple(fixture, Tuple::tag_new_tuple(), items.size());
+            std::size_t index = 0;
+            for (auto item : items) {
+                tuple.modify().items()[index++] = item;
+            }
+            tuple.incRef(false);
+            return tuple.getAddress();
+        }
+
+        void assignFirstPosValue(Object &object, StorageClass storage_class, Value value)
+        {
+            auto &pos_vt = object.modify().pos_vt();
+            ASSERT_GT(pos_vt.size(), 0u);
+            pos_vt.set(0, storage_class, value);
+        }
+    }
     
     class ObjectTest: public testing::Test
     {
@@ -128,6 +156,39 @@ namespace tests
             // note that utilization is still higher than the initial one which is due to
             // administrative data created by the allocators
             ASSERT_TRUE(cache_size_2 < cache_size_1);
+        }
+        workspace.close();
+    }
+
+    TEST_F( ObjectTest , testAtomicTupleValueRollbackReleasesAllocatorState )
+    {
+        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
+        {
+            auto fixture = workspace.getFixture(prefix_name);
+            auto object_class = getTestClass(fixture);
+            object_class->addField("value", 0);
+
+            PosVT::Data data;
+            data.m_types = { StorageClass::INT64 };
+            data.m_values = { Value(0) };
+            Object object(fixture, object_class, std::make_pair(0u, 0u), data, 0);
+            object.incRef(false);
+            auto object_address = object.getAddress();
+            ASSERT_TRUE(fixture->commit());
+
+            fixture->beginAtomic(nullptr);
+            {
+                auto tuple_address = makeTuple(fixture, {
+                    { StorageClass::STRING_REF, Value(makeString(fixture, "atomic")) }
+                });
+                assignFirstPosValue(object, StorageClass::DB0_TUPLE, Value(tuple_address));
+            }
+            fixture->cancelAtomic(nullptr);
+
+            Object reopened(fixture, object_address, object_class, Object::with_type_hint());
+            ASSERT_EQ(reopened->pos_vt().types()[0], StorageClass::INT64);
+            ASSERT_EQ(reopened->pos_vt().values()[0], Value(0));
+            ASSERT_NO_THROW(fixture->commit());
         }
         workspace.close();
     }
