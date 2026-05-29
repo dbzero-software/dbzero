@@ -8,6 +8,8 @@ import pytest
 import gc
 import dbzero as db0
 import shutil
+import subprocess
+import sys
 from .memo_test_types import MemoTestClass, MemoTestSingleton, MemoDataPxClass, \
         MemoDataPxSingleton, DATA_PX
 
@@ -24,6 +26,38 @@ def worker_path(path):
     directory, filename = os.path.split(path)
     name, extension = os.path.splitext(filename)
     return os.path.join(directory, f"{name}{WORKER_SUFFIX}{extension}")
+
+
+@pytest.fixture()
+def run_pytest_child():
+    def run(nodeid, *, env_flag, timeout=10, failure_label=None, pytest_args=()):
+        env = os.environ.copy()
+        env[env_flag] = "1"
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "-q",
+                nodeid,
+                "-s",
+                *pytest_args,
+            ],
+            cwd=os.getcwd(),
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+        label = failure_label or nodeid
+        assert result.returncode == 0, (
+            f"{label} failed with code {result.returncode}\n"
+            f"stdout:\n{result.stdout}\n"
+            f"stderr:\n{result.stderr}"
+        )
+        return result
+
+    return run
 
 
 def __extract_param(request, key, default):

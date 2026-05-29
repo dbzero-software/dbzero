@@ -7,8 +7,6 @@ import random
 import asyncio
 import threading
 import os
-import subprocess
-import sys
 import pytest
 import dbzero as db0
 from .memo_test_types import MemoTestClass, MemoTestSingleton, MemoScopedSingleton, MemoScopedClass
@@ -421,28 +419,11 @@ def test_commit_inside_atomic_is_rejected(db0_no_autocommit):
 
 
 @pytest.mark.skip(reason=ATOMIC_ROLLBACK_REPRO_SKIP)
-def test_atomic_cancel_type_change_then_close_does_not_corrupt_gc0():
-    env = os.environ.copy()
-    env["DB0_ATOMIC_TYPE_CHANGE_CLOSE_CHILD"] = "1"
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "pytest",
-            "-q",
-            "python_tests/test_atomic.py::test_atomic_cancel_type_change_then_close_does_not_corrupt_gc0_child",
-            "-s",
-        ],
-        cwd=os.getcwd(),
-        env=env,
-        capture_output=True,
-        text=True,
-        timeout=10,
-    )
-    assert result.returncode == 0, (
-        f"atomic cancel type-change child failed with code {result.returncode}\n"
-        f"stdout:\n{result.stdout}\n"
-        f"stderr:\n{result.stderr}"
+def test_atomic_cancel_type_change_then_close_does_not_corrupt_gc0(run_pytest_child):
+    run_pytest_child(
+        "python_tests/test_atomic.py::test_atomic_cancel_type_change_then_close_does_not_corrupt_gc0_child",
+        env_flag="DB0_ATOMIC_TYPE_CHANGE_CLOSE_CHILD",
+        failure_label="atomic cancel type-change child",
     )
 
 
@@ -466,28 +447,11 @@ def test_atomic_cancel_type_change_then_close_does_not_corrupt_gc0_child(db0_no_
 
 
 @pytest.mark.skip(reason=ATOMIC_ROLLBACK_REPRO_SKIP)
-def test_atomic_cancel_tuple_value_restores_wrapper_state():
-    env = os.environ.copy()
-    env["DB0_ATOMIC_CANCEL_TUPLE_VALUE_CHILD"] = "1"
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "pytest",
-            "-q",
-            "python_tests/test_atomic.py::test_atomic_cancel_tuple_value_restores_wrapper_state_child",
-            "-s",
-        ],
-        cwd=os.getcwd(),
-        env=env,
-        capture_output=True,
-        text=True,
-        timeout=10,
-    )
-    assert result.returncode == 0, (
-        f"atomic cancel tuple-value child failed with code {result.returncode}\n"
-        f"stdout:\n{result.stdout}\n"
-        f"stderr:\n{result.stderr}"
+def test_atomic_cancel_tuple_value_restores_wrapper_state(run_pytest_child):
+    run_pytest_child(
+        "python_tests/test_atomic.py::test_atomic_cancel_tuple_value_restores_wrapper_state_child",
+        env_flag="DB0_ATOMIC_CANCEL_TUPLE_VALUE_CHILD",
+        failure_label="atomic cancel tuple-value child",
     )
 
 
@@ -513,29 +477,38 @@ def test_atomic_cancel_tuple_value_restores_wrapper_state_child(db0_no_autocommi
     assert obj.value == ("atomic", 1)
 
 
-@pytest.mark.skip(reason=ATOMIC_THREAD_REPRO_SKIP)
-def test_atomic_thread_constructor_waits_at_api_boundary_before_cancel():
-    env = os.environ.copy()
-    env["DB0_ATOMIC_THREAD_CONSTRUCTOR_WAIT_CHILD"] = "1"
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "pytest",
-            "-q",
-            "python_tests/test_atomic.py::test_atomic_thread_constructor_waits_at_api_boundary_before_cancel_child",
-            "-s",
-        ],
-        cwd=os.getcwd(),
-        env=env,
-        capture_output=True,
-        text=True,
-        timeout=10,
+@pytest.mark.skip(reason=ATOMIC_ROLLBACK_REPRO_SKIP)
+def test_atomic_cancel_tuple_value_releases_allocator_state(run_pytest_child):
+    run_pytest_child(
+        "python_tests/test_atomic.py::test_atomic_cancel_tuple_value_releases_allocator_state_child",
+        env_flag="DB0_ATOMIC_CANCEL_TUPLE_ALLOCATOR_CHILD",
+        failure_label="atomic cancel tuple allocator child",
     )
-    assert result.returncode == 0, (
-        f"atomic/thread constructor child failed with code {result.returncode}\n"
-        f"stdout:\n{result.stdout}\n"
-        f"stderr:\n{result.stderr}"
+
+
+@pytest.mark.skipif(
+    os.environ.get("DB0_ATOMIC_CANCEL_TUPLE_ALLOCATOR_CHILD") != "1",
+    reason="executed by test_atomic_cancel_tuple_value_releases_allocator_state",
+)
+@pytest.mark.skip(reason=ATOMIC_ROLLBACK_REPRO_SKIP)
+def test_atomic_cancel_tuple_value_releases_allocator_state_child(db0_no_autocommit):
+    # A canceled tuple assignment must release only its own atomic allocation state.
+    obj = MemoTestClass(0)
+    db0.commit()
+
+    with db0.atomic() as atomic:
+        obj.value = ("atomic",)
+        atomic.cancel()
+
+    assert obj.value == 0
+    db0.commit()
+
+
+def test_atomic_thread_constructor_waits_at_api_boundary_before_cancel(run_pytest_child):
+    run_pytest_child(
+        "python_tests/test_atomic.py::test_atomic_thread_constructor_waits_at_api_boundary_before_cancel_child",
+        env_flag="DB0_ATOMIC_THREAD_CONSTRUCTOR_WAIT_CHILD",
+        failure_label="atomic/thread constructor child",
     )
 
 
@@ -543,8 +516,8 @@ def test_atomic_thread_constructor_waits_at_api_boundary_before_cancel():
     os.environ.get("DB0_ATOMIC_THREAD_CONSTRUCTOR_WAIT_CHILD") != "1",
     reason="executed by test_atomic_thread_constructor_waits_at_api_boundary_before_cancel",
 )
-@pytest.mark.skip(reason=ATOMIC_THREAD_REPRO_SKIP)
 def test_atomic_thread_constructor_waits_at_api_boundary_before_cancel_child(db0_no_autocommit):
+    # A non-owner thread constructing a durable object must wait until the active atomic owner cancels and releases rollback state.
     obj = MemoTestClass(0)
     db0.commit()
     atomic_started = threading.Event()
@@ -566,7 +539,7 @@ def test_atomic_thread_constructor_waits_at_api_boundary_before_cancel_child(db0
     thread.start()
 
     with db0.atomic() as atomic:
-        obj.value = ("atomic",)
+        obj.value = 1
         atomic_started.set()
         assert constructor_attempting.wait(timeout=5)
         assert not constructor_done.wait(timeout=0.1)
@@ -581,28 +554,11 @@ def test_atomic_thread_constructor_waits_at_api_boundary_before_cancel_child(db0
 
 
 @pytest.mark.skip(reason=ATOMIC_STRESS_REPRO_SKIP)
-def test_atomic_async_cancel_while_thread_constructs_objects_does_not_corrupt_state():
-    env = os.environ.copy()
-    env["DB0_ATOMIC_ASYNC_THREAD_CONSTRUCT_CHILD"] = "1"
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "pytest",
-            "-q",
-            "python_tests/test_atomic.py::test_atomic_async_cancel_while_thread_constructs_objects_does_not_corrupt_state_child",
-            "-s",
-        ],
-        cwd=os.getcwd(),
-        env=env,
-        capture_output=True,
-        text=True,
-        timeout=10,
-    )
-    assert result.returncode == 0, (
-        f"atomic async/thread construction child failed with code {result.returncode}\n"
-        f"stdout:\n{result.stdout}\n"
-        f"stderr:\n{result.stderr}"
+def test_atomic_async_cancel_while_thread_constructs_objects_does_not_corrupt_state(run_pytest_child):
+    run_pytest_child(
+        "python_tests/test_atomic.py::test_atomic_async_cancel_while_thread_constructs_objects_does_not_corrupt_state_child",
+        env_flag="DB0_ATOMIC_ASYNC_THREAD_CONSTRUCT_CHILD",
+        failure_label="atomic async/thread construction child",
     )
 
 
@@ -1082,31 +1038,14 @@ def test_nested_atomic_stress_test_1(db0_no_autocommit):
 
 @pytest.mark.stress_test
 @pytest.mark.skip(reason=ATOMIC_STRESS_REPRO_SKIP)
-def test_atomic_async_thread_deadlock_detection_stress():
+def test_atomic_async_thread_deadlock_detection_stress(run_pytest_child):
     duration = float(os.environ.get("DB0_ATOMIC_STRESS_SECONDS", "60"))
-    env = os.environ.copy()
-    env["DB0_ATOMIC_STRESS_CHILD"] = "1"
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "pytest",
-            "-q",
-            "python_tests/test_atomic.py::test_atomic_async_thread_deadlock_detection_stress_child",
-            "-s",
-            "-o",
-            "faulthandler_timeout=10",
-        ],
-        cwd=os.getcwd(),
-        env=env,
-        capture_output=True,
-        text=True,
+    run_pytest_child(
+        "python_tests/test_atomic.py::test_atomic_async_thread_deadlock_detection_stress_child",
+        env_flag="DB0_ATOMIC_STRESS_CHILD",
         timeout=duration + 30,
-    )
-    assert result.returncode == 0, (
-        f"atomic async/thread stress child failed with code {result.returncode}\n"
-        f"stdout:\n{result.stdout}\n"
-        f"stderr:\n{result.stderr}"
+        failure_label="atomic async/thread stress child",
+        pytest_args=("-o", "faulthandler_timeout=10"),
     )
 
 

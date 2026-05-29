@@ -264,7 +264,7 @@ namespace db0::python
         using TagIndex = db0::object_model::TagIndex;
         using ExtT = typename MemoImplT::ExtT;
 
-        PY_API_FUNC
+        PY_MUTATING_API_FUNC(-1)
         if (db0::ReadOnlyContext::isActive()) {
             PyErr_SetString(PyExc_RuntimeError, "dbzero read_only context forbids mutation");
             return -1;
