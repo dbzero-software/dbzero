@@ -9,6 +9,7 @@
 #include <dbzero/object_model/object.hpp>
 #include <dbzero/core/exception/Exceptions.hpp>
 #include <dbzero/object_model/class/ClassFactory.hpp>
+#include <dbzero/object_model/tags/ObjectIteratorPool.hpp>
 #include "PyToolkit.hpp"
 
 namespace db0::python
@@ -63,8 +64,23 @@ namespace db0::python
         // Retrieve the cache size from passed config parameters
         auto cache_size = m_config->get<unsigned long long>("cache_size");
 
+        auto object_model_initializer = db0::object_model::initializer();
+        auto python_fixture_initializer = [object_model_initializer](db0::swine_ptr<db0::Fixture> &fixture,
+            bool is_new, bool read_only, bool is_snapshot)
+        {
+            object_model_initializer(fixture, is_new, read_only, is_snapshot);
+            if (!is_snapshot) {
+                auto &iterator_pool = fixture->addResource<db0::object_model::ObjectIteratorPool>();
+                fixture->addCloseHandler([&iterator_pool](bool commit) {
+                    if (!commit) {
+                        iterator_pool.close();
+                    }
+                });
+            }
+        };
+
         m_workspace = std::shared_ptr<db0::Workspace>(
-            new Workspace(root_path, std::move(cache_size), {}, {}, {}, db0::object_model::initializer(), m_config, default_lock_flags));
+            new Workspace(root_path, std::move(cache_size), {}, {}, {}, python_fixture_initializer, m_config, default_lock_flags));
 
         // register a callback to register bindings between known memo types (language specific objects)
         // and the corresponding Class instances. Note that types may be prefix agnostic therefore bindings may or

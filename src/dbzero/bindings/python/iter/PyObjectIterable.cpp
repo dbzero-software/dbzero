@@ -2,6 +2,7 @@
 // Copyright (c) 2025 DBZero Software sp. z o.o.
 
 #include "PyObjectIterable.hpp"
+#include <dbzero/object_model/tags/ObjectIteratorPool.hpp>
 #include "PyObjectIterator.hpp"
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/bindings/python/PyInternalAPI.hpp>
@@ -99,6 +100,9 @@ namespace db0::python
         }
         auto py_iter = PyObjectIteratorDefault_new();
         py_iter->makeNew(py_iterable->ext().iter());
+        if (auto *iterator_pool = fixture->tryGet<db0::object_model::ObjectIteratorPool>()) {
+            iterator_pool->add(db0::object_model::ObjectIteratorPool::ObjectSharedExtPtr(py_iter.get()));
+        }
         return py_iter.steal();
     }
     

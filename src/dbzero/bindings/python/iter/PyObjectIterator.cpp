@@ -95,7 +95,7 @@ namespace db0::python
     };
     
     bool PyObjectIterator_Check(PyObject *py_object) {
-        return Py_TYPE(py_object) == &PyObjectIteratorType;
+        return py_object && PyObject_TypeCheck(py_object, &PyObjectIteratorType);
     }
         
 }
