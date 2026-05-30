@@ -78,7 +78,8 @@ namespace db0
             for (const auto &inverted_list: inverted_lists) {
                 // key inverted index
                 factory.add(std::unique_ptr<FT_Iterator<KeyT> >(
-                    new FT_IndexIterator<ListT, KeyT>(*inverted_list.second, -1, inverted_list.first))
+                    new FT_IndexIterator<ListT, KeyT>(
+                        *inverted_list.second, -1, inverted_list.first, {}))
                 );
             }
             return result;

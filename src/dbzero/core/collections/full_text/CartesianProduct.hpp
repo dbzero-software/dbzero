@@ -4,6 +4,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <vector>
 #include "FT_Iterator.hpp"
 #include "CP_Vector.hpp"
@@ -62,6 +63,8 @@ namespace db0
 		std::ostream &dump(std::ostream &os) const override;
 				
         void stop() override;
+
+        void detach() override;
         
         FTIteratorType getSerialTypeId() const override;
         
@@ -71,13 +74,18 @@ namespace db0
 
     protected:
         std::vector<std::unique_ptr<FT_Iterator<key_t>>> m_components;
-        const bool m_direction;
+        const int m_direction;
         bool m_overflow = false;
         KeyStorageT m_current_key;        
+        bool m_is_detached = false;
+        std::optional<KeyStorageT> m_detach_key;
         
         void serializeFTIterator(std::vector<std::byte> &) const override;
         // @return swap key result (i.e. was the key component changed)
         bool joinAt(unsigned int at, key_t, bool reset, int direction = -1);
+        bool joinImpl(KeyT, int direction = -1);
+        void assureAttached() const;
+        void reattach();
     };
     
     extern template class CartesianProduct<UniqueAddress>;

@@ -46,6 +46,10 @@ ATOMIC_INDEX_ITERATOR_REPRO_SKIP = (
     "atomic index iterator repro kept disabled: query iterators can outlive the "
     "durable lock while another thread rolls back index mutations"
 )
+ATOMIC_LEAKED_ITERATOR_REPRO_SKIP = (
+    "atomic leaked iterator repro kept disabled: a collection iterator advanced "
+    "to an item created in a canceled atomic block can crash after rollback"
+)
 
 
 def rand_string(str_len):
@@ -1197,6 +1201,78 @@ def test_atomic_index_iterator_survives_canceled_atomic_context_stress_child(db0
         pytest.fail(repr(errors[0]))
     assert counters["iterators"] > 0
     assert counters["rollbacks"] > 0
+
+
+@pytest.mark.skip(reason=ATOMIC_LEAKED_ITERATOR_REPRO_SKIP)
+def test_leaked_find_iterator_advanced_inside_canceled_atomic_repositions_after_rollback(run_pytest_child):
+    run_pytest_child(
+        "python_tests/test_atomic.py::test_leaked_find_iterator_advanced_inside_canceled_atomic_repositions_after_rollback_child",
+        env_flag="DB0_ATOMIC_LEAKED_FIND_ITERATOR_CHILD",
+        failure_label="atomic leaked find iterator child",
+    )
+
+
+@pytest.mark.skipif(
+    os.environ.get("DB0_ATOMIC_LEAKED_FIND_ITERATOR_CHILD") != "1",
+    reason="executed by test_leaked_find_iterator_advanced_inside_canceled_atomic_repositions_after_rollback",
+)
+def test_leaked_find_iterator_advanced_inside_canceled_atomic_repositions_after_rollback_child(db0_no_autocommit):
+    first = MemoTestClass("first")
+    db0.commit()
+
+    iterator = iter(db0.find(MemoTestClass))
+    assert next(iterator).value == "first"
+
+    with db0.atomic() as atomic:
+        rolled_back = MemoTestClass("rolled-back")
+        assert next(iterator).value == "rolled-back"
+        atomic.cancel()
+
+    # The iterator leaked across the atomic boundary while positioned at an
+    # object that no longer exists. It should be fixed up to the next valid
+    # position, which is the end of this query.
+    with pytest.raises(StopIteration):
+        next(iterator)
+
+
+@pytest.mark.skip(reason=ATOMIC_LEAKED_ITERATOR_REPRO_SKIP)
+def test_leaked_iterator_advanced_inside_canceled_atomic_repositions_after_rollback(run_pytest_child):
+    run_pytest_child(
+        "python_tests/test_atomic.py::test_leaked_iterator_advanced_inside_canceled_atomic_repositions_after_rollback_child",
+        env_flag="DB0_ATOMIC_LEAKED_ITERATOR_CHILD",
+        failure_label="atomic leaked iterator child",
+        pytest_args=("-o", "faulthandler_timeout=10"),
+    )
+
+
+@pytest.mark.skipif(
+    os.environ.get("DB0_ATOMIC_LEAKED_ITERATOR_CHILD") != "1",
+    reason="executed by test_leaked_iterator_advanced_inside_canceled_atomic_repositions_after_rollback",
+)
+def test_leaked_iterator_advanced_inside_canceled_atomic_repositions_after_rollback_child(db0_no_autocommit):
+    items = db0.list()
+    first = MemoTestClass("first")
+    second = MemoTestClass("second")
+    items.append(first)
+    items.append(second)
+    db0.commit()
+
+    iterator = iter(items)
+    assert next(iterator).value == "first"
+
+    with db0.atomic() as atomic:
+        rolled_back = MemoTestClass("rolled-back")
+        items.append(rolled_back)
+
+        assert next(iterator).value == "second"
+        assert next(iterator).value == "rolled-back"
+        atomic.cancel()
+
+    # The iterator leaked across the atomic boundary while positioned after an
+    # object that no longer exists. It should be fixed up to the next valid
+    # position, which is the end of this list.
+    with pytest.raises(StopIteration):
+        next(iterator)
 
 
 @pytest.mark.stress_test

@@ -43,12 +43,12 @@ namespace db0
         }
         
         std::unique_ptr<FT_IteratorT> makeIterator() const {
-            return std::make_unique<FT_IteratorT>(*this, -1);
+            return std::make_unique<FT_IteratorT>(super_t(*this), -1);
         }
         
         // Construct iterator with an additonal range filtering
         std::unique_ptr<FT_IteratorT> makeIterator(const RangeT &key_range) const {
-            return std::make_unique<FT_BoundIterator<KeyT, ValueT, super_t>>(*this, -1, key_range);
+            return std::make_unique<FT_BoundIterator<KeyT, ValueT, super_t>>(super_t(*this), -1, key_range);
         }
     };
     

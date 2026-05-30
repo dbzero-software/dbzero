@@ -155,6 +155,12 @@ namespace db0
         m_key = {};
         m_inner_it->stop();
     }
+
+    template <typename KeyT>
+    void FT_SpanIterator<KeyT>::detach()
+    {
+        m_inner_it->detach();
+    }
     
     template <typename KeyT>
     double FT_SpanIterator<KeyT>::compareToImpl(const FT_IteratorBase &it) const 

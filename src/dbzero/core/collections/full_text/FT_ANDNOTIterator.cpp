@@ -68,6 +68,38 @@ namespace db0
     }
 
     template<typename key_t>
+    void FT_ANDNOTIterator<key_t>::assureAttached() const
+    {
+        if (m_is_detached) {
+            const_cast<self_t *>(this)->reattach();
+        }
+    }
+
+    template<typename key_t>
+    void FT_ANDNOTIterator<key_t>::reattach()
+    {
+        m_is_detached = false;
+        m_subtrahends_heap.clear();
+        if (!m_detach_key) {
+            getBaseIterator().stop();
+            return;
+        }
+        if (!getBaseIterator().join(*m_detach_key, m_direction)) {
+            getBaseIterator().stop();
+            return;
+        }
+        for (auto it = std::next(m_joinable.begin()); it != m_joinable.end(); ++it) {
+            auto &joined = **it;
+            if (joined.join(*m_detach_key, m_direction) && !joined.isEnd()) {
+                HeapItem &item = m_subtrahends_heap.emplace_back();
+                item.it = &joined;
+                item.key = joined.getKey();
+            }
+        }
+        updateWithHeap();
+    }
+
+    template<typename key_t>
     bool FT_ANDNOTIterator<key_t>::inResult(const key_t &key, int direction) 
     {
         if (direction > 0) {
@@ -155,6 +187,7 @@ namespace db0
     template<typename key_t>
     std::ostream& FT_ANDNOTIterator<key_t>::dump(std::ostream &os) const 
     {
+        assureAttached();
         os << "ANDNOT@" << this << '[';
         auto it = m_joinable.begin();
         for(auto end = --m_joinable.end(); it != end; ++it) {
@@ -169,6 +202,7 @@ namespace db0
     template<typename key_t>
     const FT_IteratorBase* FT_ANDNOTIterator<key_t>::find(std::uint64_t uid) const 
     {
+        assureAttached();
         if (this->m_uid == uid) {
             return this;
         }
@@ -183,29 +217,34 @@ namespace db0
 
     template<typename key_t>
     key_t FT_ANDNOTIterator<key_t>::getKey() const {
+        assureAttached();
         return getBaseIterator().getKey();
     }
 
     template<typename key_t>
     bool FT_ANDNOTIterator<key_t>::isEnd() const {
+        assureAttached();
         return getBaseIterator().isEnd();
     }
     
     template<typename key_t>
     void FT_ANDNOTIterator<key_t>::operator++() {
         assert(m_direction > 0);
+        assureAttached();
         next(1);
     }
 
     template<typename key_t>
     void FT_ANDNOTIterator<key_t>::operator--() {
         assert(m_direction < 0);
+        assureAttached();
         next(-1);
     }
 
     template<typename key_t>
     bool FT_ANDNOTIterator<key_t>::join(key_t join_key, int direction) 
     {
+        assureAttached();
         if (m_direction > 0) {
             auto &it = getBaseIterator();
             if (!it.join(join_key), 1) {
@@ -242,6 +281,7 @@ namespace db0
     template<typename key_t>
     std::unique_ptr<FT_Iterator<key_t> > FT_ANDNOTIterator<key_t>::beginTyped(int direction) const
     {
+        assureAttached();
         std::vector<std::unique_ptr<FT_Iterator<key_t>>> sub_iterators;
         sub_iterators.reserve(m_joinable.size());
         for (const auto &sub_it : m_joinable) {
@@ -255,6 +295,7 @@ namespace db0
     template<typename key_t> 
     bool FT_ANDNOTIterator<key_t>::limitBy(key_t key)
     {
+        assureAttached();
         if (!m_joinable.front()->limitBy(key)) {
             return false;
         }
@@ -285,6 +326,7 @@ namespace db0
 
     template <typename key_t>
     const db0::FT_Iterator<key_t> &FT_ANDNOTIterator<key_t>::getFirst() const {
+        assureAttached();
         return *m_joinable.front();
     }
 
@@ -324,6 +366,7 @@ namespace db0
     }
 
     template <typename key_t> void db0::FT_ANDNOTIterator<key_t>::stop() {
+        assureAttached();
         getBaseIterator().stop();
     }
     
@@ -344,6 +387,7 @@ namespace db0
     template <typename key_t> std::pair<bool, bool> 
     db0::FT_ANDNOTIterator<key_t>::mutateInner(const MutateFunction &f) 
     {
+        assureAttached();
         auto result = db0::FT_Iterator<key_t>::mutateInner(f);
         if (result.first) {
             return result;
@@ -363,11 +407,14 @@ namespace db0
     }
 
     template <typename key_t> void db0::FT_ANDNOTIterator<key_t>::detach() {
-        /* FIXME: implement
-        for (auto &it: m_joinable) {
-            it->detach();
+        if (!m_is_detached) {
+            m_detach_key = isEnd() ? std::optional<key_t> {} : std::make_optional(getKey());
+            for (auto &it: m_joinable) {
+                it->detach();
+            }
+            m_subtrahends_heap.clear();
+            m_is_detached = true;
         }
-        */
     }
     
     template <typename key_t> const std::type_info &db0::FT_ANDNOTIterator<key_t>::typeId() const {

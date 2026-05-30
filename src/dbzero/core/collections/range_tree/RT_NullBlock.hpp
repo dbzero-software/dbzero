@@ -34,7 +34,7 @@ namespace db0
         }
 
         std::unique_ptr<FT_IteratorT> makeIterator() const {
-            return std::make_unique<FT_IteratorT>(*this, -1);
+            return std::make_unique<FT_IteratorT>(super_t(*this), -1);
         }
     };
     

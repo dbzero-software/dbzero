@@ -5,6 +5,7 @@
 
 #include <list>
 #include <functional>
+#include <optional>
 #include "FT_Iterator.hpp"
 #include "FT_IteratorBase.hpp"
 #include "FT_IteratorFactory.hpp"
@@ -101,7 +102,7 @@ namespace db0
 
         std::pair<bool, bool> mutateInner(const MutateFunction &f) override;
         
-        void detach();
+        void detach() override;
 
         FTIteratorType getSerialTypeId() const override;
         
@@ -120,8 +121,12 @@ namespace db0
 		mutable IteratorGroup<key_t, key_storage_t> m_joinable;
 		bool m_end;
 		key_storage_t m_join_key;
+        bool m_is_detached = false;
+        std::optional<key_storage_t> m_detach_key;
         
 		void setEnd();
+        void assureAttached() const;
+        void reattach();
 
         void _next();
         void _next(void*);

@@ -68,6 +68,7 @@ namespace db0
 	 */
 	template <typename key_t, bool UniqueKeys, typename key_storage_t>
 	bool FT_JoinANDIterator<key_t, UniqueKeys, key_storage_t>::isEnd() const {
+        assureAttached();
 		return m_end;
 	}
     
@@ -75,6 +76,7 @@ namespace db0
 	void FT_JoinANDIterator<key_t, UniqueKeys, key_storage_t>::operator++() 
     {
         assert(m_direction > 0);
+        assureAttached();
         assert(!isEnd());
         if constexpr (UniqueKeys) {
             _nextUnique();
@@ -85,6 +87,7 @@ namespace db0
 
 	template <typename key_t, bool UniqueKeys, typename key_storage_t>
 	void FT_JoinANDIterator<key_t, UniqueKeys, key_storage_t>::operator--() {
+        assureAttached();
         this->_next(nullptr);
 	}
     
@@ -92,6 +95,7 @@ namespace db0
 	void FT_JoinANDIterator<key_t, UniqueKeys, key_storage_t>::_next(void *buf) 
     {
         assert(m_direction < 0);
+        assureAttached();
         assert(!isEnd());
         if (buf) {
             reinterpret_cast<key_t*>(buf)[0] = m_join_key;            
@@ -110,11 +114,13 @@ namespace db0
 
 	template <typename key_t, bool UniqueKeys, typename key_storage_t>
 	key_t FT_JoinANDIterator<key_t, UniqueKeys, key_storage_t>::getKey() const {
+        assureAttached();
 		return m_join_key;
 	}
 
     template <typename key_t, bool UniqueKeys, typename key_storage_t>
     const db0::FT_Iterator<key_t, key_storage_t> &FT_JoinANDIterator<key_t, UniqueKeys, key_storage_t>::getSimple() const {
+        assureAttached();
         assert(!m_joinable.empty());
         return *m_joinable.front();
     }
@@ -122,6 +128,7 @@ namespace db0
 	template <typename key_t, bool UniqueKeys, typename key_storage_t>
 	bool FT_JoinANDIterator<key_t, UniqueKeys, key_storage_t>::join(key_t join_key, int direction)
     {
+        assureAttached();
 		if (m_joinable.front()->join(join_key, direction)) {
             m_joinable.front()->getKey(m_join_key);
 			joinAll();
@@ -135,6 +142,7 @@ namespace db0
 	template <typename key_t, bool UniqueKeys, typename key_storage_t>
 	void FT_JoinANDIterator<key_t, UniqueKeys, key_storage_t>::joinBound(key_t key) 
     {
+        assureAttached();
 		for (auto it = m_joinable.begin(), end = m_joinable.end(); it != end; ++it) {
 			// try join leading iterator
 			assert(!(**it).isEnd());
@@ -149,6 +157,7 @@ namespace db0
 	template <typename key_t, bool UniqueKeys, typename key_storage_t>
 	std::pair<key_t, bool> FT_JoinANDIterator<key_t, UniqueKeys, key_storage_t>::peek(key_t join_key) const 
     {
+        assureAttached();
 		key_t lead_key = join_key;
 		for (auto it = m_joinable.begin(),itend = m_joinable.end(); it != itend; ++it) {
 			std::pair<key_t, bool> peek_result = (**it).peek(lead_key);
@@ -170,6 +179,7 @@ namespace db0
 	std::unique_ptr<FT_Iterator<key_t, key_storage_t> > 
     FT_JoinANDIterator<key_t, UniqueKeys, key_storage_t>::beginTyped(int direction) const
     {
+        assureAttached();
 		// collect joinable (must sync)
 		std::list<std::unique_ptr<FT_IteratorT> > temp;
         for (auto it = m_joinable.begin(),itend = m_joinable.end();it != itend;++it) {
@@ -183,6 +193,7 @@ namespace db0
 	template <typename key_t, bool UniqueKeys, typename key_storage_t>
 	bool FT_JoinANDIterator<key_t, UniqueKeys, key_storage_t>::limitBy(key_t key) 
     {
+        assureAttached();
 		for (auto it = m_joinable.begin(),itend = m_joinable.end(); it != itend; ++it) {
 			if (!(**it).limitBy(key)) {
 				setEnd();
@@ -195,6 +206,7 @@ namespace db0
 	template <typename key_t, bool UniqueKeys, typename key_storage_t>
 	std::ostream &FT_JoinANDIterator<key_t, UniqueKeys, key_storage_t>::dump(std::ostream &os) const 
     {
+        assureAttached();
 		os << "AND@" << this << "[";
 		bool is_first = true;
 		for (auto it = m_joinable.begin(),itend = m_joinable.end(); it != itend; ++it) {
@@ -210,6 +222,7 @@ namespace db0
 	template <typename key_t, bool UniqueKeys, typename key_storage_t>
 	const FT_IteratorBase *FT_JoinANDIterator<key_t, UniqueKeys, key_storage_t>::find(std::uint64_t uid) const 
     {
+        assureAttached();
 		// self-check first
 		if (this->m_uid == uid) {
 			return this;
@@ -229,6 +242,31 @@ namespace db0
 	void FT_JoinANDIterator<key_t, UniqueKeys, key_storage_t>::setEnd() {
 		m_end = true;
 	}
+
+    template <typename key_t, bool UniqueKeys, typename key_storage_t>
+    void FT_JoinANDIterator<key_t, UniqueKeys, key_storage_t>::assureAttached() const
+    {
+        if (m_is_detached) {
+            const_cast<self_t *>(this)->reattach();
+        }
+    }
+
+    template <typename key_t, bool UniqueKeys, typename key_storage_t>
+    void FT_JoinANDIterator<key_t, UniqueKeys, key_storage_t>::reattach()
+    {
+        m_is_detached = false;
+        if (!m_detach_key) {
+            setEnd();
+            return;
+        }
+        m_end = false;
+        if (m_joinable.front()->join(*m_detach_key, m_direction)) {
+            m_joinable.front()->getKey(m_join_key);
+            joinAll();
+        } else {
+            setEnd();
+        }
+    }
     
     template <typename key_t, bool UniqueKeys, typename key_storage_t> 
     void FT_JoinANDIterator<key_t, UniqueKeys, key_storage_t>::_next()
@@ -316,6 +354,7 @@ namespace db0
 
     template <typename key_t, bool UniqueKeys, typename key_storage_t>
     void db0::FT_JoinANDIterator<key_t, UniqueKeys, key_storage_t>::stop() {
+        assureAttached();
         this->setEnd();
     }
 
@@ -336,6 +375,7 @@ namespace db0
 
     template <typename key_t, bool UniqueKeys, typename key_storage_t>
     std::pair<bool, bool> db0::FT_JoinANDIterator<key_t, UniqueKeys, key_storage_t>::mutateInner(const MutateFunction &f) {
+        assureAttached();
         auto result = db0::FT_Iterator<key_t, key_storage_t>::mutateInner(f);
         if (result.first) {
             return result;
@@ -363,11 +403,13 @@ namespace db0
     template <typename key_t, bool UniqueKeys, typename key_storage_t>
     void db0::FT_JoinANDIterator<key_t, UniqueKeys, key_storage_t>::detach() 
     {
-        /* FIXME: implement
-        for (auto &it: m_joinable) {
-            it->detach();
+        if (!m_is_detached) {
+            m_detach_key = m_end ? std::optional<key_storage_t> {} : std::make_optional(m_join_key);
+            for (auto &it: m_joinable) {
+                it->detach();
+            }
+            m_is_detached = true;
         }
-        */
     }
 
     template <typename key_t, bool UniqueKeys, typename key_storage_t>
@@ -490,6 +532,7 @@ namespace db0
     template <typename key_t, bool UniqueKeys, typename key_storage_t>
     bool db0::FT_JoinANDIterator<key_t, UniqueKeys, key_storage_t>::isNextKeyDuplicated() const
     {
+        assureAttached();
         if constexpr (UniqueKeys) {        
             return false;
         } else {
