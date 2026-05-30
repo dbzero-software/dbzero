@@ -89,6 +89,13 @@ namespace db0::object_model
         }
         return skipped;
     }
+
+    void ObjectIterator::detach()
+    {
+        if (m_iterator_ptr) {
+            m_iterator_ptr->detach();
+        }
+    }
     
     ObjectIterator::ObjectSharedPtr ObjectIterator::unload(Address address) const
     {

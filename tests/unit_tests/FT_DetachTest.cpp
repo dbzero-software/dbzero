@@ -11,6 +11,9 @@
 #include <dbzero/core/collections/full_text/FT_IndexIterator.hpp>
 #include <dbzero/core/collections/full_text/FT_ORXIterator.hpp>
 #include <dbzero/core/collections/full_text/FT_SpanIterator.hpp>
+#include <dbzero/object_model/ObjectModel.hpp>
+#include <dbzero/object_model/tags/ObjectIterator.hpp>
+#include <dbzero/workspace/Workspace.hpp>
 #include <array>
 
 namespace tests
@@ -39,6 +42,91 @@ namespace tests
                 index, direction
             );
         }
+    };
+
+    class DetachableUniqueAddressIterator final: public FT_Iterator<UniqueAddress>
+    {
+    public:
+        bool m_detached = false;
+
+        UniqueAddress getKey() const override {
+            return UniqueAddress(Address::fromOffset(1), 1);
+        }
+
+        bool isEnd() const override {
+            return false;
+        }
+
+        const std::type_info &typeId() const override {
+            return typeid(DetachableUniqueAddressIterator);
+        }
+
+        void next(void *buf = nullptr) override {
+            if (buf) {
+                auto key = getKey();
+                std::memcpy(buf, &key, sizeof(UniqueAddress));
+            }
+        }
+
+        void operator++() override {
+        }
+
+        void operator--() override {
+        }
+
+        bool join(UniqueAddress, int = -1) override {
+            return true;
+        }
+
+        void joinBound(UniqueAddress) override {
+        }
+
+        std::pair<UniqueAddress, bool> peek(UniqueAddress key) const override {
+            return {key, true};
+        }
+
+        bool isNextKeyDuplicated() const override {
+            return false;
+        }
+
+        std::unique_ptr<FT_Iterator<UniqueAddress> > beginTyped(int = -1) const override {
+            return std::make_unique<DetachableUniqueAddressIterator>();
+        }
+
+        bool limitBy(UniqueAddress) override {
+            return true;
+        }
+
+        std::ostream &dump(std::ostream &os) const override {
+            return os << "DetachableUniqueAddressIterator";
+        }
+
+        void stop() override {
+        }
+
+        void detach() override {
+            m_detached = true;
+        }
+
+        FTIteratorType getSerialTypeId() const override {
+            return FTIteratorType::Invalid;
+        }
+
+        void getSignature(std::vector<std::byte> &v) const override {
+            v.resize(v.size() + FT_IteratorBase::SIGNATURE_SIZE);
+        }
+
+    protected:
+        void serializeFTIterator(std::vector<std::byte> &) const override {
+        }
+
+        double compareToImpl(const FT_IteratorBase &) const override {
+            return 1.0;
+        }
+    };
+
+    class ObjectIteratorDetachTest: public testing::Test
+    {
     };
 
     TEST_F(FT_DetachTest, testIndexIteratorReattachesToSameKeyAfterMorphingMutation)
@@ -258,6 +346,20 @@ namespace tests
 
         ASSERT_TRUE(it.isEnd());
         ASSERT_EQ(results, (std::vector<std::uint64_t> {45, 35, 30}));
+    }
+
+    TEST_F(ObjectIteratorDetachTest, testObjectIteratorDetachDelegatesToUnderlyingIterator)
+    {
+        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
+        auto fixture = workspace.getFixture("object-iterator-detach-test");
+        auto query = std::make_unique<DetachableUniqueAddressIterator>();
+        auto *query_ptr = query.get();
+
+        object_model::ObjectIterator iterator(fixture, std::move(query));
+        iterator.detach();
+
+        ASSERT_TRUE(query_ptr->m_detached);
+        workspace.close();
     }
 
 }
