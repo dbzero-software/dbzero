@@ -90,6 +90,28 @@ def test_read_after_atomic_create(db0_fixture):
     assert object_2.value == 951
 
 
+def test_leaked_new_object_from_merged_atomic_block_remains_usable(db0_fixture):
+    leaked = None
+
+    with db0.atomic():
+        leaked = MemoTestClass(951)
+        assert leaked.value == 951
+
+    assert leaked.value == 951
+
+
+def test_leaked_new_object_from_reverted_atomic_block_is_defunct(db0_fixture):
+    leaked = None
+
+    with db0.atomic() as atomic:
+        leaked = MemoTestClass(951)
+        assert leaked.value == 951
+        atomic.cancel()
+
+    with pytest.raises(db0.ReferenceError):
+        _ = leaked.value
+
+
 def test_read_after_atomic_update(db0_fixture):
     object_1 = MemoTestClass(123)
     with db0.atomic():
