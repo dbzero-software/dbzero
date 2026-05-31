@@ -407,6 +407,14 @@ namespace db0::python
             PyErr_SetString(PyExc_AttributeError, "Invalid attribute name");
             return nullptr;
         }
+
+        if (memo_obj->ext().isDead()) {
+            PyErr_SetString(
+                PyToolkit::getTypeManager().getReferenceError(),
+                "Memo instance expired"
+            );
+            return nullptr;
+        }
         
         bool is_auto_generated = false;
         ObjectSharedPtr member;
