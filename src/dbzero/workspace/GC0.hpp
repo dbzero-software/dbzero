@@ -114,6 +114,7 @@ namespace db0
 
         // Detach all instances held by this registry
         void detachAll();
+        void detachAllOf(const std::vector<vtypeless*> &);
 
         std::size_t size() const;
 

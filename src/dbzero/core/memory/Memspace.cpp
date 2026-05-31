@@ -122,6 +122,7 @@ namespace db0
     void Memspace::beginAtomic()
     {
         ++m_atomic_depth;
+        m_atomic_frames.push_back({ m_maybe_need_flush.size(), m_maybe_modified.size() });
         getAllocatorForUpdate().commit();
         // note that we don't flush from prefix on begin atomic
         m_prefix->beginAtomic();
@@ -130,18 +131,32 @@ namespace db0
     void Memspace::endAtomic()
     {
         assert(m_atomic_depth > 0);
+        assert(!m_atomic_frames.empty());
         --m_atomic_depth;
+        m_atomic_frames.pop_back();
         getAllocator().detach();
         m_prefix->endAtomic();
     }
     
-    void Memspace::cancelAtomic()
+    std::vector<db0::vtypeless*> Memspace::cancelAtomic()
     {
         assert(m_atomic_depth > 0);
+        assert(!m_atomic_frames.empty());
+        auto atomic_frame = m_atomic_frames.back();
+        m_atomic_frames.pop_back();
         --m_atomic_depth;
+        // Flush/modified tracking is transaction-local. Entries collected by a
+        // canceled frame can point at rolled-back or deferred-free allocations.
+        std::vector<db0::vtypeless*> canceled_modified(
+            m_maybe_modified.begin() + atomic_frame.maybe_modified_size,
+            m_maybe_modified.end()
+        );
+        m_maybe_need_flush.resize(atomic_frame.maybe_need_flush_size);
+        m_maybe_modified.resize(atomic_frame.maybe_modified_size);
         // NOTE: the deferred operations on the allocator get cancelled
         getAllocator().detach();
         m_prefix->cancelAtomic();
+        return canceled_modified;
     }
     
     Address Memspace::alloc(std::size_t size, std::uint32_t slot_num, unsigned char realm_id, unsigned char locality) {

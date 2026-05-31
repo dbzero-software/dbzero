@@ -38,10 +38,6 @@ ATOMIC_MULTI_PREFIX_REPRO_SKIP = (
     "atomic multi-prefix repro kept disabled: debug teardown aborts after atomic "
     "updates span objects from multiple prefixes"
 )
-ATOMIC_STRESS_REPRO_SKIP = (
-    "atomic async/thread stress repro kept disabled: observed abort during "
-    "teardown after mixed commits, cancels, nested atomic operations, and threads"
-)
 ATOMIC_INDEX_ITERATOR_REPRO_SKIP = (
     "atomic index iterator repro kept disabled: query iterators can outlive the "
     "durable lock while another thread rolls back index mutations"
@@ -1303,7 +1299,6 @@ def test_atomic_threaded_mixed_schema_updates_do_not_underflow_counts(db0_no_aut
 
 
 @pytest.mark.stress_test
-@pytest.mark.skip(reason=ATOMIC_STRESS_REPRO_SKIP)
 def test_atomic_async_thread_deadlock_detection_stress(run_pytest_child):
     duration = float(os.environ.get("DB0_ATOMIC_STRESS_SECONDS", "60"))
     run_pytest_child(

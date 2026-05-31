@@ -97,6 +97,18 @@ namespace db0
             ops_list[vptr_item.second].detach(vptr_item.first);
         }
     }
+
+    void GC0::detachAllOf(const std::vector<vtypeless*> &vptrs)
+    {
+        std::unique_lock<std::mutex> lock(m_mutex);
+        auto &ops_list = getSharedState().m_ops;
+        for (auto vptr : vptrs) {
+            auto it = m_vptr_map.find(vptr);
+            if (it != m_vptr_map.end()) {
+                ops_list[it->second].detach(vptr);
+            }
+        }
+    }
     
     void GC0::commitAllOf(const std::vector<vtypeless*> &vptrs, ProcessTimer *timer_ptr)
     {

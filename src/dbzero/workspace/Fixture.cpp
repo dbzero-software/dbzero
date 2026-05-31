@@ -632,7 +632,8 @@ namespace db0
         m_string_pool.detach();
         m_object_catalogue.detach();
         m_v_object_cache.cancelAtomic();
-        Memspace::cancelAtomic();
+        auto canceled_modified = Memspace::cancelAtomic();
+        getGC0().detachAllOf(canceled_modified);
         m_meta_allocator.cancelAtomic();
     }
     
