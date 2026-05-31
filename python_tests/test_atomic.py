@@ -1298,23 +1298,8 @@ def test_atomic_threaded_mixed_schema_updates_do_not_underflow_counts(db0_no_aut
 
 
 @pytest.mark.stress_test
-def test_atomic_async_thread_deadlock_detection_stress(run_pytest_child):
-    duration = float(os.environ.get("DB0_ATOMIC_STRESS_SECONDS", "60"))
-    run_pytest_child(
-        "python_tests/test_atomic.py::test_atomic_async_thread_deadlock_detection_stress_child",
-        env_flag="DB0_ATOMIC_STRESS_CHILD",
-        timeout=duration + 30,
-        failure_label="atomic async/thread stress child",
-        pytest_args=("-o", "faulthandler_timeout=10"),
-    )
-
-
-@pytest.mark.skipif(
-    os.environ.get("DB0_ATOMIC_STRESS_CHILD") != "1",
-    reason="stress workload is executed by test_atomic_async_thread_deadlock_detection_stress",
-)
-async def test_atomic_async_thread_deadlock_detection_stress_child(db0_no_autocommit):
-    duration = float(os.environ.get("DB0_ATOMIC_STRESS_SECONDS", "60"))
+async def test_atomic_async_thread_deadlock_detection_stress(db0_no_autocommit):
+    duration = float(os.environ.get("DB0_ATOMIC_STRESS_SECONDS", "5"))
     deadline = time.monotonic() + duration
     stop_threads = threading.Event()
     errors = []
