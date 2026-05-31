@@ -54,6 +54,8 @@ namespace db0
         
         const FT_IteratorBase *find(std::uint64_t uid) const override;
         
+        void detach() override;
+
         void getSignature(std::vector<std::byte> &) const override;
         
     protected:
@@ -178,6 +180,19 @@ namespace db0
     
     template <typename KeyT, typename ValueT> bool RT_RangeIterator<KeyT, ValueT>::isEnd() const {
         return !m_has_lh_item;
+    }
+
+    template <typename KeyT, typename ValueT>
+    void RT_RangeIterator<KeyT, ValueT>::detach()
+    {
+        if (m_query_it) {
+            m_query_it->detach();
+        }
+        m_range_it = nullptr;
+        m_native_it_ptr = nullptr;
+        m_null_it = nullptr;
+        m_null_query_it = nullptr;
+        m_has_lh_item = false;
     }
     
     template <typename KeyT, typename ValueT>

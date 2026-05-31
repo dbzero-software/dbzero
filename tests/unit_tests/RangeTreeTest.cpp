@@ -390,6 +390,29 @@ namespace tests
         ASSERT_EQ(values, (std::unordered_set<std::uint64_t> { 7, 5, 8, 9, 11, 6 }));
     }
 
+    TEST_F( RangeTreeTest , testRangeIteratorDetachInvalidatesStorageBackedState )
+    {
+        using RangeTreeT = RangeTree<int, std::uint64_t>;
+        using ItemT = typename RangeTreeT::ItemT;
+
+        auto memspace = getMemspace();
+        IndexBase index(memspace, db0::IndexType::Unknown, db0::IndexDataType::Auto);
+        auto rt = std::make_shared<RangeTreeT>(memspace, 2);
+        std::vector<ItemT> values {
+            { 10, 1 }, { 20, 2 }, { 30, 3 }, { 40, 4 }, { 50, 5 }
+        };
+        rt->bulkInsert(values.begin(), values.end());
+
+        RT_RangeIterator<int, std::uint64_t> cut(index, rt, 0, true, 100, true);
+        ASSERT_FALSE(cut.isEnd());
+
+        cut.detach();
+        std::vector<ItemT> erase_values { { 30, 3 } };
+        rt->bulkErase(erase_values.begin(), erase_values.end());
+
+        ASSERT_TRUE(cut.isEnd());
+    }
+
     TEST_F( RangeTreeTest , testRangeFilterIssue_1 )
     {
         using RangeTreeT = RangeTree<int, std::uint64_t>;

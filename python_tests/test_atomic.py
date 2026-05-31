@@ -1078,7 +1078,6 @@ def test_nested_atomic_stress_test_1(db0_no_autocommit):
 
 
 @pytest.mark.stress_test
-@pytest.mark.skip(reason=ATOMIC_INDEX_ITERATOR_REPRO_SKIP)
 def test_atomic_index_iterator_survives_canceled_atomic_context_stress(run_pytest_child):
     # Timing-sensitive iterator lifetime repro. It may need multiple runs to
     # reproduce a failure or to build confidence that a fix is error-free.
