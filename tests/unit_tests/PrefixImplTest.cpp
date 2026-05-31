@@ -829,5 +829,67 @@ namespace tests
         }
         cut.close();
     } 
+
+    TEST_F( PrefixImplTest , testAtomicRollbackAfterReusedDPLockKeepsCommittedPageReadable )
+    {
+        BDevStorage::create(file_name);
+        auto storage = std::make_shared<BDevStorage>(file_name);
+        PrefixImpl cut(file_name, m_dirty_meter, &m_cache_recycler, storage);
+
+        {
+            auto committed = cut.mapRange(0, 1, { AccessOptions::write });
+            std::memcpy(committed.modify(), "A", 1);
+        }
+        cut.commit();
+
+        cut.flushDirty(std::numeric_limits<std::size_t>::max());
+        m_cache_recycler.clear();
+
+        cut.beginAtomic();
+        {
+            auto atomic = cut.mapRange(1, 2, { AccessOptions::write });
+            std::memcpy(atomic.modify(), "BC", 2);
+        }
+        cut.cancelAtomic();
+
+        auto restored = cut.mapRange(0, 1, { AccessOptions::read });
+        ASSERT_EQ(std::string(static_cast<char *>(restored.m_buffer), 1), "A");
+        cut.close();
+    }
+
+    TEST_F( PrefixImplTest , testAtomicRollbackAfterReusedLatestDPLockMustNotExposeOlderCachedLock )
+    {
+        // Repro for allocator/object atomic rollback corruption:
+        // 1. keep an older cached DP lock alive,
+        // 2. commit a newer DP version,
+        // 3. let an atomic write reuse-upgrade that newest lock to a volatile state,
+        // 4. rollback erases the volatile lock, leaving the cache to serve the older state.
+        // Atomic rollback must preserve the latest pre-atomic cache entry, not expose
+        // an older cached lock.
+        BDevStorage::create(file_name);
+        auto storage = std::make_shared<BDevStorage>(file_name);
+        PrefixImpl cut(file_name, m_dirty_meter, &m_cache_recycler, storage);
+
+        auto older_lock = cut.mapRange(0, 1, { AccessOptions::write });
+        std::memcpy(older_lock.modify(), "A", 1);
+        cut.commit();
+
+        {
+            auto latest_lock = cut.mapRange(0, 1, { AccessOptions::write });
+            std::memcpy(latest_lock.modify(), "B", 1);
+        }
+        cut.commit();
+
+        cut.beginAtomic();
+        {
+            auto atomic_lock = cut.mapRange(0, 1, { AccessOptions::write });
+            std::memcpy(atomic_lock.modify(), "C", 1);
+        }
+        cut.cancelAtomic();
+
+        auto restored = cut.mapRange(0, 1, { AccessOptions::read });
+        ASSERT_EQ(std::string(static_cast<char *>(restored.m_buffer), 1), "B");
+        cut.close();
+    }
     
 }

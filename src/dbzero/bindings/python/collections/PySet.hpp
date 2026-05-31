@@ -37,10 +37,10 @@ namespace db0::python
     extern PyTypeObject SetIteratorObjectType;
     
     // as number
-    PyObject *PyAPI_SetObject_intersection_binary(SetObject *self, PyObject * obj);
-    PyObject *PyAPI_SetObject_union_binary(SetObject *self, PyObject * obj);
-    PyObject *PyAPI_SetObject_difference_binary(SetObject *self, PyObject * obj);
-    PyObject *PyAPI_SetObject_symmetric_difference_binary(SetObject *self, PyObject * obj);
+    PyObject *PyAPI_SetObject_intersection_binary(PyObject *left, PyObject *right);
+    PyObject *PyAPI_SetObject_union_binary(PyObject *left, PyObject *right);
+    PyObject *PyAPI_SetObject_difference_binary(PyObject *left, PyObject *right);
+    PyObject *PyAPI_SetObject_symmetric_difference_binary(PyObject *left, PyObject *right);
     PyObject *PyAPI_SetObject_symmetric_difference_in_place(SetObject *self, PyObject * ob);
     PyObject *PyAPI_SetObject_difference_in_place(SetObject *self, PyObject * ob);
     PyObject *PyAPI_SetObject_update(SetObject *self, PyObject * ob);

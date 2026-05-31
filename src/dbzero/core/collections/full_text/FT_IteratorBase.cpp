@@ -60,5 +60,9 @@ namespace db0
         }
         return true;
     }
+
+    void FT_IteratorBase::detach()
+    {
+    }
     
 }

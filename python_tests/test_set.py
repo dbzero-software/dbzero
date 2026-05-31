@@ -691,3 +691,50 @@ def test_db0_set_remove_with_hash_collision(db0_fixture):
     s.remove(b)
     assert b not in s
     assert len(s) == 0
+
+
+def test_db0_set_nonempty_is_not_subset_of_empty_set(db0_fixture):
+    nonempty = db0_fixture.set([1])
+    empty = db0_fixture.set()
+
+    assert not nonempty.issubset(empty)
+    assert not nonempty <= empty
+    assert not nonempty < empty
+
+
+def test_db0_set_empty_is_not_superset_of_nonempty_set(db0_fixture):
+    empty = db0_fixture.set()
+    nonempty = db0_fixture.set([1])
+
+    assert not empty.issuperset(nonempty)
+    assert not empty >= nonempty
+    assert not empty > nonempty
+
+
+def test_db0_set_issubset_accepts_iterables_like_python_set(db0_fixture):
+    value = db0_fixture.set([1, 2])
+
+    assert value.issubset([1, 2, 3])
+    assert value.issubset((1, 2, 3))
+    assert value.issubset(frozenset([1, 2, 3]))
+
+
+def test_db0_set_no_arg_methods_match_python_set_copy_semantics(db0_fixture):
+    value = db0_fixture.set([1, 2])
+
+    assert value.union() == {1, 2}
+    assert value.intersection() == {1, 2}
+    assert value.difference() == {1, 2}
+
+
+def test_db0_set_binary_operators_reject_non_set_iterables(db0_fixture):
+    value = db0_fixture.set([1, 2])
+
+    with pytest.raises(TypeError):
+        value | [3]
+    with pytest.raises(TypeError):
+        value & [2]
+    with pytest.raises(TypeError):
+        value - [2]
+    with pytest.raises(TypeError):
+        value ^ [2, 3]

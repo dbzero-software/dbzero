@@ -44,7 +44,7 @@ namespace db0::python
 
     PyObject *PyAPI_PyObjectTagManager_add_binary(PyObjectTagManager *tag_manager, PyObject *object) 
     {
-        PY_API_FUNC
+        PY_MUTATING_API_FUNC(NULL)
         return runSafe(tryPyObjectTagManager_add_binary, tag_manager, object);
     }
 
@@ -56,7 +56,7 @@ namespace db0::python
 
     PyObject *PyAPI_PyObjectTagManager_add(PyObjectTagManager *tag_manager, PyObject *const *args, Py_ssize_t nargs) 
     {
-        PY_API_FUNC
+        PY_MUTATING_API_FUNC(NULL)
         return runSafe(tryPyObjectTagManager_add, tag_manager, args, nargs);
     }
     
@@ -69,7 +69,7 @@ namespace db0::python
 
     PyObject *PyAPI_PyObjectTagManager_remove_binary(PyObjectTagManager *tag_manager, PyObject *object) 
     {
-        PY_API_FUNC
+        PY_MUTATING_API_FUNC(NULL)
         return runSafe(tryPyObjectTagManager_remove_binary, tag_manager, object);
     }
 
@@ -81,7 +81,7 @@ namespace db0::python
 
     PyObject *PyAPI_PyObjectTagManager_remove(PyObjectTagManager *tag_manager, PyObject *const *args, Py_ssize_t nargs) 
     {
-        PY_API_FUNC
+        PY_MUTATING_API_FUNC(NULL)
         return runSafe(tryPyObjectTagManager_remove, tag_manager, args, nargs);
     }
     

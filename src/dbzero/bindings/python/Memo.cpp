@@ -26,6 +26,7 @@
 #include <dbzero/core/memory/config.hpp>
 #include <dbzero/core/utils/to_string.hpp>
 #include <dbzero/workspace/Fixture.hpp>
+#include <dbzero/workspace/ReadOnlyContext.hpp>
 #include <dbzero/workspace/PrefixName.hpp>
 #include <dbzero/bindings/python/types/PyObjectId.hpp>
 #include <dbzero/bindings/python/types/PyClass.hpp>
@@ -263,7 +264,12 @@ namespace db0::python
         using TagIndex = db0::object_model::TagIndex;
         using ExtT = typename MemoImplT::ExtT;
 
-        PY_API_FUNC
+        PY_MUTATING_API_FUNC(-1)
+        if (db0::ReadOnlyContext::isActive()) {
+            PyErr_SetString(PyExc_RuntimeError, "dbzero read_only context forbids mutation");
+            return -1;
+        }
+
         // the instance may already exist (e.g. if this is a singleton)        
         if (!self->ext().hasInstance()) {
             auto init_func = MemoObject_getInitFunc<MemoImplT>(self);
@@ -401,6 +407,14 @@ namespace db0::python
             PyErr_SetString(PyExc_AttributeError, "Invalid attribute name");
             return nullptr;
         }
+
+        if (memo_obj->ext().isDead()) {
+            PyErr_SetString(
+                PyToolkit::getTypeManager().getReferenceError(),
+                "Memo instance expired"
+            );
+            return nullptr;
+        }
         
         bool is_auto_generated = false;
         ObjectSharedPtr member;
@@ -446,7 +460,7 @@ namespace db0::python
     template <>
     int PyAPI_MemoObject_setattro<MemoObject>(MemoObject *self, PyObject *attr, PyObject *value)
     {
-        PY_API_FUNC
+        PY_MUTATING_API_FUNC(-1)
 
         // assign value to a dbzero attribute
         const char* attr_name = PyUnicode_AsUTF8(attr);
@@ -455,6 +469,10 @@ namespace db0::python
         }
         
         if (isPersistentAttrName(attr_name)) {
+            if (db0::ReadOnlyContext::isActive()) {
+                PyErr_SetString(PyExc_RuntimeError, "dbzero read_only context forbids mutation");
+                return -1;
+            }
             try {
                 if (!value && !checkProtectedFieldMutateAccess(
                     self->ext().getType(), self->ext().getFixture(),
@@ -509,9 +527,15 @@ namespace db0::python
                     return -1;
                 }
             } catch (const std::exception &e) {
+                if (PyErr_Occurred()) {
+                    return -1;
+                }
                 PyErr_SetString(PyExc_AttributeError, e.what());
                 return -1;
             } catch (...) {
+                if (PyErr_Occurred()) {
+                    return -1;
+                }
                 PyErr_SetString(PyExc_AttributeError, "Unknown exception");
                 return -1;
             }            

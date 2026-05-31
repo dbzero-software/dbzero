@@ -19,15 +19,18 @@ All tests must pass before a change is considered complete.
 - Debug build: `./scripts/build.sh -d` (equivalent to `./scripts/build.sh`; debug is the default)
 - Release build: `./scripts/build.sh -r`
 - Release build with C++ unit test binary: `./scripts/build.sh -r -t`
+- For regular development and focused Python-side test runs, prefer the release build because it is significantly faster. Unless C++ tests are important for the current change, build without `-t`; skipping the C++ test binary is much faster.
+- Use a debug build when tracking a specific deep bug that needs assertions or debug-level checks, and before final handoff only when the user explicitly asks for handoff validation.
 
 ### Running tests
 
 - Python tests: `./scripts/run_tests.sh`
 - Final Python test checks: `./scripts/run_tests.sh -j 6`
 - C++ tests after a `-t` build: `./build/release/tests.x`
+- Broad debug/release builds and full-suite checks are final handoff validation only; run them when the user explicitly asks for handoff.
 - Before final handoff, also verify the code in debug mode with a debug build (`./scripts/build.sh -d`) and the relevant Python tests against that debug build. Debug assertions are part of the required validation, not optional diagnostics.
 - During development, do not run stress tests by default; they are intentionally slow. Run focused tests specific to the feature or refactor being worked on before finalization.
-- If any C++ source under the native/core part of the project was modified, also run the C++ test suite (do not rely on the Python tests alone to cover native changes).
+- If any C++ source under the native/core part of the project was modified, also run the C++ test suite during final handoff validation (do not rely on the Python tests alone to cover native changes).
 
 Never mark a task done while tests are failing.
 

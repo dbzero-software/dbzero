@@ -89,7 +89,7 @@ namespace db0::python
     
     int PyAPI_DictObject_SetItem(DictObject *dict_obj, PyObject *key, PyObject *value)
     {
-        PY_API_FUNC
+        PY_MUTATING_API_FUNC(-1)
         return runSafe<-1>(tryDictObject_SetItem, dict_obj, key, value);
     }
 
@@ -356,7 +356,7 @@ namespace db0::python
     
     PyObject *PyAPI_DictObject_update(DictObject *dict_object, PyObject* args, PyObject* kwargs)
     {
-        PY_API_FUNC
+        PY_MUTATING_API_FUNC(NULL)
         return runSafe(tryDictObject_update, dict_object, args, kwargs);
     }
     
@@ -397,7 +397,7 @@ namespace db0::python
     
     PyObject *PyAPI_DictObject_clear(DictObject *dict_obj)
     {
-        PY_API_FUNC
+        PY_MUTATING_API_FUNC(NULL)
         return runSafe(tryDictObject_clear, dict_obj);
     }
 
@@ -478,7 +478,7 @@ namespace db0::python
     
     PyObject *PyAPI_DictObject_get(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs)
     {
-        PY_API_FUNC        
+        PY_API_FUNC
         if (nargs < 1) {
             PyErr_SetString(PyExc_TypeError, " get expected at least 1 argument");
             return NULL;
@@ -518,7 +518,7 @@ namespace db0::python
     
     PyObject *PyAPI_DictObject_pop(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs) 
     {
-        PY_API_FUNC        
+        PY_MUTATING_API_FUNC(NULL)
         if (nargs < 1) {
             PyErr_SetString(PyExc_TypeError, " get expected at least 1 argument");
             return NULL;            
@@ -548,7 +548,7 @@ namespace db0::python
     
     PyObject *PyAPI_DictObject_setDefault(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs) 
     {
-        PY_API_FUNC        
+        PY_MUTATING_API_FUNC(NULL)
         if (nargs < 1 ) {
             PyErr_SetString(PyExc_TypeError, "setdefault expected at least 1 argument");
             return NULL;            

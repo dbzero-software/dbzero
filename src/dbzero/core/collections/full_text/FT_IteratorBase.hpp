@@ -95,6 +95,13 @@ namespace db0
         // @param count number of elements to skip, allowed to exceed the underlying collection size
         // @return false if the end position is reached
         virtual bool skip(std::size_t count);
+
+        /**
+         * Invalidate storage-backed iterator state before the underlying storage is mutated.
+         * Implementations should preserve enough logical position to lazily reattach on the
+         * next operation. In-memory iterators may keep the default no-op implementation.
+         */
+        virtual void detach();
         
     protected:
         // auto-generated instace UID (preserved in copies - e.g. created during begin / clone etc.)

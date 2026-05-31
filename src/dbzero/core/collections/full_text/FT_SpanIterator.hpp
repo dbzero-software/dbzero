@@ -48,6 +48,8 @@ namespace db0
 		bool limitBy(KeyT key) override;
         
         void stop() override;
+
+        void detach() override;
                 
         double compareToImpl(const FT_IteratorBase &it) const override;
         

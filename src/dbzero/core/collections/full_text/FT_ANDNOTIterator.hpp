@@ -4,6 +4,7 @@
 #pragma once 
 
 #include <cstdint>
+#include <optional>
 #include "FT_Iterator.hpp"
 #include <dbzero/core/memory/Address.hpp>
 
@@ -91,7 +92,7 @@ namespace db0
 
         std::pair<bool, bool> mutateInner(const MutateFunction &f) override;
 
-        void detach();
+        void detach() override;
 
         FTIteratorType getSerialTypeId() const override;        
         
@@ -135,8 +136,12 @@ namespace db0
         using BackwardHeapCompare = std::less<typename FT_ANDNOTIterator<key_t>::HeapItem>;
 
         std::vector<HeapItem> m_subtrahends_heap;
+        bool m_is_detached = false;
+        std::optional<key_t> m_detach_key;
 
         void updateWithHeap();
+        void assureAttached() const;
+        void reattach();
 
         bool inResult(const key_t &key, int direction);
         

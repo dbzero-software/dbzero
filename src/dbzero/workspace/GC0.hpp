@@ -36,6 +36,7 @@ namespace db0
     struct GC_Ops
     {
         HasRefsFunction hasRefs = nullptr;
+        NoArgsFunction markDead = nullptr;
         NoArgsFunction drop = nullptr;
         NoArgsFunction detach = nullptr;
         // commit is a lightweight version of "detach" for a writer process
@@ -100,6 +101,8 @@ namespace db0
         
         // register instance with type specific ops, must be a known / registered type
         template <typename T> void add(void *vptr);
+        // register newly allocated instance with type specific ops
+        template <typename T> void addNew(void *vptr);
         // move instance from another GC0
         template <typename T> void moveFrom(GC0 &other, void *vptr);
         
@@ -114,6 +117,7 @@ namespace db0
 
         // Detach all instances held by this registry
         void detachAll();
+        void detachAllOf(const std::vector<vtypeless*> &);
 
         std::size_t size() const;
 
@@ -169,6 +173,7 @@ namespace db0
         
         void commitAll();
 
+        template <typename T> void addImpl(void *vptr, bool rollback_dead);
         template <typename T> static void registerSingleType()
         {            
             auto &state = getGlobalSharedState();
@@ -179,6 +184,16 @@ namespace db0
     };
     
     template <typename T> void GC0::add(void *vptr)
+    {
+        addImpl<T>(vptr, false);
+    }
+
+    template <typename T> void GC0::addNew(void *vptr)
+    {
+        addImpl<T>(vptr, true);
+    }
+
+    template <typename T> void GC0::addImpl(void *vptr, bool rollback_dead)
     {
         // vptr must not be null
         assert(vptr);
@@ -192,7 +207,7 @@ namespace db0
         if (ops_list[T::m_gc_ops_id].flush) {
             m_flush_map[vptr] = T::m_gc_ops_id;
         }
-        if (!m_volatile_stack.empty()) {
+        if (rollback_dead && !m_volatile_stack.empty()) {
             m_volatile_stack.back().push_back(vptr);
         }
     }
@@ -205,9 +220,6 @@ namespace db0
         // also move between flush maps
         if (flush_op) {
             m_flush_map[vptr] = *flush_op;
-        }
-        if (!m_volatile_stack.empty()) {
-            m_volatile_stack.back().push_back(vptr);
         }
     }
     

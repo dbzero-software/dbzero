@@ -198,11 +198,17 @@ namespace db0::object_model
         // no instance due to move
         if (!hasInstance()) {
             return;
-        }    
+        }
+        if (!m_builder.empty()) {
+            this->getFixture()->detachIterators();
+        }
         m_builder.flush();
     }
     
     void Index::rollback() {
+        if (!m_builder.empty()) {
+            this->getFixture()->detachIterators();
+        }
         m_builder.rollback();
     }
     
@@ -601,6 +607,9 @@ namespace db0::object_model
     void Index::destroy()
     {
         m_mutation_log = nullptr;
+        if (!m_builder.empty() || hasRangeTree()) {
+            this->getFixture()->detachIterators();
+        }
         // discard any pending changes
         const_cast<Builder&>(m_builder).rollback();
         if (hasRangeTree()) {
@@ -641,6 +650,9 @@ namespace db0::object_model
 
     void Index::clear(FixtureLock &)
     {
+        if (!m_builder.empty() || hasRangeTree()) {
+            this->getFixture()->detachIterators();
+        }
         clearMembers();
         m_builder.rollback();
         if (hasRangeTree()) {

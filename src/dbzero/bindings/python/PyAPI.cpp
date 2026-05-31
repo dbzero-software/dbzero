@@ -548,6 +548,19 @@ namespace db0::python
         if (!PyArg_ParseTuple(args, "|s:commit", &prefix_name)) {
             return NULL;
         }
+
+        auto owner_relation = db0::AtomicContext::getOwnerRelation();
+        if (owner_relation == db0::AtomicContext::OwnerRelation::owner) {
+            THROWF(db0::InputException) << "db0.commit cannot run inside an active db0.atomic" << THROWF_END;
+        }
+        db0::AtomicContext::waitIfBlockedByOwnerRelation(owner_relation);
+        std::unique_lock<std::recursive_mutex> atomic_lock;
+        {
+            WithGIL_Unlocked no_gil;
+            atomic_lock = db0::AtomicContext::lock();
+        }
+
+        auto __api_lock = PyToolkit::lockPyApi();
         
         if (prefix_name) {
             PyToolkit::getPyWorkspace().getWorkspace().commit(prefix_name);
@@ -559,7 +572,6 @@ namespace db0::python
     
     PyObject *PyAPI_commit(PyObject *self, PyObject *args)
     {
-        PY_API_FUNC
         return runSafe(tryCommit, self, args);
     }
     
@@ -709,7 +721,7 @@ namespace db0::python
     
     PyObject *PyAPI_del(PyObject *self, PyObject *args) 
     {
-        PY_API_FUNC        
+        PY_MUTATING_API_FUNC(NULL)
         return runSafe(tryDel, self, args);
     }
     

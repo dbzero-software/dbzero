@@ -19,6 +19,7 @@
 #include "ResourceManager.hpp"
 #include "DependencyWrapper.hpp"
 #include "MutationLog.hpp"
+#include "ReadOnlyContext.hpp"
     
 #include <dbzero/core/memory/swine_ptr.hpp>
 #include <dbzero/core/collections/full_text/FT_BaseIndex.hpp>
@@ -173,6 +174,30 @@ DB0_PACKED_BEGIN
         void addDetachHandler(std::function<void()>);
         void addRollbackHandler(std::function<void()>);
         void addFlushHandler(std::function<void()>);
+        void addIteratorDetachHandler(std::function<std::size_t(std::uint64_t)>);
+
+        // RAII guard used to coalesce iterator detaches within one high-level
+        // fixture operation. The first detachIterators() call in a guarded
+        // scope invalidates active iterators; later calls in the same scope are
+        // cheap no-ops.
+        class DetachGuard
+        {
+        public:
+            DetachGuard(const DetachGuard &) = delete;
+            DetachGuard &operator=(const DetachGuard &) = delete;
+            DetachGuard(DetachGuard &&other) noexcept;
+            DetachGuard &operator=(DetachGuard &&other) noexcept;
+            ~DetachGuard();
+
+        private:
+            friend class Fixture;
+            explicit DetachGuard(Fixture &fixture);
+
+            Fixture *m_fixture = nullptr;
+        };
+
+        DetachGuard beginIteratorDetach();
+        std::size_t detachIterators();
 
         // @return the mutation log to be held / updated by the client object (e.g. Index)
         std::shared_ptr<MutationLog> addMutationHandler();
@@ -328,6 +353,16 @@ DB0_PACKED_BEGIN
         std::vector<std::function<void()> > m_rollback_handlers;
         // flush handlers, to release some memory on resource exhaustion
         std::vector<std::function<void()> > m_flush_handlers;
+        std::vector<std::function<std::size_t(std::uint64_t)> > m_iterator_detach_handlers;
+        // Monotonic token passed to detach handlers. Iterator pools use it to
+        // make repeated detach calls for the same fixture mutation a cheap no-op.
+        std::uint64_t m_iterator_detach_generation = 0;
+        // Nesting depth of active DetachGuard scopes. A positive depth means
+        // detachIterators() should detach at most once until the outer guard exits.
+        unsigned int m_iterator_detach_depth = 0;
+        // True after detachIterators() has already detached within the current
+        // DetachGuard scope; reset when the outermost guard exits.
+        bool m_iterator_detached_in_guard = false;
         std::list<std::shared_ptr<MutationLog> > m_mutation_handlers;
         std::shared_ptr<DataMaskingState> m_masking_state;
         std::shared_ptr<DataFilterState> m_filter_state;
@@ -337,6 +372,7 @@ DB0_PACKED_BEGIN
         // try commit if not closed yet
         // @return true if the underlying transaction's state number was changed
         bool tryCommit(std::unique_lock<std::shared_mutex> &, ProcessTimer * = nullptr);
+        void endIteratorDetach();
 
         static std::shared_ptr<SlabAllocator> openSlot(MetaAllocator &, const v_object<o_fixture> &, std::uint32_t slot_id);
         
@@ -403,6 +439,9 @@ DB0_PACKED_BEGIN
             : m_fixture(fixture)
             , m_lock(fixture->m_commit_mutex)
         {
+            if (db0::ReadOnlyContext::isActive()) {
+                THROWF(db0::InputException) << "dbzero read_only context forbids mutation";
+            }
             if (fixture->getAccessType() != AccessType::READ_WRITE) {
                 THROWF(db0::InputException) << "Cannot modify read-only prefix: " << fixture->getPrefix().getName();
             }

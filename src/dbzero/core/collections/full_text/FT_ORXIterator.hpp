@@ -4,6 +4,7 @@
 #pragma once
 
 #include <list>
+#include <optional>
 #include "FT_Iterator.hpp"
 #include "FT_IteratorFactory.hpp"
 #include "CP_Vector.hpp"
@@ -112,7 +113,7 @@ namespace db0
 
         std::pair<bool, bool> mutateInner(const MutateFunction &f) override;
 
-        void detach();
+        void detach() override;
 
         FTIteratorType getSerialTypeId() const override;
 		
@@ -283,8 +284,12 @@ namespace db0
 		bool m_is_orx;
 		BoundCheck<key_t> m_key_bound;
 		key_storage_t m_join_key;
+        bool m_is_detached = false;
+        std::optional<key_storage_t> m_detach_key;
 
 		void setEnd();
+        void assureAttached() const;
+        void reattach();
 
 		void init(int direction);
 

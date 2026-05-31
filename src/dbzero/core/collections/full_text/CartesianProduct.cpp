@@ -57,6 +57,7 @@ namespace db0
     template <typename key_t>
     void CartesianProduct<key_t>::getKey(KeyStorageT &key) const
     {
+        assureAttached();
         assert(!isEnd());
         if (key.size() != m_current_key.size()) {
             key.resize(m_current_key.size());
@@ -77,6 +78,7 @@ namespace db0
     template <typename key_t>
     void CartesianProduct<key_t>::operator++() 
     {
+        assureAttached();
         m_overflow = true;
         unsigned int index = 0;
         for (auto &it: m_components) {
@@ -100,12 +102,14 @@ namespace db0
     
     template <typename key_t>
     bool CartesianProduct<key_t>::isEnd() const {
+        assureAttached();
         return m_overflow;
     }
     
     template <typename key_t>
     typename CartesianProduct<key_t>::KeyT CartesianProduct<key_t>::getKey() const 
     {
+        assureAttached();
         assert(!isEnd());
         // NOTE: key is from the internal buffer, valid only until next modification
         return const_cast<key_t*>(m_current_key.data());
@@ -149,6 +153,13 @@ namespace db0
     template <typename key_t>
     bool CartesianProduct<key_t>::join(KeyT join_key, int direction) 
     {
+        assureAttached();
+        return joinImpl(join_key, direction);
+    }
+
+    template <typename key_t>
+    bool CartesianProduct<key_t>::joinImpl(KeyT join_key, int direction)
+    {
         assert(!m_overflow);
         unsigned int index = m_components.size();
         auto key = join_key + m_components.size();
@@ -183,6 +194,7 @@ namespace db0
     template <typename key_t>
     std::unique_ptr<FT_Iterator<typename CartesianProduct<key_t>::KeyT, typename CartesianProduct<key_t>::KeyStorageT> >
     CartesianProduct<key_t>::beginTyped(int direction) const {
+        assureAttached();
         return std::make_unique<CartesianProduct<key_t>>(this->m_components, direction);
     }
 
@@ -198,7 +210,44 @@ namespace db0
 
     template <typename key_t>
     void CartesianProduct<key_t>::stop() {
-        throw std::runtime_error("Not implemented");
+        m_overflow = true;
+        for (auto &component: m_components) {
+            component->stop();
+        }
+    }
+
+    template <typename key_t>
+    void CartesianProduct<key_t>::detach()
+    {
+        if (!m_is_detached) {
+            m_detach_key = m_overflow ? std::optional<KeyStorageT> {} : std::make_optional(m_current_key);
+            for (auto &component: m_components) {
+                component->detach();
+            }
+            m_is_detached = true;
+        }
+    }
+
+    template <typename key_t>
+    void CartesianProduct<key_t>::assureAttached() const
+    {
+        if (m_is_detached) {
+            const_cast<CartesianProduct<key_t> *>(this)->reattach();
+        }
+    }
+
+    template <typename key_t>
+    void CartesianProduct<key_t>::reattach()
+    {
+        m_is_detached = false;
+        if (!m_detach_key) {
+            m_overflow = true;
+            return;
+        }
+        m_overflow = false;
+        if (!joinImpl(m_detach_key->data(), m_direction)) {
+            m_overflow = true;
+        }
     }
 
     template <typename key_t>
@@ -224,6 +273,7 @@ namespace db0
     template <typename key_t>
     bool CartesianProduct<key_t>::swapKey(KeyStorageT &key) const
     {
+        assureAttached();
         if (isEqual(key, m_current_key.data())) {
             return false;
         }

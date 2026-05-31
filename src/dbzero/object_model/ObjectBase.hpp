@@ -20,6 +20,10 @@ namespace db0
         fixture.getGC0().add<T>(vptr);
     }
 
+    template <typename T> void addNewToGC0(Fixture &fixture, void *vptr) {
+        fixture.getGC0().addNew<T>(vptr);
+    }
+
     template <typename T> bool tryAddToGC0(Fixture &fixture, void *vptr) 
     {
         auto gc0_ptr = fixture.tryGetGC0();
@@ -27,6 +31,16 @@ namespace db0
             return false;
         }
         gc0_ptr->add<T>(vptr);
+        return true;
+    }
+
+    template <typename T> bool tryAddNewToGC0(Fixture &fixture, void *vptr) 
+    {
+        auto gc0_ptr = fixture.tryGetGC0();
+        if (!gc0_ptr) {
+            return false;
+        }
+        gc0_ptr->addNew<T>(vptr);
         return true;
     }
 
@@ -54,7 +68,7 @@ namespace db0
             : has_fixture<BaseT>()
         {
             initNew(fixture, std::forward<Args>(args)...);            
-            addToGC0<T>(*fixture, this);
+            addNewToGC0<T>(*fixture, this);
             m_gc_registered = true;
         }
         
@@ -111,11 +125,17 @@ namespace db0
         {
             unregister();
             initNew(fixture, std::forward<Args>(args)...);
-            m_gc_registered = tryAddToGC0<T>(*fixture, this);
+            m_gc_registered = tryAddNewToGC0<T>(*fixture, this);
         }
         
         inline bool hasInstance() const {
             return !has_fixture<BaseT>::isNull();
+        }
+
+        void markDead()
+        {
+            this->reset();
+            m_gc_registered = false;
         }
 
         void operator=(const ObjectBase &other) = delete;
@@ -238,7 +258,7 @@ namespace db0
         
         // called from GC0 to bind GC_Ops for this type
         static GC_Ops getGC_Ops() {
-            return { hasRefsOp, dropOp, detachOp, commitOp, getTypedAddress, dropByAddr, T::getFlushFunction() };
+            return { hasRefsOp, markDeadOp, dropOp, detachOp, commitOp, getTypedAddress, dropByAddr, T::getFlushFunction() };
         }
         
         void operator=(ObjectBase &&other)
@@ -253,6 +273,10 @@ namespace db0
 
         static bool hasRefsOp(const void *vptr) {
             return static_cast<const T*>(vptr)->hasRefs();
+        }
+
+        static void markDeadOp(void *vptr) {
+            static_cast<T*>(vptr)->markDead();
         }
         
         static void detachOp(void *vptr) {
@@ -282,13 +306,11 @@ namespace db0
     template <typename T, typename BaseT, StorageClass _CLS, bool Unique>
     void ObjectBase<T, BaseT, _CLS, Unique>::beginModify(ObjectPtr ptr)
     {
-        if (hasInstance()) {
+        if (AtomicContext::isMutatingApiAtomicOwner() && hasInstance()) {
             auto fixture = this->tryGetFixture();
-            if (fixture) {
-                auto atomic_context_ptr = fixture->tryGetAtomicContext();
-                if (atomic_context_ptr) {
-                    atomic_context_ptr->add(this->getAddress(), ptr);
-                }
+            auto atomic_context_ptr = fixture ? fixture->tryGetAtomicContext() : nullptr;
+            if (atomic_context_ptr) {
+                atomic_context_ptr->add(this->getAddress(), ptr);
             }
         }
     }

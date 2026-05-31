@@ -102,7 +102,7 @@ namespace db0
         
         void beginAtomic();
         void endAtomic();
-        void cancelAtomic();
+        std::vector<db0::vtypeless*> cancelAtomic();
         
         inline BaseStorage &getStorage() {
             return *m_storage_ptr;
@@ -142,6 +142,12 @@ namespace db0
         std::vector<db0::vtypeless*> m_maybe_need_flush;
         // exhaustive list of pointers to instances (may be expired!) modified within the current transaction
         std::vector<db0::vtypeless*> m_maybe_modified;
+        struct AtomicFrame
+        {
+            std::size_t maybe_need_flush_size = 0;
+            std::size_t maybe_modified_size = 0;
+        };
+        std::vector<AtomicFrame> m_atomic_frames;
         
         inline Allocator &getAllocatorForUpdate() {
             assert(m_allocator_ptr);

@@ -68,12 +68,19 @@ options+=" -Denable_sanitizers=$sanitizer"
 options+=" -Dbuild_tests=$build_tests"
 
 if [ "$build_type" == "debug" ]; then
-	meson setup --buildtype="debug" $options build/debug
-    cd build/debug
+    build_dir="build/debug"
+    meson_buildtype="debug"
 else
-	meson setup --buildtype="release" $options build/release
-    cd build/release
+    build_dir="build/release"
+    meson_buildtype="release"
 fi
+
+if [ -d "$build_dir/meson-info" ]; then
+    meson configure "$build_dir" -Dbuildtype="$meson_buildtype" $options
+else
+    meson setup --buildtype="$meson_buildtype" $options "$build_dir"
+fi
+cd "$build_dir"
 
 ninja
 meson install

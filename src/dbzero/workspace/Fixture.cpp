@@ -151,6 +151,76 @@ namespace db0
     void Fixture::addFlushHandler(std::function<void()> f) {
         m_flush_handlers.push_back(f);
     }
+
+    void Fixture::addIteratorDetachHandler(std::function<std::size_t(std::uint64_t)> f) {
+        m_iterator_detach_handlers.push_back(f);
+    }
+
+    Fixture::DetachGuard::DetachGuard(Fixture &fixture)
+        : m_fixture(&fixture)
+    {
+        ++m_fixture->m_iterator_detach_depth;
+    }
+
+    Fixture::DetachGuard::DetachGuard(DetachGuard &&other) noexcept
+        : m_fixture(other.m_fixture)
+    {
+        other.m_fixture = nullptr;
+    }
+
+    Fixture::DetachGuard &Fixture::DetachGuard::operator=(DetachGuard &&other) noexcept
+    {
+        if (this != &other) {
+            if (m_fixture) {
+                m_fixture->endIteratorDetach();
+            }
+            m_fixture = other.m_fixture;
+            other.m_fixture = nullptr;
+        }
+        return *this;
+    }
+
+    Fixture::DetachGuard::~DetachGuard()
+    {
+        if (m_fixture) {
+            m_fixture->endIteratorDetach();
+        }
+    }
+
+    Fixture::DetachGuard Fixture::beginIteratorDetach()
+    {
+        return DetachGuard(*this);
+    }
+
+    void Fixture::endIteratorDetach()
+    {
+        assert(m_iterator_detach_depth > 0);
+        --m_iterator_detach_depth;
+        if (m_iterator_detach_depth == 0) {
+            m_iterator_detached_in_guard = false;
+        }
+    }
+
+    std::size_t Fixture::detachIterators()
+    {
+        if (m_iterator_detach_handlers.empty()) {
+            return 0;
+        }
+        if (m_iterator_detach_depth > 0 && m_iterator_detached_in_guard) {
+            return 0;
+        }
+
+        ++m_iterator_detach_generation;
+        if (m_iterator_detach_depth > 0) {
+            m_iterator_detached_in_guard = true;
+        }
+
+        std::size_t detached_count = 0;
+        for (auto &handler: m_iterator_detach_handlers) {
+            detached_count += handler(m_iterator_detach_generation);
+        }
+        return detached_count;
+    }
     
     std::shared_ptr<MutationLog> Fixture::addMutationHandler()
     {
@@ -161,6 +231,7 @@ namespace db0
     
     void Fixture::rollback()
     {
+        auto detach_guard = beginIteratorDetach();
         for (auto &handler: m_rollback_handlers) {
             handler();
         }
@@ -173,6 +244,7 @@ namespace db0
             return;
         }
 
+        auto detach_guard = beginIteratorDetach();
         for (auto &handler: m_flush_handlers) {
             handler();
         }        
@@ -180,6 +252,7 @@ namespace db0
     
     void Fixture::close(bool as_defunct, ProcessTimer *timer_ptr)
     {
+        auto detach_guard = beginIteratorDetach();
         std::unique_ptr<ProcessTimer> timer;
         if (timer_ptr) {
             timer = std::make_unique<ProcessTimer>("Fixture::close", timer_ptr);
@@ -230,6 +303,8 @@ namespace db0
         if (!Memspace::beginRefresh()) {
             return false;
         }
+
+        detachIterators();
 
         // Drop all language-side cache entries mapped to this fixture before
         // detaching. The LangCache key is (fixture_id, address.offset) and does
@@ -335,6 +410,7 @@ namespace db0
     
     bool Fixture::commit()
     {
+        auto detach_guard = beginIteratorDetach();
         std::unique_ptr<ProcessTimer> process_timer;
         // process_timer = std::make_unique<ProcessTimer>("Fixture::commit");
         assert(getPrefixPtr());
@@ -411,6 +487,7 @@ namespace db0
     Fixture::StateReachedCallbackList Fixture::onAutoCommit()
     {
         if (m_updated) {
+            auto detach_guard = beginIteratorDetach();
             // prevents commit on a closed fixture
             std::unique_lock<std::mutex> lock(m_close_mutex);
             if (Memspace::isClosed()) {
@@ -482,6 +559,7 @@ namespace db0
     
     void Fixture::preAtomic()
     {
+        auto detach_guard = beginIteratorDetach();
         getGC0().flushAllOf(Memspace::getForFlush());
         m_maybe_need_flush.clear();
         for (auto &commit: m_close_handlers) {
@@ -503,6 +581,7 @@ namespace db0
     
     void Fixture::detach()
     {
+        auto detach_guard = beginIteratorDetach();
         // commit and then detach owned resources (potentially modified in atomic context)
         for (auto &commit: m_close_handlers) {
             commit(true);
@@ -537,10 +616,10 @@ namespace db0
     
     void Fixture::cancelAtomic(AtomicContext *context)
     {
+        auto detach_guard = beginIteratorDetach();
         assert(!m_atomic_context_stack.empty());
         assert(m_atomic_context_stack.back() == context);
         m_atomic_context_stack.pop_back();
-        m_meta_allocator.cancelAtomic();
         getGC0().cancelAtomic();
         // rollback any uncommited changes
         rollback();
@@ -553,7 +632,9 @@ namespace db0
         m_string_pool.detach();
         m_object_catalogue.detach();
         m_v_object_cache.cancelAtomic();
-        Memspace::cancelAtomic();        
+        auto canceled_modified = Memspace::cancelAtomic();
+        getGC0().detachAllOf(canceled_modified);
+        m_meta_allocator.cancelAtomic();
     }
     
     AtomicContext *Fixture::tryGetAtomicContext() const {

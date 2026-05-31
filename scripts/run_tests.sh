@@ -2,6 +2,7 @@
 set -e
 
 export PYTHONIOENCODING=utf8
+export PYTHONPATH="$(pwd)/dbzero${PYTHONPATH:+:$PYTHONPATH}"
 
 pytest_args=()
 parallel_args=()

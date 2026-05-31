@@ -199,7 +199,7 @@ namespace db0::python
     
     PyObject *PyAPI_ListObject_clear(ListObject *py_list)
     {
-        PY_API_FUNC
+        PY_MUTATING_API_FUNC(NULL)
         return runSafe(tryListObject_clear, py_list);
     }
 

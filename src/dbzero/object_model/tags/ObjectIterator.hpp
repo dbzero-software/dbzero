@@ -66,6 +66,16 @@ namespace db0::object_model
         // @return number of actually skipped items
         std::size_t skip(std::size_t count);
 
+        /**
+         * Invalidate the underlying storage-backed query iterator.
+         *
+         * This is intentionally not wired into atomic mutation tracking here.
+         * Callers that already own an ObjectIterator can use it to preserve the
+         * current logical position before mutating storage; the wrapped iterator
+         * performs lazy reattach on the next operation.
+        */
+        void detach();
+
     protected:
         friend class ObjectIterable;        
         // iterator_ptr valid both in case of m_query_iterator and m_sorted_iterator

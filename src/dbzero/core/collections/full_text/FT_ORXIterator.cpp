@@ -42,6 +42,7 @@ namespace db0
 
 	template <typename key_t, typename key_storage_t>
 	bool FT_JoinORXIterator<key_t, key_storage_t>::isEnd() const {
+        assureAttached();
 		return this->m_end;
 	}
 
@@ -49,6 +50,7 @@ namespace db0
 	void FT_JoinORXIterator<key_t, key_storage_t>::operator++()
     {
 		assert(m_direction > 0);
+        assureAttached();
 		assert(!m_end);
 		if (m_is_orx) {
 			auto _key = m_forward_heap.front().m_key;
@@ -70,6 +72,7 @@ namespace db0
 	template <typename key_t, typename key_storage_t>
 	bool FT_JoinORXIterator<key_t, key_storage_t>::isNextKeyDuplicated() const
 	{
+        assureAttached();
 		// no duplication when exclusive join
 		if (m_is_orx) {
 			return false;
@@ -93,6 +96,7 @@ namespace db0
 	void FT_JoinORXIterator<key_t, key_storage_t>::_next(void *buf)
     {		
 		assert(m_direction < 0);
+        assureAttached();
 		assert(!m_end);
 		if (buf) {
 			*(key_storage_t*)buf = m_join_key;
@@ -116,6 +120,7 @@ namespace db0
 
 	template <typename key_t, typename key_storage_t>
 	void FT_JoinORXIterator<key_t, key_storage_t>::operator--() {
+        assureAttached();
 		this->_next(nullptr);
 	}
 
@@ -126,12 +131,14 @@ namespace db0
 	
 	template <typename key_t, typename key_storage_t>
 	key_t FT_JoinORXIterator<key_t, key_storage_t>::getKey() const {
+        assureAttached();
 		assert(!m_end);
 		return m_join_key;
 	}
 
 	template <typename key_t, typename key_storage_t>
 	void FT_JoinORXIterator<key_t, key_storage_t>::getKey(key_storage_t &key) const {
+        assureAttached();
 		assert(!m_end);
 		key = m_join_key;
 	}
@@ -139,6 +146,7 @@ namespace db0
 	template <typename key_t, typename key_storage_t>
 	bool FT_JoinORXIterator<key_t, key_storage_t>::join(key_t key, int direction) 
     {
+        assureAttached();
 		if (m_direction > 0) {
             assert(!m_forward_heap.empty());
             // join all sub - iterators, then fix heap
@@ -183,6 +191,7 @@ namespace db0
     template <typename key_t, typename key_storage_t>
 	bool FT_JoinORXIterator<key_t, key_storage_t>::stopCurrentSimple()
     {
+        assureAttached();
         if (m_direction > 0) {
             // late initialization
             if (m_forward_heap.empty()) {
@@ -219,6 +228,7 @@ namespace db0
 	template <typename key_t, typename key_storage_t>
 	void FT_JoinORXIterator<key_t, key_storage_t>::joinBound(key_t key)
     {
+        assureAttached();
 		for (auto it = m_joinable.begin(),itend = m_joinable.end();it != itend;++it) {
 			(**it).joinBound(key);
 			key_storage_t _key;
@@ -237,6 +247,7 @@ namespace db0
 	template <typename key_t, typename key_storage_t>
 	std::pair<key_t, bool> FT_JoinORXIterator<key_t, key_storage_t>::peek(key_t key) const 
     {
+        assureAttached();
 		std::pair<key_t,bool> ping_res;
 		ping_res.second = false;
 		for(auto it = m_joinable.begin(),itend = m_joinable.end(); it!=itend; ++it) {
@@ -257,6 +268,7 @@ namespace db0
 	template <typename key_t, typename key_storage_t>
 	bool FT_JoinORXIterator<key_t, key_storage_t>::limitBy(key_t key) 
     {
+        assureAttached();
 		// apply bounds to underlying iterators first
 		for (auto it = m_joinable.begin(),itend = m_joinable.end();it!=itend;++it) {
 			(**it).limitBy(key);
@@ -270,6 +282,7 @@ namespace db0
 	template <typename key_t, typename key_storage_t>
 	std::unique_ptr<FT_Iterator<key_t, key_storage_t> > FT_JoinORXIterator<key_t, key_storage_t>::beginTyped(int direction) const
     {
+        assureAttached();
 		std::list<std::unique_ptr<FT_IteratorT> > temp;
 		for (auto it = m_joinable.begin(), itend = m_joinable.end(); it != itend; ++it) {
 			temp.push_back((*it)->beginTyped(direction));
@@ -282,6 +295,7 @@ namespace db0
 	template <typename key_t, typename key_storage_t>
 	std::ostream &FT_JoinORXIterator<key_t, key_storage_t>::dump(std::ostream &os) const 
 	{
+        assureAttached();
 		os << (this->m_is_orx?"ORX":"OR") << "@" << this << "[";
 		dumpJoinable(os);
 		return os << "]";
@@ -290,6 +304,7 @@ namespace db0
 	template <typename key_t, typename key_storage_t>
 	const FT_IteratorBase *FT_JoinORXIterator<key_t, key_storage_t>::find(std::uint64_t uid) const 
     {
+        assureAttached();
 		// self-check first
 		if (this->m_uid == uid) {
 			return this;
@@ -364,6 +379,31 @@ namespace db0
 	void FT_JoinORXIterator<key_t, key_storage_t>::setEnd() {
 		this->m_end = true;
 	}
+
+    template <typename key_t, typename key_storage_t>
+    void FT_JoinORXIterator<key_t, key_storage_t>::assureAttached() const
+    {
+        if (m_is_detached) {
+            const_cast<self_t *>(this)->reattach();
+        }
+    }
+
+    template <typename key_t, typename key_storage_t>
+    void FT_JoinORXIterator<key_t, key_storage_t>::reattach()
+    {
+        m_is_detached = false;
+        m_forward_heap.clear();
+        m_back_heap.clear();
+        if (!m_detach_key) {
+            setEnd();
+            return;
+        }
+        m_end = false;
+        for (auto &it: m_joinable) {
+            it->join(*m_detach_key, m_direction);
+        }
+        init(m_direction);
+    }
 
 	template <typename key_t, typename key_storage_t>
 	void FT_JoinORXIterator<key_t, key_storage_t>::init(int direction)
@@ -552,6 +592,7 @@ namespace db0
 
     template <typename key_t, typename key_storage_t>
 	void db0::FT_JoinORXIterator<key_t, key_storage_t>::stop() {
+        assureAttached();
         this->m_end = true;
     }
 
@@ -573,6 +614,7 @@ namespace db0
     template <typename key_t, typename key_storage_t> std::pair<bool, bool> 
     db0::FT_JoinORXIterator<key_t, key_storage_t>::mutateInner(const MutateFunction &f) 
     {
+        assureAttached();
         auto result = FT_IteratorT::mutateInner(f);
         if (result.first) {
             return result;
@@ -609,11 +651,15 @@ namespace db0
     template <typename key_t, typename key_storage_t>
 	void db0::FT_JoinORXIterator<key_t, key_storage_t>::detach() 
 	{
-		/* FIXME: implement
-        for (auto &it: m_joinable) {
-            it->detach();
+        if (!m_is_detached) {
+            m_detach_key = m_end ? std::optional<key_storage_t> {} : std::make_optional(m_join_key);
+            for (auto &it: m_joinable) {
+                it->detach();
+            }
+            m_forward_heap.clear();
+            m_back_heap.clear();
+            m_is_detached = true;
         }
-		*/
     }
 	
 	template <typename key_t, typename key_storage_t>

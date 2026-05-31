@@ -2,7 +2,7 @@
 Type stubs for dbzero module.
 """
 
-from typing import Any, Optional, Iterable, Dict, List, Tuple, Union, Callable, Sequence
+from typing import Any, Optional, Iterable, Dict, List, Tuple, Union, Callable, Sequence, ContextManager
 from .interfaces import (
     Memo, MemoWeakProxy, QueryObject, Tag, TagSet, EnumValue,
     ListObject, IndexObject, TupleObject, SetObject, DictObject, ByteArrayObject,
@@ -10,6 +10,10 @@ from .interfaces import (
 )
 
 # Core workspace management functions
+
+def read_only() -> ContextManager[Any]:
+    """Open a context manager that rejects dbzero mutations in its block."""
+    ...
 
 def open(prefix_name: str, open_mode: str = "rw", **kwargs: Any) -> None:
     """Open a data prefix and set it as the current working context.
