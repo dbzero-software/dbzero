@@ -1278,6 +1278,30 @@ def test_leaked_iterator_advanced_inside_canceled_atomic_repositions_after_rollb
         next(iterator)
 
 
+def test_atomic_threaded_mixed_schema_updates_do_not_underflow_counts(db0_no_autocommit):
+    # The skipped non-iterator stress test can fail with Schema.cpp asserting
+    # that an o_type_item count went negative. This is the smallest confirmed
+    # shape found so far: one dict-valued instance keeps the class schema mixed,
+    # while multiple threads atomically change int-valued instances to tuples.
+    root = MemoTestClass({"thread": 0})
+    objects = [MemoTestClass(index) for index in range(4)]
+    db0.commit()
+
+    def worker(worker_id):
+        rng = random.Random(0xA70C000 + worker_id)
+        for iteration in range(1000):
+            obj = objects[rng.randrange(len(objects))]
+            with db0.atomic():
+                obj.value = ("thread-atomic", worker_id, iteration)
+
+    threads = [threading.Thread(target=worker, args=(worker_id,)) for worker_id in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert root.value == {"thread": 0}
+
+
 @pytest.mark.stress_test
 @pytest.mark.skip(reason=ATOMIC_STRESS_REPRO_SKIP)
 def test_atomic_async_thread_deadlock_detection_stress(run_pytest_child):

@@ -209,9 +209,11 @@ namespace db0::object_model
         bool addr_changed = false;
         if (max_item.m_count > primary_count) {
             type_vector.erase(max_item, addr_changed);
+            m_total_extra -= max_item.m_count;
             if (primary_count) {
                 if (!!m_secondary_type) {
                     type_vector.insert(m_secondary_type, addr_changed);
+                    m_total_extra += m_secondary_type.m_count;
                 }
                 m_secondary_type = o_type_item(m_primary_type_id, primary_count);                
             }
@@ -222,8 +224,10 @@ namespace db0::object_model
         // swap secondary type ID
         if (max_item.m_count > m_secondary_type.m_count) {            
             type_vector.erase(max_item, addr_changed);
+            m_total_extra -= max_item.m_count;
             if (!!m_secondary_type) {
                 type_vector.insert(m_secondary_type, addr_changed);
+                m_total_extra += m_secondary_type.m_count;
             }
             m_secondary_type = max_item;
         }
