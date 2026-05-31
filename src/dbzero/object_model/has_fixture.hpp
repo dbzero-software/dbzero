@@ -86,6 +86,15 @@ namespace db0
                 db0::swine_ptr<Fixture>::release_weak(raw_ptr);                
             }
         }
+
+        void reset()
+        {
+            Fixture *raw_ptr = reinterpret_cast<Fixture*>(this->getMemspacePtr());
+            if (raw_ptr) {
+                db0::swine_ptr<Fixture>::release_weak(raw_ptr);
+            }
+            BaseT::reset();
+        }
         
         db0::swine_ptr<Fixture> tryGetFixture() const
         {

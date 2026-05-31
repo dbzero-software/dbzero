@@ -105,6 +105,8 @@ namespace db0::object_model
         // NOTE: the operation is marked const because the dbzero state is not affected
         void setDefunct() const;
 
+        void markDead();
+
         inline bool isDropped() const {
             return m_flags.test(ObjectOptions::DROPPED);
         }

@@ -120,6 +120,8 @@ namespace db0
         inline Memspace *getMemspacePtr() const {
             return m_memspace_ptr;
         }
+
+        void reset();
         
         inline bool isNoCache() const {
             return m_access_mode[AccessOptions::no_cache];

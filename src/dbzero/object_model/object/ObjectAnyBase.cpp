@@ -153,6 +153,12 @@ namespace db0::object_model
     void ObjectAnyBase<T, ImplT>::setDefunct() const {
         m_flags.set(ObjectOptions::DEFUNCT);
     }
+
+    template <typename T, typename ImplT>
+    void ObjectAnyBase<T, ImplT>::markDead() {
+        setDefunct();
+        super_t::markDead();
+    }
     
     template <typename T, typename ImplT>
     Class &ObjectAnyBase<T, ImplT>::getType() {

@@ -95,6 +95,15 @@ namespace db0
     bool vtypeless::isAttached() const {
         return m_mem_lock.m_buffer != nullptr;
     }
+
+    void vtypeless::reset()
+    {
+        m_mem_lock = {};
+        m_address = {};
+        m_memspace_ptr = nullptr;
+        m_resource_flags = 0;
+        m_cached_size.reset();
+    }
     
     void vtypeless::detach() const
     {

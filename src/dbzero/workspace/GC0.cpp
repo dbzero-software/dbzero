@@ -243,13 +243,27 @@ namespace db0
         assert(!m_volatile_stack.empty());
         auto volatilePtrs = std::move(m_volatile_stack.back());
         m_volatile_stack.pop_back();
-        for (auto vptr : volatilePtrs) {
-            if (vptr) {
-                tryRemove(vptr, true);
+        auto &ops_list = getSharedState().m_ops;
+        {
+            std::unique_lock<std::mutex> lock(m_mutex);
+            for (auto vptr : volatilePtrs) {
+                if (!vptr) {
+                    continue;
+                }
+                auto it = m_vptr_map.find(vptr);
+                if (it != m_vptr_map.end()) {
+                    auto &ops = ops_list[it->second];
+                    if (ops.markDead) {
+                        ops.markDead(vptr);
+                    }
+                    if (ops.flush) {
+                        m_flush_map.erase(vptr);
+                    }
+                    m_vptr_map.erase(it);
+                }
             }
         }
         // call reverse flush where it's provided (use revert=true)
-        auto &ops_list = getSharedState().m_ops;
         for (auto &item : m_flush_map) {
             ops_list[item.second].flush(item.first, true);
         }
