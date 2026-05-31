@@ -14,34 +14,6 @@ from .conftest import DB0_DIR
 from datetime import datetime
 
 
-ATOMIC_THREAD_REPRO_SKIP = (
-    "atomic cross-thread/API-boundary repro kept disabled: observed non-owner "
-    "thread mutations can enter an active atomic scope or corrupt rollback state"
-)
-ATOMIC_ASYNC_REPRO_SKIP = (
-    "atomic asyncio repro kept disabled: observed same-thread async task wait "
-    "can deadlock without task-context-aware atomic ownership"
-)
-ATOMIC_COMMIT_REPRO_SKIP = (
-    "atomic commit synchronization repro kept disabled: commit/autocommit must "
-    "be serialized against active atomic operations"
-)
-ATOMIC_ROLLBACK_REPRO_SKIP = (
-    "atomic rollback corruption repro kept disabled: observed canceled atomic "
-    "tuple/type-change paths can leave stale wrapper or GC0 state"
-)
-ATOMIC_INDEX_NULL_KEY_REPRO_SKIP = (
-    "atomic index null-key repro kept disabled: debug teardown can double-unref "
-    "objects indexed under None after the index is created inside an atomic block"
-)
-ATOMIC_MULTI_PREFIX_REPRO_SKIP = (
-    "atomic multi-prefix repro kept disabled: debug teardown aborts after atomic "
-    "updates span objects from multiple prefixes"
-)
-ATOMIC_INDEX_ITERATOR_REPRO_SKIP = (
-    "atomic index iterator repro kept disabled: query iterators can outlive the "
-    "durable lock while another thread rolls back index mutations"
-)
 ATOMIC_LEAKED_ITERATOR_REPRO_SKIP = (
     "atomic leaked iterator repro kept disabled: a collection iterator advanced "
     "to an item created in a canceled atomic block can crash after rollback"
@@ -455,15 +427,7 @@ def test_commit_inside_atomic_is_rejected(db0_no_autocommit):
     assert obj.value == 1
 
 
-def test_atomic_cancel_type_change_then_close_does_not_corrupt_gc0(run_pytest_child):
-    run_pytest_child(
-        "python_tests/test_atomic.py::test_atomic_cancel_type_change_then_close_does_not_corrupt_gc0_child",
-        env_flag="DB0_ATOMIC_TYPE_CHANGE_CLOSE_CHILD",
-        failure_label="atomic cancel type-change child",
-    )
-
-
-def test_atomic_cancel_type_change_then_close_does_not_corrupt_gc0_child(db0_no_autocommit):
+def test_atomic_cancel_type_change_then_close_does_not_corrupt_gc0(db0_no_autocommit):
     obj = MemoTestClass(1)
     other = MemoTestClass(2)
     db0.commit()
@@ -477,15 +441,7 @@ def test_atomic_cancel_type_change_then_close_does_not_corrupt_gc0_child(db0_no_
     db0.close()
 
 
-def test_atomic_cancel_tuple_value_restores_wrapper_state(run_pytest_child):
-    run_pytest_child(
-        "python_tests/test_atomic.py::test_atomic_cancel_tuple_value_restores_wrapper_state_child",
-        env_flag="DB0_ATOMIC_CANCEL_TUPLE_VALUE_CHILD",
-        failure_label="atomic cancel tuple-value child",
-    )
-
-
-def test_atomic_cancel_tuple_value_restores_wrapper_state_child(db0_no_autocommit):
+def test_atomic_cancel_tuple_value_restores_wrapper_state(db0_no_autocommit):
     obj = MemoTestClass(("initial",))
     db0.commit()
 
@@ -502,15 +458,7 @@ def test_atomic_cancel_tuple_value_restores_wrapper_state_child(db0_no_autocommi
     assert obj.value == ("atomic", 1)
 
 
-def test_atomic_cancel_tuple_value_releases_allocator_state(run_pytest_child):
-    run_pytest_child(
-        "python_tests/test_atomic.py::test_atomic_cancel_tuple_value_releases_allocator_state_child",
-        env_flag="DB0_ATOMIC_CANCEL_TUPLE_ALLOCATOR_CHILD",
-        failure_label="atomic cancel tuple allocator child",
-    )
-
-
-def test_atomic_cancel_tuple_value_releases_allocator_state_child(db0_no_autocommit):
+def test_atomic_cancel_tuple_value_releases_allocator_state(db0_no_autocommit):
     # A canceled tuple assignment must release only its own atomic allocation state.
     obj = MemoTestClass(0)
     db0.commit()
@@ -523,19 +471,7 @@ def test_atomic_cancel_tuple_value_releases_allocator_state_child(db0_no_autocom
     db0.commit()
 
 
-def test_atomic_cancel_string_value_restores_refcounted_member_state(run_pytest_child):
-    run_pytest_child(
-        "python_tests/test_atomic.py::test_atomic_cancel_string_value_restores_refcounted_member_state_child",
-        env_flag="DB0_ATOMIC_CANCEL_STRING_VALUE_CHILD",
-        failure_label="atomic cancel string-value child",
-    )
-
-
-@pytest.mark.skipif(
-    os.environ.get("DB0_ATOMIC_CANCEL_STRING_VALUE_CHILD") != "1",
-    reason="executed by test_atomic_cancel_string_value_restores_refcounted_member_state",
-)
-def test_atomic_cancel_string_value_restores_refcounted_member_state_child(db0_no_autocommit):
+def test_atomic_cancel_string_value_restores_refcounted_member_state(db0_no_autocommit):
     obj = MemoTestClass("initial")
     db0.commit()
 
@@ -549,19 +485,7 @@ def test_atomic_cancel_string_value_restores_refcounted_member_state_child(db0_n
     db0.close()
 
 
-def test_atomic_thread_constructor_waits_at_api_boundary_before_cancel(run_pytest_child):
-    run_pytest_child(
-        "python_tests/test_atomic.py::test_atomic_thread_constructor_waits_at_api_boundary_before_cancel_child",
-        env_flag="DB0_ATOMIC_THREAD_CONSTRUCTOR_WAIT_CHILD",
-        failure_label="atomic/thread constructor child",
-    )
-
-
-@pytest.mark.skipif(
-    os.environ.get("DB0_ATOMIC_THREAD_CONSTRUCTOR_WAIT_CHILD") != "1",
-    reason="executed by test_atomic_thread_constructor_waits_at_api_boundary_before_cancel",
-)
-def test_atomic_thread_constructor_waits_at_api_boundary_before_cancel_child(db0_no_autocommit):
+def test_atomic_thread_constructor_waits_at_api_boundary_before_cancel(db0_no_autocommit):
     # A non-owner thread constructing a durable object must wait until the active atomic owner cancels and releases rollback state.
     obj = MemoTestClass(0)
     db0.commit()
@@ -599,23 +523,9 @@ def test_atomic_thread_constructor_waits_at_api_boundary_before_cancel_child(db0
 
 
 @pytest.mark.stress_test
-def test_atomic_async_cancel_while_thread_constructs_objects_does_not_corrupt_state(run_pytest_child):
+async def test_atomic_async_cancel_while_thread_constructs_objects_does_not_corrupt_state(db0_no_autocommit):
     # Timing-sensitive allocator/deferred-free repro. It may need multiple runs
     # to reproduce a failure or to build confidence that a fix is error-free.
-    duration = float(os.environ.get("DB0_ATOMIC_ASYNC_THREAD_CONSTRUCT_SECONDS", "5"))
-    run_pytest_child(
-        "python_tests/test_atomic.py::test_atomic_async_cancel_while_thread_constructs_objects_does_not_corrupt_state_child",
-        env_flag="DB0_ATOMIC_ASYNC_THREAD_CONSTRUCT_CHILD",
-        timeout=duration + 5,
-        failure_label="atomic async/thread construction child",
-    )
-
-
-@pytest.mark.skipif(
-    os.environ.get("DB0_ATOMIC_ASYNC_THREAD_CONSTRUCT_CHILD") != "1",
-    reason="executed by test_atomic_async_cancel_while_thread_constructs_objects_does_not_corrupt_state",
-)
-async def test_atomic_async_cancel_while_thread_constructs_objects_does_not_corrupt_state_child(db0_no_autocommit):
     duration = float(os.environ.get("DB0_ATOMIC_ASYNC_THREAD_CONSTRUCT_SECONDS", "5"))
     objects = [MemoTestClass(i) for i in range(4)]
     log = db0.list()
