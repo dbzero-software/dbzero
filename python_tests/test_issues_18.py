@@ -9,10 +9,6 @@ import subprocess
 import sys
 import textwrap
 
-import pytest
-
-
-@pytest.mark.skip(reason="issue 18 regression kept disabled: set difference against memo-backed set field can segfault")
 def test_python_set_difference_with_memo_set_field_does_not_segfault(tmp_path):
     script = textwrap.dedent(
         f"""

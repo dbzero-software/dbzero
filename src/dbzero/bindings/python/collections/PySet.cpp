@@ -108,51 +108,40 @@ namespace db0::python
         }
         return PyObject_Length(obj);
     }
+
+    int trySetObject_sequenceContainsItem(PyObject *collection, PyObject *item)
+    {
+        if (SetObject_Check(collection)) {
+            auto fixture = reinterpret_cast<SetObject*>(collection)->ext().getFixture();
+            auto maybe_hash = getPyHashIfExists(fixture, item);
+            if (!maybe_hash) {
+                return 0;
+            }
+            return reinterpret_cast<SetObject*>(collection)->ext().hasItem(maybe_hash->first, item);
+        }
+        return PySequence_Contains(collection, item);
+    }
     
     PyObject *trySetObject_issubsetInternal(SetObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
         if (nargs != 1) {
-            PyErr_SetString(PyExc_TypeError, "isdisjoint() takes exactly one argument");
+            PyErr_SetString(PyExc_TypeError, "issubset() takes exactly one argument");
             return NULL;
         }
-        
-        if (SetObject_Check(args[0])) {
-            SetObject *other = (SetObject*)args[0];
-            if (trySetObject_len(self) == 0 || trySetObject_len(other) == 0) Py_RETURN_TRUE;
 
-            auto it1 = self->ext().begin();
-            auto it2 = other->ext().begin();
-            auto it1End = self->ext().end();
-            auto it2End = other->ext().end();
-
-            while (it1 != it1End) {
-                if (it2 == it2End) {
-                    Py_RETURN_FALSE;
-                }
-                if (*it1 == *it2) {
-                    ++it1;
-                }
-                ++it2;
-            }
-        } else if (PySet_Check(args[0])) {
-            PyObject *other = args[0];
-            if (trySetObject_len(self) == 0 || PyObject_Length(other) == 0) {
-                Py_RETURN_TRUE;
-            }
-
-            auto iterator = Py_OWN(PyObject_GetIter(self));
-            if (!iterator) {
-                PyErr_SetString(PyExc_TypeError, "argument must be a sequence or set");
+        auto iterator = Py_OWN(PyObject_GetIter(reinterpret_cast<PyObject*>(self)));
+        if (!iterator) {
+            return nullptr;
+        }
+        ObjectSharedPtr elem;
+        Py_FOR(elem, iterator) {
+            auto contains = trySetObject_sequenceContainsItem(args[0], *elem);
+            if (contains < 0) {
                 return nullptr;
             }
-            ObjectSharedPtr elem;
-            Py_FOR(elem, iterator) {            
-                if (!PySequence_Contains(other, *elem)) {
-                    Py_RETURN_FALSE;
-                }                                
+            if (!contains) {
+                Py_RETURN_FALSE;
             }
-        } else {
-            Py_RETURN_FALSE;
         }
         Py_RETURN_TRUE;
     }
@@ -169,29 +158,18 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "issuperset() takes exactly one argument");
             return NULL;
         }
-        if (SetObject_Check(args[0])) {
-            SetObject *other = (SetObject*)args[0];
-            PyObject *py_self = (PyObject*)self;
-            return trySetObject_issubsetInternal(other, &py_self,1);
-        } else {
-            PyObject *other = args[0];
-            if (trySetObject_len(self) == 0 || PyObject_Length(other) == 0) {
-                Py_RETURN_TRUE;
-            }
 
-            auto iterator = Py_OWN(PyObject_GetIter(other));
-            if (!iterator) {
-                PyErr_SetString(PyExc_TypeError, "argument must be a sequence or set");
-                return nullptr;
-            }
-            
-            ObjectSharedPtr elem;
-            auto fixture = self->ext().getFixture();
-            Py_FOR(elem, iterator) {
-                auto hash = getPyHash(fixture, *elem);
-                if (!self->ext().hasItem(hash, *elem)) {
-                    Py_RETURN_FALSE;
-                }                                
+        auto iterator = Py_OWN(PyObject_GetIter(args[0]));
+        if (!iterator) {
+            return nullptr;
+        }
+
+        ObjectSharedPtr elem;
+        auto fixture = self->ext().getFixture();
+        Py_FOR(elem, iterator) {
+            auto maybe_hash = getPyHashIfExists(fixture, *elem);
+            if (!maybe_hash || !self->ext().hasItem(maybe_hash->first, *elem)) {
+                Py_RETURN_FALSE;
             }
         }
         Py_RETURN_TRUE;
@@ -206,7 +184,7 @@ namespace db0::python
     PyObject *trySetObject_rq(SetObject *set_obj, PyObject *other, int op)
     {        
         PyObject** args = &other;
-        if(PySet_Check(other) || SetObject_Check(other)) {
+        if(PyAnySet_Check(other) || SetObject_Check(other)) {
 
             switch (op) {
                 case Py_EQ:
@@ -458,8 +436,89 @@ namespace db0::python
         return runSafe(trySetObject_copyInternal, py_src_set);
     }
     
-    PyObject *PyAPI_SetObject_union_binary(SetObject *self, PyObject * obj) {        
-        return PyAPI_SetObject_union(self, &obj, 1);
+    bool trySetObject_reflectedContains(SetObject *set_obj, PyObject *item)
+    {
+        auto fixture = set_obj->ext().getFixture();
+        auto maybe_hash = getPyHashIfExists(fixture, item);
+        if (!maybe_hash) {
+            return false;
+        }
+        return set_obj->ext().hasItem(maybe_hash->first, item);
+    }
+
+    PyObject *trySetObject_reflectedBinary(PyObject *left, SetObject *right, char op)
+    {
+        if (!PyAnySet_Check(left)) {
+            Py_RETURN_NOTIMPLEMENTED;
+        }
+
+        auto result = Py_OWN(op == '&' ? PySet_New(nullptr) : PySet_New(left));
+        if (!result) {
+            return nullptr;
+        }
+
+        if (op == '&') {
+            auto left_iterator = Py_OWN(PyObject_GetIter(left));
+            if (!left_iterator) {
+                return nullptr;
+            }
+            ObjectSharedPtr item;
+            Py_FOR(item, left_iterator) {
+                if (trySetObject_reflectedContains(right, *item) && PySet_Add(*result, *item) < 0) {
+                    return nullptr;
+                }
+            }
+            return result.steal();
+        }
+
+        auto right_iterator = Py_OWN(PyObject_GetIter(reinterpret_cast<PyObject*>(right)));
+        if (!right_iterator) {
+            return nullptr;
+        }
+        ObjectSharedPtr item;
+        Py_FOR(item, right_iterator) {
+            if (op == '-') {
+                if (PySet_Discard(*result, *item) < 0) {
+                    return nullptr;
+                }
+            } else if (op == '|') {
+                if (PySet_Add(*result, *item) < 0) {
+                    return nullptr;
+                }
+            } else {
+                auto contains = PySet_Contains(*result, *item);
+                if (contains < 0) {
+                    return nullptr;
+                }
+                if (contains) {
+                    if (PySet_Discard(*result, *item) < 0) {
+                        return nullptr;
+                    }
+                } else if (PySet_Add(*result, *item) < 0) {
+                    return nullptr;
+                }
+            }
+        }
+        return result.steal();
+    }
+
+    PyObject *trySetObject_union_binary(PyObject *left, PyObject *right)
+    {
+        if (SetObject_Check(left)) {
+            if (!SetObject_Check(right) && !PyAnySet_Check(right)) {
+                Py_RETURN_NOTIMPLEMENTED;
+            }
+            return PyAPI_SetObject_union(reinterpret_cast<SetObject*>(left), &right, 1);
+        }
+        if (SetObject_Check(right)) {
+            return trySetObject_reflectedBinary(left, reinterpret_cast<SetObject*>(right), '|');
+        }
+        Py_RETURN_NOTIMPLEMENTED;
+    }
+
+    PyObject *PyAPI_SetObject_union_binary(PyObject *left, PyObject *right) {
+        PY_API_FUNC
+        return runSafe(trySetObject_union_binary, left, right);
     }
 
     PyObject *trySetObject_union(SetObject *self, PyObject *const *args, Py_ssize_t nargs)
@@ -493,8 +552,7 @@ namespace db0::python
     { 
         PY_API_FUNC
         if (nargs == 0) {
-            PyErr_SetString(PyExc_TypeError, "union() takes more than 0 arguments");
-            return NULL;
+            return runSafe(trySetObject_copyInternal, self);
         }
 
         return runSafe(trySetObject_union, self, args, nargs);
@@ -524,8 +582,23 @@ namespace db0::python
         return trySetObject_intersectionInternal(fixture, set_obj, it1 ,elem1, it2, elem2);
     }
     
-    PyObject *PyAPI_SetObject_intersection_binary(SetObject *self, PyObject * obj) {
-        return PyAPI_SetObject_intersection_func(self, &obj, 1);
+    PyObject *trySetObject_intersection_binary(PyObject *left, PyObject *right)
+    {
+        if (SetObject_Check(left)) {
+            if (!SetObject_Check(right) && !PyAnySet_Check(right)) {
+                Py_RETURN_NOTIMPLEMENTED;
+            }
+            return PyAPI_SetObject_intersection_func(reinterpret_cast<SetObject*>(left), &right, 1);
+        }
+        if (SetObject_Check(right)) {
+            return trySetObject_reflectedBinary(left, reinterpret_cast<SetObject*>(right), '&');
+        }
+        Py_RETURN_NOTIMPLEMENTED;
+    }
+
+    PyObject *PyAPI_SetObject_intersection_binary(PyObject *left, PyObject *right) {
+        PY_API_FUNC
+        return runSafe(trySetObject_intersection_binary, left, right);
     }
 
     PyObject *trySetObject_intersection_func(SetObject *self, PyObject *const *args, Py_ssize_t nargs)
@@ -564,8 +637,7 @@ namespace db0::python
     { 
         PY_API_FUNC
         if (nargs == 0) {
-            PyErr_SetString(PyExc_TypeError, "intersection() takes more than 0 arguments");
-            return NULL;
+            return runSafe(trySetObject_copyInternal, self);
         }
 
         return runSafe(trySetObject_intersection_func, self, args, nargs);
@@ -606,8 +678,7 @@ namespace db0::python
     PyObject *trySetObject_differenceInternal(SetObject *self, PyObject *const *args, Py_ssize_t nargs, bool symmetric)
     {
         if (nargs == 0) {
-            PyErr_SetString(PyExc_TypeError, "difference() takes more than 0 arguments");
-            return NULL;
+            return trySetObject_copyInternal(self);
         }
 
         auto last_set = Py_BORROW(self);
@@ -648,16 +719,44 @@ namespace db0::python
         return runSafe(trySetObject_difference, self, args, nargs, true);
     }
     
-    PyObject *PyAPI_SetObject_difference_binary(SetObject *self, PyObject * obj) 
+    PyObject *trySetObject_difference_binary(PyObject *left, PyObject *right)
     {
-        PY_API_FUNC
-        return runSafe(trySetObject_difference, self, &obj, 1, false);
+        if (SetObject_Check(left)) {
+            if (!SetObject_Check(right) && !PyAnySet_Check(right)) {
+                Py_RETURN_NOTIMPLEMENTED;
+            }
+            return trySetObject_difference(reinterpret_cast<SetObject*>(left), &right, 1, false);
+        }
+        if (SetObject_Check(right)) {
+            return trySetObject_reflectedBinary(left, reinterpret_cast<SetObject*>(right), '-');
+        }
+        Py_RETURN_NOTIMPLEMENTED;
     }
 
-    PyObject *PyAPI_SetObject_symmetric_difference_binary(SetObject *self, PyObject * obj)
-    { 
+    PyObject *PyAPI_SetObject_difference_binary(PyObject *left, PyObject *right)
+    {
         PY_API_FUNC
-        return runSafe(trySetObject_difference, self, &obj, 1, true);
+        return runSafe(trySetObject_difference_binary, left, right);
+    }
+
+    PyObject *trySetObject_symmetric_difference_binary(PyObject *left, PyObject *right)
+    { 
+        if (SetObject_Check(left)) {
+            if (!SetObject_Check(right) && !PyAnySet_Check(right)) {
+                Py_RETURN_NOTIMPLEMENTED;
+            }
+            return trySetObject_difference(reinterpret_cast<SetObject*>(left), &right, 1, true);
+        }
+        if (SetObject_Check(right)) {
+            return trySetObject_reflectedBinary(left, reinterpret_cast<SetObject*>(right), '^');
+        }
+        Py_RETURN_NOTIMPLEMENTED;
+    }
+
+    PyObject *PyAPI_SetObject_symmetric_difference_binary(PyObject *left, PyObject *right)
+    {
+        PY_API_FUNC
+        return runSafe(trySetObject_symmetric_difference_binary, left, right);
     }
 
     PyObject *trySetObject_remove(SetObject *set_obj, PyObject *const *args, Py_ssize_t nargs, bool throw_ex)
@@ -752,17 +851,7 @@ namespace db0::python
 
     bool sequenceContainsItem(PyObject *set_obj, PyObject *item)
     {
-        if (SetObject_Check(set_obj)) {
-            auto fixture = ((SetObject*)set_obj)->ext().getFixture();
-            auto maybe_hash = getPyHashIfExists(fixture, item);
-            if (!maybe_hash) {
-                return false;
-            }
-
-            return ((SetObject*)set_obj)->ext().hasItem(maybe_hash->first, item);
-        } else {
-            return PySequence_Contains(set_obj, item);
-        }
+        return trySetObject_sequenceContainsItem(set_obj, item) == 1;
     }
 
     PyObject *trySetObject_intersection_in_place(SetObject *self, PyObject * ob)
