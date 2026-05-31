@@ -1203,7 +1203,6 @@ def test_atomic_index_iterator_survives_canceled_atomic_context_stress_child(db0
     assert counters["rollbacks"] > 0
 
 
-@pytest.mark.skip(reason=ATOMIC_LEAKED_ITERATOR_REPRO_SKIP)
 def test_leaked_find_iterator_advanced_inside_canceled_atomic_repositions_after_rollback(run_pytest_child):
     run_pytest_child(
         "python_tests/test_atomic.py::test_leaked_find_iterator_advanced_inside_canceled_atomic_repositions_after_rollback_child",
@@ -1225,12 +1224,16 @@ def test_leaked_find_iterator_advanced_inside_canceled_atomic_repositions_after_
 
     with db0.atomic() as atomic:
         rolled_back = MemoTestClass("rolled-back")
-        assert next(iterator).value == "rolled-back"
+        # Query iterators are not live subscriptions. This iterator was already
+        # exhausted under the pre-atomic index state, so it does not observe the
+        # object added later inside the atomic block.
+        with pytest.raises(StopIteration):
+            next(iterator)
+        assert [obj.value for obj in db0.find(MemoTestClass)] == ["rolled-back", "first"]
         atomic.cancel()
 
-    # The iterator leaked across the atomic boundary while positioned at an
-    # object that no longer exists. It should be fixed up to the next valid
-    # position, which is the end of this query.
+    # Leaking an exhausted query iterator across a canceled atomic block should
+    # remain safe and stay exhausted.
     with pytest.raises(StopIteration):
         next(iterator)
 

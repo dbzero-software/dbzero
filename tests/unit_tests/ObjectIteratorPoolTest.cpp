@@ -26,6 +26,7 @@ namespace tests
         {
         public:
             bool m_detached = false;
+            std::size_t m_detach_count = 0;
 
             UniqueAddress getKey() const override {
                 return UniqueAddress(Address::fromOffset(1), 1);
@@ -84,6 +85,7 @@ namespace tests
 
             void detach() override {
                 m_detached = true;
+                ++m_detach_count;
             }
 
             FTIteratorType getSerialTypeId() const override {
@@ -131,6 +133,9 @@ namespace tests
                 object_model_initializer(fixture, is_new, read_only, is_snapshot);
                 if (!is_snapshot) {
                     auto &iterator_pool = fixture->addResource<db0::object_model::ObjectIteratorPool>();
+                    fixture->addIteratorDetachHandler([&iterator_pool](std::uint64_t generation) {
+                        return iterator_pool.detach(generation);
+                    });
                     fixture->addCloseHandler([&iterator_pool](bool commit) {
                         if (!commit) {
                             iterator_pool.close();
@@ -166,6 +171,48 @@ namespace tests
         ASSERT_EQ(pool.detach(), 1u);
         ASSERT_TRUE(query_ptr->m_detached);
         ASSERT_EQ(pool.size(), 1u);
+        workspace.close();
+    }
+
+    TEST_F(ObjectIteratorPoolTest, testObjectIteratorPoolDetachShortCircuitsSameGeneration)
+    {
+        Workspace workspace("", {}, {}, {}, {}, pythonFixtureInitializer());
+        auto fixture = workspace.getFixture(prefix_name);
+        auto &pool = fixture->get<db0::object_model::ObjectIteratorPool>();
+        DetachableUniqueAddressIterator *query_ptr = nullptr;
+        auto py_iter = makePyIterator(fixture, query_ptr);
+
+        pool.add(db0::object_model::ObjectIteratorPool::ObjectSharedExtPtr(py_iter.get()));
+
+        ASSERT_EQ(pool.detach(1), 1u);
+        ASSERT_EQ(query_ptr->m_detach_count, 1u);
+        ASSERT_EQ(pool.detach(1), 0u);
+        ASSERT_EQ(query_ptr->m_detach_count, 1u);
+        ASSERT_EQ(pool.detach(2), 1u);
+        ASSERT_EQ(query_ptr->m_detach_count, 2u);
+        workspace.close();
+    }
+
+    TEST_F(ObjectIteratorPoolTest, testFixtureDetachBatchDetachesOnlyOnce)
+    {
+        Workspace workspace("", {}, {}, {}, {}, pythonFixtureInitializer());
+        auto fixture = workspace.getFixture(prefix_name);
+        std::vector<std::uint64_t> generations;
+        fixture->addIteratorDetachHandler([&generations](std::uint64_t generation) {
+            generations.push_back(generation);
+            return 1;
+        });
+
+        {
+            auto detach_guard = fixture->beginIteratorDetach();
+            ASSERT_EQ(fixture->detachIterators(), 1u);
+            ASSERT_EQ(fixture->detachIterators(), 0u);
+            ASSERT_EQ(generations.size(), 1u);
+        }
+
+        ASSERT_EQ(fixture->detachIterators(), 1u);
+        ASSERT_EQ(generations.size(), 2u);
+        ASSERT_NE(generations[0], generations[1]);
         workspace.close();
     }
 

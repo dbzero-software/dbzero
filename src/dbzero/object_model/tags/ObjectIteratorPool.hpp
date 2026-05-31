@@ -4,6 +4,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <vector>
 #include <dbzero/bindings/python/PyWrapper.hpp>
 #include <dbzero/bindings/python/shared_py_object.hpp>
@@ -21,6 +22,7 @@ namespace db0::object_model
 
         void add(ObjectSharedExtPtr object);
         std::size_t detach();
+        std::size_t detach(std::uint64_t generation);
         std::size_t cleanup();
         void close();
 
@@ -29,6 +31,7 @@ namespace db0::object_model
 
     private:
         std::vector<ObjectSharedExtPtr> m_iterators;
+        std::uint64_t m_detach_generation = 0;
         bool m_closed = false;
 
         static ObjectIterator *getIterator(ObjectSharedExtPtr const &object);

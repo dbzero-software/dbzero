@@ -366,6 +366,15 @@ namespace db0::object_model
     
     void TagIndex::rollback()
     {
+        auto fixture = m_fixture.lock();
+        std::optional<Fixture::DetachGuard> detach_guard;
+        if (!!fixture) {
+            detach_guard.emplace(fixture->beginIteratorDetach());
+            if (!empty()) {
+                fixture->detachIterators();
+            }
+        }
+
         if (m_short_tag_index_map) {
             m_short_tag_index_map->forEachActive([](TagIndex &tag_index) {
                 tag_index.rollback();
@@ -394,6 +403,10 @@ namespace db0::object_model
 
     void TagIndex::clear()
     {
+        auto fixture = m_fixture.lock();
+        if (!!fixture && (!empty() || !m_base_index_short.empty() || !m_base_index_long.empty())) {
+            fixture->detachIterators();
+        }
         rollback();
         m_base_index_short.clear();
         m_base_index_long.clear();        
@@ -442,6 +455,12 @@ namespace db0::object_model
     {
         using ShortBatchOperationBulder = db0::FT_BaseIndex<ShortTagT>::BatchOperationBuilder;
 
+        auto fixture = m_fixture.lock();
+        std::optional<Fixture::DetachGuard> detach_guard;
+        if (!!fixture) {
+            detach_guard.emplace(fixture->beginIteratorDetach());
+        }
+
         bool composite_indexes_contain_values = false;
         auto hasPersistedValues = [&]() {
             return !m_base_index_short.empty() || !m_base_index_long.empty() || composite_indexes_contain_values;
@@ -463,6 +482,9 @@ namespace db0::object_model
                     }
                 }
             });
+            if (!!fixture && !emptyCompositeTags.empty()) {
+                fixture->detachIterators();
+            }
             for (auto tag: emptyCompositeTags) {
                 m_short_tag_index_map->erase(
                     tag,
@@ -491,6 +513,9 @@ namespace db0::object_model
         
         // might be empty after clean-ups, check again
         if (!assureEmpty()) {
+            if (!!fixture) {
+                fixture->detachIterators();
+            }
             // the purpose of callback is to incRef objects when a new tag is assigned
             std::function<void(UniqueAddress)> add_tag_callback = [&](UniqueAddress obj_addr) {
                 auto it = m_object_cache.find(obj_addr);

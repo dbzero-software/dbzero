@@ -47,6 +47,15 @@ namespace db0::object_model
         return detached_count;
     }
 
+    std::size_t ObjectIteratorPool::detach(std::uint64_t generation)
+    {
+        if (m_detach_generation == generation) {
+            return 0;
+        }
+        m_detach_generation = generation;
+        return detach();
+    }
+
     std::size_t ObjectIteratorPool::cleanup()
     {
         auto old_size = m_iterators.size();

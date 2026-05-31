@@ -71,6 +71,9 @@ namespace db0::python
             object_model_initializer(fixture, is_new, read_only, is_snapshot);
             if (!is_snapshot) {
                 auto &iterator_pool = fixture->addResource<db0::object_model::ObjectIteratorPool>();
+                fixture->addIteratorDetachHandler([&iterator_pool](std::uint64_t generation) {
+                    return iterator_pool.detach(generation);
+                });
                 fixture->addCloseHandler([&iterator_pool](bool commit) {
                     if (!commit) {
                         iterator_pool.close();
