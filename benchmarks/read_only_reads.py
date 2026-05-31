@@ -12,15 +12,15 @@ Observed on this workspace:
 - Command:
   PYTHONPATH=/src/dev/dbzero python3 benchmarks/read_only_reads.py --target-seconds 30
 - Current result:
+  iterations=55059079
+  elapsed_seconds=30.433811
+  reads_per_second=1809141.757
+  nanoseconds_per_read=552.748
+- Previous recorded result:
   iterations=56095010
   elapsed_seconds=30.795000
   reads_per_second=1821562.283
   nanoseconds_per_read=548.979
-- Previous recorded result:
-  iterations=53910152
-  elapsed_seconds=29.781574
-  reads_per_second=1810184.778
-  nanoseconds_per_read=552.430
 """
 
 import argparse
