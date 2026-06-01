@@ -665,6 +665,9 @@ namespace db0::bindex::iterator
         }
 
         bool is_end() const {
+            if (!m_ptr) {
+                return true;
+            }
             return m_functions.m_is_end_ptr(m_ptr);
         }
 

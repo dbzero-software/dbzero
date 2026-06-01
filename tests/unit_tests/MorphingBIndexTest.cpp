@@ -205,6 +205,25 @@ namespace tests
 		ASSERT_NO_THROW( db0::MorphingBIndex<uint64_t>::joinable_const_iterator() );
 	}
 
+	TEST_F( MorphingBIndexTest , testDefaultIteratorIsEnd )
+	{
+        db0::MorphingBIndex<std::uint64_t>::joinable_const_iterator cut;
+
+        ASSERT_TRUE(cut.is_end());
+	}
+
+	TEST_F( MorphingBIndexTest , testResetIteratorIsEnd )
+	{
+        auto memspace = getMemspace();
+        db0::MorphingBIndex<std::uint64_t> index(memspace, 123u);
+        auto cut = index.beginJoin(1);
+
+        ASSERT_FALSE(cut.is_end());
+        cut.reset();
+
+        ASSERT_TRUE(cut.is_end());
+	}
+
 	TEST_F( MorphingBIndexTest , testAssignmentOperatorIsAllowed )
 	{
         auto memspace = getMemspace();
