@@ -978,13 +978,13 @@ def bytearray(source: Union[bytes, Iterable[int]] = b'', /) -> ByteArrayObject:
 
 # Tag and query functions
 
-def tags(*objects: Memo) -> ObjectTagManager:
+def tags(*objects: Union[Memo, QueryObject]) -> ObjectTagManager:
     """Get a tag manager interface for given Memo objects.
 
     Parameters
     ----------
-    *objects : Memo
-        One or more Memo objects to manage tags for.
+    *objects : Memo or QueryObject
+        One or more Memo objects or query result sets to manage tags for.
 
     Returns
     -------
@@ -1008,6 +1008,11 @@ def tags(*objects: Memo) -> ObjectTagManager:
     >>> product1, product2 = Product("Laptop"), Product("Mouse")
     >>> dbzero.tags(product1, product2).add("sale")
     >>> dbzero.tags(product1, product2).remove("sale")
+
+    Batch operations on query results:
+
+    >>> dbzero.tags(dbzero.find("token-a", "token-b")).add("token-c")
+    >>> dbzero.tags(dbzero.find("token-a")).remove("token-a")
 
     Chain operations:
     
