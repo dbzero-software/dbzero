@@ -133,7 +133,7 @@ namespace db0
         // Find existing slab by ID
         std::shared_ptr<SlabItem> tryFind(std::uint32_t slab_id) const;
         std::shared_ptr<SlabItem> find(std::uint32_t slab_id) const;
-        void markDirty(std::shared_ptr<SlabItem>);
+        void markDirty(std::shared_ptr<SlabItem>, std::size_t depth = 0);
         void invalidateCachedSlab(std::uint64_t);
 
         /**
@@ -167,9 +167,6 @@ namespace db0
         {
             // Slabs created in this atomic block; removed from cache if the block is rolled back.
             std::vector<std::uint64_t> m_volatile_slabs;
-            // Existing slabs whose in-memory allocator state was changed in this block.
-            // Rollback evicts only these slabs so they are reopened lazily from the restored prefix.
-            std::unordered_set<std::uint64_t> m_dirty_slabs;
             // Frees requested in this atomic block; promoted on commit, discarded on rollback.
             std::vector<Address> m_deferred_free_ops;
         };
