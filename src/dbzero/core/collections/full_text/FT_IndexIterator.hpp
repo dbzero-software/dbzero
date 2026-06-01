@@ -292,10 +292,10 @@ namespace db0
 	void FT_IndexIterator<bindex_t, key_t, IndexKeyT>::detach()
     {
         if (!this->m_is_detached) {
-            if (!this->m_iterator.is_end()) {
-                this->m_detach_key = *(this->m_iterator);
-            } else {
+            if (this->m_force_end || this->m_iterator.is_end()) {
                 this->m_detach_key = {};
+            } else {
+                this->m_detach_key = *(this->m_iterator);
             }
             this->m_iterator.reset();
             this->m_is_detached = true;
