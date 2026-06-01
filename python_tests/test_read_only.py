@@ -313,6 +313,24 @@ async def test_read_only_context_does_not_outlive_parent_async_block(db0_fixture
     assert obj.value == 789
 
 
+async def test_read_only_child_task_stale_context_is_not_reactivated_by_unrelated_context(db0_fixture):
+    obj = MemoTestClass(123)
+    child_can_run = asyncio.Event()
+
+    async def mutate_in_child_task():
+        await child_can_run.wait()
+        obj.value = 789
+
+    with db0.read_only():
+        child_task = asyncio.create_task(mutate_in_child_task())
+
+    with db0.read_only():
+        child_can_run.set()
+        await asyncio.wait_for(child_task, timeout=5)
+
+    assert obj.value == 789
+
+
 def test_read_only_fast_overhead_paths(db0_fixture):
     obj = MemoTestClass(0)
     iterations = 100

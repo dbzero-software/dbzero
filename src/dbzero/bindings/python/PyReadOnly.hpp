@@ -22,6 +22,7 @@ namespace db0::python
     private:
         bool m_active = true;
         PyObject *m_token = nullptr;
+        PyObject *m_state_capsule = nullptr;
     };
 
     using PyReadOnly = PyWrapper<PyReadOnlyContext, false>;
