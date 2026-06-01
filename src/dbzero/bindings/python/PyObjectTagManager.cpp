@@ -5,6 +5,9 @@
 #include "Memo.hpp"
 #include "PyInternalAPI.hpp"
 #include "PyToolkit.hpp"
+#include "iter/PyObjectIterable.hpp"
+#include <memory>
+#include <vector>
 
 namespace db0::python
 
@@ -102,10 +105,19 @@ namespace db0::python
     
     PyObjectTagManager *tryMakeObjectTagManager(PyObject *, PyObject *const *args, Py_ssize_t nargs)
     {
-        // all arguments must be Memo objects
+        std::vector<PyObject*> memo_args;
+        std::vector<std::shared_ptr<ObjectIterable> > query_targets;
+        memo_args.reserve(nargs);
+        query_targets.reserve(nargs);
+
         for (Py_ssize_t i = 0; i < nargs; ++i) {
+            if (PyObjectIterable_Check(args[i])) {
+                auto *query = reinterpret_cast<PyObjectIterable*>(args[i]);
+                query_targets.push_back(query->getSharedPtr());
+                continue;
+            }
             if (!PyToolkit::isAnyMemoObject(args[i])) {
-                THROWF(db0::InputException) << "All arguments must be dbzero memo objects";
+                THROWF(db0::InputException) << "All arguments must be dbzero memo objects or object queries";
             }
             if (PyMemo_Check<MemoObject>(args[i])) {
                 auto *memoObject = reinterpret_cast<MemoObject *>(args[i]);
@@ -118,10 +130,16 @@ namespace db0::python
                     auto materialized = Py_OWN(getMaterializedMemoObject(memoObject));
                 }
             }
+            memo_args.push_back(args[i]);
         }
         
         auto tags_obj = Py_OWN(PyObjectTagManager_new(&PyObjectTagManagerType, NULL, NULL));        
-        ObjectTagManager::makeNew(&tags_obj->modifyExt(), args, nargs);
+        ObjectTagManager::makeNew(
+            &tags_obj->modifyExt(),
+            memo_args.data(),
+            memo_args.size(),
+            std::move(query_targets)
+        );
         return tags_obj.steal();
     }
     

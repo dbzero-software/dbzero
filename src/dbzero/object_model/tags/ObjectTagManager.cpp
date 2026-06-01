@@ -2,6 +2,7 @@
 // Copyright (c) 2025 DBZero Software sp. z o.o.
 
 #include "ObjectTagManager.hpp"
+#include "ObjectIterator.hpp"
 #include <dbzero/object_model/class/Class.hpp>
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/workspace/Fixture.hpp>
@@ -49,20 +50,34 @@ namespace db0::object_model
 
     }
 
-    ObjectTagManager::ObjectTagManager(ObjectPtr const *memo_ptr, std::size_t nargs)
-        : m_info(memo_ptr[0])
+    ObjectTagManager::ObjectTagManager(ObjectPtr const *memo_ptr, std::size_t nargs,
+        std::vector<std::shared_ptr<ObjectIterable> > &&query_targets)
+        : m_empty(nargs == 0 && query_targets.empty())
         , m_info_vec_ptr((nargs > 1) ? (new ObjectInfo[nargs - 1]) : nullptr)
-        , m_info_vec_size(nargs - 1)
-        , m_access_mode(m_info.m_access_mode)
-        , m_fixtures(m_info.getFixture())
+        , m_info_vec_size(nargs > 0 ? nargs - 1 : 0)
+        , m_query_targets(std::move(query_targets))
     {
-        assert(nargs > 0);
+        if (m_empty) {
+            return;
+        }
+        if (nargs > 0) {
+            m_info = ObjectInfo(memo_ptr[0]);
+            m_access_mode = m_info.m_access_mode;
+            m_fixtures.add(m_info.getFixture());
+        }
         for (std::size_t i = 1; i < nargs; ++i) {
             m_info_vec_ptr[i - 1] = ObjectInfo(memo_ptr[i]);
             m_fixtures.add(m_info_vec_ptr[i - 1].getFixture());
             if (m_info_vec_ptr[i - 1].m_access_mode != AccessType::READ_WRITE) {
                 m_access_mode = AccessType::READ_ONLY;                
             }            
+        }
+        for (const auto &query_target: m_query_targets) {
+            auto fixture = query_target->getFixture();
+            m_fixtures.add(fixture);
+            if (fixture->getAccessType() != AccessType::READ_WRITE) {
+                m_access_mode = AccessType::READ_ONLY;
+            }
         }
     }
     
@@ -80,13 +95,14 @@ namespace db0::object_model
         }
     }
     
-    ObjectTagManager *ObjectTagManager::makeNew(void *at_ptr, ObjectPtr const *memo_ptr, std::size_t nargs)
+    ObjectTagManager *ObjectTagManager::makeNew(void *at_ptr, ObjectPtr const *memo_ptr, std::size_t nargs,
+        std::vector<std::shared_ptr<ObjectIterable> > &&query_targets)
     {
-        if (nargs == 0) {
+        if (nargs == 0 && query_targets.empty()) {
             // construct as empty
             return new (at_ptr) ObjectTagManager();
         }
-        return new (at_ptr) ObjectTagManager(memo_ptr, nargs);    
+        return new (at_ptr) ObjectTagManager(memo_ptr, nargs, std::move(query_targets));    
     }
     
     ObjectTagManager::ObjectInfo::ObjectInfo(ObjectPtr memo_ptr)
@@ -227,10 +243,16 @@ namespace db0::object_model
         if (db0::ReadOnlyContext::isActive()) {
             THROWF(db0::InputException) << "dbzero read_only context forbids mutation";
         }
-        m_info.add(args, nargs);
+        validateQueryTargets();
+        if (!!m_info.m_lang_ptr) {
+            m_info.add(args, nargs);
+        }
         for (std::size_t i = 0; i < m_info_vec_size; ++i) {
             m_info_vec_ptr[i].add(args, nargs);
         }
+        forEachQueryTarget([&](ObjectInfo &object_info) {
+            object_info.add(args, nargs);
+        });
         onUpdated(); 
     }
     
@@ -246,10 +268,16 @@ namespace db0::object_model
         if (db0::ReadOnlyContext::isActive()) {
             THROWF(db0::InputException) << "dbzero read_only context forbids mutation";
         }
-        m_info.remove(args, nargs);
+        validateQueryTargets();
+        if (!!m_info.m_lang_ptr) {
+            m_info.remove(args, nargs);
+        }
         for (std::size_t i = 0; i < m_info_vec_size; ++i) {
             m_info_vec_ptr[i].remove(args, nargs);
-        }        
+        }
+        forEachQueryTarget([&](ObjectInfo &object_info) {
+            object_info.remove(args, nargs);
+        });
         onUpdated();
     }
     
@@ -267,6 +295,36 @@ namespace db0::object_model
             auto fx = m_fixtures[i].lock();
             if (fx) {
                 fx->onUpdated();
+            }
+        }
+    }
+
+    void ObjectTagManager::validateQueryTargets() const
+    {
+        for (const auto &query_target: m_query_targets) {
+            if (!query_target) {
+                THROWF(db0::InputException) << "ObjectTagManager: invalid query target";
+            }
+            if (query_target->isPredicateOnly()) {
+                THROWF(db0::InputException) << "ObjectTagManager: predicate queries cannot be used as tag targets";
+            }
+            if (query_target->getFixture()->getAccessType() != AccessType::READ_WRITE) {
+                THROWF(db0::InputException) << "ObjectTagManager: cannot update tags through read-only query target";
+            }
+        }
+    }
+
+    void ObjectTagManager::forEachQueryTarget(std::function<void(ObjectInfo &)> callback)
+    {
+        for (const auto &query_target: m_query_targets) {
+            auto iter = query_target->iter();
+            while (true) {
+                auto object = iter->next();
+                if (!object) {
+                    break;
+                }
+                ObjectInfo object_info(object.get());
+                callback(object_info);
             }
         }
     }

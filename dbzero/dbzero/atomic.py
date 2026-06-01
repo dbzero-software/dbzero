@@ -10,7 +10,7 @@ import weakref
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 from .interfaces import Memo
-from .dbzero import begin_atomic, begin_async_atomic, assign
+from .dbzero import _in_read_only, begin_atomic, begin_async_atomic, assign
 
 
 _async_atomic_locks: weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, asyncio.Lock] = weakref.WeakKeyDictionary()
@@ -28,6 +28,17 @@ _async_atomic_state: contextvars.ContextVar[Optional[_AsyncAtomicState]] = conte
     "dbzero_async_atomic_state",
     default=None,
 )
+
+
+class _NoOpAtomicContext:
+    def close(self):
+        pass
+
+    def cancel(self):
+        pass
+
+
+_NO_OP_ATOMIC_CONTEXT = _NoOpAtomicContext()
 
 
 def _current_async_task() -> Optional[asyncio.Task]:
@@ -68,7 +79,7 @@ class AtomicManager:
     def begin(self):
         """Begin the atomic context"""
         if self.__ctx is None:
-            self.__ctx = begin_atomic()
+            self.__ctx = _NO_OP_ATOMIC_CONTEXT if _in_read_only() else begin_atomic()
 
     def close(self):
         """Close the atomic context, staging the changes for commit"""
@@ -155,6 +166,10 @@ class AsyncAtomicManager:
         self.__release_lock = False
 
     async def __aenter__(self) -> AsyncAtomicManager:
+        if _in_read_only():
+            self.__ctx = _NO_OP_ATOMIC_CONTEXT
+            return self
+
         task = _current_async_task()
         if task is None:
             raise RuntimeError("db0.async_atomic requires a running asyncio task")

@@ -22,6 +22,7 @@ namespace db0::python
     private:
         bool m_active = true;
         PyObject *m_token = nullptr;
+        PyObject *m_state_capsule = nullptr;
     };
 
     using PyReadOnly = PyWrapper<PyReadOnlyContext, false>;
@@ -36,6 +37,7 @@ namespace db0::python
 
     PyObject *PyAPI_PyReadOnly_close(PyObject *, PyObject *);
     PyObject *PyAPI_beginReadOnly(PyObject *self, PyObject *const *, Py_ssize_t nargs);
+    PyObject *PyAPI_inReadOnly(PyObject *self, PyObject *const *, Py_ssize_t nargs);
     int initReadOnlyContextSupport();
 
 }

@@ -78,6 +78,7 @@ def test_init_without_rpc_does_not_import_db0_rpc(db0_fixture, monkeypatch):
     monkeypatch.setattr(builtins, "__import__", guarded_import)
 
     db0.init(DB0_DIR)
+    assert db0.in_read_only() is False
 
 
 def test_init_propagates_rpc_init_error_and_allows_recovery(db0_fixture, monkeypatch):

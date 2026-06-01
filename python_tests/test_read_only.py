@@ -2,6 +2,7 @@
 # Copyright (c) 2025 DBZero Software sp. z o.o.
 
 import asyncio
+import importlib
 import threading
 
 import pytest
@@ -21,6 +22,18 @@ def test_read_only_allows_reads(db0_fixture):
     with db0.read_only():
         assert obj.value == 123
         assert db0.fetch(db0.uuid(obj)) == obj
+
+
+def test_in_read_only_public_predicate(db0_fixture):
+    assert not db0.in_read_only()
+
+    with db0.read_only():
+        assert db0.in_read_only()
+        with db0.read_only():
+            assert db0.in_read_only()
+        assert db0.in_read_only()
+
+    assert not db0.in_read_only()
 
 
 def test_read_only_rejects_memo_field_assignment(db0_fixture):
@@ -125,14 +138,22 @@ def test_read_only_inside_atomic_rejects_mutation(db0_fixture):
     assert obj.value == 123
 
 
-def test_atomic_inside_read_only_starts_normally_but_mutation_is_rejected(db0_fixture):
+def test_atomic_inside_read_only_is_optimized_out(db0_fixture, monkeypatch):
     obj = MemoTestClass(123)
+    atomic_module = importlib.import_module("dbzero.atomic")
 
     with db0.read_only():
+        assert db0._in_read_only()
+        monkeypatch.setattr(
+            atomic_module,
+            "begin_atomic",
+            lambda: pytest.fail("begin_atomic should not run inside read_only"),
+        )
         with db0.atomic():
             with pytest.raises(RuntimeError, match="read_only.*mutation|mutation.*read_only"):
                 obj.value = 456
 
+    assert not db0._in_read_only()
     obj.value = 789
     assert obj.value == 789
 
@@ -288,6 +309,24 @@ async def test_read_only_context_does_not_outlive_parent_async_block(db0_fixture
 
     child_can_run.set()
     await asyncio.wait_for(child_task, timeout=5)
+
+    assert obj.value == 789
+
+
+async def test_read_only_child_task_stale_context_is_not_reactivated_by_unrelated_context(db0_fixture):
+    obj = MemoTestClass(123)
+    child_can_run = asyncio.Event()
+
+    async def mutate_in_child_task():
+        await child_can_run.wait()
+        obj.value = 789
+
+    with db0.read_only():
+        child_task = asyncio.create_task(mutate_in_child_task())
+
+    with db0.read_only():
+        child_can_run.set()
+        await asyncio.wait_for(child_task, timeout=5)
 
     assert obj.value == 789
 
