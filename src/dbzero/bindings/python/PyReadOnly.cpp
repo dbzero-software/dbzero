@@ -180,6 +180,18 @@ namespace db0::python
         return runSafe(PyAPI_tryBeginReadOnly, self);
     }
 
+    PyObject *PyAPI_inReadOnly(PyObject *, PyObject *const *, Py_ssize_t nargs)
+    {
+        if (nargs != 0) {
+            PyErr_SetString(PyExc_TypeError, "_in_read_only requires no arguments");
+            return NULL;
+        }
+        if (db0::ReadOnlyContext::isActive()) {
+            Py_RETURN_TRUE;
+        }
+        Py_RETURN_FALSE;
+    }
+
     bool PyReadOnly_Check(PyObject *object) {
         return Py_TYPE(object) == &PyReadOnlyType;
     }

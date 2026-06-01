@@ -2,6 +2,7 @@
 # Copyright (c) 2025 DBZero Software sp. z o.o.
 
 import asyncio
+import importlib
 import threading
 
 import pytest
@@ -125,14 +126,22 @@ def test_read_only_inside_atomic_rejects_mutation(db0_fixture):
     assert obj.value == 123
 
 
-def test_atomic_inside_read_only_starts_normally_but_mutation_is_rejected(db0_fixture):
+def test_atomic_inside_read_only_is_optimized_out(db0_fixture, monkeypatch):
     obj = MemoTestClass(123)
+    atomic_module = importlib.import_module("dbzero.atomic")
 
     with db0.read_only():
+        assert db0._in_read_only()
+        monkeypatch.setattr(
+            atomic_module,
+            "begin_atomic",
+            lambda: pytest.fail("begin_atomic should not run inside read_only"),
+        )
         with db0.atomic():
             with pytest.raises(RuntimeError, match="read_only.*mutation|mutation.*read_only"):
                 obj.value = 456
 
+    assert not db0._in_read_only()
     obj.value = 789
     assert obj.value == 789
 

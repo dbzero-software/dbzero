@@ -15,6 +15,10 @@ def read_only() -> ContextManager[Any]:
     """Open a context manager that rejects dbzero mutations in its block."""
     ...
 
+def _in_read_only() -> bool:
+    """Return whether the current execution is inside a dbzero read-only block."""
+    ...
+
 def open(prefix_name: str, open_mode: str = "rw", **kwargs: Any) -> None:
     """Open a data prefix and set it as the current working context.
 

@@ -75,6 +75,7 @@ static PyMethodDef dbzero_methods[] =
     {"_in_async_task", (PyCFunction)&py::PyAPI_inAsyncTask, METH_FASTCALL, "Returns whether the current execution is an asyncio task"},
     {"begin_locked", (PyCFunction)&py::PyAPI_beginLocked, METH_FASTCALL, "Enter a new locked section"},
     {"begin_read_only", (PyCFunction)&py::PyAPI_beginReadOnly, METH_FASTCALL, "Enter a new read-only section"},
+    {"_in_read_only", (PyCFunction)&py::PyAPI_inReadOnly, METH_FASTCALL, "Returns whether the current execution is in a read-only section"},
     {"describe", &py::describeObject, METH_VARARGS, "Get dbzero object's description"},
     {"rename_field", (PyCFunction)&py::renameField, METH_VARARGS | METH_KEYWORDS, "Get snapshot of dbzero state"},
     {"_init_data_masking", (PyCFunction)&py::initDataMasking, METH_VARARGS | METH_KEYWORDS, "Initialize data masking for specific prefixes"},
