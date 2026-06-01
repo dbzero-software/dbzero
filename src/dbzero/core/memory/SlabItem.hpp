@@ -145,6 +145,7 @@ DB0_PACKED_END
         // the capacity item as last retrieved from the backend (may need update)
         CapacityItem m_cap_item;
         bool m_is_dirty = false;
+        std::size_t m_dirty_depth = 0;
         
         SlabItem(std::shared_ptr<SlabAllocator> slab, CapacityItem cap);
         ~SlabItem();

@@ -1403,7 +1403,19 @@ def test_atomic_deletion(db0_fixture):
     with pytest.raises(Exception):
         db0.fetch(dep_uuid)
 
-    
+
+def test_commit_skips_modified_wrapper_after_deferred_free(db0_no_autocommit):
+    child = db0.list([1])
+    parent = MemoTestClass(child)
+    db0.commit()
+
+    child.append(2)
+    parent.value = None
+
+    db0.commit()
+    db0.commit()
+
+
 def test_atomic_deletion_issue_1(db0_fixture):
     """
     This test was failing due to incorrect implementation of AtomicContext.exit() - 
