@@ -7,8 +7,10 @@
 #include <dbzero/object_model/set/Set.hpp>
 #include <dbzero/object_model/list/List.hpp>
 #include <dbzero/object_model/object/Object.hpp>
+#include <dbzero/object_model/object/ObjectImmutableImpl.hpp>
 #include <dbzero/object_model/tuple/Tuple.hpp>
 #include <dbzero/object_model/index/Index.hpp>
+#include <dbzero/bindings/python/embedded/EmbeddedObject.hpp>
 #include <dbzero/bindings/python/PySafeAPI.hpp>
 #include <Python.h>
 
@@ -36,6 +38,16 @@ namespace db0
     {
         using MemoObject = PyToolkit::TypeManager::MemoObject;
         detachExisting(PyToolkit::getTypeManager().extractObject<MemoObject>(obj_ptr));
+    }
+
+    // MEMO_IMMUTABLE_OBJECT specialization
+    template <> void detachObject<TypeId::MEMO_IMMUTABLE_OBJECT, PyToolkit>(PyObjectPtr obj_ptr)
+    {
+        if (db0::python::PyEmbeddedMemo_Check(obj_ptr)) {
+            return;
+        }
+        using MemoImmutableObject = PyToolkit::TypeManager::MemoImmutableObject;
+        detachExisting(PyToolkit::getTypeManager().extractObject<MemoImmutableObject>(obj_ptr));
     }
     
     // DB0_LIST specialization
@@ -68,6 +80,8 @@ namespace db0
         functions.resize(static_cast<int>(TypeId::COUNT));
         std::fill(functions.begin(), functions.end(), nullptr);
         functions[static_cast<int>(TypeId::MEMO_OBJECT)] = detachObject<TypeId::MEMO_OBJECT, PyToolkit>;
+        functions[static_cast<int>(TypeId::MEMO_IMMUTABLE_OBJECT)] =
+            detachObject<TypeId::MEMO_IMMUTABLE_OBJECT, PyToolkit>;
         functions[static_cast<int>(TypeId::DB0_LIST)] = detachObject<TypeId::DB0_LIST, PyToolkit>;
         functions[static_cast<int>(TypeId::DB0_INDEX)] = detachObject<TypeId::DB0_INDEX, PyToolkit>;
         functions[static_cast<int>(TypeId::DB0_SET)] = detachObject<TypeId::DB0_SET, PyToolkit>;

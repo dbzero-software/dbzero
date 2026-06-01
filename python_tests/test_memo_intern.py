@@ -232,6 +232,16 @@ def test_assigning_non_materialized_intern_to_existing_regular_memo_materializes
     assert holder.value.name == "assigned"
 
 
+def test_atomic_assigning_interned_immutable_to_regular_memo_detaches(db0_fixture):
+    holder = MemoRegularInternReferenceHolder()
+    leaf = MemoInternLeaf("assigned in atomic")
+
+    with db0.atomic():
+        holder.value = leaf
+
+    assert holder.value.name == "assigned in atomic"
+
+
 def test_uuid_materializes_non_materialized_intern_instance(db0_fixture):
     leaf = MemoInternLeaf("uuid materialized")
 
