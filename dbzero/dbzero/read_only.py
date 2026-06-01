@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from .dbzero import begin_read_only
+from .dbzero import _in_read_only, begin_read_only
 
 
 class ReadOnlyManager:
@@ -25,3 +25,8 @@ class ReadOnlyManager:
 def read_only() -> ReadOnlyManager:
     """Open a context manager that rejects dbzero mutations in its block."""
     return ReadOnlyManager()
+
+
+def in_read_only() -> bool:
+    """Return whether the current execution is inside a dbzero read-only block."""
+    return _in_read_only()

@@ -24,6 +24,18 @@ def test_read_only_allows_reads(db0_fixture):
         assert db0.fetch(db0.uuid(obj)) == obj
 
 
+def test_in_read_only_public_predicate(db0_fixture):
+    assert not db0.in_read_only()
+
+    with db0.read_only():
+        assert db0.in_read_only()
+        with db0.read_only():
+            assert db0.in_read_only()
+        assert db0.in_read_only()
+
+    assert not db0.in_read_only()
+
+
 def test_read_only_rejects_memo_field_assignment(db0_fixture):
     obj = MemoTestClass(123)
 
