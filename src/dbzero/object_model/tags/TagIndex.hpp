@@ -77,7 +77,7 @@ DB0_PACKED_END
         // add a tag using long identifier
         void addTag(ObjectPtr memo_ptr, LongTagT tag_addr);
 
-        void addTags(ObjectPtr memo_ptr, ObjectPtr const *lang_args, std::size_t nargs);
+        void addTags(ObjectPtr memo_ptr, ObjectPtr const *lang_args, std::size_t nargs, bool passive = false);
         
         // NOTE: type tags are removed when dropping the object, therefore lang instances are not required
         void removeTypeTag(UniqueAddress obj_addr, Address tag_addr);
@@ -196,7 +196,7 @@ DB0_PACKED_END
         
         db0::FT_BaseIndex<ShortTagT>::BatchOperationBuilder &getBatchOperationShort(ObjectPtr,
             ActiveValueT &result, bool is_type) const;
-                
+
         db0::FT_BaseIndex<LongTagT>::BatchOperationBuilder &getBatchOperationLong(ObjectPtr,
             ActiveValueT &result) const;
         
@@ -233,12 +233,17 @@ DB0_PACKED_END
         std::optional<ShortTagT> tryAddShortTagFromTag(ObjectPtr) const;        
         std::optional<ShortTagT> tryAddShortTagFromMemo(ObjectPtr) const;
         
+        // Passive tag predicates are allowed only when the query is anchored by at least one
+        // non-passive positive predicate (type, regular tag, fixed object, nested query, etc.).
+        // These optional flags let root query planning distinguish passive predicates from anchors.
         bool addIterator(ObjectPtr, db0::FT_IteratorFactory<UniqueAddress> &factory,
             std::vector<std::unique_ptr<QueryIterator> > &neg_iterators, 
-            std::vector<std::unique_ptr<QueryObserver> > &query_observers) const;
+            std::vector<std::unique_ptr<QueryObserver> > &query_observers,
+            bool *has_passive_predicate = nullptr, bool *has_positive_anchor = nullptr) const;
         bool addIterator(const ObjectIterable &, db0::FT_IteratorFactory<UniqueAddress> &factory,
             std::vector<std::unique_ptr<QueryIterator> > &neg_iterators, 
-            std::vector<std::unique_ptr<QueryObserver> > &query_observers) const;
+            std::vector<std::unique_ptr<QueryObserver> > &query_observers,
+            bool *has_positive_anchor = nullptr) const;
         bool addCompositeIterator(const CompositeTagDef &, db0::FT_IteratorFactory<UniqueAddress> &factory) const;
         bool addCompositeLeafIterator(ObjectPtr, db0::FT_IteratorFactory<UniqueAddress> &factory,
             std::vector<ShortTagT> &&serialized_tag_sequence) const;
@@ -272,6 +277,7 @@ DB0_PACKED_END
         // unless such reference has already been added when the tag was first created
         void tryTagIncRef(ShortTagT tag_addr) const;
         void tryTagDecRef(ShortTagT tag_addr) const;
+        std::optional<ShortTagT> tryGetStoredShortTag(ShortTagT tag_addr) const;
         
         // revert all pending operations associated with a specific object
         void revert(ObjectPtr) const;

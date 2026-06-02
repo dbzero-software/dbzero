@@ -31,6 +31,102 @@ def test_object_gets_incref_by_tags(db0_fixture):
     assert db0.getrefcount(object_1) == 1
 
 
+def test_passive_tag_does_not_incref_object(db0_fixture):
+    object_1 = MemoNoDefTags(1)
+    assert db0.getrefcount(object_1) == 0
+    db0.tags(object_1, passive=True).add("passive-tag")
+    db0.commit()
+    assert db0.getrefcount(object_1) == 0
+
+
+def test_passive_tag_requires_positive_predicate_for_find(db0_fixture):
+    object_1 = MemoClassForTags(1)
+    db0.tags(object_1, passive=True).add("passive-tag")
+    assert [item.value for item in db0.find(MemoClassForTags, "passive-tag")] == [1]
+    with pytest.raises(Exception):
+        list(db0.find("passive-tag"))
+
+
+def test_passive_tag_combines_with_regular_tag_predicate(db0_fixture):
+    object_1 = MemoClassForTags(1)
+    object_2 = MemoClassForTags(2)
+    db0.tags(object_1).add("regular-tag")
+    db0.tags(object_1, passive=True).add("passive-tag")
+    db0.tags(object_2).add("regular-tag")
+    assert [item.value for item in db0.find("regular-tag", "passive-tag")] == [1]
+
+
+def test_passive_tag_only_or_query_is_rejected(db0_fixture):
+    object_1 = MemoClassForTags(1)
+    object_2 = MemoClassForTags(2)
+    db0.tags(object_1, passive=True).add("passive-tag-1")
+    db0.tags(object_2, passive=True).add("passive-tag-2")
+    with pytest.raises(Exception):
+        list(db0.find(["passive-tag-1", "passive-tag-2"]))
+
+
+def test_passive_tag_remove_uses_regular_remove(db0_fixture):
+    object_1 = MemoClassForTags(1)
+    db0.tags(object_1, passive=True).add("passive-tag")
+    assert [item.value for item in db0.find(MemoClassForTags, "passive-tag")] == [1]
+    db0.tags(object_1).remove("passive-tag")
+    assert list(db0.find(MemoClassForTags, "passive-tag")) == []
+
+
+def test_passive_first_then_regular_tag_remains_non_durable(db0_fixture):
+    object_1 = MemoNoDefTags(1)
+    db0.tags(object_1, passive=True).add("passive-tag")
+    db0.commit()
+    db0.tags(object_1).add("passive-tag")
+    db0.commit()
+    assert db0.getrefcount(object_1) == 0
+
+
+def test_passive_first_then_regular_tag_in_same_transaction_remains_non_durable(db0_fixture):
+    object_1 = MemoNoDefTags(1)
+    db0.tags(object_1, passive=True).add("passive-tag")
+    db0.tags(object_1).add("passive-tag")
+    db0.commit()
+    assert db0.getrefcount(object_1) == 0
+
+
+def test_regular_first_then_passive_tag_remains_durable(db0_fixture):
+    object_1 = MemoNoDefTags(1)
+    db0.tags(object_1).add("regular-tag")
+    db0.commit()
+    db0.tags(object_1, passive=True).add("regular-tag")
+    db0.commit()
+    assert db0.getrefcount(object_1) == 1
+
+
+def test_regular_first_then_passive_tag_in_same_transaction_remains_durable(db0_fixture):
+    object_1 = MemoNoDefTags(1)
+    db0.tags(object_1).add("regular-tag")
+    db0.tags(object_1, passive=True).add("regular-tag")
+    db0.commit()
+    assert db0.getrefcount(object_1) == 1
+
+
+def test_passive_add_then_regular_remove_in_same_transaction_leaves_no_tag(db0_fixture):
+    object_1 = MemoClassForTags(1)
+    db0.tags(object_1, passive=True).add("passive-tag")
+    db0.tags(object_1).remove("passive-tag")
+    db0.commit()
+    assert db0.getrefcount(object_1) == 0
+    assert list(db0.find(MemoClassForTags, "passive-tag")) == []
+
+
+def test_passive_tag_does_not_preserve_object_lifetime(db0_fixture):
+    object_1 = MemoNoDefTags(1)
+    object_uuid = db0.uuid(object_1)
+    db0.tags(object_1, passive=True).add("passive-tag")
+    db0.commit()
+    del object_1
+    db0.commit()
+    with pytest.raises(Exception):
+        db0.fetch(object_uuid)
+
+
 def test_assigned_tags_can_be_removed(db0_fixture):
     object_1 = MemoClassForTags(1)
     db0.tags(object_1).add(["tag1", "tag2"])

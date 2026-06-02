@@ -215,10 +215,14 @@ namespace db0
                     auto old_map_value = addressOfMBIndex(*tag_index_ptr);
                     // NOTICE: only unique items are retained in index
                     // callback notified about unique items (objects)
+                    // Use the actual key being inserted to decide whether value callbacks apply.
+                    auto *range_insert_callback_ptr = FT_IndexKeyPolicy<IndexKeyT>::enableValueCallbacks(
+                        range_first->first
+                    ) ? insert_callback_ptr : nullptr;
                     std::pair<std::uint32_t, std::uint32_t> stats = tag_index_ptr->bulkInsertUnique(
                         ValueIterator(range_first),
                         ValueIterator(range_last),
-                        insert_callback_ptr
+                        range_insert_callback_ptr
                     );
 
                     // This check is here  because tag_index's location may have been changed by insert
@@ -259,15 +263,23 @@ namespace db0
                         return first_item.first != item.first;
                     });
                     // instance collection by tag pointer
-                    auto tag_index_ptr = index.tryGetExistingInvertedList(first_item.first);
-                    if (tag_index_ptr) {
+                    typename FT_BaseIndex::MapItemT item(first_item.first);
+                    auto it_list = index.find(item);
+                    if (it_list != index.end()) {
+                        auto stored_key = (*it_list).key;
+                        auto tag_index_ptr = index.getInvertedList(it_list);
                         // we need to remember old type nd pointer because they may be modified by bulkErase operation
                         auto old_addr = tag_index_ptr->getAddress();
                         auto old_map_value = addressOfMBIndex(*tag_index_ptr);
+                        // Removal requests may use a logically equivalent key without stored flags;
+                        // use the stored key to decide whether value callbacks apply.
+                        auto *range_erase_callback_ptr = FT_IndexKeyPolicy<IndexKeyT>::enableValueCallbacks(
+                            stored_key
+                        ) ? erase_callback_ptr : nullptr;
                         std::size_t erased_count = tag_index_ptr->bulkErase(
                             ValueIterator(buf_begin),
                             ValueIterator(range_end),
-                            erase_callback_ptr
+                            range_erase_callback_ptr
                         );
                         auto new_map_value = addressOfMBIndex(*tag_index_ptr);
                         if (old_map_value != new_map_value) {
@@ -278,7 +290,7 @@ namespace db0
                                 index.erase(it);
                                 // notify callback on index erased
                                 if (index_erase_callback_ptr) {
-                                    (*index_erase_callback_ptr)(first_item.first);
+                                    (*index_erase_callback_ptr)(stored_key);
                                 }
                             } else {
                                 it.modifyItem().value = new_map_value;
