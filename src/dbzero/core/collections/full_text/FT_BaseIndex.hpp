@@ -77,9 +77,11 @@ namespace db0
             // build query tree
             for (const auto &inverted_list: inverted_lists) {
                 // key inverted index
+                auto key = inverted_list.first;
                 factory.add(std::unique_ptr<FT_Iterator<KeyT> >(
-                    new FT_IndexIterator<ListT, KeyT>(
-                        *inverted_list.second, -1, inverted_list.first, {}))
+                    new FT_IndexIterator<ListT, KeyT, IndexKeyT>(
+                        *inverted_list.second, -1, key, {},
+                        [this, key]() { return this->tryGetExistingInvertedList(key); }))
                 );
             }
             return result;

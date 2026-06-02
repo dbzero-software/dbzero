@@ -56,7 +56,8 @@ namespace db0
         }
         return std::unique_ptr<FT_Iterator<KeyT> >(
             new FT_IndexIterator<ListT, KeyT, IndexKeyT>(
-                *inverted_list_ptr, direction, key, std::move(index_key_sequence))
+                *inverted_list_ptr, direction, key, std::move(index_key_sequence),
+                [this, key]() { return this->tryGetExistingInvertedList(key); })
         );
     }
     
@@ -79,7 +80,8 @@ namespace db0
         // key inverted index
         factory.add(std::unique_ptr<FT_Iterator<KeyT> >(
             new FT_IndexIterator<ListT, KeyT, IndexKeyT>(
-                *inverted_list_ptr, -1, key, std::move(index_key_sequence)))
+                *inverted_list_ptr, -1, key, std::move(index_key_sequence),
+                [this, key]() { return this->tryGetExistingInvertedList(key); }))
         );
         return true;
     }

@@ -11,6 +11,7 @@
 #include <memory>
 #include <optional>
 #include <vector>
+#include <functional>
 
 namespace db0
 
@@ -27,6 +28,8 @@ namespace db0
 		using self_t = FT_IndexIterator<bindex_t, key_t, IndexKeyT>;
 		using super_t = FT_Iterator<key_t>;
 		using iterator = typename bindex_t::joinable_const_iterator;
+		using data_ptr = std::shared_ptr<const bindex_t>;
+		using data_resolver = std::function<data_ptr()>;
 
 		// data is the live b-index view used to build the native iterator.
 		// detach/reattach rebuilds only the native iterator state from this view,
@@ -38,7 +41,7 @@ namespace db0
 		// tag iterators it stores the root-to-leaf tag key path so deserialize
 		// can traverse from the root TagIndex instead of persisting child index addresses.
 		FT_IndexIterator(const bindex_t &data, int direction, std::optional<IndexKeyT> index_key = {},
-			std::vector<IndexKeyT> &&index_key_sequence = {});
+			std::vector<IndexKeyT> &&index_key_sequence = {}, data_resolver resolver = {});
 
 		FT_IndexIterator(bindex_t &&data, int direction, std::optional<IndexKeyT> index_key = {},
 			std::vector<IndexKeyT> &&index_key_sequence = {});
@@ -47,7 +50,8 @@ namespace db0
          * Construct over already initialized simple iterator
          */
 		FT_IndexIterator(const bindex_t &data, int direction, const iterator &it,
-			std::optional<IndexKeyT> index_key = {}, std::vector<IndexKeyT> &&index_key_sequence = {});
+			std::optional<IndexKeyT> index_key = {}, std::vector<IndexKeyT> &&index_key_sequence = {},
+			data_resolver resolver = {});
 
         virtual ~FT_IndexIterator() = default;
         
@@ -93,8 +97,15 @@ namespace db0
 		void getSignature(std::vector<std::byte> &) const override;
 			
     protected:
-        std::unique_ptr<bindex_t> m_owned_data;
-        const bindex_t *m_data = nullptr;
+        // Current b-index view used by m_iterator. Resolver-backed iterators clear it
+        // on detach so reattachment cannot accidentally reuse a stale MorphingBIndex
+        // view. Temporary in-memory indexes own the moved b-index through this pointer.
+        data_ptr m_data;
+        // Optional reattachment hook. Persistent tag iterators use it to re-resolve
+        // the current inverted-list b-index after rollback/morphing may have changed
+        // the underlying MorphingBIndex address/type. Temporary indexes resolve to
+        // their owned m_data; plain borrowed indexes leave it empty.
+        data_resolver m_data_resolver;
         const int m_direction;
         // underlying native iterator (joinable_const_iterator)
         mutable iterator m_iterator;
@@ -108,10 +119,13 @@ namespace db0
 		const std::vector<IndexKeyT> m_index_key_sequence;
 
 		FT_IndexIterator(std::uint64_t uid, const bindex_t &data, int direction, 
-			std::optional<IndexKeyT> index_key = {}, std::vector<IndexKeyT> &&index_key_sequence = {});
+			std::optional<IndexKeyT> index_key = {}, std::vector<IndexKeyT> &&index_key_sequence = {},
+			data_resolver resolver = {});
 
 		FT_IndexIterator(std::uint64_t uid, bindex_t &&data, int direction,
 			std::optional<IndexKeyT> index_key = {}, std::vector<IndexKeyT> &&index_key_sequence = {});
+
+        static data_ptr borrowData(const bindex_t &data);
 
         /**
          * Get valid iterator after detach
@@ -132,10 +146,12 @@ namespace db0
 	
 	template <typename bindex_t, typename key_t, typename IndexKeyT>
 	FT_IndexIterator<bindex_t, key_t, IndexKeyT>::FT_IndexIterator(const bindex_t &data, int direction, 
-		std::optional<IndexKeyT> index_key, std::vector<IndexKeyT> &&index_key_sequence)
-        : m_data(&data)
+		std::optional<IndexKeyT> index_key, std::vector<IndexKeyT> &&index_key_sequence,
+		data_resolver resolver)
+        : m_data(borrowData(data))
+        , m_data_resolver(std::move(resolver))
         , m_direction(direction)
-        , m_iterator(m_data->beginJoin(direction))
+        , m_iterator(data.beginJoin(direction))
         , m_index_key(index_key)
         , m_index_key_sequence(std::move(index_key_sequence))
     {
@@ -144,8 +160,8 @@ namespace db0
 	template <typename bindex_t, typename key_t, typename IndexKeyT>
 	FT_IndexIterator<bindex_t, key_t, IndexKeyT>::FT_IndexIterator(bindex_t &&data, int direction,
 		std::optional<IndexKeyT> index_key, std::vector<IndexKeyT> &&index_key_sequence)
-        : m_owned_data(std::make_unique<bindex_t>(std::move(data)))
-        , m_data(m_owned_data.get())
+        : m_data(std::make_shared<bindex_t>(std::move(data)))
+        , m_data_resolver([data = m_data]() { return data; })
         , m_direction(direction)
         , m_iterator(m_data->beginJoin(direction))
         , m_index_key(index_key)
@@ -155,8 +171,10 @@ namespace db0
 	
 	template <typename bindex_t, typename key_t, typename IndexKeyT>
 	FT_IndexIterator<bindex_t, key_t, IndexKeyT>::FT_IndexIterator(const bindex_t &data, int direction, const iterator &it,
-	    std::optional<IndexKeyT> index_key, std::vector<IndexKeyT> &&index_key_sequence)
-        : m_data(&data)
+	    std::optional<IndexKeyT> index_key, std::vector<IndexKeyT> &&index_key_sequence,
+	    data_resolver resolver)
+        : m_data(borrowData(data))
+        , m_data_resolver(std::move(resolver))
         , m_direction(direction)
         , m_iterator(it)
         , m_index_key(index_key)
@@ -166,11 +184,13 @@ namespace db0
 
 	template <typename bindex_t, typename key_t, typename IndexKeyT>
 	FT_IndexIterator<bindex_t, key_t, IndexKeyT>::FT_IndexIterator(std::uint64_t uid, const bindex_t &data, int direction, 
-		std::optional<IndexKeyT> index_key, std::vector<IndexKeyT> &&index_key_sequence)
+		std::optional<IndexKeyT> index_key, std::vector<IndexKeyT> &&index_key_sequence,
+		data_resolver resolver)
 		: FT_Iterator<key_t>(uid)
-        , m_data(&data)
+        , m_data(borrowData(data))
+        , m_data_resolver(std::move(resolver))
         , m_direction(direction)
-        , m_iterator(m_data->beginJoin(direction))
+        , m_iterator(data.beginJoin(direction))
         , m_index_key(index_key)
         , m_index_key_sequence(std::move(index_key_sequence))
     {
@@ -180,8 +200,8 @@ namespace db0
 	FT_IndexIterator<bindex_t, key_t, IndexKeyT>::FT_IndexIterator(std::uint64_t uid, bindex_t &&data, int direction,
 		std::optional<IndexKeyT> index_key, std::vector<IndexKeyT> &&index_key_sequence)
 		: FT_Iterator<key_t>(uid)
-        , m_owned_data(std::make_unique<bindex_t>(std::move(data)))
-        , m_data(m_owned_data.get())
+        , m_data(std::make_shared<bindex_t>(std::move(data)))
+        , m_data_resolver([data = m_data]() { return data; })
         , m_direction(direction)
         , m_iterator(m_data->beginJoin(direction))
         , m_index_key(index_key)
@@ -248,15 +268,9 @@ namespace db0
 	
 	template <typename bindex_t, typename key_t, typename IndexKeyT>
 	std::unique_ptr<FT_Iterator<key_t> > FT_IndexIterator<bindex_t, key_t, IndexKeyT>::beginTyped(int direction) const {
-		if (m_owned_data) {
-			return std::unique_ptr<FT_Iterator<key_t> >(
-				new FT_IndexIterator(this->m_uid, bindex_t(*m_data), direction, this->m_index_key,
-					std::vector<IndexKeyT>(this->m_index_key_sequence))
-			);
-		}
 		return std::unique_ptr<FT_Iterator<key_t> >(
 			new FT_IndexIterator(this->m_uid, *m_data, direction, this->m_index_key,
-				std::vector<IndexKeyT>(this->m_index_key_sequence))
+				std::vector<IndexKeyT>(this->m_index_key_sequence), this->m_data_resolver)
 		);
 	}
 
@@ -298,6 +312,9 @@ namespace db0
                 this->m_detach_key = *(this->m_iterator);
             }
             this->m_iterator.reset();
+            if (this->m_data_resolver) {
+                this->m_data.reset();
+            }
             this->m_is_detached = true;
         }
     }
@@ -306,24 +323,35 @@ namespace db0
 	typename FT_IndexIterator<bindex_t, key_t, IndexKeyT>::iterator &FT_IndexIterator<bindex_t, key_t, IndexKeyT>::getIterator()
     {
         if (m_is_detached) {            
-            try {
-                m_force_end = false;
-                m_iterator = m_data->beginJoin(m_direction);
-                if (m_detach_key) {
-                    if (!m_iterator.join(*m_detach_key, m_direction)) {
-                        m_iterator.stop();
-                        m_force_end = true;
-                    }
-                } else {
+            m_force_end = false;
+            if (m_data_resolver) {
+                m_data = m_data_resolver();
+            }
+            if (!m_data) {
+                m_force_end = true;
+                m_is_detached = false;
+                return m_iterator;
+            }
+            m_iterator = m_data->beginJoin(m_direction);
+            if (m_detach_key) {
+                if (!m_iterator.join(*m_detach_key, m_direction)) {
                     m_iterator.stop();
                     m_force_end = true;
                 }
-            } catch (...) {
+            } else {
+                m_iterator.stop();
                 m_force_end = true;
             }
             m_is_detached = false;
         }
         return m_iterator;
+    }
+
+    template <typename bindex_t, typename key_t, typename IndexKeyT>
+    typename FT_IndexIterator<bindex_t, key_t, IndexKeyT>::data_ptr
+    FT_IndexIterator<bindex_t, key_t, IndexKeyT>::borrowData(const bindex_t &data)
+    {
+        return data_ptr(&data, [](const bindex_t *) {});
     }
 
     template <typename bindex_t, typename key_t, typename IndexKeyT> 
