@@ -30,7 +30,7 @@ namespace db0::object_model
     public:
         using LangToolkit = TagIndex::LangToolkit;
         using ObjectPtr = LangToolkit::ObjectPtr;
-        using TagMakerFunction = std::function<std::uint64_t(PtrT) >;
+        using TagMakerFunction = std::function<TagIndex::ShortTagT(PtrT) >;
 
         TagMakerSequence(IteratorT begin, IteratorT end, TagMakerFunction tag_maker)
             : m_begin(begin)
@@ -58,7 +58,7 @@ namespace db0::object_model
                 ++m_value;
             }
 
-            std::uint64_t operator*() const {
+            TagIndex::ShortTagT operator*() const {
                 return m_tag_maker(*m_value);
             }
         };
@@ -262,7 +262,7 @@ namespace db0::object_model
     }
     
     void TagIndex::addTag(ObjectPtr memo_ptr, Address tag_addr, bool is_type) {
-        addTag(memo_ptr, tag_addr.getOffset(), is_type);
+        addTag(memo_ptr, ShortTagT::fromAddress(tag_addr), is_type);
     }
     
     void TagIndex::addTag(ObjectPtr memo_ptr, ShortTagT tag, bool is_type)
@@ -334,7 +334,7 @@ namespace db0::object_model
     void TagIndex::removeTypeTag(UniqueAddress obj_addr, Address tag_addr)
     {
         auto &batch_operation = getBatchOperation(m_base_index_short, m_batch_op_types);
-        batch_operation->removeTag({ obj_addr, nullptr }, tag_addr.getOffset());
+        batch_operation->removeTag({ obj_addr, nullptr }, ShortTagT::fromAddress(tag_addr));
         m_mutation_log->onDirty();
     }
     
@@ -437,7 +437,7 @@ namespace db0::object_model
     
     void TagIndex::tryTagIncRef(ShortTagT tag_addr) const
     {
-        if (m_string_pool.isTokenAddr(Address::fromOffset(tag_addr)) && 
+        if (m_string_pool.isTokenAddr(tag_addr) &&
             m_inc_refed_tags.find(tag_addr) == m_inc_refed_tags.end()) 
         {
             m_string_pool.addRefByAddr(tag_addr);
@@ -446,7 +446,7 @@ namespace db0::object_model
     
     void TagIndex::tryTagDecRef(ShortTagT tag_addr) const
     {
-        if (m_string_pool.isTokenAddr(Address::fromOffset(tag_addr))) {
+        if (m_string_pool.isTokenAddr(tag_addr)) {
             m_string_pool.unRefByAddr(tag_addr);
         }
     }
@@ -543,7 +543,7 @@ namespace db0::object_model
                         // but it will be more efficient to do it here
                         const Class *type_ptr = &LangToolkit::getMemoType(obj_ptr);
                         while (type_ptr) {
-                            batch_op_types->removeTag({ obj_addr, nullptr }, type_ptr->getAddress().getOffset());
+                            batch_op_types->removeTag({ obj_addr, nullptr }, ShortTagT::fromAddress(type_ptr->getAddress()));
                             type_ptr = type_ptr->getBaseClassPtr();
                         }
                     }
@@ -561,13 +561,13 @@ namespace db0::object_model
             }
             
             std::function<void(LongTagT)> add_long_index_callback = [&](LongTagT long_tag_addr) {
-                tryTagIncRef(long_tag_addr[0]);
-                tryTagIncRef(long_tag_addr[1]);
+                tryTagIncRef(ShortTagT::fromValue(long_tag_addr[0]));
+                tryTagIncRef(ShortTagT::fromValue(long_tag_addr[1]));
             };
 
             std::function<void(LongTagT)> erase_long_index_callback = [&](LongTagT long_tag_addr) {
-                tryTagDecRef(long_tag_addr[0]);
-                tryTagDecRef(long_tag_addr[1]);
+                tryTagDecRef(ShortTagT::fromValue(long_tag_addr[0]));
+                tryTagDecRef(ShortTagT::fromValue(long_tag_addr[1]));
             };
             
             // flush all long tags' updates
@@ -645,7 +645,7 @@ namespace db0::object_model
             bool result = !no_result;
             // apply type filter if provided (unless type is a MemoBase)
             if (type) {
-                result &= m_base_index_short.addIterator(factory, type->getAddress().getOffset());
+                result &= m_base_index_short.addIterator(factory, ShortTagT::fromAddress(type->getAddress()));
             }
             
             while (result && (offset < nargs)) {
@@ -980,7 +980,7 @@ namespace db0::object_model
         } else if (type_id == TypeId::DB0_CLASS) {
             return getShortTagFromClass(py_arg);
         } else if (type_id == TypeId::MEMO_OBJECT || type_id == TypeId::MEMO_IMMUTABLE_OBJECT) {
-            return LangToolkit::getMemoUniqueAddress(py_arg).getAddress().getOffset();
+            return ShortTagT::fromAddress(LangToolkit::getMemoUniqueAddress(py_arg).getAddress());
         }
         THROWF(db0::InputException) << "Unable to interpret object of type: " << LangToolkit::getTypeName(py_arg)
             << " as a tag" << THROWF_END;
@@ -1017,19 +1017,19 @@ namespace db0::object_model
     TagIndex::ShortTagT TagIndex::getShortTagFromString(ObjectPtr py_arg) const
     {
         assert(LangToolkit::isString(py_arg));
-        return LangToolkit::getTagFromString(py_arg, m_string_pool);
+        return ShortTagT::fromOffset(LangToolkit::getTagFromString(py_arg, m_string_pool));
     }
     
     TagIndex::ShortTagT TagIndex::getShortTagFromTag(ObjectPtr py_arg) const
     {
         assert(LangToolkit::isTag(py_arg));
         // NOTE: we use only the offset part as tag - to distinguish from enum and class tags (high bits)
-        return LangToolkit::getTypeManager().extractTag(py_arg).getAddress(m_class_factory).getOffset();
+        return ShortTagT::fromAddress(LangToolkit::getTypeManager().extractTag(py_arg).getAddress(m_class_factory));
     }
 
     TagIndex::ShortTagT TagIndex::getShortTagFromTag(const TagDef &tag_def) const {
         // NOTE: we use only the offset part as tag - to distinguish from enum and class tags (high bits)
-        return tag_def.getAddress(m_class_factory).getOffset();
+        return ShortTagT::fromAddress(tag_def.getAddress(m_class_factory));
     }
 
     TagIndex::ShortTagT TagIndex::getShortTagFromEnumValue(const EnumValue &enum_value, ObjectSharedPtr *alt_repr) const
@@ -1043,17 +1043,17 @@ namespace db0::object_model
                     // tag does not exist
                     return {};
                 }
-                return LangToolkit::getTypeManager().extractEnumValue(alt_repr->get()).getUID().asULong();
+                return ShortTagT::fromOffset(LangToolkit::getTypeManager().extractEnumValue(alt_repr->get()).getUID().asULong());
             } else {
                 auto value = m_enum_factory.tryMigrateEnumValue(enum_value);
                 if (!value) {
                     // tag does not exist
                     return {};
                 }
-                return (*value).getUID().asULong();
+                return ShortTagT::fromOffset((*value).getUID().asULong());
             }
         }
-        return enum_value.getUID().asULong();
+        return ShortTagT::fromOffset(enum_value.getUID().asULong());
     }
     
     TagIndex::ShortTagT TagIndex::getShortTagFromEnumValue(ObjectPtr py_arg, ObjectSharedPtr *alt_repr) const
@@ -1069,14 +1069,14 @@ namespace db0::object_model
     }
     
     TagIndex::ShortTagT TagIndex::getShortTagFromClass(const Class &type) const {
-        return type.getAddress().getOffset();
+        return ShortTagT::fromAddress(type.getAddress());
     }
 
     TagIndex::ShortTagT TagIndex::getShortTagFromFieldDef(ObjectPtr py_arg) const
     {
         auto &field_def = LangToolkit::getTypeManager().extractFieldDef(py_arg);
         // class UID (32bit) + primary field ID (32 bit)
-        return (static_cast<std::uint64_t>(field_def.m_class_uid) << 32) | field_def.m_member.getLongIndex();
+        return ShortTagT::fromOffset((static_cast<std::uint64_t>(field_def.m_class_uid) << 32) | field_def.m_member.getLongIndex());
     }
     
     TagIndex::ShortTagT TagIndex::getShortTag(ObjectSharedPtr py_arg, ObjectSharedPtr *alt_repr) const {
@@ -1117,9 +1117,9 @@ namespace db0::object_model
         assert(LangToolkit::isString(py_arg));
         if (m_fixture.safe_lock()->getAccessType() == AccessType::READ_ONLY) {
             auto tag = getShortTagFromString(py_arg);
-            return tag ? std::optional<ShortTagT>(tag) : std::nullopt;
+            return tag.isValid() ? std::optional<ShortTagT>(tag) : std::nullopt;
         }
-        return LangToolkit::addTagFromString(py_arg, m_string_pool, inc_ref);
+        return ShortTagT::fromOffset(LangToolkit::addTagFromString(py_arg, m_string_pool, inc_ref));
     }
     
     std::optional<TagIndex::ShortTagT> TagIndex::tryAddShortTagFromMemo(ObjectPtr py_arg) const
@@ -1130,7 +1130,7 @@ namespace db0::object_model
             return std::nullopt;
         }
         // NOTE: we use only the offset part as tag - to distinguish from enum and class tags (high bits)
-        return LangToolkit::getMemoUniqueAddress(py_arg).getAddress().getOffset();
+        return ShortTagT::fromAddress(LangToolkit::getMemoUniqueAddress(py_arg).getAddress());
     }
     
     std::optional<TagIndex::ShortTagT> TagIndex::tryAddShortTagFromTag(ObjectPtr py_arg) const
@@ -1142,7 +1142,7 @@ namespace db0::object_model
             // must be added as long tag
             return std::nullopt;
         }
-        return addr_pair.second;
+        return ShortTagT::fromAddress(addr_pair.second);
     }
     
     bool TagIndex::isScopeIdentifier(ObjectPtr ptr) const {
@@ -1588,7 +1588,7 @@ namespace db0::object_model
             if (!fixture) {
                 THROWF(db0::InternalException) << "Fixture closed while iteration";                
             }
-            return this->makeIterator(tag_id.getAddress());
+            return this->makeIterator(ShortTagT::fromAddress(tag_id.getAddress()));
         };
 
         return std::make_unique<TP_Iterator>(

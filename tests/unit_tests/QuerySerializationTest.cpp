@@ -29,8 +29,13 @@ namespace tests
     public:
         using RangeTreeT = RangeTree<int, UniqueAddress>;
         using ItemT = typename RangeTreeT::ItemT;
+        using ShortTagT = db0::object_model::TagIndex::ShortTagT;
 
-        void runTestCase(std::function<void(IndexBase &, std::shared_ptr<RangeTreeT>, FT_BaseIndex<std::uint64_t> &)> test)
+        static ShortTagT tag(std::uint64_t value) {
+            return ShortTagT::fromOffset(value);
+        }
+
+        void runTestCase(std::function<void(IndexBase &, std::shared_ptr<RangeTreeT>, FT_BaseIndex<ShortTagT> &)> test)
         {
             auto fixture = getFixture();
             // create with the limit of 8 items per range
@@ -58,9 +63,9 @@ namespace tests
             auto &ft_index = tag_index.getBaseIndexShort();
             {
                 auto batch_data = ft_index.beginBatchUpdate();
-                batch_data->addTags({ makeUniqueAddr(4, 1), nullptr }, std::vector<std::uint64_t> { 1, 2, 3 });
-                batch_data->addTags({ makeUniqueAddr(3, 1), nullptr }, std::vector<std::uint64_t> { 1, 2 });
-                batch_data->addTags({ makeUniqueAddr(8, 1), nullptr }, std::vector<std::uint64_t> { 1, 2 });
+                batch_data->addTags({ makeUniqueAddr(4, 1), nullptr }, std::vector<ShortTagT> { tag(1), tag(2), tag(3) });
+                batch_data->addTags({ makeUniqueAddr(3, 1), nullptr }, std::vector<ShortTagT> { tag(1), tag(2) });
+                batch_data->addTags({ makeUniqueAddr(8, 1), nullptr }, std::vector<ShortTagT> { tag(1), tag(2) });
                 batch_data->flush();
             }
             test(index, rt, ft_index);
@@ -69,8 +74,8 @@ namespace tests
     
     TEST_F( QuerySerializationTest , testRangeTreeFTSortedIteratorCanBeSerialized )
     {
-        auto test = [](IndexBase &index, std::shared_ptr<RangeTreeT> rt, FT_BaseIndex<std::uint64_t> &ft_index) {
-            auto ft_query = ft_index.makeIterator(1);
+        auto test = [](IndexBase &index, std::shared_ptr<RangeTreeT> rt, FT_BaseIndex<ShortTagT> &ft_index) {
+            auto ft_query = ft_index.makeIterator(tag(1));
             std::vector<std::uint64_t> values;
             RT_SortIterator<int, UniqueAddress> cut(index, rt, std::move(ft_query));
             std::vector<std::byte> buf;
@@ -82,9 +87,9 @@ namespace tests
     
     TEST_F( QuerySerializationTest , testRangeTreeFTSortedIteratorCanBeDeserialized )
     {                
-        auto test = [&](IndexBase &index, std::shared_ptr<RangeTreeT> rt, FT_BaseIndex<std::uint64_t> &ft_index) {
+        auto test = [&](IndexBase &index, std::shared_ptr<RangeTreeT> rt, FT_BaseIndex<ShortTagT> &ft_index) {
             std::vector<std::byte> buf;
-            auto ft_query = ft_index.makeIterator(1);
+            auto ft_query = ft_index.makeIterator(tag(1));
             std::vector<std::uint64_t> values;
             RT_SortIterator<int, UniqueAddress> cut(index, rt, std::move(ft_query));
             
@@ -126,20 +131,20 @@ namespace tests
             *fixture, class_factory, enum_factory, fixture->getLimitedStringPool(), cache, fixture->addMutationHandler()
         );
 
-        auto child = tag_index.addComposite(nullptr, 11);
-        auto grandchild = child->addComposite(nullptr, 22);
+        auto child = tag_index.addComposite(nullptr, tag(11));
+        auto grandchild = child->addComposite(nullptr, tag(22));
         {
             auto batch_data = grandchild->getBaseIndexShort().beginBatchUpdate();
-            batch_data->addTags({ makeUniqueAddr(101, 1), nullptr }, std::vector<std::uint64_t> { 33 });
+            batch_data->addTags({ makeUniqueAddr(101, 1), nullptr }, std::vector<ShortTagT> { tag(33) });
             batch_data->flush();
         }
         {
             auto batch_data = tag_index.getBaseIndexShort().beginBatchUpdate();
-            batch_data->addTags({ makeUniqueAddr(202, 1), nullptr }, std::vector<std::uint64_t> { 33 });
+            batch_data->addTags({ makeUniqueAddr(202, 1), nullptr }, std::vector<ShortTagT> { tag(33) });
             batch_data->flush();
         }
 
-        auto ft_query = tag_index.makeIterator(std::vector<TagIndex::ShortTagT> { 11, 22, 33 });
+        auto ft_query = tag_index.makeIterator(std::vector<TagIndex::ShortTagT> { tag(11), tag(22), tag(33) });
         ASSERT_TRUE(ft_query);
 
         std::vector<std::byte> buf;
@@ -168,7 +173,7 @@ namespace tests
             *fixture, class_factory, enum_factory, fixture->getLimitedStringPool(), cache, fixture->addMutationHandler()
         );
 
-        auto ft_query = tag_index.makeMissingIterator(std::vector<TagIndex::ShortTagT> { 44 });
+        auto ft_query = tag_index.makeMissingIterator(std::vector<TagIndex::ShortTagT> { tag(44) });
         ASSERT_TRUE(ft_query);
         ASSERT_TRUE(ft_query->isEnd());
 
@@ -177,7 +182,7 @@ namespace tests
 
         {
             auto batch_data = tag_index.getBaseIndexShort().beginBatchUpdate();
-            batch_data->addTags({ makeUniqueAddr(303, 1), nullptr }, std::vector<std::uint64_t> { 44 });
+            batch_data->addTags({ makeUniqueAddr(303, 1), nullptr }, std::vector<ShortTagT> { tag(44) });
             batch_data->flush();
         }
 

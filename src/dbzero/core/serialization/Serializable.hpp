@@ -144,7 +144,7 @@ namespace db0::serial
             using TypeList = std::tuple<
                 std::int8_t, std::int16_t, std::int32_t, std::int64_t, 
                 std::uint8_t, std::uint16_t, std::uint32_t, std::uint64_t, db0::Address, db0::UniqueAddress,
-                float, double, std::string>;
+                float, double, std::string, db0::TagAddress>;
             // compile error: binary expression in operand of fold-expression
             std::apply([&](auto... type) {
                 std::size_t n { 0 };

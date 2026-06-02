@@ -306,6 +306,7 @@ namespace db0
     };
     
     extern template class FT_BaseIndex<std::uint64_t, UniqueAddress>;
+    extern template class FT_BaseIndex<db0::TagAddress, UniqueAddress>;
     extern template class FT_BaseIndex<db0::LongTagT, UniqueAddress>;
     
     extern template class FT_BaseIndex<std::uint64_t, std::uint64_t>;

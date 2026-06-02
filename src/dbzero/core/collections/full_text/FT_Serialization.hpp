@@ -4,6 +4,7 @@
 #pragma once
 
 #include <vector>
+#include <type_traits>
 #include "FT_Iterator.hpp"
 #include "SortedIterator.hpp"
 #include "FT_IndexIterator.hpp"
@@ -50,8 +51,9 @@ namespace db0
                 auto index_key_type_id = db0::serial::read<TypeIdType>(_iter, end);
                 if (key_type_id == db0::serial::typeId<std::uint64_t>()) {
                     if constexpr (std::is_same_v<KeyT, std::uint64_t>) {
-                        if (index_key_type_id == db0::serial::typeId<std::uint64_t>()) {
-                            return deserializeFT_IndexIterator<db0::MorphingBIndex<UniqueAddress>, KeyT, std::uint64_t>(workspace, iter, end);
+                        if (index_key_type_id == db0::serial::typeId<std::uint64_t>() ||
+                            index_key_type_id == db0::serial::typeId<db0::TagAddress>()) {
+                            return deserializeFT_IndexIterator<db0::MorphingBIndex<UniqueAddress>, KeyT, db0::TagAddress>(workspace, iter, end);
                         } else {
                             THROWF(db0::InternalException) << "Unsupported index key type ID: " << index_key_type_id
                                 << THROWF_END;
@@ -61,8 +63,9 @@ namespace db0
                 
                 if (key_type_id == db0::serial::typeId<UniqueAddress>()) {
                     if constexpr (std::is_same_v<KeyT, UniqueAddress>) {
-                        if (index_key_type_id == db0::serial::typeId<std::uint64_t>()) {
-                            return deserializeFT_IndexIterator<db0::MorphingBIndex<UniqueAddress>, KeyT, std::uint64_t>(workspace, iter, end);
+                        if (index_key_type_id == db0::serial::typeId<std::uint64_t>() ||
+                            index_key_type_id == db0::serial::typeId<db0::TagAddress>()) {
+                            return deserializeFT_IndexIterator<db0::MorphingBIndex<UniqueAddress>, KeyT, db0::TagAddress>(workspace, iter, end);
                         } else {
                             THROWF(db0::InternalException) << "Unsupported index key type ID: " << index_key_type_id
                                 << THROWF_END;
@@ -133,7 +136,9 @@ namespace db0
         }
         
         auto index_key_type_id = db0::serial::read<TypeIdType>(iter, end);
-        if (index_key_type_id != db0::serial::typeId<IndexKeyT>()) {
+        const bool compatible_tag_address =
+            std::is_same_v<IndexKeyT, db0::TagAddress> && index_key_type_id == db0::serial::typeId<std::uint64_t>();
+        if (index_key_type_id != db0::serial::typeId<IndexKeyT>() && !compatible_tag_address) {
             THROWF(db0::InternalException) << "Index key type mismatch: " << index_key_type_id << " != " << db0::serial::typeId<IndexKeyT>()
                 << THROWF_END;
         }
@@ -141,19 +146,23 @@ namespace db0
         // get fixture by UUID
         auto fixture = snapshot.getFixture(db0::serial::read<std::uint64_t>(iter, end));        
         int direction = db0::serial::read<std::int8_t>(iter, end);
-        if (index_key_type_id == db0::serial::typeId<std::uint64_t>()) {
+        if (index_key_type_id == db0::serial::typeId<std::uint64_t>() || index_key_type_id == db0::serial::typeId<db0::TagAddress>()) {
             auto index_key_count = db0::serial::read<std::uint32_t>(iter, end);
             if (index_key_count == 0) {
                 THROWF(db0::InternalException) << "Serialized FT index iterator is missing index keys" << THROWF_END;
             }
-            std::vector<std::uint64_t> index_keys;
+            std::vector<IndexKeyT> index_keys;
             index_keys.reserve(index_key_count);
             for (std::uint32_t i = 0; i < index_key_count; ++i) {
-                index_keys.push_back(db0::serial::read<std::uint64_t>(iter, end));
+                if constexpr (std::is_same_v<IndexKeyT, db0::TagAddress>) {
+                    index_keys.push_back(db0::serial::read<db0::TagAddress>(iter, end));
+                } else {
+                    index_keys.push_back(db0::serial::read<IndexKeyT>(iter, end));
+                }
             }
             // use FT_Base index as the factory
             // NOTE: TagIndex only supports UniqueAddress key type
-            if constexpr (std::is_same_v<KeyT, UniqueAddress>) {
+            if constexpr (std::is_same_v<KeyT, UniqueAddress> && std::is_same_v<IndexKeyT, db0::TagAddress>) {
                 auto &tag_index = fixture->get<db0::object_model::TagIndex>();
                 return tag_index.makeIterator(index_keys, direction);
             }

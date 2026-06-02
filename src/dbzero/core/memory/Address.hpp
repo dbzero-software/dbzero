@@ -7,6 +7,7 @@
 #include <cassert>
 #include <functional>
 #include <ostream>
+#include <type_traits>
 #include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
@@ -178,7 +179,7 @@ DB0_PACKED_BEGIN
         inline Address getAddress() const {
             return Address::fromOffset(getOffset());
         }
-        
+
         // Address cast
         inline operator Address() const {
             return Address::fromOffset(getOffset());
@@ -193,6 +194,111 @@ DB0_PACKED_BEGIN
         }
     };
 DB0_PACKED_END    
+
+DB0_PACKED_BEGIN
+    class DB0_PACKED_ATTR TagAddress
+    {
+    public:
+        static constexpr std::uint64_t PASSIVE_BIT = 1ULL << 63;
+        static constexpr std::uint64_t ADDRESS_MASK = ~PASSIVE_BIT;
+
+        TagAddress() = default;
+
+        static inline TagAddress fromValue(std::uint64_t value) {
+            return TagAddress(value);
+        }
+
+        static inline TagAddress fromOffset(std::uint64_t offset) {
+            assert((offset & PASSIVE_BIT) == 0);
+            return TagAddress(offset);
+        }
+
+        static inline TagAddress fromAddress(Address address) {
+            return fromOffset(address.getOffset());
+        }
+
+        inline bool operator!() const {
+            return getOffset() == 0;
+        }
+
+        inline bool isValid() const {
+            return getOffset() != 0;
+        }
+
+        inline bool isPassive() const {
+            return (m_value & PASSIVE_BIT) != 0;
+        }
+
+        inline TagAddress asPassive() const {
+            assert(isValid());
+            return TagAddress(getOffset() | PASSIVE_BIT);
+        }
+
+        inline TagAddress asRegular() const {
+            return TagAddress(getOffset());
+        }
+
+        inline std::uint64_t getOffset() const {
+            return m_value & ADDRESS_MASK;
+        }
+
+        inline std::uint64_t getValue() const {
+            return m_value;
+        }
+
+        inline Address getAddress() const {
+            return Address::fromOffset(getOffset());
+        }
+
+        inline operator Address() const {
+            return getAddress();
+        }
+
+        inline operator std::uint64_t() const {
+            return getOffset();
+        }
+
+        inline bool operator==(const TagAddress &other) const {
+            return getOffset() == other.getOffset();
+        }
+
+        inline bool operator!=(const TagAddress &other) const {
+            return getOffset() != other.getOffset();
+        }
+
+        inline bool operator<(const TagAddress &other) const {
+            return getOffset() < other.getOffset();
+        }
+
+        inline bool operator>(const TagAddress &other) const {
+            return getOffset() > other.getOffset();
+        }
+
+        inline bool operator<=(const TagAddress &other) const {
+            return getOffset() <= other.getOffset();
+        }
+
+        inline bool operator>=(const TagAddress &other) const {
+            return getOffset() >= other.getOffset();
+        }
+
+        inline friend std::ostream &operator<<(std::ostream &os, const TagAddress &address) {
+            os << address.m_value;
+            return os;
+        }
+
+    private:
+        std::uint64_t m_value = 0;
+
+        explicit inline TagAddress(std::uint64_t value)
+            : m_value(value)
+        {
+        }
+    };
+DB0_PACKED_END
+
+    static_assert(sizeof(TagAddress) == sizeof(std::uint64_t));
+    static_assert(std::is_trivially_copyable_v<TagAddress>);
 
     UniqueAddress makeUniqueAddr(std::uint64_t offset, std::uint16_t id);
 
@@ -212,6 +318,12 @@ namespace std
     template <> struct hash<db0::UniqueAddress> {
         std::size_t operator()(const db0::UniqueAddress &address) const noexcept {
             return std::hash<std::uint64_t>()(address.getValue());
+        }
+    };
+
+    template <> struct hash<db0::TagAddress> {
+        std::size_t operator()(const db0::TagAddress &address) const noexcept {
+            return std::hash<std::uint64_t>()(address.getOffset());
         }
     };
 

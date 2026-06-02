@@ -54,7 +54,7 @@ DB0_PACKED_END
         using QueryIterator = FT_Iterator<UniqueAddress>;
         using TP_Iterator = TagProduct<UniqueAddress>;
         // string tokens and classes are represented as short tags
-        using ShortTagT = std::uint64_t;
+        using ShortTagT = db0::TagAddress;
         using ShortTagIndexMap = db0::VInstanceMap<ShortTagT, TagIndex>;
         
         TagIndex(Memspace &memspace, ClassFactory &, EnumFactory &, RC_LimitedStringPool &, VObjectCache &,
@@ -173,7 +173,7 @@ DB0_PACKED_END
         // batch operation associated with type-tags only (auto-assigned)
         mutable db0::FT_BaseIndex<ShortTagT>::BatchOperationBuilder m_batch_op_types;
         // the set of tags to which the ref-count has been increased when they were first created
-        mutable std::unordered_set<std::uint64_t> m_inc_refed_tags;
+        mutable std::unordered_set<ShortTagT> m_inc_refed_tags;
         // A cache of language objects held until flush/close is called
         // it's required to prevent unreferenced objects from being collected by GC
         // and to handle callbacks from the full-text index
@@ -340,7 +340,7 @@ DB0_PACKED_END
         auto first = *it;
         ++it;
         assert(it != sequence.end());
-        return { first, *it }; 
+        return { first.getValue(), (*it).getValue() }; 
     }
 
     // Get type / enum / iterable associated fixture UUID (or 0 if not prefix bound)
