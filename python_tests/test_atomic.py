@@ -1113,7 +1113,9 @@ def test_leaked_find_iterator_advanced_inside_canceled_atomic_repositions_after_
     run_pytest_child(
         "python_tests/test_atomic.py::test_leaked_find_iterator_advanced_inside_canceled_atomic_repositions_after_rollback_child",
         env_flag="DB0_ATOMIC_LEAKED_FIND_ITERATOR_CHILD",
+        timeout=30,
         failure_label="atomic leaked find iterator child",
+        pytest_args=("-o", "faulthandler_timeout=10"),
     )
 
 
@@ -1122,6 +1124,24 @@ def test_leaked_find_iterator_advanced_inside_canceled_atomic_repositions_after_
     reason="executed by test_leaked_find_iterator_advanced_inside_canceled_atomic_repositions_after_rollback",
 )
 def test_leaked_find_iterator_advanced_inside_canceled_atomic_repositions_after_rollback_child(db0_no_autocommit):
+    def advance(iterator, count):
+        values = []
+        for _ in range(count):
+            try:
+                values.append(next(iterator).value)
+            except StopIteration:
+                break
+        return values
+
+    def assert_no_rolled_back_values(values, iteration):
+        assert not any(
+            isinstance(value, tuple)
+            and len(value) >= 2
+            and value[0] == "rolled-back"
+            and value[1] == iteration
+            for value in values
+        )
+
     first = MemoTestClass("first")
     db0.commit()
 
@@ -1142,6 +1162,38 @@ def test_leaked_find_iterator_advanced_inside_canceled_atomic_repositions_after_
     # remain safe and stay exhausted.
     with pytest.raises(StopIteration):
         next(iterator)
+
+    rng = random.Random(0xDB0F17D)
+    leaked_iterators = [iterator]
+    seeds = [MemoTestClass(("seed", index)) for index in range(32)]
+    db0.commit()
+
+    iteration_count = int(os.environ.get("DB0_ATOMIC_LEAKED_FIND_ITERATOR_ITERATIONS", "100"))
+    for iteration in range(iteration_count):
+        iterator = iter(db0.find(MemoTestClass))
+        advance(iterator, rng.randrange(1, len(seeds) + 5))
+
+        with db0.atomic() as atomic:
+            for offset in range(rng.randrange(1, 8)):
+                MemoTestClass(("rolled-back", iteration, offset))
+
+            values = advance(iterator, rng.randrange(1, len(seeds) + 8))
+            assert_no_rolled_back_values(values, iteration)
+
+            if rng.random() < 0.5:
+                list(db0.find(MemoTestClass))
+
+            atomic.cancel()
+
+        values = advance(iterator, rng.randrange(1, 16))
+        assert_no_rolled_back_values(values, iteration)
+
+        leaked_iterators.append(iterator)
+        if len(leaked_iterators) > 64:
+            del leaked_iterators[:32]
+
+        if iteration % 25 == 0:
+            gc.collect()
 
 
 @pytest.mark.skip(reason=ATOMIC_LEAKED_ITERATOR_REPRO_SKIP)

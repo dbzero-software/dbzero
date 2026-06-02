@@ -132,10 +132,7 @@ namespace db0
     template <typename KeyT, typename ValueT, typename IndexT>
     std::unique_ptr<FT_Iterator<ValueT> > FT_BoundIterator<KeyT, ValueT, IndexT>::beginTyped(int direction) const
     {
-        if (super_t::m_owned_data) {
-            return std::unique_ptr<FT_Iterator<ValueT> >(new self_t(IndexT(*super_t::m_data), direction, m_key_range));
-        }
-        return std::unique_ptr<FT_Iterator<ValueT> >(new self_t(*super_t::m_data, direction, m_key_range));
+        return std::unique_ptr<FT_Iterator<ValueT> >(new self_t(IndexT(*super_t::m_data), direction, m_key_range));
     }
     
 }
