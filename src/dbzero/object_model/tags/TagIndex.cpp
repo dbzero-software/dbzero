@@ -211,13 +211,13 @@ namespace db0::object_model
                 });
                 // sequence (pair) may represent a single long tag
                 if (isLongTag(arg)) {
-                    if (passive) {
-                        THROWF(db0::InputException) << "Passive long tags are not supported" << THROWF_END;
-                    }
                     if (!batch_op_long_ptr) {
                         batch_op_long_ptr = &getBatchOperationLong(memo_ptr, active_key);
                     }
                     auto tag = makeLongTagFromSequence(tag_sequence);
+                    if (passive) {
+                        tag = asPassiveLongTag(tag);
+                    }
                     (*batch_op_long_ptr)->addTags(active_key, TagPtrSequence(&tag, &tag + 1));
                 } else {
                     batch_op_short->addTags(active_key, tag_sequence);
@@ -232,14 +232,14 @@ namespace db0::object_model
                         m_inc_refed_tags.insert(*tag_addr);
                     }
                 } else {
-                    if (passive) {
-                        THROWF(db0::InputException) << "Passive long tags are not supported" << THROWF_END;
-                    }
                     // must try adding as a long tag (item from a foreign scope)
                     if (!batch_op_long_ptr) {
                         batch_op_long_ptr = &getBatchOperationLong(memo_ptr, active_key);
                     }
                     auto long_tag = getLongTag(arg);
+                    if (passive) {
+                        long_tag = asPassiveLongTag(long_tag);
+                    }
                     (*batch_op_long_ptr)->addTag(active_key, long_tag);
                 }
             }            
@@ -350,19 +350,49 @@ namespace db0::object_model
             return;
         }
 
+        using IterableSequence = TagMakerSequence<ForwardIterator, ObjectSharedPtr>;
         ActiveValueT active_key = { UniqueAddress(), nullptr };
-        auto &batch_operation = getBatchOperationShort(memo_ptr, active_key, false);
+        db0::FT_BaseIndex<ShortTagT>::BatchOperationBuilder *batch_op_short_ptr = nullptr;
+        db0::FT_BaseIndex<LongTagT>::BatchOperationBuilder *batch_op_long_ptr = nullptr;
         for (std::size_t i = 0; i < nargs; ++i) {
             auto type_id = LangToolkit::getTypeManager().getTypeId(args[i]);
+            if (isLongTag(type_id, args[i])) {
+                if (!batch_op_long_ptr) {
+                    batch_op_long_ptr = &getBatchOperationLong(memo_ptr, active_key);
+                }
+                (*batch_op_long_ptr)->removeTag(active_key, getLongTag(type_id, args[i]));
+                m_mutation_log->onDirty();
+                continue;
+            }
             // must check for string since it's an iterable as well
             if (type_id != TypeId::STRING && LangToolkit::isIterable(args[i])) {
-                ForwardIterator it(LangToolkit::getIterator(args[i]));
-                for (auto end = ForwardIterator::end(); it != end; ++it) {
-                    batch_operation->removeTag(active_key, getCompositeKey((*it).get()));
+                if (isLongTag<ForwardIterator>(LangToolkit::getIterator(args[i]), ForwardIterator::end())) {
+                    if (!batch_op_long_ptr) {
+                        batch_op_long_ptr = &getBatchOperationLong(memo_ptr, active_key);
+                    }
+                    IterableSequence sequence(
+                        LangToolkit::getIterator(args[i]),
+                        ForwardIterator::end(),
+                        [this](ObjectSharedPtr arg) {
+                            return getCompositeKey(arg.get());
+                        }
+                    );
+                    (*batch_op_long_ptr)->removeTag(active_key, makeLongTagFromSequence(sequence));
+                } else {
+                    if (!batch_op_short_ptr) {
+                        batch_op_short_ptr = &getBatchOperationShort(memo_ptr, active_key, false);
+                    }
+                    ForwardIterator it(LangToolkit::getIterator(args[i]));
+                    for (auto end = ForwardIterator::end(); it != end; ++it) {
+                        (*batch_op_short_ptr)->removeTag(active_key, getCompositeKey((*it).get()));
+                    }
                 }
                 m_mutation_log->onDirty();
             } else {
-                batch_operation->removeTag(active_key, getCompositeKey(args[i]));
+                if (!batch_op_short_ptr) {
+                    batch_op_short_ptr = &getBatchOperationShort(memo_ptr, active_key, false);
+                }
+                (*batch_op_short_ptr)->removeTag(active_key, getCompositeKey(args[i]));
                 m_mutation_log->onDirty();
             }
         }
@@ -460,6 +490,16 @@ namespace db0::object_model
         db0::key_value<ShortTagT, Address> item(tag_addr);
         auto it = m_base_index_short.find(item);
         if (it == m_base_index_short.end()) {
+            return std::nullopt;
+        }
+        return (*it).key;
+    }
+
+    std::optional<LongTagT> TagIndex::tryGetStoredLongTag(LongTagT tag_addr) const
+    {
+        db0::key_value<LongTagT, Address> item(tag_addr);
+        auto it = m_base_index_long.find(item);
+        if (it == m_base_index_long.end()) {
             return std::nullopt;
         }
         return (*it).key;
@@ -576,12 +616,12 @@ namespace db0::object_model
             
             std::function<void(LongTagT)> add_long_index_callback = [&](LongTagT long_tag_addr) {
                 tryTagIncRef(ShortTagT::fromValue(long_tag_addr[0]));
-                tryTagIncRef(ShortTagT::fromValue(long_tag_addr[1]));
+                tryTagIncRef(ShortTagT::fromValue(regularLongTagPart(long_tag_addr[1])));
             };
 
             std::function<void(LongTagT)> erase_long_index_callback = [&](LongTagT long_tag_addr) {
                 tryTagDecRef(ShortTagT::fromValue(long_tag_addr[0]));
-                tryTagDecRef(ShortTagT::fromValue(long_tag_addr[1]));
+                tryTagDecRef(ShortTagT::fromValue(regularLongTagPart(long_tag_addr[1])));
             };
             
             // flush all long tags' updates
@@ -754,10 +794,23 @@ namespace db0::object_model
         {
             if (isLongTag(type_id, arg)) {
                 // query as the long-tag
+                auto long_tag = getLongTag(type_id, arg);
+                auto stored_tag = tryGetStoredLongTag(long_tag);
+                auto query_tag = stored_tag.value_or(long_tag);
+                if (m_base_index_long.addIterator(factory, query_tag)) {
+                    if (stored_tag && isPassiveLongTag(*stored_tag)) {
+                        if (has_passive_predicate) {
+                            *has_passive_predicate = true;
+                        }
+                    } else if (has_positive_anchor) {
+                        *has_positive_anchor = true;
+                    }
+                    return true;
+                }
                 if (has_positive_anchor) {
                     *has_positive_anchor = true;
                 }
-                return m_base_index_long.addIterator(factory, getLongTag(type_id, arg));
+                return false;
             } else {
                 auto short_tag = getShortTag(type_id, arg);
                 auto stored_tag = tryGetStoredShortTag(short_tag);
@@ -813,10 +866,23 @@ namespace db0::object_model
                     }
                     return *result;
                 });
+                auto long_tag = makeLongTagFromSequence(sequence);
+                auto stored_tag = tryGetStoredLongTag(long_tag);
+                auto query_tag = stored_tag.value_or(long_tag);
+                if (m_base_index_long.addIterator(factory, query_tag)) {
+                    if (stored_tag && isPassiveLongTag(*stored_tag)) {
+                        if (has_passive_predicate) {
+                            *has_passive_predicate = true;
+                        }
+                    } else if (has_positive_anchor) {
+                        *has_positive_anchor = true;
+                    }
+                    return true;
+                }
                 if (has_positive_anchor) {
                     *has_positive_anchor = true;
                 }
-                return m_base_index_long.addIterator(factory, makeLongTagFromSequence(sequence));
+                return false;
             }
             
             bool is_or_clause = (type_id == TypeId::LIST);
@@ -986,10 +1052,23 @@ namespace db0::object_model
             THROWF(db0::InputException) << "Nested composite tag leaves are not supported" << THROWF_END;
         }
         if (isLongTag(type_id, arg)) {
+            auto long_tag = getLongTag(type_id, arg);
+            auto stored_tag = tryGetStoredLongTag(long_tag);
+            auto query_tag = stored_tag.value_or(long_tag);
+            if (m_base_index_long.addIterator(factory, query_tag)) {
+                if (stored_tag && isPassiveLongTag(*stored_tag)) {
+                    if (has_passive_predicate) {
+                        *has_passive_predicate = true;
+                    }
+                } else if (has_positive_anchor) {
+                    *has_positive_anchor = true;
+                }
+                return true;
+            }
             if (has_positive_anchor) {
                 *has_positive_anchor = true;
             }
-            return m_base_index_long.addIterator(factory, getLongTag(type_id, arg));
+            return false;
         }
 
         auto leaf_key = tryGetCompositeKey(arg);

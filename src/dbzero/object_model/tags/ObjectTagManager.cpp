@@ -64,6 +64,13 @@ namespace db0::object_model
             if (!isExpandableTagBatch(arg)) {
                 return false;
             }
+            // Avoid pre-scanning one-shot iterables such as generators. The
+            // scan is only an optimization to route batches containing
+            // composite tags through the composite path; consuming a generator
+            // here would leave no tags for the actual add/remove operation.
+            if (!PySequence_Check(arg)) {
+                return false;
+            }
             auto iterator = ObjectTagManager::LangToolkit::getIterator(arg);
             for (ForwardIterator it(iterator), end = ForwardIterator::end(); it != end; ++it) {
                 if (isCompositeTag((*it).get())) {

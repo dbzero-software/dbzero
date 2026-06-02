@@ -199,6 +199,50 @@ def test_passive_tagged_objects_are_not_found_after_regular_tags_removed(db0_fix
     assert list(db0.find(MemoNoDefTags, "passive-stale-tag")) == []
 
 
+def test_passive_foreign_tag_requires_positive_predicate_for_find(db0_fixture):
+    foreign_tag_source = MemoScopedClass(2)
+    foreign_tag = db0.as_tag(foreign_tag_source)
+    db0.open("passive-long-tag-prefix", "rw")
+    local_object = MemoClassForTags(1)
+
+    db0.tags(local_object, passive=True).add(foreign_tag)
+
+    assert [item.value for item in db0.find(MemoClassForTags, foreign_tag)] == [1]
+    with pytest.raises(Exception):
+        list(db0.find(foreign_tag))
+
+
+def test_passive_foreign_tag_remove_uses_regular_remove(db0_fixture):
+    foreign_tag_source = MemoScopedClass(2)
+    foreign_tag = db0.as_tag(foreign_tag_source)
+    db0.open("passive-long-tag-prefix", "rw")
+    local_object = MemoClassForTags(1)
+
+    db0.tags(local_object, passive=True).add(foreign_tag)
+    db0.tags(local_object).remove(foreign_tag)
+
+    assert list(db0.find(MemoClassForTags, foreign_tag)) == []
+
+
+def test_passive_foreign_tag_first_then_regular_remains_non_durable(db0_fixture):
+    foreign_tag_source = MemoScopedClass(2)
+    foreign_tag = db0.as_tag(foreign_tag_source)
+    db0.open("passive-long-tag-prefix", "rw")
+    local_object = MemoNoDefTags(1)
+    local_uuid = db0.uuid(local_object)
+
+    db0.tags(local_object, passive=True).add(foreign_tag)
+    db0.commit()
+    db0.tags(local_object).add(foreign_tag)
+    db0.commit()
+    assert db0.getrefcount(local_object) == 0
+
+    del local_object
+    db0.commit()
+    assert not db0.exists(local_uuid)
+    assert list(db0.find(MemoNoDefTags, foreign_tag)) == []
+
+
 def test_assigned_tags_can_be_removed(db0_fixture):
     object_1 = MemoClassForTags(1)
     db0.tags(object_1).add(["tag1", "tag2"])

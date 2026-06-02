@@ -34,6 +34,14 @@ namespace db0
             return !tag_addr.isPassive();
         }
     };
+
+    template <>
+    struct FT_IndexKeyPolicy<db0::LongTagT>
+    {
+        static bool enableValueCallbacks(const db0::LongTagT &tag_addr) {
+            return !db0::isPassiveLongTag(tag_addr);
+        }
+    };
     
     // FT_BaseIndex provides common API for managing tag/type inverted lists
     // @tparam IndexKeyT the tag / element's key type

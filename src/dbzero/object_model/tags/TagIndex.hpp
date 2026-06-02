@@ -280,6 +280,7 @@ DB0_PACKED_END
         void tryTagIncRef(ShortTagT tag_addr) const;
         void tryTagDecRef(ShortTagT tag_addr) const;
         std::optional<ShortTagT> tryGetStoredShortTag(ShortTagT tag_addr) const;
+        std::optional<LongTagT> tryGetStoredLongTag(LongTagT tag_addr) const;
         
         // revert all pending operations associated with a specific object
         void revert(ObjectPtr) const;
