@@ -244,9 +244,11 @@ DB0_PACKED_END
             std::vector<std::unique_ptr<QueryIterator> > &neg_iterators, 
             std::vector<std::unique_ptr<QueryObserver> > &query_observers,
             bool *has_positive_anchor = nullptr) const;
-        bool addCompositeIterator(const CompositeTagDef &, db0::FT_IteratorFactory<UniqueAddress> &factory) const;
+        bool addCompositeIterator(const CompositeTagDef &, db0::FT_IteratorFactory<UniqueAddress> &factory,
+            bool *has_passive_predicate = nullptr, bool *has_positive_anchor = nullptr) const;
         bool addCompositeLeafIterator(ObjectPtr, db0::FT_IteratorFactory<UniqueAddress> &factory,
-            std::vector<ShortTagT> &&serialized_tag_sequence) const;
+            std::vector<ShortTagT> &&serialized_tag_sequence,
+            bool *has_passive_predicate = nullptr, bool *has_positive_anchor = nullptr) const;
         std::optional<ShortTagT> tryGetCompositeKey(ObjectPtr) const;
         
         bool isShortTag(ObjectPtr) const;

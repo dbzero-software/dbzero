@@ -740,10 +740,12 @@ namespace db0::object_model
         
         auto type_id = LangToolkit::getTypeManager().getTypeId(arg);
         if (type_id == TypeId::DB0_COMPOSITE_TAG) {
-            if (has_positive_anchor) {
-                *has_positive_anchor = true;
-            }
-            return addCompositeIterator(LangToolkit::getTypeManager().extractCompositeTag(arg), factory);
+            return addCompositeIterator(
+                LangToolkit::getTypeManager().extractCompositeTag(arg),
+                factory,
+                has_passive_predicate,
+                has_positive_anchor
+            );
         }
 
         // simple tag-convertible type
@@ -890,7 +892,8 @@ namespace db0::object_model
     }
 
     bool TagIndex::addCompositeIterator(const CompositeTagDef &tag,
-        db0::FT_IteratorFactory<UniqueAddress> &factory) const
+        db0::FT_IteratorFactory<UniqueAddress> &factory,
+        bool *has_passive_predicate, bool *has_positive_anchor) const
     {
         if (tag.size() < 2) {
             return false;
@@ -915,6 +918,9 @@ namespace db0::object_model
                     return false;
                 }
                 serialized_tag_sequence.push_back(*tag_key);
+            }
+            if (has_positive_anchor) {
+                *has_positive_anchor = true;
             }
             factory.add(makeMissingIterator(std::move(serialized_tag_sequence)));
             return true;
@@ -963,12 +969,15 @@ namespace db0::object_model
         return current_tag_index->addCompositeLeafIterator(
             items.back().get(),
             factory,
-            std::move(serialized_tag_sequence)
+            std::move(serialized_tag_sequence),
+            has_passive_predicate,
+            has_positive_anchor
         );
     }
     
     bool TagIndex::addCompositeLeafIterator(ObjectPtr arg, db0::FT_IteratorFactory<UniqueAddress> &factory,
-        std::vector<ShortTagT> &&serialized_tag_sequence) const
+        std::vector<ShortTagT> &&serialized_tag_sequence,
+        bool *has_passive_predicate, bool *has_positive_anchor) const
     {
         using TypeId = db0::bindings::TypeId;
 
@@ -977,6 +986,9 @@ namespace db0::object_model
             THROWF(db0::InputException) << "Nested composite tag leaves are not supported" << THROWF_END;
         }
         if (isLongTag(type_id, arg)) {
+            if (has_positive_anchor) {
+                *has_positive_anchor = true;
+            }
             return m_base_index_long.addIterator(factory, getLongTag(type_id, arg));
         }
 
@@ -984,12 +996,24 @@ namespace db0::object_model
         if (!leaf_key) {
             return false;
         }
+        auto stored_leaf_key = tryGetStoredShortTag(*leaf_key);
+        auto query_leaf_key = stored_leaf_key.value_or(*leaf_key);
         // current TagIndex is already the correct nested index for lookup. The
         // complete root-to-leaf sequence is attached only so serialized queries can
         // reopen the same nested index by traversing from the root during deserialize.
-        serialized_tag_sequence.push_back(*leaf_key);
-        if (m_base_index_short.addIterator(factory, *leaf_key, std::vector<ShortTagT>(serialized_tag_sequence))) {
+        serialized_tag_sequence.push_back(query_leaf_key);
+        if (m_base_index_short.addIterator(factory, query_leaf_key, std::vector<ShortTagT>(serialized_tag_sequence))) {
+            if (stored_leaf_key && stored_leaf_key->isPassive()) {
+                if (has_passive_predicate) {
+                    *has_passive_predicate = true;
+                }
+            } else if (has_positive_anchor) {
+                *has_positive_anchor = true;
+            }
             return true;
+        }
+        if (has_positive_anchor) {
+            *has_positive_anchor = true;
         }
         factory.add(makeMissingIterator(std::move(serialized_tag_sequence)));
         return true;

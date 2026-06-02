@@ -73,6 +73,57 @@ def test_passive_tag_remove_uses_regular_remove(db0_fixture):
     assert list(db0.find(MemoClassForTags, "passive-tag")) == []
 
 
+def test_passive_batch_adds_multiple_tags_to_multiple_objects(db0_fixture):
+    objects = [MemoClassForTags(i) for i in range(3)]
+    db0.tags(objects[0], objects[1], passive=True).add(["passive-tag-1", "passive-tag-2"])
+
+    assert {item.value for item in db0.find(MemoClassForTags, "passive-tag-1")} == {0, 1}
+    assert {item.value for item in db0.find(MemoClassForTags, "passive-tag-2")} == {0, 1}
+
+
+def test_passive_batch_removes_multiple_tags_from_multiple_objects(db0_fixture):
+    objects = [MemoClassForTags(i) for i in range(3)]
+    db0.tags(*objects, passive=True).add(["passive-tag-1", "passive-tag-2"])
+    db0.tags(objects[0], objects[1]).remove(["passive-tag-1", "passive-tag-2"])
+
+    assert {item.value for item in db0.find(MemoClassForTags, "passive-tag-1")} == {2}
+    assert {item.value for item in db0.find(MemoClassForTags, "passive-tag-2")} == {2}
+
+
+def test_passive_batch_adds_and_removes_tags_from_query_target(db0_fixture):
+    objects = [MemoClassForTags(i) for i in range(4)]
+    db0.tags(objects[0], objects[1]).add("source")
+    db0.tags(objects[2]).add("other")
+
+    db0.tags(db0.find("source"), passive=True).add(["passive-tag-1", "passive-tag-2"])
+    assert {item.value for item in db0.find("source", "passive-tag-1")} == {0, 1}
+    assert {item.value for item in db0.find("source", "passive-tag-2")} == {0, 1}
+
+    db0.tags(db0.find("source")).remove(["passive-tag-1", "passive-tag-2"])
+    assert list(db0.find("source", "passive-tag-1")) == []
+    assert list(db0.find("source", "passive-tag-2")) == []
+    assert {item.value for item in db0.find("source")} == {0, 1}
+    assert {item.value for item in db0.find("other")} == {2}
+
+
+def test_passive_tags_can_be_added_and_removed_from_find_results(db0_fixture):
+    objects = [MemoClassForTags(i) for i in range(5)]
+    db0.tags(objects[0], objects[1], objects[2]).add("source")
+    db0.tags(objects[3]).add("other")
+
+    db0.tags(db0.find(MemoClassForTags, "source"), passive=True).add("passive-find-tag")
+
+    assert {item.value for item in db0.find(MemoClassForTags, "passive-find-tag")} == {0, 1, 2}
+    with pytest.raises(Exception):
+        list(db0.find("passive-find-tag"))
+
+    db0.tags(db0.find(MemoClassForTags, "source")).remove("passive-find-tag")
+
+    assert list(db0.find(MemoClassForTags, "passive-find-tag")) == []
+    assert {item.value for item in db0.find("source")} == {0, 1, 2}
+    assert {item.value for item in db0.find("other")} == {3}
+
+
 def test_passive_first_then_regular_tag_remains_non_durable(db0_fixture):
     object_1 = MemoNoDefTags(1)
     db0.tags(object_1, passive=True).add("passive-tag")
@@ -125,6 +176,27 @@ def test_passive_tag_does_not_preserve_object_lifetime(db0_fixture):
     db0.commit()
     with pytest.raises(Exception):
         db0.fetch(object_uuid)
+
+
+def test_passive_tagged_objects_are_not_found_after_regular_tags_removed(db0_fixture):
+    objects = [MemoNoDefTags(i) for i in range(3)]
+    object_uuids = [db0.uuid(obj) for obj in objects]
+
+    db0.tags(*objects).add("regular-lifetime-tag")
+    db0.tags(*objects, passive=True).add("passive-stale-tag")
+    db0.commit()
+
+    assert {item.value for item in db0.find(MemoNoDefTags, "passive-stale-tag")} == {0, 1, 2}
+
+    db0.tags(*objects).remove("regular-lifetime-tag")
+    del objects
+    db0.commit()
+
+    for object_uuid in object_uuids:
+        assert not db0.exists(object_uuid)
+        with pytest.raises(Exception):
+            db0.fetch(object_uuid)
+    assert list(db0.find(MemoNoDefTags, "passive-stale-tag")) == []
 
 
 def test_assigned_tags_can_be_removed(db0_fixture):

@@ -77,6 +77,89 @@ def test_find_by_composite_tag_with_type_filter(db0_fixture):
     assert [doc.title for doc in db0.find(CompositeTagDocument, db0.as_tag("GRANT-READ", user))] == ["doc-1"]
 
 
+def test_can_add_passive_composite_tag(db0_fixture):
+    user = CompositeTagUser("user-1")
+    document = CompositeTagDocument("doc-1")
+
+    db0.tags(document, passive=True).add(db0.as_tag("GRANT-READ", user))
+
+    assert [doc.title for doc in db0.find(CompositeTagDocument, db0.as_tag("GRANT-READ", user))] == ["doc-1"]
+    with pytest.raises(Exception):
+        list(db0.find(db0.as_tag("GRANT-READ", user)))
+
+
+def test_can_remove_passive_composite_tag(db0_fixture):
+    user = CompositeTagUser("user-1")
+    document = CompositeTagDocument("doc-1")
+    composite_tag = db0.as_tag("GRANT-READ", user)
+
+    db0.tags(document, passive=True).add(composite_tag)
+    db0.tags(document).remove(composite_tag)
+
+    assert list(db0.find(CompositeTagDocument, composite_tag)) == []
+
+
+def test_batch_passive_composite_tags(db0_fixture):
+    users = [CompositeTagUser(f"user-{i}") for i in range(3)]
+    documents = [CompositeTagDocument(f"doc-{i}") for i in range(4)]
+    read_tags = [db0.as_tag("GRANT-READ", user) for user in users[:2]]
+    write_tag = db0.as_tag("GRANT-WRITE", users[2])
+
+    db0.tags(documents[0], documents[1], passive=True).add(read_tags)
+    db0.tags(db0.find(CompositeTagDocument), passive=True).add(write_tag)
+
+    assert {doc.title for doc in db0.find(CompositeTagDocument, read_tags[0])} == {"doc-0", "doc-1"}
+    assert {doc.title for doc in db0.find(CompositeTagDocument, read_tags[1])} == {"doc-0", "doc-1"}
+    assert {doc.title for doc in db0.find(CompositeTagDocument, write_tag)} == {"doc-0", "doc-1", "doc-2", "doc-3"}
+
+    db0.tags(documents[0], documents[1]).remove(read_tags)
+    db0.tags(db0.find(CompositeTagDocument)).remove(write_tag)
+
+    assert list(db0.find(CompositeTagDocument, read_tags[0])) == []
+    assert list(db0.find(CompositeTagDocument, read_tags[1])) == []
+    assert list(db0.find(CompositeTagDocument, write_tag)) == []
+
+
+def test_passive_composite_tags_can_be_added_and_removed_from_find_results(db0_fixture):
+    user = CompositeTagUser("user-1")
+    documents = [CompositeTagDocument(f"doc-{i}") for i in range(4)]
+    composite_tag = db0.as_tag("GRANT-READ", user)
+    db0.tags(documents[0], documents[1], documents[2]).add("source")
+    db0.tags(documents[3]).add("other")
+
+    db0.tags(db0.find(CompositeTagDocument, "source"), passive=True).add(composite_tag)
+
+    assert {doc.title for doc in db0.find(CompositeTagDocument, composite_tag)} == {"doc-0", "doc-1", "doc-2"}
+    with pytest.raises(Exception):
+        list(db0.find(composite_tag))
+
+    db0.tags(db0.find(CompositeTagDocument, "source")).remove(composite_tag)
+
+    assert list(db0.find(CompositeTagDocument, composite_tag)) == []
+    assert {doc.title for doc in db0.find("source")} == {"doc-0", "doc-1", "doc-2"}
+    assert {doc.title for doc in db0.find("other")} == {"doc-3"}
+
+
+def test_mixed_passive_simple_and_composite_tags_can_be_added_and_removed_from_find_results(db0_fixture):
+    user = CompositeTagUser("user-1")
+    documents = [CompositeTagDocument(f"doc-{i}") for i in range(4)]
+    composite_tag = db0.as_tag("GRANT-WRITE", user)
+    passive_tags = ["passive-audit", composite_tag]
+    db0.tags(documents[0], documents[1]).add("source")
+    db0.tags(documents[2], documents[3]).add("other")
+
+    db0.tags(db0.find(CompositeTagDocument, "source"), passive=True).add(passive_tags)
+
+    assert {doc.title for doc in db0.find(CompositeTagDocument, "passive-audit")} == {"doc-0", "doc-1"}
+    assert {doc.title for doc in db0.find(CompositeTagDocument, composite_tag)} == {"doc-0", "doc-1"}
+
+    db0.tags(db0.find(CompositeTagDocument, "source")).remove(passive_tags)
+
+    assert list(db0.find(CompositeTagDocument, "passive-audit")) == []
+    assert list(db0.find(CompositeTagDocument, composite_tag)) == []
+    assert {doc.title for doc in db0.find("other")} == {"doc-2", "doc-3"}
+
+
 def test_find_by_composite_tag_combines_with_simple_tags(db0_fixture):
     user = CompositeTagUser("user-1")
     document_1 = CompositeTagDocument("doc-1")
