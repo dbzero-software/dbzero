@@ -54,7 +54,7 @@ DB0_PACKED_END
         using QueryIterator = FT_Iterator<UniqueAddress>;
         using TP_Iterator = TagProduct<UniqueAddress>;
         // string tokens and classes are represented as short tags
-        using ShortTagT = std::uint64_t;
+        using ShortTagT = db0::TagAddress;
         using ShortTagIndexMap = db0::VInstanceMap<ShortTagT, TagIndex>;
         
         TagIndex(Memspace &memspace, ClassFactory &, EnumFactory &, RC_LimitedStringPool &, VObjectCache &,
@@ -77,7 +77,7 @@ DB0_PACKED_END
         // add a tag using long identifier
         void addTag(ObjectPtr memo_ptr, LongTagT tag_addr);
 
-        void addTags(ObjectPtr memo_ptr, ObjectPtr const *lang_args, std::size_t nargs);
+        void addTags(ObjectPtr memo_ptr, ObjectPtr const *lang_args, std::size_t nargs, bool passive = false);
         
         // NOTE: type tags are removed when dropping the object, therefore lang instances are not required
         void removeTypeTag(UniqueAddress obj_addr, Address tag_addr);
@@ -173,7 +173,7 @@ DB0_PACKED_END
         // batch operation associated with type-tags only (auto-assigned)
         mutable db0::FT_BaseIndex<ShortTagT>::BatchOperationBuilder m_batch_op_types;
         // the set of tags to which the ref-count has been increased when they were first created
-        mutable std::unordered_set<std::uint64_t> m_inc_refed_tags;
+        mutable std::unordered_set<ShortTagT> m_inc_refed_tags;
         // A cache of language objects held until flush/close is called
         // it's required to prevent unreferenced objects from being collected by GC
         // and to handle callbacks from the full-text index
@@ -196,7 +196,7 @@ DB0_PACKED_END
         
         db0::FT_BaseIndex<ShortTagT>::BatchOperationBuilder &getBatchOperationShort(ObjectPtr,
             ActiveValueT &result, bool is_type) const;
-                
+
         db0::FT_BaseIndex<LongTagT>::BatchOperationBuilder &getBatchOperationLong(ObjectPtr,
             ActiveValueT &result) const;
         
@@ -233,15 +233,22 @@ DB0_PACKED_END
         std::optional<ShortTagT> tryAddShortTagFromTag(ObjectPtr) const;        
         std::optional<ShortTagT> tryAddShortTagFromMemo(ObjectPtr) const;
         
+        // Passive tag predicates are allowed only when the query is anchored by at least one
+        // non-passive positive predicate (type, regular tag, fixed object, nested query, etc.).
+        // These optional flags let root query planning distinguish passive predicates from anchors.
         bool addIterator(ObjectPtr, db0::FT_IteratorFactory<UniqueAddress> &factory,
             std::vector<std::unique_ptr<QueryIterator> > &neg_iterators, 
-            std::vector<std::unique_ptr<QueryObserver> > &query_observers) const;
+            std::vector<std::unique_ptr<QueryObserver> > &query_observers,
+            bool *has_passive_predicate = nullptr, bool *has_positive_anchor = nullptr) const;
         bool addIterator(const ObjectIterable &, db0::FT_IteratorFactory<UniqueAddress> &factory,
             std::vector<std::unique_ptr<QueryIterator> > &neg_iterators, 
-            std::vector<std::unique_ptr<QueryObserver> > &query_observers) const;
-        bool addCompositeIterator(const CompositeTagDef &, db0::FT_IteratorFactory<UniqueAddress> &factory) const;
+            std::vector<std::unique_ptr<QueryObserver> > &query_observers,
+            bool *has_positive_anchor = nullptr) const;
+        bool addCompositeIterator(const CompositeTagDef &, db0::FT_IteratorFactory<UniqueAddress> &factory,
+            bool *has_passive_predicate = nullptr, bool *has_positive_anchor = nullptr) const;
         bool addCompositeLeafIterator(ObjectPtr, db0::FT_IteratorFactory<UniqueAddress> &factory,
-            std::vector<ShortTagT> &&serialized_tag_sequence) const;
+            std::vector<ShortTagT> &&serialized_tag_sequence,
+            bool *has_passive_predicate = nullptr, bool *has_positive_anchor = nullptr) const;
         std::optional<ShortTagT> tryGetCompositeKey(ObjectPtr) const;
         
         bool isShortTag(ObjectPtr) const;
@@ -272,6 +279,8 @@ DB0_PACKED_END
         // unless such reference has already been added when the tag was first created
         void tryTagIncRef(ShortTagT tag_addr) const;
         void tryTagDecRef(ShortTagT tag_addr) const;
+        std::optional<ShortTagT> tryGetStoredShortTag(ShortTagT tag_addr) const;
+        std::optional<LongTagT> tryGetStoredLongTag(LongTagT tag_addr) const;
         
         // revert all pending operations associated with a specific object
         void revert(ObjectPtr) const;
@@ -340,7 +349,7 @@ DB0_PACKED_END
         auto first = *it;
         ++it;
         assert(it != sequence.end());
-        return { first, *it }; 
+        return { first.getValue(), (*it).getValue() }; 
     }
 
     // Get type / enum / iterable associated fixture UUID (or 0 if not prefix bound)

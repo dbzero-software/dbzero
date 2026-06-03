@@ -30,7 +30,7 @@ namespace db0::object_model
     public:
         using LangToolkit = TagIndex::LangToolkit;
         using ObjectPtr = LangToolkit::ObjectPtr;
-        using TagMakerFunction = std::function<std::uint64_t(PtrT) >;
+        using TagMakerFunction = std::function<TagIndex::ShortTagT(PtrT) >;
 
         TagMakerSequence(IteratorT begin, IteratorT end, TagMakerFunction tag_maker)
             : m_begin(begin)
@@ -58,7 +58,7 @@ namespace db0::object_model
                 ++m_value;
             }
 
-            std::uint64_t operator*() const {
+            TagIndex::ShortTagT operator*() const {
                 return m_tag_maker(*m_value);
             }
         };
@@ -180,7 +180,7 @@ namespace db0::object_model
             "TagIndex::flush() or close() must be called before destruction");
     }
     
-    void TagIndex::addTags(ObjectPtr memo_ptr, ObjectPtr const *args, std::size_t nargs)
+    void TagIndex::addTags(ObjectPtr memo_ptr, ObjectPtr const *args, std::size_t nargs, bool passive)
     {       
         using TypeId = db0::bindings::TypeId;
         if (nargs == 0) {
@@ -197,7 +197,7 @@ namespace db0::object_model
             ObjectPtr arg = args[i];
             // must check for string since it's an iterable as well
             if (!LangToolkit::isString(arg) && LangToolkit::isIterable(arg)) {
-                auto tag_sequence = IterableSequence(LangToolkit::getIterator(arg), ForwardIterator::end(), [this](ObjectSharedPtr arg) {
+                auto tag_sequence = IterableSequence(LangToolkit::getIterator(arg), ForwardIterator::end(), [this, passive](ObjectSharedPtr arg) {
                     bool inc_ref = false;
                     auto result = tryAddShortTag(arg.get(), inc_ref);
                     if (!result) {
@@ -207,7 +207,7 @@ namespace db0::object_model
                     if (inc_ref) {
                         m_inc_refed_tags.insert(*result);
                     }
-                    return *result;
+                    return passive ? result->asPassive() : *result;
                 });
                 // sequence (pair) may represent a single long tag
                 if (isLongTag(arg)) {
@@ -215,6 +215,9 @@ namespace db0::object_model
                         batch_op_long_ptr = &getBatchOperationLong(memo_ptr, active_key);
                     }
                     auto tag = makeLongTagFromSequence(tag_sequence);
+                    if (passive) {
+                        tag = asPassiveLongTag(tag);
+                    }
                     (*batch_op_long_ptr)->addTags(active_key, TagPtrSequence(&tag, &tag + 1));
                 } else {
                     batch_op_short->addTags(active_key, tag_sequence);
@@ -224,7 +227,7 @@ namespace db0::object_model
                 bool inc_ref = false;
                 auto tag_addr = tryAddShortTag(type_id, arg, inc_ref);
                 if (tag_addr) {
-                    batch_op_short->addTag(active_key, *tag_addr);
+                    batch_op_short->addTag(active_key, passive ? tag_addr->asPassive() : *tag_addr);
                     if (inc_ref) {
                         m_inc_refed_tags.insert(*tag_addr);
                     }
@@ -234,6 +237,9 @@ namespace db0::object_model
                         batch_op_long_ptr = &getBatchOperationLong(memo_ptr, active_key);
                     }
                     auto long_tag = getLongTag(arg);
+                    if (passive) {
+                        long_tag = asPassiveLongTag(long_tag);
+                    }
                     (*batch_op_long_ptr)->addTag(active_key, long_tag);
                 }
             }            
@@ -262,7 +268,7 @@ namespace db0::object_model
     }
     
     void TagIndex::addTag(ObjectPtr memo_ptr, Address tag_addr, bool is_type) {
-        addTag(memo_ptr, tag_addr.getOffset(), is_type);
+        addTag(memo_ptr, ShortTagT::fromAddress(tag_addr), is_type);
     }
     
     void TagIndex::addTag(ObjectPtr memo_ptr, ShortTagT tag, bool is_type)
@@ -334,7 +340,7 @@ namespace db0::object_model
     void TagIndex::removeTypeTag(UniqueAddress obj_addr, Address tag_addr)
     {
         auto &batch_operation = getBatchOperation(m_base_index_short, m_batch_op_types);
-        batch_operation->removeTag({ obj_addr, nullptr }, tag_addr.getOffset());
+        batch_operation->removeTag({ obj_addr, nullptr }, ShortTagT::fromAddress(tag_addr));
         m_mutation_log->onDirty();
     }
     
@@ -346,19 +352,47 @@ namespace db0::object_model
 
         using IterableSequence = TagMakerSequence<ForwardIterator, ObjectSharedPtr>;
         ActiveValueT active_key = { UniqueAddress(), nullptr };
-        auto &batch_operation = getBatchOperationShort(memo_ptr, active_key, false);
+        db0::FT_BaseIndex<ShortTagT>::BatchOperationBuilder *batch_op_short_ptr = nullptr;
+        db0::FT_BaseIndex<LongTagT>::BatchOperationBuilder *batch_op_long_ptr = nullptr;
         for (std::size_t i = 0; i < nargs; ++i) {
             auto type_id = LangToolkit::getTypeManager().getTypeId(args[i]);
+            if (isLongTag(type_id, args[i])) {
+                if (!batch_op_long_ptr) {
+                    batch_op_long_ptr = &getBatchOperationLong(memo_ptr, active_key);
+                }
+                (*batch_op_long_ptr)->removeTag(active_key, getLongTag(type_id, args[i]));
+                m_mutation_log->onDirty();
+                continue;
+            }
             // must check for string since it's an iterable as well
             if (type_id != TypeId::STRING && LangToolkit::isIterable(args[i])) {
-                batch_operation->removeTags(active_key,
-                    IterableSequence(LangToolkit::getIterator(args[i]), ForwardIterator::end(), [&](ObjectSharedPtr arg) {
-                        return getCompositeKey(arg.get());
-                    })
-                );
+                if (isLongTag<ForwardIterator>(LangToolkit::getIterator(args[i]), ForwardIterator::end())) {
+                    if (!batch_op_long_ptr) {
+                        batch_op_long_ptr = &getBatchOperationLong(memo_ptr, active_key);
+                    }
+                    IterableSequence sequence(
+                        LangToolkit::getIterator(args[i]),
+                        ForwardIterator::end(),
+                        [this](ObjectSharedPtr arg) {
+                            return getCompositeKey(arg.get());
+                        }
+                    );
+                    (*batch_op_long_ptr)->removeTag(active_key, makeLongTagFromSequence(sequence));
+                } else {
+                    if (!batch_op_short_ptr) {
+                        batch_op_short_ptr = &getBatchOperationShort(memo_ptr, active_key, false);
+                    }
+                    ForwardIterator it(LangToolkit::getIterator(args[i]));
+                    for (auto end = ForwardIterator::end(); it != end; ++it) {
+                        (*batch_op_short_ptr)->removeTag(active_key, getCompositeKey((*it).get()));
+                    }
+                }
                 m_mutation_log->onDirty();
             } else {
-                batch_operation->removeTag(active_key, getCompositeKey(args[i]));
+                if (!batch_op_short_ptr) {
+                    batch_op_short_ptr = &getBatchOperationShort(memo_ptr, active_key, false);
+                }
+                (*batch_op_short_ptr)->removeTag(active_key, getCompositeKey(args[i]));
                 m_mutation_log->onDirty();
             }
         }
@@ -437,7 +471,7 @@ namespace db0::object_model
     
     void TagIndex::tryTagIncRef(ShortTagT tag_addr) const
     {
-        if (m_string_pool.isTokenAddr(Address::fromOffset(tag_addr)) && 
+        if (m_string_pool.isTokenAddr(tag_addr) &&
             m_inc_refed_tags.find(tag_addr) == m_inc_refed_tags.end()) 
         {
             m_string_pool.addRefByAddr(tag_addr);
@@ -446,9 +480,29 @@ namespace db0::object_model
     
     void TagIndex::tryTagDecRef(ShortTagT tag_addr) const
     {
-        if (m_string_pool.isTokenAddr(Address::fromOffset(tag_addr))) {
+        if (m_string_pool.isTokenAddr(tag_addr)) {
             m_string_pool.unRefByAddr(tag_addr);
         }
+    }
+
+    std::optional<TagIndex::ShortTagT> TagIndex::tryGetStoredShortTag(ShortTagT tag_addr) const
+    {
+        db0::key_value<ShortTagT, Address> item(tag_addr);
+        auto it = m_base_index_short.find(item);
+        if (it == m_base_index_short.end()) {
+            return std::nullopt;
+        }
+        return (*it).key;
+    }
+
+    std::optional<LongTagT> TagIndex::tryGetStoredLongTag(LongTagT tag_addr) const
+    {
+        db0::key_value<LongTagT, Address> item(tag_addr);
+        auto it = m_base_index_long.find(item);
+        if (it == m_base_index_long.end()) {
+            return std::nullopt;
+        }
+        return (*it).key;
     }
     
     bool TagIndex::flush() const
@@ -543,7 +597,7 @@ namespace db0::object_model
                         // but it will be more efficient to do it here
                         const Class *type_ptr = &LangToolkit::getMemoType(obj_ptr);
                         while (type_ptr) {
-                            batch_op_types->removeTag({ obj_addr, nullptr }, type_ptr->getAddress().getOffset());
+                            batch_op_types->removeTag({ obj_addr, nullptr }, ShortTagT::fromAddress(type_ptr->getAddress()));
                             type_ptr = type_ptr->getBaseClassPtr();
                         }
                     }
@@ -553,7 +607,7 @@ namespace db0::object_model
             std::function<void(ShortTagT)> erase_index_callback = [&](ShortTagT tag_addr) {
                 tryTagDecRef(tag_addr);
             };
-            
+
             // flush all short tags' updates
             if (!m_batch_op_short.assureEmpty()) {
                 m_batch_op_short->flush(&add_tag_callback, &remove_tag_callback,
@@ -561,13 +615,13 @@ namespace db0::object_model
             }
             
             std::function<void(LongTagT)> add_long_index_callback = [&](LongTagT long_tag_addr) {
-                tryTagIncRef(long_tag_addr[0]);
-                tryTagIncRef(long_tag_addr[1]);
+                tryTagIncRef(ShortTagT::fromValue(long_tag_addr[0]));
+                tryTagIncRef(ShortTagT::fromValue(regularLongTagPart(long_tag_addr[1])));
             };
 
             std::function<void(LongTagT)> erase_long_index_callback = [&](LongTagT long_tag_addr) {
-                tryTagDecRef(long_tag_addr[0]);
-                tryTagDecRef(long_tag_addr[1]);
+                tryTagDecRef(ShortTagT::fromValue(long_tag_addr[0]));
+                tryTagDecRef(ShortTagT::fromValue(regularLongTagPart(long_tag_addr[1])));
             };
             
             // flush all long tags' updates
@@ -643,18 +697,27 @@ namespace db0::object_model
             // if the 1st argument is a type then resolve as a typed ObjectIterable
             std::size_t offset = 0;
             bool result = !no_result;
+            bool has_passive_predicate = false;
+            bool has_positive_anchor = type || !native_args.empty();
             // apply type filter if provided (unless type is a MemoBase)
             if (type) {
-                result &= m_base_index_short.addIterator(factory, type->getAddress().getOffset());
+                result &= m_base_index_short.addIterator(factory, ShortTagT::fromAddress(type->getAddress()));
             }
             
             while (result && (offset < nargs)) {
-                result &= addIterator(args[offset], factory, neg_iterators, observers);
+                result &= addIterator(
+                    args[offset], factory, neg_iterators, observers,
+                    &has_passive_predicate, &has_positive_anchor
+                );
                 ++offset;
             }
             for (auto *native_arg: native_args) {
                 assert(native_arg);
-                result &= addIterator(*native_arg, factory, neg_iterators, observers);
+                result &= addIterator(*native_arg, factory, neg_iterators, observers, &has_positive_anchor);
+            }
+            if (has_passive_predicate && !has_positive_anchor) {
+                THROWF(db0::InputException) << "Passive tags require at least one non-passive predicate"
+                    << THROWF_END;
             }
             if (!result) {
                 // invalidate factory since no matching results exist
@@ -678,11 +741,15 @@ namespace db0::object_model
     }
 
     bool TagIndex::addIterator(const ObjectIterable &obj_iter, db0::FT_IteratorFactory<UniqueAddress> &factory,
-        std::vector<std::unique_ptr<QueryIterator> > &neg_iterators, std::vector<std::unique_ptr<QueryObserver> > &query_observers) const
+        std::vector<std::unique_ptr<QueryIterator> > &neg_iterators,
+        std::vector<std::unique_ptr<QueryObserver> > &query_observers, bool *has_positive_anchor) const
     {
         auto ft_query = obj_iter.beginFTQuery(query_observers, -1);
         if (!ft_query || ft_query->isEnd()) {
             return false;
+        }
+        if (has_positive_anchor) {
+            *has_positive_anchor = true;
         }
         factory.add(std::move(ft_query));
         return true;
@@ -705,14 +772,20 @@ namespace db0::object_model
     
     bool TagIndex::addIterator(ObjectPtr arg, db0::FT_IteratorFactory<UniqueAddress> &factory,
         std::vector<std::unique_ptr<QueryIterator> > &neg_iterators,
-        std::vector<std::unique_ptr<QueryObserver> > &query_observers) const
+        std::vector<std::unique_ptr<QueryObserver> > &query_observers,
+        bool *has_passive_predicate, bool *has_positive_anchor) const
     {
         using TypeId = db0::bindings::TypeId;
         using IterableSequence = TagMakerSequence<ForwardIterator, ObjectSharedPtr>;
         
         auto type_id = LangToolkit::getTypeManager().getTypeId(arg);
         if (type_id == TypeId::DB0_COMPOSITE_TAG) {
-            return addCompositeIterator(LangToolkit::getTypeManager().extractCompositeTag(arg), factory);
+            return addCompositeIterator(
+                LangToolkit::getTypeManager().extractCompositeTag(arg),
+                factory,
+                has_passive_predicate,
+                has_positive_anchor
+            );
         }
 
         // simple tag-convertible type
@@ -721,10 +794,35 @@ namespace db0::object_model
         {
             if (isLongTag(type_id, arg)) {
                 // query as the long-tag
-                return m_base_index_long.addIterator(factory, getLongTag(type_id, arg));
+                auto long_tag = getLongTag(type_id, arg);
+                auto stored_tag = tryGetStoredLongTag(long_tag);
+                auto query_tag = stored_tag.value_or(long_tag);
+                if (m_base_index_long.addIterator(factory, query_tag)) {
+                    if (stored_tag && isPassiveLongTag(*stored_tag)) {
+                        if (has_passive_predicate) {
+                            *has_passive_predicate = true;
+                        }
+                    } else if (has_positive_anchor) {
+                        *has_positive_anchor = true;
+                    }
+                    return true;
+                }
+                if (has_positive_anchor) {
+                    *has_positive_anchor = true;
+                }
+                return false;
             } else {
                 auto short_tag = getShortTag(type_id, arg);
-                if (m_base_index_short.addIterator(factory, short_tag)) {
+                auto stored_tag = tryGetStoredShortTag(short_tag);
+                auto query_tag = stored_tag.value_or(short_tag);
+                if (m_base_index_short.addIterator(factory, query_tag)) {
+                    if (stored_tag && stored_tag->isPassive()) {
+                        if (has_passive_predicate) {
+                            *has_passive_predicate = true;
+                        }
+                    } else if (has_positive_anchor) {
+                        *has_positive_anchor = true;
+                    }
                     return true;
                 }
                 bool inc_ref = false;
@@ -735,6 +833,9 @@ namespace db0::object_model
                 if (inc_ref) {
                     m_inc_refed_tags.insert(*missing_tag);
                 }
+                if (has_positive_anchor) {
+                    *has_positive_anchor = true;
+                }
                 factory.add(makeMissingIterator(std::vector<ShortTagT> { *missing_tag }));
                 return true;
             }
@@ -743,6 +844,9 @@ namespace db0::object_model
         // Memo instance is directly fed into the FT_FixedKeyIterator
         if (type_id == TypeId::MEMO_OBJECT || type_id == TypeId::MEMO_IMMUTABLE_OBJECT) {
             auto addr = LangToolkit::getMemoUniqueAddress(arg);
+            if (has_positive_anchor) {
+                *has_positive_anchor = true;
+            }
             factory.add(std::make_unique<FT_FixedKeyIterator<UniqueAddress> >(&addr, &addr + 1));
             return true;
         }
@@ -762,7 +866,23 @@ namespace db0::object_model
                     }
                     return *result;
                 });
-                return m_base_index_long.addIterator(factory, makeLongTagFromSequence(sequence));
+                auto long_tag = makeLongTagFromSequence(sequence);
+                auto stored_tag = tryGetStoredLongTag(long_tag);
+                auto query_tag = stored_tag.value_or(long_tag);
+                if (m_base_index_long.addIterator(factory, query_tag)) {
+                    if (stored_tag && isPassiveLongTag(*stored_tag)) {
+                        if (has_passive_predicate) {
+                            *has_passive_predicate = true;
+                        }
+                    } else if (has_positive_anchor) {
+                        *has_positive_anchor = true;
+                    }
+                    return true;
+                }
+                if (has_positive_anchor) {
+                    *has_positive_anchor = true;
+                }
+                return false;
             }
             
             bool is_or_clause = (type_id == TypeId::LIST);
@@ -778,7 +898,10 @@ namespace db0::object_model
             bool all = true;
             ForwardIterator it(LangToolkit::getIterator(arg));
             for (auto end = ForwardIterator::end(); it != end; ++it) {
-                bool result = addIterator((*it).get(), *inner_factory, inner_neg_iterators, query_observers);
+                bool result = addIterator(
+                    (*it).get(), *inner_factory, inner_neg_iterators, query_observers,
+                    has_passive_predicate, has_positive_anchor
+                );
                 any |= result;
                 all &= result;
             }
@@ -802,7 +925,7 @@ namespace db0::object_model
         if (type_id == TypeId::OBJECT_ITERABLE) {
             auto &obj_iter = LangToolkit::getTypeManager().extractObjectIterable(arg);
             // try interpreting the iterator as FT-query
-            return addIterator(obj_iter, factory, neg_iterators, query_observers);
+            return addIterator(obj_iter, factory, neg_iterators, query_observers, has_positive_anchor);
         }
         
         if (type_id == TypeId::DB0_TAG_SET) {
@@ -817,7 +940,10 @@ namespace db0::object_model
             } else {
                 // just add as regular iterators
                 for (auto &arg: tag_set.getArgs()) {
-                    addIterator(arg.get(), factory, inner_neg_iterators, query_observers);
+                    addIterator(
+                        arg.get(), factory, inner_neg_iterators, query_observers,
+                        has_passive_predicate, has_positive_anchor
+                    );
                 }
             }
             if (!inner_neg_iterators.empty()) {
@@ -832,7 +958,8 @@ namespace db0::object_model
     }
 
     bool TagIndex::addCompositeIterator(const CompositeTagDef &tag,
-        db0::FT_IteratorFactory<UniqueAddress> &factory) const
+        db0::FT_IteratorFactory<UniqueAddress> &factory,
+        bool *has_passive_predicate, bool *has_positive_anchor) const
     {
         if (tag.size() < 2) {
             return false;
@@ -857,6 +984,9 @@ namespace db0::object_model
                     return false;
                 }
                 serialized_tag_sequence.push_back(*tag_key);
+            }
+            if (has_positive_anchor) {
+                *has_positive_anchor = true;
             }
             factory.add(makeMissingIterator(std::move(serialized_tag_sequence)));
             return true;
@@ -905,12 +1035,15 @@ namespace db0::object_model
         return current_tag_index->addCompositeLeafIterator(
             items.back().get(),
             factory,
-            std::move(serialized_tag_sequence)
+            std::move(serialized_tag_sequence),
+            has_passive_predicate,
+            has_positive_anchor
         );
     }
     
     bool TagIndex::addCompositeLeafIterator(ObjectPtr arg, db0::FT_IteratorFactory<UniqueAddress> &factory,
-        std::vector<ShortTagT> &&serialized_tag_sequence) const
+        std::vector<ShortTagT> &&serialized_tag_sequence,
+        bool *has_passive_predicate, bool *has_positive_anchor) const
     {
         using TypeId = db0::bindings::TypeId;
 
@@ -919,19 +1052,47 @@ namespace db0::object_model
             THROWF(db0::InputException) << "Nested composite tag leaves are not supported" << THROWF_END;
         }
         if (isLongTag(type_id, arg)) {
-            return m_base_index_long.addIterator(factory, getLongTag(type_id, arg));
+            auto long_tag = getLongTag(type_id, arg);
+            auto stored_tag = tryGetStoredLongTag(long_tag);
+            auto query_tag = stored_tag.value_or(long_tag);
+            if (m_base_index_long.addIterator(factory, query_tag)) {
+                if (stored_tag && isPassiveLongTag(*stored_tag)) {
+                    if (has_passive_predicate) {
+                        *has_passive_predicate = true;
+                    }
+                } else if (has_positive_anchor) {
+                    *has_positive_anchor = true;
+                }
+                return true;
+            }
+            if (has_positive_anchor) {
+                *has_positive_anchor = true;
+            }
+            return false;
         }
 
         auto leaf_key = tryGetCompositeKey(arg);
         if (!leaf_key) {
             return false;
         }
+        auto stored_leaf_key = tryGetStoredShortTag(*leaf_key);
+        auto query_leaf_key = stored_leaf_key.value_or(*leaf_key);
         // current TagIndex is already the correct nested index for lookup. The
         // complete root-to-leaf sequence is attached only so serialized queries can
         // reopen the same nested index by traversing from the root during deserialize.
-        serialized_tag_sequence.push_back(*leaf_key);
-        if (m_base_index_short.addIterator(factory, *leaf_key, std::vector<ShortTagT>(serialized_tag_sequence))) {
+        serialized_tag_sequence.push_back(query_leaf_key);
+        if (m_base_index_short.addIterator(factory, query_leaf_key, std::vector<ShortTagT>(serialized_tag_sequence))) {
+            if (stored_leaf_key && stored_leaf_key->isPassive()) {
+                if (has_passive_predicate) {
+                    *has_passive_predicate = true;
+                }
+            } else if (has_positive_anchor) {
+                *has_positive_anchor = true;
+            }
             return true;
+        }
+        if (has_positive_anchor) {
+            *has_positive_anchor = true;
         }
         factory.add(makeMissingIterator(std::move(serialized_tag_sequence)));
         return true;
@@ -980,7 +1141,7 @@ namespace db0::object_model
         } else if (type_id == TypeId::DB0_CLASS) {
             return getShortTagFromClass(py_arg);
         } else if (type_id == TypeId::MEMO_OBJECT || type_id == TypeId::MEMO_IMMUTABLE_OBJECT) {
-            return LangToolkit::getMemoUniqueAddress(py_arg).getAddress().getOffset();
+            return ShortTagT::fromAddress(LangToolkit::getMemoUniqueAddress(py_arg).getAddress());
         }
         THROWF(db0::InputException) << "Unable to interpret object of type: " << LangToolkit::getTypeName(py_arg)
             << " as a tag" << THROWF_END;
@@ -1017,19 +1178,19 @@ namespace db0::object_model
     TagIndex::ShortTagT TagIndex::getShortTagFromString(ObjectPtr py_arg) const
     {
         assert(LangToolkit::isString(py_arg));
-        return LangToolkit::getTagFromString(py_arg, m_string_pool);
+        return ShortTagT::fromOffset(LangToolkit::getTagFromString(py_arg, m_string_pool));
     }
     
     TagIndex::ShortTagT TagIndex::getShortTagFromTag(ObjectPtr py_arg) const
     {
         assert(LangToolkit::isTag(py_arg));
         // NOTE: we use only the offset part as tag - to distinguish from enum and class tags (high bits)
-        return LangToolkit::getTypeManager().extractTag(py_arg).getAddress(m_class_factory).getOffset();
+        return ShortTagT::fromAddress(LangToolkit::getTypeManager().extractTag(py_arg).getAddress(m_class_factory));
     }
 
     TagIndex::ShortTagT TagIndex::getShortTagFromTag(const TagDef &tag_def) const {
         // NOTE: we use only the offset part as tag - to distinguish from enum and class tags (high bits)
-        return tag_def.getAddress(m_class_factory).getOffset();
+        return ShortTagT::fromAddress(tag_def.getAddress(m_class_factory));
     }
 
     TagIndex::ShortTagT TagIndex::getShortTagFromEnumValue(const EnumValue &enum_value, ObjectSharedPtr *alt_repr) const
@@ -1043,17 +1204,17 @@ namespace db0::object_model
                     // tag does not exist
                     return {};
                 }
-                return LangToolkit::getTypeManager().extractEnumValue(alt_repr->get()).getUID().asULong();
+                return ShortTagT::fromOffset(LangToolkit::getTypeManager().extractEnumValue(alt_repr->get()).getUID().asULong());
             } else {
                 auto value = m_enum_factory.tryMigrateEnumValue(enum_value);
                 if (!value) {
                     // tag does not exist
                     return {};
                 }
-                return (*value).getUID().asULong();
+                return ShortTagT::fromOffset((*value).getUID().asULong());
             }
         }
-        return enum_value.getUID().asULong();
+        return ShortTagT::fromOffset(enum_value.getUID().asULong());
     }
     
     TagIndex::ShortTagT TagIndex::getShortTagFromEnumValue(ObjectPtr py_arg, ObjectSharedPtr *alt_repr) const
@@ -1069,14 +1230,14 @@ namespace db0::object_model
     }
     
     TagIndex::ShortTagT TagIndex::getShortTagFromClass(const Class &type) const {
-        return type.getAddress().getOffset();
+        return ShortTagT::fromAddress(type.getAddress());
     }
 
     TagIndex::ShortTagT TagIndex::getShortTagFromFieldDef(ObjectPtr py_arg) const
     {
         auto &field_def = LangToolkit::getTypeManager().extractFieldDef(py_arg);
         // class UID (32bit) + primary field ID (32 bit)
-        return (static_cast<std::uint64_t>(field_def.m_class_uid) << 32) | field_def.m_member.getLongIndex();
+        return ShortTagT::fromOffset((static_cast<std::uint64_t>(field_def.m_class_uid) << 32) | field_def.m_member.getLongIndex());
     }
     
     TagIndex::ShortTagT TagIndex::getShortTag(ObjectSharedPtr py_arg, ObjectSharedPtr *alt_repr) const {
@@ -1117,9 +1278,9 @@ namespace db0::object_model
         assert(LangToolkit::isString(py_arg));
         if (m_fixture.safe_lock()->getAccessType() == AccessType::READ_ONLY) {
             auto tag = getShortTagFromString(py_arg);
-            return tag ? std::optional<ShortTagT>(tag) : std::nullopt;
+            return tag.isValid() ? std::optional<ShortTagT>(tag) : std::nullopt;
         }
-        return LangToolkit::addTagFromString(py_arg, m_string_pool, inc_ref);
+        return ShortTagT::fromOffset(LangToolkit::addTagFromString(py_arg, m_string_pool, inc_ref));
     }
     
     std::optional<TagIndex::ShortTagT> TagIndex::tryAddShortTagFromMemo(ObjectPtr py_arg) const
@@ -1130,7 +1291,7 @@ namespace db0::object_model
             return std::nullopt;
         }
         // NOTE: we use only the offset part as tag - to distinguish from enum and class tags (high bits)
-        return LangToolkit::getMemoUniqueAddress(py_arg).getAddress().getOffset();
+        return ShortTagT::fromAddress(LangToolkit::getMemoUniqueAddress(py_arg).getAddress());
     }
     
     std::optional<TagIndex::ShortTagT> TagIndex::tryAddShortTagFromTag(ObjectPtr py_arg) const
@@ -1142,7 +1303,7 @@ namespace db0::object_model
             // must be added as long tag
             return std::nullopt;
         }
-        return addr_pair.second;
+        return ShortTagT::fromAddress(addr_pair.second);
     }
     
     bool TagIndex::isScopeIdentifier(ObjectPtr ptr) const {
@@ -1588,7 +1749,7 @@ namespace db0::object_model
             if (!fixture) {
                 THROWF(db0::InternalException) << "Fixture closed while iteration";                
             }
-            return this->makeIterator(tag_id.getAddress());
+            return this->makeIterator(ShortTagT::fromAddress(tag_id.getAddress()));
         };
 
         return std::make_unique<TP_Iterator>(

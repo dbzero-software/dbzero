@@ -978,13 +978,16 @@ def bytearray(source: Union[bytes, Iterable[int]] = b'', /) -> ByteArrayObject:
 
 # Tag and query functions
 
-def tags(*objects: Union[Memo, QueryObject]) -> ObjectTagManager:
+def tags(*objects: Union[Memo, QueryObject], passive: bool = False) -> ObjectTagManager:
     """Get a tag manager interface for given Memo objects.
 
     Parameters
     ----------
     *objects : Memo or QueryObject
         One or more Memo objects or query result sets to manage tags for.
+    passive : bool, optional
+        Assign simple tags without extending the tagged object's lifetime. Passive tags require
+        another positive predicate when queried.
 
     Returns
     -------

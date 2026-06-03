@@ -47,6 +47,26 @@ def test_enum_tags_are_distinguished_from_string_values(db0_fixture):
     assert set([x.value for x in db0.find(Colors.RED)]) == set([1])
 
 
+def test_enum_tags_are_not_treated_as_passive_tags(db0_fixture):
+    Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])
+    db0.tags(MemoTestClass(1)).add(Colors.RED)
+    db0.tags(MemoTestClass(2), passive=True).add("passive-tag")
+
+    assert set([x.value for x in db0.find(Colors.RED)]) == {1}
+    with pytest.raises(Exception):
+        list(db0.find("passive-tag"))
+
+
+def test_enum_tag_can_anchor_passive_tag_query(db0_fixture):
+    Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])
+    obj = MemoTestClass(1)
+    db0.tags(obj).add(Colors.RED)
+    db0.tags(obj, passive=True).add("passive-tag")
+    db0.tags(MemoTestClass(2), passive=True).add("passive-tag")
+
+    assert set([x.value for x in db0.find(Colors.RED, "passive-tag")]) == {1}
+
+
 def test_enum_type_defines_values_method(db0_fixture):
     Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])
     assert len(Colors.values()) == 3

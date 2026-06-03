@@ -23,6 +23,6 @@ namespace db0::python
     
     extern PyTypeObject PyObjectTagManagerType;
     
-    PyObjectTagManager *makeObjectTagManager(PyObject *, PyObject *const *args, Py_ssize_t nargs);
+    PyObjectTagManager *makeObjectTagManager(PyObject *, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames);
     
 }

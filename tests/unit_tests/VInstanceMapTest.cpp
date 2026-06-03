@@ -430,7 +430,7 @@ DB0_PACKED_END
             mutation_log
         );
 
-        constexpr TagIndex::ShortTagT composite_tag = 12345;
+        const auto composite_tag = TagIndex::ShortTagT::fromOffset(12345);
         ASSERT_FALSE(tag_index.tryUpdateComposite(reinterpret_cast<PyObject *>(memo_ptr.get()), composite_tag));
         auto child_tag_index = tag_index.addComposite(reinterpret_cast<PyObject *>(memo_ptr.get()), composite_tag);
 
@@ -477,7 +477,7 @@ DB0_PACKED_END
             mutation_log
         );
 
-        constexpr TagIndex::ShortTagT composite_tag = 12346;
+        const auto composite_tag = TagIndex::ShortTagT::fromOffset(12346);
         auto child_tag_index = tag_index.addComposite(reinterpret_cast<PyObject *>(memo_ptr.get()), composite_tag);
         child_tag_index->addTag(reinterpret_cast<PyObject *>(memo_ptr.get()), composite_tag, false);
         ASSERT_FALSE(tag_index.empty());
@@ -512,7 +512,7 @@ DB0_PACKED_END
 
         ASSERT_FALSE(tag_index.flush());
 
-        constexpr TagIndex::ShortTagT composite_tag = 12351;
+        const auto composite_tag = TagIndex::ShortTagT::fromOffset(12351);
         auto child_tag_index = tag_index.addComposite(reinterpret_cast<PyObject *>(memo_ptr.get()), composite_tag);
         ASSERT_TRUE(child_tag_index->empty());
         ASSERT_FALSE(tag_index.flush());
@@ -549,7 +549,7 @@ DB0_PACKED_END
             mutation_log
         );
 
-        constexpr TagIndex::ShortTagT composite_tag = 12347;
+        const auto composite_tag = TagIndex::ShortTagT::fromOffset(12347);
         auto child_tag_index = tag_index.addComposite(reinterpret_cast<PyObject *>(memo_ptr.get()), composite_tag);
         child_tag_index->addTag(reinterpret_cast<PyObject *>(memo_ptr.get()), composite_tag, false);
         ASSERT_FALSE(tag_index.empty());
@@ -582,7 +582,7 @@ DB0_PACKED_END
             mutation_log
         );
 
-        constexpr TagIndex::ShortTagT composite_tag = 12348;
+        const auto composite_tag = TagIndex::ShortTagT::fromOffset(12348);
         auto child_tag_index = tag_index.addComposite(reinterpret_cast<PyObject *>(memo_ptr.get()), composite_tag);
         child_tag_index->addTag(reinterpret_cast<PyObject *>(memo_ptr.get()), composite_tag, false);
         ASSERT_FALSE(tag_index.empty());
@@ -615,7 +615,7 @@ DB0_PACKED_END
             mutation_log
         );
 
-        constexpr TagIndex::ShortTagT composite_tag = 12349;
+        const auto composite_tag = TagIndex::ShortTagT::fromOffset(12349);
         auto child_tag_index = tag_index.addComposite(reinterpret_cast<PyObject *>(memo_ptr.get()), composite_tag);
         child_tag_index->addTag(reinterpret_cast<PyObject *>(memo_ptr.get()), composite_tag, false);
         auto child_address = child_tag_index->getAddress();
@@ -657,7 +657,7 @@ DB0_PACKED_END
             mutation_log
         );
 
-        constexpr TagIndex::ShortTagT composite_tag = 12350;
+        const auto composite_tag = TagIndex::ShortTagT::fromOffset(12350);
         auto child_tag_index = tag_index.addComposite(reinterpret_cast<PyObject *>(memo_ptr.get()), composite_tag);
         child_tag_index->addTag(reinterpret_cast<PyObject *>(memo_ptr.get()), composite_tag, false);
 

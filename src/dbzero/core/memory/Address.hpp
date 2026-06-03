@@ -7,6 +7,7 @@
 #include <cassert>
 #include <functional>
 #include <ostream>
+#include <type_traits>
 #include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
@@ -178,7 +179,7 @@ DB0_PACKED_BEGIN
         inline Address getAddress() const {
             return Address::fromOffset(getOffset());
         }
-        
+
         // Address cast
         inline operator Address() const {
             return Address::fromOffset(getOffset());
@@ -193,6 +194,131 @@ DB0_PACKED_BEGIN
         }
     };
 DB0_PACKED_END    
+
+DB0_PACKED_BEGIN
+    class DB0_PACKED_ATTR TagAddress
+    {
+    public:
+        // TagAddress is used by the short-tag index, whose key space contains
+        // both real memory addresses and packed non-address tags. Address-backed
+        // tags use only low 50 bits, matching UniqueAddress's address payload.
+        // EnumValue_UID tags reserve bit 63 to distinguish enum tags from
+        // address-backed tags, so passive tags must not use or mask that bit.
+        // PASSIVE_BIT is only recognized when no non-address high bits are set.
+        static constexpr std::uint64_t ENUM_BIT = 1ULL << 63;
+        static constexpr std::uint64_t PASSIVE_BIT = 1ULL << 62;
+        static constexpr std::uint64_t ADDRESS_MASK = (1ULL << 50) - 1;
+
+        TagAddress() = default;
+
+        static inline TagAddress fromValue(std::uint64_t value) {
+            return TagAddress(value);
+        }
+
+        static inline TagAddress fromOffset(std::uint64_t offset) {
+            return TagAddress(offset);
+        }
+
+        static inline TagAddress fromAddress(Address address) {
+            return fromOffset(address.getOffset());
+        }
+
+        inline bool operator!() const {
+            return regularValue(m_value) == 0;
+        }
+
+        inline bool isValid() const {
+            return regularValue(m_value) != 0;
+        }
+
+        inline bool isPassive() const {
+            return isPassiveValue(m_value);
+        }
+
+        inline TagAddress asPassive() const {
+            auto regular_value = regularValue(m_value);
+            // Non-address tag encodings, such as enum and field-def tags, are
+            // not eligible for passive storage. Returning them unchanged keeps
+            // their packed identity intact.
+            if ((regular_value & ~ADDRESS_MASK) != 0) {
+                return *this;
+            }
+            return TagAddress(regular_value | PASSIVE_BIT);
+        }
+
+        inline TagAddress asRegular() const {
+            return TagAddress(regularValue(m_value));
+        }
+
+        inline std::uint64_t getOffset() const {
+            return regularValue(m_value);
+        }
+
+        inline std::uint64_t getValue() const {
+            return m_value;
+        }
+
+        inline Address getAddress() const {
+            return Address::fromOffset(getOffset());
+        }
+
+        inline operator Address() const {
+            return getAddress();
+        }
+
+        inline operator std::uint64_t() const {
+            return regularValue(m_value);
+        }
+
+        inline bool operator==(const TagAddress &other) const {
+            return regularValue(m_value) == regularValue(other.m_value);
+        }
+
+        inline bool operator!=(const TagAddress &other) const {
+            return regularValue(m_value) != regularValue(other.m_value);
+        }
+
+        inline bool operator<(const TagAddress &other) const {
+            return regularValue(m_value) < regularValue(other.m_value);
+        }
+
+        inline bool operator>(const TagAddress &other) const {
+            return regularValue(m_value) > regularValue(other.m_value);
+        }
+
+        inline bool operator<=(const TagAddress &other) const {
+            return regularValue(m_value) <= regularValue(other.m_value);
+        }
+
+        inline bool operator>=(const TagAddress &other) const {
+            return regularValue(m_value) >= regularValue(other.m_value);
+        }
+
+        static inline bool isPassiveValue(std::uint64_t value) {
+            return (value & PASSIVE_BIT) != 0 && (value & ~(PASSIVE_BIT | ADDRESS_MASK)) == 0;
+        }
+
+        static inline std::uint64_t regularValue(std::uint64_t value) {
+            return isPassiveValue(value) ? (value & ADDRESS_MASK) : value;
+        }
+
+        inline friend std::ostream &operator<<(std::ostream &os, const TagAddress &address) {
+            os << address.m_value;
+            return os;
+        }
+
+    private:
+        std::uint64_t m_value = 0;
+
+        explicit inline TagAddress(std::uint64_t value)
+            : m_value(value)
+        {
+        }
+    };
+DB0_PACKED_END
+
+    static_assert(sizeof(TagAddress) == sizeof(std::uint64_t));
+    static_assert(std::is_trivially_copyable_v<TagAddress>);
 
     UniqueAddress makeUniqueAddr(std::uint64_t offset, std::uint16_t id);
 
@@ -212,6 +338,12 @@ namespace std
     template <> struct hash<db0::UniqueAddress> {
         std::size_t operator()(const db0::UniqueAddress &address) const noexcept {
             return std::hash<std::uint64_t>()(address.getValue());
+        }
+    };
+
+    template <> struct hash<db0::TagAddress> {
+        std::size_t operator()(const db0::TagAddress &address) const noexcept {
+            return std::hash<std::uint64_t>()(address.getOffset());
         }
     };
 
