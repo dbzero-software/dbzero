@@ -24,13 +24,16 @@ namespace tests
     class BDevStorageTest: public testing::Test {
     public:
         static constexpr const char *file_name = "my-test-prefix_1.db0";
+        static constexpr const char *copy_file_name = "my-test-prefix-copy.db0";
 
         virtual void SetUp() override {            
             drop(file_name);
+            drop(copy_file_name);
         }
 
         virtual void TearDown() override {            
             drop(file_name);
+            drop(copy_file_name);
         }
     };
     
@@ -41,8 +44,8 @@ namespace tests
         /**
          * Opens BDevStorage over an existing file
         */
-        BDevStorageWrapper(const std::string &file_name, AccessType = AccessType::READ_WRITE)
-            : BDevStorage(file_name, AccessType::READ_WRITE)
+        BDevStorageWrapper(const std::string &file_name, AccessType access_type = AccessType::READ_WRITE)
+            : BDevStorage(file_name, access_type)
         {
         }
         
@@ -52,6 +55,26 @@ namespace tests
 
         const DRAM_IOStream &getDRAM_IOStream() const {
             return m_dram_io;
+        }
+
+        std::uint32_t getConfigVersion() const {
+            return m_config.m_version;
+        }
+
+        std::uint64_t appendDescriptorPage(const std::vector<std::byte> &page) {
+            return m_descriptor_io.append(page.data());
+        }
+
+        void readDescriptorPage(std::uint64_t page_num, std::vector<std::byte> &page) const {
+            m_descriptor_io.read(page_num, page.data());
+        }
+
+        std::uint64_t appendDataPage(const std::vector<std::byte> &page) {
+            return m_page_io.append(page.data());
+        }
+
+        static std::uint64_t physicalOffset(std::uint64_t page_num, std::uint32_t page_size) {
+            return CONFIG_BLOCK_SIZE + page_num * page_size;
         }
 
         void readMetered(std::uint64_t address, std::uint64_t state_num, std::size_t size, void *buffer,
@@ -65,6 +88,78 @@ namespace tests
     {         
         BDevStorage::create(file_name);
         ASSERT_TRUE(file_exists(file_name));
+    }
+
+    TEST_F( BDevStorageTest , testDescriptorIOUsesSeparatePageSizeAndDoesNotCollideWithPageIO )
+    {
+        std::size_t page_size = 4096;
+        BDevStorage::create(file_name, page_size);
+
+        std::uint64_t descriptor_page_num = 0;
+        std::uint64_t data_page_num = 0;
+        std::vector<std::byte> descriptor_page(16u << 10, std::byte{0x55});
+        std::vector<std::byte> data_page(page_size, std::byte{0x2a});
+
+        {
+            BDevStorageWrapper cut(file_name, AccessType::READ_WRITE);
+            ASSERT_EQ(2u, cut.getConfigVersion());
+            ASSERT_EQ(page_size, cut.getPageSize());
+            ASSERT_EQ(16u << 10, cut.getDescriptorPageSize());
+
+            descriptor_page_num = cut.appendDescriptorPage(descriptor_page);
+            data_page_num = cut.appendDataPage(data_page);
+            cut.close();
+        }
+
+        auto descriptor_begin = BDevStorageWrapper::physicalOffset(descriptor_page_num, 16u << 10);
+        auto descriptor_end = descriptor_begin + descriptor_page.size();
+        auto data_begin = BDevStorageWrapper::physicalOffset(data_page_num, page_size);
+        auto data_end = data_begin + data_page.size();
+        ASSERT_TRUE(descriptor_end <= data_begin || data_end <= descriptor_begin);
+
+        {
+            BDevStorageWrapper cut(file_name, AccessType::READ_ONLY);
+            std::vector<std::byte> descriptor_read(descriptor_page.size());
+            cut.readDescriptorPage(descriptor_page_num, descriptor_read);
+            ASSERT_EQ(descriptor_page, descriptor_read);
+            cut.close();
+        }
+    }
+
+    TEST_F( BDevStorageTest , testCopyToCopiesDescriptorIOExactly )
+    {
+        std::size_t page_size = 4096;
+        BDevStorage::create(file_name, page_size, (16u << 10) - 256, 4u << 20);
+
+        std::uint64_t descriptor_page_num = 0;
+        std::vector<std::byte> descriptor_page(16u << 10, std::byte{0x33});
+        std::vector<char> data_page(page_size, 0x11);
+        {
+            BDevStorageWrapper src(file_name, AccessType::READ_WRITE);
+            descriptor_page_num = src.appendDescriptorPage(descriptor_page);
+            src.write(0, 1, data_page.size(), data_page.data());
+            src.flush();
+            src.close();
+        }
+
+        {
+            BDevStorageWrapper src(file_name, AccessType::READ_ONLY);
+            BDevStorage::create(copy_file_name, page_size, (16u << 10) - 256, 4u << 20);
+            BDevStorageWrapper out(copy_file_name, AccessType::READ_WRITE);
+            src.copyTo(out);
+            out.close();
+            src.close();
+        }
+
+        BDevStorageWrapper out(copy_file_name, AccessType::READ_ONLY);
+        std::vector<std::byte> descriptor_read(descriptor_page.size());
+        out.readDescriptorPage(descriptor_page_num, descriptor_read);
+        ASSERT_EQ(descriptor_page, descriptor_read);
+
+        std::vector<char> data_read(page_size);
+        out.read(0, 1, data_read.size(), data_read.data(), { AccessOptions::read });
+        ASSERT_TRUE(equal(data_page, data_read));
+        out.close();
     }
 
     TEST_F( BDevStorageTest , testCanWriteThenReadFullPagesFromOneState )

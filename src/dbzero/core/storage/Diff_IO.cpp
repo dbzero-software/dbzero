@@ -6,6 +6,7 @@
 #include <dbzero/core/exception/Exceptions.hpp>
 #include <dbzero/core/compiler_attributes.hpp>
 #include <dbzero/core/memory/config.hpp>
+#include <algorithm>
 
 namespace db0
 
@@ -278,6 +279,8 @@ DB0_PACKED_END
                 *is_first_page &= m_writer->empty();
             }
             if (m_writer->append((const std::byte*)dp_data, page_and_state, diff_data, overflow)) {
+                m_modified = true;
+                trackWrittenPages(next_page_num.first, overflow ? 2 : 1);
                 if (overflow) {
                     // on overflow we can either append remnants to the next storage page (+1)
                     // if such is available or revert the append and try again with a fresh buffer
@@ -330,6 +333,22 @@ DB0_PACKED_END
             m_diff_bytes_written += m_writer->flush();
         }
         m_page_stream.flush();
+        m_modified = false;
+    }
+
+    bool Diff_IO::modified() const
+    {
+        return m_modified;
+    }
+
+    std::optional<std::uint64_t> Diff_IO::getFirstWrittenPageNum() const
+    {
+        return m_first_written_page_num;
+    }
+
+    std::uint64_t Diff_IO::getEndWrittenPageNum() const
+    {
+        return m_end_written_page_num;
     }
 
     void Diff_IO::clearDiffStream()
@@ -339,6 +358,7 @@ DB0_PACKED_END
             m_diff_bytes_written += m_writer->flush();
         }
         m_page_stream.clear();
+        m_modified = true;
     }
     
     void Diff_IO::write(std::uint64_t page_num, void *buffer)
@@ -349,6 +369,8 @@ DB0_PACKED_END
         }
         m_page_stream.flush();
         Page_IO::write(page_num, buffer);
+        m_modified = true;
+        trackWrittenPages(page_num, 1);
     }
 
     void Diff_IO::read(std::uint64_t page_num, void *buffer) const
@@ -365,7 +387,21 @@ DB0_PACKED_END
         }
         m_page_stream.flush();
         m_full_dp_bytes_written += m_page_size;
-        return Page_IO::append(buffer, is_first_page_ptr);
+        m_modified = true;
+        auto page_num = Page_IO::append(buffer, is_first_page_ptr);
+        trackWrittenPages(page_num, 1);
+        return page_num;
+    }
+
+    void Diff_IO::trackWrittenPages(std::uint64_t page_num, std::uint64_t page_count)
+    {
+        if (page_count == 0) {
+            return;
+        }
+        if (!m_first_written_page_num || page_num < *m_first_written_page_num) {
+            m_first_written_page_num = page_num;
+        }
+        m_end_written_page_num = std::max(m_end_written_page_num, page_num + page_count);
     }
     
     std::pair<std::size_t, std::size_t> Diff_IO::getStats() const {

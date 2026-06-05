@@ -35,9 +35,10 @@ DB0_PACKED_BEGIN
     {
         // magic number for the .db0 file        
         static constexpr std::uint64_t DB0_MAGIC = 0x0DB0DB0DB0DB0DB0;
+        static constexpr std::uint32_t DB0_VERSION = 2;
 
         std::uint64_t m_magic = DB0_MAGIC;
-        std::uint32_t m_version = 1;  
+        std::uint32_t m_version = DB0_VERSION;  
         std::uint32_t m_block_size;
         // the prefix page size
         std::uint32_t m_page_size;
@@ -51,6 +52,10 @@ DB0_PACKED_BEGIN
         // a a single indivisible "step".
         // This value (entire step) corresponts to a single entry in the REL_Index (if it's used)
         std::uint32_t m_page_io_step_size;
+        std::uint32_t m_descriptor_page_size = 0;
+        std::uint32_t m_descriptor_io_step_size = 0;
+        std::uint64_t m_descriptor_io_begin_page_num = 0;
+        std::uint64_t m_descriptor_io_end_page_num = 0;
         std::uint64_t m_ext_dram_io_offset = 0;
         std::uint32_t m_ext_dram_page_size = 0;
         std::uint64_t m_ext_dram_changelog_io_offset = 0;
@@ -58,7 +63,8 @@ DB0_PACKED_BEGIN
         std::array<std::uint64_t, 16> m_reserved;
         
         o_prefix_config(std::uint32_t block_size, std::uint32_t page_size, std::uint32_t dram_page_size,
-            std::uint32_t page_io_step_size);
+            std::uint32_t page_io_step_size, std::uint32_t descriptor_page_size,
+            std::uint32_t descriptor_io_step_size);
     };
 DB0_PACKED_END
     
@@ -87,7 +93,8 @@ DB0_PACKED_END
          * @param step_size_hint defines requested Page IO step size in bytes
         */
         static void create(const std::string &file_name, std::optional<std::size_t> page_size = {},
-            std::uint32_t dram_page_size_hint = (16u << 10) - 256, std::optional<std::size_t> step_size_hint = {});
+            std::uint32_t dram_page_size_hint = (16u << 10) - 256, std::optional<std::size_t> step_size_hint = {},
+            std::optional<std::size_t> descriptor_page_size = {});
         
         void read(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer,
             FlagSet<AccessOptions> = { AccessOptions::read, AccessOptions::write }) const override;
@@ -117,6 +124,7 @@ DB0_PACKED_END
         
         std::size_t getPageSize() const override;
         std::size_t getDRAMPageSize() const;
+        std::size_t getDescriptorPageSize() const;
 
         StateNumType getMaxStateNum() const override;
         
@@ -141,6 +149,10 @@ DB0_PACKED_END
         
         const Page_IO &getPageIO() const {
             return m_page_io;
+        }
+
+        const Diff_IO &getDescriptorIO() const {
+            return m_descriptor_io;
         }
 
         const MetaIOStream &getMetaIO() const {
@@ -189,6 +201,8 @@ DB0_PACKED_END
         ExtSpace m_ext_space;
         // the stream for storing & reading full-DPs and diff-encoded DPs
         Diff_IO m_page_io;
+        // the stream for future descriptor-backed metadata
+        Diff_IO m_descriptor_io;
 #ifndef NDEBUG
         MemBaseStorage m_data_mirror;
 #endif
@@ -233,8 +247,9 @@ DB0_PACKED_END
         std::unique_ptr<ChangeLogIOStreamT> tryGetChangeLogIOStream(std::uint64_t first_block_pos, AccessType access_type)
         {
             if (first_block_pos) {
+                auto block_size = m_config.m_block_size;
                 return std::make_unique<ChangeLogIOStreamT>(
-                    m_file, first_block_pos, m_config.m_block_size, getTailFunction(), access_type
+                    m_file, first_block_pos, block_size, getTailFunction(), access_type
                 );
             } else {
                 // stream does not exist
@@ -245,8 +260,13 @@ DB0_PACKED_END
         MetaIOStream getMetaIOStream(std::uint64_t first_block_pos, std::size_t step_size, AccessType);
         
         Diff_IO getPage_IO(std::optional<std::uint64_t> next_page_hint, std::uint32_t step_size);
+        Diff_IO getDescriptor_IO();
+        Diff_IO getDiff_IO(std::optional<std::uint64_t> next_page_hint, std::uint32_t page_size,
+            std::uint32_t step_size, bool include_file_size);
         
         o_prefix_config readConfig() const;
+        void writeDescriptorIOConfig(std::uint64_t begin_page_num, std::uint64_t end_page_num);
+        bool syncDescriptorIOConfig();
         
         /**
          * Get the first available address (i.e. end of the file)

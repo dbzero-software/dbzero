@@ -6,6 +6,7 @@
 #include "PageStream.hpp"
 #include "diff_buffer.hpp"
 #include <memory>
+#include <optional>
 
 namespace db0
 
@@ -47,6 +48,12 @@ namespace db0
         // and after each transaction
         void flush();
 
+        bool modified() const;
+
+        std::optional<std::uint64_t> getFirstWrittenPageNum() const;
+
+        std::uint64_t getEndWrittenPageNum() const;
+
         // Clear the page-wise diff stream and reuse its previously occupied pages.
         // Existing diff page references become invalid and must be removed by caller.
         void clearDiffStream();
@@ -73,6 +80,11 @@ namespace db0
         // total bytes written using the diff mechanism
         std::size_t m_diff_bytes_written = 0;
         std::unique_ptr<DiffWriter> m_writer;
+        bool m_modified = false;
+        std::optional<std::uint64_t> m_first_written_page_num;
+        std::uint64_t m_end_written_page_num = 0;
+
+        void trackWrittenPages(std::uint64_t page_num, std::uint64_t page_count);
     };
     
 }
