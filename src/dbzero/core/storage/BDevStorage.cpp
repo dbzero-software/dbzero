@@ -421,10 +421,10 @@ namespace db0
         if (state_num != query.firstStateNum() && query.leftLessThan(max_len)) {
             bool is_first_page;
             // append as diff-page (NOTE: diff-writes are only appended)
-            auto [page_io_id, overflow] = m_page_io.appendDiff(buffer, { page_num, state_num }, diff_data, &is_first_page);
+            auto [page_io_id, overflow] = m_page_io.appendDiff(
+                buffer, { page_num, state_num }, diff_data, &is_first_page
+            );
             if (!!m_ext_space) {
-                // NOTE: first page (of each step) must be registered with REL_Index if it's maintained
-                // assign a relative page number
                 page_io_id = m_ext_space.assignRelative(page_io_id, is_first_page);
             }
             m_diff_index.insert(page_num, state_num, page_io_id, overflow);
@@ -602,7 +602,9 @@ namespace db0
             if (page_count == 0) {
                 address -= m_config.m_block_size;
                 page_count = block_capacity;
+                --block_id;
             }
+            block_num = static_cast<std::uint32_t>(block_id % step_size);
         } else {        
             // assign first page
             address = std::max(m_dram_io.tail(), m_meta_io.tail());
@@ -618,9 +620,10 @@ namespace db0
             block_num = 0;
         }
 
+        auto page_stream_chunk_pages = std::min<std::uint32_t>(64u, block_capacity * step_size);
         // NOTE: block num is unknown in this case
         return { CONFIG_BLOCK_SIZE, m_file, m_config.m_page_size, m_config.m_block_size, address, page_count,
-            step_size, getBlockIOTailFunction(), block_num
+            step_size, getBlockIOTailFunction(), block_num, page_stream_chunk_pages
         };
     }
     

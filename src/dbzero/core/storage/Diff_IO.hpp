@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "Page_IO.hpp"
+#include "PageStream.hpp"
 #include "diff_buffer.hpp"
 #include <memory>
 
@@ -20,9 +20,10 @@ namespace db0
     public:
         Diff_IO(std::size_t header_size, CFile &file, std::uint32_t page_size, std::uint32_t block_size, std::uint64_t address, 
             std::uint32_t page_count, std::uint32_t step_size, std::function<std::uint64_t()> tail_function, 
-            std::optional<std::uint32_t> block_num = {});
+            std::optional<std::uint32_t> block_num = {}, std::uint32_t page_stream_chunk_pages = 64);
         // Read-only Diff_IO
-        Diff_IO(std::size_t header_size, CFile &file, std::uint32_t page_size);
+        Diff_IO(std::size_t header_size, CFile &file, std::uint32_t page_size,
+            std::uint32_t page_stream_chunk_pages = 64);
         ~Diff_IO();
         
         // Appends a new diff-block to the stream
@@ -45,6 +46,10 @@ namespace db0
         // Flush needs to be called before closing the stream
         // and after each transaction
         void flush();
+
+        // Clear the page-wise diff stream and reuse its previously occupied pages.
+        // Existing diff page references become invalid and must be removed by caller.
+        void clearDiffStream();
         
         // Write as full-DP
         void write(std::uint64_t page_num, void *buffer);
@@ -62,11 +67,12 @@ namespace db0
         std::vector<std::byte> m_write_buf;
         mutable std::mutex m_mx_read;
         mutable std::vector<std::byte> m_read_buf;
-        std::unique_ptr<DiffWriter> m_writer;
+        PageStream m_page_stream;
         // total bytes written to the stream (since class creation) using full-DP method
         std::size_t m_full_dp_bytes_written = 0;
         // total bytes written using the diff mechanism
         std::size_t m_diff_bytes_written = 0;
+        std::unique_ptr<DiffWriter> m_writer;
     };
     
 }

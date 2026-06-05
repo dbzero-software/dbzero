@@ -82,6 +82,40 @@ namespace db0
         }
         return result;
     }
+
+    std::uint64_t Page_IO::reserve(std::uint32_t page_count, bool *is_first_page_ptr)
+    {
+        assert(m_access_type == AccessType::READ_WRITE);
+        if (page_count == 0) {
+            THROWF(db0::InternalException) << "Page_IO::reserve: page count must be greater than zero";
+        }
+
+        if (m_page_count == m_block_capacity) {
+            allocateNextBlock();
+        }
+
+        if (m_block_num) {
+            if (page_count > m_step_size * m_block_capacity) {
+                THROWF(db0::InternalException) << "Page_IO::reserve: unable to reserve more pages than fit in a step";
+            }
+            while (getCurrentStepRemainingPages() < page_count) {
+                allocateNextBlock();
+            }
+        } else if (page_count > (m_block_capacity - m_page_count)) {
+            THROWF(db0::InternalException) << "Page_IO::reserve: unable to reserve a contiguous range without step access";
+        }
+
+        if (is_first_page_ptr) {
+            *is_first_page_ptr = (m_page_count == 0) && (m_block_num && *m_block_num == 0);
+        }
+        auto result = m_first_page_num + m_page_count;
+        if (m_block_num) {
+            moveBy(page_count);
+        } else {
+            m_page_count += page_count;
+        }
+        return result;
+    }
     
     void Page_IO::allocateNextBlock()
     {
@@ -111,8 +145,21 @@ namespace db0
         m_file.read(m_header_size + page_num * m_page_size, page_count * m_page_size, buffer);
     }
 
+    void Page_IO::readPageOffset(std::uint64_t page_num, std::uint32_t offset, std::size_t size, void *buffer) const
+    {
+        assert(offset + size <= m_page_size);
+        m_file.read(m_header_size + page_num * m_page_size + offset, size, buffer);
+    }
+
     void Page_IO::write(std::uint64_t page_num, void *buffer) {
         m_file.write(m_header_size + page_num * m_page_size, m_page_size, buffer);
+    }
+
+    void Page_IO::writePageOffset(std::uint64_t page_num, std::uint32_t offset, std::size_t size,
+        const void *buffer)
+    {
+        assert(offset + size <= m_page_size);
+        m_file.write(m_header_size + page_num * m_page_size + offset, size, buffer);
     }
     
     std::uint64_t Page_IO::getPageNum(std::uint64_t address) const {
@@ -283,29 +330,26 @@ namespace db0
             THROWF(db0::InternalException) << "Page_IO::moveBy: step access not initialized";
         }
 
-        // move by the end of the current block
-        auto count = std::min(page_count, m_block_capacity - m_page_count);
-        auto new_block_num = *m_block_num + (page_count - count) / m_block_capacity + 1;
-        if (new_block_num > m_step_size) {
-            THROWF(db0::InternalException) << "Page_IO::moveBy: attempt to move beyond the current step";
-        }
-        // positioned at the end of the step
-        if (new_block_num == m_step_size) {
-            --new_block_num;
-        }
-        
-        auto page_diff = count + (new_block_num - *m_block_num - 1) * m_block_capacity;
-        page_count -= page_diff;
-        if (page_count > m_block_capacity) {
+        auto old_block_num = *m_block_num;
+        auto step_offset = old_block_num * m_block_capacity + m_page_count + page_count;
+        auto step_capacity = m_step_size * m_block_capacity;
+        if (step_offset > step_capacity) {
             THROWF(db0::InternalException) << "Page_IO::moveBy: attempt to move beyond the current step";
         }
 
-        // set new position variables (might be end of the block / step)
-        m_first_page_num += page_diff;
-        m_address += page_diff * m_page_size;
+        auto new_block_num = step_offset / m_block_capacity;
+        auto new_page_count = step_offset % m_block_capacity;
+        if (new_block_num == m_step_size) {
+            new_block_num = m_step_size - 1;
+            new_page_count = m_block_capacity;
+        }
+
+        auto block_diff = new_block_num - old_block_num;
+        m_first_page_num += block_diff * m_block_capacity;
+        m_address += block_diff * m_block_size;
         assert(m_address == m_header_size + m_first_page_num * m_page_size);
         m_block_num = new_block_num;
-        m_page_count = page_count;
+        m_page_count = new_page_count;
     }
     
     std::uint32_t Page_IO::getCurrentStepRemainingPages() const

@@ -62,4 +62,20 @@ namespace tests
         ASSERT_EQ(cut.getNextPageNum().first, 11);
     }
 
+    TEST_F( Page_IOTest, testPage_IOReserveWithinSingleBlockStep )
+    {
+        CFile::create(file_name, {});
+        CFile file(file_name, AccessType::READ_WRITE);
+        auto tail_function = [&file]() -> std::uint64_t {
+            return file.size();
+        };
+
+        auto block_size = page_size * 8;
+        db0::Page_IO cut(0, file, page_size, block_size, 0, 0, 1u, tail_function, 0);
+
+        ASSERT_EQ(0u, cut.reserve(4));
+        ASSERT_EQ(4u, cut.reserve(4));
+        ASSERT_EQ(8u, cut.reserve(4));
+    }
+
 }

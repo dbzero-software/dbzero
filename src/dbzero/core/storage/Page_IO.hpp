@@ -46,16 +46,24 @@ namespace db0
         // Appends one or more pages to the stream
         // @return first appended page number (aka storage page number)
         std::uint64_t append(const void *buffer, std::uint64_t page_count);
+
+        // Reserves one or more contiguous pages in the stream without writing page payloads.
+        // @return first reserved page number (aka storage page number)
+        std::uint64_t reserve(std::uint32_t page_count, bool *is_first_page = nullptr);
         
         void read(std::uint64_t page_num, void *buffer) const;
         
         // Read multiple consecutive pages
         void read(std::uint64_t page_num, void *buffer, std::uint32_t page_count) const;
+
+        void readPageOffset(std::uint64_t page_num, std::uint32_t offset, std::size_t size, void *buffer) const;
         
         /**
          * Overwrite existing page
         */
         void write(std::uint64_t page_num, void *buffer);
+
+        void writePageOffset(std::uint64_t page_num, std::uint32_t offset, std::size_t size, const void *buffer);
         
         std::uint64_t tail() const;
         
