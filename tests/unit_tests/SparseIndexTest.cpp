@@ -480,5 +480,64 @@ namespace tests
         ASSERT_EQ(cut.getNextStoragePageNum(), 11u);
         ASSERT_EQ(cut.getMaxStateNum(), 2u);
     }
+
+    TEST_F( SparseIndexTest , testSparseIndexForPageRangeUsesHalfOpenBounds )
+    {
+        SparseIndex cut(16 * 1024);
+        constexpr std::uint64_t slot_size = 1ull << 24;
+        constexpr std::uint64_t slot_1_first = slot_size;
+        constexpr std::uint64_t slot_2_first = slot_size * 2;
+
+        cut.emplace(slot_1_first - 1, 1, 10);
+        cut.emplace(slot_1_first, 1, 20);
+        cut.emplace(slot_1_first + 7, 2, 21);
+        cut.emplace(slot_2_first, 1, 30);
+
+        std::vector<std::uint64_t> page_nums;
+        cut.forPageRange(slot_1_first, slot_2_first, [&](const SI_Item &item) {
+            page_nums.push_back(item.m_page_num);
+        });
+
+        ASSERT_EQ(page_nums, (std::vector<std::uint64_t> { slot_1_first, slot_1_first + 7 }));
+    }
+
+    TEST_F( SparseIndexTest , testSparseIndexForPageRangeHandlesEmptyAndOutOfRangeScans )
+    {
+        SparseIndex empty_cut(16 * 1024);
+        std::size_t callback_count = 0;
+        empty_cut.forPageRange(1, 10, [&](const SI_Item &) {
+            ++callback_count;
+        });
+        ASSERT_EQ(callback_count, 0u);
+
+        SparseIndex cut(16 * 1024);
+        cut.emplace(100, 1, 10);
+        cut.emplace(200, 1, 20);
+
+        cut.forPageRange(10, 10, [&](const SI_Item &) {
+            ++callback_count;
+        });
+        cut.forPageRange(10, 20, [&](const SI_Item &) {
+            ++callback_count;
+        });
+        ASSERT_EQ(callback_count, 0u);
+    }
+
+    TEST_F( SparseIndexTest , testSparseIndexForPageRangeScansAcrossMultipleNodes )
+    {
+        SparseIndex cut(512);
+        for (std::uint64_t page_num = 0; page_num < 200; ++page_num) {
+            cut.emplace(page_num, 1, page_num + 1000);
+        }
+
+        std::vector<std::uint64_t> page_nums;
+        cut.forPageRange(40, 75, [&](const SI_Item &item) {
+            page_nums.push_back(item.m_page_num);
+        });
+
+        ASSERT_EQ(page_nums.size(), 35u);
+        ASSERT_EQ(page_nums.front(), 40u);
+        ASSERT_EQ(page_nums.back(), 74u);
+    }
         
 }

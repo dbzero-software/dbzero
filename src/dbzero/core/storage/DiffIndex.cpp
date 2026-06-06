@@ -160,6 +160,12 @@ namespace db0
     void DiffIndex::clear() {
         super_t::clear();
     }
+
+    void DiffIndex::forPageRange(PageNumT first_page_num, PageNumT last_page_num,
+        std::function<void(const DI_Item &)> callback) const
+    {
+        super_t::forPageRange(first_page_num, last_page_num, std::move(callback));
+    }
     
     void DiffIndex::insert(PageNumT page_num, StateNumT state_num, PageNumT storage_page_num, bool overflow)
     {

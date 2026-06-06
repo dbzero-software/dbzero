@@ -229,6 +229,49 @@ namespace tests
         ASSERT_EQ(cut.getMaxStateNum(), 41u);
     }
 
+    TEST_F( DiffIndexTest , testDiffIndexForPageRangeUsesHalfOpenBounds )
+    {
+        DiffIndex cut(16 * 1024);
+        constexpr std::uint64_t slot_size = 1ull << 24;
+        constexpr std::uint64_t slot_1_first = slot_size;
+        constexpr std::uint64_t slot_2_first = slot_size * 2;
+
+        cut.insert(slot_1_first - 1, 1, 10);
+        cut.insert(slot_1_first, 1, 20);
+        cut.insert(slot_1_first + 7, 2, 21);
+        cut.insert(slot_2_first, 1, 30);
+
+        std::vector<std::uint64_t> page_nums;
+        cut.forPageRange(slot_1_first, slot_2_first, [&](const DI_Item &item) {
+            page_nums.push_back(item.m_page_num);
+        });
+
+        ASSERT_EQ(page_nums, (std::vector<std::uint64_t> { slot_1_first, slot_1_first + 7 }));
+    }
+
+    TEST_F( DiffIndexTest , testDiffIndexForPageRangeReturnsDiffDescriptorsAcrossNodes )
+    {
+        DiffIndex cut(512);
+        constexpr std::uint64_t storage_step = 1ull << 32;
+        for (std::uint64_t page_num = 0; page_num < 200; ++page_num) {
+            cut.insert(page_num, 1, storage_step * (page_num + 1));
+            cut.insert(page_num, 2, storage_step * (page_num + 1) + 1);
+        }
+
+        std::vector<std::uint64_t> page_nums;
+        std::vector<std::uint32_t> first_state_nums;
+        cut.forPageRange(40, 75, [&](const DI_Item &item) {
+            page_nums.push_back(item.m_page_num);
+            first_state_nums.push_back(item.m_state_num);
+        });
+
+        ASSERT_EQ(page_nums.size(), 35u);
+        ASSERT_EQ(page_nums.front(), 40u);
+        ASSERT_EQ(page_nums.back(), 74u);
+        ASSERT_EQ(first_state_nums.front(), 1u);
+        ASSERT_EQ(first_state_nums.back(), 1u);
+    }
+
     TEST_F( DiffIndexTest , DISABLED_testDiffIndexInsertThenQuery )
     {   
         auto ops = loadArray("./tests/files/diff_index_ops.csv");

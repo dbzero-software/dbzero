@@ -494,6 +494,42 @@ DB0_PACKED_END
             }
         }
 
+        void forRange(const ItemT &first, const ItemT &last, const std::function<void(const ItemT &)> &f) const
+        {
+            if (base_t::empty() || !m_raw_item_comp(first, last)) {
+                return;
+            }
+
+            auto node = base_t::lower_equal_bound(first);
+            if (node == base_t::end()) {
+                node = base_t::begin();
+            }
+
+            for (; node != base_t::end(); ++node) {
+                if (this->m_access_type == AccessType::READ_WRITE) {
+                    this->onNodeLookup(node);
+                }
+
+                auto header = node->header();
+                auto max_item_ptr = node->find_max(this->m_heap_comp);
+                assert(max_item_ptr);
+                if (m_raw_item_comp(header.uncompress(*max_item_ptr), first)) {
+                    continue;
+                }
+
+                for (auto item = node->cbegin_sorted(this->m_heap_comp); !item.is_end(); ++item) {
+                    auto uncompressed = header.uncompress(*item);
+                    if (m_raw_item_comp(uncompressed, first)) {
+                        continue;
+                    }
+                    if (!m_raw_item_comp(uncompressed, last)) {
+                        return;
+                    }
+                    f(uncompressed);
+                }
+            }
+        }
+
         void detach() const {
             super_t::detach();
         }

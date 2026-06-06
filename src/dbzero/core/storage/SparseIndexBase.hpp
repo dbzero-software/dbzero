@@ -150,6 +150,9 @@ namespace db0
             m_index.forAll(callback);
         }
 
+        void forPageRange(PageNumT first_page_num, PageNumT last_page_num,
+            std::function<void(const ItemT &)> callback) const;
+
         auto cbegin() const {
             return m_index.cbegin();
         }
@@ -324,6 +327,17 @@ DB0_PACKED_END
     {
         m_index.insert(item);
         this->updateCounters(item.m_page_num, item.m_state_num, item.m_storage_page_num);
+    }
+
+    template <typename ItemT, typename CompressedItemT>
+    void SparseIndexBase<ItemT, CompressedItemT>::forPageRange(PageNumT first_page_num, PageNumT last_page_num,
+        std::function<void(const ItemT &)> callback) const
+    {
+        m_index.forRange(
+            ItemT(first_page_num, 0),
+            ItemT(last_page_num, 0),
+            std::move(callback)
+        );
     }
 
     template <typename ItemT, typename CompressedItemT>

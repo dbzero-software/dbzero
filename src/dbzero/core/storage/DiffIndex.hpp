@@ -4,6 +4,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <utility>
 #include <string>
 #include "SparseIndex.hpp"
@@ -140,6 +141,9 @@ DB0_PACKED_END
          * Erase all diff descriptors while preserving index high-water counters.
          */
         void clear();
+
+        void forPageRange(PageNumT first_page_num, PageNumT last_page_num,
+            std::function<void(const DI_Item &)> callback) const;
         
         // Find mutation of page_num where state >= state_num
         DI_Item findUpper(PageNumT page_num, StateNumT state_num) const;
