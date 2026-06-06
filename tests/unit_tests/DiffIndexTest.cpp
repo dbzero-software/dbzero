@@ -199,6 +199,36 @@ namespace tests
         ASSERT_EQ(cut.size(), original_size - removed_middle - removed_tail - removed_page_2);
     }
 
+    TEST_F( DiffIndexTest , testDiffIndexClearRemovesAllDescriptorsAndPreservesCounters )
+    {
+        DiffIndex cut(512);
+        constexpr std::uint64_t storage_step = 1ull << 32;
+        for (std::uint32_t state_num = 1; state_num <= 40; ++state_num) {
+            cut.insert(1, state_num, storage_step * state_num);
+            cut.insert(2, state_num, storage_step * (100 + state_num));
+        }
+        ASSERT_GT(cut.size(), 2u);
+        ASSERT_EQ(cut.getNextStoragePageNum(), storage_step * 140 + 1);
+        ASSERT_EQ(cut.getMaxStateNum(), 40u);
+
+        cut.clear();
+
+        ASSERT_TRUE(cut.empty());
+        ASSERT_EQ(cut.size(), 0u);
+        ASSERT_EQ(cut.getNextStoragePageNum(), std::nullopt);
+        ASSERT_EQ(cut.getMaxStateNum(), 40u);
+        ASSERT_EQ(cut.findLower(1, 40), 0u);
+        ASSERT_EQ(cut.findLower(2, 40), 0u);
+        ASSERT_FALSE(cut.findUpper(1, 1));
+        ASSERT_FALSE(cut.findUpper(2, 1));
+
+        cut.insert(3, 41, 0);
+        ASSERT_EQ(cut.size(), 1u);
+        ASSERT_EQ(cut.findLower(3, 41), 41u);
+        ASSERT_EQ(cut.getNextStoragePageNum(), storage_step * 140 + 1);
+        ASSERT_EQ(cut.getMaxStateNum(), 41u);
+    }
+
     TEST_F( DiffIndexTest , DISABLED_testDiffIndexInsertThenQuery )
     {   
         auto ops = loadArray("./tests/files/diff_index_ops.csv");

@@ -156,6 +156,10 @@ namespace db0
     std::size_t DiffIndex::size() const {
         return super_t::size();
     }
+
+    void DiffIndex::clear() {
+        super_t::clear();
+    }
     
     void DiffIndex::insert(PageNumT page_num, StateNumT state_num, PageNumT storage_page_num, bool overflow)
     {

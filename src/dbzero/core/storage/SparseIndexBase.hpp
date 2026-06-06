@@ -102,6 +102,11 @@ namespace db0
          * @return number of descriptors erased
          */
         std::size_t eraseBelow(PageNumT page_num, StateNumT state_num);
+
+        /**
+         * Erase all descriptors while preserving index high-water counters.
+         */
+        void clear();
         
         /**
          * Note that 'lookup' may fail in presence of duplicate items, the behavior is undefined
@@ -329,6 +334,12 @@ DB0_PACKED_END
         auto removed = m_index.erase_range(first, ItemT(page_num, std::numeric_limits<StateNumT>::max()));
         removed += m_index.erase_equal(std::make_pair(page_num, std::numeric_limits<StateNumT>::max())) ? 1 : 0;
         return removed;
+    }
+
+    template <typename ItemT, typename CompressedItemT>
+    void SparseIndexBase<ItemT, CompressedItemT>::clear()
+    {
+        m_index.clear();
     }
     
     template <typename ItemT, typename CompressedItemT>

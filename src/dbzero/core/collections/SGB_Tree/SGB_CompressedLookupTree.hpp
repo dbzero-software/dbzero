@@ -349,6 +349,13 @@ DB0_PACKED_END
         std::size_t size() const {
             return super_t::size();
         }
+
+        void clear()
+        {
+            assert(this->m_access_type == AccessType::READ_WRITE);
+            base_t::clear();
+            base_t::modify().m_sgb_size = 0;
+        }
         
         void commit() const {
             super_t::commit();

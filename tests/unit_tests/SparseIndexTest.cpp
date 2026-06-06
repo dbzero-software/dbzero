@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <iostream>
 #include <limits>
+#include <optional>
 #include <utils/TestWorkspace.hpp>
 #include <dbzero/core/storage/SparseIndex.hpp>
 #include <dbzero/core/dram/DRAM_Prefix.hpp>
@@ -406,6 +407,59 @@ namespace tests
 
         ASSERT_EQ(cut.eraseRange(1), 0u);
         ASSERT_TRUE(change_log.empty());
+    }
+
+    TEST_F( SparseIndexTest , testSparseIndexClearRemovesAllDescriptorsAndPreservesCounters )
+    {
+        SparseIndex cut(192);
+        for (std::uint32_t state_num = 1; state_num <= 80; ++state_num) {
+            cut.emplace(1, state_num, state_num);
+            cut.emplace(2, state_num, 1000 + state_num);
+        }
+        ASSERT_GT(cut.size(), 2u);
+        ASSERT_EQ(cut.getNextStoragePageNum(), 1081u);
+        ASSERT_EQ(cut.getMaxStateNum(), 80u);
+
+        cut.clear();
+
+        ASSERT_TRUE(cut.empty());
+        ASSERT_EQ(cut.size(), 0u);
+        ASSERT_EQ(cut.getNextStoragePageNum(), std::nullopt);
+        ASSERT_EQ(cut.getMaxStateNum(), 80u);
+        ASSERT_FALSE(cut.lookup(1, 80));
+        ASSERT_FALSE(cut.lookup(2, 80));
+
+        cut.emplace(3, 81, 0);
+        ASSERT_EQ(cut.size(), 1u);
+        ASSERT_EQ(cut.lookup(3, 81).m_storage_page_num, 0u);
+        ASSERT_EQ(cut.getNextStoragePageNum(), 1081u);
+        ASSERT_EQ(cut.getMaxStateNum(), 81u);
+    }
+
+    TEST_F( SparseIndexTest , testSparseIndexClearEmptyAndChangeLogNoOp )
+    {
+        std::vector<std::uint64_t> change_log;
+        SparseIndex cut(16 * 1024, &change_log);
+
+        cut.clear();
+        ASSERT_TRUE(cut.empty());
+        ASSERT_EQ(cut.size(), 0u);
+        ASSERT_TRUE(change_log.empty());
+
+        cut.emplace(1, 1, 10);
+        ASSERT_FALSE(change_log.empty());
+        change_log.clear();
+
+        cut.clear();
+        ASSERT_TRUE(cut.empty());
+        ASSERT_EQ(cut.size(), 0u);
+        ASSERT_TRUE(change_log.empty());
+        ASSERT_EQ(cut.getNextStoragePageNum(), std::nullopt);
+        ASSERT_EQ(cut.getMaxStateNum(), 1u);
+
+        cut.emplace(2, 2, 0);
+        ASSERT_EQ(cut.getNextStoragePageNum(), 11u);
+        ASSERT_EQ(cut.getMaxStateNum(), 2u);
     }
         
 }

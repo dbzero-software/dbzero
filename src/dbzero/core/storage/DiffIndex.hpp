@@ -135,6 +135,11 @@ DB0_PACKED_END
         
         bool empty() const;
         std::size_t size() const;
+
+        /**
+         * Erase all diff descriptors while preserving index high-water counters.
+         */
+        void clear();
         
         // Find mutation of page_num where state >= state_num
         DI_Item findUpper(PageNumT page_num, StateNumT state_num) const;
