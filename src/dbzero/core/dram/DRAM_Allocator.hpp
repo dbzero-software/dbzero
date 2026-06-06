@@ -4,6 +4,7 @@
 #pragma once
 
 #include <dbzero/core/memory/Allocator.hpp>
+#include <functional>
 #include <unordered_set>
 
 namespace db0
@@ -16,6 +17,9 @@ namespace db0
     class DRAM_Allocator: public Allocator
     {
     public:
+        using AddressSinkFunction = std::function<void(std::size_t)>;
+        using AddressSourceFunction = std::function<void(AddressSinkFunction)>;
+
         DRAM_Allocator(std::size_t page_size);
 
         /**
@@ -24,9 +28,20 @@ namespace db0
         DRAM_Allocator(const std::unordered_set<std::size_t> &allocs, std::size_t page_size);
 
         /**
+         * Create pre-populated with existing allocations streamed in ascending address order.
+        */
+        DRAM_Allocator(AddressSourceFunction, std::size_t page_size);
+
+        /**
          * Update with externally provided list of allocations (add new allocations)
          */
         void update(const std::unordered_set<std::size_t> &allocs);
+
+        /**
+         * Add existing allocations streamed in ascending address order. Missing pages between
+         * streamed addresses are recorded as free pages.
+        */
+        void update(AddressSourceFunction);
 
         std::optional<Address> tryAlloc(std::size_t size, std::uint32_t slot_num = 0,
             bool aligned = false, unsigned char realm_id = 0, unsigned char locality = 0) override;

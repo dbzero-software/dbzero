@@ -4,7 +4,6 @@
 #include <dbzero/core/dram/DRAM_Prefix.hpp>
 #include <iostream>
 #include <cstring>
-#include <algorithm>
 #include <string_view>
 
 namespace db0
@@ -73,8 +72,17 @@ namespace db0
     
     MemLock DRAM_Prefix::mapRange(std::uint64_t address, std::size_t size, FlagSet<AccessOptions> access_mode)
     {
+        return mapRangeImpl(address, size, access_mode);
+    }
+
+    MemLock DRAM_Prefix::mapRangeImpl(std::uint64_t address, std::size_t size, FlagSet<AccessOptions> access_mode,
+        bool *became_dirty)
+    {
         auto page_num = address / m_page_size;
         auto offset = address % m_page_size;
+        if (became_dirty) {
+            *became_dirty = false;
+        }
         if (size + offset > m_page_size) {
             THROWF(db0::InternalException) << "DRAM_Prefix: invalid range requested (@" << address 
                 << ", size = " << size << ")" << THROWF_END;
@@ -83,7 +91,10 @@ namespace db0
         if (it == m_pages.end()) {
             it = m_pages.emplace(page_num, MemoryPage(m_context, address - offset, m_page_size)).first;
         } else if (access_mode[AccessOptions::write]) {
-            it->second.m_lock->setDirty();
+            auto did_set_dirty = it->second.m_lock->setDirty();
+            if (became_dirty) {
+                *became_dirty = did_set_dirty;
+            }
         }
         return { (std::byte*)it->second.m_buffer + offset, it->second.m_lock };
     }
@@ -102,6 +113,18 @@ namespace db0
     
     void DRAM_Prefix::flushDirty(SinkFunction sink) const {
         m_dirty_cache.flushDirty(sink);
+    }
+
+    void DRAM_Prefix::forEachDirtyPage(DirtyPageFunction f) const {
+        m_dirty_cache.forAll([&](const ResourceLock &lock) {
+            if (lock.isDirty()) {
+                f(lock.getAddress() / m_page_size, lock.getBuffer());
+            }
+        });
+    }
+
+    bool DRAM_Prefix::hasPage(std::uint64_t page_num) const {
+        return m_pages.find(page_num) != m_pages.end();
     }
     
     void *DRAM_Prefix::update(std::size_t page_num, bool mark_dirty)

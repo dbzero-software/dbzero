@@ -117,8 +117,13 @@ namespace db0
             return !m_access_mode[AccessOptions::no_cache];
         }
                 
-        // Mark lock as dirty without range specification
-        void setDirty();
+        /**
+         * Mark the whole lock as dirty without recording a specific dirty range.
+         *
+         * @return true if this call transitioned the lock from clean to dirty;
+         *         false if the lock was already dirty.
+         */
+        bool setDirty();
 
         // Mark a specific range as forced-dirty
         // it will be assumed dirty even if the data is not changed

@@ -121,7 +121,7 @@ namespace db0
         other.discard();
     }
     
-    void ResourceLock::setDirty()
+    bool ResourceLock::setDirty()
     {
         if (atomicCheckAndSetFlags(m_resource_flags, db0::RESOURCE_DIRTY)) {
             // register lock with the dirty cache
@@ -130,7 +130,9 @@ namespace db0
                 // register with the dirty cache
                 m_context.m_cache_ref.get().append(shared_from_this());
             }
+            return true;
         }
+        return false;
     }
     
     void ResourceLock::freeze() {

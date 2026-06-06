@@ -26,6 +26,7 @@ namespace db0
     public:        
         // A function to consume a single resource (for serialization)
         using SinkFunction = DirtyCache::SinkFunction;
+        using DirtyPageFunction = std::function<void(std::uint64_t page_num, const void *buffer)>;
         
         // NOTE: page size for DRAM_Prefix may not be the power of 2
         DRAM_Prefix(std::size_t page_size);
@@ -77,6 +78,14 @@ namespace db0
         
         // Total number of bytes occupied by all pages        
         std::size_t size() const;
+
+    protected:
+        MemLock mapRangeImpl(std::uint64_t address, std::size_t size, FlagSet<AccessOptions>,
+            bool *became_dirty = nullptr);
+
+        void forEachDirtyPage(DirtyPageFunction) const;
+
+        bool hasPage(std::uint64_t page_num) const;
 
     private:        
         const std::size_t m_page_size;
