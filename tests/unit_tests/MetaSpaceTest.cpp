@@ -12,6 +12,7 @@
 #include <dbzero/core/dram/MetaPrefix.hpp>
 #include <dbzero/core/dram/MetaSpace.hpp>
 #include <dbzero/core/storage/Diff_IO.hpp>
+#include <dbzero/core/storage/SparseIndexQuery.hpp>
 #include <dbzero/core/storage/SparsePair.hpp>
 
 using namespace db0;
@@ -79,6 +80,11 @@ namespace tests
             return flush(dynamic_cast<MetaPrefix &>(memspace.getPrefix()), io);
         }
 
+        static bool compactMeta(Memspace &memspace, Diff_IO &io)
+        {
+            return compact(dynamic_cast<MetaPrefix &>(memspace.getPrefix()), io);
+        }
+
         static DRAM_Pair createPairFromMetaSpace(Memspace &memspace)
         {
             auto prefix = std::dynamic_pointer_cast<DRAM_Prefix>(memspace.getPrefixPtr());
@@ -111,6 +117,28 @@ namespace tests
                 }
             }
             return std::nullopt;
+        }
+
+        static std::vector<unsigned char> readStoragePage(Diff_IO &io, std::uint64_t storage_page_num)
+        {
+            std::vector<unsigned char> result(page_size);
+            io.read(storage_page_num, result.data());
+            return result;
+        }
+
+        static void patchExpectedPageRandom(Memspace &memspace, Address address,
+            std::vector<unsigned char> &expected_page, std::mt19937 &rng, std::uint32_t write_count)
+        {
+            auto lock = memspace.getPrefix().mapRange(address.getOffset(), page_size, { AccessOptions::write });
+            auto *page = static_cast<unsigned char *>(lock.modify());
+            std::uniform_int_distribution<std::size_t> offset_dist(0, page_size - 1);
+            std::uniform_int_distribution<unsigned int> value_dist(0, 255);
+            for (std::uint32_t i = 0; i < write_count; ++i) {
+                auto offset = offset_dist(rng);
+                auto value = static_cast<unsigned char>(value_dist(rng));
+                page[offset] = value;
+                expected_page[offset] = value;
+            }
         }
     };
 
@@ -376,6 +404,335 @@ namespace tests
                 ASSERT_TRUE(actual_storage_page_num);
                 ASSERT_EQ(*actual_storage_page_num, expected_upper_it->second);
             }
+        }
+    }
+
+    TEST_F( MetaSpaceTest, testMetaSpaceCompactionRewritesDiffBackedPageAndReopens )
+    {
+        CFile::create(file_name, {});
+        CFile file(file_name, AccessType::READ_WRITE);
+        auto mapping_pair = createMappingPair();
+        SparsePair sparse_pair(SparsePair::tag_create(), mapping_pair);
+
+        auto io = createIO(file);
+        auto memspace = MetaSpace::create(page_size, sparse_pair, io);
+        auto address = memspace.alloc(page_size);
+        fillPage(memspace, address, 0x11);
+        ASSERT_TRUE(flushMeta(memspace, io));
+
+        {
+            auto lock = memspace.getPrefix().mapRange(address.getOffset(), page_size, { AccessOptions::write });
+            auto *data = static_cast<unsigned char *>(lock.modify());
+            data[17] = 0x22;
+            data[1234] = 0x33;
+        }
+        ASSERT_TRUE(flushMeta(memspace, io));
+        ASSERT_GT(sparse_pair.getDiffIndex().size(), 0u);
+        auto diff_item = sparse_pair.getDiffIndex().findUpper(address.getOffset() / page_size, memspace.getStateNum());
+        ASSERT_TRUE(diff_item);
+        auto stale_diff_storage_page = findDiffStoragePage(diff_item, memspace.getStateNum());
+        ASSERT_TRUE(stale_diff_storage_page);
+
+        ASSERT_TRUE(compactMeta(memspace, io));
+        ASSERT_GT(sparse_pair.getDiffIndex().size(), 0u);
+
+        {
+            auto lock = memspace.getPrefix().mapRange(address.getOffset(), page_size, { AccessOptions::write });
+            static_cast<unsigned char *>(lock.modify())[2048] = 0x44;
+        }
+        ASSERT_TRUE(flushMeta(memspace, io));
+        auto next_diff_item = sparse_pair.getDiffIndex().findUpper(address.getOffset() / page_size, memspace.getStateNum());
+        ASSERT_TRUE(next_diff_item);
+        auto next_diff_storage_page = findDiffStoragePage(next_diff_item, memspace.getStateNum());
+        ASSERT_TRUE(next_diff_storage_page);
+        ASSERT_NE(*next_diff_storage_page, *stale_diff_storage_page);
+
+        auto reopened = MetaSpace::create(page_size, sparse_pair, io);
+        auto data = readPage(reopened, address);
+        ASSERT_EQ(data[0], 0x11);
+        ASSERT_EQ(data[17], 0x22);
+        ASSERT_EQ(data[1234], 0x33);
+        ASSERT_EQ(data[2048], 0x44);
+    }
+
+    TEST_F( MetaSpaceTest, testMetaSpaceCompactionReusesStaleFullDP )
+    {
+        CFile::create(file_name, {});
+        CFile file(file_name, AccessType::READ_WRITE);
+        auto mapping_pair = createMappingPair();
+        SparsePair sparse_pair(SparsePair::tag_create(), mapping_pair);
+
+        auto io = createIO(file);
+        auto memspace = MetaSpace::create(page_size, sparse_pair, io);
+        auto address = memspace.alloc(page_size);
+        fillPage(memspace, address, 0x10);
+        ASSERT_TRUE(flushMeta(memspace, io));
+        auto initial_item = sparse_pair.getSparseIndex().lookup(address.getOffset() / page_size, memspace.getStateNum());
+        ASSERT_TRUE(initial_item);
+        auto stale_storage_page = initial_item.m_storage_page_num;
+        ASSERT_NE(stale_storage_page, 0u);
+
+        ASSERT_TRUE(compactMeta(memspace, io));
+        auto first_compact_item = sparse_pair.getSparseIndex().lookup(address.getOffset() / page_size, memspace.getStateNum());
+        ASSERT_TRUE(first_compact_item);
+        ASSERT_NE(first_compact_item.m_storage_page_num, stale_storage_page);
+
+        {
+            auto lock = memspace.getPrefix().mapRange(address.getOffset(), page_size, { AccessOptions::write });
+            static_cast<unsigned char *>(lock.modify())[0] = 0x20;
+        }
+        ASSERT_TRUE(flushMeta(memspace, io));
+        ASSERT_TRUE(compactMeta(memspace, io));
+
+        auto second_compact_item = sparse_pair.getSparseIndex().lookup(address.getOffset() / page_size, memspace.getStateNum());
+        ASSERT_TRUE(second_compact_item);
+        ASSERT_NE(second_compact_item.m_storage_page_num, 0u);
+
+        {
+            auto lock = memspace.getPrefix().mapRange(address.getOffset(), page_size, { AccessOptions::write });
+            static_cast<unsigned char *>(lock.modify())[0] = 0x30;
+        }
+        ASSERT_TRUE(flushMeta(memspace, io));
+        ASSERT_TRUE(compactMeta(memspace, io));
+
+        auto third_compact_item = sparse_pair.getSparseIndex().lookup(address.getOffset() / page_size, memspace.getStateNum());
+        ASSERT_TRUE(third_compact_item);
+        ASSERT_NE(third_compact_item.m_storage_page_num, 0u);
+
+        auto reopened = MetaSpace::create(page_size, sparse_pair, io);
+        auto data = readPage(reopened, address);
+        ASSERT_EQ(data[0], 0x30);
+    }
+
+    TEST_F( MetaSpaceTest, testMetaSpaceCompactionDoesNotOverwriteCurrentHeadFullDP )
+    {
+        CFile::create(file_name, {});
+        CFile file(file_name, AccessType::READ_WRITE);
+        auto mapping_pair = createMappingPair();
+        SparsePair sparse_pair(SparsePair::tag_create(), mapping_pair);
+
+        auto io = createIO(file);
+        auto memspace = MetaSpace::create(page_size, sparse_pair, io);
+        auto address = memspace.alloc(page_size);
+        fillPage(memspace, address, 0x10);
+        ASSERT_TRUE(flushMeta(memspace, io));
+
+        auto page_num = address.getOffset() / page_size;
+        auto head_state_num = memspace.getStateNum();
+        auto head_item = sparse_pair.getSparseIndex().lookup(page_num, head_state_num);
+        ASSERT_TRUE(head_item);
+        auto head_storage_page_num = head_item.m_storage_page_num;
+
+        {
+            auto lock = memspace.getPrefix().mapRange(address.getOffset(), page_size, { AccessOptions::write });
+            static_cast<unsigned char *>(lock.modify())[0] = 0x20;
+        }
+
+        ASSERT_TRUE(compactMeta(memspace, io));
+        auto current_head_data = readStoragePage(io, head_storage_page_num);
+        ASSERT_EQ(current_head_data, std::vector<unsigned char>(page_size, 0x10));
+    }
+
+    TEST_F( MetaSpaceTest, testMetaSpaceCompactionLeavesCurrentHeadDiffReadable )
+    {
+        CFile::create(file_name, {});
+        CFile file(file_name, AccessType::READ_WRITE);
+        auto mapping_pair = createMappingPair();
+        SparsePair sparse_pair(SparsePair::tag_create(), mapping_pair);
+
+        auto io = createIO(file);
+        auto memspace = MetaSpace::create(page_size, sparse_pair, io);
+        auto address = memspace.alloc(page_size);
+        fillPage(memspace, address, 0x11);
+        ASSERT_TRUE(flushMeta(memspace, io));
+
+        {
+            auto lock = memspace.getPrefix().mapRange(address.getOffset(), page_size, { AccessOptions::write });
+            auto *data = static_cast<unsigned char *>(lock.modify());
+            data[17] = 0x22;
+            data[1234] = 0x33;
+        }
+        ASSERT_TRUE(flushMeta(memspace, io));
+
+        auto page_num = address.getOffset() / page_size;
+        auto head_state_num = memspace.getStateNum();
+        SparseIndexQuery query(sparse_pair.getSparseIndex(), sparse_pair.getDiffIndex(), page_num, head_state_num);
+        ASSERT_FALSE(query.empty());
+        std::vector<unsigned char> current_head_buffer(page_size);
+        io.read(query.first(), current_head_buffer.data());
+        StateNumType diff_state_num = 0;
+        std::uint64_t diff_storage_page_num = 0;
+        ASSERT_TRUE(query.next(diff_state_num, diff_storage_page_num));
+        ASSERT_EQ(diff_state_num, head_state_num);
+
+        ASSERT_TRUE(compactMeta(memspace, io));
+
+        io.applyFrom(diff_storage_page_num, current_head_buffer.data(), { page_num, diff_state_num });
+        ASSERT_EQ(current_head_buffer[0], 0x11);
+        ASSERT_EQ(current_head_buffer[17], 0x22);
+        ASSERT_EQ(current_head_buffer[1234], 0x33);
+    }
+
+    TEST_F( MetaSpaceTest, testMetaSpaceCompactionReusesThirdFullDPVersion )
+    {
+        CFile::create(file_name, {});
+        CFile file(file_name, AccessType::READ_WRITE);
+        SparsePair sparse_pair(page_size);
+
+        auto io = createIO(file);
+        constexpr std::uint64_t page_num = 1;
+        bool is_first_page = false;
+
+        std::vector<unsigned char> oldest_buffer(page_size, 0x41);
+        auto oldest_storage_page_num = io.append(oldest_buffer.data(), &is_first_page);
+        sparse_pair.getSparseIndex().emplace(page_num, 1, oldest_storage_page_num);
+
+        std::vector<unsigned char> previous_buffer(page_size, 0x42);
+        auto previous_storage_page_num = io.append(previous_buffer.data(), &is_first_page);
+        sparse_pair.getSparseIndex().emplace(page_num, 2, previous_storage_page_num);
+
+        std::vector<unsigned char> head_buffer(page_size, 0x43);
+        auto head_storage_page_num = io.append(head_buffer.data(), &is_first_page);
+        sparse_pair.getSparseIndex().emplace(page_num, 3, head_storage_page_num);
+        sparse_pair.commit();
+
+        MetaPrefix prefix(page_size, sparse_pair);
+        ASSERT_EQ(prefix.getStateNum(), 3u);
+
+        ASSERT_TRUE(compact(prefix, io));
+
+        auto compacted_item = sparse_pair.getSparseIndex().lookup(page_num, prefix.getStateNum());
+        ASSERT_TRUE(compacted_item);
+        ASSERT_EQ(compacted_item.m_storage_page_num, oldest_storage_page_num);
+    }
+
+    TEST_F( MetaSpaceTest, testMetaSpaceCompactionPersistsDirtyPageWithoutPriorFlush )
+    {
+        CFile::create(file_name, {});
+        CFile file(file_name, AccessType::READ_WRITE);
+        auto mapping_pair = createMappingPair();
+        SparsePair sparse_pair(SparsePair::tag_create(), mapping_pair);
+
+        auto io = createIO(file);
+        auto memspace = MetaSpace::create(page_size, sparse_pair, io);
+        auto address = memspace.alloc(page_size);
+        fillPage(memspace, address, 0x55);
+
+        ASSERT_TRUE(compactMeta(memspace, io));
+        auto item = sparse_pair.getSparseIndex().lookup(address.getOffset() / page_size, memspace.getStateNum());
+        ASSERT_TRUE(item);
+        ASSERT_NE(item.m_storage_page_num, 0u);
+
+        auto reopened = MetaSpace::create(page_size, sparse_pair, io);
+        auto data = readPage(reopened, address);
+        ASSERT_EQ(data, std::vector<unsigned char>(page_size, 0x55));
+    }
+
+    TEST_F( MetaSpaceTest, testMetaSpaceCompactionBiggerSimulatedWorkload )
+    {
+        CFile::create(file_name, {});
+        CFile file(file_name, AccessType::READ_WRITE);
+        auto mapping_pair = createMappingPair();
+        SparsePair sparse_pair(SparsePair::tag_create(), mapping_pair);
+
+        auto io = createIO(file);
+        auto memspace = MetaSpace::create(page_size, sparse_pair, io);
+        constexpr std::size_t page_count = 640;
+        std::vector<Address> addresses;
+        std::vector<std::vector<unsigned char> > expected_pages;
+        std::vector<bool> dirty_before_second_compact(page_count, false);
+        addresses.reserve(page_count);
+        expected_pages.reserve(page_count);
+        std::mt19937 rng(0xDB005EED);
+        std::uniform_int_distribution<std::size_t> page_dist(0, page_count - 1);
+        std::uniform_int_distribution<std::uint32_t> sparse_write_count_dist(1, 12);
+        std::uniform_int_distribution<std::uint32_t> dense_write_count_dist(16, 96);
+
+        for (std::size_t i = 0; i < page_count; ++i) {
+            auto address = memspace.alloc(page_size);
+            addresses.push_back(address);
+            ASSERT_NE(address.getOffset(), 0u) << "page index " << i;
+            expected_pages.emplace_back(page_size, static_cast<unsigned char>((i + 1) & 0xFF));
+            fillPage(memspace, address, expected_pages.back()[0]);
+        }
+        ASSERT_TRUE(flushMeta(memspace, io));
+
+        for (std::uint32_t round = 1; round <= 9; ++round) {
+            auto operation_count = page_count / 2 + round * 17;
+            for (std::size_t op = 0; op < operation_count; ++op) {
+                auto page_index = page_dist(rng);
+                patchExpectedPageRandom(
+                    memspace, addresses[page_index], expected_pages[page_index], rng, sparse_write_count_dist(rng)
+                );
+            }
+            ASSERT_TRUE(flushMeta(memspace, io));
+        }
+        ASSERT_GT(sparse_pair.getDiffIndex().size(), 0u);
+
+        for (std::size_t i = 0; i < 16; ++i) {
+            auto page_index = page_dist(rng);
+            ASSERT_EQ(readPage(memspace, addresses[page_index]), expected_pages[page_index])
+                << "pre-compact page index " << page_index;
+        }
+        ASSERT_TRUE(compactMeta(memspace, io));
+        ASSERT_EQ(sparse_pair.getSparseIndex().size(), page_count);
+        for (std::size_t i = 0; i < 16; ++i) {
+            auto page_index = page_dist(rng);
+            ASSERT_EQ(readPage(memspace, addresses[page_index]), expected_pages[page_index])
+                << "post-first-compact page index " << page_index;
+        }
+
+        for (std::uint32_t round = 10; round <= 12; ++round) {
+            auto operation_count = page_count / 3 + round * 23;
+            for (std::size_t op = 0; op < operation_count; ++op) {
+                auto page_index = page_dist(rng);
+                patchExpectedPageRandom(
+                    memspace, addresses[page_index], expected_pages[page_index], rng, dense_write_count_dist(rng)
+                );
+                if (round == 12) {
+                    dirty_before_second_compact[page_index] = true;
+                }
+            }
+            if (round != 12) {
+                ASSERT_TRUE(flushMeta(memspace, io));
+            }
+        }
+
+        for (std::size_t page_index = 0; page_index < page_count; ++page_index) {
+            ASSERT_EQ(readPage(memspace, addresses[page_index]), expected_pages[page_index])
+                << "pre-second-compact page index " << page_index;
+        }
+        ASSERT_TRUE(compactMeta(memspace, io));
+        ASSERT_EQ(sparse_pair.getSparseIndex().size(), page_count);
+        for (std::size_t i = 0; i < 16; ++i) {
+            auto page_index = page_dist(rng);
+            ASSERT_EQ(readPage(memspace, addresses[page_index]), expected_pages[page_index])
+                << "post-second-compact page index " << page_index;
+        }
+        for (std::size_t page_index = 0; page_index < page_count; ++page_index) {
+            auto item = sparse_pair.getSparseIndex().lookup(
+                addresses[page_index].getOffset() / page_size, memspace.getStateNum()
+            );
+            ASSERT_TRUE(item) << "page index " << page_index;
+            ASSERT_EQ(readStoragePage(io, item.m_storage_page_num), expected_pages[page_index])
+                << "storage page check page index " << page_index
+                << " dirty before second compact " << dirty_before_second_compact[page_index];
+        }
+
+        auto reopened = MetaSpace::create(page_size, sparse_pair, io);
+        for (std::size_t i = 0; i < page_count; ++i) {
+            auto data = readPage(reopened, addresses[i]);
+            ASSERT_EQ(data, expected_pages[i]) << "page index " << i << " address " << addresses[i].getOffset();
+        }
+
+        std::vector<std::uint64_t> allocated_addresses;
+        dynamic_cast<MetaPrefix &>(reopened.getPrefix()).forAllocatedAddresses([&](std::uint64_t address) {
+            allocated_addresses.push_back(address);
+        });
+
+        ASSERT_EQ(allocated_addresses.size(), addresses.size());
+        for (std::size_t i = 0; i < addresses.size(); ++i) {
+            ASSERT_EQ(allocated_addresses[i], addresses[i].getOffset());
         }
     }
 

@@ -172,13 +172,13 @@ namespace db0
             // NOTE: relative_state_num & relative_storage_page_num get converted from absolute to relative values
             db0::modifyMember(node, *item_ptr).append(relative_state_num, relative_storage_page_num);
             // collect the change-log
-            this->update(page_num, state_num, storage_page_num + (overflow ? 1 : 0));
+            this->updateCounters(page_num, state_num, storage_page_num + (overflow ? 1 : 0));
         } else {
             // create new item (with no history of updates)
             super_t::emplace(page_num, state_num, storage_page_num);
             // we also need to account for the overflow
             if (overflow) {
-                this->update(storage_page_num + 1);
+                this->updateCounters(storage_page_num + 1);
             }
         }
     }

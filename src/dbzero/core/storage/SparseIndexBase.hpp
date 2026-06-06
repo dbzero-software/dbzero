@@ -75,6 +75,14 @@ namespace db0
         }
 
         /**
+         * Replace older descriptors for a page with a descriptor for the supplied state.
+         *
+         * This is intended for compaction-style rewrites that publish a new full-DP
+         * as the only remaining descriptor for a logical page.
+         */
+        void update(PageNumT page_num, StateNumT state_num, std::uint64_t storage_page_num);
+
+        /**
          * Erase a single descriptor identified by an exact key.
          *
          * @param page_num logical page number of the descriptor to erase
@@ -140,6 +148,10 @@ namespace db0
                 
         void forAll(std::function<void(const ItemT &)> callback) const {
             m_index.forAll(callback);
+        }
+
+        auto cbegin() const {
+            return m_index.cbegin();
         }
         
         bool empty() const;
@@ -209,8 +221,8 @@ DB0_PACKED_END
 
         std::uint64_t getExtraData() const;
 
-        void update(std::uint64_t max_storage_page_num);
-        void update(PageNumT page_num, StateNumT state_num, std::uint64_t max_storage_page_num);
+        void updateCounters(std::uint64_t max_storage_page_num);
+        void updateCounters(PageNumT page_num, StateNumT state_num, std::uint64_t max_storage_page_num);
         void reopen(Address address = {});
         bool isOpen() const;
         
@@ -273,7 +285,7 @@ DB0_PACKED_END
     }
 
     template <typename ItemT, typename CompressedItemT>
-    void SparseIndexBase<ItemT, CompressedItemT>::update(std::uint64_t max_storage_page_num)
+    void SparseIndexBase<ItemT, CompressedItemT>::updateCounters(std::uint64_t max_storage_page_num)
     {   
         // update tree header if necessary
         if (max_storage_page_num >= m_next_page_num) {
@@ -283,10 +295,11 @@ DB0_PACKED_END
     }
     
     template <typename ItemT, typename CompressedItemT>
-    void SparseIndexBase<ItemT, CompressedItemT>::update(PageNumT page_num, StateNumT state_num, std::uint64_t max_storage_page_num)
+    void SparseIndexBase<ItemT, CompressedItemT>::updateCounters(PageNumT page_num, StateNumT state_num,
+        std::uint64_t max_storage_page_num)
     {
         // update tree header if necessary
-        this->update(max_storage_page_num);
+        this->updateCounters(max_storage_page_num);
         if (state_num > m_max_state_num) {
             m_max_state_num = state_num;
             m_index.modifyTreeHeader().m_max_state_num = state_num;
@@ -296,12 +309,21 @@ DB0_PACKED_END
             m_change_log_ptr->push_back(page_num);
         }
     }
+
+    template <typename ItemT, typename CompressedItemT>
+    void SparseIndexBase<ItemT, CompressedItemT>::update(PageNumT page_num, StateNumT state_num,
+        std::uint64_t storage_page_num)
+    {
+        this->eraseBelow(page_num, state_num);
+        m_index.insert(ItemT(page_num, state_num, storage_page_num));
+        this->updateCounters(page_num, state_num, storage_page_num);
+    }
     
     template <typename ItemT, typename CompressedItemT>
     void SparseIndexBase<ItemT, CompressedItemT>::insert(const ItemT &item)
     {
         m_index.insert(item);
-        this->update(item.m_page_num, item.m_state_num, item.m_storage_page_num);
+        this->updateCounters(item.m_page_num, item.m_state_num, item.m_storage_page_num);
     }
 
     template <typename ItemT, typename CompressedItemT>

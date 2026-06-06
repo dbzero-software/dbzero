@@ -120,6 +120,25 @@ namespace tests
         ASSERT_EQ(cut.getMaxStateNum(), 3);
     }
 
+    TEST_F( SparseIndexTest , testSparseIndexUpdateReplacesOlderPageDescriptors )
+    {
+        SparseIndex cut(16 * 1024);
+        cut.emplace(1, 1, 10);
+        cut.emplace(1, 3, 30);
+        cut.emplace(2, 2, 20);
+
+        cut.update(1, 4, 40);
+
+        ASSERT_FALSE(cut.lookup(1, 1));
+        ASSERT_FALSE(cut.lookup(1, 3));
+        auto updated = cut.lookup(1, 4);
+        ASSERT_TRUE(updated);
+        ASSERT_EQ(updated.m_storage_page_num, 40u);
+        ASSERT_TRUE(cut.lookup(2, 2));
+        ASSERT_EQ(cut.getNextStoragePageNum(), 41);
+        ASSERT_EQ(cut.getMaxStateNum(), 4);
+    }
+
     TEST_F( SparseIndexTest , testSparseIndexCanBeUpdatedByDRAMSpaceSwap )
     {   
         std::size_t node_size = 16 * 1024;     

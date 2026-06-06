@@ -47,15 +47,37 @@ namespace db0
 
         bool flushPage(Diff_IO &page_io, std::uint64_t page_num, const void *buffer, StateNumType state_num);
 
+        std::uint64_t writeFullPage(Diff_IO &page_io, const void *buffer,
+            std::uint64_t reusable_storage_page_num = 0);
+
+        void publishCompactedState(StateNumType state_num);
+
         void capturePreviousPage(std::uint64_t page_num, const MemLock &lock);
 
         friend void load(MetaPrefix &prefix, Diff_IO &page_io);
 
         friend bool flush(MetaPrefix &prefix, Diff_IO &page_io, ProcessTimer *timer);
+
+        friend bool compact(MetaPrefix &prefix, Diff_IO &page_io, ProcessTimer *timer);
     };
 
     void load(MetaPrefix &prefix, Diff_IO &page_io);
 
     bool flush(MetaPrefix &prefix, Diff_IO &page_io, ProcessTimer *timer = nullptr);
+
+    /**
+     * Manually compact MetaSpace page storage.
+     *
+     * Stages the current head state of all persisted and dirty metadata pages
+     * as full DPs at the next state number. Disk writes preserve storage pages
+     * needed to read the current head state, prefer reusing stale full-DP pages
+     * from the previous state when safe, and do not flush or clear the diff
+     * stream. Obsolete diff storage must be reclaimed by a later external step
+     * after the compacted head is durably published.
+     *
+     * @return true if a compacted state was published, false when there are no
+     * metadata pages to compact.
+     */
+    bool compact(MetaPrefix &prefix, Diff_IO &page_io, ProcessTimer *timer = nullptr);
 
 }
