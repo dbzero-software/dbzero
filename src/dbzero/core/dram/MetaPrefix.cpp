@@ -6,6 +6,7 @@
 #include <dbzero/core/storage/Diff_IO.hpp>
 #include <dbzero/core/storage/SparseIndexQuery.hpp>
 #include <dbzero/core/storage/SparsePair.hpp>
+#include <algorithm>
 #include <cstring>
 #include <vector>
 
@@ -170,13 +171,19 @@ namespace db0
 
     void MetaPrefix::forAllocatedAddresses(DRAM_Allocator::AddressSinkFunction sink) const
     {
-        std::uint64_t last_page_num = 0;
+        std::vector<std::uint64_t> page_nums;
         m_sparse_pair.getSparseIndex().forAll([&](const SI_Item &item) {
-            if (item && item.m_page_num != last_page_num) {
-                sink(item.m_page_num * getPageSize());
-                last_page_num = item.m_page_num;
+            if (item && item.m_page_num != 0) {
+                page_nums.push_back(item.m_page_num);
             }
         });
+
+        std::sort(page_nums.begin(), page_nums.end());
+        page_nums.erase(std::unique(page_nums.begin(), page_nums.end()), page_nums.end());
+
+        for (auto page_num: page_nums) {
+            sink(page_num * getPageSize());
+        }
     }
 
 }
