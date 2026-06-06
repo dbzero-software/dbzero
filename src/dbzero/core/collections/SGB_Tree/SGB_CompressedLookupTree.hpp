@@ -264,6 +264,72 @@ DB0_PACKED_END
             insert_into(node, 0, item);
         }
 
+        template <typename KeyT> bool erase_equal(const KeyT &key)
+        {
+            assert(this->m_access_type == AccessType::READ_WRITE);
+            auto node = base_t::lower_equal_bound(key);
+            if (node == base_t::end() || !node->header().canFit(key)) {
+                return false;
+            }
+            if (!node.modify().erase(node->header().compress(key), this->m_heap_comp)) {
+                return false;
+            }
+            --base_t::modify().m_sgb_size;
+            if (node->empty()) {
+                base_t::erase(node);
+            }
+            return true;
+        }
+
+        std::size_t erase_range(const ItemT &first, const ItemT &last)
+        {
+            assert(this->m_access_type == AccessType::READ_WRITE);
+            if (base_t::empty() || !m_raw_item_comp(first, last)) {
+                return 0;
+            }
+
+            auto node = base_t::lower_equal_bound(last);
+            if (node == base_t::end()) {
+                return 0;
+            }
+
+            std::size_t removed = 0;
+            for (;;) {
+                auto max_item_ptr = node->find_max(this->m_heap_comp);
+                assert(max_item_ptr);
+                if (m_raw_item_comp(node->header().uncompress(*max_item_ptr), first)) {
+                    break;
+                }
+
+                auto prev_node = node;
+                bool has_prev_node = prev_node != base_t::begin();
+                if (has_prev_node) {
+                    --prev_node;
+                }
+
+                auto header = node->header();
+                auto removed_from_node = node.modify().erase_if([&](const CompressedItemT &item) {
+                    auto uncompressed = header.uncompress(item);
+                    return !m_raw_item_comp(uncompressed, first) && m_raw_item_comp(uncompressed, last);
+                }, this->m_heap_comp);
+
+                removed += removed_from_node;
+                if (removed_from_node && node->empty()) {
+                    base_t::erase(node);
+                }
+
+                if (!has_prev_node) {
+                    break;
+                }
+                node = prev_node;
+            }
+
+            if (removed) {
+                base_t::modify().m_sgb_size -= removed;
+            }
+            return removed;
+        }
+
         AddressT getAddress() const {
             return base_t::getAddress();
         }

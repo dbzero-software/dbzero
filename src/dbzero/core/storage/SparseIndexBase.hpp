@@ -20,7 +20,9 @@ namespace db0
 #include <dbzero/core/dram/DRAM_Prefix.hpp>
 #include <dbzero/core/dram/DRAM_Allocator.hpp>
 #include <dbzero/core/compiler_attributes.hpp>
+#include <limits>
 #include <new>
+#include <optional>
 
 namespace db0
 
@@ -71,6 +73,35 @@ namespace db0
         template <typename... Args> void emplace(Args&&... args) {
             insert(ItemT(std::forward<Args>(args)...));
         }
+
+        /**
+         * Erase a single descriptor identified by an exact key.
+         *
+         * @param page_num logical page number of the descriptor to erase
+         * @param state_num state number of the descriptor to erase
+         * @return true if a descriptor was erased, false if no exact descriptor exists
+         */
+        bool erase(PageNumT page_num, StateNumT state_num);
+
+        /**
+         * Erase descriptors for a page in the half-open state range [first_state_num, last_state_num).
+         *
+         * @param page_num logical page number whose descriptors should be erased
+         * @param first_state_num optional inclusive lower state bound; if empty, erase from the first state on page_num
+         * @param last_state_num optional exclusive upper state bound; if empty, erase through the last state on page_num
+         * @return number of descriptors erased
+         */
+        std::size_t eraseRange(PageNumT page_num, std::optional<StateNumT> first_state_num = {},
+            std::optional<StateNumT> last_state_num = {});
+
+        /**
+         * Erase descriptors for a page with state numbers below state_num.
+         *
+         * @param page_num logical page number whose descriptors should be erased
+         * @param state_num exclusive upper state bound
+         * @return number of descriptors erased
+         */
+        std::size_t eraseBelow(PageNumT page_num, StateNumT state_num);
         
         /**
          * Note that 'lookup' may fail in presence of duplicate items, the behavior is undefined
@@ -266,6 +297,38 @@ DB0_PACKED_END
     {
         m_index.insert(item);
         this->update(item.m_page_num, item.m_state_num, item.m_storage_page_num);
+    }
+
+    template <typename ItemT, typename CompressedItemT>
+    bool SparseIndexBase<ItemT, CompressedItemT>::erase(PageNumT page_num, StateNumT state_num)
+    {
+        if (!m_index.erase_equal(std::make_pair(page_num, state_num))) {
+            return false;
+        }
+        return true;
+    }
+
+    template <typename ItemT, typename CompressedItemT>
+    std::size_t SparseIndexBase<ItemT, CompressedItemT>::eraseBelow(PageNumT page_num, StateNumT state_num)
+    {
+        return eraseRange(page_num, {}, state_num);
+    }
+
+    template <typename ItemT, typename CompressedItemT>
+    std::size_t SparseIndexBase<ItemT, CompressedItemT>::eraseRange(PageNumT page_num,
+        std::optional<StateNumT> first_state_num, std::optional<StateNumT> last_state_num)
+    {
+        auto first = ItemT(page_num, first_state_num.value_or(0));
+        if (last_state_num) {
+            return m_index.erase_range(first, ItemT(page_num, *last_state_num));
+        }
+        if (page_num != std::numeric_limits<PageNumT>::max()) {
+            return m_index.erase_range(first, ItemT(page_num + 1, 0));
+        }
+
+        auto removed = m_index.erase_range(first, ItemT(page_num, std::numeric_limits<StateNumT>::max()));
+        removed += m_index.erase_equal(std::make_pair(page_num, std::numeric_limits<StateNumT>::max())) ? 1 : 0;
+        return removed;
     }
     
     template <typename ItemT, typename CompressedItemT>

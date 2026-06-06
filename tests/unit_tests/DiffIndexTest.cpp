@@ -4,6 +4,8 @@
 #include <gtest/gtest.h>
 #include <cstdint>
 #include <iostream>
+#include <limits>
+#include <optional>
 #include <utils/TestWorkspace.hpp>
 #include <dbzero/core/storage/SparseIndex.hpp>
 #include <dbzero/core/storage/DiffIndex.hpp>
@@ -36,6 +38,25 @@ namespace tests
 
         void TearDown() override {        
             drop(file_name);
+        }
+    };
+
+    class DiffIndexEraseTestAdapter: public DiffIndex
+    {
+    public:
+        using DiffIndex::DiffIndex;
+
+        bool eraseDescriptor(PageNumT page_num, StateNumT state_num) {
+            return super_t::erase(page_num, state_num);
+        }
+
+        std::size_t eraseDescriptorsBelow(PageNumT page_num, StateNumT state_num) {
+            return super_t::eraseBelow(page_num, state_num);
+        }
+
+        std::size_t eraseDescriptorRange(PageNumT page_num, std::optional<StateNumT> first_state_num = {},
+            std::optional<StateNumT> last_state_num = {}) {
+            return super_t::eraseRange(page_num, first_state_num, last_state_num);
         }
     };
     
@@ -106,6 +127,76 @@ namespace tests
 
         auto item = diff_index.findUpper(4, 501);
         ASSERT_EQ(item.m_page_num, 4);
+    }
+
+    TEST_F( DiffIndexTest , testDiffIndexSparseIndexBaseCanEraseExactDescriptor )
+    {
+        DiffIndexEraseTestAdapter cut(512);
+        cut.insert(1, 1, 10);
+        cut.insert(2, 1, 20);
+        cut.insert(3, 1, 30);
+
+        ASSERT_TRUE(cut.eraseDescriptor(2, 1));
+        ASSERT_FALSE(cut.eraseDescriptor(2, 1));
+        ASSERT_EQ(cut.size(), 2u);
+        ASSERT_EQ(cut.findLower(1, 1), 1u);
+        ASSERT_EQ(cut.findLower(2, 1), 0u);
+        ASSERT_EQ(cut.findLower(3, 1), 1u);
+    }
+
+    TEST_F( DiffIndexTest , testDiffIndexSparseIndexBaseEraseBelowDescriptorEdgeCasesWithSmallNodes )
+    {
+        DiffIndexEraseTestAdapter cut(512);
+        constexpr std::uint64_t storage_step = 1ull << 32;
+        for (std::uint32_t state_num = 1; state_num <= 40; ++state_num) {
+            cut.insert(1, state_num, storage_step * state_num);
+            cut.insert(2, state_num, storage_step * (100 + state_num));
+        }
+        ASSERT_GT(cut.size(), 2u);
+
+        auto original_size = cut.size();
+        ASSERT_EQ(cut.eraseDescriptorsBelow(1, 0), 0u);
+        ASSERT_EQ(cut.eraseDescriptorsBelow(1, 1), 0u);
+        ASSERT_EQ(cut.eraseDescriptorsBelow(99, 20), 0u);
+        ASSERT_EQ(cut.size(), original_size);
+
+        auto removed = cut.eraseDescriptorsBelow(1, std::numeric_limits<std::uint32_t>::max());
+        ASSERT_GT(removed, 0u);
+        ASSERT_EQ(cut.size(), original_size - removed);
+        ASSERT_EQ(cut.findLower(1, 40), 0u);
+        ASSERT_EQ(cut.findLower(2, 40), 40u);
+
+        auto page_2_descriptor_count = cut.size();
+        ASSERT_EQ(cut.eraseDescriptorsBelow(1, std::numeric_limits<std::uint32_t>::max()), 0u);
+        ASSERT_EQ(cut.eraseDescriptorsBelow(2, std::numeric_limits<std::uint32_t>::max()), page_2_descriptor_count);
+        ASSERT_TRUE(cut.empty());
+    }
+
+    TEST_F( DiffIndexTest , testDiffIndexSparseIndexBaseEraseRangeDescriptorOptionalBounds )
+    {
+        DiffIndexEraseTestAdapter cut(512);
+        constexpr std::uint64_t storage_step = 1ull << 32;
+        for (std::uint32_t state_num = 1; state_num <= 12; ++state_num) {
+            cut.insert(1, state_num, storage_step * state_num);
+            cut.insert(2, state_num, storage_step * (100 + state_num));
+        }
+        auto original_size = cut.size();
+        ASSERT_GT(original_size, 2u);
+
+        auto removed_middle = cut.eraseDescriptorRange(1, 4, 8);
+        ASSERT_GT(removed_middle, 0u);
+        ASSERT_EQ(cut.size(), original_size - removed_middle);
+        ASSERT_EQ(cut.findLower(2, 12), 12u);
+
+        auto removed_tail = cut.eraseDescriptorRange(1, 8, {});
+        ASSERT_GT(removed_tail, 0u);
+        ASSERT_EQ(cut.size(), original_size - removed_middle - removed_tail);
+        ASSERT_EQ(cut.findLower(2, 12), 12u);
+
+        auto removed_page_2 = cut.eraseDescriptorRange(2);
+        ASSERT_GT(removed_page_2, 0u);
+        ASSERT_EQ(cut.findLower(2, 12), 0u);
+        ASSERT_EQ(cut.size(), original_size - removed_middle - removed_tail - removed_page_2);
     }
 
     TEST_F( DiffIndexTest , DISABLED_testDiffIndexInsertThenQuery )

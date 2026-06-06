@@ -321,6 +321,27 @@ DB0_PACKED_BEGIN
         bool erase_existing(unsigned int at, const HeapCompT &comp) {
             return this->erase_existing(this->itemAt(at), comp);
         }
+
+        template <typename PredicateT> std::size_t erase_if(PredicateT predicate, const HeapCompT &comp)
+        {
+            std::size_t removed = 0;
+            auto step_ = this->step();
+            auto it = this->begin();
+            auto end_ = this->end();
+            while (it != end_) {
+                if (predicate(*it)) {
+                    this->erase_existing(it, comp);
+                    ++removed;
+                    end_ -= step_;
+                    if (this->empty()) {
+                        break;
+                    }
+                } else {
+                    it += step_;
+                }
+            }
+            return removed;
+        }
         
         class const_sorting_iterator
         {    

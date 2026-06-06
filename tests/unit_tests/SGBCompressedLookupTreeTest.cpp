@@ -2,8 +2,10 @@
 // Copyright (c) 2025 DBZero Software sp. z o.o.
 
 #include <gtest/gtest.h>
+#include <algorithm>
 #include <cstdint>
 #include <iostream>
+#include <vector>
 #include <utils/TestWorkspace.hpp>
 #include <dbzero/core/collections/SGB_Tree/SGB_CompressedLookupTree.hpp>
 #include <dbzero/core/memory/BitSpace.hpp>
@@ -137,7 +139,7 @@ namespace tests
         }
         return result;
     }
-    
+
     TEST_F( SGB_CompressedLookupTreeTest , testSGBCompressedLookupTreeHeaderIsInitialized )
     {
         // compress uint64 to uint16
@@ -205,6 +207,112 @@ namespace tests
             }
         }
     }
+
+    TEST_F( SGB_CompressedLookupTreeTest , testSGBCompressedLookupTreeCanEraseCompressedKey )
+    {
+        using HeaderT = CompressingTestHeader<std::uint8_t>;
+        SGB_CompressedLookupTree<std::uint64_t, std::uint8_t, HeaderT> cut(m_bitspace,
+            page_size, AccessType::READ_WRITE);
+
+        for (std::uint32_t i = 0; i < 256u; ++i) {
+            cut.insert(i);
+        }
+        cut.insert(1000);
+
+        ASSERT_TRUE(cut.erase_equal(42u));
+        ASSERT_FALSE(cut.erase_equal(42u));
+        ASSERT_EQ(cut.size(), 256u);
+        ASSERT_EQ(cut.lower_equal_bound(42u).value(), 41u);
+
+        ASSERT_TRUE(cut.erase_equal(1000u));
+        ASSERT_EQ(cut.lower_equal_bound(1000u).value(), 255u);
+    }
+
+    TEST_F( SGB_CompressedLookupTreeTest , testSGBCompressedLookupTreeCanEraseCompressedRange )
+    {
+        using HeaderT = CompressingTestHeader<std::uint8_t>;
+        SGB_CompressedLookupTree<std::uint64_t, std::uint8_t, HeaderT> cut(m_bitspace,
+            page_size, AccessType::READ_WRITE);
+
+        for (std::uint32_t i = 0; i < 256u; ++i) {
+            cut.insert(i);
+        }
+        cut.insert(1000);
+        cut.insert(1001);
+
+        ASSERT_EQ(cut.erase_range(40u, 200u), 160u);
+        ASSERT_EQ(cut.size(), 98u);
+        ASSERT_EQ(cut.lower_equal_bound(39u).value(), 39u);
+        ASSERT_EQ(cut.lower_equal_bound(199u).value(), 39u);
+        ASSERT_EQ(cut.lower_equal_bound(200u).value(), 200u);
+        ASSERT_EQ(cut.lower_equal_bound(1001u).value(), 1001u);
+    }
+
+    TEST_F( SGB_CompressedLookupTreeTest , testSGBCompressedLookupTreeEraseRangeEdgeCasesWithSmallNodes )
+    {
+        using HeaderT = CompressingTestHeader<std::uint8_t>;
+        SGB_CompressedLookupTree<std::uint64_t, std::uint8_t, HeaderT> cut(m_bitspace,
+            page_size, AccessType::READ_WRITE);
+
+        ASSERT_EQ(cut.erase_range(0u, 1u), 0u);
+        ASSERT_TRUE(cut.empty());
+
+        std::vector<std::uint64_t> expected;
+        for (std::uint64_t base = 0; base <= 3000; base += 1000) {
+            for (std::uint64_t offset = 0; offset < 256; ++offset) {
+                cut.insert(base + offset);
+                expected.push_back(base + offset);
+            }
+        }
+        ASSERT_GT(countNodes(cut), 1);
+        ASSERT_EQ(cut.size(), expected.size());
+
+        auto erase_expected = [&](std::uint64_t first, std::uint64_t last) {
+            auto first_it = std::lower_bound(expected.begin(), expected.end(), first);
+            auto last_it = std::lower_bound(expected.begin(), expected.end(), last);
+            auto count = static_cast<std::size_t>(last_it - first_it);
+            expected.erase(first_it, last_it);
+            return count;
+        };
+
+        ASSERT_EQ(cut.erase_range(40u, 40u), 0u);
+        ASSERT_EQ(cut.erase_range(41u, 40u), 0u);
+        ASSERT_EQ(cut.erase_range(260u, 900u), 0u);
+        ASSERT_EQ(cut.erase_range(4000u, 4100u), 0u);
+        ASSERT_EQ(cut.size(), expected.size());
+
+        ASSERT_EQ(cut.erase_range(250u, 1005u), erase_expected(250u, 1005u));
+        auto lower_250 = cut.lower_equal_bound(250u);
+        auto upper_250 = cut.upper_equal_bound(250u);
+        auto lower_1004 = cut.lower_equal_bound(1004u);
+        auto lower_1005 = cut.lower_equal_bound(1005u);
+        ASSERT_TRUE(lower_250.has_value());
+        ASSERT_TRUE(upper_250.has_value());
+        ASSERT_TRUE(lower_1004.has_value());
+        ASSERT_TRUE(lower_1005.has_value());
+        ASSERT_EQ(lower_250.value(), 249u);
+        ASSERT_EQ(upper_250.value(), 1005u);
+        ASSERT_EQ(lower_1004.value(), 249u);
+        ASSERT_EQ(lower_1005.value(), 1005u);
+        ASSERT_EQ(cut.size(), expected.size());
+
+        ASSERT_EQ(cut.erase_range(0u, 3u), erase_expected(0u, 3u));
+        ASSERT_FALSE(cut.lower_equal_bound(2u).has_value());
+        auto lower_3 = cut.lower_equal_bound(3u);
+        ASSERT_TRUE(lower_3.has_value());
+        ASSERT_EQ(lower_3.value(), 3u);
+        ASSERT_EQ(cut.size(), expected.size());
+
+        ASSERT_EQ(cut.erase_range(3250u, 4000u), erase_expected(3250u, 4000u));
+        auto lower_4000 = cut.lower_equal_bound(4000u);
+        ASSERT_TRUE(lower_4000.has_value());
+        ASSERT_EQ(lower_4000.value(), 3249u);
+        ASSERT_EQ(cut.size(), expected.size());
+
+        ASSERT_EQ(cut.erase_range(0u, 4000u), expected.size());
+        ASSERT_TRUE(cut.empty());
+        ASSERT_EQ(cut.size(), 0u);
+    }
     
     TEST_F( SGB_CompressedLookupTreeTest , testSGBCompressedLookupTreeFindLowerWhenUnableToFit )
     {
@@ -244,4 +352,3 @@ namespace tests
     }
 
 }
-

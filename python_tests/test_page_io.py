@@ -44,6 +44,7 @@ def test_continue_append_with_step_size(db0_fixture):
         root.value.append(MemoTestClass("a" * 1024))
         db0.commit()
     
-    # NOTE: this behavior will change after we implement REL_Index
-    assert db0.get_storage_stats()["prefix_size"] > (32 << 20)
+    px_size = db0.get_storage_stats()["prefix_size"]
+    assert px_size > (16 << 20)
+    assert px_size < (32 << 20)
     
