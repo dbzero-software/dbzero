@@ -70,6 +70,22 @@ namespace db0
         };
     }
 
+    MetaAllocator::StorageSlabBucketingFunction MetaAllocator::getStorageSlabBucketingFunction(
+        std::size_t page_size, std::size_t slab_size)
+    {
+        return getStorageSlabBucketingFunction(0, page_size, slab_size);
+    }
+
+    MetaAllocator::StorageSlabBucketingFunction MetaAllocator::getStorageSlabBucketingFunction(
+        std::size_t offset, std::size_t page_size, std::size_t slab_size)
+    {
+        (void)page_size;
+        return {
+            static_cast<std::uint64_t>(offset),
+            static_cast<std::uint64_t>(slab_size)
+        };
+    }
+
     std::function<std::uint32_t(Address)> MetaAllocator::getSlabIdFunction(std::size_t offset, std::size_t page_size,
         std::size_t slab_size)
     {

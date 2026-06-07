@@ -126,6 +126,38 @@ namespace tests
         }
     }
 
+    TEST_F( MetaAllocatorTests , testStorageSlabBucketingFunctionMapsInnerBucketAddresses )
+    {
+        auto page_size = 4096;
+        auto slab_size = 16 * 4096;
+        auto f = MetaAllocator::getStorageSlabBucketingFunction(page_size, slab_size);
+
+        ASSERT_EQ(f(0), 0u);
+        ASSERT_EQ(f(1), 0u);
+        ASSERT_EQ(f(page_size), 0u);
+        ASSERT_EQ(f(slab_size / 2), 0u);
+        ASSERT_EQ(f(slab_size - 1), 0u);
+
+        ASSERT_EQ(f(slab_size), 1u);
+        ASSERT_EQ(f(slab_size + 123), 1u);
+        ASSERT_EQ(f(2 * slab_size - 1), 1u);
+        ASSERT_EQ(f(2 * slab_size), 2u);
+    }
+
+    TEST_F( MetaAllocatorTests , testStorageSlabBucketingFunctionSupportsOffset )
+    {
+        auto page_size = 4096;
+        auto slab_size = 16 * 4096;
+        auto offset = page_size + 123;
+        auto f = MetaAllocator::getStorageSlabBucketingFunction(offset, page_size, slab_size);
+
+        ASSERT_EQ(f(0), 0u);
+        ASSERT_EQ(f(offset), 0u);
+        ASSERT_EQ(f(offset + slab_size - 1), 0u);
+        ASSERT_EQ(f(offset + slab_size), 1u);
+        ASSERT_EQ(f(offset + 2 * slab_size), 2u);
+    }
+
     TEST_F( MetaAllocatorTests , testMetaAllocatorCanBeInitialized )
     {
         // prepare prefix before first use

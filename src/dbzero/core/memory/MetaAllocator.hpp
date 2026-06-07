@@ -109,6 +109,36 @@ DB0_PACKED_END
         static std::function<unsigned int(Address)> getReverseAddressPool(std::size_t offset, std::size_t page_size,
             std::size_t slab_size);
 
+        /**
+         * Fast bucketing function for raw BDevStorage byte addresses.
+         *
+         * This deliberately ignores MetaAllocator's internal metadata/slab layout and divides
+         * the storage address space into equal-size buckets: bucket_id = (address - offset) / slab_size.
+         * Use getSlabIdFunction() for real allocator slab lookup.
+        */
+        struct StorageSlabBucketingFunction
+        {
+            std::uint64_t m_offset = 0;
+            std::uint64_t m_slab_size = 0;
+
+            std::uint32_t operator()(std::uint64_t address) const
+            {
+                auto rel_address = address > m_offset ? address - m_offset : 0;
+                return static_cast<std::uint32_t>(rel_address / m_slab_size);
+            }
+
+            std::uint32_t operator()(Address address) const
+            {
+                return (*this)(address.getOffset());
+            }
+        };
+
+        static StorageSlabBucketingFunction getStorageSlabBucketingFunction(
+            std::size_t page_size, std::size_t slab_size);
+
+        static StorageSlabBucketingFunction getStorageSlabBucketingFunction(
+            std::size_t offset, std::size_t page_size, std::size_t slab_size);
+
         static std::function<std::uint32_t(Address)> getSlabIdFunction(std::size_t offset, std::size_t page_size,
             std::size_t slab_size);
 
