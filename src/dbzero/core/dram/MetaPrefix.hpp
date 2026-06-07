@@ -37,8 +37,10 @@ namespace db0
 
         void forAllocatedAddresses(DRAM_Allocator::AddressSinkFunction sink) const;
 
-    private:
+    protected:
         SparsePair &m_sparse_pair;
+
+    private:
         StateNumType m_state_num = 0;
         std::uint64_t m_last_updated = 0;
         std::unordered_map<std::uint64_t, std::vector<std::byte> > m_previous_pages;

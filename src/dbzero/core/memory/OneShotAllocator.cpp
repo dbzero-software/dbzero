@@ -15,7 +15,7 @@ namespace db0
     {
     }
 
-    std::optional<Address> OneShotAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num,
+    std::optional<Address> OneShotAllocator::tryAlloc(std::size_t size, SlotId slot_num,
         bool aligned, unsigned char, unsigned char)
     {
         assert(slot_num == 0);

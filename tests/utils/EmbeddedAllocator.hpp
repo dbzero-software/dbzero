@@ -18,10 +18,10 @@ namespace db0
     class EmbeddedAllocator: public Allocator
     {
     public:
-        using AllocCallbackT = std::function<void(std::size_t, std::uint32_t, bool, std::optional<Address>)>;
+        using AllocCallbackT = std::function<void(std::size_t, SlotId, bool, std::optional<Address>)>;
         EmbeddedAllocator() = default;
 
-        std::optional<Address> tryAlloc(std::size_t size, std::uint32_t,
+        std::optional<Address> tryAlloc(std::size_t size, SlotId,
             bool aligned = false, unsigned char realm_id = 0, unsigned char locality = 0) override;
 
         void free(Address) override;

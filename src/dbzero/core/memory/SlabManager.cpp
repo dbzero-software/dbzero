@@ -631,7 +631,7 @@ namespace db0
         }
     }
 
-    std::optional<Address> SlabManager::tryAlloc(std::size_t size, std::uint32_t slot_num, bool aligned,
+    std::optional<Address> SlabManager::tryAlloc(std::size_t size, Allocator::SlotId slot_num, bool aligned,
         bool unique, std::uint16_t &instance_id, unsigned char locality)
     {
         auto slab = tryGetActiveSlab(locality);

@@ -204,14 +204,14 @@ namespace db0
         return meta_header.const_ref();
     }
 
-    std::optional<Address> MetaAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num,
+    std::optional<Address> MetaAllocator::tryAlloc(std::size_t size, SlotId slot_num,
         bool aligned, unsigned char realm_id, unsigned char locality)
     {
         std::uint16_t instance_id;
         return tryAllocImpl(size, slot_num, aligned, false, instance_id, realm_id, locality);
     }
 
-    std::optional<UniqueAddress> MetaAllocator::tryAllocUnique(std::size_t size, std::uint32_t slot_num,
+    std::optional<UniqueAddress> MetaAllocator::tryAllocUnique(std::size_t size, SlotId slot_num,
         bool aligned, unsigned char realm_id, unsigned char locality)
     {
         std::uint16_t instance_id;
@@ -222,7 +222,7 @@ namespace db0
         return {};
     }
 
-    std::optional<Address> MetaAllocator::tryAllocImpl(std::size_t size, std::uint32_t slot_num, bool aligned, bool unique,
+    std::optional<Address> MetaAllocator::tryAllocImpl(std::size_t size, SlotId slot_num, bool aligned, bool unique,
         std::uint16_t &instance_id, unsigned char realm_id, unsigned char locality)
     {
         assert(slot_num == 0);

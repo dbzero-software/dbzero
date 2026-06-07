@@ -74,10 +74,10 @@ DB0_PACKED_END
         using CapacityTreeT = SGB_Tree<CapacityItem, CapacityItem::CompT, CapacityItem::EqualT>;
         using SlabTreeT = SGB_Tree<SlabDef, SlabDef::CompT, SlabDef::EqualT>;
 
-        std::optional<Address> tryAlloc(std::size_t size, std::uint32_t slot_num = 0,
+        std::optional<Address> tryAlloc(std::size_t size, SlotId slot_num = 0,
             bool aligned = false, unsigned char realm_id = 0, unsigned char locality = 0) override;
 
-        std::optional<UniqueAddress> tryAllocUnique(std::size_t size, std::uint32_t slot_num = 0,
+        std::optional<UniqueAddress> tryAllocUnique(std::size_t size, SlotId slot_num = 0,
             bool aligned = false, unsigned char realm_id = 0, unsigned char locality = 0) override;
 
         void free(Address) override;
@@ -237,7 +237,7 @@ DB0_PACKED_END
         std::shared_ptr<SlabAllocator> getSlabAllocator(std::size_t min_capacity);
 
         // NOTE: instance ID will only be populated when unique = true
-        std::optional<Address> tryAllocImpl(std::size_t size, std::uint32_t slot_num, bool aligned, bool unique,
+        std::optional<Address> tryAllocImpl(std::size_t size, SlotId slot_num, bool aligned, bool unique,
             std::uint16_t &instance_id, unsigned char realm_id, unsigned char locality);
     };
 

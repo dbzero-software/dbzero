@@ -42,7 +42,7 @@ namespace db0
             std::function<Address(unsigned int)> address_func, std::function<std::uint32_t(Address)> slab_id_func,
             unsigned char realm_id, bool deferred_free);
 
-        std::optional<Address> tryAlloc(std::size_t size, std::uint32_t slot_num, bool aligned, bool unique,
+        std::optional<Address> tryAlloc(std::size_t size, Allocator::SlotId slot_num, bool aligned, bool unique,
             std::uint16_t &instance_id, unsigned char locality);
 
         void free(Address address);

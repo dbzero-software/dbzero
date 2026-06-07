@@ -63,7 +63,7 @@ namespace db0
     {
     }
 
-    std::optional<Address> SlabAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num,
+    std::optional<Address> SlabAllocator::tryAlloc(std::size_t size, SlotId slot_num,
         bool aligned, unsigned char, unsigned char)
     {
         assert(slot_num == 0);
@@ -292,7 +292,7 @@ namespace db0
             (address.getOffset() < m_begin_addr.getOffset() + m_slab_size);
     }
 
-    std::pair<Address, std::optional<Address> > SlabAllocator::getRange(std::uint32_t slot_num) const
+    std::pair<Address, std::optional<Address> > SlabAllocator::getRange(SlotId slot_num) const
     {
         assert(!slot_num && "SlabAllocator does not support slots");
         return { m_begin_addr, m_begin_addr + static_cast<offset_t>(m_slab_size) };

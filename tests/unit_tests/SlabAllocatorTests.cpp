@@ -159,10 +159,12 @@ namespace tests
 
         ASSERT_THROW(cut.findAllocation(slotAddress + static_cast<Address::offset_t>(19)), db0::BadAddressException);
 
-        auto slot = cut.findAllocation(slotAddress + static_cast<Address::offset_t>(19), static_cast<std::uint32_t>(1));
+        auto slot = cut.findAllocation(slotAddress + static_cast<Address::offset_t>(19),
+            static_cast<db0::Allocator::SlotId>(1));
         ASSERT_EQ(slot.address, slotAddress);
         ASSERT_EQ(slot.size, 80u);
-        ASSERT_THROW(cut.findAllocation(slotAddress + static_cast<Address::offset_t>(80), static_cast<std::uint32_t>(1)), db0::BadAddressException);
+        ASSERT_THROW(cut.findAllocation(slotAddress + static_cast<Address::offset_t>(80),
+            static_cast<db0::Allocator::SlotId>(1)), db0::BadAddressException);
         ASSERT_THROW(cut.findAllocation(Address::fromOffset(32 * 1024 * 1024)), db0::BadAddressException);
     }
 

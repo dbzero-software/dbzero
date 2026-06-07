@@ -43,7 +43,7 @@ namespace db0
         */
         void update(AddressSourceFunction);
 
-        std::optional<Address> tryAlloc(std::size_t size, std::uint32_t slot_num = 0,
+        std::optional<Address> tryAlloc(std::size_t size, SlotId slot_num = 0,
             bool aligned = false, unsigned char realm_id = 0, unsigned char locality = 0) override;
 
         void free(Address) override;

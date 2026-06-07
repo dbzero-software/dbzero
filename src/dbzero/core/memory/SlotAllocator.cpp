@@ -16,15 +16,19 @@ namespace db0
     {
     }
 
-    void SlotAllocator::setSlot(std::uint32_t slot_num, std::shared_ptr<SlabAllocator> slot_allocator)
+    void SlotAllocator::setSlot(SlotId slot_num, std::shared_ptr<SlabAllocator> slot_allocator)
     {
         if (slot_num == 0) {
             THROWF(db0::InternalException) << "slot 0 is reserved for the general allocator";
         }
-        if (slot_num >= m_slots.size()) {
-            m_slots.resize(slot_num + 1);
+        if (slot_num >= static_cast<SlotId>(m_slots.max_size())) {
+            THROWF(db0::InternalException) << "slot " << slot_num << " exceeds slot allocator range";
         }
-        m_slots[slot_num] = slot_allocator;
+        auto index = static_cast<std::size_t>(slot_num);
+        if (index >= m_slots.size()) {
+            m_slots.resize(index + 1);
+        }
+        m_slots[index] = slot_allocator;
     }
 
     struct ScopedAllocBuf
@@ -49,7 +53,7 @@ namespace db0
         }
     };
 
-    std::optional<Address> SlotAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num,
+    std::optional<Address> SlotAllocator::tryAlloc(std::size_t size, SlotId slot_num,
         bool aligned, unsigned char realm_id, unsigned char locality)
     {
         if (!slot_num) {
@@ -59,7 +63,7 @@ namespace db0
         return select(slot_num).tryAlloc(size, 0, aligned, realm_id, locality);
     }
 
-    std::optional<UniqueAddress> SlotAllocator::tryAllocUnique(std::size_t size, std::uint32_t slot_num,
+    std::optional<UniqueAddress> SlotAllocator::tryAllocUnique(std::size_t size, SlotId slot_num,
         bool aligned, unsigned char realm_id, unsigned char locality)
     {
         if (!slot_num) {
@@ -100,7 +104,7 @@ namespace db0
         return m_allocator_ptr->findAllocation(address, realm_id);
     }
 
-    Allocator::AllocationInfo SlotAllocator::findAllocation(Address address, std::uint32_t slot_num) const
+    Allocator::AllocationInfo SlotAllocator::findAllocation(Address address, SlotId slot_num) const
     {
         if (slot_num == 0) {
             return findAllocation(address);
@@ -108,7 +112,7 @@ namespace db0
         return getSlot(slot_num).findAllocation(address);
     }
 
-    Allocator::AllocationInfo SlotAllocator::findAllocation(Address address, std::uint32_t slot_num, unsigned char realm_id) const
+    Allocator::AllocationInfo SlotAllocator::findAllocation(Address address, SlotId slot_num, unsigned char realm_id) const
     {
         if (slot_num == 0) {
             return findAllocation(address, realm_id);
@@ -136,28 +140,29 @@ namespace db0
         }
     }
 
-    Allocator &SlotAllocator::select(std::uint32_t slot_num)
+    Allocator &SlotAllocator::select(SlotId slot_num)
     {
         if (slot_num == 0) {
             return *m_allocator_ptr;
         }
-        assert(slot_num < m_slots.size() && m_slots[slot_num]);
-        return *m_slots[slot_num];
+        assert(slot_num < static_cast<SlotId>(m_slots.size()) && m_slots[static_cast<std::size_t>(slot_num)]);
+        return *m_slots[static_cast<std::size_t>(slot_num)];
     }
 
-    SlabAllocator &SlotAllocator::getSlot(std::uint32_t slot_num) const
+    SlabAllocator &SlotAllocator::getSlot(SlotId slot_num) const
     {
-        if (!slot_num || slot_num >= m_slots.size() || !m_slots[slot_num]) {
+        if (!slot_num || slot_num >= static_cast<SlotId>(m_slots.size())
+            || !m_slots[static_cast<std::size_t>(slot_num)]) {
             THROWF(db0::InternalException) << "slot " << slot_num << " not found";
         }
-        return *m_slots[slot_num];
+        return *m_slots[static_cast<std::size_t>(slot_num)];
     }
 
     bool SlotAllocator::inRange(Address address) const {
         return m_allocator_ptr->inRange(address);
     }
 
-    std::pair<Address, std::optional<Address> > SlotAllocator::getRange(std::uint32_t slot_num) const
+    std::pair<Address, std::optional<Address> > SlotAllocator::getRange(SlotId slot_num) const
     {
         if (slot_num == 0) {
             return m_allocator_ptr->getRange(0);

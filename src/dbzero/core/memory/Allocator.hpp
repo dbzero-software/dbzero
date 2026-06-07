@@ -21,6 +21,8 @@ namespace db0
     class Allocator
     {
     public:
+        using SlotId = std::uint64_t;
+
         struct AllocationInfo
         {
             Address address;
@@ -37,13 +39,13 @@ namespace db0
          * Note that slot functionality is implementation specific and may not be supported by all allocators.
          * We use slots in special cases where objects needs to be allocated from a limited narrow address range
         */
-        virtual std::optional<Address> tryAlloc(std::size_t size, std::uint32_t slot_num = 0,
+        virtual std::optional<Address> tryAlloc(std::size_t size, SlotId slot_num = 0,
             bool aligned = false, unsigned char realm_id = 0, unsigned char locality = 0) = 0;
 
         // Try allocating a unique, never repeating address
         // NOTE: this functionality is only supported by some allocators
         // The default throwing implementation is provided
-        virtual std::optional<UniqueAddress> tryAllocUnique(std::size_t size, std::uint32_t slot_num = 0,
+        virtual std::optional<UniqueAddress> tryAllocUnique(std::size_t size, SlotId slot_num = 0,
             bool aligned = false, unsigned char realm_id = 0, unsigned char locality = 0);
 
         /**
@@ -97,10 +99,10 @@ namespace db0
          * @param slot_num optional slot number to allocate from (slot_num = 0 means any slot).
          * @return the address of the range
         */
-        Address alloc(std::size_t size, std::uint32_t slot_num = 0, bool aligned = false,
+        Address alloc(std::size_t size, SlotId slot_num = 0, bool aligned = false,
             unsigned char realm_id = 0, unsigned char locality = 0);
 
-        UniqueAddress allocUnique(std::size_t size, std::uint32_t slot_num = 0, bool aligned = false,
+        UniqueAddress allocUnique(std::size_t size, SlotId slot_num = 0, bool aligned = false,
             unsigned char realm_id = 0, unsigned char locality = 0);
 
         // Check if the address is within the range managed by the allocator
@@ -109,7 +111,7 @@ namespace db0
 
         // Get range covered by the allocator or a specific slot
         // @return begin / end (which might be undefined for unlimited allocators)
-        virtual std::pair<Address, std::optional<Address> > getRange(std::uint32_t slot_num = 0) const;
+        virtual std::pair<Address, std::optional<Address> > getRange(SlotId slot_num = 0) const;
 
         // To be implemented where it makes sense
         virtual void close();

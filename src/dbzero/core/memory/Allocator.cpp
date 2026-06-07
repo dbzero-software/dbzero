@@ -9,13 +9,13 @@ namespace db0
 {
 
     std::optional<UniqueAddress> Allocator::tryAllocUnique(
-        std::size_t, std::uint32_t, bool, unsigned char, unsigned char)
+        std::size_t, SlotId, bool, unsigned char, unsigned char)
     {
         THROWF(InternalException)
             << "Allocator: unique allocation not supported by: " << typeid(*this).name() << THROWF_END;
     }
 
-    Address Allocator::alloc(std::size_t size, std::uint32_t slot_num, bool aligned,
+    Address Allocator::alloc(std::size_t size, SlotId slot_num, bool aligned,
         unsigned char realm_id, unsigned char locality)
     {
         auto result = tryAlloc(size, slot_num, aligned, realm_id, locality);
@@ -25,7 +25,7 @@ namespace db0
         return *result;
     }
 
-    UniqueAddress Allocator::allocUnique(std::size_t size, std::uint32_t slot_num, bool aligned,
+    UniqueAddress Allocator::allocUnique(std::size_t size, SlotId slot_num, bool aligned,
         unsigned char realm_id, unsigned char locality)
     {
         auto result = tryAllocUnique(size, slot_num, aligned, realm_id, locality);
@@ -60,7 +60,7 @@ namespace db0
         return findAllocation(address);
     }
 
-    std::pair<Address, std::optional<Address> > Allocator::getRange(std::uint32_t slot_num) const
+    std::pair<Address, std::optional<Address> > Allocator::getRange(SlotId slot_num) const
     {
         if (slot_num != 0) {
             THROWF(InternalException) << "Invalid / unsupported slot number";

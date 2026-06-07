@@ -8,7 +8,6 @@
 namespace db0
 
 {
-
     Memspace MetaSpace::create(std::size_t page_size, SparsePair &sparse_pair, Diff_IO &page_io)
     {
         auto prefix = std::make_shared<MetaPrefix>(page_size, sparse_pair);
@@ -19,6 +18,13 @@ namespace db0
             },
             page_size
         );
+        return { prefix, allocator };
+    }
+
+    Memspace MS_MetaSpace::create(std::size_t page_size, SparsePair &sparse_pair, Diff_IO &page_io)
+    {
+        auto prefix = std::make_shared<MS_MetaPrefix>(page_size, sparse_pair, page_io);
+        auto allocator = std::make_shared<MS_MetaAllocator>(prefix);
         return { prefix, allocator };
     }
 

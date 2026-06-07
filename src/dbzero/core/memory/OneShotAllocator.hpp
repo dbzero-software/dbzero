@@ -17,7 +17,7 @@ namespace db0
     public:
         OneShotAllocator(Address addr, std::size_t size);
 
-        std::optional<Address> tryAlloc(std::size_t size, std::uint32_t slot_num = 0,
+        std::optional<Address> tryAlloc(std::size_t size, SlotId slot_num = 0,
             bool aligned = false, unsigned char realm_id = 0, unsigned char locality = 0) override;
 
         void free(Address) override;
