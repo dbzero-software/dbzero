@@ -7,6 +7,7 @@
 #include <dbzero/core/storage/Diff_IO.hpp>
 #include <dbzero/core/storage/SparsePair.hpp>
 #include <algorithm>
+#include <utility>
 
 namespace db0
 
@@ -24,12 +25,17 @@ namespace db0
         return { prefix, allocator };
     }
 
-    Memspace MS_MetaSpace::create(std::size_t page_size, SparsePair &sparse_pair, Diff_IO &page_io)
+    MS_MetaSpace::MS_MetaSpace(std::shared_ptr<MS_MetaPrefix> prefix, std::shared_ptr<MS_MetaAllocator> allocator)
+        : Memspace(std::move(prefix), std::move(allocator))
+    {
+    }
+
+    MS_MetaSpace MS_MetaSpace::create(std::size_t page_size, SparsePair &sparse_pair, Diff_IO &page_io)
     {
         return create(page_size, sparse_pair, page_io, MappingPolicy::eager);
     }
 
-    Memspace MS_MetaSpace::create(std::size_t page_size, SparsePair &sparse_pair, Diff_IO &page_io,
+    MS_MetaSpace MS_MetaSpace::create(std::size_t page_size, SparsePair &sparse_pair, Diff_IO &page_io,
         MappingPolicy mapping_policy)
     {
         auto prefix = mapping_policy == MappingPolicy::lazy
@@ -44,6 +50,16 @@ namespace db0
         }
         auto allocator = std::make_shared<MS_MetaAllocator>(sparse_pair, page_size);
         return { prefix, allocator };
+    }
+
+    std::shared_ptr<MS_MetaPrefix> MS_MetaSpace::getMSPrefixPtr() const
+    {
+        return std::static_pointer_cast<MS_MetaPrefix>(m_prefix);
+    }
+
+    std::shared_ptr<MS_MetaAllocator> MS_MetaSpace::getMSAllocatorPtr() const
+    {
+        return std::static_pointer_cast<MS_MetaAllocator>(m_allocator);
     }
 
     MS_MetaPrefix::SlotLoadFunction MS_MetaSpace::createSlotLoadFunction(SparsePair &sparse_pair, Diff_IO &page_io)

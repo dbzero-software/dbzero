@@ -18,16 +18,24 @@ namespace db0
         static Memspace create(std::size_t page_size, SparsePair &sparse_pair, Diff_IO &page_io);
     };
 
-    struct MS_MetaSpace: public DRAMSpace
+    class MS_MetaSpace: public Memspace
     {
+    public:
         using MappingPolicy = MS_MetaMappingPolicy;
 
-        static Memspace create(std::size_t page_size, SparsePair &sparse_pair, Diff_IO &page_io);
+        static MS_MetaSpace create(std::size_t page_size, SparsePair &sparse_pair, Diff_IO &page_io);
 
-        static Memspace create(std::size_t page_size, SparsePair &sparse_pair, Diff_IO &page_io,
+        static MS_MetaSpace create(std::size_t page_size, SparsePair &sparse_pair, Diff_IO &page_io,
             MappingPolicy mapping_policy);
 
+        std::shared_ptr<MS_MetaPrefix> getMSPrefixPtr() const;
+
+        std::shared_ptr<MS_MetaAllocator> getMSAllocatorPtr() const;
+
         static MS_MetaPrefix::SlotLoadFunction createSlotLoadFunction(SparsePair &sparse_pair, Diff_IO &page_io);
+
+    private:
+        MS_MetaSpace(std::shared_ptr<MS_MetaPrefix> prefix, std::shared_ptr<MS_MetaAllocator> allocator);
     };
 
 }

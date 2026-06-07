@@ -63,6 +63,8 @@ namespace db0
         */
         Address firstAlloc() const;
 
+        std::optional<Address> tryFirstAlloc() const;
+
     private:
         static constexpr std::size_t FIRST_PAGE_ID = 1;
         const std::size_t m_page_size;

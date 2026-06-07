@@ -162,6 +162,15 @@ namespace db0
         return Address::fromOffset(FIRST_PAGE_ID * m_page_size);
     }
 
+    std::optional<Address> DRAM_Allocator::tryFirstAlloc() const
+    {
+        auto address = firstAlloc();
+        if (!isAllocated(address)) {
+            return std::nullopt;
+        }
+        return address;
+    }
+
     void DRAM_Allocator::commit() const
     {
     }

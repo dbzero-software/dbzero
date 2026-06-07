@@ -112,7 +112,7 @@ namespace db0
         void ensureSlotLoaded(Allocator::SlotId slot_id, std::uint64_t page_num);
     };
 
-    class MS_MetaAllocator: public Allocator
+    class MS_MetaAllocator: public DRAM_Allocator
     {
     public:
         MS_MetaAllocator(SparsePair &sparse_pair, std::size_t page_size);
@@ -131,6 +131,8 @@ namespace db0
         void commit() const override;
 
         void detach() const override;
+
+        std::optional<Address> tryFirstAlloc(Allocator::SlotId slot_id) const;
 
     private:
         SparsePair &m_sparse_pair;

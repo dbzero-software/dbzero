@@ -7,8 +7,12 @@
 #include <iostream>
 #include <utils/TestWorkspace.hpp>
 #include <dbzero/core/storage/SparsePair.hpp>
+#include <dbzero/core/storage/SparsePairManager.hpp>
+#include <dbzero/core/dram/MetaPrefix.hpp>
+#include <dbzero/core/dram/MetaSpace.hpp>
 #include <dbzero/core/dram/DRAM_Prefix.hpp>
 #include <dbzero/core/dram/DRAM_Allocator.hpp>
+#include <dbzero/core/storage/Diff_IO.hpp>
 #include <dbzero/core/storage/ChangeLogIOStream.hpp>
 #include <utils/utils.hpp>
 
@@ -24,6 +28,7 @@ namespace tests
     {
     public:
         static constexpr const char *file_name = "my-test-prefix_1.db0";
+        static constexpr std::size_t page_size = 4096;
         using DP_ChangeLogStreamT = SparsePair::DP_ChangeLogStreamT;
 
         SparsePairTest() = default;
@@ -34,6 +39,32 @@ namespace tests
 
         void TearDown() override {        
             drop(file_name);
+        }
+
+        static DRAM_Pair createMappingPair()
+        {
+            return {
+                std::make_shared<db0::DRAM_Prefix>(page_size),
+                std::make_shared<db0::DRAM_Allocator>(page_size)
+            };
+        }
+
+        static Diff_IO createIO(CFile &file)
+        {
+            auto tail_function = [&file]() -> std::uint64_t {
+                return file.size();
+            };
+            return Diff_IO(0, file, page_size, page_size * 16, page_size, 0, 1, tail_function, 0, 4);
+        }
+
+        static bool flushMeta(Memspace &memspace, Diff_IO &io)
+        {
+            return flush(dynamic_cast<MetaPrefix &>(memspace.getPrefix()), io);
+        }
+
+        static Allocator::SlotId addressSlotId(Address address)
+        {
+            return MS_MetaPrefix::slotIdFromPageNum(address.getOffset() / page_size);
         }
     };
 
@@ -98,6 +129,79 @@ namespace tests
             [](Allocator::SlotId recorded_slot_num) {
                 return recorded_slot_num == slot_num;
             }));
+    }
+
+    TEST_F( SparsePairTest , testSparsePairManagerCachesPairsBySparseSlotId )
+    {
+        CFile::create(file_name, {});
+        CFile file(file_name, AccessType::READ_WRITE);
+        auto io = createIO(file);
+        auto mapping_pair = createMappingPair();
+        SparsePair meta_pair(SparsePair::tag_create(), mapping_pair);
+        auto meta_space = MS_MetaSpace::create(page_size, meta_pair, io);
+        SparsePairManager manager(meta_space);
+
+        auto &slot_7_first = manager.getOrCreate(7);
+        auto &slot_7_second = manager.getOrCreate(7);
+        auto &slot_19 = manager.getOrCreate(19);
+
+        ASSERT_EQ(&slot_7_first, &slot_7_second);
+        ASSERT_EQ(&slot_7_first, manager.tryGetCached(7));
+        ASSERT_NE(&slot_7_first, &slot_19);
+        ASSERT_EQ(addressSlotId(slot_7_first.getSparseIndex().getIndexAddress()), 7u);
+        ASSERT_EQ(addressSlotId(slot_7_first.getDiffIndex().getIndexAddress()), 7u);
+        ASSERT_EQ(addressSlotId(slot_19.getSparseIndex().getIndexAddress()), 19u);
+        ASSERT_EQ(addressSlotId(slot_19.getDiffIndex().getIndexAddress()), 19u);
+    }
+
+    TEST_F( SparsePairTest , testSparsePairManagerReopensExistingSlotPair )
+    {
+        CFile::create(file_name, {});
+        CFile file(file_name, AccessType::READ_WRITE);
+        auto io = createIO(file);
+        auto mapping_pair = createMappingPair();
+        SparsePair meta_pair(SparsePair::tag_create(), mapping_pair);
+        auto meta_space = MS_MetaSpace::create(page_size, meta_pair, io);
+
+        {
+            SparsePairManager manager(meta_space);
+            auto &slot_pair = manager.getOrCreate(17);
+            slot_pair.getSparseIndex().insert({ 42, 3, 77 });
+            slot_pair.getDiffIndex().insert(43, 4, 78);
+        }
+
+        SparsePairManager reopened_manager(meta_space);
+        auto &reopened_pair = reopened_manager.getOrCreate(17);
+        auto sparse_item = reopened_pair.getSparseIndex().lookup(42, 3);
+
+        ASSERT_TRUE(!!sparse_item);
+        ASSERT_EQ(sparse_item.m_storage_page_num, 77u);
+        ASSERT_EQ(reopened_pair.getDiffIndex().findLower(43, 4), 4u);
+    }
+
+    TEST_F( SparsePairTest , testSparsePairManagerReopensSlotPairAfterMetaSpaceFlush )
+    {
+        CFile::create(file_name, {});
+        CFile file(file_name, AccessType::READ_WRITE);
+        auto io = createIO(file);
+        auto mapping_pair = createMappingPair();
+        SparsePair meta_pair(SparsePair::tag_create(), mapping_pair);
+
+        {
+            auto meta_space = MS_MetaSpace::create(page_size, meta_pair, io);
+            SparsePairManager manager(meta_space);
+            auto &slot_pair = manager.getOrCreate(23);
+            slot_pair.getSparseIndex().insert({ 100, 5, 700 });
+            ASSERT_TRUE(flushMeta(meta_space, io));
+        }
+
+        auto reopened_meta_space = MS_MetaSpace::create(page_size, meta_pair, io);
+        SparsePairManager manager(reopened_meta_space);
+        auto &reopened_pair = manager.getOrCreate(23);
+        auto sparse_item = reopened_pair.getSparseIndex().lookup(100, 5);
+
+        ASSERT_TRUE(!!sparse_item);
+        ASSERT_EQ(sparse_item.m_storage_page_num, 700u);
     }
     
     TEST_F( SparsePairTest , testSparsePairCollectsChangeLogOfAddedItems )

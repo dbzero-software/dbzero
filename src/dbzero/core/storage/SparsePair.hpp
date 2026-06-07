@@ -26,6 +26,8 @@ namespace db0
         
         SparsePair(std::size_t node_size);        
         SparsePair(DRAM_Pair, AccessType, StorageFlags = {}, Allocator::SlotId slot_num = 0);
+        SparsePair(DRAM_Pair, AccessType, Address sparse_index_address, StorageFlags = {},
+            Allocator::SlotId slot_num = 0);
         SparsePair(tag_create, DRAM_Pair, Allocator::SlotId slot_num = 0);
         
         ~SparsePair();

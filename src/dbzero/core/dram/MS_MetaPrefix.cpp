@@ -120,7 +120,8 @@ namespace db0
     }
 
     MS_MetaAllocator::MS_MetaAllocator(SparsePair &sparse_pair, std::size_t page_size)
-        : m_sparse_pair(sparse_pair)
+        : DRAM_Allocator(page_size)
+        , m_sparse_pair(sparse_pair)
         , m_page_size(page_size)
         , m_ps_shift(ms_page_size_shift(page_size))
     {
@@ -279,6 +280,19 @@ namespace db0
             ms_external_address(ms_address.slot_id(), local_info.address, m_ps_shift),
             local_info.size
         };
+    }
+
+    std::optional<Address> MS_MetaAllocator::tryFirstAlloc(Allocator::SlotId slot_id) const
+    {
+        auto allocator = findAllocator(slot_id);
+        if (!allocator) {
+            return std::nullopt;
+        }
+        auto local_address = allocator->tryFirstAlloc();
+        if (!local_address) {
+            return std::nullopt;
+        }
+        return ms_external_address(slot_id, *local_address, m_ps_shift);
     }
 
     void MS_MetaAllocator::commit() const

@@ -19,6 +19,14 @@ namespace db0
         , m_diff_index(dram_pair, access_type, getDiffIndexAddress(m_sparse_index, flags), &m_change_log, flags, slot_num)
     {
     }
+
+    SparsePair::SparsePair(DRAM_Pair dram_pair, AccessType access_type, Address sparse_index_address,
+        StorageFlags flags, Allocator::SlotId slot_num)
+        : m_sparse_index(dram_pair, access_type, sparse_index_address, &m_change_log, flags, slot_num)
+        , m_diff_index(dram_pair, access_type, getDiffIndexAddress(m_sparse_index, flags), &m_change_log, flags,
+            slot_num)
+    {
+    }
     
     SparsePair::SparsePair(tag_create, DRAM_Pair dram_pair, Allocator::SlotId slot_num)
         : m_sparse_index(SparseIndex::tag_create(), dram_pair, &m_change_log, slot_num)
