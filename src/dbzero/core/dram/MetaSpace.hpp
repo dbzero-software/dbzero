@@ -20,7 +20,14 @@ namespace db0
 
     struct MS_MetaSpace: public DRAMSpace
     {
+        using MappingPolicy = MS_MetaMappingPolicy;
+
         static Memspace create(std::size_t page_size, SparsePair &sparse_pair, Diff_IO &page_io);
+
+        static Memspace create(std::size_t page_size, SparsePair &sparse_pair, Diff_IO &page_io,
+            MappingPolicy mapping_policy);
+
+        static MS_MetaPrefix::SlotLoadFunction createSlotLoadFunction(SparsePair &sparse_pair, Diff_IO &page_io);
     };
 
 }

@@ -87,6 +87,8 @@ namespace db0
 
         bool hasPage(std::uint64_t page_num) const;
 
+        bool evictCleanPageRange(std::uint64_t first_page_num, std::uint64_t last_page_num);
+
     private:        
         const std::size_t m_page_size;
         mutable Storage0 m_dev_null;

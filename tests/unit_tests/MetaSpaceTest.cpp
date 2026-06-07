@@ -190,6 +190,33 @@ namespace tests
         ASSERT_EQ(data[1234], 0x33);
     }
 
+    TEST_F( MetaSpaceTest, testMetaSpaceLoadReportsLoadedPages )
+    {
+        CFile::create(file_name, {});
+        CFile file(file_name, AccessType::READ_WRITE);
+        auto mapping_pair = createMappingPair();
+        SparsePair sparse_pair(SparsePair::tag_create(), mapping_pair);
+
+        auto io = createIO(file);
+        auto memspace = MetaSpace::create(page_size, sparse_pair, io);
+        auto first = memspace.alloc(page_size);
+        auto second = memspace.alloc(page_size);
+        fillPage(memspace, first, 0x11);
+        fillPage(memspace, second, 0x22);
+        ASSERT_TRUE(flushMeta(memspace, io));
+
+        MetaPrefix prefix(page_size, sparse_pair);
+        std::vector<std::uint64_t> loaded_pages;
+        load(prefix, io, [&](std::uint64_t page_num) {
+            loaded_pages.push_back(page_num);
+        });
+
+        std::sort(loaded_pages.begin(), loaded_pages.end());
+        ASSERT_EQ(loaded_pages.size(), 2u);
+        ASSERT_EQ(loaded_pages[0], first.getOffset() / page_size);
+        ASSERT_EQ(loaded_pages[1], second.getOffset() / page_size);
+    }
+
     TEST_F( MetaSpaceTest, testMetaSpaceCapturesPreviousPageOnlyOnFirstDirtyMap )
     {
         CFile::create(file_name, {});
@@ -457,6 +484,132 @@ namespace tests
         ASSERT_EQ(slot_4_data[17], 0x40);
         ASSERT_EQ(slot_5_data[0], 0x55);
         ASSERT_EQ(slot_5_data[17], 0x50);
+    }
+
+    TEST_F( MetaSpaceTest, testMSMetaSpaceLazyMapsSlotOnFirstAccess )
+    {
+        CFile::create(file_name, {});
+        CFile file(file_name, AccessType::READ_WRITE);
+        auto mapping_pair = createMappingPair();
+        SparsePair sparse_pair(SparsePair::tag_create(), mapping_pair);
+
+        auto io = createIO(file);
+        auto memspace = MS_MetaSpace::create(page_size, sparse_pair, io);
+        auto slot_2_address = memspace.alloc(page_size, 2);
+        auto slot_3_address = memspace.alloc(page_size, 3);
+        fillPage(memspace, slot_2_address, 0x20);
+        fillPage(memspace, slot_3_address, 0x30);
+        ASSERT_TRUE(flush(dynamic_cast<MS_MetaPrefix &>(memspace.getPrefix()), io));
+
+        auto reopened = MS_MetaSpace::create(page_size, sparse_pair, io, MS_MetaSpace::MappingPolicy::lazy);
+        ASSERT_EQ(dynamic_cast<DRAM_Prefix &>(reopened.getPrefix()).size(), 0u);
+
+        ASSERT_EQ(readPage(reopened, slot_2_address), std::vector<unsigned char>(page_size, 0x20));
+        ASSERT_EQ(dynamic_cast<DRAM_Prefix &>(reopened.getPrefix()).size(), page_size);
+
+        ASSERT_EQ(readPage(reopened, slot_3_address), std::vector<unsigned char>(page_size, 0x30));
+        ASSERT_EQ(dynamic_cast<DRAM_Prefix &>(reopened.getPrefix()).size(), page_size * 2);
+    }
+
+    TEST_F( MetaSpaceTest, testMSMetaPrefixLazyLoadingUsesInjectedSlotLoader )
+    {
+        auto mapping_pair = createMappingPair();
+        SparsePair sparse_pair(SparsePair::tag_create(), mapping_pair);
+        bool loaded = false;
+        auto page_num = MS_Address::encode(8, 2);
+        auto address = Address::fromOffset(page_num * page_size);
+
+        MS_MetaPrefix prefix(page_size, sparse_pair,
+            [&](MS_MetaPrefix &target, Allocator::SlotId slot_id) {
+                ASSERT_EQ(slot_id, 8u);
+                auto *buffer = target.update(page_num, false);
+                std::memset(buffer, 0x2a, page_size);
+                loaded = true;
+            });
+
+        auto lock = prefix.mapRange(address.getOffset(), page_size, { AccessOptions::read });
+        auto *data = static_cast<const unsigned char *>(static_cast<const void *>(lock));
+        ASSERT_TRUE(loaded);
+        ASSERT_EQ(data[0], 0x2a);
+        ASSERT_EQ(data[page_size - 1], 0x2a);
+    }
+
+    TEST_F( MetaSpaceTest, testMSMetaSpaceLazyReconstructsDiffBackedSlot )
+    {
+        CFile::create(file_name, {});
+        CFile file(file_name, AccessType::READ_WRITE);
+        auto mapping_pair = createMappingPair();
+        SparsePair sparse_pair(SparsePair::tag_create(), mapping_pair);
+
+        auto io = createIO(file);
+        auto memspace = MS_MetaSpace::create(page_size, sparse_pair, io);
+        auto address = memspace.alloc(page_size, 9);
+        fillPage(memspace, address, 0x19);
+        ASSERT_TRUE(flush(dynamic_cast<MS_MetaPrefix &>(memspace.getPrefix()), io));
+
+        {
+            auto lock = memspace.getPrefix().mapRange(address.getOffset(), page_size, { AccessOptions::write });
+            auto *data = static_cast<unsigned char *>(lock.modify());
+            data[17] = 0x91;
+            data[1024] = 0x92;
+        }
+        ASSERT_TRUE(flush(dynamic_cast<MS_MetaPrefix &>(memspace.getPrefix()), io));
+
+        auto reopened = MS_MetaSpace::create(page_size, sparse_pair, io, MS_MetaSpace::MappingPolicy::lazy);
+        ASSERT_EQ(dynamic_cast<DRAM_Prefix &>(reopened.getPrefix()).size(), 0u);
+
+        auto data = readPage(reopened, address);
+        ASSERT_EQ(data[0], 0x19);
+        ASSERT_EQ(data[17], 0x91);
+        ASSERT_EQ(data[1024], 0x92);
+        ASSERT_EQ(dynamic_cast<DRAM_Prefix &>(reopened.getPrefix()).size(), page_size);
+    }
+
+    TEST_F( MetaSpaceTest, testMSMetaSpaceEvictsCleanSlotAndReloadsOnAccess )
+    {
+        CFile::create(file_name, {});
+        CFile file(file_name, AccessType::READ_WRITE);
+        auto mapping_pair = createMappingPair();
+        SparsePair sparse_pair(SparsePair::tag_create(), mapping_pair);
+
+        auto io = createIO(file);
+        auto memspace = MS_MetaSpace::create(page_size, sparse_pair, io);
+        auto address = memspace.alloc(page_size, 4);
+        fillPage(memspace, address, 0x44);
+        ASSERT_TRUE(flush(dynamic_cast<MS_MetaPrefix &>(memspace.getPrefix()), io));
+
+        auto reopened = MS_MetaSpace::create(page_size, sparse_pair, io, MS_MetaSpace::MappingPolicy::lazy);
+        ASSERT_EQ(readPage(reopened, address), std::vector<unsigned char>(page_size, 0x44));
+        ASSERT_EQ(dynamic_cast<DRAM_Prefix &>(reopened.getPrefix()).size(), page_size);
+
+        auto &prefix = dynamic_cast<MS_MetaPrefix &>(reopened.getPrefix());
+        ASSERT_TRUE(prefix.evictSlot(4));
+        ASSERT_EQ(dynamic_cast<DRAM_Prefix &>(reopened.getPrefix()).size(), 0u);
+
+        ASSERT_EQ(readPage(reopened, address), std::vector<unsigned char>(page_size, 0x44));
+        ASSERT_EQ(dynamic_cast<DRAM_Prefix &>(reopened.getPrefix()).size(), page_size);
+    }
+
+    TEST_F( MetaSpaceTest, testMSMetaSpaceRefusesDirtySlotEviction )
+    {
+        CFile::create(file_name, {});
+        CFile file(file_name, AccessType::READ_WRITE);
+        auto mapping_pair = createMappingPair();
+        SparsePair sparse_pair(SparsePair::tag_create(), mapping_pair);
+
+        auto io = createIO(file);
+        auto memspace = MS_MetaSpace::create(page_size, sparse_pair, io);
+        auto address = memspace.alloc(page_size, 6);
+        fillPage(memspace, address, 0x66);
+        ASSERT_TRUE(flush(dynamic_cast<MS_MetaPrefix &>(memspace.getPrefix()), io));
+
+        auto reopened = MS_MetaSpace::create(page_size, sparse_pair, io, MS_MetaSpace::MappingPolicy::lazy);
+        auto lock = reopened.getPrefix().mapRange(address.getOffset(), page_size, { AccessOptions::write });
+        static_cast<unsigned char *>(lock.modify())[17] = 0x67;
+
+        auto &prefix = dynamic_cast<MS_MetaPrefix &>(reopened.getPrefix());
+        ASSERT_FALSE(prefix.evictSlot(6));
+        ASSERT_EQ(dynamic_cast<DRAM_Prefix &>(reopened.getPrefix()).size(), page_size);
     }
 
     TEST_F( MetaSpaceTest, testSparsePairDeploysOnMetaSpaceWith16KBPageSize )

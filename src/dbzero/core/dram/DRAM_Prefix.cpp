@@ -5,6 +5,7 @@
 #include <iostream>
 #include <cstring>
 #include <string_view>
+#include <vector>
 
 namespace db0
 
@@ -125,6 +126,25 @@ namespace db0
 
     bool DRAM_Prefix::hasPage(std::uint64_t page_num) const {
         return m_pages.find(page_num) != m_pages.end();
+    }
+
+    bool DRAM_Prefix::evictCleanPageRange(std::uint64_t first_page_num, std::uint64_t last_page_num)
+    {
+        for (auto page_num = first_page_num; page_num < last_page_num; ++page_num) {
+            auto it = m_pages.find(page_num);
+            if (it == m_pages.end()) {
+                continue;
+            }
+            auto &lock = it->second.m_lock;
+            if (!lock || lock->isDirty() || lock.use_count() != 1) {
+                return false;
+            }
+        }
+
+        for (auto page_num = first_page_num; page_num < last_page_num; ++page_num) {
+            m_pages.erase(page_num);
+        }
+        return true;
     }
     
     void *DRAM_Prefix::update(std::size_t page_num, bool mark_dirty)

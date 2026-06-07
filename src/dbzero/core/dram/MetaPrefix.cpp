@@ -66,21 +66,23 @@ namespace db0
     {
     }
 
-    void load(MetaPrefix &prefix, Diff_IO &page_io)
+    void load(MetaPrefix &prefix, Diff_IO &page_io, std::function<void(std::uint64_t page_num)> loaded_page)
     {
         if (prefix.m_state_num == 0) {
             return;
         }
 
-        std::vector<std::byte> buffer(prefix.getPageSize());
         std::uint64_t previous_page_num = 0;
         for (auto it = prefix.m_sparse_pair.getSparseIndex().cbegin(); !it.is_end(); ++it) {
             auto item = *it;
-            if (!!item && item.m_page_num != 0 && item.m_page_num != previous_page_num
-                && prefix.readPage(page_io, item.m_page_num, prefix.m_state_num, buffer.data())) {
+            if (!!item && item.m_page_num != 0 && item.m_page_num != previous_page_num) {
                 auto page_buffer = prefix.update(item.m_page_num, false);
-                std::memcpy(page_buffer, buffer.data(), buffer.size());
-                previous_page_num = item.m_page_num;
+                if (prefix.readPage(page_io, item.m_page_num, prefix.m_state_num, page_buffer)) {
+                    if (loaded_page) {
+                        loaded_page(item.m_page_num);
+                    }
+                    previous_page_num = item.m_page_num;
+                }
             }
         }
     }

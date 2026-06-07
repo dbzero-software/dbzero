@@ -4,6 +4,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <unordered_map>
 #include <vector>
 #include <dbzero/core/dram/DRAM_Allocator.hpp>
@@ -40,12 +41,12 @@ namespace db0
     protected:
         SparsePair &m_sparse_pair;
 
+        bool readPage(Diff_IO &page_io, std::uint64_t page_num, StateNumType state_num, void *buffer) const;
+
     private:
         StateNumType m_state_num = 0;
         std::uint64_t m_last_updated = 0;
         std::unordered_map<std::uint64_t, std::vector<std::byte> > m_previous_pages;
-
-        bool readPage(Diff_IO &page_io, std::uint64_t page_num, StateNumType state_num, void *buffer) const;
 
         bool flushPage(Diff_IO &page_io, std::uint64_t page_num, const void *buffer, StateNumType state_num);
 
@@ -56,14 +57,16 @@ namespace db0
 
         void capturePreviousPage(std::uint64_t page_num, const MemLock &lock);
 
-        friend void load(MetaPrefix &prefix, Diff_IO &page_io);
+        friend void load(MetaPrefix &prefix, Diff_IO &page_io,
+            std::function<void(std::uint64_t page_num)> loaded_page);
 
         friend bool flush(MetaPrefix &prefix, Diff_IO &page_io, ProcessTimer *timer);
 
         friend bool compact(MetaPrefix &prefix, Diff_IO &page_io, ProcessTimer *timer);
     };
 
-    void load(MetaPrefix &prefix, Diff_IO &page_io);
+    void load(MetaPrefix &prefix, Diff_IO &page_io,
+        std::function<void(std::uint64_t page_num)> loaded_page = {});
 
     bool flush(MetaPrefix &prefix, Diff_IO &page_io, ProcessTimer *timer = nullptr);
 

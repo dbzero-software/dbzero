@@ -3,12 +3,13 @@
 
 #include "MS_MetaPrefix.hpp"
 #include <dbzero/core/exception/Exceptions.hpp>
-#include <dbzero/core/storage/Diff_IO.hpp>
 #include <dbzero/core/storage/SparsePair.hpp>
+#include <algorithm>
 #include <cassert>
 #include <limits>
 #include <optional>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 namespace db0
@@ -52,15 +53,76 @@ namespace db0
         return Address::fromOffset(MS_Address::encode(slot_id, local_page_num) << ps_shift);
     }
 
-    MS_MetaPrefix::MS_MetaPrefix(std::size_t page_size, SparsePair &sparse_pair, Diff_IO &page_io)
+    MS_MetaPrefix::MS_MetaPrefix(std::size_t page_size, SparsePair &sparse_pair, SlotLoadFunction slot_load)
         : MetaPrefix(page_size, sparse_pair)
+        , m_slot_load(std::move(slot_load))
     {
-        load(*this, page_io);
     }
 
-    MS_MetaAllocator::MS_MetaAllocator(std::shared_ptr<MS_MetaPrefix> prefix)
-        : m_prefix(std::move(prefix))
-        , m_ps_shift(ms_page_size_shift(m_prefix->getPageSize()))
+    Allocator::SlotId MS_MetaPrefix::slotIdFromPageNum(std::uint64_t page_num)
+    {
+        return MS_Address::from(page_num).slot_id();
+    }
+
+    std::pair<std::uint64_t, std::uint64_t> MS_MetaPrefix::pageRangeForSlot(Allocator::SlotId slot_id)
+    {
+        auto first_page_num = MS_Address::encode(slot_id, 0);
+        auto last_page_num = slot_id + 1 == MS_Address::SLOT_ID_COUNT
+            ? std::numeric_limits<std::uint64_t>::max()
+            : MS_Address::encode(slot_id + 1, 0);
+        return { first_page_num, last_page_num };
+    }
+
+    void MS_MetaPrefix::ensureSlotLoaded(Allocator::SlotId slot_id, std::uint64_t page_num)
+    {
+        auto [slot, inserted] = m_loaded_slot_high_watermarks.try_emplace(slot_id, 0);
+        if (inserted && m_slot_load) {
+            m_slot_load(*this, slot_id);
+        }
+
+        if (page_num != 0) {
+            slot->second = std::max(slot->second, page_num);
+        }
+    }
+
+    MemLock MS_MetaPrefix::mapRange(std::uint64_t address, std::size_t size, FlagSet<AccessOptions> access_mode)
+    {
+        auto page_num = address / getPageSize();
+        auto slot_id = slotIdFromPageNum(page_num);
+        if (m_slot_load) {
+            ensureSlotLoaded(slot_id, page_num);
+        } else if (page_num != 0) {
+            auto &highest_page_num = m_loaded_slot_high_watermarks[slot_id];
+            highest_page_num = std::max(highest_page_num, page_num);
+        }
+        return MetaPrefix::mapRange(address, size, access_mode);
+    }
+
+    bool MS_MetaPrefix::evictSlot(Allocator::SlotId slot_id)
+    {
+        auto slot = m_loaded_slot_high_watermarks.find(slot_id);
+        if (slot == m_loaded_slot_high_watermarks.end() || slot->second == 0) {
+            m_loaded_slot_high_watermarks.erase(slot_id);
+            return true;
+        }
+        auto [first_page_num, last_page_num] = pageRangeForSlot(slot_id);
+        first_page_num = std::max<std::uint64_t>(first_page_num, 1);
+        auto highest_page_num_end = slot->second == std::numeric_limits<std::uint64_t>::max()
+            ? std::numeric_limits<std::uint64_t>::max()
+            : slot->second + 1;
+        last_page_num = std::min(last_page_num, highest_page_num_end);
+
+        auto result = evictCleanPageRange(first_page_num, last_page_num);
+        if (result) {
+            m_loaded_slot_high_watermarks.erase(slot_id);
+        }
+        return result;
+    }
+
+    MS_MetaAllocator::MS_MetaAllocator(SparsePair &sparse_pair, std::size_t page_size)
+        : m_sparse_pair(sparse_pair)
+        , m_page_size(page_size)
+        , m_ps_shift(ms_page_size_shift(page_size))
     {
         initializeAllocators();
     }
@@ -80,13 +142,13 @@ namespace db0
                         sink(local_address);
                     }
                 },
-                m_prefix->getPageSize()
+                m_page_size
             );
             m_allocators.emplace(*current_slot_id, std::move(allocator));
             local_addresses.clear();
         };
 
-        for (auto it = m_prefix->m_sparse_pair.getSparseIndex().cbegin(); !it.is_end(); ++it) {
+        for (auto it = m_sparse_pair.getSparseIndex().cbegin(); !it.is_end(); ++it) {
             auto item = *it;
             if (!item || item.m_page_num == 0) {
                 continue;
@@ -119,7 +181,7 @@ namespace db0
             ? std::numeric_limits<std::uint64_t>::max()
             : MS_Address::encode(slot_id + 1, 0);
         std::uint64_t previous_local_address = 0;
-        m_prefix->m_sparse_pair.getSparseIndex().forPageRange(first_page_num, last_page_num, [&](const SI_Item &item) {
+        m_sparse_pair.getSparseIndex().forPageRange(first_page_num, last_page_num, [&](const SI_Item &item) {
             if (!item || item.m_page_num == 0) {
                 return;
             }
@@ -145,7 +207,7 @@ namespace db0
             [this, slot_id](DRAM_Allocator::AddressSinkFunction sink) {
                 forAllocatedAddresses(slot_id, std::move(sink));
             },
-            m_prefix->getPageSize()
+            m_page_size
         );
         auto [new_it, inserted] = m_allocators.emplace(slot_id, std::move(allocator));
         (void)inserted;

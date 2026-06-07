@@ -8,15 +8,23 @@
 #include <dbzero/core/memory/Allocator.hpp>
 #include <cassert>
 #include <cstdint>
+#include <functional>
 #include <memory>
+#include <utility>
 #include <unordered_map>
 
 namespace db0
 
 {
 
-    class Diff_IO;
     class SparsePair;
+    struct MS_MetaSpace;
+
+    enum class MS_MetaMappingPolicy
+    {
+        eager,
+        lazy
+    };
 
     class MS_Address
     {
@@ -33,6 +41,7 @@ namespace db0
 
     private:
         friend class MS_MetaAllocator;
+        friend class MS_MetaPrefix;
 
         static constexpr std::uint64_t LOCAL_PAGE_BITS = 24;
         static constexpr std::uint64_t SLOT_ID_BITS = 40;
@@ -73,16 +82,40 @@ namespace db0
     class MS_MetaPrefix: public MetaPrefix
     {
     public:
-        MS_MetaPrefix(std::size_t page_size, SparsePair &sparse_pair, Diff_IO &page_io);
+        using SlotLoadFunction = std::function<void(MS_MetaPrefix &, Allocator::SlotId)>;
+
+        /**
+         * Creates a metadata prefix over the shared sparse mapping.
+         *
+         * Without slot_load, the prefix assumes persisted contents are populated
+         * externally, for example by load(MetaPrefix &, Diff_IO &) during eager
+         * setup. With slot_load, mapRange invokes the callback once per slot on
+         * first access; the callback should populate pages for that slot with
+         * update(page_num, false).
+         */
+        MS_MetaPrefix(std::size_t page_size, SparsePair &sparse_pair, SlotLoadFunction slot_load = {});
+
+        MemLock mapRange(std::uint64_t address, std::size_t size, FlagSet<AccessOptions> = {}) override;
+
+        bool evictSlot(Allocator::SlotId slot_id);
+
+        static Allocator::SlotId slotIdFromPageNum(std::uint64_t page_num);
+
+        static std::pair<std::uint64_t, std::uint64_t> pageRangeForSlot(Allocator::SlotId slot_id);
 
     private:
-        friend class MS_MetaAllocator;
+        friend struct MS_MetaSpace;
+
+        SlotLoadFunction m_slot_load;
+        std::unordered_map<Allocator::SlotId, std::uint64_t> m_loaded_slot_high_watermarks;
+
+        void ensureSlotLoaded(Allocator::SlotId slot_id, std::uint64_t page_num);
     };
 
     class MS_MetaAllocator: public Allocator
     {
     public:
-        explicit MS_MetaAllocator(std::shared_ptr<MS_MetaPrefix> prefix);
+        MS_MetaAllocator(SparsePair &sparse_pair, std::size_t page_size);
 
         std::optional<Address> tryAlloc(std::size_t size, Allocator::SlotId slot_num = 0,
             bool aligned = false, unsigned char realm_id = 0, unsigned char locality = 0) override;
@@ -100,7 +133,8 @@ namespace db0
         void detach() const override;
 
     private:
-        std::shared_ptr<MS_MetaPrefix> m_prefix;
+        SparsePair &m_sparse_pair;
+        std::size_t m_page_size;
         std::uint32_t m_ps_shift;
         std::unordered_map<Allocator::SlotId, std::shared_ptr<DRAM_Allocator> > m_allocators;
 
