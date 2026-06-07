@@ -139,13 +139,14 @@ namespace db0
     }
     
     DiffIndex::DiffIndex(DRAM_Pair dram_pair, AccessType access_type, Address address, 
-        std::vector<std::uint64_t> *change_log_ptr, StorageFlags flags)
-        : SparseIndexBase(dram_pair, access_type, address, change_log_ptr, flags)
+        std::vector<std::uint64_t> *change_log_ptr, StorageFlags flags, Allocator::SlotId slot_num)
+        : SparseIndexBase(dram_pair, access_type, address, change_log_ptr, flags, slot_num)
     {
     }
     
-    DiffIndex::DiffIndex(tag_create, DRAM_Pair dram_pair, std::vector<std::uint64_t> *change_log_ptr)
-        : SparseIndexBase(typename super_t::tag_create{}, dram_pair, change_log_ptr)
+    DiffIndex::DiffIndex(tag_create, DRAM_Pair dram_pair, std::vector<std::uint64_t> *change_log_ptr,
+        Allocator::SlotId slot_num)
+        : SparseIndexBase(typename super_t::tag_create{}, dram_pair, change_log_ptr, slot_num)
     {
     }
 

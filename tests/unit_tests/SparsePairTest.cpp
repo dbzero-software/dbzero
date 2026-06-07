@@ -2,6 +2,7 @@
 // Copyright (c) 2025 DBZero Software sp. z o.o.
 
 #include <gtest/gtest.h>
+#include <algorithm>
 #include <cstdint>
 #include <iostream>
 #include <utils/TestWorkspace.hpp>
@@ -35,6 +36,69 @@ namespace tests
             drop(file_name);
         }
     };
+
+    class SlotRecordingDRAMAllocator: public db0::DRAM_Allocator
+    {
+    public:
+        explicit SlotRecordingDRAMAllocator(std::size_t page_size)
+            : db0::DRAM_Allocator(page_size)
+        {
+        }
+
+        std::optional<Address> tryAlloc(std::size_t size, SlotId slot_num,
+            bool aligned = false, unsigned char realm_id = 0, unsigned char locality = 0) override
+        {
+            m_slot_records.push_back(slot_num);
+            return DRAM_Allocator::tryAlloc(size, 0, aligned, realm_id, locality);
+        }
+
+        const std::vector<SlotId> &slotRecords() const {
+            return m_slot_records;
+        }
+
+    private:
+        std::vector<SlotId> m_slot_records;
+    };
+
+    TEST_F( SparsePairTest , testSparsePairAllocatesInternalStorageFromRequestedSlot )
+    {
+        constexpr std::size_t node_size = 4096;
+        constexpr Allocator::SlotId slot_num = 7;
+        auto prefix = std::make_shared<db0::DRAM_Prefix>(node_size);
+        auto allocator = std::make_shared<SlotRecordingDRAMAllocator>(node_size);
+        DRAM_Pair dram_pair { prefix, allocator };
+
+        SparsePair cut(SparsePair::tag_create(), dram_pair, slot_num);
+        ASSERT_GE(allocator->slotRecords().size(), 2u);
+        ASSERT_TRUE(std::all_of(allocator->slotRecords().begin(), allocator->slotRecords().end(),
+            [](Allocator::SlotId recorded_slot_num) {
+                return recorded_slot_num == slot_num;
+            }));
+
+        for (std::uint64_t i = 1; i <= 300; ++i) {
+            cut.getSparseIndex().emplace(i << 24, static_cast<std::uint32_t>(i), i + 1000);
+            cut.getDiffIndex().insert((i + 1000) << 24, static_cast<std::uint32_t>(i), i + 2000);
+        }
+
+        auto allocation_count_after_growth = allocator->slotRecords().size();
+        ASSERT_GT(allocation_count_after_growth, 2u);
+        ASSERT_TRUE(std::all_of(allocator->slotRecords().begin(), allocator->slotRecords().end(),
+            [](Allocator::SlotId recorded_slot_num) {
+                return recorded_slot_num == slot_num;
+            }));
+
+        SparsePair reopened(dram_pair, AccessType::READ_WRITE, {}, slot_num);
+        for (std::uint64_t i = 301; i <= 600; ++i) {
+            reopened.getSparseIndex().emplace(i << 24, static_cast<std::uint32_t>(i), i + 1000);
+            reopened.getDiffIndex().insert((i + 1000) << 24, static_cast<std::uint32_t>(i), i + 2000);
+        }
+
+        ASSERT_GT(allocator->slotRecords().size(), allocation_count_after_growth);
+        ASSERT_TRUE(std::all_of(allocator->slotRecords().begin(), allocator->slotRecords().end(),
+            [](Allocator::SlotId recorded_slot_num) {
+                return recorded_slot_num == slot_num;
+            }));
+    }
     
     TEST_F( SparsePairTest , testSparsePairCollectsChangeLogOfAddedItems )
     {   

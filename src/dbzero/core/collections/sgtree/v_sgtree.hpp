@@ -12,6 +12,8 @@
 #include <dbzero/core/serialization/Fixed.hpp>
 #include <dbzero/core/intrusive/sgtree.hpp>
 #include <dbzero/core/compiler_attributes.hpp>
+#include <dbzero/core/metaprog/last_type_is.hpp>
+#include <dbzero/core/vspace/v_object.hpp>
 
 namespace db0
 
@@ -131,10 +133,23 @@ DB0_PACKED_END
 
         v_sgtree() = default;
 
+        struct tag_runtime_slot {};
+
         /// The SG tree instance object is the 'head' node (created with either default or user arguments)
         template <typename... Args> v_sgtree(db0::Memspace &memspace, comp_t cmp = comp_t(), Args&&... args)
             : super(memspace, std::forward<Args>(args)...)
             , _comp(cmp)
+        {
+            // link to self
+            this->modify().ptr_set.left = this->getAddress();
+            this->modify().ptr_set.right = this->getAddress();
+        }
+
+        template <typename... Args> v_sgtree(tag_runtime_slot, db0::Memspace &memspace, Allocator::SlotId slot_num,
+            comp_t cmp = comp_t(), Args&&... args)
+            : super(memspace, tag_dynamic_slot(), slot_num, std::forward<Args>(args)...)
+            , _comp(cmp)
+            , m_slot_num(slot_num)
         {
             // link to self
             this->modify().ptr_set.left = this->getAddress();
@@ -150,6 +165,13 @@ DB0_PACKED_END
         v_sgtree(db0::mptr _ptr, comp_t cmp = comp_t())
             : super(_ptr)
             , _comp(cmp)
+        {
+        }
+
+        v_sgtree(db0::mptr _ptr, comp_t cmp, Allocator::SlotId slot_num)
+            : super(_ptr)
+            , _comp(cmp)
+            , m_slot_num(slot_num)
         {
         }
         
@@ -277,7 +299,7 @@ DB0_PACKED_END
             SG_Tree::link_equal_upper_bound(
                 this->head(), key, this->_comp, ld, depth
             );
-            node_t new_node(this->getMemspace(), key, std::forward<Args>(args)...);
+            auto new_node = makeNewNode(key, std::forward<Args>(args)...);
             SG_Tree::link(this->head(), new_node, ld);
             SG_Tree::rebalance_after_insertion(new_node, depth, this->modify().size++, _alpha);
             this->updateMaxTreeSize();
@@ -295,7 +317,7 @@ DB0_PACKED_END
             SG_Tree::link_equal (
                 this->head(), hint, key, this->_comp, ld, depth
             );
-            node_t new_node(this->getMemspace(), key, std::forward<Args>(args)...);
+            auto new_node = makeNewNode(key, std::forward<Args>(args)...);
             SG_Tree::link(this->head(), new_node, ld);
             SG_Tree::rebalance_after_insertion(new_node, depth, ++this->modify().size, _alpha);
             this->updateMaxTreeSize();
@@ -329,7 +351,7 @@ DB0_PACKED_END
                 return result;
             }
             // allocate / initialize new SG-Tree node
-            node_t new_node(this->getMemspace(), key, std::forward<Args>(args)...);
+            auto new_node = makeNewNode(key, std::forward<Args>(args)...);
             SG_Tree::insert_unique_commit(
                 this->head(), new_node, commit_data, this->modify().size++, _alpha
             );
@@ -460,6 +482,22 @@ DB0_PACKED_END
         alpha_t _alpha;
         // node comparer
         comp_t _comp;
+        Allocator::SlotId m_slot_num = 0;
+
+        template <class KeyInitializer, typename... Args>
+        node_t makeNewNode(const KeyInitializer &key, Args&&... args)
+        {
+            if constexpr (
+                std::is_same<
+                    typename std::decay<typename last_type<Args...>::type>::type,
+                    MappedAddress
+                >::value)
+            {
+                return node_t(this->getMemspace(), key, std::forward<Args>(args)...);
+            } else {
+                return node_t(this->getMemspace(), tag_dynamic_slot(), m_slot_num, key, std::forward<Args>(args)...);
+            }
+        }
 
 #ifdef  __linux__
     #pragma GCC diagnostic push

@@ -12,6 +12,8 @@ namespace db0
 {
 
     struct tag_verified {};
+
+    struct tag_dynamic_slot {};
     
     /**
      * Base class for vspace-mapped objects
@@ -64,7 +66,7 @@ namespace db0
             );            
             ContainerT::__new(reinterpret_cast<std::byte*>(&this->modify()), std::get<I>(std::forward<Tuple>(t))...);
         }
-        
+
         /// Pre-locked constructor
         struct tag_prelocked {};
         template<typename Tuple, std::size_t...I, std::size_t N=std::tuple_size<Tuple>::value-1>
@@ -121,9 +123,28 @@ namespace db0
             : v_object(memspace, tag_prelocked(), std::forward_as_tuple(std::forward<Args>(args)...), make_int_seq_t<std::size_t, sizeof...(args)-1>())
         {
         }
+
+        /**
+         * Allocating constructor with runtime slot selection.
+         * Dynamic slot selection is only valid for types without a static SLOT_NUM
+         * override, because runtime slots must not override a type-owned static slot.
+         */
+        template<typename... Args>
+        v_object(Memspace &memspace, tag_dynamic_slot, Allocator::SlotId slot_num, Args&&... args)
+        {
+            initNew(
+                memspace,
+                ContainerT::measure(std::forward<Args>(args)...),
+                {},
+                slot_num
+            );
+            ContainerT::__new(reinterpret_cast<std::byte*>(&this->modify()), std::forward<Args>(args)...);
+        }
         
         // Standard allocating constructor
-        template<typename... Args, last_type_is_not_t<FlagSet<AccessOptions>, Args...>* = nullptr, last_type_is_not_t<MappedAddress, Args...>* = nullptr>
+        template<typename... Args, last_type_is_not_t<FlagSet<AccessOptions>, Args...>* = nullptr,
+            last_type_is_not_t<MappedAddress, Args...>* = nullptr,
+            first_type_is_not_t<tag_dynamic_slot, Args...>* = nullptr>
         v_object(Memspace &memspace, Args&&... args)
             : v_object(memspace, std::forward<Args>(args)..., FlagSet<AccessOptions> {})
         {
@@ -198,12 +219,14 @@ namespace db0
     private:
 
         // Create a new instance
-        void initNew(Memspace &memspace, std::size_t size, FlagSet<AccessOptions> access_mode = {})
+        void initNew(Memspace &memspace, std::size_t size, FlagSet<AccessOptions> access_mode = {},
+            Allocator::SlotId slot_num = 0)
         {
             // read not allowed for instance creation
             assert(!access_mode[AccessOptions::read]);
+            assert((!slot_num || !SLOT_NUM) && "dynamic slot cannot override a static SLOT_NUM");
             this->m_memspace_ptr = &memspace;
-            this->m_address = memspace.alloc(size, SLOT_NUM, REALM_ID, getLocality(access_mode));
+            this->m_address = memspace.alloc(size, slot_num ? slot_num : SLOT_NUM, REALM_ID, getLocality(access_mode));
             // lock for create & write
             // NOTE: must extract physical address for mapRange
             this->m_mem_lock = memspace.getPrefix().mapRange(

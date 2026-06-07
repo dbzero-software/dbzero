@@ -62,11 +62,13 @@ namespace db0
          * @param address pass 0 to use the first assigned address
         */
         SparseIndexBase(DRAM_Pair, AccessType, Address address = {}, 
-            std::vector<std::uint64_t> *change_log_ptr = nullptr, StorageFlags= {});
+            std::vector<std::uint64_t> *change_log_ptr = nullptr, StorageFlags= {},
+            Allocator::SlotId slot_num = 0);
         
         // Create a new empty sparse index
         struct tag_create {};
-        SparseIndexBase(tag_create, DRAM_Pair, std::vector<std::uint64_t> *change_log_ptr = nullptr);
+        SparseIndexBase(tag_create, DRAM_Pair, std::vector<std::uint64_t> *change_log_ptr = nullptr,
+            Allocator::SlotId slot_num = 0);
         
         void insert(const ItemT &item);
 
@@ -234,6 +236,7 @@ DB0_PACKED_END
         std::shared_ptr<DRAM_Allocator> m_dram_allocator;
         Memspace m_dram_space;
         const AccessType m_access_type;
+        Allocator::SlotId m_slot_num = 0;
         // the actual index
         IndexT m_index;
         // copied from tree header (cached)
@@ -261,11 +264,12 @@ DB0_PACKED_END
 
     template <typename ItemT, typename CompressedItemT>
     SparseIndexBase<ItemT, CompressedItemT>::SparseIndexBase(DRAM_Pair dram_pair, AccessType access_type, Address address,
-        std::vector<std::uint64_t> *change_log_ptr, StorageFlags flags)
+        std::vector<std::uint64_t> *change_log_ptr, StorageFlags flags, Allocator::SlotId slot_num)
         : m_dram_prefix(dram_pair.first)
         , m_dram_allocator(dram_pair.second)
         , m_dram_space(DRAMSpace::create(dram_pair))
         , m_access_type(access_type)
+        , m_slot_num(slot_num)
         , m_index(openIndex(address, access_type, flags))
         // NOTE: index may NOT be loaded
         , m_next_page_num(!!m_index ? m_index.treeHeader().m_next_page_num : 0)
@@ -275,11 +279,13 @@ DB0_PACKED_END
     }
 
     template <typename ItemT, typename CompressedItemT>
-    SparseIndexBase<ItemT, CompressedItemT>::SparseIndexBase(tag_create, DRAM_Pair dram_pair, std::vector<std::uint64_t> *change_log_ptr)
+    SparseIndexBase<ItemT, CompressedItemT>::SparseIndexBase(tag_create, DRAM_Pair dram_pair,
+        std::vector<std::uint64_t> *change_log_ptr, Allocator::SlotId slot_num)
         : m_dram_prefix(dram_pair.first)
         , m_dram_allocator(dram_pair.second)
         , m_dram_space(DRAMSpace::create(dram_pair))
         , m_access_type(AccessType::READ_WRITE)
+        , m_slot_num(slot_num)
         , m_index(createIndex())
         , m_next_page_num(m_index.treeHeader().m_next_page_num)
         , m_max_state_num(m_index.treeHeader().m_max_state_num)
@@ -392,14 +398,16 @@ DB0_PACKED_END
             if (!address.isValid()) {
                 address = m_dram_allocator->firstAlloc();
             }
-            return IndexT(m_dram_space.myPtr(address), m_dram_prefix->getPageSize(), access_type);
+            return IndexT(m_dram_space.myPtr(address), m_dram_prefix->getPageSize(), access_type,
+                {}, {}, {}, IndexT::DEFAULT_SORT_THRESHOLD, m_slot_num);
         }
     }
     
     template <typename ItemT, typename CompressedItemT>
     typename SparseIndexBase<ItemT, CompressedItemT>::IndexT
     SparseIndexBase<ItemT, CompressedItemT>::createIndex() {
-        return IndexT(m_dram_space, m_dram_prefix->getPageSize(), AccessType::READ_WRITE);  
+        return IndexT(m_dram_space, m_dram_prefix->getPageSize(), AccessType::READ_WRITE,
+            {}, {}, {}, IndexT::DEFAULT_SORT_THRESHOLD, m_slot_num);
     }
     
     template <typename ItemT, typename CompressedItemT>
@@ -519,7 +527,8 @@ DB0_PACKED_END
         }
         
         m_index.~IndexT();
-        new (&m_index) IndexT(m_dram_space.myPtr(address), m_dram_prefix->getPageSize(), m_access_type);
+        new (&m_index) IndexT(m_dram_space.myPtr(address), m_dram_prefix->getPageSize(), m_access_type,
+            {}, {}, {}, IndexT::DEFAULT_SORT_THRESHOLD, m_slot_num);
         m_next_page_num = m_index.treeHeader().m_next_page_num;
         m_max_state_num = m_index.treeHeader().m_max_state_num;
     }

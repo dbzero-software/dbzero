@@ -14,15 +14,15 @@ namespace db0
     {
     }
     
-    SparsePair::SparsePair(DRAM_Pair dram_pair, AccessType access_type, StorageFlags flags)
-        : m_sparse_index(dram_pair, access_type, {}, &m_change_log, flags)
-        , m_diff_index(dram_pair, access_type, getDiffIndexAddress(m_sparse_index, flags), &m_change_log, flags)
+    SparsePair::SparsePair(DRAM_Pair dram_pair, AccessType access_type, StorageFlags flags, Allocator::SlotId slot_num)
+        : m_sparse_index(dram_pair, access_type, {}, &m_change_log, flags, slot_num)
+        , m_diff_index(dram_pair, access_type, getDiffIndexAddress(m_sparse_index, flags), &m_change_log, flags, slot_num)
     {
     }
     
-    SparsePair::SparsePair(tag_create, DRAM_Pair dram_pair)
-        : m_sparse_index(SparseIndex::tag_create(), dram_pair, &m_change_log)
-        , m_diff_index(DiffIndex::tag_create(), dram_pair, &m_change_log)
+    SparsePair::SparsePair(tag_create, DRAM_Pair dram_pair, Allocator::SlotId slot_num)
+        : m_sparse_index(SparseIndex::tag_create(), dram_pair, &m_change_log, slot_num)
+        , m_diff_index(DiffIndex::tag_create(), dram_pair, &m_change_log, slot_num)
     {
         // store the diff-index's address as extra data in the sparse index
         m_sparse_index.setExtraData(m_diff_index.getIndexAddress().getOffset());

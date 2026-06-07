@@ -103,8 +103,9 @@ namespace db0
          * @tparam args optional arguments for the header's constructor
          */
         SGB_TreeBase(Memspace &memspace, std::size_t node_capacity,
-            const CompT &comp = {}, const NodeItemCompT &item_cmp = {}, const NodeItemEqualT &item_eq = {})
-            : super_t(memspace, comp, node_capacity)
+            const CompT &comp = {}, const NodeItemCompT &item_cmp = {}, const NodeItemEqualT &item_eq = {},
+            Allocator::SlotId slot_num = 0)
+            : super_t(typename super_t::tag_runtime_slot(), memspace, slot_num, comp, node_capacity)
             , m_node_capacity(node_capacity)
             , m_item_comp(item_cmp)
             , m_heap_comp(item_cmp, item_eq)
@@ -112,8 +113,9 @@ namespace db0
         }
         
         SGB_TreeBase(mptr ptr, std::size_t node_capacity,
-            const CompT &comp = {}, const NodeItemCompT &item_cmp = {}, const NodeItemEqualT &item_eq = {})
-            : super_t(ptr, comp)
+            const CompT &comp = {}, const NodeItemCompT &item_cmp = {}, const NodeItemEqualT &item_eq = {},
+            Allocator::SlotId slot_num = 0)
+            : super_t(ptr, comp, slot_num)
             , m_node_capacity(node_capacity)
             , m_item_comp(item_cmp)
             , m_heap_comp(item_cmp, item_eq)
@@ -604,14 +606,14 @@ namespace db0
         using CompT = typename super_t::CompT;
 
         SGB_Tree(Memspace &memspace, std::size_t node_capacity, const CompT &comp = {}, const ItemCompT &item_comp = {}, 
-            const ItemEqualT &item_eq = {})
-            : super_t(memspace, node_capacity, comp, item_comp, item_eq)
+            const ItemEqualT &item_eq = {}, Allocator::SlotId slot_num = 0)
+            : super_t(memspace, node_capacity, comp, item_comp, item_eq, slot_num)
         {
         }
         
         SGB_Tree(mptr ptr, std::size_t node_capacity, const CompT &comp = {}, const ItemCompT &item_comp = {}, 
-            const ItemEqualT &item_eq = {})
-            : super_t(ptr, node_capacity, comp, item_comp, item_eq)
+            const ItemEqualT &item_eq = {}, Allocator::SlotId slot_num = 0)
+            : super_t(ptr, node_capacity, comp, item_comp, item_eq, slot_num)
         {
         }
     };

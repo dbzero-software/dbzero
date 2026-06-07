@@ -124,10 +124,12 @@ DB0_PACKED_END
         using StateNumT = typename super_t::StateNumT;
         
         DiffIndex(std::size_t node_size, std::vector<std::uint64_t> *change_log_ptr = nullptr);
-        DiffIndex(DRAM_Pair, AccessType, Address, std::vector<std::uint64_t> *change_log_ptr = nullptr, StorageFlags = {});
+        DiffIndex(DRAM_Pair, AccessType, Address, std::vector<std::uint64_t> *change_log_ptr = nullptr, StorageFlags = {},
+            Allocator::SlotId slot_num = 0);
         
         struct tag_create {};
-        DiffIndex(tag_create, DRAM_Pair, std::vector<std::uint64_t> *change_log_ptr = nullptr);
+        DiffIndex(tag_create, DRAM_Pair, std::vector<std::uint64_t> *change_log_ptr = nullptr,
+            Allocator::SlotId slot_num = 0);
         
         // Either insert into a new item or extend the existing one
         // @param overflow flag indicating if the stored page has 
