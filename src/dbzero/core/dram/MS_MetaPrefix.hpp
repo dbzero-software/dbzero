@@ -22,7 +22,7 @@ namespace db0
 
     struct MS_MetaSpace;
 
-    enum class MetaSpaceLoadPolicy
+    enum class MappingPolicy
     {
         eager,
         lazy
@@ -37,22 +37,23 @@ namespace db0
          * Creates a metadata prefix over the shared sparse mapping.
          * diff_io reference is required for lazy / mixed slot loading policy
          */
-        MS_MetaPrefix(std::size_t page_size, SparsePair &sparse_pair, 
-            const Diff_IO *diff_io = nullptr);
+        MS_MetaPrefix(std::size_t page_size, SparsePair &sparse_pair,
+            Diff_IO &diff_io, MappingPolicy mapping_policy = MappingPolicy::eager);
 
         MemLock mapRange(std::uint64_t address, std::size_t size, FlagSet<AccessOptions> = {}) override;
         
         // Evict dirty and unused slot (must be flushed and detached)
         bool evictSlot(SlotId);
         
-        // Get slot associated begin / end page pair
-        static std::pair<std::uint64_t, std::uint64_t> getPageRange(SlotId);
+        // Get slot associated desc-io logical begin / end page pair
+        std::pair<std::uint64_t, std::uint64_t> getPageRange(SlotId) const;
 
     private:
         friend struct MS_MetaSpace;
         
         const std::uint32_t m_ps_shift;
-        const Diff_IO *m_diff_io_ptr;
+        Diff_IO &m_diff_io;
+        const MappingPolicy m_mapping_policy;
         // the loaded slot IDs
         std::unordered_set<SlotId> m_slot_ids;
 

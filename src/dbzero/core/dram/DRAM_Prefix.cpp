@@ -127,7 +127,7 @@ namespace db0
     }
 
     bool DRAM_Prefix::isDirty() const {
-        return m_dirty_cache.hasDirty();
+        return !m_dirty_cache.empty();
     }
 
     bool DRAM_Prefix::hasPage(std::uint64_t page_num) const 
@@ -135,7 +135,7 @@ namespace db0
         return m_pages.find(page_num) != m_pages.end();
     }
 
-    void DRAM_Prefix::evictPageRange(std::uint64_t first_page_num, std::uint64_t end_page_num)
+    bool DRAM_Prefix::evictPageRange(std::uint64_t first_page_num, std::uint64_t end_page_num)
     {
         // this is to reduce scan to existing pages
         end_page_num = std::min(end_page_num, m_max_page_num + 1);
@@ -151,6 +151,7 @@ namespace db0
             }
             m_pages.erase(it);
         }
+        return true;
     }
     
     void *DRAM_Prefix::update(std::uint64_t page_num, bool mark_dirty)

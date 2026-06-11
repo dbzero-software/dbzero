@@ -10,6 +10,7 @@
 #include "BaseStorage.hpp"
 #include "ChangeLogIOStream.hpp"
 #include "StorageFlags.hpp"
+#include <dbzero/core/dram/MS_Address.hpp>
 #include <dbzero/core/serialization/FixedVersioned.hpp>
 #include <dbzero/core/vspace/v_object.hpp>
 #include <type_traits>
@@ -52,7 +53,8 @@ namespace db0
         using ChangeLogT = std::vector<std::uint64_t>;
         using ChangeLogEntryT = std::uint64_t;
         
-        SparsePairBase(DRAM_Pair, AccessType, StorageFlags = {}, SlotId slot_num = 0, ChangeLogT *change_log = nullptr);
+        SparsePairBase(DRAM_Pair, AccessType, Address, StorageFlags = {}, SlotId slot_num = 0,
+            ChangeLogT *change_log = nullptr);
         SparsePairBase(tag_create, DRAM_Pair, SlotId slot_num = 0, ChangeLogT *change_log = nullptr);
 
         inline SparseIndexT &getSparseIndex() {
@@ -89,15 +91,12 @@ namespace db0
 
         void detach() const;
         
-        void commit();
+        void commit() const;
+        
+        std::size_t getChangeLogSize() const;
 
         // only supported with owned change log
-        ChangeLogT SparsePairManager::extractChangeLogPages()
-        {
-            ChangeLogT page_nums;
-            page_nums.swap(m_change_log);
-            return page_nums;
-        }
+        ChangeLogT extractChangeLogPages();
 
     private:
         // owned change log used only for non-managed root instances
@@ -108,7 +107,7 @@ namespace db0
         // and in its header it stores the address of the diff index
         SparseIndexT m_sparse_index;
         DiffIndex m_diff_index;
-                
+        
         static Address getDiffIndexAddress(const SparseIndexT &);
         void storeDiffIndexAddresses();
     };

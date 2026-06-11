@@ -267,7 +267,7 @@ namespace db0
         BlockIOStream::flush();
         // output changelog, no RLE encoding, no duplicates
         ChangeLogData cl_data(std::move(dram_changelog), false, false, false);
-        dram_changelog_io.appendChangeLog(std::move(cl_data), state_num, DRAMChangeLogKind::DRAM_IO);
+        dram_changelog_io.appendChangeLog(std::move(cl_data), state_num);
     }
     
 #ifndef NDEBUG

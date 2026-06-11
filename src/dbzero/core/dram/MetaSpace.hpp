@@ -16,16 +16,12 @@ namespace db0
     {
         static Memspace create(std::size_t page_size, SparsePair &sparse_pair, Diff_IO &page_io);
     };
-
+    
     class MS_MetaSpace: public Memspace
     {
-    public:
-        using MappingPolicy = MetaSpaceLoadPolicy;
-
-        static MS_MetaSpace create(std::size_t page_size, SparsePair &sparse_pair, Diff_IO &page_io);
-
+    public:        
         static MS_MetaSpace create(std::size_t page_size, SparsePair &sparse_pair, Diff_IO &page_io,
-            MappingPolicy mapping_policy);
+            MappingPolicy mapping_policy = MappingPolicy::eager);
 
         std::shared_ptr<MS_MetaPrefix> getMSPrefixPtr() const;
 

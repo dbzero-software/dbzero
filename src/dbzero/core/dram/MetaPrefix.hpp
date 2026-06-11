@@ -10,6 +10,7 @@
 #include <dbzero/core/dram/DRAM_Allocator.hpp>
 #include <dbzero/core/dram/DRAM_Prefix.hpp>
 #include <dbzero/core/storage/SparsePairFwd.hpp>
+
 namespace db0
 
 {
@@ -31,9 +32,7 @@ namespace db0
         std::uint64_t commit(ProcessTimer * = nullptr) override;
 
         StateNumType getStateNum(bool finalized = false) const override;
-
-        void refreshState();
-        
+                
         std::size_t flushDirty(std::size_t limit) override;
 
         void forAllocatedAddresses(std::function<void(std::uint64_t)> sink) const;
@@ -57,6 +56,9 @@ namespace db0
         void captureCoWPage(std::uint64_t page_num, const MemLock &lock);
 
         friend void load(MetaPrefix &prefix, Diff_IO &page_io);
+        friend bool fetchPage(MetaPrefix &prefix, Diff_IO &page_io, std::uint64_t page_num,
+            StateNumType state_num, void *buffer);
+        friend void load(MetaPrefix &prefix, Diff_IO &page_io, const std::vector<std::uint64_t> &page_nums);
 
         friend bool flush(MetaPrefix &prefix, Diff_IO &page_io, ProcessTimer *timer);
 

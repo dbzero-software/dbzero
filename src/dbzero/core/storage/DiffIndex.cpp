@@ -134,17 +134,18 @@ namespace db0
     }
     
     DiffIndex::DiffIndex(DRAM_Pair dram_pair, AccessType access_type, Address address, 
-        std::vector<std::uint64_t> *change_log_ptr, StorageFlags flags, SlotId slot_num)
-        : SparseIndexBase(dram_pair, access_type, address, change_log_ptr, flags, slot_num,
-            encode_change_log_entries)
+        std::vector<std::uint64_t> *change_log_ptr, StorageFlags flags, SlotId slot_num,
+        bool encode_change_log_entries)
+        : SparseIndexBase(dram_pair, access_type, address, change_log_ptr, flags, slot_num)
     {
+        (void)encode_change_log_entries;
     }
     
     DiffIndex::DiffIndex(tag_create, DRAM_Pair dram_pair, std::vector<std::uint64_t> *change_log_ptr,
         Allocator::SlotId slot_num, bool encode_change_log_entries)
-        : SparseIndexBase(typename super_t::tag_create{}, dram_pair, change_log_ptr, slot_num,
-            encode_change_log_entries)
+        : SparseIndexBase(typename super_t::tag_create{}, dram_pair, change_log_ptr, slot_num)
     {
+        (void)encode_change_log_entries;
     }
 
     bool DiffIndex::empty() const {
@@ -153,6 +154,22 @@ namespace db0
     
     std::size_t DiffIndex::size() const {
         return super_t::size();
+    }
+
+    void DiffIndex::refresh() {
+        super_t::refresh();
+    }
+
+    void DiffIndex::detach() const {
+        super_t::detach();
+    }
+
+    void DiffIndex::commit() {
+        super_t::commit();
+    }
+
+    Address DiffIndex::getIndexAddress() const {
+        return super_t::getIndexAddress();
     }
 
     void DiffIndex::clear() {

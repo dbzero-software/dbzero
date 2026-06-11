@@ -28,8 +28,9 @@ namespace db0
             DRAM_Allocator &m_allocator;
             std::uint64_t m_max_page_id = FIRST_PAGE_ID;
             const std::size_t m_page_size;
+            const bool m_is_empty;
 
-            Updater(DRAM_Allocator &);
+            Updater(DRAM_Allocator &, bool is_empty);
             // must be called after all updates to finalize the state
             ~Updater();
 
@@ -46,6 +47,8 @@ namespace db0
          * Update with externally provided list of allocations (add new allocations)
          */
         void update(const std::unordered_set<std::size_t> &allocs);
+
+        void reset();
 
         std::optional<Address> tryAlloc(std::size_t size, SlotId slot_num = 0,
             bool aligned = false, unsigned char realm_id = 0, unsigned char locality = 0) override;
@@ -67,6 +70,8 @@ namespace db0
          * possibly from a specific slot (if supported, otherwise slot_num is ignored)
         */
         Address firstAlloc(SlotId slot_num = 0) const;
+
+        bool empty() const;
 
     private:
         static constexpr std::size_t FIRST_PAGE_ID = 1;

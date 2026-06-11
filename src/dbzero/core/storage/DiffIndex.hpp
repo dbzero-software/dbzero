@@ -139,6 +139,13 @@ DB0_PACKED_END
         bool empty() const;
         std::size_t size() const;
 
+        // SparseIndexBase is a protected implementation detail; republish only
+        // the operations SparsePair needs to manage the paired index lifecycle.
+        void refresh();
+        void detach() const;
+        void commit();
+        Address getIndexAddress() const;
+
         /**
          * Erase all diff descriptors while preserving tree-header mix-in data.
          */

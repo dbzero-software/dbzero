@@ -102,7 +102,7 @@ namespace db0
         copyStream(input_io, output_io, &chunk_addr_map, chunk_filter);
 
         if (max_state_num) {
-            output_dram_changelog.appendChangeLog({}, state_num, DRAMChangeLogKind::DRAM_IO);
+            output_dram_changelog.appendChangeLog({}, state_num);
             output_io.addChunk(0);
             output_io.BlockIOStream::flush();
             return state_num;
@@ -131,7 +131,7 @@ namespace db0
             // append new chuks which were not present during the initial copy
             appendDRAM_IOChunks(output_io, bufs_pair.second);                
             // append the sentinel entry with state number only (i.e. empty changelog)
-            output_dram_changelog.appendChangeLog({}, state_num, DRAMChangeLogKind::DRAM_IO);
+            output_dram_changelog.appendChangeLog({}, state_num);
             
             // this operation needs to be continued until exhausting the entire changelog
             if (input_dram_changelog.refresh()) {

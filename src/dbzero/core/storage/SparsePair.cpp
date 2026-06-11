@@ -16,7 +16,7 @@ namespace db0
         : m_change_log(change_log ? change_log : &m_owned_change_log)
         , m_dram_space(DRAMSpace::create(dram_pair))
         // sparse index locate at the slot's root address
-        , m_sparse_index(dram_pair, access_type, dram_pair.second->firstAddress(slot_num),
+        , m_sparse_index(dram_pair, access_type, root_address,
             m_change_log, flags, slot_num)
         , m_diff_index(dram_pair, access_type, getDiffIndexAddress(m_sparse_index),
             m_change_log, flags, slot_num)
@@ -32,7 +32,7 @@ namespace db0
         , m_diff_index(DiffIndex::tag_create(), dram_pair, m_change_log, slot_num)
     {
         // validate SparseIndex address
-        assert(m_sparse_index.getAddress() == dram_pair.second->firstAddress(slot_num));
+        assert(m_sparse_index.getIndexAddress() == dram_pair.second->firstAlloc(slot_num));
         // write in the Sparse Index header
         storeDiffIndexAddresses();
     }
@@ -95,6 +95,16 @@ namespace db0
     }
 
     template <typename ConfigT>
+    void SparsePairBase<ConfigT>::refreshPages(const std::vector<std::uint64_t> &page_nums,
+        std::function<bool(Address)> reload_address)
+    {
+        for (auto page_num: page_nums) {
+            reload_address(Address::fromOffset(page_num));
+        }
+        refresh();
+    }
+
+    template <typename ConfigT>
     void SparsePairBase<ConfigT>::detach() const
     {
         m_sparse_index.detach();
@@ -114,15 +124,33 @@ namespace db0
     }
 
     template <typename ConfigT>
-    void SparsePairBase<ConfigT>::commit()
+    void SparsePairBase<ConfigT>::commit() const
     {
         m_sparse_index.commit();
         m_diff_index.commit();
     }
+    
+    template <typename ConfigT>
+    std::size_t SparsePairBase<ConfigT>::getChangeLogSize() const
+    {
+        return m_change_log ? m_change_log->size() : 0;
+    }
 
     template <typename ConfigT>
+    typename SparsePairBase<ConfigT>::SlotId SparsePairBase<ConfigT>::changeLogEntrySlotId(ChangeLogEntryT entry)
+    {
+        return MS_Address::from(entry).slot_id();
+    }
+
+    template <typename ConfigT>
+    typename SparsePairBase<ConfigT>::PageNumT SparsePairBase<ConfigT>::changeLogEntryPageNum(ChangeLogEntryT entry)
+    {
+        return MS_Address::from(entry).local_address();
+    }
+        
+    template <typename ConfigT>
     Address SparsePairBase<ConfigT>::getDiffIndexAddress(
-        const SparseIndexT &sparse_index, const PairHeaderT &pair_header, StorageFlags flags)
+        const SparseIndexT &sparse_index)
     {
         return Address::fromOffset(sparse_index.mixIn().getExtraData());
     }
@@ -136,7 +164,7 @@ namespace db0
     template <typename ConfigT>
     typename SparsePairBase<ConfigT>::ChangeLogT SparsePairBase<ConfigT>::extractChangeLogPages()
     {
-        if (m_change_log) {
+        if (m_change_log != &m_owned_change_log) {
             THROWF(db0::InternalException) << "extractChangeLogPages is only supported for SparsePair instances with owned change log";
         }
         ChangeLogT page_nums;

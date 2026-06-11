@@ -95,10 +95,34 @@ namespace db0
         // target buffer
         void *m_buffer;
     };
+    
+    // fetch a single page from storage
+    bool fetchPage(MetaPrefix &prefix, Diff_IO &page_io, std::uint64_t page_num, StateNumType state_num,
+        void *buffer)
+    {
+        SparseIndexQuery query(prefix.m_sparse_pair.getSparseIndex(), prefix.m_sparse_pair.getDiffIndex(),
+            page_num, state_num);
+        if (query.empty()) {
+            return false;
+        }
+
+        auto storage_page_num = query.first();
+        if (storage_page_num) {
+            page_io.read(storage_page_num, buffer);
+        } else {
+            std::memset(buffer, 0, prefix.getPageSize());
+        }
+
+        StateNumType diff_state_num = 0;
+        while (query.next(diff_state_num, storage_page_num)) {
+            page_io.applyFrom(storage_page_num, buffer, { page_num, diff_state_num });
+        }
+        return true;
+    }
 
     void load(MetaPrefix &prefix, Diff_IO &page_io, const std::vector<std::uint64_t> &page_nums)
     {
-        auto state_num = prefix.getStateNum();
+        auto state_num = prefix.getStateNum(false);
         // For I/O performace we first determine the operations and then execute ordered for better locality
         std::vector<Load_OP> load_ops;
         std::vector<LoadDiff_OP> load_diff_ops;
@@ -114,14 +138,14 @@ namespace db0
             auto page_buf = prefix.update(page_num, false);
             auto storage_page_num = query.first();
             if (storage_page_num) {
-                load_ops.push_back({ storage_page_num, page_buf });                
+                load_ops.push_back(Load_OP { storage_page_num, page_buf });
             } else {
-                std::memset(buffer, 0, getPageSize());
+                std::memset(page_buf, 0, prefix.getPageSize());
             }
 
             StateNumType diff_state_num = 0;
             while (query.next(diff_state_num, storage_page_num)) {
-                load_diff_ops.push_back({ storage_page_num, page_num, diff_state_num, page_buf });
+                load_diff_ops.push_back(LoadDiff_OP { storage_page_num, page_num, diff_state_num, page_buf });
             }
         }
 
@@ -187,7 +211,7 @@ namespace db0
         // the flush scans the final metadata image for this transaction.
         m_sparse_pair.commit();
         m_cow_pages.clear();
-        return getStateNum();
+        return getStateNum(false);
     }
 
     bool flush(MetaPrefix &prefix, Diff_IO &page_io, ProcessTimer *)
@@ -196,7 +220,7 @@ namespace db0
         // this scan. Flush only persists an already registered application state;
         // it must not advance state or perform hidden write-back preparation.        
         bool was_dirty = false;
-        auto state_num = prefix.getStateNum();
+        auto state_num = prefix.getStateNum(false);
         prefix.flushDirty([&](std::uint64_t page_num, const void *buffer) {
             was_dirty |= prefix.flushPage(page_io, page_num, buffer, state_num);
         });
@@ -304,8 +328,8 @@ namespace db0
             return false;
         }
 
-        auto before_state_num = prefix.m_state_num;
-        auto new_state_num = prefix.m_state_num + 1;
+        auto before_state_num = prefix.getStateNum(false);
+        auto new_state_num = before_state_num + 1;
         auto reusable_full_pages = collectReusableFullPageNums(prefix.m_sparse_pair, before_state_num);
         std::size_t next_reusable_page = 0;
         std::vector<std::byte> page_buffer(prefix.getPageSize());
@@ -317,7 +341,7 @@ namespace db0
             } else if (prefix.hasPage(page_num)) {
                 auto lock = prefix.mapRange(page_num * prefix.getPageSize(), prefix.getPageSize(), { AccessOptions::read });
                 std::memcpy(page_buffer.data(), static_cast<void *>(lock), page_buffer.size());
-            } else if (!prefix.readPage(page_io, page_num, before_state_num, page_buffer.data())) {
+            } else if (!fetchPage(prefix, page_io, page_num, before_state_num, page_buffer.data())) {
                 continue;
             }
 
@@ -333,6 +357,11 @@ namespace db0
     }
 
     StateNumType MetaPrefix::getStateNum() const
+    {
+        return m_sparse_pair.getMaxStateNum();
+    }
+
+    StateNumType MetaPrefix::getStateNum(bool) const
     {
         return m_sparse_pair.getMaxStateNum();
     }

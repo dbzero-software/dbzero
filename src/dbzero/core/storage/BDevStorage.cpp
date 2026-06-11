@@ -43,6 +43,11 @@ namespace db0
         return dram_io_ptr->getDRAMPair();
     }
 
+    Address getRootSparsePairAddress(const DRAM_IOStream &dram_io)
+    {
+        return dram_io.getDRAMPair().second->firstAlloc();
+    }
+
     StorageOptions normalizeOptions(StorageOptions options, const o_prefix_config &config)
     {
         if (!options.m_storage_slab_bucketing) {
@@ -76,9 +81,8 @@ namespace db0
         changelog_io.appendChangeLog(std::move(cl_data), state_num);
     }
 
-    template <typename DRAMIOCallbackT, typename SparsePairManagerCallbackT>
-    void scanDRAMChangeLogs(BDevStorage::DRAM_ChangeLogStreamT &changelog_io,
-        DRAMIOCallbackT on_dram_io, SparsePairManagerCallbackT on_sparse_pair_manager,
+    template <typename CallbackT>
+    void scanChangeLogs(BDevStorage::DRAM_ChangeLogStreamT &changelog_io, CallbackT callback,
         StateNumType begin_state = 0, std::optional<StateNumType> end_state = std::nullopt)
     {
         auto reader = changelog_io.getStreamReader();
@@ -90,18 +94,7 @@ namespace db0
             if (state_num < begin_state) {
                 continue;
             }
-
-            switch (change_log->kind()) {
-                case DRAMChangeLogKind::DRAM_IO:
-                    on_dram_io(*change_log);
-                    break;
-                case DRAMChangeLogKind::SPARSE_PAIR_MANAGER:
-                    on_sparse_pair_manager(*change_log);
-                    break;
-                default:
-                    THROWF(db0::InternalException)
-                        << "Unknown DRAM changelog kind: " << static_cast<std::uint64_t>(change_log->kind());
-            }
+            callback(*change_log);
         }
     }
 
@@ -121,6 +114,9 @@ namespace db0
         , m_dram_changelog_io(getChangeLogIOStream<DRAM_ChangeLogStreamT>(
             m_config.m_dram_changelog_io_offset, access_type)
         )
+        , m_desc_changelog_io(getChangeLogIOStream<DRAM_ChangeLogStreamT>(
+            m_config.m_desc_changelog_io_offset, access_type)
+        )
         , m_dp_changelog_io(getChangeLogIOStream<DP_ChangeLogStreamT>(
             m_config.m_dp_changelog_io_offset, access_type)
         )
@@ -130,7 +126,7 @@ namespace db0
         , m_dram_io(init(getDRAMIOStream(
             m_config.m_dram_io_offset, m_config.m_dram_page_size, access_type), m_dram_changelog_io, flags)
         )
-        , m_root_sparse_pair(m_dram_io.getDRAMPair(), access_type, flags)
+        , m_root_sparse_pair(m_dram_io.getDRAMPair(), access_type, getRootSparsePairAddress(m_dram_io), flags)
         , m_ext_dram_changelog_io(tryGetChangeLogIOStream<DRAM_ChangeLogStreamT>(
             m_config.m_ext_dram_changelog_io_offset, access_type)
         )
@@ -166,6 +162,7 @@ namespace db0
         }
         if (m_access_type == AccessType::READ_ONLY && m_flags.test(StorageFlagOption::NO_LOAD)) {
             setChangeLogTail(m_dram_changelog_io);
+            setChangeLogTail(m_desc_changelog_io);
             setChangeLogTail(m_dp_changelog_io);
             if (m_ext_dram_changelog_io) {
                 setChangeLogTail(*m_ext_dram_changelog_io);
@@ -292,6 +289,7 @@ namespace db0
         // cofigure offsets for all inner streams (even though they have not been materialized yet)
         config->m_dram_io_offset = next_block_offset();
         config->m_dram_changelog_io_offset = next_block_offset();
+        config->m_desc_changelog_io_offset = next_block_offset();
         config->m_dp_changelog_io_offset = next_block_offset();
         config->m_meta_io_offset = next_block_offset();
 
@@ -310,6 +308,7 @@ namespace db0
         {
             CFile file(file_name, AccessType::READ_WRITE);
             DRAM_ChangeLogStreamT *dram_changelog_io_ptr = nullptr;
+            DRAM_ChangeLogStreamT *desc_changelog_io_ptr = nullptr;
             DRAM_IOStream *dram_io_ptr = nullptr;
             std::unique_ptr<DRAM_ChangeLogStreamT> ext_dram_changelog_io_ptr = nullptr;
             std::unique_ptr<DRAM_IOStream> ext_dram_io_ptr = nullptr;
@@ -318,7 +317,10 @@ namespace db0
             {
                 assert(dram_io_ptr && dram_changelog_io_ptr);                
                 // take max from the underlying I/O streams
-                auto result = std::max(offset, std::max(dram_io_ptr->tail(), dram_changelog_io_ptr->tail()));
+                assert(desc_changelog_io_ptr);
+                auto result = std::max(offset, std::max(
+                    std::max(dram_io_ptr->tail(), dram_changelog_io_ptr->tail()),
+                    desc_changelog_io_ptr->tail()));
                 if (ext_dram_io_ptr && ext_dram_changelog_io_ptr) {
                     result = std::max(result, std::max(ext_dram_io_ptr->tail(), ext_dram_changelog_io_ptr->tail()));
                 }
@@ -328,6 +330,9 @@ namespace db0
             auto dram_changelog_io = DRAM_ChangeLogStreamT(file, config->m_dram_changelog_io_offset, config->m_block_size,
                 tail_function, AccessType::READ_WRITE);
             dram_changelog_io_ptr = &dram_changelog_io;
+            auto desc_changelog_io = DRAM_ChangeLogStreamT(file, config->m_desc_changelog_io_offset, config->m_block_size,
+                tail_function, AccessType::READ_WRITE);
+            desc_changelog_io_ptr = &desc_changelog_io;
             auto dram_io = DRAM_IOStream(file, config->m_dram_io_offset, config->m_block_size, tail_function,
                 AccessType::READ_WRITE, config->m_dram_page_size);
             dram_io_ptr = &dram_io;
@@ -640,11 +645,11 @@ namespace db0
         auto &meta_prefix = *m_meta_space.getMSPrefixPtr();
         auto state_num = m_root_sparse_pair.getMaxStateNum();
         auto meta_space_dirty = meta_prefix.getDirtySize() != 0;
-        if (meta_space_dirty && state_num <= meta_prefix.getStateNum()) {
+        if (meta_space_dirty && state_num <= meta_prefix.getStateNum(false)) {
             THROWF(db0::InternalException)
                 << "BDevStorage::flush requires caller to register state high watermark before flushing dirty metadata"
                 << "; root max state: " << state_num
-                << "; metadata state: " << meta_prefix.getStateNum()
+                << "; metadata state: " << meta_prefix.getStateNum(false)
                 << "; sparse pair manager changelog size: " << m_sparse_pair_manager.getChangeLogSize();
         }
         auto meta_space_flushed = db0::flush(meta_prefix, m_descriptor_io, timer.get());
@@ -658,7 +663,7 @@ namespace db0
                 THROWF(db0::InternalException)
                     << "BDevStorage::flush requires registered state high watermark before flushing descriptor metadata";
             }
-            m_root_sparse_pair.recordNextDescPageNum(m_descriptor_io.getNextPageNum());
+            m_root_sparse_pair.recordNextDescPageNum(m_descriptor_io.getNextPageNum().first);
         }
         auto root_change_log_size = m_root_sparse_pair.getChangeLogSize();
 
@@ -703,6 +708,7 @@ namespace db0
         // NOTE: fsync has stronger guarantees than flush in a multi-process environments
         m_file.fsync();
         // flush changelog AFTER all updates from all other streams have been flushed        
+        m_desc_changelog_io.flush();
         m_dram_changelog_io.flush();
         // the last fsync finalizes the commit
         m_file.fsync();
@@ -728,6 +734,7 @@ namespace db0
         
         m_dram_io.close();
         m_dram_changelog_io.close();
+        m_desc_changelog_io.close();
         m_dp_changelog_io.close(); 
         m_meta_io.close();
         m_file.close();
@@ -892,9 +899,10 @@ namespace db0
             THROWF(db0::IOException) << "BDevStorage::refresh allowed only in read-only mode";
         }
         if (!m_refresh_pending) {
+            // The main DRAM changelog is the transaction marker. Descriptor and
+            // extension changelogs are refreshed after observing a new DRAM
+            // transaction in completeRefresh().
             m_refresh_pending = m_dram_changelog_io.refresh();
-            // NOTE: inclusion of ext-space is not necessary here since DRAM changelog
-            // is sufficient to determine if there're any updates
         }
         return m_refresh_pending;
     }
@@ -913,6 +921,7 @@ namespace db0
         do {
             // safe stream positions for rollback on file read failure
             auto dram_changelog_io_pos = m_dram_changelog_io.getStreamPos();
+            auto desc_changelog_io_pos = m_desc_changelog_io.getStreamPos();
             std::pair<std::uint64_t, std::uint64_t> ext_dram_changelog_io_pos;
             if (!!m_ext_space) {
                 assert(m_ext_dram_changelog_io);
@@ -922,6 +931,7 @@ namespace db0
             // reverts streams to previous positions
             auto revert_streams = [&]() {
                 m_dram_changelog_io.setStreamPos(dram_changelog_io_pos);
+                m_desc_changelog_io.setStreamPos(desc_changelog_io_pos);
                 m_dp_changelog_io.setStreamPos(dp_changelog_io_pos);
                 if (!!m_ext_space) {
                     assert(m_ext_dram_changelog_io);
@@ -930,7 +940,6 @@ namespace db0
             };
             
             try {
-                auto dram_changelog_scan_begin = dram_changelog_io_pos;
                 auto dram_state_num = m_dram_io.beginApplyChanges(m_dram_changelog_io);
                 if (!dram_state_num) {
                     // no updates to process
@@ -961,47 +970,42 @@ namespace db0
                     continue;
                 }
                 
-                // Scanning moves the DRAM changelog stream away from EOS. Only
-                // record changed sparse-pair-manager pages during the scan;
-                // reload them after restoring the stream position because page
-                // reload may consult stream tails.
-                m_sparse_pair_manager.beginRefreshLog();
-                DRAM_ChangeLogStreamT::State dram_changelog_scan_state;
-                m_dram_changelog_io.saveState(dram_changelog_scan_state);
-                m_dram_changelog_io.setStreamPos(dram_changelog_scan_begin);
-                try {
-                    auto validate_dram_state = [dram_state_num](const DRAM_ChangeLogT &change_log) {
+                m_desc_changelog_io.refresh();
+                auto desc_changelog_io_end = m_desc_changelog_io.getStreamPos();
+
+                // Descriptor changelog entries are stored separately from DRAM IO.
+                // Reload pages after restoring stream position because page reload
+                // may consult stream tails.
+                std::vector<std::uint64_t> refresh_pages;
+                m_desc_changelog_io.setStreamPos(desc_changelog_io_pos);
+                auto desc_state_is_consistent = true;
+                scanChangeLogs(m_desc_changelog_io,
+                    [&](const DRAM_ChangeLogT &change_log) {
                         if (change_log.m_state_num > *dram_state_num) {
-                            THROWF(db0::InternalException) << "Inconsistent DRAM changelog state number "
-                                << change_log.m_state_num << " exceeds max known state number " << *dram_state_num;
+                            desc_state_is_consistent = false;
+                            return;
                         }
-                    };
-                    scanDRAMChangeLogs(m_dram_changelog_io,
-                        validate_dram_state,
-                        [&](const DRAM_ChangeLogT &change_log) {
-                            validate_dram_state(change_log);
-                            for (auto entry: change_log) {
-                                m_sparse_pair_manager.recordRefreshPage(entry);
-                                if (on_page_updated) {
-                                    auto page_num = SparsePair::changeLogEntryPageNum(entry);
-                                    on_page_updated(page_num, change_log.m_state_num);
-                                }
+                        for (auto entry: change_log) {
+                            refresh_pages.push_back(entry);
+                            if (on_page_updated) {
+                                auto page_num = SparsePair::changeLogEntryPageNum(entry);
+                                on_page_updated(page_num, change_log.m_state_num);
                             }
-                        },
-                        0, *dram_state_num + 1);
-                } catch (...) {
-                    m_dram_changelog_io.restoreState(dram_changelog_scan_state);
-                    m_sparse_pair_manager.cancelRefreshLog();
-                    throw;
+                        }
+                    }
+                );                    
+                if (!desc_state_is_consistent) {
+                    m_desc_changelog_io.setStreamPos(desc_changelog_io_pos);
+                    continue;
                 }
-                m_dram_changelog_io.restoreState(dram_changelog_scan_state);
+                m_desc_changelog_io.setStreamPos(desc_changelog_io_end);
 
                 // Root metadata is part of DRAM IO. Refresh it before applying
                 // sparse-pair-manager changelog entries so slot detaches see
                 // the latest MetaSpace allocator state.
                 m_flags = m_flags & ~StorageFlags { StorageFlagOption::NO_LOAD };
                 m_root_sparse_pair.refresh();
-                m_sparse_pair_manager.completeRefreshLog();
+                m_sparse_pair_manager.refreshPages(refresh_pages);
 
                 m_dp_changelog_io.refresh();
             } catch (db0::IOException &) {
@@ -1083,12 +1087,15 @@ namespace db0
         if (m_dram_changelog_io.modified()) {
             THROWF(db0::IOException) << "BDevStorage::fetchChangeLogs: dram-changelog is modified and needs to be flushed first";
         }
+        if (m_desc_changelog_io.modified()) {
+            THROWF(db0::IOException) << "BDevStorage::fetchChangeLogs: desc-changelog is modified and needs to be flushed first";
+        }
         auto &dp_changelog_io = const_cast<DP_ChangeLogStreamT &>(m_dp_changelog_io);
-        auto &dram_changelog_io = const_cast<DRAM_ChangeLogStreamT &>(m_dram_changelog_io);
+        auto &desc_changelog_io = const_cast<DRAM_ChangeLogStreamT &>(m_desc_changelog_io);
         DP_ChangeLogStreamT::State dp_state;
-        DRAM_ChangeLogStreamT::State dram_state;
+        DRAM_ChangeLogStreamT::State desc_state;
         dp_changelog_io.saveState(dp_state);
-        dram_changelog_io.saveState(dram_state);
+        desc_changelog_io.saveState(desc_state);
         
         {
             std::vector<char> buf;
@@ -1125,12 +1132,11 @@ namespace db0
                 }
             }
 
-            dram_changelog_io.setStreamPosHead();
+            desc_changelog_io.setStreamPosHead();
             std::vector<char> buffer;
-            scanDRAMChangeLogs(dram_changelog_io,
-                [](const DRAM_ChangeLogT &) {},
-	                [&](const DRAM_ChangeLogT &change_log) {
-	                    auto &page_nums = change_log_pages[change_log.m_state_num];
+            scanChangeLogs(desc_changelog_io,
+                [&](const DRAM_ChangeLogT &change_log) {
+                    auto &page_nums = change_log_pages[change_log.m_state_num];
                     for (auto entry: change_log) {
                         page_nums.push_back(SparsePair::changeLogEntryPageNum(entry));
                     }
@@ -1149,11 +1155,11 @@ namespace db0
                 f(dp_change_log);
             }
         } catch (...) {
-            dram_changelog_io.restoreState(dram_state);
+            desc_changelog_io.restoreState(desc_state);
             dp_changelog_io.restoreState(dp_state);            
             throw;
         }
-        dram_changelog_io.restoreState(dram_state);
+        desc_changelog_io.restoreState(desc_state);
         dp_changelog_io.restoreState(dp_state);
     }
     
@@ -1174,7 +1180,7 @@ namespace db0
     void BDevStorage::fsync() {
         m_file.fsync();
     }
-
+    
     void loadRootSparsePairForNoLoadCopy(DRAM_IOStream &dram_io,
         BDevStorage::DRAM_ChangeLogStreamT &dram_changelog_io, SparsePair &root_sparse_pair,
         AccessType access_type, StorageFlags flags)
@@ -1182,8 +1188,7 @@ namespace db0
         dram_changelog_io.setStreamPosHead();
         dram_io.setStreamPosHead();
         dram_io.load(dram_changelog_io);
-        root_sparse_pair.rebind(
-            dram_io.getDRAMPair(), access_type, {}, flags & ~StorageFlags { StorageFlagOption::NO_LOAD });
+        root_sparse_pair.refresh();
     }
     
     void copyDescriptorIO(const Diff_IO &in, Diff_IO &out, std::uint64_t begin_page_num, std::uint64_t end_page_num)
@@ -1219,12 +1224,6 @@ namespace db0
                 dram_io, dram_changelog_io, m_root_sparse_pair, m_access_type, m_flags);
         }
         auto copy_state_num = m_root_sparse_pair.getMaxStateNum();
-        auto descriptor_io_range = getDescriptorIORange(m_root_sparse_pair);
-        if (descriptor_io_range) {
-            copyDescriptorIO(m_descriptor_io, out.m_descriptor_io, descriptor_io_range->first,
-                descriptor_io_range->second);
-        }
-
         auto writer = out.m_dram_changelog_io.getStreamWriter();
         auto maybe_max_state_num = copyDRAM_IO(
             m_dram_io, m_dram_changelog_io, out.m_dram_io, writer, copy_state_num);
@@ -1236,23 +1235,14 @@ namespace db0
         auto max_state_num = *maybe_max_state_num;
         auto src_page_tail = getNextStoragePageNum();
         // copy up to the max_state_num (inclusive)
-        auto dp_header = copyDPStream(m_dp_changelog_io, out.m_dp_changelog_io, max_state_num);
-        writer.appendChangeLog({}, max_state_num, DRAMChangeLogKind::DRAM_IO);
+        auto dp_header = copyDPStream(m_dp_changelog_io, out.m_dp_changelog_io, max_state_num);        
         writer.flush();
-
+        
         out.m_dram_changelog_io.setStreamPosHead();
         out.m_dram_io.setStreamPosHead();
         out.m_dram_io.load(out.m_dram_changelog_io, max_state_num);
         out.m_root_sparse_pair.refresh();
-        if (descriptor_io_range) {
-            auto current_descriptor_io_range = out.m_root_sparse_pair.getDescriptorPageRange();
-            if (!current_descriptor_io_range || current_descriptor_io_range->first != descriptor_io_range->first
-                || current_descriptor_io_range->second < descriptor_io_range->second) {
-                out.m_root_sparse_pair.recordDescriptorPageRange(
-                    descriptor_io_range->first, descriptor_io_range->second);
-                out.m_dram_io.flushUpdates(max_state_num, out.m_dram_changelog_io);
-            }
-        }
+
         out.m_ext_space.refresh();
         out.m_ext_space.clearMappings();
 
@@ -1267,6 +1257,9 @@ namespace db0
         if (src_page_tail) {
             end_page_num = std::max(end_page_num, *src_page_tail);
         }
+        // FIXME: end_page_num must be revisited
+        // copy page-IO data streams (descriptors first)
+        copyPageIO(m_desc_io, m_ext_space, out.m_desc_io, end_page_num, out.m_ext_space);
         copyPageIO(m_page_io, m_ext_space, out.m_page_io, end_page_num, out.m_ext_space);
 
         out.m_meta_space = MS_MetaSpace::create(

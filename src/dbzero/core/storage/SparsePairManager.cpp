@@ -22,7 +22,7 @@ namespace db0
     PlainSparsePair *SparsePairManager::tryGetCached(Allocator::SlotId slot_id, AccessType access_type) const noexcept
     {
         if (m_hot_pair && m_hot_slot_id == slot_id && canUseCached(m_hot_access_type, access_type)) {
-            return m_hot_pair->isOpen() ? m_hot_pair : nullptr;
+            return m_hot_pair;
         }
 
         auto it = m_pairs.find(slot_id);
@@ -30,9 +30,6 @@ namespace db0
             return nullptr;
         }
         if (!canUseCached(it->second.m_access_type, access_type)) {
-            return nullptr;
-        }
-        if (!it->second.m_pair->isOpen()) {
             return nullptr;
         }
         cacheHotPair(slot_id, *it->second.m_pair, it->second.m_access_type);
@@ -63,19 +60,8 @@ namespace db0
     {
         auto cached_it = m_pairs.find(slot_id);
         if (cached_it != m_pairs.end() && canUseCached(cached_it->second.m_access_type, access_type)) {
-            if (cached_it->second.m_pair->isOpen()) {
-                cacheHotPair(slot_id, *cached_it->second.m_pair, cached_it->second.m_access_type);
-                return cached_it->second.m_pair.get();
-            }
-            if (!m_allocator->tryFirstAlloc(slot_id)) {
-                return nullptr;
-            }
-            cached_it->second.m_pair->refresh();
-            if (cached_it->second.m_pair->isOpen()) {
-                cacheHotPair(slot_id, *cached_it->second.m_pair, cached_it->second.m_access_type);
-                return cached_it->second.m_pair.get();
-            }
-            return nullptr;
+            cacheHotPair(slot_id, *cached_it->second.m_pair, cached_it->second.m_access_type);
+            return cached_it->second.m_pair.get();
         }
 
         auto root_address = m_allocator->tryFirstAlloc(slot_id);
@@ -109,70 +95,62 @@ namespace db0
         pair_it->second.m_pair->detach();
         m_pairs.erase(pair_it);
     }
-
-    void SparsePairManager::beginRefreshLog()
-    {
-        m_refresh_pages.clear();
-    }
-
-    void SparsePairManager::recordRefreshPage(std::uint64_t entry)
-    {
-        m_refresh_pages.insert(entry);
-    }
-
-    void SparsePairManager::completeRefreshLog()
-    {
-        if (m_refresh_pages.empty()) {
-            return;
-        }
-
-        std::vector<std::uint64_t> page_nums(m_refresh_pages.begin(), m_refresh_pages.end());
-        m_refresh_pages.clear();
-        refreshPages(page_nums);
-    }
-
-    void SparsePairManager::cancelRefreshLog()
-    {
-        m_refresh_pages.clear();
-    }
-
-    void SparsePairManager::beginRefreshPages()
-    {
-        m_flags = m_flags & ~StorageFlags { StorageFlagOption::NO_LOAD };
-        m_prefix->refreshState();
-    }
-
+    
     void SparsePairManager::refreshPages(const std::vector<std::uint64_t> &page_nums)
     {
         if (page_nums.empty()) {
             return;
         }
 
-        beginRefreshPages();
-        std::unordered_map<Allocator::SlotId, std::vector<std::uint64_t> > pages_by_slot;
-        for (auto entry: page_nums) {
-            auto slot_id = PlainSparsePair::changeLogEntrySlotId(entry);
-            auto page_num = PlainSparsePair::changeLogEntryPageNum(entry);
-            pages_by_slot[slot_id].push_back(page_num);
+        // Refresh pages from a single specific slot only
+        auto refresh_slot = [&](std::uint64_t slot_id, const std::uint64_t *begin, const std::uint64_t *end) -> bool
+        {
+            auto sparse_pair = tryGetCached(slot_id);
+            if (!sparse_pair) {
+                // not cached, might need to be loaded if mapping policy == eager
+                return false;
+            }
+
+            if (begin == end) {
+                // no pages to refresh, just return
+                return true;
+            }
+
+            // detach before reloading
+            sparse_pair->detach();
+            db0::load(*m_prefix, begin, end);
+            sparse_pair->refresh();
+
+            // also update the allocator
+            auto updater = m_allocator->beginUpdate(slot_id);
+            for (;begin != end; ++begin) {
+                // update with the local address
+                updater(MS_Address::from(*begin << m_ps_shift).local_address());
+            }
+             return true;
+        };
+
+        // page_nums are sorted
+        // we can scan them refreshing slot by slot, only existing slots need refreshing
+        // but newly added slots should be loaded when the mapping policy == eager
+        const std::uint64_t *current = page_nums.data();
+        const std::uint64_t *end = current;
+        std::uint64_t last_slot_id = 0;
+        for (auto page_num: page_nums) {
+            auto slot_id = MS_Address::from(page_num << m_ps_shift).slot_id();
+            if (slot_id != last_slot_id) {
+                assert(slot_id > last_slot_id);
+                refresh_slot(last_slot_id, current, end);
+                // move on to the next slot
+                last_slot_id = slot_id;
+                current = end;
+            } else {
+                ++end;
+            }            
         }
 
-        for (auto &[slot_id, slot_page_nums]: pages_by_slot) {
-            auto pair_it = m_pairs.find(slot_id);
-            if (pair_it != m_pairs.end()) {
-                std::unordered_set<std::uint64_t> reloaded_pages;
-                auto reload_address = [this, &reloaded_pages](Address address) {
-                    auto page_num = address.getOffset() / m_prefix->getPageSize();
-                    if (!reloaded_pages.insert(page_num).second) {
-                        return true;
-                    }
-                    return m_prefix->reloadPage(page_num);
-                };
-                pair_it->second.m_pair->refreshPages(slot_page_nums, reload_address);
-                cacheHotPair(slot_id, *pair_it->second.m_pair, pair_it->second.m_access_type);
-            } else {
-                m_allocator->detachSlot(slot_id);
-            }
-        }
+        refresh_slot(last_slot_id, current, end);
+        m_prefix->refresh();
     }
 
     void SparsePairManager::forCachedPairs(std::function<void(Allocator::SlotId, PlainSparsePair &)> callback)

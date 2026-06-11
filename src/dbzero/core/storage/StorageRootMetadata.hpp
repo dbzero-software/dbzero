@@ -69,7 +69,7 @@ DB0_PACKED_END
 
         void refresh() {}
 
-    private:
+    protected:
         BaseT *m_base;
     };
     
@@ -122,7 +122,7 @@ DB0_PACKED_END
         {
             if (state_num >= m_max_state_num && state_num != 0) {
                 m_max_state_num = state_num;
-                m_base->m_index.modifyTreeHeader().m_max_state_num = state_num;
+                this->m_base->m_index.modifyTreeHeader().m_max_state_num = state_num;
             }
         }
 
@@ -130,7 +130,7 @@ DB0_PACKED_END
         {
             if (next_page_num > m_next_page_num) {
                 m_next_page_num = next_page_num;
-                m_base->m_index.modifyTreeHeader().m_next_page_num = next_page_num;
+                this->m_base->m_index.modifyTreeHeader().m_next_page_num = next_page_num;
             }
         }
 
@@ -139,7 +139,7 @@ DB0_PACKED_END
             if (next_desc_page_num == 0) {
                 return;
             }
-            auto &header = m_base->m_index.modifyTreeHeader();
+            auto &header = this->m_base->m_index.modifyTreeHeader();
             if (m_next_desc_page_num == 0 || next_desc_page_num < m_next_desc_page_num) {
                 m_next_desc_page_num = next_desc_page_num;
                 header.m_next_desc_page_num = next_desc_page_num;
@@ -158,7 +158,13 @@ DB0_PACKED_END
         template <typename BaseT> using ApiT = StorageRootMetadataAPI<BaseT>;
     };
 
-    struct PlainMixin
+    struct PlainMetadataMixin
+    {
+        using OverlayT = o_plain_metadata;
+        template <typename BaseT> using ApiT = MetadataAPI<BaseT>;
+    };
+
+    struct EmptyMixin
     {
         using OverlayT = o_plain_metadata;
         template <typename BaseT> using ApiT = MetadataAPI<BaseT>;

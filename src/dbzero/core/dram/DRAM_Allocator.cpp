@@ -22,7 +22,7 @@ namespace db0
     
     DRAM_Allocator::Updater::Updater(DRAM_Allocator &allocator)
         : m_allocator(allocator)
-        , m_page_size(allocator.m_page_size)
+        , m_page_size(allocator.m_page_size)    
     {
     }
     
@@ -43,15 +43,12 @@ namespace db0
                 m_allocator.m_free_pages.insert(m_max_page_id);
             }                
         }
+        m_allocator.m_free_pages.erase(page_id);
     }
 
     DRAM_Allocator::Updater DRAM_Allocator::beginUpdate()
     {
-        if (!m_free_pages.empty()) {
-            THROWF(db0::InternalException) 
-                << "DRAM_Allocator: update called on non-empty allocator" << THROWF_END;
-        }
-        return Updater{*this};
+        return Updater { *this };
     }
 
     void DRAM_Allocator::update(const std::unordered_set<std::size_t> &allocs)
@@ -80,7 +77,13 @@ namespace db0
         m_next_page_id = max_page_id;
     }
     
-    std::optional<Address> DRAM_Allocator::tryAlloc(std::size_t size, std::uint32_t slot_num,
+    void DRAM_Allocator::reset()
+    {
+        m_next_page_id = FIRST_PAGE_ID;
+        m_free_pages.clear();
+    }
+    
+    std::optional<Address> DRAM_Allocator::tryAlloc(std::size_t size, SlotId slot_num,
         bool aligned, unsigned char realm_id, unsigned char)
     {
         assert(slot_num == 0);
@@ -161,7 +164,8 @@ namespace db0
         return AllocationInfo { Address::fromOffset(pageId * m_page_size), m_page_size };
     }
 
-    Address DRAM_Allocator::firstAlloc() const {
+    Address DRAM_Allocator::firstAlloc(SlotId slot_num) const {
+        assert(slot_num == 0);
         return Address::fromOffset(FIRST_PAGE_ID * m_page_size);
     }
 
@@ -171,6 +175,11 @@ namespace db0
 
     void DRAM_Allocator::detach() const
     {
+    }
+
+    bool DRAM_Allocator::empty() const
+    {
+        return m_next_page_id == FIRST_PAGE_ID && m_free_pages.empty();
     }
 
 }

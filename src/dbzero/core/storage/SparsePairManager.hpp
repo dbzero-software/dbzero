@@ -58,12 +58,6 @@ namespace db0
         PlainSparsePair *tryGetCached(SlotId slot_id, AccessType access_type) const noexcept;
 
         void evictSlot(SlotId slot_id);
-        
-        void recordRefreshPage(std::uint64_t entry);
-
-        void completeRefreshLog();
-
-        void cancelRefreshLog();
 
         void refreshPages(const std::vector<std::uint64_t> &page_nums);
 
@@ -96,9 +90,7 @@ namespace db0
         mutable AccessType m_hot_access_type = AccessType::READ_ONLY;
 
         DRAM_Pair createDRAMPair(SlotId slot_id) const;
-
-        void beginRefreshPages();
-
+        
         static bool canUseCached(AccessType cached_access_type, AccessType requested_access_type) noexcept;
 
         void cacheHotPair(SlotId slot_id, PlainSparsePair &sparse_pair,

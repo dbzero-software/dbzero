@@ -65,7 +65,7 @@ namespace db0
          * open either for read or read/write
          * @param address pass 0 to use the first assigned address
         */
-        SparseIndexBase(DRAM_Pair, Address, std::vector<std::uint64_t> *change_log_ptr = nullptr,
+        SparseIndexBase(DRAM_Pair, AccessType, Address, std::vector<std::uint64_t> *change_log_ptr = nullptr,
             StorageFlags= {}, SlotId slot_num = 0);
         
         void insert(const ItemT &item);
@@ -204,8 +204,8 @@ namespace db0
 
     protected:
         template <typename ConfigT> friend class SparsePairBase;
+        template <typename BaseT> friend class MetadataAPI;
         template <typename BaseT> friend class StorageRootMetadataAPI;
-        template <typename BaseT> friend class EmptyStorageRootMetadataAPI;
 
         // DRAM space deployed sparse index (in-memory)
         using IndexT = SGB_CompressedLookupTree<
@@ -240,7 +240,7 @@ namespace db0
     };
     
     template <typename ItemT, typename CompressedItemT, typename SparseIndexMixinT>
-    SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::SparseIndexBase(DRAM_Pair dram_pair, Address address, AccessType access_type,
+    SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::SparseIndexBase(DRAM_Pair dram_pair, AccessType access_type, Address address,
         std::vector<std::uint64_t> *change_log_ptr, StorageFlags flags, SlotId slot_num)
         : m_dram_prefix(dram_pair.first)
         , m_dram_allocator(dram_pair.second)

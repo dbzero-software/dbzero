@@ -17,12 +17,11 @@ namespace db0
     {
         auto prefix = std::make_shared<MetaPrefix>(page_size, sparse_pair);
         load(*prefix, page_io);
-        auto allocator = std::make_shared<DRAM_Allocator>(
-            [&](DRAM_Allocator::AddressSinkFunction sink) {
-                prefix->forAllocatedAddresses(sink);
-            },
-            page_size
-        );
+        auto allocator = std::make_shared<DRAM_Allocator>(page_size);
+        auto updater = allocator->beginUpdate();
+        prefix->forAllocatedAddresses([&](std::uint64_t address) {
+            updater(address);
+        });
         return { prefix, allocator };
     }
 
@@ -30,22 +29,13 @@ namespace db0
         : Memspace(std::move(prefix), std::move(allocator))
     {
     }
-
-    MS_MetaSpace MS_MetaSpace::create(std::size_t page_size, SparsePair &sparse_pair, Diff_IO &page_io)
-    {
-        return create(page_size, sparse_pair, page_io, MappingPolicy::eager);
-    }
-
+    
     MS_MetaSpace MS_MetaSpace::create(std::size_t page_size, SparsePair &sparse_pair, Diff_IO &page_io,
         MappingPolicy mapping_policy)
-    {
-        std::shared_ptr<MS_MetaPrefix> prefix;
+    {        
+        auto prefix = std::make_shared<MS_MetaPrefix>(page_size, sparse_pair, page_io, mapping_policy);
         if (mapping_policy == MappingPolicy::eager) {
-            // page_io not required with eager loading policy
-            prefix = std::make_shared<MS_MetaPrefix>(page_size, sparse_pair);
             db0::load(*prefix, page_io);
-        } else {
-            prefix = std::make_shared<MS_MetaPrefix>(page_size, sparse_pair, &page_io);
         }
 
         auto allocator = std::make_shared<MS_MetaAllocator>(sparse_pair, page_size);

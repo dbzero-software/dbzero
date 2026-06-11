@@ -61,8 +61,9 @@ DB0_PACKED_BEGIN
         std::uint64_t m_ext_dram_io_offset = 0;
         std::uint32_t m_ext_dram_page_size = 0;
         std::uint64_t m_ext_dram_changelog_io_offset = 0;
+        std::uint64_t m_desc_changelog_io_offset = 0;
         // reserved for future use (0-filled)
-        std::array<std::uint64_t, 18> m_reserved;
+        std::array<std::uint64_t, 17> m_reserved;
         
         o_prefix_config(std::uint32_t block_size, std::uint32_t page_size, std::uint32_t dram_page_size,
             std::uint32_t page_io_step_size, std::uint32_t descriptor_page_size,

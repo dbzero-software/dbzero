@@ -3,6 +3,7 @@
 
 #include "MS_MetaAllocator.hpp"
 #include <dbzero/core/exception/Exceptions.hpp>
+#include <dbzero/core/memory/utils.hpp>
 #include <dbzero/core/storage/SparsePair.hpp>
 #include <algorithm>
 #include <cassert>
@@ -87,12 +88,12 @@ namespace db0
         Allocator::SlotId slot_id, std::function<void(std::uint64_t)> sink) const
     {
         auto first_addr = MS_Address::encode(slot_id, 0);
-        auto last_addr = slot_id + 1 == MS_Address::SLOT_ID_COUNT
+        auto end_addr = slot_id + 1 == MS_Address::SLOT_ID_COUNT
             ? std::numeric_limits<std::uint64_t>::max()
             : MS_Address::encode(slot_id + 1, 0);
         std::uint64_t last_addr = 0;
         // iterate range of address-related pages
-        m_sparse_pair.getSparseIndex().forPageRange(first_addr >> m_ps_shift, last_addr >> m_ps_shift, [&](const SI_Item &item) {
+        m_sparse_pair.getSparseIndex().forPageRange(first_addr >> m_ps_shift, end_addr >> m_ps_shift, [&](const SI_Item &item) {
             if (!item || item.m_page_num == 0) {
                 return;
             }
@@ -149,38 +150,42 @@ namespace db0
 
     void MS_MetaAllocator::free(Address address)
     {
-        auto &ms_addr = MS_Address::from(address);
-        ensureAllocator(ms_addr.slot_id()).free(ms_addr.local_address());
+        auto offset = address.getOffset();
+        auto &ms_addr = MS_Address::from(offset);
+        ensureAllocator(ms_addr.slot_id()).free(Address::fromOffset(ms_addr.local_address()));
     }
 
     std::size_t MS_MetaAllocator::getAllocSize(Address address) const
     {
-        auto &ms_addr = MS_Address::from(address);
+        auto offset = address.getOffset();
+        auto &ms_addr = MS_Address::from(offset);
         auto allocator = tryFindAllocator(ms_addr.slot_id());
         if (!allocator) {
             THROWF(db0::BadAddressException) << "Invalid MS_MetaSpace slot address: " << address;
         }
-        return allocator->getAllocSize(ms_addr.local_address());
+        return allocator->getAllocSize(Address::fromOffset(ms_addr.local_address()));
     }
 
     bool MS_MetaAllocator::isAllocated(Address address, std::size_t *size_of_result) const
     {
-        auto &ms_addr = MS_Address::from(address);
+        auto offset = address.getOffset();
+        auto &ms_addr = MS_Address::from(offset);
         auto allocator = tryFindAllocator(ms_addr.slot_id());
         if (!allocator) {
             return false;
         }
-        return allocator->isAllocated(ms_addr.local_address(), size_of_result);
+        return allocator->isAllocated(Address::fromOffset(ms_addr.local_address()), size_of_result);
     }
 
     Allocator::AllocationInfo MS_MetaAllocator::findAllocation(Address address) const
     {
-        auto &ms_addr = MS_Address::from(address);
+        auto offset = address.getOffset();
+        auto &ms_addr = MS_Address::from(offset);
         auto allocator = tryFindAllocator(ms_addr.slot_id());
         if (!allocator) {
             THROWF(db0::BadAddressException) << "Invalid MS_MetaSpace slot address: " << address;
         }
-        auto local_info = allocator->findAllocation(ms_addr.local_address());
+        auto local_info = allocator->findAllocation(Address::fromOffset(ms_addr.local_address()));
         return {
             ms_external_address(ms_addr.slot_id(), local_info.address),
             local_info.size
@@ -189,11 +194,11 @@ namespace db0
 
     std::optional<Address> MS_MetaAllocator::tryFirstAlloc(Allocator::SlotId slot_id)
     {        
-        auto local_addr = ensureAllocator(slot_id).tryFirstAlloc();
-        if (!local_addr) {
+        auto allocator = tryFindAllocator(slot_id);
+        if (!allocator) {
             return std::nullopt;
         }
-        return ms_external_address(slot_id, *local_addr);
+        return ms_external_address(slot_id, allocator->firstAlloc());
     }
 
     void MS_MetaAllocator::evictSlot(Allocator::SlotId slot_id)
