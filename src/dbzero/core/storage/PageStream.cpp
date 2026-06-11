@@ -120,6 +120,16 @@ namespace db0
         flush();
     }
 
+    void PageStream::resetWriteCursor()
+    {
+        m_begin_chunk_page_num.reset();
+        m_current_chunk_page_num = 0;
+        m_current_next_chunk_page_num = 0;
+        m_current_used_pages = 0;
+        m_current_reuse_pages = 0;
+        m_current_first_data_is_first_page = false;
+    }
+
     PageStream::Reader PageStream::getReader() const
     {
         return Reader(*this);
@@ -192,7 +202,7 @@ namespace db0
         control.m_control_index = control_index;
         control.m_first_data_is_first_page = m_current_first_data_is_first_page ? 1u : 0u;
         control.m_next_chunk_page_num = next_chunk_page_num;
-        m_page_io.write(m_current_chunk_page_num + control_index, &control);
+        m_page_io.writePageOffset(m_current_chunk_page_num + control_index, 0, sizeof(ControlPage), &control);
     }
 
     bool PageStream::findControl(std::uint64_t chunk_page_num, std::uint32_t generation,

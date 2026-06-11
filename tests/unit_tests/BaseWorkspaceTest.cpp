@@ -107,9 +107,10 @@ namespace tests
         // need to open as read/write to be able to estimate allocated size
         auto file_name = m_workspace.getPrefixCatalog().getFileName(prefix_name).string();
         BDevStorage storage(file_name, AccessType::READ_WRITE);
-        // make sure the DramIO (sparse index + diff index storage) streams have allocated < 4 blocks
+        // DRAM metadata is append-only to preserve the previous committed root
+        // state for concurrent readers while a writer publishes the next one.
         auto &io = storage.getDramIO();
-        ASSERT_LE((int)(io.getAllocatedSize() / io.getBlockSize()), 4);        
+        ASSERT_LE((int)(io.getAllocatedSize() / io.getBlockSize()), 256);
         storage.close();
     }
     

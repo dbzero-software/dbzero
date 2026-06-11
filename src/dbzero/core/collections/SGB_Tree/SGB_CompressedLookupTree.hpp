@@ -369,11 +369,6 @@ DB0_PACKED_END
                 return { nullptr, sg_tree_const_iterator() };
             }
             
-            // node will be sorted if needed (only if in READ/WRITE mode)
-            if (this->m_access_type == AccessType::READ_WRITE) {                
-                this->onNodeLookup(node);
-            }
-            
             if (node->header().canFit(key)) {
                 // within the node look up by compressed key (only if able to fit)
                 return { node->lower_equal_bound(node->header().compress(key), this->m_heap_comp), node };
@@ -398,11 +393,6 @@ DB0_PACKED_END
                 THROWF(db0::InternalException) << "Corrupted SGB_CompressedLookupTree node found at " << node.getAddress();
             }
             
-            // node will be sorted if needed (only if opened as READ/WRITE)
-            if (this->m_access_type == AccessType::READ_WRITE) {                
-                this->onNodeLookup(node);
-            }
-
             // within the node look up by compressed key
             if (node->header().canFit(key)) {
                 auto item_ptr = node->lower_equal_bound(node->header().compress(key), this->m_heap_comp);
@@ -430,10 +420,6 @@ DB0_PACKED_END
                 --node;                
             }
             
-            // node will be sorted if needed (only if opened as READ/WRITE)
-            if (this->m_access_type == AccessType::READ_WRITE) {                
-                this->onNodeLookup(node);
-            }
             // within the node look up by compressed key
             const CompressedItemT *item_ptr = nullptr;     
             if (node->header().canFit(key)) {
@@ -462,11 +448,6 @@ DB0_PACKED_END
                 return nullptr;
             }
             
-            // node will be sorted if needed (only if opened as READ/WRITE)
-            if (this->m_access_type == AccessType::READ_WRITE) {
-                this->onNodeLookup(node);
-            }
-                    
             if (node->header().canFit(key)) {
                 // within the node look up by compressed key            
                 return node->lower_equal_bound(node->header().compress(key), this->m_heap_comp);
@@ -507,10 +488,6 @@ DB0_PACKED_END
             }
 
             for (; node != base_t::end(); ++node) {
-                if (this->m_access_type == AccessType::READ_WRITE) {
-                    this->onNodeLookup(node);
-                }
-
                 auto header = node->header();
                 auto max_item_ptr = node->find_max(this->m_heap_comp);
                 assert(max_item_ptr);

@@ -4,78 +4,116 @@
 #pragma once
 
 #include <dbzero/core/serialization/Types.hpp>
+#include "SparsePairFwd.hpp"
 #include "SparseIndex.hpp"
 #include "DiffIndex.hpp"
 #include "BaseStorage.hpp"
 #include "ChangeLogIOStream.hpp"
 #include "StorageFlags.hpp"
+#include <dbzero/core/serialization/FixedVersioned.hpp>
+#include <dbzero/core/vspace/v_object.hpp>
+#include <type_traits>
+#include <utility>
 
 namespace db0
 
 {
-    
-    // The SparsePair combines SparseIndex and DiffIndex
-    class SparsePair
+
+    struct RootSparsePairConfig
+    {
+        using SparseIndexT = RootSparseIndex;        
+        static constexpr bool has_storage_root_metadata = true;
+    };
+
+    struct PlainSparsePairConfig
+    {
+        using SparseIndexT = PlainSparseIndex;        
+        static constexpr bool has_storage_root_metadata = false;
+    };
+
+    /**
+     * Combines SparseIndex and DiffIndex.
+     *
+     * The root configuration stores storage-level high-water metadata in the
+     * sparse-index root mix-in. The plain configuration is used by
+     * SparsePairManager and keeps that sparse-index mix-in empty; it only adds a
+         * tiny pair header so the paired sparse/diff index addresses can be opened.
+     */
+    template <typename ConfigT> class SparsePairBase
     {
     public:
-        using PageNumT = SparseIndex::PageNumT;
-        using StateNumT = SparseIndex::StateNumT;
-        using tag_create = SparseIndex::tag_create;
-        using DP_ChangeLogT = BaseStorage::DP_ChangeLogT;
-        using DP_ChangeLogStreamT = db0::ChangeLogIOStream<DP_ChangeLogT>;
+        using Config = ConfigT;
+        using SlotId = Allocator::SlotId;
+        using SparseIndexT = typename ConfigT::SparseIndexT;
+        using PageNumT = typename SparseIndexT::PageNumT;
+        using StateNumT = typename SparseIndexT::StateNumT;
+        using tag_create = typename SparseIndexT::tag_create;
+
+        using ChangeLogT = std::vector<std::uint64_t>;
+        using ChangeLogEntryT = std::uint64_t;
         
-        SparsePair(std::size_t node_size);        
-        SparsePair(DRAM_Pair, AccessType, StorageFlags = {}, Allocator::SlotId slot_num = 0);
-        SparsePair(DRAM_Pair, AccessType, Address sparse_index_address, StorageFlags = {},
-            Allocator::SlotId slot_num = 0);
-        SparsePair(tag_create, DRAM_Pair, Allocator::SlotId slot_num = 0);
-        
-        ~SparsePair();
-        
-        inline SparseIndex &getSparseIndex() {
+        SparsePairBase(DRAM_Pair, AccessType, StorageFlags = {}, SlotId slot_num = 0, ChangeLogT *change_log = nullptr);
+        SparsePairBase(tag_create, DRAM_Pair, SlotId slot_num = 0, ChangeLogT *change_log = nullptr);
+
+        inline SparseIndexT &getSparseIndex() {
             return m_sparse_index;
         }
-        
-        inline const SparseIndex &getSparseIndex() const {
+
+        inline const SparseIndexT &getSparseIndex() const {
             return m_sparse_index;
         }
-        
+
         inline DiffIndex &getDiffIndex() {
             return m_diff_index;
         }
-        
+
         inline const DiffIndex &getDiffIndex() const {
             return m_diff_index;
-        }        
+        }
 
-        // combine from both underlyig indexes
         std::optional<PageNumT> getNextStoragePageNum() const;
+        std::optional<PageNumT> getNextDescPageNum() const;
         
-        // combine from both underlyig indexes
         StateNumT getMaxStateNum() const;
-        
+
+        void recordMaxStateNum(StateNumT state_num);
+
+        void recordNextStoragePageNum(PageNumT);
+
+        void recordNextDescPageNum(PageNumT);
+
         bool empty() const;
         std::size_t size() const;
 
         void refresh();
-        
-        /**
-         * Write internally managed change log into a specific stream 
-         * and then clean the internal change log
-        */
-        const DP_ChangeLogT &extractChangeLog(DP_ChangeLogStreamT &, std::uint64_t end_storage_page_num);
-        
-        std::size_t getChangeLogSize() const;
+
+        void detach() const;
         
         void commit();
-        
+
+        // only supported with owned change log
+        ChangeLogT SparsePairManager::extractChangeLogPages()
+        {
+            ChangeLogT page_nums;
+            page_nums.swap(m_change_log);
+            return page_nums;
+        }
+
     private:
-        // Change log contains the list of updates (modified items / page numbers)        
-        std::vector<std::uint64_t> m_change_log;
-        SparseIndex m_sparse_index;
+        // owned change log used only for non-managed root instances
+        ChangeLogT m_owned_change_log;
+        ChangeLogT *m_change_log;
+        Memspace m_dram_space;
+        // Sparse Index is created at the root address (or the slot's first address)
+        // and in its header it stores the address of the diff index
+        SparseIndexT m_sparse_index;
         DiffIndex m_diff_index;
-        
-        static Address getDiffIndexAddress(const SparseIndex &, StorageFlags);
+                
+        static Address getDiffIndexAddress(const SparseIndexT &);
+        void storeDiffIndexAddresses();
     };
-    
+
+    extern template class SparsePairBase<RootSparsePairConfig>;
+    extern template class SparsePairBase<PlainSparsePairConfig>;
+
 }

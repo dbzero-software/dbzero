@@ -24,6 +24,14 @@ namespace db0::tests
             std::remove(filename);
         }
     }
+
+    void dropPrefixFiles(const char *prefix_name)
+    {
+        auto data_file_name = std::string(prefix_name) + ".db0";
+        drop(data_file_name.c_str());
+        auto lock_file_name = data_file_name + ".lock";
+        drop(lock_file_name.c_str());
+    }
      
     std::vector<char> randomPage(std::size_t size) {
         std::vector<char> result(size);

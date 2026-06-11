@@ -534,10 +534,6 @@ DB0_PACKED_END
                 return { nullptr, sg_tree_const_iterator() };
             }
 
-            // node will be sorted if needed (only if in READ/WRITE mode)
-            if (m_access_type == AccessType::READ_WRITE) {                
-                this->onNodeLookup(node);
-            }
             return { node->lower_equal_bound(key, this->m_heap_comp), node };
         }
         

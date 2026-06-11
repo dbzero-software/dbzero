@@ -12,6 +12,7 @@
 #include <dbzero/object_model/object/ObjectImmutableImpl.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/Workspace.hpp>
+#include <utils/ScopedWorkspaceFixture.hpp>
 #include <utils/SubClass.hpp>
 
 namespace tests
@@ -23,19 +24,16 @@ namespace tests
     class ContentIndexTest: public testing::Test
     {
     protected:
-        ContentIndexTest()
-            : m_workspace("", {}, {}, {}, {}, db0::object_model::initializer())
-        {
-        }
-
         void SetUp() override
         {
-            m_fixture = m_workspace.getFixture("content-index-test");
+            m_workspace_fixture = std::make_unique<ScopedWorkspaceFixture>("content-index-test");
+            m_fixture = m_workspace_fixture->fixture();
         }
 
         void TearDown() override
         {
-            m_workspace.close();
+            m_fixture = nullptr;
+            m_workspace_fixture = nullptr;
         }
 
         std::shared_ptr<Class> makeClass(const char *name)
@@ -80,7 +78,7 @@ namespace tests
             return *initializer;
         }
 
-        Workspace m_workspace;
+        std::unique_ptr<ScopedWorkspaceFixture> m_workspace_fixture;
         db0::swine_ptr<Fixture> m_fixture;
     };
 

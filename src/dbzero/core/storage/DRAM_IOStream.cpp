@@ -114,23 +114,30 @@ namespace db0
     
     void DRAM_IOStream::load(DRAM_ChangeLogStreamT &changelog_io, std::optional<StateNumType> max_state_num)
     {
-        // Exhaust the change-log stream first and retrieve the last valid state number
+        m_prefix->close();
+        m_allocator->reset();
+        m_reusable_chunks.clear();
+        m_page_map.clear();
+
+        // Exhaust the change-log stream first and retrieve the last valid DRAM IO state number.
         // its position marks the synchronization point
-        while (changelog_io.readChangeLogChunk());
+        std::optional<StateNumType> last_dram_state_num;
+        while (auto change_log_ptr = changelog_io.readChangeLogChunk()) {
+            last_dram_state_num = change_log_ptr->m_state_num;            
+        }
 
         std::vector<char> buffer(m_chunk_size, 0);
         const auto &header = o_dram_chunk_header::__ref(buffer.data());
         auto bytes = buffer.data() + header.sizeOf();
         
-        auto last_chunk_ptr = changelog_io.getLastChangeLogChunk();
-        if (!last_chunk_ptr) {
+        if (!last_dram_state_num) {
             // no data to load
             return;
         }
         
         // The last known consistent state number (unless explicitly provided)
         if (!max_state_num) {
-            max_state_num = last_chunk_ptr->m_state_num;
+            max_state_num = *last_dram_state_num;
         }
         std::unordered_set<std::size_t> allocs;
         for (;;) {
@@ -191,23 +198,12 @@ namespace db0
         auto &reusable_header = o_dram_chunk_header::__new(buffer, state_num);
         buffer += reusable_header.sizeOf();
         
-        std::unordered_set<std::uint64_t> last_changelog;
-        if (dram_changelog_io.getLastChangeLogChunk()) {
-            for (auto addr: *dram_changelog_io.getLastChangeLogChunk()) {
-                last_changelog.insert(addr);
-            }
-        }
-        
-        // Finds reusable block, note that blocks from the last change log are not reused
-        // otherwise the reader process might not be able to access the last transaction
+        // Do not overwrite old DRAM chunks while publishing a new transaction.
+        // A reader may deterministically select the previous DRAM changelog state
+        // while the writer has already flushed newer DRAM pages but has not yet
+        // finalized the newer changelog. Reusing chunks can destroy pages needed
+        // by that previous root state and make the root sparse pair open at 0.
         auto find_reusable = [&, this]() -> std::optional<std::uint64_t> {
-            for (auto it = m_reusable_chunks.begin(); it != m_reusable_chunks.end(); ++it) {
-                if (last_changelog.find(*it) == last_changelog.end()) {
-                    auto result = *it;
-                    m_reusable_chunks.erase(it);
-                    return result;
-                }
-            }            
             return std::nullopt;
         };
 
@@ -271,7 +267,7 @@ namespace db0
         BlockIOStream::flush();
         // output changelog, no RLE encoding, no duplicates
         ChangeLogData cl_data(std::move(dram_changelog), false, false, false);
-        dram_changelog_io.appendChangeLog(std::move(cl_data), state_num);
+        dram_changelog_io.appendChangeLog(std::move(cl_data), state_num, DRAMChangeLogKind::DRAM_IO);
     }
     
 #ifndef NDEBUG

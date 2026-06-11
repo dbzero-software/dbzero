@@ -61,29 +61,86 @@ namespace db0
 
     MetaPrefix::MetaPrefix(std::size_t page_size, SparsePair &sparse_pair)
         : DRAM_Prefix(page_size)
-        , m_sparse_pair(sparse_pair)
-        , m_state_num(sparse_pair.getMaxStateNum())
+        , m_sparse_pair(sparse_pair)        
     {
     }
 
-    void load(MetaPrefix &prefix, Diff_IO &page_io, std::function<void(std::uint64_t page_num)> loaded_page)
-    {
-        if (prefix.m_state_num == 0) {
-            return;
-        }
-
-        std::uint64_t previous_page_num = 0;
+    void load(MetaPrefix &prefix, Diff_IO &page_io)
+    {        
+        // Collect unique page numbers first (there might more than one state number available per page)
+        std::uint64_t last_page_num = 0;
+        std::vector<std::uint64_t> page_nums;
         for (auto it = prefix.m_sparse_pair.getSparseIndex().cbegin(); !it.is_end(); ++it) {
             auto item = *it;
-            if (!!item && item.m_page_num != 0 && item.m_page_num != previous_page_num) {
-                auto page_buffer = prefix.update(item.m_page_num, false);
-                if (prefix.readPage(page_io, item.m_page_num, prefix.m_state_num, page_buffer)) {
-                    if (loaded_page) {
-                        loaded_page(item.m_page_num);
-                    }
-                    previous_page_num = item.m_page_num;
-                }
+            if (!!item && item.m_page_num != 0 && item.m_page_num != last_page_num) {
+                page_nums.push_back(item.m_page_num);
+                last_page_num = item.m_page_num;
             }
+        }
+        db0::load(prefix, page_io, page_nums);
+    }
+
+    struct Load_OP
+    {
+        std::uint64_t m_storage_page_num;
+        // target buffer
+        void *m_buffer;
+    };
+
+    struct LoadDiff_OP
+    {
+        std::uint64_t m_storage_page_num;
+        std::uint64_t m_page_num;
+        StateNumType m_diff_state_num;
+        // target buffer
+        void *m_buffer;
+    };
+
+    void load(MetaPrefix &prefix, Diff_IO &page_io, const std::vector<std::uint64_t> &page_nums)
+    {
+        auto state_num = prefix.getStateNum();
+        // For I/O performace we first determine the operations and then execute ordered for better locality
+        std::vector<Load_OP> load_ops;
+        std::vector<LoadDiff_OP> load_diff_ops;
+
+        auto &sparse_index = prefix.m_sparse_pair.getSparseIndex();
+        auto &diff_index = prefix.m_sparse_pair.getDiffIndex();
+        for (auto page_num: page_nums) {
+            SparseIndexQuery query(sparse_index, diff_index, page_num, state_num);
+            if (query.empty()) {
+                continue;
+            }
+
+            auto page_buf = prefix.update(page_num, false);
+            auto storage_page_num = query.first();
+            if (storage_page_num) {
+                load_ops.push_back({ storage_page_num, page_buf });                
+            } else {
+                std::memset(buffer, 0, getPageSize());
+            }
+
+            StateNumType diff_state_num = 0;
+            while (query.next(diff_state_num, storage_page_num)) {
+                load_diff_ops.push_back({ storage_page_num, page_num, diff_state_num, page_buf });
+            }
+        }
+
+        // sort both ops-buffers by storage page number for better locality
+        std::sort(load_ops.begin(), load_ops.end(), [](const Load_OP &a, const Load_OP &b) {
+            return a.m_storage_page_num < b.m_storage_page_num;
+        });
+
+        // Load full pages first
+        for (const auto &op: load_ops) {
+            page_io.read(op.m_storage_page_num, op.m_buffer);
+        }
+        
+        // Apply diffs next
+        std::sort(load_diff_ops.begin(), load_diff_ops.end(), [](const LoadDiff_OP &a, const LoadDiff_OP &b) {
+            return a.m_storage_page_num < b.m_storage_page_num;
+        });
+        for (const auto &op: load_diff_ops) {
+            page_io.applyFrom(op.m_storage_page_num, op.m_buffer, { op.m_page_num, op.m_diff_state_num });
         }
     }
 
@@ -93,12 +150,13 @@ namespace db0
         auto lock = mapRangeImpl(address, size, access_mode, &became_dirty);
         if (became_dirty) {
             auto page_num = address / getPageSize();
-            capturePreviousPage(page_num, lock);
+            // copy for diff generation on flush
+            captureCoWPage(page_num, lock);
         }
         return lock;
     }
 
-    void MetaPrefix::capturePreviousPage(std::uint64_t page_num, const MemLock &lock)
+    void MetaPrefix::captureCoWPage(std::uint64_t page_num, const MemLock &lock)
     {
         // Avoid SparseIndexQuery here; a loaded DRAM page is enough to decide
         // whether keeping an in-memory previous version is useful for diff flush.
@@ -110,70 +168,54 @@ namespace db0
         if (!resource_lock) {
             THROWF(db0::InternalException) << "MetaPrefix: missing page lock for previous page capture";
         }
-        auto &previous_page = m_previous_pages[page_num];
-        previous_page.resize(getPageSize());
-        std::memcpy(previous_page.data(), resource_lock->getBuffer(), previous_page.size());
-    }
-
-    bool MetaPrefix::readPage(Diff_IO &page_io, std::uint64_t page_num, StateNumType state_num, void *buffer) const
-    {
-        SparseIndexQuery query(m_sparse_pair.getSparseIndex(), m_sparse_pair.getDiffIndex(), page_num, state_num);
-        if (query.empty()) {
-            return false;
-        }
-
-        auto storage_page_num = query.first();
-        if (storage_page_num) {
-            page_io.read(storage_page_num, buffer);
-        } else {
-            std::memset(buffer, 0, getPageSize());
-        }
-
-        StateNumType diff_state_num = 0;
-        while (query.next(diff_state_num, storage_page_num)) {
-            page_io.applyFrom(storage_page_num, buffer, { page_num, diff_state_num });
-        }
-        return true;
+        auto &cow_page = m_cow_pages[page_num];
+        cow_page.resize(getPageSize());
+        std::memcpy(cow_page.data(), resource_lock->getBuffer(), cow_page.size());
     }
 
     std::uint64_t MetaPrefix::commit(ProcessTimer *)
     {
-        if (getDirtySize() != 0) {
+        // MetaPrefix dirty pages must already be persisted by flush(MetaPrefix &, Diff_IO &).
+        // Commit is only the post-flush transaction boundary; accepting dirty pages here
+        // would hide a missed detach/cache-commit preparation step in the owner.
+        if (isDirty()) {
             THROWF(db0::InternalException) << "MetaPrefix::commit requires flush(MetaPrefix &, Diff_IO &) for dirty pages";
         }
-        return m_state_num;
+
+        // The sparse pair belongs to this MetaPrefix and may still have pending
+        // sparse/diff index write-backs. Commit it before dirty-page detection so
+        // the flush scans the final metadata image for this transaction.
+        m_sparse_pair.commit();
+        m_cow_pages.clear();
+        return getStateNum();
     }
 
     bool flush(MetaPrefix &prefix, Diff_IO &page_io, ProcessTimer *)
     {
-        if (prefix.getDirtySize() == 0) {
+        // The owner must complete metadata detach/cache-commit preparation before
+        // this scan. Flush only persists an already registered application state;
+        // it must not advance state or perform hidden write-back preparation.        
+        bool was_dirty = false;
+        auto state_num = prefix.getStateNum();
+        prefix.flushDirty([&](std::uint64_t page_num, const void *buffer) {
+            was_dirty |= prefix.flushPage(page_io, page_num, buffer, state_num);
+        });
+        
+        if (!was_dirty) {
             return false;
         }
 
-        auto new_state_num = prefix.m_state_num + 1;
-        bool wrote_anything = false;
-        prefix.flushDirty([&](std::uint64_t page_num, const void *buffer) {
-            wrote_anything |= prefix.flushPage(page_io, page_num, buffer, new_state_num);
-        });
-
         page_io.flush();
-        if (wrote_anything) {
-            prefix.m_state_num = new_state_num;
-            prefix.m_sparse_pair.commit();
-            prefix.m_last_updated = prefix.m_state_num;
-        }
-        prefix.m_previous_pages.clear();
-        return wrote_anything;
+        prefix.commit();
+        return true;
     }
 
     bool MetaPrefix::flushPage(Diff_IO &page_io, std::uint64_t page_num, const void *buffer, StateNumType state_num)
     {
-        auto previous_page = m_previous_pages.find(page_num);
-        bool has_base = previous_page != m_previous_pages.end();
-
-        if (has_base) {
+        auto cow_page = m_cow_pages.find(page_num);
+        if (cow_page != m_cow_pages.end()) {
             std::vector<std::uint16_t> diffs;
-            if (getDiffs(previous_page->second.data(), buffer, getPageSize(), diffs) && !diffs.empty()) {
+            if (getDiffs(cow_page->second.data(), buffer, getPageSize(), diffs) && !diffs.empty()) {
                 bool is_first_page = false;
                 auto [storage_page_num, overflow] = page_io.appendDiff(
                     buffer, { page_num, state_num }, diffs, &is_first_page
@@ -213,10 +255,9 @@ namespace db0
 
     void MetaPrefix::publishCompactedState(StateNumType state_num)
     {
-        m_state_num = state_num;
-        m_sparse_pair.commit();
-        m_last_updated = m_state_num;
-        m_previous_pages.clear();
+        m_sparse_pair.recordMaxStateNum(state_num);
+        m_sparse_pair.commit();        
+        m_cow_pages.clear();
         flushDirty([&](std::uint64_t, const void *) {});
     }
 
@@ -291,39 +332,25 @@ namespace db0
         return true;
     }
 
-    StateNumType MetaPrefix::getStateNum(bool) const
+    StateNumType MetaPrefix::getStateNum() const
     {
-        return m_state_num;
+        return m_sparse_pair.getMaxStateNum();
     }
-
-    std::size_t MetaPrefix::getDirtySize() const
-    {
-        std::size_t result = 0;
-        forEachDirtyPage([&](std::uint64_t, const void *) {
-            result += getPageSize();
-        });
-        return result;
-    }
-
+    
     std::size_t MetaPrefix::flushDirty(std::size_t)
     {
         THROWF(db0::InternalException) << "MetaPrefix::flushDirty(std::size_t) is unsupported; use flush(MetaPrefix &, Diff_IO &)";
         return 0;
     }
-
-    std::uint64_t MetaPrefix::getLastUpdated() const
+    
+    void MetaPrefix::forAllocatedAddresses(std::function<void(std::uint64_t)> sink) const
     {
-        return m_last_updated;
-    }
-
-    void MetaPrefix::forAllocatedAddresses(DRAM_Allocator::AddressSinkFunction sink) const
-    {
-        std::uint64_t previous_page_num = 0;
+        std::uint64_t last_page_num = 0;
         for (auto it = m_sparse_pair.getSparseIndex().cbegin(); !it.is_end(); ++it) {
             auto item = *it;
-            if (!!item && item.m_page_num != 0 && item.m_page_num != previous_page_num) {
+            if (!!item && item.m_page_num != 0 && item.m_page_num != last_page_num) {
                 sink(item.m_page_num * getPageSize());
-                previous_page_num = item.m_page_num;
+                last_page_num = item.m_page_num;
             }
         }
     }

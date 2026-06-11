@@ -212,6 +212,8 @@ DB0_PACKED_END
         
         void refresh();
 
+        void clearMappings();
+
         std::uint64_t size() const;
         
         const_iterator cbegin() const;

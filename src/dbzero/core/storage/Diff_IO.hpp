@@ -81,10 +81,6 @@ namespace db0
         std::size_t m_diff_bytes_written = 0;
         std::unique_ptr<DiffWriter> m_writer;
         bool m_modified = false;
-        std::optional<std::uint64_t> m_first_written_page_num;
-        std::uint64_t m_end_written_page_num = 0;
-
-        void trackWrittenPages(std::uint64_t page_num, std::uint64_t page_count);
     };
     
 }

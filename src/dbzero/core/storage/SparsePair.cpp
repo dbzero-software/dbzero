@@ -2,122 +2,149 @@
 // Copyright (c) 2025 DBZero Software sp. z o.o.
 
 #include "SparsePair.hpp"
+#include <dbzero/core/dram/DRAMSpace.hpp>
+#include <dbzero/core/exception/Exceptions.hpp>
 #include <dbzero/core/memory/utils.hpp>
 
 namespace db0
 
 {
-    
-    SparsePair::SparsePair(std::size_t node_size)
-        : m_sparse_index(node_size, &m_change_log)
-        , m_diff_index(node_size, &m_change_log)
+
+    template <typename ConfigT>
+    SparsePairBase<ConfigT>::SparsePairBase(DRAM_Pair dram_pair, AccessType access_type, Address root_address,
+        StorageFlags flags, Allocator::SlotId slot_num, ChangeLogT *change_log)
+        : m_change_log(change_log ? change_log : &m_owned_change_log)
+        , m_dram_space(DRAMSpace::create(dram_pair))
+        // sparse index locate at the slot's root address
+        , m_sparse_index(dram_pair, access_type, dram_pair.second->firstAddress(slot_num),
+            m_change_log, flags, slot_num)
+        , m_diff_index(dram_pair, access_type, getDiffIndexAddress(m_sparse_index),
+            m_change_log, flags, slot_num)
     {
     }
     
-    SparsePair::SparsePair(DRAM_Pair dram_pair, AccessType access_type, StorageFlags flags, Allocator::SlotId slot_num)
-        : m_sparse_index(dram_pair, access_type, {}, &m_change_log, flags, slot_num)
-        , m_diff_index(dram_pair, access_type, getDiffIndexAddress(m_sparse_index, flags), &m_change_log, flags, slot_num)
+    template <typename ConfigT>
+    SparsePairBase<ConfigT>::SparsePairBase(tag_create, DRAM_Pair dram_pair, Allocator::SlotId slot_num,
+        ChangeLogT *change_log)        
+        : m_change_log(change_log ? change_log : &m_owned_change_log)
+        , m_dram_space(DRAMSpace::create(dram_pair))
+        , m_sparse_index(typename SparseIndexT::tag_create(), dram_pair, m_change_log, slot_num)
+        , m_diff_index(DiffIndex::tag_create(), dram_pair, m_change_log, slot_num)
     {
+        // validate SparseIndex address
+        assert(m_sparse_index.getAddress() == dram_pair.second->firstAddress(slot_num));
+        // write in the Sparse Index header
+        storeDiffIndexAddresses();
+    }
+    
+    template <typename ConfigT>
+    std::optional<typename SparsePairBase<ConfigT>::PageNumT> SparsePairBase<ConfigT>::getNextStoragePageNum() const
+    {
+        if constexpr (ConfigT::has_storage_root_metadata) {
+            return m_sparse_index.mixIn().getNextStoragePageNum();
+        } else {
+            return std::nullopt;
+        }
     }
 
-    SparsePair::SparsePair(DRAM_Pair dram_pair, AccessType access_type, Address sparse_index_address,
-        StorageFlags flags, Allocator::SlotId slot_num)
-        : m_sparse_index(dram_pair, access_type, sparse_index_address, &m_change_log, flags, slot_num)
-        , m_diff_index(dram_pair, access_type, getDiffIndexAddress(m_sparse_index, flags), &m_change_log, flags,
-            slot_num)
+    template <typename ConfigT>
+    typename SparsePairBase<ConfigT>::StateNumT SparsePairBase<ConfigT>::getMaxStateNum() const
     {
-    }
-    
-    SparsePair::SparsePair(tag_create, DRAM_Pair dram_pair, Allocator::SlotId slot_num)
-        : m_sparse_index(SparseIndex::tag_create(), dram_pair, &m_change_log, slot_num)
-        , m_diff_index(DiffIndex::tag_create(), dram_pair, &m_change_log, slot_num)
-    {
-        // store the diff-index's address as extra data in the sparse index
-        m_sparse_index.setExtraData(m_diff_index.getIndexAddress().getOffset());
+        if constexpr (ConfigT::has_storage_root_metadata) {
+            return m_sparse_index.mixIn().getMaxStateNum();
+        } else {
+            return 0;
+        }
     }
 
-    SparsePair::~SparsePair()
+    template <typename ConfigT>
+    void SparsePairBase<ConfigT>::recordMaxStateNum(StateNumT state_num)
     {
-    }
-    
-    std::optional<typename SparsePair::PageNumT> SparsePair::getNextStoragePageNum() const {
-        return optional_max(m_sparse_index.getNextStoragePageNum(), m_diff_index.getNextStoragePageNum());
+        if constexpr (ConfigT::has_storage_root_metadata) {
+            m_sparse_index.modifyMixIn().recordMaxStateNum(state_num);
+        } else {
+            (void)state_num;
+        }
     }
 
-    typename SparsePair::StateNumT SparsePair::getMaxStateNum() const {
-        return std::max(m_sparse_index.getMaxStateNum(), m_diff_index.getMaxStateNum());
+    template <typename ConfigT>
+    void SparsePairBase<ConfigT>::recordNextStoragePageNum(PageNumT next_page_num)
+    {
+        if constexpr (ConfigT::has_storage_root_metadata) {
+            m_sparse_index.modifyMixIn().recordNextStoragePageNum(next_page_num);
+        } else {
+            (void)next_page_num;
+        }
     }
-    
-    void SparsePair::refresh()
+
+    template <typename ConfigT>
+    void SparsePairBase<ConfigT>::recordNextDescPageNum(PageNumT next_page_num)
+    {
+        if constexpr (ConfigT::has_storage_root_metadata) {
+            m_sparse_index.modifyMixIn().recordNextDescPageNum(next_page_num);
+        } else {
+            (void)next_page_num;
+        }
+    }
+
+    template <typename ConfigT>
+    void SparsePairBase<ConfigT>::refresh()
     {
         m_sparse_index.refresh();
-        // A read-only storage may be opened before the writer's DRAM changelog
-        // update is visible, leaving SparsePair with unopened indexes. Refreshing
-        // later can apply the DRAM pages that contain the sparse index, but the
-        // diff index address is only available from the freshly opened sparse
-        // index header. Without reopening the diff index from that address,
-        // BDevStorage::completeRefresh() can see a DRAM changelog state ahead of
-        // getMaxStateNum() and report a false inconsistency.
-        //
-        // Reproduced by BDevStorageTest.testNoLoadReaderCanRefreshAfterWriterCommit
-        // and observed as intermittent Python failures in
-        // test_refreshing_group_by_results on concurrent read-only open.
-        if (!!m_sparse_index.m_index) {
-            auto diffIndexAddress = Address::fromOffset(m_sparse_index.getExtraData());
-            if (!m_diff_index.isOpen() || m_diff_index.getIndexAddress() != diffIndexAddress) {
-                m_diff_index.reopen(diffIndexAddress);
-            } else {
-                m_diff_index.refresh();
-            }
-        } else {
-            m_diff_index.refresh();
-        }
-    }
-    
-    std::size_t SparsePair::size() const {
-        return m_sparse_index.size() + m_diff_index.size();
-    }
-    
-    bool SparsePair::empty() const {
-        return m_sparse_index.empty() && m_diff_index.empty();
-    }
-    
-    const SparsePair::DP_ChangeLogT &SparsePair::extractChangeLog(DP_ChangeLogStreamT &changelog_io, 
-        std::uint64_t end_storage_page_num)
-    {
-        std::sort(m_change_log.begin(), m_change_log.end());        
-        ChangeLogData cl_data;
-        // add page numbers (logical) with deduplication
-        for (auto page_num : m_change_log) {
-            cl_data.m_rle_builder.append(page_num, false);            
-        }
-        
-        // RLE encode, no duplicates        
-        auto &result = changelog_io.appendChangeLog(
-            std::move(cl_data), this->getMaxStateNum(), end_storage_page_num
-        );
-        m_change_log.clear();
-        return result;
-    }
-    
-    std::size_t SparsePair::getChangeLogSize() const {
-        return m_change_log.size();
+        m_diff_index.refresh();
     }
 
-    void SparsePair::commit()
+    template <typename ConfigT>
+    void SparsePairBase<ConfigT>::detach() const
+    {
+        m_sparse_index.detach();
+        m_diff_index.detach();    
+    }
+
+    template <typename ConfigT>
+    std::size_t SparsePairBase<ConfigT>::size() const
+    {
+        return m_sparse_index.size() + m_diff_index.size();
+    }
+
+    template <typename ConfigT>
+    bool SparsePairBase<ConfigT>::empty() const
+    {
+        return m_sparse_index.empty() && m_diff_index.empty();
+    }
+
+    template <typename ConfigT>
+    void SparsePairBase<ConfigT>::commit()
     {
         m_sparse_index.commit();
         m_diff_index.commit();
     }
-    
-    Address SparsePair::getDiffIndexAddress(const SparseIndex &sparse_index, StorageFlags flags)
-    {        
-        assert(!!sparse_index || flags[StorageOptions::NO_LOAD]);
-        if (!!sparse_index) {
-            return Address::fromOffset(sparse_index.getExtraData());
-        }
-        // NOTE: address may not be available if NO_LOAD flag is set
-        return {};
+
+    template <typename ConfigT>
+    Address SparsePairBase<ConfigT>::getDiffIndexAddress(
+        const SparseIndexT &sparse_index, const PairHeaderT &pair_header, StorageFlags flags)
+    {
+        return Address::fromOffset(sparse_index.mixIn().getExtraData());
     }
+
+    template <typename ConfigT>
+    void SparsePairBase<ConfigT>::storeDiffIndexAddresses()
+    {
+        m_sparse_index.modifyMixIn().setExtraData(m_diff_index.getIndexAddress().getOffset());        
+    }
+    
+    template <typename ConfigT>
+    typename SparsePairBase<ConfigT>::ChangeLogT SparsePairBase<ConfigT>::extractChangeLogPages()
+    {
+        if (m_change_log) {
+            THROWF(db0::InternalException) << "extractChangeLogPages is only supported for SparsePair instances with owned change log";
+        }
+        ChangeLogT page_nums;
+        page_nums.swap(m_owned_change_log);
+        return page_nums;
+    }
+
+    template class SparsePairBase<RootSparsePairConfig>;
+    template class SparsePairBase<PlainSparsePairConfig>;
 
 }

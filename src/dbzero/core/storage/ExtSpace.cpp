@@ -66,6 +66,13 @@ namespace db0
             m_rel_index->commit();
         }
     }
+
+    void ExtSpace::clearMappings()
+    {
+        if (m_rel_index) {
+            m_rel_index->clearMappings();
+        }
+    }
     
     db0::v_object<o_ext_space> ExtSpace::tryOpenRoot() const
     {

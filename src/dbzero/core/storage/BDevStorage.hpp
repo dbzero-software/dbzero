@@ -11,9 +11,12 @@
 #include "BlockIOStream.hpp"
 #include "Page_IO.hpp"
 #include "Diff_IO.hpp"
+#include "StorageOptions.hpp"
 #include <optional>
-#include <cstdio>
+#include <functional>
+#include <vector>
 #include <dbzero/core/memory/AccessOptions.hpp>
+#include <dbzero/core/dram/MetaSpace.hpp>
 #include "BaseStorage.hpp"
 #include "DRAM_IOStream.hpp"
 #include "ChangeLogIOStream.hpp"
@@ -23,6 +26,7 @@
 #include <shared_mutex>
 #include "ExtSpace.hpp"
 #include "MemBaseStorage.hpp"
+#include "SparsePairManager.hpp"
 
 namespace db0
 
@@ -54,13 +58,11 @@ DB0_PACKED_BEGIN
         std::uint32_t m_page_io_step_size;
         std::uint32_t m_descriptor_page_size = 0;
         std::uint32_t m_descriptor_io_step_size = 0;
-        std::uint64_t m_descriptor_io_begin_page_num = 0;
-        std::uint64_t m_descriptor_io_end_page_num = 0;
         std::uint64_t m_ext_dram_io_offset = 0;
         std::uint32_t m_ext_dram_page_size = 0;
         std::uint64_t m_ext_dram_changelog_io_offset = 0;
         // reserved for future use (0-filled)
-        std::array<std::uint64_t, 16> m_reserved;
+        std::array<std::uint64_t, 18> m_reserved;
         
         o_prefix_config(std::uint32_t block_size, std::uint32_t page_size, std::uint32_t dram_page_size,
             std::uint32_t page_io_step_size, std::uint32_t descriptor_page_size,
@@ -85,7 +87,7 @@ DB0_PACKED_END
          * @param meta_io_step_size - the size of the step in the MetaIOStream (16MB by default)
         */
         BDevStorage(const std::string &file_name, AccessType = AccessType::READ_WRITE, LockFlags lock_flags = {},
-            std::optional<std::size_t> meta_io_step_size = {}, StorageFlags = {});
+            std::optional<std::size_t> meta_io_step_size = {}, StorageFlags = {}, StorageOptions = {});
         ~BDevStorage();
         
         /**
@@ -178,11 +180,13 @@ DB0_PACKED_END
         // all prefix configuration must fit into this block
         static constexpr unsigned int CONFIG_BLOCK_SIZE = 4096;
         CFile m_file;
-        const o_prefix_config m_config;
+        o_prefix_config m_config;
         
         // DRAM-changelog stream stores the sequence of updates to DRAM pages
         // DRAM-changelog must be initialized before DRAM_IOStream
         DRAM_ChangeLogStreamT m_dram_changelog_io;
+        // Descriptor-IO pages change log
+        DRAM_ChangeLogStreamT m_desc_changelog_io;
         // data-page change log, each chunk corresponds to a separate data transaction        
         // holds logical data page numbers mutated in that transaction
         DP_ChangeLogStreamT m_dp_changelog_io;
@@ -190,19 +194,20 @@ DB0_PACKED_END
         MetaIOStream m_meta_io;
         // memory-mapped file I/O
         DRAM_IOStream m_dram_io;
-        // SparseIndex + DiffIndex (based over the dram_io)
-        SparsePair m_sparse_pair;
-        // DRAM-backed sparse index tree
-        SparseIndex &m_sparse_index;
-        DiffIndex &m_diff_index;
+        // Root SparsePair maps MS_MetaSpace's own metadata pages.
+        SparsePair m_root_sparse_pair;
         // extension DRAM IO (only initialized when holding extension indexes e.g. REL_Index)
         std::unique_ptr<DRAM_ChangeLogStreamT> m_ext_dram_changelog_io;
         std::unique_ptr<DRAM_IOStream> m_ext_dram_io;
         ExtSpace m_ext_space;
-        // the stream for storing & reading full-DPs and diff-encoded DPs
-        Diff_IO m_page_io;
         // the stream for future descriptor-backed metadata
         Diff_IO m_descriptor_io;
+        StorageOptions m_options;
+        // Multi-slot metadata space hosts application data-page sparse pairs.
+        MS_MetaSpace m_meta_space;
+        SparsePairManager m_sparse_pair_manager;
+        // the stream for storing & reading full-DPs and diff-encoded DPs
+        Diff_IO m_page_io;
 #ifndef NDEBUG
         MemBaseStorage m_data_mirror;
 #endif
@@ -262,11 +267,12 @@ DB0_PACKED_END
         Diff_IO getPage_IO(std::optional<std::uint64_t> next_page_hint, std::uint32_t step_size);
         Diff_IO getDescriptor_IO();
         Diff_IO getDiff_IO(std::optional<std::uint64_t> next_page_hint, std::uint32_t page_size,
-            std::uint32_t step_size, bool include_file_size);
+            std::uint32_t step_size, std::function<std::uint64_t()> tail_function,
+            std::uint64_t initial_tail_address);
         
         o_prefix_config readConfig() const;
-        void writeDescriptorIOConfig(std::uint64_t begin_page_num, std::uint64_t end_page_num);
-        bool syncDescriptorIOConfig();
+
+        Allocator::SlotId getMetaSlotId(std::uint64_t page_num) const;
         
         /**
          * Get the first available address (i.e. end of the file)
@@ -275,7 +281,11 @@ DB0_PACKED_END
 
         std::function<std::uint64_t()> getTailFunction() const;
 
-        std::function<std::uint64_t()> getBlockIOTailFunction() const;
+        std::uint64_t blockIOTail() const;
+
+        std::function<std::uint64_t()> getDescriptorIOTailFunction() const;
+
+        std::function<std::uint64_t()> getPageIOTailFunction() const;
         
         // non-virtual version of tryFindMutation
         bool tryFindMutationImpl(std::uint64_t page_num, StateNumType state_num,

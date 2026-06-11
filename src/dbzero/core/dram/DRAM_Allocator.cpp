@@ -3,9 +3,7 @@
 
 #include "DRAM_Allocator.hpp"
 #include <dbzero/core/exception/Exceptions.hpp>
-#include <algorithm>
 #include <cassert>
-#include <vector>
 
 namespace db0
 
@@ -21,63 +19,68 @@ namespace db0
     {
         update(allocs);
     }
-
-    DRAM_Allocator::DRAM_Allocator(AddressSourceFunction source, std::size_t page_size)
-        : m_page_size(page_size)
+    
+    DRAM_Allocator::Updater::Updater(DRAM_Allocator &allocator)
+        : m_allocator(allocator)
+        , m_page_size(allocator.m_page_size)
     {
-        update(source);
     }
     
+    DRAM_Allocator::Updater::~Updater()
+    {
+        // finalize updates
+        m_allocator.m_next_page_id = m_max_page_id;
+    }
+
+    void DRAM_Allocator::Updater::operator()(std::size_t addr)
+    {
+        if (addr % m_page_size != 0) {
+            THROWF(db0::InternalException) << "DRAM_Allocator: invalid alloc address (" << addr << ")" << THROWF_END;
+        }
+        auto page_id = addr / m_page_size;
+        for (;m_max_page_id <= page_id; ++m_max_page_id) {
+            if (m_max_page_id != page_id) {
+                m_allocator.m_free_pages.insert(m_max_page_id);
+            }                
+        }
+    }
+
+    DRAM_Allocator::Updater DRAM_Allocator::beginUpdate()
+    {
+        if (!m_free_pages.empty()) {
+            THROWF(db0::InternalException) 
+                << "DRAM_Allocator: update called on non-empty allocator" << THROWF_END;
+        }
+        return Updater{*this};
+    }
+
     void DRAM_Allocator::update(const std::unordered_set<std::size_t> &allocs)
     {
         if (allocs.empty()) {
             return;
         }
 
-        std::vector<std::size_t> sorted_allocs(allocs.begin(), allocs.end());
-        std::sort(sorted_allocs.begin(), sorted_allocs.end());
-
-        update([&](AddressSinkFunction sink) {
-            for (auto addr: sorted_allocs) {
-                sink(addr);
-            }
-        });
-    }
-
-    void DRAM_Allocator::update(AddressSourceFunction source)
-    {
-        bool has_allocs = false;
-        std::uint64_t next_page_id = FIRST_PAGE_ID;
-
-        if (m_next_page_id != FIRST_PAGE_ID || !m_free_pages.empty()) {
+        if (!m_free_pages.empty()) {
             THROWF(db0::InternalException) 
                 << "DRAM_Allocator: update called on non-empty allocator" << THROWF_END;
         }
 
-        source([&](std::size_t addr) {
+        std::uint64_t max_page_id = FIRST_PAGE_ID;
+        for (auto addr: allocs) {
             if (addr % m_page_size != 0) {
                 THROWF(db0::InternalException) << "DRAM_Allocator: invalid alloc address (" << addr << ")" << THROWF_END;
             }
             auto page_id = addr / m_page_size;
-            if (page_id < FIRST_PAGE_ID) {
-                THROWF(db0::InternalException) << "DRAM_Allocator: invalid reserved alloc address (" << addr << ")" << THROWF_END;
+            for (;max_page_id <= page_id; ++max_page_id) {
+                if (max_page_id != page_id && allocs.find(max_page_id * m_page_size) == allocs.end()) {
+                    m_free_pages.insert(max_page_id);
+                }                
             }
-            if (page_id < next_page_id) {
-                THROWF(db0::InternalException) << "DRAM_Allocator: allocation addresses must be unique and ordered";
-            }
-            for (; next_page_id < page_id; ++next_page_id) {
-                m_free_pages.insert(next_page_id);
-            }
-            next_page_id = page_id + 1;
-            has_allocs = true;
-        });
-
-        if (has_allocs) {
-            m_next_page_id = next_page_id;
         }
+        m_next_page_id = max_page_id;
     }
     
-    std::optional<Address> DRAM_Allocator::tryAlloc(std::size_t size, SlotId slot_num,
+    std::optional<Address> DRAM_Allocator::tryAlloc(std::size_t size, std::uint32_t slot_num,
         bool aligned, unsigned char realm_id, unsigned char)
     {
         assert(slot_num == 0);
@@ -160,15 +163,6 @@ namespace db0
 
     Address DRAM_Allocator::firstAlloc() const {
         return Address::fromOffset(FIRST_PAGE_ID * m_page_size);
-    }
-
-    std::optional<Address> DRAM_Allocator::tryFirstAlloc() const
-    {
-        auto address = firstAlloc();
-        if (!isAllocated(address)) {
-            return std::nullopt;
-        }
-        return address;
     }
 
     void DRAM_Allocator::commit() const

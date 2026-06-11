@@ -9,7 +9,6 @@ from .memo_test_types import MemoTestClass, MemoTestSingleton
 from .conftest import DB0_DIR, worker_path
 import multiprocessing
 
-
 def test_copy_current_prefix(db0_fixture):
     file_name = worker_path("./test-copy.db0")
     # remove file if it exists
@@ -193,7 +192,6 @@ def test_copy_prefix_without_opening_it(db0_fixture):
 
 
 @pytest.mark.stress_test
-@pytest.mark.skip(reason="https://github.com/dbzero-software/dbzero/issues/662")
 def test_copy_prefix_continuous_process(db0_fixture):
     px_name = db0.get_current_prefix().name
     px_path = os.path.join(DB0_DIR, px_name + ".db0")
@@ -453,7 +451,6 @@ def test_slow_copy(db0_fixture):
     
 
 @pytest.mark.stress_test
-@pytest.mark.skip(reason="https://github.com/dbzero-software/dbzero/issues/662")
 def test_copy_prefix_continuous_process_slow_copy(db0_fixture):
     if 'D' in db0.build_flags(): 
         px_name = db0.get_current_prefix().name

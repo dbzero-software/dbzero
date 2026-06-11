@@ -16,6 +16,8 @@ namespace db0::tests
 
     void drop(const char *filename);
 
+    void dropPrefixFiles(const char *prefix_name);
+
     std::vector<char> randomPage(std::size_t size);
 
     bool equal(const std::vector<char> &v1, const std::vector<char> &v2);

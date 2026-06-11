@@ -188,9 +188,18 @@ namespace db0
     
     std::uint64_t REL_Index::assignRelative(std::uint64_t storage_page_num, bool is_first_in_step)
     {
+        auto current_range_end = m_storage_page_num + (m_max_rel_page_num - m_rel_page_num);
+        if (storage_page_num < m_storage_page_num) {
+            super_t::insert({ ++m_max_rel_page_num, storage_page_num });
+            m_storage_page_num = storage_page_num;
+            m_rel_page_num = m_max_rel_page_num;
+            return m_rel_page_num;
+        }
+
         assert(storage_page_num >= m_storage_page_num);
+        auto starts_new_range = storage_page_num > current_range_end + 1;
         // prevent adding a duplicate mapping (e.g. might be called multiple times after appendDiff)
-        if (is_first_in_step && (storage_page_num != m_storage_page_num)) {
+        if ((is_first_in_step || starts_new_range) && (storage_page_num != m_storage_page_num)) {
             super_t::insert({ ++m_max_rel_page_num, storage_page_num });
             assert(storage_page_num > m_storage_page_num);
             m_storage_page_num = storage_page_num;
@@ -232,6 +241,14 @@ namespace db0
         m_storage_page_num = this->treeHeader().m_storage_page_num;
         m_rel_page_num = this->treeHeader().m_rel_page_num;
         m_max_rel_page_num = this->treeHeader().m_max_rel_page_num;        
+    }
+
+    void REL_Index::clearMappings()
+    {
+        super_t::clear();
+        m_storage_page_num = 0;
+        m_rel_page_num = 0;
+        m_max_rel_page_num = 0;
     }
     
     std::uint64_t REL_Index::getAbsolute(std::uint64_t rel_page_num) const

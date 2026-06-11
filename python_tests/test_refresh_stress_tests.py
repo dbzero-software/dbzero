@@ -3,6 +3,7 @@
 
 import pytest
 import multiprocessing
+import queue
 import time
 import dbzero as db0
 import os
@@ -64,6 +65,136 @@ def create_process_refresh_query_while_adding(px_name, num_iterations,
                 db0.tags(obj).add("tag2")            
         db0.commit()
     db0.close()
+
+
+def _get_sparse_pair_manager_refresh_stress_config():
+    # Increase DB0_SPM_REFRESH_STRESS_SECONDS or set DB0_SPM_REFRESH_STRESS_MAX_COMMITS=0
+    # for open-ended long-duration runs. Large fast-writer settings are expected
+    # to exercise SparsePairManager refresh catch-up aggressively.
+    return {
+        "duration_seconds": float(os.environ.get("DB0_SPM_REFRESH_STRESS_SECONDS", "10")),
+        "batch_size": int(os.environ.get("DB0_SPM_REFRESH_STRESS_BATCH_SIZE", "256")),
+        "payload_size": int(os.environ.get("DB0_SPM_REFRESH_STRESS_PAYLOAD_SIZE", "2048")),
+        "max_commits": int(os.environ.get("DB0_SPM_REFRESH_STRESS_MAX_COMMITS", "200")),
+        "reader_sleep_seconds": float(os.environ.get("DB0_SPM_REFRESH_STRESS_READER_SLEEP", "0.01")),
+        "catch_up_seconds": float(os.environ.get("DB0_SPM_REFRESH_STRESS_CATCH_UP_SECONDS", "60")),
+    }
+
+
+def _sparse_pair_manager_refresh_writer(px_name, config, result_queue):
+    try:
+        db0.init(DB0_DIR)
+        db0.open(px_name, "rw")
+        root = MemoTestSingleton([])
+        start_time = time.monotonic()
+        commit_count = 0
+        total_count = 0
+
+        while True:
+            if config["max_commits"] and commit_count >= config["max_commits"]:
+                break
+            if time.monotonic() - start_time >= config["duration_seconds"]:
+                break
+
+            payload = f"{commit_count:08d}-" + ("x" * config["payload_size"])
+            for _ in range(config["batch_size"]):
+                root.value.append(MemoTestClass(payload))
+            db0.commit()
+
+            commit_count += 1
+            total_count += config["batch_size"]
+            if commit_count % 10 == 0:
+                result_queue.put(("progress", total_count))
+
+        result_queue.put(("done", total_count))
+        db0.close()
+    except BaseException as exc:
+        result_queue.put(("error", repr(exc)))
+        try:
+            db0.close()
+        except BaseException:
+            pass
+
+
+@pytest.mark.stress_test
+@pytest.mark.parametrize("stress_config", [_get_sparse_pair_manager_refresh_stress_config()])
+def test_sparse_pair_manager_sparse_indexes_refresh_under_long_running_updates(db0_fixture, stress_config):
+    root = MemoTestSingleton([])
+    px_name = db0.get_current_prefix().name
+    db0.commit()
+    db0.close()
+
+    result_queue = multiprocessing.Queue()
+    writer = multiprocessing.Process(
+        target=_sparse_pair_manager_refresh_writer,
+        args=(px_name, stress_config, result_queue),
+    )
+    writer.start()
+
+    final_count = None
+    last_seen_count = 0
+    refresh_count = 0
+    last_state_num = 0
+    last_refresh_result = None
+    start_time = time.monotonic()
+    writer_timeout_seconds = max(30.0, stress_config["duration_seconds"] * 4)
+    catch_up_start_time = None
+
+    try:
+        db0.init(DB0_DIR)
+        db0.open(px_name, "r")
+        while True:
+            try:
+                while True:
+                    event, value = result_queue.get_nowait()
+                    if event == "error":
+                        raise AssertionError(f"writer failed: {value}")
+                    if event == "done":
+                        final_count = value
+                        catch_up_start_time = time.monotonic()
+            except queue.Empty:
+                pass
+
+            last_refresh_result = db0.refresh()
+            refresh_count += 1
+            last_state_num = db0.get_state_num(px_name)
+
+            with db0.snapshot() as snap:
+                root = snap.fetch(MemoTestSingleton)
+                current_count = len(root.value)
+                assert current_count >= last_seen_count
+                if current_count:
+                    first = root.value[0].value
+                    last = root.value[current_count - 1].value
+                    assert isinstance(first, str) and first.endswith("x" * stress_config["payload_size"])
+                    assert isinstance(last, str) and last.endswith("x" * stress_config["payload_size"])
+                last_seen_count = current_count
+
+            if final_count is not None and last_seen_count >= final_count:
+                break
+            if final_count is None and time.monotonic() - start_time > writer_timeout_seconds:
+                raise AssertionError(
+                    f"writer did not finish: seen={last_seen_count}, refresh_count={refresh_count}"
+                )
+            if (catch_up_start_time is not None
+                    and time.monotonic() - catch_up_start_time > stress_config["catch_up_seconds"]):
+                raise AssertionError(
+                    f"reader did not catch up: seen={last_seen_count}, final={final_count}, "
+                    f"refresh_count={refresh_count}, state_num={last_state_num}, "
+                    f"last_refresh_result={last_refresh_result}"
+                )
+            time.sleep(stress_config["reader_sleep_seconds"])
+
+        writer.join(timeout=5)
+        assert writer.exitcode == 0
+        assert final_count is not None
+        assert last_seen_count == final_count
+        assert refresh_count > 0
+    finally:
+        if writer.is_alive():
+            writer.terminate()
+        writer.join()
+        db0.close()
 
 
 @pytest.mark.stress_test

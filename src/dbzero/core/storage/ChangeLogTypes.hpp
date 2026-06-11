@@ -32,14 +32,13 @@ DB0_PACKED_BEGIN
     struct DB0_PACKED_ATTR o_dram_changelog_header: o_fixed<o_dram_changelog_header>
     {
         // state number this change log corresponds to
-        StateNumType m_state_num;
-        // reserved for future use
+        StateNumType m_state_num;        
         std::array<std::uint64_t, 2> m_reserved = { 0, 0 };
         
         o_dram_changelog_header(StateNumType state_num)
             : m_state_num(state_num)            
         {
-        }        
+        }
     };
 DB0_PACKED_END
     

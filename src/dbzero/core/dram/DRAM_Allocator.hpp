@@ -4,7 +4,6 @@
 #pragma once
 
 #include <dbzero/core/memory/Allocator.hpp>
-#include <functional>
 #include <unordered_set>
 
 namespace db0
@@ -17,9 +16,6 @@ namespace db0
     class DRAM_Allocator: public Allocator
     {
     public:
-        using AddressSinkFunction = std::function<void(std::size_t)>;
-        using AddressSourceFunction = std::function<void(AddressSinkFunction)>;
-
         DRAM_Allocator(std::size_t page_size);
 
         /**
@@ -27,21 +23,29 @@ namespace db0
         */
         DRAM_Allocator(const std::unordered_set<std::size_t> &allocs, std::size_t page_size);
 
-        /**
-         * Create pre-populated with existing allocations streamed in ascending address order.
-        */
-        DRAM_Allocator(AddressSourceFunction, std::size_t page_size);
+        struct Updater
+        {
+            DRAM_Allocator &m_allocator;
+            std::uint64_t m_max_page_id = FIRST_PAGE_ID;
+            const std::size_t m_page_size;
 
+            Updater(DRAM_Allocator &);
+            // must be called after all updates to finalize the state
+            ~Updater();
+
+            // must be populated in address-ascending order
+            void operator()(std::size_t addr);
+        };
+        
+        // Allows populating the initial state, only allowed when the allocator is empty
+        // expecting a complete list of allocated addresses (e.g. from the underlying storage) 
+        // and to be provided in ascending order
+        Updater beginUpdate();
+        
         /**
          * Update with externally provided list of allocations (add new allocations)
          */
         void update(const std::unordered_set<std::size_t> &allocs);
-
-        /**
-         * Add existing allocations streamed in ascending address order. Missing pages between
-         * streamed addresses are recorded as free pages.
-        */
-        void update(AddressSourceFunction);
 
         std::optional<Address> tryAlloc(std::size_t size, SlotId slot_num = 0,
             bool aligned = false, unsigned char realm_id = 0, unsigned char locality = 0) override;
@@ -60,10 +64,9 @@ namespace db0
 
         /**
          * Get address of the 1st allocation
+         * possibly from a specific slot (if supported, otherwise slot_num is ignored)
         */
-        Address firstAlloc() const;
-
-        std::optional<Address> tryFirstAlloc() const;
+        Address firstAlloc(SlotId slot_num = 0) const;
 
     private:
         static constexpr std::size_t FIRST_PAGE_ID = 1;

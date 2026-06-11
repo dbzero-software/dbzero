@@ -88,6 +88,17 @@ namespace db0
         return flushed;
     }
     
+    bool DirtyCache::empty() const
+    {
+        std::unique_lock<std::mutex> lock(m_mutex);
+        for (auto &res_lock : m_locks) {
+            if (res_lock->isDirty()) {
+                return false;
+            }
+        }
+        return true;
+    }
+    
     void DirtyCache::flushDirty(SinkFunction sink)
     {
         std::unique_lock<std::mutex> lock(m_mutex);

@@ -20,6 +20,7 @@
 #include <dbzero/object_model/object/ObjectImmutableImpl.hpp>
 #include <dbzero/object_model/object/o_embedded_object.hpp>
 #include <dbzero/workspace/Workspace.hpp>
+#include <utils/ScopedWorkspaceFixture.hpp>
 
 #include <cstddef>
 #include <cstdint>
@@ -506,8 +507,8 @@ namespace tests
     {
         Py_Initialize();
 
-        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
-        auto fixture = workspace.getFixture("embedded-dict-nested-memo");
+        ScopedWorkspaceFixture workspace_fixture("embedded-dict-nested-memo");
+        auto fixture = workspace_fixture.fixture();
         auto nestedClass = getTestClass(fixture);
         auto pyMemoType = makeMemoType();
         ASSERT_TRUE(pyMemoType.get());
@@ -571,7 +572,7 @@ namespace tests
         ASSERT_TRUE(sawEmbeddedKey);
         ASSERT_TRUE(sawEmbeddedValue);
 
-        workspace.close();
+        workspace_fixture.close();
     }
 
 }

@@ -7,7 +7,8 @@ namespace db0
 
 {
 
-    SparseIndexQuery::SparseIndexQuery(const SparseIndex &sparse_index, const DiffIndex &diff_index,
+    template <typename SparseIndexT>
+    SparseIndexQuery<SparseIndexT>::SparseIndexQuery(const SparseIndexT &sparse_index, const DiffIndex &diff_index,
         std::uint64_t page_num, StateNumType state_num)
         : m_query_page_num(page_num)
         , m_query_state_num(state_num)
@@ -27,11 +28,13 @@ namespace db0
         }
     }
     
-    bool SparseIndexQuery::empty() const {
+    template <typename SparseIndexT>
+    bool SparseIndexQuery<SparseIndexT>::empty() const {
         return !m_non_empty || lessThan(1);
     }
     
-    bool SparseIndexQuery::next(StateNumType &state_num, std::uint64_t &storage_page_num)
+    template <typename SparseIndexT>
+    bool SparseIndexQuery<SparseIndexT>::next(StateNumType &state_num, std::uint64_t &storage_page_num)
     {
         // unable to iterate past the queried state number
         if (m_state_num >= m_query_state_num) {
@@ -77,7 +80,8 @@ namespace db0
         }
     }
     
-    bool SparseIndexQuery::lessThan(unsigned int size) const
+    template <typename SparseIndexT>
+    bool SparseIndexQuery<SparseIndexT>::lessThan(unsigned int size) const
     {
         assert(size > 0 && "SparseIndexQuery::lessThan: size must be > 0");        
         if (m_full_dp) {
@@ -101,7 +105,8 @@ namespace db0
         return lessThanFrom(size, diff_dp, diff_it, last_state_num);
     }
     
-    bool SparseIndexQuery::leftLessThan(unsigned int size) const
+    template <typename SparseIndexT>
+    bool SparseIndexQuery<SparseIndexT>::leftLessThan(unsigned int size) const
     {
         assert(size > 0 && "SparseIndexQuery::lessThan: size must be > 0");
         auto diff_dp = m_diff_dp;
@@ -110,7 +115,8 @@ namespace db0
         return lessThanFrom(size, diff_dp, diff_it, last_state_num);
     }
     
-    bool SparseIndexQuery::lessThanFrom(unsigned int size, DI_Item &diff_dp, typename DI_Item::ConstIterator &diff_it,
+    template <typename SparseIndexT>
+    bool SparseIndexQuery<SparseIndexT>::lessThanFrom(unsigned int size, DI_Item &diff_dp, typename DI_Item::ConstIterator &diff_it,
         StateNumType &last_state_num) const
     {
         assert(size > 0 && "SparseIndexQuery::lessThan: size must be > 0");
@@ -161,7 +167,8 @@ namespace db0
         return false;
     }
 
-    bool tryFindMutation(const SparseIndex &sparse_index, const DiffIndex &diff_index, std::uint64_t page_num,
+    template <typename SparseIndexT>
+    bool tryFindMutation(const SparseIndexT &sparse_index, const DiffIndex &diff_index, std::uint64_t page_num,
         StateNumType state_num, StateNumType &mutation_id)
     {
         // query the diff index first
@@ -175,5 +182,12 @@ namespace db0
         mutation_id = std::max((StateNumType)item.m_state_num, mutation_id);
         return true;
     }
-    
+
+    template class SparseIndexQuery<RootSparseIndex>;
+    template class SparseIndexQuery<PlainSparseIndex>;
+    template bool tryFindMutation<RootSparseIndex>(const RootSparseIndex &, const DiffIndex &,
+        std::uint64_t, StateNumType, StateNumType &);
+    template bool tryFindMutation<PlainSparseIndex>(const PlainSparseIndex &, const DiffIndex &,
+        std::uint64_t, StateNumType, StateNumType &);
+
 }

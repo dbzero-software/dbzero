@@ -24,6 +24,7 @@ namespace db0
         void flush();
         void close();
         void clear();
+        void resetWriteCursor();
 
         Reader getReader() const;
 

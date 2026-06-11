@@ -84,10 +84,14 @@ namespace db0
             bool *became_dirty = nullptr);
 
         void forEachDirtyPage(DirtyPageFunction) const;
+        // Check if there are any dirty pages
+        bool isDirty() const;
 
         bool hasPage(std::uint64_t page_num) const;
-
-        bool evictCleanPageRange(std::uint64_t first_page_num, std::uint64_t last_page_num);
+        
+        // Evict clean page range without users (the method must be called after detaching user objects)
+        // and flushing dirty pages (in case of read/write instance)
+        bool evictPageRange(std::uint64_t first_page_num, std::uint64_t end_page_num);
 
     private:        
         const std::size_t m_page_size;
@@ -116,14 +120,16 @@ namespace db0
             void resetDirtyFlag();
         };
 
-        mutable std::unordered_map<std::size_t, MemoryPage> m_pages;
+        mutable std::unordered_map<std::uint64_t, MemoryPage> m_pages;
+        // high-water mark of page numbers allocated so far, used for eviction heuristics
+        mutable std::uint64_t m_max_page_num = 0;
 
     public:
 #ifndef NDEBUG
         // get total memory usage across all instances of DRAM_Prefix
         static std::pair<std::size_t, std::size_t> getTotalMemoryUsage();
 
-        const std::unordered_map<std::size_t, MemoryPage> &getPages() const {
+        const std::unordered_map<std::uint64_t, MemoryPage> &getPages() const {
             return m_pages;
         }
         

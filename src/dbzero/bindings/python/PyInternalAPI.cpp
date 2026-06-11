@@ -39,6 +39,8 @@
 #include <dbzero/bindings/python/types/PyEnum.hpp>
 #include <dbzero/bindings/python/types/PyClass.hpp>
 #include <dbzero/bindings/python/DataMasking.hpp>
+#include <chrono>
+#include <thread>
 
 namespace db0::python
 
@@ -1260,15 +1262,19 @@ namespace db0::python
             meta_io_step_size = in_meta_step_size > 1 ? in_meta_step_size : (1u << 20);
         }
         
+        std::unique_ptr<BDevStorage> out;
         try {
             BDevStorage::create(output_file_name, src_storage.getPageSize(), src_storage.getDRAMPageSize(), page_io_step_size);
-            BDevStorage out(output_file_name, db0::AccessType::READ_WRITE);
+            out = std::unique_ptr<BDevStorage>(new BDevStorage(output_file_name, db0::AccessType::READ_WRITE));
             // copy entire prefix
-            src_storage.copyTo(out);
-            out.close();
+            src_storage.copyTo(*out);
+            out->close();
         } catch (...) {
             // cleanup
             try {
+                if (out) {
+                    out->close();
+                }
                 if (db0::CFile::exists(output_file_name)) {
                     db0::CFile::remove(output_file_name);
                 }
@@ -1324,29 +1330,40 @@ namespace db0::python
             }
         }
         
-        std::unique_ptr<BDevStorage> storage;
-        try {
-            auto prefix = tryFindPrefixFromArgs(py_prefix); 
-            StorageFlags flags = { StorageOptions::NO_LOAD };
-            if (prefix) {
-                // open as a copy of an existing prefix
-                auto &in = prefix->getPrefix().getStorage().asFile();
-                storage = std::unique_ptr<BDevStorage>(new BDevStorage(
-                    in.getFileName(), AccessType::READ_ONLY, {}, in.getMetaIO().getStepSize(), flags)
-                );
-            } else {
-                // NOTE: for copy we open the storage as NO_LOAD
-                storage = getPrefixStorage(py_prefix, meta_io_step_size, flags);
-            }
-            auto result = Py_OWN(tryCopyPrefixImpl(*storage, output_file_name, page_io_step_size, meta_io_step_size));
-            storage->close();
-            return result.steal();
-        } catch (...) {
-            if (storage) {
+        constexpr unsigned int copy_attempt_count = 8;
+        for (unsigned int attempt = 0; attempt < copy_attempt_count; ++attempt) {
+            std::unique_ptr<BDevStorage> storage;
+            try {
+                auto prefix = tryFindPrefixFromArgs(py_prefix);
+                StorageFlags flags = { StorageFlagOption::NO_LOAD };
+                if (prefix) {
+                    // open as a copy of an existing prefix
+                    auto &in = prefix->getPrefix().getStorage().asFile();
+                    storage = std::unique_ptr<BDevStorage>(new BDevStorage(
+                        in.getFileName(), AccessType::READ_ONLY, {}, in.getMetaIO().getStepSize(), flags)
+                    );
+                } else {
+                    storage = getPrefixStorage(py_prefix, meta_io_step_size, flags);
+                }
+                auto result = Py_OWN(tryCopyPrefixImpl(*storage, output_file_name, page_io_step_size, meta_io_step_size));
                 storage->close();
+                return result.steal();
+            } catch (db0::IOException &) {
+                if (storage) {
+                    storage->close();
+                }
+                if (attempt + 1 == copy_attempt_count) {
+                    throw;
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            } catch (...) {
+                if (storage) {
+                    storage->close();
+                }
+                throw;
             }
-            throw;
         }
+        Py_UNREACHABLE();
     }
     
 #ifndef NDEBUG

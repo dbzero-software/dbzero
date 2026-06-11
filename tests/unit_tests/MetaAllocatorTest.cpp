@@ -158,6 +158,19 @@ namespace tests
         ASSERT_EQ(f(offset + 2 * slab_size), 2u);
     }
 
+    TEST_F( MetaAllocatorTests , testStorageSlabBucketingFunctionReportsBucketPageSpan )
+    {
+        auto page_size = 4096;
+        auto slab_size = 16 * page_size;
+        auto f = MetaAllocator::getStorageSlabBucketingFunction(page_size, slab_size);
+
+        auto bucket = f.getBucket(slab_size + page_size, page_size);
+
+        ASSERT_EQ(bucket.m_slot_id, 1u);
+        ASSERT_EQ(bucket.m_begin_page_num, 16u);
+        ASSERT_EQ(bucket.m_end_page_num, 32u);
+    }
+
     TEST_F( MetaAllocatorTests , testMetaAllocatorCanBeInitialized )
     {
         // prepare prefix before first use

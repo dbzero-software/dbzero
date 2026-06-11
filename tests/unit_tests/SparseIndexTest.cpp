@@ -40,6 +40,23 @@ namespace tests
         SparseIndex cut(16 * 1024);
     }
 
+    TEST_F( SparseIndexTest , testSparseIndexBaseCanUseEmptyHeaderMixin )
+    {
+        using EmptySparseIndexBase = SparseIndexBase<SI_Item, SI_CompressedItem, EmptyMixin>;
+        EmptySparseIndexBase cut(16 * 1024);
+
+        cut.emplace(1, 1, 10);
+        cut.emplace(1, 3, 30);
+        cut.update(1, 4, 40);
+        cut.modifyMixIn().refresh();
+
+        ASSERT_FALSE(cut.lookup(1, 1));
+        ASSERT_FALSE(cut.lookup(1, 3));
+        auto updated = cut.lookup(1, 4);
+        ASSERT_TRUE(updated);
+        ASSERT_EQ(updated.m_storage_page_num, 40u);
+    }
+
     TEST_F( SparseIndexTest , testSparseIndexCanAppendPageDescriptors )
     {
         SparseIndex cut(16 * 1024);
@@ -94,30 +111,22 @@ namespace tests
         testSparseIndexLookupPageDescriptors(16 * 1024);
     }
 
-    TEST_F( SparseIndexTest , testSparseIndexCanTrackMaxStoragePageNum )
+    TEST_F( SparseIndexTest , testSparseIndexOwnerCanRecordNextStoragePageNum )
     {
         SparseIndex cut(16 * 1024);
-        std::vector<typename SparseIndex::SI_ItemT> items {
-            // page number, state number, physical page number, page type
-            { 0, 0, 0 }, { 1, 0, 1 }, { 2, 0, 2 }, { 3, 1, 3 }, { 0, 1, 4 }, { 2, 2, 5 }, { 4, 3, 6 }
-        };
-        for (auto &item: items) {
-            cut.insert(item);
-        }
-        ASSERT_EQ(cut.getNextStoragePageNum(), 7);
+        cut.emplace(4, 3, 6);
+        ASSERT_EQ(cut.mixIn().getNextStoragePageNum(), std::nullopt);
+        cut.modifyMixIn().recordNextStoragePageNum(7);
+        ASSERT_EQ(cut.mixIn().getNextStoragePageNum(), 7);
     }
     
-    TEST_F( SparseIndexTest , testSparseIndexCanTrackMaxStateNum )
+    TEST_F( SparseIndexTest , testSparseIndexOwnerCanRecordMaxStateNum )
     {
         SparseIndex cut(16 * 1024);
-        std::vector<typename SparseIndex::SI_ItemT> items {
-            // page number, state number, physical page number, page type
-            { 0, 0, 0 }, { 1, 0, 1 }, { 2, 0, 2 }, { 3, 1, 3 }, { 0, 1, 4 }, { 2, 2, 5 }, { 4, 3, 6 }
-        };
-        for (auto &item: items) {
-            cut.insert(item);
-        }
-        ASSERT_EQ(cut.getMaxStateNum(), 3);
+        cut.emplace(4, 3, 6);
+        ASSERT_EQ(cut.mixIn().getMaxStateNum(), 0);
+        cut.modifyMixIn().recordMaxStateNum(3);
+        ASSERT_EQ(cut.mixIn().getMaxStateNum(), 3);
     }
 
     TEST_F( SparseIndexTest , testSparseIndexUpdateReplacesOlderPageDescriptors )
@@ -135,8 +144,8 @@ namespace tests
         ASSERT_TRUE(updated);
         ASSERT_EQ(updated.m_storage_page_num, 40u);
         ASSERT_TRUE(cut.lookup(2, 2));
-        ASSERT_EQ(cut.getNextStoragePageNum(), 41);
-        ASSERT_EQ(cut.getMaxStateNum(), 4);
+        ASSERT_EQ(cut.mixIn().getNextStoragePageNum(), std::nullopt);
+        ASSERT_EQ(cut.mixIn().getMaxStateNum(), 0);
     }
 
     TEST_F( SparseIndexTest , testSparseIndexCanBeUpdatedByDRAMSpaceSwap )
@@ -176,8 +185,7 @@ namespace tests
         (*dram_pair.first) = sparse_index.getDRAMPrefix();
         // make sure the contents is in-sync
         for (unsigned int i = 0; i < 5; ++i) {
-            auto state_num = sparse_index.getMaxStateNum();
-            ASSERT_EQ(cut.lookup(i, state_num), sparse_index.lookup(i, state_num));
+            ASSERT_EQ(cut.lookup(i, 3), sparse_index.lookup(i, 3));
         }
     }
 
@@ -199,12 +207,13 @@ namespace tests
         for (auto &item: items_1) {
             sparse_index.insert(item);
         }
+        sparse_index.modifyMixIn().recordMaxStateNum(1);
         // copy DRAM binary contents between the instances
         *(dram_pair.first) = sparse_index.getDRAMPrefix();
         
         // make sure max-state-number reported correctly after refresh
         cut.refresh();
-        ASSERT_EQ(cut.getMaxStateNum(), 1);
+        ASSERT_EQ(cut.mixIn().getMaxStateNum(), 1);
 
         std::vector<typename SparseIndex::SI_ItemT> items_2 {
             // page number, state number, physical page number, page type
@@ -214,10 +223,11 @@ namespace tests
         for (auto &item: items_2) {
             sparse_index.insert(item);
         }
+        sparse_index.modifyMixIn().recordMaxStateNum(3);
 
         (*dram_pair.first) = sparse_index.getDRAMPrefix();
         cut.refresh();
-        ASSERT_EQ(cut.getMaxStateNum(), 3);
+        ASSERT_EQ(cut.mixIn().getMaxStateNum(), 3);
     }
             
     TEST_F( SparseIndexTest , testSparseIndexInsertFailingCase )
@@ -435,24 +445,26 @@ namespace tests
             cut.emplace(1, state_num, state_num);
             cut.emplace(2, state_num, 1000 + state_num);
         }
+        cut.modifyMixIn().recordNextStoragePageNum(1081);
+        cut.modifyMixIn().recordMaxStateNum(80);
         ASSERT_GT(cut.size(), 2u);
-        ASSERT_EQ(cut.getNextStoragePageNum(), 1081u);
-        ASSERT_EQ(cut.getMaxStateNum(), 80u);
+        ASSERT_EQ(cut.mixIn().getNextStoragePageNum(), 1081u);
+        ASSERT_EQ(cut.mixIn().getMaxStateNum(), 80u);
 
         cut.clear();
 
         ASSERT_TRUE(cut.empty());
         ASSERT_EQ(cut.size(), 0u);
-        ASSERT_EQ(cut.getNextStoragePageNum(), std::nullopt);
-        ASSERT_EQ(cut.getMaxStateNum(), 80u);
+        ASSERT_EQ(cut.mixIn().getNextStoragePageNum(), 1081u);
+        ASSERT_EQ(cut.mixIn().getMaxStateNum(), 80u);
         ASSERT_FALSE(cut.lookup(1, 80));
         ASSERT_FALSE(cut.lookup(2, 80));
 
         cut.emplace(3, 81, 0);
         ASSERT_EQ(cut.size(), 1u);
         ASSERT_EQ(cut.lookup(3, 81).m_storage_page_num, 0u);
-        ASSERT_EQ(cut.getNextStoragePageNum(), 1081u);
-        ASSERT_EQ(cut.getMaxStateNum(), 81u);
+        ASSERT_EQ(cut.mixIn().getNextStoragePageNum(), 1081u);
+        ASSERT_EQ(cut.mixIn().getMaxStateNum(), 80u);
     }
 
     TEST_F( SparseIndexTest , testSparseIndexClearEmptyAndChangeLogNoOp )
@@ -473,12 +485,12 @@ namespace tests
         ASSERT_TRUE(cut.empty());
         ASSERT_EQ(cut.size(), 0u);
         ASSERT_TRUE(change_log.empty());
-        ASSERT_EQ(cut.getNextStoragePageNum(), std::nullopt);
-        ASSERT_EQ(cut.getMaxStateNum(), 1u);
+        ASSERT_EQ(cut.mixIn().getNextStoragePageNum(), std::nullopt);
+        ASSERT_EQ(cut.mixIn().getMaxStateNum(), 0u);
 
         cut.emplace(2, 2, 0);
-        ASSERT_EQ(cut.getNextStoragePageNum(), 11u);
-        ASSERT_EQ(cut.getMaxStateNum(), 2u);
+        ASSERT_EQ(cut.mixIn().getNextStoragePageNum(), std::nullopt);
+        ASSERT_EQ(cut.mixIn().getMaxStateNum(), 0u);
     }
 
     TEST_F( SparseIndexTest , testSparseIndexForPageRangeUsesHalfOpenBounds )

@@ -82,6 +82,8 @@ DB0_PACKED_END
             assert(m_rel_index);
             m_rel_index->addMapping(storage_page_num, rel_page_num, count);
         }
+
+        void clearMappings();
         
         // Begins the iterator over sorted elements (on condition that ExtSpace is valid)
         std::unique_ptr<const_iterator> tryBegin() const;

@@ -20,6 +20,7 @@
 #include <dbzero/object_model/set/o_set.hpp>
 #include <dbzero/object_model/tuple/o_tuple.hpp>
 #include <dbzero/workspace/Workspace.hpp>
+#include <utils/ScopedWorkspaceFixture.hpp>
 
 #include <stdexcept>
 #include <string>
@@ -756,8 +757,8 @@ namespace tests
     {
         Py_Initialize();
 
-        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
-        auto fixture = workspace.getFixture("embedded-object-nested-memo");
+        ScopedWorkspaceFixture workspace_fixture("embedded-object-nested-memo");
+        auto fixture = workspace_fixture.fixture();
         auto nestedClass = getTestClass(fixture);
         auto pyMemoType = makeMemoType();
         ASSERT_TRUE(pyMemoType.get());
@@ -794,7 +795,7 @@ namespace tests
         ASSERT_EQ(fixedValue->m_kind, StorageClass::INT64);
         ASSERT_EQ(fixedValue->m_value, 17u);
 
-        workspace.close();
+        workspace_fixture.close();
     }
 
     TEST_F( EmbeddedObjectTest , testEmbeddedObjectMeasureSizeOfAndSafeSizeOf )

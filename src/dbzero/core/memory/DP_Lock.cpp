@@ -23,6 +23,9 @@ namespace db0
         assert(addrPageAligned(m_context.m_storage_ref.get()));
         // initialzie the local buffer
         if (access_mode[AccessOptions::read]) {
+            if (read_state_num == 0) {
+                return;
+            }
             assert(read_state_num > 0);            
             // read into the local buffer
             m_context.m_storage_ref.get().read(

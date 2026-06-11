@@ -91,6 +91,7 @@ namespace db0
         auto it = m_pages.find(page_num);
         if (it == m_pages.end()) {
             it = m_pages.emplace(page_num, MemoryPage(m_context, address - offset, m_page_size)).first;
+            m_max_page_num = std::max(m_max_page_num, page_num);
         } else if (access_mode[AccessOptions::write]) {
             auto did_set_dirty = it->second.m_lock->setDirty();
             if (became_dirty) {
@@ -116,7 +117,8 @@ namespace db0
         m_dirty_cache.flushDirty(sink);
     }
 
-    void DRAM_Prefix::forEachDirtyPage(DirtyPageFunction f) const {
+    void DRAM_Prefix::forEachDirtyPage(DirtyPageFunction f) const 
+    {
         m_dirty_cache.forAll([&](const ResourceLock &lock) {
             if (lock.isDirty()) {
                 f(lock.getAddress() / m_page_size, lock.getBuffer());
@@ -124,34 +126,39 @@ namespace db0
         });
     }
 
-    bool DRAM_Prefix::hasPage(std::uint64_t page_num) const {
+    bool DRAM_Prefix::isDirty() const {
+        return m_dirty_cache.hasDirty();
+    }
+
+    bool DRAM_Prefix::hasPage(std::uint64_t page_num) const 
+    {
         return m_pages.find(page_num) != m_pages.end();
     }
 
-    bool DRAM_Prefix::evictCleanPageRange(std::uint64_t first_page_num, std::uint64_t last_page_num)
+    void DRAM_Prefix::evictPageRange(std::uint64_t first_page_num, std::uint64_t end_page_num)
     {
-        for (auto page_num = first_page_num; page_num < last_page_num; ++page_num) {
+        // this is to reduce scan to existing pages
+        end_page_num = std::min(end_page_num, m_max_page_num + 1);
+        for (auto page_num = first_page_num; page_num < end_page_num; ++page_num) {
             auto it = m_pages.find(page_num);
             if (it == m_pages.end()) {
                 continue;
             }
             auto &lock = it->second.m_lock;
             if (!lock || lock->isDirty() || lock.use_count() != 1) {
-                return false;
+                THROWF(db0::InternalException) << "DRAM_Prefix: unable to evict page " << page_num 
+                    << " (dirty = " << (lock ? lock->isDirty() : false) << ", ref_count = " << (lock ? lock.use_count() : 0) << ")" << THROWF_END;
             }
+            m_pages.erase(it);
         }
-
-        for (auto page_num = first_page_num; page_num < last_page_num; ++page_num) {
-            m_pages.erase(page_num);
-        }
-        return true;
     }
     
-    void *DRAM_Prefix::update(std::size_t page_num, bool mark_dirty)
+    void *DRAM_Prefix::update(std::uint64_t page_num, bool mark_dirty)
     {
         auto it = m_pages.find(page_num);
         if (it == m_pages.end()) {
             it = m_pages.emplace(page_num, MemoryPage(m_context, page_num * m_page_size, m_page_size)).first;
+            m_max_page_num = std::max(m_max_page_num, page_num);
         }        
         if (mark_dirty) {
             it->second.m_lock->setDirty();
@@ -193,7 +200,8 @@ namespace db0
             } else {
                 ++it;
             }
-        }        
+        }
+        m_max_page_num = other.m_max_page_num;
     }
     
     std::uint64_t DRAM_Prefix::getLastUpdated() const {
@@ -235,10 +243,13 @@ namespace db0
 
     std::size_t DRAM_Prefix::getDirtySize() const
     {
-        assert(false);
-        throw std::runtime_error("DRAM_Prefix::getDirtySize operation not supported");
+        std::size_t result = 0;
+        forEachDirtyPage([&](std::uint64_t, const void *) {
+            result += getPageSize();
+        });
+        return result;
     }
-
+    
     std::size_t DRAM_Prefix::flushDirty(std::size_t) 
     {
         assert(false);

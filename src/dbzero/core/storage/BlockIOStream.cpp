@@ -224,6 +224,8 @@ namespace db0
             // end-of-stream reached, need to call refresh to be able data appended in meantime
             return 0;
         }
+        State state;
+        saveState(state);
         o_block_io_chunk_header chunk_header;
         if (!peek(&chunk_header, o_block_io_chunk_header::sizeOf(), address)) {
             // end of stream (maybe process crashed when flushing?)
@@ -236,14 +238,19 @@ namespace db0
             return 0;
         }
         if (expected_size && chunk_header.m_chunk_size != expected_size) {
-            THROWF(db0::InternalException) << "BlockIOStream::readChunk: chunk size mismatch";
+            THROWF(db0::IOException) << "Unexpected chunk size";
         }
-        skip(chunk_header.sizeOf());
+        if (!skip(chunk_header.sizeOf())) {
+            restoreState(state);
+            m_eos = true;
+            return 0;
+        }
         assert(chunk_header.isValid());
         if (buffer.size() < chunk_header.m_chunk_size) {
             buffer.resize(chunk_header.m_chunk_size);
         }
         if (!read(buffer.data(), chunk_header.m_chunk_size)) {
+            restoreState(state);
             m_eos = true;
             return 0;
         }
@@ -351,6 +358,22 @@ namespace db0
         
         // contents might've changed without file size change
         m_file.refresh();
+        if (m_block_header.hasNext()) {
+            auto next_block_address = m_block_header.m_next_block_address;
+            if (m_file.size() >= next_block_address + m_block_size) {
+                std::vector<char> buffer(m_block_size);
+                if (readBlock(next_block_address, buffer.data())) {
+                    m_eos = false;
+                    if (m_block_pos == m_block_end) {
+                        memcpy(m_block_begin, buffer.data(), buffer.size());
+                        m_address = next_block_address;
+                        m_block_pos = m_block_begin;
+                        ++m_block_num;
+                    }
+                    return true;
+                }
+            }
+        }
         if (m_address + m_block_size <= m_file.size()) {
             std::vector<char> buffer(m_block_size);
 
@@ -556,7 +579,10 @@ namespace db0
         m_chunk_left_bytes = 0;
         // try reading a full block
         if ((m_address + m_block_size > m_file.size()) || !readBlock(m_address, m_block_begin)) {
-            THROWF(db0::InternalException) << "BlockIOStream unable to restore state";
+            m_file.refresh();
+            if ((m_address + m_block_size > m_file.size()) || !readBlock(m_address, m_block_begin)) {
+                THROWF(db0::IOException) << "BlockIOStream unable to restore state";
+            }
         }
     }
     

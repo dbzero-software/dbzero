@@ -213,7 +213,9 @@ namespace db0
         assert(m_file_pos == (std::uint64_t)ftell(m_file));
         assert(!overlap(m_protected, { address, size }));
         if (fwrite(buffer, size, 1, m_file) != 1) {
-            THROWF(db0::IOException) << "CFile::write: fwrite failed";
+            int err = errno;
+            THROWF(db0::IOException) << "CFile::write: fwrite failed at address " << address
+                << ", size " << size << ", error: " << strerror(err);
         }
         m_file_pos += size;
         m_file_size = std::max(m_file_size, m_file_pos);

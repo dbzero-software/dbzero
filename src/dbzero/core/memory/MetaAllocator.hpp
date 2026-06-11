@@ -118,6 +118,20 @@ DB0_PACKED_END
         */
         struct StorageSlabBucketingFunction
         {
+            /**
+             * Describes the storage bucket containing a raw BDevStorage byte address.
+             *
+             * m_slot_id is the meta-space slot used to store sparse-pair metadata for
+             * pages in the bucket. m_begin_page_num and m_end_page_num form a half-open
+             * logical page range [begin, end) covered by that slot.
+            */
+            struct Bucket
+            {
+                std::uint32_t m_slot_id = 0;
+                std::uint64_t m_begin_page_num = 0;
+                std::uint64_t m_end_page_num = 0;
+            };
+
             std::uint64_t m_offset = 0;
             std::uint64_t m_slab_size = 0;
 
@@ -130,6 +144,24 @@ DB0_PACKED_END
             std::uint32_t operator()(Address address) const
             {
                 return (*this)(address.getOffset());
+            }
+
+            /**
+             * Return the bucket id plus logical page span for the bucket containing address.
+             *
+             * The returned page range is half-open and may be wider than the exact byte
+             * range when m_offset or m_slab_size are not page-aligned.
+            */
+            Bucket getBucket(std::uint64_t address, std::uint32_t page_size) const
+            {
+                auto slot_id = (*this)(address);
+                auto begin_address = m_offset + static_cast<std::uint64_t>(slot_id) * m_slab_size;
+                auto end_address = begin_address + m_slab_size;
+                return {
+                    slot_id,
+                    begin_address / page_size,
+                    (end_address + page_size - 1) / page_size
+                };
             }
         };
 

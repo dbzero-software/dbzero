@@ -22,6 +22,7 @@
 #include <dbzero/object_model/tuple/o_py_tuple.hpp>
 #include <dbzero/object_model/tuple/o_tuple.hpp>
 #include <dbzero/workspace/Workspace.hpp>
+#include <utils/ScopedWorkspaceFixture.hpp>
 
 #include <limits>
 #include <stdexcept>
@@ -403,8 +404,8 @@ namespace tests
     {
         Py_Initialize();
 
-        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
-        auto fixture = workspace.getFixture("embedded-tuple-nested-memo");
+        ScopedWorkspaceFixture workspace_fixture("embedded-tuple-nested-memo");
+        auto fixture = workspace_fixture.fixture();
         auto nestedClass = getTestClass(fixture);
         auto pyMemoType = makeMemoType();
         ASSERT_TRUE(pyMemoType.get());
@@ -435,7 +436,7 @@ namespace tests
         ASSERT_EQ(fixedValue->m_kind, StorageClass::INT64);
         ASSERT_EQ(fixedValue->m_value, 23u);
 
-        workspace.close();
+        workspace_fixture.close();
     }
 
     TEST_F( EmbeddedTupleTest , testPyTupleConstructsDeeplyNestedCollections )

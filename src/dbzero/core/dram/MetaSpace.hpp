@@ -5,13 +5,12 @@
 
 #include <dbzero/core/dram/DRAMSpace.hpp>
 #include <dbzero/core/dram/MS_MetaPrefix.hpp>
-
+#include <dbzero/core/storage/SparsePairFwd.hpp>
 namespace db0
 
 {
 
     class Diff_IO;
-    class SparsePair;
 
     struct MetaSpace: public DRAMSpace
     {
@@ -21,7 +20,7 @@ namespace db0
     class MS_MetaSpace: public Memspace
     {
     public:
-        using MappingPolicy = MS_MetaMappingPolicy;
+        using MappingPolicy = MetaSpaceLoadPolicy;
 
         static MS_MetaSpace create(std::size_t page_size, SparsePair &sparse_pair, Diff_IO &page_io);
 
@@ -31,8 +30,6 @@ namespace db0
         std::shared_ptr<MS_MetaPrefix> getMSPrefixPtr() const;
 
         std::shared_ptr<MS_MetaAllocator> getMSAllocatorPtr() const;
-
-        static MS_MetaPrefix::SlotLoadFunction createSlotLoadFunction(SparsePair &sparse_pair, Diff_IO &page_io);
 
     private:
         MS_MetaSpace(std::shared_ptr<MS_MetaPrefix> prefix, std::shared_ptr<MS_MetaAllocator> allocator);

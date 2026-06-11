@@ -40,6 +40,9 @@ namespace db0
          * The flush order is undefined
         */
         void flushDirty(SinkFunction);
+        
+        // Check if there are any dirty locks
+        bool empty() const;
 
         // NOTE: size only works for a metered cache (i.e. initialized with the dirty_meter)
         std::size_t size() const;

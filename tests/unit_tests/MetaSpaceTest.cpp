@@ -75,9 +75,13 @@ namespace tests
             return result;
         }
 
-        static bool flushMeta(Memspace &memspace, Diff_IO &io)
+        static bool flushMeta(Memspace &memspace, Diff_IO &io, SparsePair &sparse_pair)
         {
-            return flush(dynamic_cast<MetaPrefix &>(memspace.getPrefix()), io);
+            auto &prefix = dynamic_cast<MetaPrefix &>(memspace.getPrefix());
+            if (prefix.getDirtySize() != 0) {
+                sparse_pair.recordMaxStateNum(prefix.getStateNum() + 1);
+            }
+            return flush(prefix, io);
         }
 
         static bool compactMeta(Memspace &memspace, Diff_IO &io)
@@ -154,7 +158,7 @@ namespace tests
         auto address = memspace.alloc(page_size);
         fillPage(memspace, address, 0x42);
 
-        ASSERT_TRUE(flushMeta(memspace, io));
+        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
 
         auto reopened = MetaSpace::create(page_size, sparse_pair, io);
         auto data = readPage(reopened, address);
@@ -172,7 +176,7 @@ namespace tests
         auto memspace = MetaSpace::create(page_size, sparse_pair, io);
         auto address = memspace.alloc(page_size);
         fillPage(memspace, address, 0x11);
-        ASSERT_TRUE(flushMeta(memspace, io));
+        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
 
         {
             auto lock = memspace.getPrefix().mapRange(address.getOffset(), page_size, { AccessOptions::write });
@@ -180,7 +184,7 @@ namespace tests
             data[17] = 0x22;
             data[1234] = 0x33;
         }
-        ASSERT_TRUE(flushMeta(memspace, io));
+        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
         ASSERT_GT(io.getStats().second, 0u);
 
         auto reopened = MetaSpace::create(page_size, sparse_pair, io);
@@ -203,7 +207,7 @@ namespace tests
         auto second = memspace.alloc(page_size);
         fillPage(memspace, first, 0x11);
         fillPage(memspace, second, 0x22);
-        ASSERT_TRUE(flushMeta(memspace, io));
+        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
 
         MetaPrefix prefix(page_size, sparse_pair);
         std::vector<std::uint64_t> loaded_pages;
@@ -228,7 +232,7 @@ namespace tests
         auto memspace = MetaSpace::create(page_size, sparse_pair, io);
         auto address = memspace.alloc(page_size);
         fillPage(memspace, address, 0x11);
-        ASSERT_TRUE(flushMeta(memspace, io));
+        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
 
         {
             auto lock = memspace.getPrefix().mapRange(address.getOffset(), page_size, { AccessOptions::write });
@@ -240,7 +244,7 @@ namespace tests
             auto *data = static_cast<unsigned char *>(lock.modify());
             data[1234] = 0x33;
         }
-        ASSERT_TRUE(flushMeta(memspace, io));
+        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
 
         auto reopened = MetaSpace::create(page_size, sparse_pair, io);
         auto data = readPage(reopened, address);
@@ -260,10 +264,10 @@ namespace tests
         auto memspace = MetaSpace::create(page_size, sparse_pair, io);
         auto address = memspace.alloc(page_size);
         fillPage(memspace, address, 0x7f);
-        ASSERT_TRUE(flushMeta(memspace, io));
+        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
         auto state_num = memspace.getStateNum();
 
-        ASSERT_FALSE(flushMeta(memspace, io));
+        ASSERT_FALSE(flushMeta(memspace, io, sparse_pair));
         ASSERT_EQ(memspace.getStateNum(), state_num);
     }
 
@@ -284,7 +288,7 @@ namespace tests
         auto reused = memspace.alloc(page_size);
         ASSERT_EQ(reused, second);
         fillPage(memspace, reused, 0x03);
-        ASSERT_TRUE(flushMeta(memspace, io));
+        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
 
         auto reopened = MetaSpace::create(page_size, sparse_pair, io);
         auto next = reopened.alloc(page_size);
@@ -305,7 +309,7 @@ namespace tests
         auto third = memspace.alloc(page_size);
         fillPage(memspace, first, 0x01);
         fillPage(memspace, third, 0x03);
-        ASSERT_TRUE(flushMeta(memspace, io));
+        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
 
         auto reopened = MetaSpace::create(page_size, sparse_pair, io);
         auto reused = reopened.alloc(page_size);
@@ -326,7 +330,7 @@ namespace tests
         fillPage(memspace, slot_0_address, 0x10);
         fillPage(memspace, slot_7_address, 0x70);
 
-        ASSERT_TRUE(flush(dynamic_cast<MS_MetaPrefix &>(memspace.getPrefix()), io));
+        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
 
         constexpr std::uint64_t local_page_count = 1ull << 24;
         constexpr std::uint64_t slot_size = local_page_count * page_size;
@@ -363,7 +367,7 @@ namespace tests
         auto third = memspace.alloc(page_size, 3);
         fillPage(memspace, first, 0x01);
         fillPage(memspace, third, 0x03);
-        ASSERT_TRUE(flush(dynamic_cast<MS_MetaPrefix &>(memspace.getPrefix()), io));
+        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
 
         auto reopened = MS_MetaSpace::create(page_size, sparse_pair, io);
         auto reused = reopened.alloc(page_size, 3);
@@ -381,7 +385,7 @@ namespace tests
         auto memspace = MS_MetaSpace::create(page_size, sparse_pair, io);
         auto slot_7_address = memspace.alloc(page_size, 7);
         fillPage(memspace, slot_7_address, 0x77);
-        ASSERT_TRUE(flush(dynamic_cast<MS_MetaPrefix &>(memspace.getPrefix()), io));
+        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
 
         auto reopened = MS_MetaSpace::create(page_size, sparse_pair, io);
         std::size_t alloc_size = 0;
@@ -407,7 +411,7 @@ namespace tests
         fillPage(memspace, slot_1_address, 0x11);
         fillPage(memspace, slot_2_address, 0x22);
 
-        ASSERT_TRUE(flush(dynamic_cast<MS_MetaPrefix &>(memspace.getPrefix()), io));
+        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
 
         auto state_num = memspace.getStateNum();
         ASSERT_EQ(state_num, 1u);
@@ -429,7 +433,7 @@ namespace tests
         auto memspace = MS_MetaSpace::create(page_size, sparse_pair, io);
         auto address = memspace.alloc(page_size, 9);
         fillPage(memspace, address, 0x19);
-        ASSERT_TRUE(flush(dynamic_cast<MS_MetaPrefix &>(memspace.getPrefix()), io));
+        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
 
         {
             auto lock = memspace.getPrefix().mapRange(address.getOffset(), page_size, { AccessOptions::write });
@@ -437,7 +441,7 @@ namespace tests
             data[17] = 0x91;
             data[1024] = 0x92;
         }
-        ASSERT_TRUE(flush(dynamic_cast<MS_MetaPrefix &>(memspace.getPrefix()), io));
+        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
 
         auto encoded_page_num = address.getOffset() / page_size;
         auto diff_item = sparse_pair.getDiffIndex().findUpper(encoded_page_num, memspace.getStateNum());
@@ -464,7 +468,7 @@ namespace tests
         auto slot_5_address = memspace.alloc(page_size, 5);
         fillPage(memspace, slot_4_address, 0x44);
         fillPage(memspace, slot_5_address, 0x55);
-        ASSERT_TRUE(flush(dynamic_cast<MS_MetaPrefix &>(memspace.getPrefix()), io));
+        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
 
         {
             auto lock = memspace.getPrefix().mapRange(slot_4_address.getOffset(), page_size, { AccessOptions::write });
@@ -499,7 +503,7 @@ namespace tests
         auto slot_3_address = memspace.alloc(page_size, 3);
         fillPage(memspace, slot_2_address, 0x20);
         fillPage(memspace, slot_3_address, 0x30);
-        ASSERT_TRUE(flush(dynamic_cast<MS_MetaPrefix &>(memspace.getPrefix()), io));
+        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
 
         auto reopened = MS_MetaSpace::create(page_size, sparse_pair, io, MS_MetaSpace::MappingPolicy::lazy);
         ASSERT_EQ(dynamic_cast<DRAM_Prefix &>(reopened.getPrefix()).size(), 0u);
@@ -545,7 +549,7 @@ namespace tests
         auto memspace = MS_MetaSpace::create(page_size, sparse_pair, io);
         auto address = memspace.alloc(page_size, 9);
         fillPage(memspace, address, 0x19);
-        ASSERT_TRUE(flush(dynamic_cast<MS_MetaPrefix &>(memspace.getPrefix()), io));
+        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
 
         {
             auto lock = memspace.getPrefix().mapRange(address.getOffset(), page_size, { AccessOptions::write });
@@ -553,7 +557,7 @@ namespace tests
             data[17] = 0x91;
             data[1024] = 0x92;
         }
-        ASSERT_TRUE(flush(dynamic_cast<MS_MetaPrefix &>(memspace.getPrefix()), io));
+        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
 
         auto reopened = MS_MetaSpace::create(page_size, sparse_pair, io, MS_MetaSpace::MappingPolicy::lazy);
         ASSERT_EQ(dynamic_cast<DRAM_Prefix &>(reopened.getPrefix()).size(), 0u);
@@ -576,7 +580,7 @@ namespace tests
         auto memspace = MS_MetaSpace::create(page_size, sparse_pair, io);
         auto address = memspace.alloc(page_size, 4);
         fillPage(memspace, address, 0x44);
-        ASSERT_TRUE(flush(dynamic_cast<MS_MetaPrefix &>(memspace.getPrefix()), io));
+        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
 
         auto reopened = MS_MetaSpace::create(page_size, sparse_pair, io, MS_MetaSpace::MappingPolicy::lazy);
         ASSERT_EQ(readPage(reopened, address), std::vector<unsigned char>(page_size, 0x44));
@@ -601,7 +605,7 @@ namespace tests
         auto memspace = MS_MetaSpace::create(page_size, sparse_pair, io);
         auto address = memspace.alloc(page_size, 6);
         fillPage(memspace, address, 0x66);
-        ASSERT_TRUE(flush(dynamic_cast<MS_MetaPrefix &>(memspace.getPrefix()), io));
+        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
 
         auto reopened = MS_MetaSpace::create(page_size, sparse_pair, io, MS_MetaSpace::MappingPolicy::lazy);
         auto lock = reopened.getPrefix().mapRange(address.getOffset(), page_size, { AccessOptions::write });
@@ -658,11 +662,12 @@ namespace tests
                 diff_model[page_num][state_num] = storage_page_num;
             }
 
+            cut.recordMaxStateNum(state_num);
             ++state_num;
         }
         cut.commit();
 
-        ASSERT_TRUE(flushMeta(meta_space, io));
+        ASSERT_TRUE(flushMeta(meta_space, io, mapping_sparse_pair));
 
         auto reopened_meta_space = MetaSpace::create(large_page_size, mapping_sparse_pair, io);
         auto reopened_meta_pair = createPairFromMetaSpace(reopened_meta_space);
@@ -745,7 +750,7 @@ namespace tests
         auto memspace = MetaSpace::create(page_size, sparse_pair, io);
         auto address = memspace.alloc(page_size);
         fillPage(memspace, address, 0x11);
-        ASSERT_TRUE(flushMeta(memspace, io));
+        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
 
         {
             auto lock = memspace.getPrefix().mapRange(address.getOffset(), page_size, { AccessOptions::write });
@@ -753,7 +758,7 @@ namespace tests
             data[17] = 0x22;
             data[1234] = 0x33;
         }
-        ASSERT_TRUE(flushMeta(memspace, io));
+        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
         ASSERT_GT(sparse_pair.getDiffIndex().size(), 0u);
         auto diff_item = sparse_pair.getDiffIndex().findUpper(address.getOffset() / page_size, memspace.getStateNum());
         ASSERT_TRUE(diff_item);
@@ -767,7 +772,7 @@ namespace tests
             auto lock = memspace.getPrefix().mapRange(address.getOffset(), page_size, { AccessOptions::write });
             static_cast<unsigned char *>(lock.modify())[2048] = 0x44;
         }
-        ASSERT_TRUE(flushMeta(memspace, io));
+        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
         auto next_diff_item = sparse_pair.getDiffIndex().findUpper(address.getOffset() / page_size, memspace.getStateNum());
         ASSERT_TRUE(next_diff_item);
         auto next_diff_storage_page = findDiffStoragePage(next_diff_item, memspace.getStateNum());
@@ -793,7 +798,7 @@ namespace tests
         auto memspace = MetaSpace::create(page_size, sparse_pair, io);
         auto address = memspace.alloc(page_size);
         fillPage(memspace, address, 0x10);
-        ASSERT_TRUE(flushMeta(memspace, io));
+        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
         auto initial_item = sparse_pair.getSparseIndex().lookup(address.getOffset() / page_size, memspace.getStateNum());
         ASSERT_TRUE(initial_item);
         auto stale_storage_page = initial_item.m_storage_page_num;
@@ -808,7 +813,7 @@ namespace tests
             auto lock = memspace.getPrefix().mapRange(address.getOffset(), page_size, { AccessOptions::write });
             static_cast<unsigned char *>(lock.modify())[0] = 0x20;
         }
-        ASSERT_TRUE(flushMeta(memspace, io));
+        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
         ASSERT_TRUE(compactMeta(memspace, io));
 
         auto second_compact_item = sparse_pair.getSparseIndex().lookup(address.getOffset() / page_size, memspace.getStateNum());
@@ -819,7 +824,7 @@ namespace tests
             auto lock = memspace.getPrefix().mapRange(address.getOffset(), page_size, { AccessOptions::write });
             static_cast<unsigned char *>(lock.modify())[0] = 0x30;
         }
-        ASSERT_TRUE(flushMeta(memspace, io));
+        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
         ASSERT_TRUE(compactMeta(memspace, io));
 
         auto third_compact_item = sparse_pair.getSparseIndex().lookup(address.getOffset() / page_size, memspace.getStateNum());
@@ -842,7 +847,7 @@ namespace tests
         auto memspace = MetaSpace::create(page_size, sparse_pair, io);
         auto address = memspace.alloc(page_size);
         fillPage(memspace, address, 0x10);
-        ASSERT_TRUE(flushMeta(memspace, io));
+        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
 
         auto page_num = address.getOffset() / page_size;
         auto head_state_num = memspace.getStateNum();
@@ -871,7 +876,7 @@ namespace tests
         auto memspace = MetaSpace::create(page_size, sparse_pair, io);
         auto address = memspace.alloc(page_size);
         fillPage(memspace, address, 0x11);
-        ASSERT_TRUE(flushMeta(memspace, io));
+        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
 
         {
             auto lock = memspace.getPrefix().mapRange(address.getOffset(), page_size, { AccessOptions::write });
@@ -879,7 +884,7 @@ namespace tests
             data[17] = 0x22;
             data[1234] = 0x33;
         }
-        ASSERT_TRUE(flushMeta(memspace, io));
+        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
 
         auto page_num = address.getOffset() / page_size;
         auto head_state_num = memspace.getStateNum();
@@ -921,6 +926,7 @@ namespace tests
         std::vector<unsigned char> head_buffer(page_size, 0x43);
         auto head_storage_page_num = io.append(head_buffer.data(), &is_first_page);
         sparse_pair.getSparseIndex().emplace(page_num, 3, head_storage_page_num);
+        sparse_pair.recordMaxStateNum(3);
         sparse_pair.commit();
 
         MetaPrefix prefix(page_size, sparse_pair);
@@ -982,7 +988,7 @@ namespace tests
             expected_pages.emplace_back(page_size, static_cast<unsigned char>((i + 1) & 0xFF));
             fillPage(memspace, address, expected_pages.back()[0]);
         }
-        ASSERT_TRUE(flushMeta(memspace, io));
+        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
 
         for (std::uint32_t round = 1; round <= 9; ++round) {
             auto operation_count = page_count / 2 + round * 17;
@@ -992,7 +998,7 @@ namespace tests
                     memspace, addresses[page_index], expected_pages[page_index], rng, sparse_write_count_dist(rng)
                 );
             }
-            ASSERT_TRUE(flushMeta(memspace, io));
+            ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
         }
         ASSERT_GT(sparse_pair.getDiffIndex().size(), 0u);
 
@@ -1021,7 +1027,7 @@ namespace tests
                 }
             }
             if (round != 12) {
-                ASSERT_TRUE(flushMeta(memspace, io));
+                ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
             }
         }
 

@@ -51,29 +51,32 @@ namespace db0
     }
     
     std::optional<StateNumType> copyDRAM_IO(DRAM_IOStream &input_io, DRAM_ChangeLogStreamT &input_dram_changelog,
-        DRAM_IOStream &output_io, DRAM_ChangeLogStreamT::Writer &output_dram_changelog)
+        DRAM_IOStream &output_io, DRAM_ChangeLogStreamT::Writer &output_dram_changelog,
+        std::optional<StateNumType> max_state_num)
     {
         using DRAM_ChangeLogT = DRAM_IOStream::DRAM_ChangeLogT;
 
         // Exhaust the input_dram_changelog first
         // NOTE: we don't need to copy the changelog, just insert an empty item with the latest state number
         input_dram_changelog.setStreamPosHead();
+        std::optional<StateNumType> maybe_state_num;
         for (;;) {
-            while (input_dram_changelog.readChangeLogChunk());
+            while (auto change_log = input_dram_changelog.readChangeLogChunk()) {
+                if (!max_state_num || change_log->m_state_num <= *max_state_num) {
+                    maybe_state_num = change_log->m_state_num;
+                }
+            }
             // continue refreshing until reaching the most recent state
             if (!input_dram_changelog.refresh()) {
                 break;
             }
         }
 
-        auto last_chunk_ptr = input_dram_changelog.getLastChangeLogChunk();
-        if (!last_chunk_ptr) {
+        if (!maybe_state_num) {
             // looks like the DRAM IO is empty
             return {};
         }
-
-        // retrieve the state number candidate
-        auto state_num = last_chunk_ptr->m_state_num;
+        auto state_num = *maybe_state_num;
 
         // Copy the entire DRAM_IO stream next (possibly inconsistent state)
         // collecting the mapping of chunk addresses
@@ -98,6 +101,13 @@ namespace db0
         
         copyStream(input_io, output_io, &chunk_addr_map, chunk_filter);
 
+        if (max_state_num) {
+            output_dram_changelog.appendChangeLog({}, state_num, DRAMChangeLogKind::DRAM_IO);
+            output_io.addChunk(0);
+            output_io.BlockIOStream::flush();
+            return state_num;
+        }
+
         // NOTE: the operation might need to be repeated multiple times
         // if unable to reach a consistent state in one pass (this might be due to a very slow reader process)
         for (;;) {
@@ -105,14 +115,11 @@ namespace db0
             // NOTE: in this step we prefetch to memory to be able to catch up with changes
             std::unordered_map<std::uint64_t, std::vector<char> > chunk_buf;
             while (input_dram_changelog.refresh()) {
-                fetchDRAM_IOChanges(input_io, input_dram_changelog, chunk_buf);
+                if (auto maybe_state_num = fetchDRAM_IOChanges(input_io, input_dram_changelog, chunk_buf)) {
+                    // this is the actually copied last consistent state number
+                    state_num = *maybe_state_num;
+                }
             }
-
-            last_chunk_ptr = input_dram_changelog.getLastChangeLogChunk();
-            assert(last_chunk_ptr);
-
-            // this is the actually copied last consistent state number
-            state_num = last_chunk_ptr->m_state_num;
 
             // NOTE: at this stage we might also encounter incomplete
             // or new chunks beyond the copied stream which needs to be discarded
@@ -124,7 +131,7 @@ namespace db0
             // append new chuks which were not present during the initial copy
             appendDRAM_IOChunks(output_io, bufs_pair.second);                
             // append the sentinel entry with state number only (i.e. empty changelog)
-            output_dram_changelog.appendChangeLog({}, state_num);
+            output_dram_changelog.appendChangeLog({}, state_num, DRAMChangeLogKind::DRAM_IO);
             
             // this operation needs to be continued until exhausting the entire changelog
             if (input_dram_changelog.refresh()) {
@@ -134,7 +141,8 @@ namespace db0
             }
         }
 
-        output_io.close();
+        output_io.addChunk(0);
+        output_io.BlockIOStream::flush();
         return state_num;
     }
     
@@ -186,33 +194,27 @@ namespace db0
     std::optional<o_dp_changelog_header> copyDPStream(DP_ChangeLogStreamT &in, DP_ChangeLogStreamT &out,
         StateNumType max_state_num)
     {
-        using DP_ChangeLogT = DP_ChangeLogStreamT::ChangeLogT;
-        auto chunk_filter = [&](const std::vector<char> &buffer, const void *data_end) -> bool
-        {
-            const auto &header = DP_ChangeLogT::__const_ref(buffer.data());
-            // only include chunks up to max_state_num
-            if (header.m_state_num == max_state_num) {
-                // NOTE: this is the last chunk, we include it and stop further copying
-                auto chunk_size = (char*)data_end - buffer.data();
-                out.addChunk(chunk_size);
-                out.appendToChunk(buffer.data(), chunk_size);
-                return false;
+        using o_change_log_t = DP_ChangeLogStreamT::ChangeLogT;
+        in.setStreamPosHead();
+        std::vector<char> buffer;
+        std::size_t chunk_size = 0;
+        std::optional<o_dp_changelog_header> result;
+        while ((chunk_size = in.readChunk(buffer)) > 0) {
+            const auto &header = o_change_log_t::__const_ref(buffer.data());
+            if (header.m_state_num > max_state_num) {
+                break;
             }
 
-            return header.m_state_num < max_state_num;
-        };
-        
-        // NOTE: we use copy_all = false to stop on the first non-matching chunk
-        // since chunks are ordered by state number
-        auto last_chunk_buf = copyStream(in, out, nullptr, chunk_filter, false);
-        // we can retrieve the end page number from the last appended chunk        
-        if (last_chunk_buf.empty()) {            
-            // nothing copied
-            return {};
+            out.addChunk(chunk_size);
+            out.appendToChunk(buffer.data(), chunk_size);
+            result = header;
+
+            if (header.m_state_num == max_state_num) {
+                break;
+            }
         }
-        
-        using o_change_log_t = DP_ChangeLogStreamT::ChangeLogT;
-        return o_change_log_t::__const_ref(last_chunk_buf.data());        
+        out.flush();
+        return result;
     }
     
     // Debug & validation function - to compare pages of the 2 streams (e.g. source and copy)

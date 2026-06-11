@@ -11,6 +11,7 @@
 #include <dbzero/core/dram/DRAM_Prefix.hpp>
 #include <dbzero/core/dram/DRAM_Allocator.hpp>
 #include <dbzero/core/memory/AccessOptions.hpp>
+#include <algorithm>
 #include <thread>
 
 using namespace std;
@@ -41,20 +42,93 @@ namespace tests
     class BDevStorageWrapper: public BDevStorage
     {
     public:
+        struct DRAMChangeLogRecord
+        {
+            DRAMChangeLogKind m_kind;
+            StateNumType m_state_num;
+            std::vector<std::uint64_t> m_page_nums;
+        };
+
+        struct DPChangeLogRecord
+        {
+            StateNumType m_state_num;
+            std::vector<std::uint64_t> m_page_nums;
+        };
+
         /**
          * Opens BDevStorage over an existing file
         */
-        BDevStorageWrapper(const std::string &file_name, AccessType access_type = AccessType::READ_WRITE)
-            : BDevStorage(file_name, access_type)
+        BDevStorageWrapper(const std::string &file_name, AccessType access_type = AccessType::READ_WRITE,
+            LockFlags lock_flags = {}, std::optional<std::size_t> meta_io_step_size = {},
+            StorageFlags flags = {}, StorageOptions options = {})
+            : BDevStorage(file_name, access_type, lock_flags, meta_io_step_size, flags, options)
         {
         }
         
-        SparseIndex &getSparseIndex() {
-            return m_sparse_index;
+        PlainSparseIndex &getSparseIndex() {
+            return getApplicationSparsePair(0).getSparseIndex();
+        }
+
+        PlainSparsePair &getApplicationSparsePair(std::uint64_t page_num) {
+            return m_sparse_pair_manager.getOrCreate(getMetaSlotId(page_num));
+        }
+
+        const SparsePair &getRootMetaSparsePair() const {
+            return m_root_sparse_pair;
+        }
+
+        Allocator::SlotId metaSlotId(std::uint64_t page_num) const {
+            return getMetaSlotId(page_num);
+        }
+
+        std::optional<std::uint64_t> applicationStoragePageNum(
+            std::uint64_t logical_page_num, StateNumType state_num)
+        {
+            auto item = getApplicationSparsePair(logical_page_num)
+                .getSparseIndex().lookup(logical_page_num, state_num);
+            if (!item) {
+                return {};
+            }
+            std::uint64_t storage_page_num = item.m_storage_page_num;
+            return storage_page_num;
         }
 
         const DRAM_IOStream &getDRAM_IOStream() const {
             return m_dram_io;
+        }
+
+        std::vector<DRAMChangeLogRecord> readDRAMChangeLogRecords()
+        {
+            std::vector<DRAMChangeLogRecord> result;
+            DRAM_ChangeLogStreamT::State state;
+            m_dram_changelog_io.saveState(state);
+            m_dram_changelog_io.setStreamPosHead();
+            while (auto change_log = m_dram_changelog_io.readChangeLogChunk()) {
+                DRAMChangeLogRecord record { change_log->kind(), change_log->m_state_num, {} };
+                for (auto page_num: *change_log) {
+                    record.m_page_nums.push_back(page_num);
+                }
+                result.push_back(std::move(record));
+            }
+            m_dram_changelog_io.restoreState(state);
+            return result;
+        }
+
+        std::vector<DPChangeLogRecord> readDPChangeLogRecords()
+        {
+            std::vector<DPChangeLogRecord> result;
+            DP_ChangeLogStreamT::State state;
+            m_dp_changelog_io.saveState(state);
+            m_dp_changelog_io.setStreamPosHead();
+            while (auto change_log = m_dp_changelog_io.readChangeLogChunk()) {
+                DPChangeLogRecord record { change_log->m_state_num, {} };
+                for (auto page_num: *change_log) {
+                    record.m_page_nums.push_back(page_num);
+                }
+                result.push_back(std::move(record));
+            }
+            m_dp_changelog_io.restoreState(state);
+            return result;
         }
 
         std::uint32_t getConfigVersion() const {
@@ -67,6 +141,21 @@ namespace tests
 
         void readDescriptorPage(std::uint64_t page_num, std::vector<std::byte> &page) const {
             m_descriptor_io.read(page_num, page.data());
+        }
+
+        void dirtyMetaSpaceWithoutStateRegistration() {
+            auto address = m_meta_space.alloc(m_config.m_dram_page_size, 1);
+            auto lock = m_meta_space.getPrefix().mapRange(
+                address.getOffset(), m_config.m_dram_page_size, { AccessOptions::write });
+            std::memset(lock.modify(), 0x5a, m_config.m_dram_page_size);
+        }
+
+        void recordRootStateForTest(StateNumType state_num) {
+            m_root_sparse_pair.recordMaxStateNum(state_num);
+        }
+
+        std::optional<std::pair<std::uint64_t, std::uint64_t> > descriptorPageRange() const {
+            return m_root_sparse_pair.getDescriptorPageRange();
         }
 
         std::uint64_t appendDataPage(const std::vector<std::byte> &page) {
@@ -90,6 +179,149 @@ namespace tests
         ASSERT_TRUE(file_exists(file_name));
     }
 
+    TEST_F( BDevStorageTest , testApplicationSparsePairIsHostedInMetaSpace )
+    {
+        std::size_t page_size = 4096;
+        BDevStorage::create(file_name, page_size);
+        std::vector<char> page(page_size, 0x41);
+
+        {
+            BDevStorageWrapper cut(file_name, AccessType::READ_WRITE);
+            cut.write(0, 1, page.size(), page.data());
+            ASSERT_TRUE(cut.flush());
+
+            auto &app_pair = cut.getApplicationSparsePair(0);
+            ASSERT_TRUE(app_pair.getSparseIndex().lookup(0, 1));
+            ASSERT_GT(cut.getRootMetaSparsePair().size(), 0u);
+            cut.close();
+        }
+
+        {
+            BDevStorageWrapper reopened(file_name, AccessType::READ_ONLY);
+            std::vector<char> read_buffer(page_size);
+            reopened.read(0, 1, read_buffer.size(), read_buffer.data(), { AccessOptions::read });
+            ASSERT_TRUE(equal(page, read_buffer));
+            ASSERT_TRUE(reopened.getApplicationSparsePair(0).getSparseIndex().lookup(0, 1));
+            reopened.close();
+        }
+    }
+
+    TEST_F( BDevStorageTest , testApplicationSparsePairBucketingUsesConfiguredFunction )
+    {
+        std::size_t page_size = 4096;
+        BDevStorage::create(file_name, page_size);
+
+        StorageOptions options;
+        options.m_storage_slab_bucketing = [page_size](std::uint64_t address) {
+            return address < page_size * 10 ? 5u : 9u;
+        };
+
+        BDevStorageWrapper cut(file_name, AccessType::READ_WRITE, {}, {}, {}, options);
+        std::vector<char> low_page(page_size, 0x15);
+        std::vector<char> high_page(page_size, 0x19);
+        cut.write(0, 1, low_page.size(), low_page.data());
+        cut.write(20 * page_size, 1, high_page.size(), high_page.data());
+
+        auto &low_pair = cut.getApplicationSparsePair(0);
+        auto &high_pair = cut.getApplicationSparsePair(20);
+        auto low_slot = MS_MetaPrefix::slotIdFromPageNum(
+            low_pair.getSparseIndex().getIndexAddress().getOffset() / cut.getDescriptorPageSize());
+        auto high_slot = MS_MetaPrefix::slotIdFromPageNum(
+            high_pair.getSparseIndex().getIndexAddress().getOffset() / cut.getDescriptorPageSize());
+
+        ASSERT_EQ(cut.metaSlotId(0), 5u);
+        ASSERT_EQ(cut.metaSlotId(20), 9u);
+        ASSERT_EQ(low_slot, 5u);
+        ASSERT_EQ(high_slot, 9u);
+        ASSERT_NE(&low_pair, &high_pair);
+        cut.close();
+    }
+
+    TEST_F( BDevStorageTest , testSparsePairQueryUsesBucketSpanOnlyForMultiPageRanges )
+    {
+        std::size_t page_size = 4096;
+        BDevStorage::create(file_name, page_size);
+
+        unsigned int single_page_mapping_calls = 0;
+        unsigned int bucket_mapping_calls = 0;
+
+        StorageOptions options;
+        options.m_storage_slab_bucketing = [&](std::uint64_t) {
+            ++single_page_mapping_calls;
+            return 0u;
+        };
+        options.m_storage_slab_bucket = [&](std::uint64_t) {
+            ++bucket_mapping_calls;
+            return StorageOptions::StorageSlabBucket { 0u, 0u, 1024u };
+        };
+
+        BDevStorageWrapper cut(file_name, AccessType::READ_WRITE, {}, {}, {}, options);
+        std::vector<char> write_buffer(2 * page_size, 0x32);
+        single_page_mapping_calls = 0;
+        bucket_mapping_calls = 0;
+        cut.write(0, 1, write_buffer.size(), write_buffer.data());
+        ASSERT_EQ(single_page_mapping_calls, 0u);
+        ASSERT_EQ(bucket_mapping_calls, 1u);
+
+        single_page_mapping_calls = 0;
+        bucket_mapping_calls = 0;
+        std::vector<char> single_page_read(page_size);
+        cut.read(0, 1, single_page_read.size(), single_page_read.data(), { AccessOptions::read });
+        ASSERT_EQ(single_page_mapping_calls, 1u);
+        ASSERT_EQ(bucket_mapping_calls, 0u);
+
+        single_page_mapping_calls = 0;
+        bucket_mapping_calls = 0;
+        std::vector<char> multi_page_read(2 * page_size);
+        cut.read(0, 1, multi_page_read.size(), multi_page_read.data(), { AccessOptions::read });
+        ASSERT_EQ(single_page_mapping_calls, 0u);
+        ASSERT_EQ(bucket_mapping_calls, 1u);
+        ASSERT_TRUE(equal(write_buffer, multi_page_read));
+
+        cut.close();
+    }
+
+    TEST_F( BDevStorageTest , testSparsePairQueryRefreshesAtBucketBoundaryWithoutSkippingFirstPage )
+    {
+        std::size_t page_size = 4096;
+        BDevStorage::create(file_name, page_size);
+
+        unsigned int single_page_mapping_calls = 0;
+        unsigned int bucket_mapping_calls = 0;
+
+        StorageOptions options;
+        options.m_storage_slab_bucketing = [&](std::uint64_t address) {
+            ++single_page_mapping_calls;
+            return static_cast<std::uint32_t>(address / page_size);
+        };
+        options.m_storage_slab_bucket = [&](std::uint64_t address) {
+            ++bucket_mapping_calls;
+            auto page_num = address / page_size;
+            return StorageOptions::StorageSlabBucket {
+                static_cast<std::uint32_t>(page_num), page_num, page_num + 1
+            };
+        };
+
+        BDevStorageWrapper cut(file_name, AccessType::READ_WRITE, {}, {}, {}, options);
+        std::vector<char> write_buffer(2 * page_size);
+        std::fill(write_buffer.begin(), write_buffer.begin() + page_size, 0x31);
+        std::fill(write_buffer.begin() + page_size, write_buffer.end(), 0x42);
+
+        cut.write(0, 1, write_buffer.size(), write_buffer.data());
+        ASSERT_EQ(single_page_mapping_calls, 0u);
+        ASSERT_EQ(bucket_mapping_calls, 2u);
+
+        single_page_mapping_calls = 0;
+        bucket_mapping_calls = 0;
+        std::vector<char> read_buffer(2 * page_size);
+        cut.read(0, 1, read_buffer.size(), read_buffer.data(), { AccessOptions::read });
+        ASSERT_EQ(single_page_mapping_calls, 0u);
+        ASSERT_EQ(bucket_mapping_calls, 2u);
+        ASSERT_TRUE(equal(write_buffer, read_buffer));
+
+        cut.close();
+    }
+
     TEST_F( BDevStorageTest , testDescriptorIOUsesSeparatePageSizeAndDoesNotCollideWithPageIO )
     {
         std::size_t page_size = 4096;
@@ -99,6 +331,7 @@ namespace tests
         std::uint64_t data_page_num = 0;
         std::vector<std::byte> descriptor_page(16u << 10, std::byte{0x55});
         std::vector<std::byte> data_page(page_size, std::byte{0x2a});
+        std::vector<char> state_page(page_size, 0x15);
 
         {
             BDevStorageWrapper cut(file_name, AccessType::READ_WRITE);
@@ -106,6 +339,7 @@ namespace tests
             ASSERT_EQ(page_size, cut.getPageSize());
             ASSERT_EQ(16u << 10, cut.getDescriptorPageSize());
 
+            cut.write(0, 1, state_page.size(), state_page.data());
             descriptor_page_num = cut.appendDescriptorPage(descriptor_page);
             data_page_num = cut.appendDataPage(data_page);
             cut.close();
@@ -126,20 +360,76 @@ namespace tests
         }
     }
 
+    TEST_F( BDevStorageTest , testDescriptorIOCursorIsRestoredFromRootMetadata )
+    {
+        BDevStorage::create(file_name);
+
+        std::uint64_t first_page_num = 0;
+        std::uint64_t second_page_num = 0;
+        std::vector<std::byte> first_page(16u << 10, std::byte{0x11});
+        std::vector<std::byte> second_page(16u << 10, std::byte{0x22});
+        std::size_t page_size = 4096;
+        std::vector<char> data_page(page_size, 0x33);
+
+        {
+            BDevStorageWrapper cut(file_name, AccessType::READ_WRITE);
+            cut.write(0, 1, data_page.size(), data_page.data());
+            first_page_num = cut.appendDescriptorPage(first_page);
+            cut.close();
+        }
+
+        {
+            BDevStorageWrapper cut(file_name, AccessType::READ_WRITE);
+            auto descriptor_page_range = cut.descriptorPageRange();
+            ASSERT_TRUE(descriptor_page_range);
+            ASSERT_EQ(first_page_num, descriptor_page_range->first);
+            ASSERT_GE(descriptor_page_range->second, first_page_num + 1);
+            cut.write(page_size, 2, data_page.size(), data_page.data());
+            second_page_num = cut.appendDescriptorPage(second_page);
+            ASSERT_GT(second_page_num, first_page_num);
+            cut.close();
+        }
+
+        {
+            BDevStorageWrapper cut(file_name, AccessType::READ_ONLY);
+            std::vector<std::byte> first_read(first_page.size());
+            std::vector<std::byte> second_read(second_page.size());
+            cut.readDescriptorPage(first_page_num, first_read);
+            cut.readDescriptorPage(second_page_num, second_read);
+            ASSERT_EQ(first_page, first_read);
+            ASSERT_EQ(second_page, second_read);
+            auto descriptor_page_range = cut.descriptorPageRange();
+            ASSERT_TRUE(descriptor_page_range);
+            ASSERT_EQ(first_page_num, descriptor_page_range->first);
+            ASSERT_GE(descriptor_page_range->second, second_page_num + 1);
+            cut.close();
+        }
+    }
+
     TEST_F( BDevStorageTest , testCopyToCopiesDescriptorIOExactly )
     {
         std::size_t page_size = 4096;
         BDevStorage::create(file_name, page_size, (16u << 10) - 256, 4u << 20);
 
-        std::uint64_t descriptor_page_num = 0;
-        std::vector<std::byte> descriptor_page(16u << 10, std::byte{0x33});
         std::vector<char> data_page(page_size, 0x11);
+        std::vector<char> second_data_page(page_size, 0x22);
         {
             BDevStorageWrapper src(file_name, AccessType::READ_WRITE);
-            descriptor_page_num = src.appendDescriptorPage(descriptor_page);
             src.write(0, 1, data_page.size(), data_page.data());
-            src.flush();
+            ASSERT_TRUE(src.flush());
+            src.write(page_size, 2, second_data_page.size(), second_data_page.data());
+            ASSERT_TRUE(src.flush());
             src.close();
+        }
+
+        std::pair<std::uint64_t, std::uint64_t> descriptor_page_range;
+        {
+            BDevStorageWrapper src_before_copy(file_name, AccessType::READ_ONLY);
+            auto maybe_descriptor_page_range = src_before_copy.descriptorPageRange();
+            ASSERT_TRUE(maybe_descriptor_page_range);
+            descriptor_page_range = *maybe_descriptor_page_range;
+            ASSERT_LT(descriptor_page_range.first, descriptor_page_range.second);
+            src_before_copy.close();
         }
 
         {
@@ -151,15 +441,29 @@ namespace tests
             src.close();
         }
 
+        BDevStorageWrapper src(file_name, AccessType::READ_ONLY);
         BDevStorageWrapper out(copy_file_name, AccessType::READ_ONLY);
-        std::vector<std::byte> descriptor_read(descriptor_page.size());
-        out.readDescriptorPage(descriptor_page_num, descriptor_read);
-        ASSERT_EQ(descriptor_page, descriptor_read);
+        ASSERT_TRUE(src.descriptorPageRange());
+        ASSERT_TRUE(out.descriptorPageRange());
+        ASSERT_EQ(src.descriptorPageRange(), out.descriptorPageRange());
+        ASSERT_EQ(descriptor_page_range, *out.descriptorPageRange());
+
+        for (auto descriptor_page_num = descriptor_page_range.first;
+             descriptor_page_num < descriptor_page_range.second; ++descriptor_page_num) {
+            std::vector<std::byte> src_descriptor_read(src.getDescriptorPageSize());
+            std::vector<std::byte> out_descriptor_read(out.getDescriptorPageSize());
+            src.readDescriptorPage(descriptor_page_num, src_descriptor_read);
+            out.readDescriptorPage(descriptor_page_num, out_descriptor_read);
+            ASSERT_EQ(src_descriptor_read, out_descriptor_read);
+        }
 
         std::vector<char> data_read(page_size);
         out.read(0, 1, data_read.size(), data_read.data(), { AccessOptions::read });
         ASSERT_TRUE(equal(data_page, data_read));
+        out.read(page_size, 2, data_read.size(), data_read.data(), { AccessOptions::read });
+        ASSERT_TRUE(equal(second_data_page, data_read));
         out.close();
+        src.close();
     }
 
     TEST_F( BDevStorageTest , testCanWriteThenReadFullPagesFromOneState )
@@ -244,6 +548,30 @@ namespace tests
         cut.close();
     }
 
+    TEST_F( BDevStorageTest , testSparsePairManagerChangeLogIsStoredInDRAMChangeLog )
+    {
+        BDevStorage::create(file_name);
+        BDevStorageWrapper cut(file_name, AccessType::READ_WRITE);
+        auto page = randomPage(cut.getPageSize());
+
+        cut.write(0, 1, page.size(), page.data());
+        ASSERT_TRUE(cut.flush());
+
+        bool found_sparse_pair_manager_record = false;
+        for (const auto &record: cut.readDRAMChangeLogRecords()) {
+            if (record.m_kind == DRAMChangeLogKind::SPARSE_PAIR_MANAGER && record.m_state_num == 1) {
+                found_sparse_pair_manager_record = true;
+                ASSERT_EQ(record.m_page_nums, (std::vector<std::uint64_t> { 0 }));
+            }
+        }
+        ASSERT_TRUE(found_sparse_pair_manager_record);
+
+        for (const auto &record: cut.readDPChangeLogRecords()) {
+            ASSERT_NE(record.m_state_num, 1u);
+        }
+        cut.close();
+    }
+
     TEST_F( BDevStorageTest , testBDevStorageThrowsIfReadingFromUninitializedSpace )
     {
         srand(9142424u);
@@ -322,6 +650,45 @@ namespace tests
             ASSERT_TRUE(equal(pages_v1[i], read_buffer));
             cut.read(i * cut.getPageSize(), 2, read_buffer.size(), read_buffer.data());
             ASSERT_TRUE(equal(pages_v2[i], read_buffer));
+        }
+        cut.close();
+    }
+
+    TEST_F( BDevStorageTest , testReopenedWriterAppendsUpdatedPagesAfterExistingData )
+    {
+        BDevStorage::create(file_name);
+        std::size_t page_size = 0;
+
+        {
+            BDevStorage cut(file_name);
+            page_size = cut.getPageSize();
+            for (int i = 0; i < 3; ++i) {
+                std::vector<char> page(page_size, static_cast<char>('a' + i));
+                cut.write(i * page_size, 1, page.size(), page.data());
+            }
+            cut.close();
+        }
+
+        {
+            BDevStorage cut(file_name);
+            for (int i = 0; i < 3; ++i) {
+                std::vector<char> page(page_size, static_cast<char>('A' + i));
+                cut.write(i * page_size, 2, page.size(), page.data());
+            }
+            cut.close();
+        }
+
+        BDevStorageWrapper cut(file_name);
+        for (int i = 0; i < 3; ++i) {
+            std::vector<char> read_buffer(page_size);
+            cut.read(i * page_size, 1, read_buffer.size(), read_buffer.data());
+            ASSERT_EQ(read_buffer[0], static_cast<char>('a' + i));
+
+            cut.read(i * page_size, 2, read_buffer.size(), read_buffer.data());
+            ASSERT_EQ(read_buffer[0], static_cast<char>('A' + i))
+                << "logical_page=" << i
+                << " storage_page="
+                << cut.applicationStoragePageNum(static_cast<std::uint64_t>(i), 2).value_or(0);
         }
         cut.close();
     }
@@ -527,12 +894,42 @@ namespace tests
         reader.join();
     }
 
+    TEST_F( BDevStorageTest , testReaderRefreshSeesRepeatedWritesInSameSparsePairSlot )
+    {
+        std::size_t page_size = 4096;
+        BDevStorage::create(file_name, page_size);
+
+        BDevStorage writer(file_name, AccessType::READ_WRITE);
+        BDevStorage reader(file_name, AccessType::READ_ONLY);
+
+        std::vector<char> first(page_size, 'a');
+        writer.write(page_size, 1, first.size(), first.data());
+        writer.flush();
+
+        reader.refresh();
+        ASSERT_GE(reader.getMaxStateNum(), 1u);
+        std::vector<char> buffer(page_size);
+        reader.read(page_size, 1, buffer.size(), buffer.data(), { AccessOptions::read });
+        ASSERT_TRUE(equal(first, buffer));
+
+        std::vector<char> second(page_size, 'b');
+        writer.write(2 * page_size, 2, second.size(), second.data());
+        writer.flush();
+
+        reader.refresh();
+        ASSERT_GE(reader.getMaxStateNum(), 2u);
+        reader.read(2 * page_size, 2, buffer.size(), buffer.data(), { AccessOptions::read });
+        ASSERT_TRUE(equal(second, buffer));
+        writer.close();
+        reader.close();
+    }
+
     TEST_F( BDevStorageTest , testNoLoadReaderCanRefreshAfterWriterCommit )
     {
         std::size_t page_size = 4096;
         BDevStorage::create(file_name, page_size);
 
-        BDevStorage reader(file_name, AccessType::READ_ONLY, {}, {}, { StorageOptions::NO_LOAD });
+        BDevStorage reader(file_name, AccessType::READ_ONLY, {}, {}, { StorageFlagOption::NO_LOAD });
 
         std::vector<char> data(page_size, 'r');
         {
@@ -550,6 +947,19 @@ namespace tests
         ASSERT_TRUE(equal(data, buffer));
         reader.close();
     }
+
+    TEST_F( BDevStorageTest , testFlushRejectsDirtyMetadataWithoutRegisteredStateHighWatermark )
+    {
+        std::size_t page_size = 4096;
+        BDevStorage::create(file_name, page_size);
+
+        BDevStorageWrapper cut(file_name, AccessType::READ_WRITE);
+        cut.dirtyMetaSpaceWithoutStateRegistration();
+
+        ASSERT_THROW(cut.flush(), db0::InternalException);
+        cut.recordRootStateForTest(1);
+        cut.close();
+    }
     
     TEST_F( BDevStorageTest , testSparseIndexDurability )
     {   
@@ -561,22 +971,23 @@ namespace tests
         std::optional<int> last_state_num;
         for (int i = 0; i < count; ++i) {
             BDevStorageWrapper cut(file_name, AccessType::READ_WRITE);
+            auto state_num = static_cast<StateNumType>(i + 1);
                         
             if (last_state_num) {
                 ASSERT_EQ(cut.getMaxStateNum(), *last_state_num);
             }
-            auto &sparse_index = cut.getSparseIndex();
+            std::vector<char> data(page_size);
             for (unsigned int page_num = 0; page_num < 1000; ++page_num) {
-                sparse_index.emplace(page_num, i, 999);
+                cut.write(page_num * page_size, state_num, data.size(), data.data());
 
                 cut.getSparseIndex().refresh();
-                ASSERT_EQ(cut.getMaxStateNum(), (std::uint32_t)i);
+                ASSERT_EQ(cut.getRootMetaSparsePair().getMaxStateNum(), state_num);
             }
             
             cut.getSparseIndex().refresh();
-            ASSERT_EQ(cut.getMaxStateNum(), (std::uint32_t)i);
+            ASSERT_EQ(cut.getRootMetaSparsePair().getMaxStateNum(), state_num);
             cut.close();
-            last_state_num = i;
+            last_state_num = state_num;
         }
     }
     

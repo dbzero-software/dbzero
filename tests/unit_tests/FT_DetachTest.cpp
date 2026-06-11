@@ -2,6 +2,7 @@
 // Copyright (c) 2026 DBZero Software sp. z o.o.
 
 #include <gtest/gtest.h>
+#include <utils/ScopedWorkspaceFixture.hpp>
 #include <utils/TestBase.hpp>
 #include <dbzero/core/collections/b_index/mb_index.hpp>
 #include <dbzero/core/collections/full_text/FT_ANDIterator.hpp>
@@ -350,8 +351,8 @@ namespace tests
 
     TEST_F(ObjectIteratorDetachTest, testObjectIteratorDetachDelegatesToUnderlyingIterator)
     {
-        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
-        auto fixture = workspace.getFixture("object-iterator-detach-test");
+        ScopedWorkspaceFixture workspace_fixture("object-iterator-detach-test");
+        auto fixture = workspace_fixture.fixture();
         auto query = std::make_unique<DetachableUniqueAddressIterator>();
         auto *query_ptr = query.get();
 
@@ -359,7 +360,7 @@ namespace tests
         iterator.detach();
 
         ASSERT_TRUE(query_ptr->m_detached);
-        workspace.close();
+        workspace_fixture.close();
     }
 
 }

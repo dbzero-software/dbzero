@@ -204,6 +204,41 @@ namespace db0
         }
         return m_first_page_num + m_page_count;
     }
+
+    void Page_IO::setAtTail()
+    {
+        assert(m_access_type == AccessType::READ_WRITE);
+        auto address = m_tail_function();
+        if (address <= m_header_size) {
+            address = m_header_size;
+        } else {
+            auto rel_address = address - m_header_size;
+            auto rel_pages = (rel_address + m_page_size - 1) / m_page_size;
+            address = m_header_size + rel_pages * m_page_size;
+        }
+
+        setAtPageNum(getPageNum(address));
+    }
+
+    void Page_IO::setAtPageNum(std::uint64_t page_num)
+    {
+        assert(m_access_type == AccessType::READ_WRITE);
+        auto current_next_page_num = m_first_page_num + m_page_count;
+        if (page_num <= current_next_page_num) {
+            return;
+        }
+
+        auto block_id = (page_num * m_page_size) / m_block_size;
+        m_address = m_header_size + block_id * m_block_size;
+        m_page_count = static_cast<std::uint32_t>(page_num % m_block_capacity);
+        if (m_page_count == 0) {
+            m_address -= m_block_size;
+            m_page_count = m_block_capacity;
+            --block_id;
+        }
+        m_first_page_num = getPageNum(m_address);
+        m_block_num = static_cast<std::uint32_t>(block_id % m_step_size);
+    }
     
     Page_IO::StepIterator::StepIterator(const ExtSpace &ext_space)
         : m_next_it(ext_space.tryBegin())

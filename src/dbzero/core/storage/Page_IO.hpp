@@ -80,6 +80,12 @@ namespace db0
         
         // Get the number of pages remaining in the current step (for append)
         std::uint32_t getCurrentStepRemainingPages() const;
+
+        // Move the append cursor forward if another stream has extended the file tail.
+        void setAtTail();
+
+        // Move the append cursor forward to the given next page number.
+        void setAtPageNum(std::uint64_t page_num);
         
         // @return step size in number of blocks
         std::size_t getStepSize() const {

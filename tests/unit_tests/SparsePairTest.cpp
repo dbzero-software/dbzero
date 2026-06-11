@@ -57,9 +57,13 @@ namespace tests
             return Diff_IO(0, file, page_size, page_size * 16, page_size, 0, 1, tail_function, 0, 4);
         }
 
-        static bool flushMeta(Memspace &memspace, Diff_IO &io)
+        static bool flushMeta(Memspace &memspace, Diff_IO &io, SparsePair &sparse_pair)
         {
-            return flush(dynamic_cast<MetaPrefix &>(memspace.getPrefix()), io);
+            auto &prefix = dynamic_cast<MetaPrefix &>(memspace.getPrefix());
+            if (prefix.getDirtySize() != 0) {
+                sparse_pair.recordMaxStateNum(prefix.getStateNum() + 1);
+            }
+            return flush(prefix, io);
         }
 
         static Allocator::SlotId addressSlotId(Address address)
@@ -154,7 +158,141 @@ namespace tests
         ASSERT_EQ(addressSlotId(slot_19.getDiffIndex().getIndexAddress()), 19u);
     }
 
-    TEST_F( SparsePairTest , testSparsePairManagerReopensExistingSlotPair )
+    TEST_F( SparsePairTest , testSparsePairCanUseExternalChangeLog )
+    {
+        SparsePair::ChangeLogT change_log;
+        auto dram_pair = createMappingPair();
+        SparsePair cut(SparsePair::tag_create(), dram_pair, 0, &change_log);
+
+        cut.getSparseIndex().emplace(11, 1, 100);
+        cut.getDiffIndex().insert(12, 2, 101);
+
+        ASSERT_EQ(cut.getChangeLogSize(), 2u);
+        ASSERT_EQ(change_log, (SparsePair::ChangeLogT { 11, 12 }));
+    }
+
+    TEST_F( SparsePairTest , testSparsePairManagerUsesSharedChangeLog )
+    {
+        CFile::create(file_name, {});
+        CFile file(file_name, AccessType::READ_WRITE);
+        auto io = createIO(file);
+        auto mapping_pair = createMappingPair();
+        SparsePair meta_pair(SparsePair::tag_create(), mapping_pair);
+        auto meta_space = MS_MetaSpace::create(page_size, meta_pair, io);
+        SparsePairManager manager(meta_space);
+
+        auto &slot_7 = manager.getOrCreate(7);
+        auto &slot_19 = manager.getOrCreate(19);
+        slot_7.getSparseIndex().emplace(11, 1, 100);
+        slot_19.getDiffIndex().insert(12, 2, 101);
+
+        ASSERT_EQ(manager.getChangeLogSize(), 2u);
+        auto page_nums = manager.extractChangeLogPages();
+        ASSERT_EQ(page_nums, (std::vector<std::uint64_t> {
+            SparsePair::encodeChangeLogEntry(7, 11),
+            SparsePair::encodeChangeLogEntry(19, 12)
+        }));
+        ASSERT_EQ(manager.getChangeLogSize(), 0u);
+    }
+
+    TEST_F( SparsePairTest , testSparsePairManagerCommitOnlyUsesDirtyCachedPairs )
+    {
+        CFile::create(file_name, {});
+        CFile file(file_name, AccessType::READ_WRITE);
+        auto io = createIO(file);
+        auto mapping_pair = createMappingPair();
+        SparsePair meta_pair(SparsePair::tag_create(), mapping_pair);
+        auto meta_space = MS_MetaSpace::create(page_size, meta_pair, io);
+        SparsePairManager manager(meta_space);
+
+        auto &dirty_slot = manager.getOrCreate(7);
+        auto &other_dirty_slot = manager.getOrCreate(19);
+        auto &clean_slot = manager.getOrCreate(31);
+        dirty_slot.getSparseIndex().emplace(11, 1, 100);
+        other_dirty_slot.getSparseIndex().emplace(13, 1, 102);
+        dirty_slot.getDiffIndex().insert(12, 2, 101);
+
+        manager.commit();
+
+        ASSERT_EQ(manager.getChangeLogSize(), 3u);
+        auto page_nums = manager.extractChangeLogPages();
+        ASSERT_EQ(page_nums, (std::vector<std::uint64_t> {
+            SparsePair::encodeChangeLogEntry(7, 11),
+            SparsePair::encodeChangeLogEntry(19, 13),
+            SparsePair::encodeChangeLogEntry(7, 12)
+        }));
+        ASSERT_TRUE(!!dirty_slot.getSparseIndex().lookup(11, 1));
+        ASSERT_TRUE(!!other_dirty_slot.getSparseIndex().lookup(13, 1));
+        ASSERT_TRUE(clean_slot.empty());
+    }
+
+    TEST_F( SparsePairTest , testSparsePairManagerRefreshesAffectedSlotInPlace )
+    {
+        CFile::create(file_name, {});
+        CFile file(file_name, AccessType::READ_WRITE);
+        auto io = createIO(file);
+        auto mapping_pair = createMappingPair();
+        SparsePair meta_pair(SparsePair::tag_create(), mapping_pair);
+        auto meta_space = MS_MetaSpace::create(page_size, meta_pair, io);
+        SparsePairManager manager(meta_space);
+
+        auto &slot_7 = manager.getOrCreate(7);
+        auto &slot_19 = manager.getOrCreate(19);
+        slot_7.getSparseIndex().insert({ 11, 1, 100 });
+        manager.commit();
+        ASSERT_TRUE(flushMeta(meta_space, io, meta_pair));
+
+        auto *slot_7_before = &slot_7;
+        auto *slot_19_before = &slot_19;
+        manager.refreshPages({
+            SparsePair::encodeChangeLogEntry(7, 11),
+            SparsePair::encodeChangeLogEntry(7, 11)
+        });
+
+        ASSERT_EQ(manager.tryGetCached(7), slot_7_before);
+        ASSERT_EQ(manager.tryGetCached(19), slot_19_before);
+        ASSERT_EQ(manager.tryGetExisting(7), slot_7_before);
+        ASSERT_EQ(manager.tryGetCached(7), slot_7_before);
+    }
+
+    TEST_F( SparsePairTest , testSparsePairManagerEvictsSlot )
+    {
+        CFile::create(file_name, {});
+        CFile file(file_name, AccessType::READ_WRITE);
+        auto io = createIO(file);
+        auto mapping_pair = createMappingPair();
+        SparsePair meta_pair(SparsePair::tag_create(), mapping_pair);
+        auto meta_space = MS_MetaSpace::create(page_size, meta_pair, io);
+        SparsePairManager manager(meta_space);
+
+        auto &slot_7 = manager.getOrCreate(7);
+        auto &slot_19 = manager.getOrCreate(19);
+        slot_7.getSparseIndex().insert({ 11, 1, 100 });
+        slot_19.getSparseIndex().insert({ 12, 1, 101 });
+        manager.commit();
+        ASSERT_TRUE(flushMeta(meta_space, io, meta_pair));
+
+        manager.evictSlot(7);
+
+        ASSERT_EQ(manager.tryGetCached(7), nullptr);
+        auto &reopened_slot_7 = manager.getOrCreate(7);
+        auto *reopened_slot_7_ptr = &reopened_slot_7;
+        auto *slot_19_ptr = &slot_19;
+
+        manager.refreshPages({
+            SparsePair::encodeChangeLogEntry(7, 11),
+            SparsePair::encodeChangeLogEntry(19, 12)
+        });
+
+        ASSERT_EQ(manager.tryGetCached(7), reopened_slot_7_ptr);
+        ASSERT_EQ(manager.tryGetExisting(7), reopened_slot_7_ptr);
+        ASSERT_EQ(manager.tryGetCached(7), reopened_slot_7_ptr);
+        ASSERT_EQ(manager.tryGetCached(19), slot_19_ptr);
+        ASSERT_EQ(manager.tryGetExisting(19), slot_19_ptr);
+        ASSERT_EQ(manager.tryGetCached(19), slot_19_ptr);
+    }
+
+    TEST_F( SparsePairTest , testSparsePairManagerOpensExistingSlotPair )
     {
         CFile::create(file_name, {});
         CFile file(file_name, AccessType::READ_WRITE);
@@ -179,7 +317,7 @@ namespace tests
         ASSERT_EQ(reopened_pair.getDiffIndex().findLower(43, 4), 4u);
     }
 
-    TEST_F( SparsePairTest , testSparsePairManagerReopensSlotPairAfterMetaSpaceFlush )
+    TEST_F( SparsePairTest , testSparsePairManagerOpensSlotPairAfterMetaSpaceFlush )
     {
         CFile::create(file_name, {});
         CFile file(file_name, AccessType::READ_WRITE);
@@ -192,7 +330,7 @@ namespace tests
             SparsePairManager manager(meta_space);
             auto &slot_pair = manager.getOrCreate(23);
             slot_pair.getSparseIndex().insert({ 100, 5, 700 });
-            ASSERT_TRUE(flushMeta(meta_space, io));
+            ASSERT_TRUE(flushMeta(meta_space, io, meta_pair));
         }
 
         auto reopened_meta_space = MS_MetaSpace::create(page_size, meta_pair, io);
@@ -202,6 +340,38 @@ namespace tests
 
         ASSERT_TRUE(!!sparse_item);
         ASSERT_EQ(sparse_item.m_storage_page_num, 700u);
+    }
+
+    TEST_F( SparsePairTest , testSparsePairManagerRefreshSeesSlotCreatedAfterMiss )
+    {
+        CFile::create(file_name, {});
+        CFile file(file_name, AccessType::READ_WRITE);
+        auto io = createIO(file);
+        auto mapping_pair = createMappingPair();
+        SparsePair meta_pair(SparsePair::tag_create(), mapping_pair);
+
+        auto writer_meta_space = MS_MetaSpace::create(page_size, meta_pair, io);
+        auto reader_meta_space = MS_MetaSpace::create(page_size, meta_pair, io);
+        SparsePairManager reader_manager(reader_meta_space);
+
+        ASSERT_EQ(reader_manager.tryGetExisting(0), nullptr);
+
+        {
+            SparsePairManager writer_manager(writer_meta_space);
+            auto &slot_pair = writer_manager.getOrCreate(0);
+            slot_pair.getSparseIndex().insert({ 200, 7, 900 });
+            writer_manager.commit();
+            auto changed_pages = writer_manager.extractChangeLogPages();
+            ASSERT_TRUE(flushMeta(writer_meta_space, io, meta_pair));
+            reader_manager.refreshPages(changed_pages);
+        }
+
+        auto *reopened_pair = reader_manager.tryGetExisting(0);
+
+        ASSERT_NE(reopened_pair, nullptr);
+        auto sparse_item = reopened_pair->getSparseIndex().lookup(200, 7);
+        ASSERT_TRUE(!!sparse_item);
+        ASSERT_EQ(sparse_item.m_storage_page_num, 900u);
     }
     
     TEST_F( SparsePairTest , testSparsePairCollectsChangeLogOfAddedItems )
@@ -223,6 +393,7 @@ namespace tests
         for (auto &item: items_1) {
             sparse_index.insert(item);
         }
+        cut.recordMaxStateNum(1);
 
         CFile::create(file_name, {});
         CFile file(file_name, AccessType::READ_WRITE);
@@ -250,6 +421,7 @@ namespace tests
         for (auto &item: items_2) {
             sparse_index.insert(item);
         }
+        cut.recordMaxStateNum(5);
         
         {
             DP_ChangeLogStreamT io(file, 0, 4096, tail_function);
@@ -291,6 +463,7 @@ namespace tests
             for (unsigned int page_num = 0; page_num < 1000; ++page_num) {
                 sparse_index.emplace(page_num, i, 999);
             }
+            cut.recordMaxStateNum(i);
             
             // simulate change log extraction
             DP_ChangeLogStreamT io(file, 0, 16 << 10, tail_function, AccessType::READ_WRITE);

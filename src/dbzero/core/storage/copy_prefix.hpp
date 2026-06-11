@@ -24,7 +24,8 @@ namespace db0
     // NOTE: output_changelog is NOT flushed (see the design)    
     // @return the finalal copied state number (unless nothing was copied - then std::nullopt)
     std::optional<StateNumType> copyDRAM_IO(DRAM_IOStream &input_io, DRAM_ChangeLogStreamT &input_dram_changelog,
-        DRAM_IOStream &output_io, DRAM_ChangeLogStreamT::Writer &output_dram_changelog);
+        DRAM_IOStream &output_io, DRAM_ChangeLogStreamT::Writer &output_dram_changelog,
+        std::optional<StateNumType> max_state_num = {});
     
     using ChunkFilterT = std::function<bool(const std::vector<char> &chunk_buffer, const void *data_end)>;
     using DRAM_FilterT = std::function<bool(const o_dram_chunk_header &, const void *data_end)>;

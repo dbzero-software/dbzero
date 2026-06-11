@@ -129,7 +129,9 @@ DB0_PACKED_BEGIN
     };
 DB0_PACKED_END
 
-    using SparseIndex = SparseIndexBase<SI_Item, SI_CompressedItem>;
+    using RootSparseIndex = SparseIndexBase<SI_Item, SI_CompressedItem, StorageRootMetadataMixin>;
+    using PlainSparseIndex = SparseIndexBase<SI_Item, SI_CompressedItem, PlainMetadataMixin>;
+    using SparseIndex = RootSparseIndex;
 
 }
 

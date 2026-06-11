@@ -90,6 +90,24 @@ namespace tests
         }
         ASSERT_EQ(count, 5u);
     }
+
+    TEST_F( ChangeLogTest , testChangeLogRLEPreservesZero )
+    {
+        std::vector<std::byte> buf;
+        using ChangeLogT = o_change_log<db0::o_fixed_null>;
+
+        std::vector<std::uint64_t> change_log = { 0, 1, 2, 5 };
+        ChangeLogData data(std::move(change_log), true, false, false);
+        auto measured_size = ChangeLogT::measure(data);
+        buf.resize(measured_size);
+        auto &cut = ChangeLogT::__new(buf.data(), data);
+
+        std::vector<std::uint64_t> decoded;
+        for (auto value: cut) {
+            decoded.push_back(value);
+        }
+        ASSERT_EQ(decoded, (std::vector<std::uint64_t> { 0, 1, 2, 5 }));
+    }
     
     TEST_F( ChangeLogTest , testChangeLogWithHeader )
     {

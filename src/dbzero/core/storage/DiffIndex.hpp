@@ -116,20 +116,20 @@ DB0_PACKED_BEGIN
     };
 DB0_PACKED_END    
 
-    class DiffIndex: protected SparseIndexBase<DI_Item, DI_CompressedItem>
+    class DiffIndex: protected SparseIndexBase<DI_Item, DI_CompressedItem, EmptyMixin>
     {
     public:
-        using super_t = SparseIndexBase<DI_Item, DI_CompressedItem>;        
+        using super_t = SparseIndexBase<DI_Item, DI_CompressedItem, EmptyMixin>;        
         using PageNumT = typename super_t::PageNumT;
         using StateNumT = typename super_t::StateNumT;
+        using SlotId = typename super_t::SlotId;
         
-        DiffIndex(std::size_t node_size, std::vector<std::uint64_t> *change_log_ptr = nullptr);
         DiffIndex(DRAM_Pair, AccessType, Address, std::vector<std::uint64_t> *change_log_ptr = nullptr, StorageFlags = {},
-            Allocator::SlotId slot_num = 0);
+            SlotId slot_num = 0, bool encode_change_log_entries = false);
         
         struct tag_create {};
         DiffIndex(tag_create, DRAM_Pair, std::vector<std::uint64_t> *change_log_ptr = nullptr,
-            Allocator::SlotId slot_num = 0);
+            SlotId slot_num = 0, bool encode_change_log_entries = false);
         
         // Either insert into a new item or extend the existing one
         // @param overflow flag indicating if the stored page has 
@@ -140,7 +140,7 @@ DB0_PACKED_END
         std::size_t size() const;
 
         /**
-         * Erase all diff descriptors while preserving index high-water counters.
+         * Erase all diff descriptors while preserving tree-header mix-in data.
          */
         void clear();
 
@@ -150,21 +150,7 @@ DB0_PACKED_END
         // Find mutation of page_num where state >= state_num
         DI_Item findUpper(PageNumT page_num, StateNumT state_num) const;
         // Find mutation ID of page_num where state <= state_num
-        StateNumT findLower(PageNumT page_num, StateNumT state_num) const;
-        
-        std::optional<PageNumT> getNextStoragePageNum() const;
-        
-        StateNumT getMaxStateNum() const;
-
-        Address getIndexAddress() const;
-
-        void commit();
-        
-        void refresh();
-
-        void reopen(Address);
-
-        bool isOpen() const;
+        StateNumT findLower(PageNumT page_num, StateNumT state_num) const;                
     };
 
 }

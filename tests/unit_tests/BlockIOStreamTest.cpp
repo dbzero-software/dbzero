@@ -9,6 +9,7 @@
 #include <dbzero/core/serialization/Types.hpp>
 #include <dbzero/core/storage/BDevStorage.hpp>
 #include <dbzero/core/memory/AccessOptions.hpp>
+#include <algorithm>
 #include <thread>
 
 using namespace std;
@@ -351,6 +352,72 @@ namespace tests
     TEST_F( BlockIOStreamTest, testReaderCanAccessChunksWrittenInMultipleCyclesWithChecksums )
     {
         testReaderCanAccessChunksWrittenInMultipleCycles(*this, true);
+    }
+
+    TEST_F( BlockIOStreamTest, testRefreshCanAdvanceToLinkedBlockFlushedAfterEos )
+    {
+        std::vector<char> no_data;
+        CFile::create(file_name, no_data);
+        CFile file(file_name, AccessType::READ_WRITE);
+
+        constexpr std::uint32_t block_size = 1024;
+        auto first_chunk_size = block_size
+            - o_block_io_cs_block_header::sizeOf()
+            - o_block_io_chunk_header::sizeOf();
+
+        BlockIOStream out(file, 0, block_size, {}, AccessType::READ_WRITE, true);
+        out.addChunk(first_chunk_size);
+        out.appendToChunk(std::vector<char>(first_chunk_size, 'a').data(), first_chunk_size);
+        out.addChunk(1);
+        out.appendToChunk("b", 1);
+        file.flush();
+
+        CFile read_file(file_name, AccessType::READ_ONLY);
+        BlockIOStream in(read_file, 0, block_size, {}, AccessType::READ_ONLY, true);
+        std::vector<char> buffer;
+        ASSERT_EQ(in.readChunk(buffer), first_chunk_size);
+        ASSERT_EQ(in.readChunk(buffer), 0);
+        ASSERT_TRUE(in.eos());
+
+        out.flush();
+        ASSERT_TRUE(in.refresh());
+        ASSERT_EQ(in.readChunk(buffer), 1);
+        ASSERT_EQ(buffer[0], 'b');
+
+        out.close();
+    }
+
+    TEST_F( BlockIOStreamTest, testIncompleteChunkReadCanBeRetriedAfterRefresh )
+    {
+        std::vector<char> no_data;
+        CFile::create(file_name, no_data);
+        CFile file(file_name, AccessType::READ_WRITE);
+
+        constexpr std::uint32_t block_size = 1024;
+        auto chunk_size = block_size
+            - o_block_io_cs_block_header::sizeOf()
+            - o_block_io_chunk_header::sizeOf()
+            + 1;
+
+        BlockIOStream out(file, 0, block_size, {}, AccessType::READ_WRITE, true);
+        out.addChunk(chunk_size);
+        out.appendToChunk(std::vector<char>(chunk_size, 'c').data(), chunk_size);
+        file.flush();
+
+        CFile read_file(file_name, AccessType::READ_ONLY);
+        BlockIOStream in(read_file, 0, block_size, {}, AccessType::READ_ONLY, true);
+        std::vector<char> buffer;
+        ASSERT_EQ(in.readChunk(buffer), 0);
+        ASSERT_TRUE(in.eos());
+
+        out.flush();
+        ASSERT_TRUE(in.refresh());
+        ASSERT_EQ(in.readChunk(buffer), chunk_size);
+        ASSERT_TRUE(std::all_of(buffer.begin(), buffer.begin() + chunk_size, [](char value) {
+            return value == 'c';
+        }));
+
+        out.close();
     }
 
     TEST_F( BlockIOStreamTest, testCanSaveAndThenRestoreStateWhenAppending )

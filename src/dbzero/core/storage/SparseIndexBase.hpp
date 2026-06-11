@@ -3,23 +3,23 @@
 
 #pragma once
 
-#include <dbzero/core/serialization/FixedVersioned.hpp>
 #include <dbzero/core/dram/DRAMSpace.hpp>
+#include "StorageRootMetadata.hpp"
 
 namespace db0
 {
     // Forward declarations for operator<< to be used in SGB_LookupTree.hpp
-    template <typename ItemT, typename CompressedItemT> class SparseIndexBase;
+    template <typename ItemT, typename CompressedItemT, typename SparseIndexMixinT> class SparseIndexBase;
     
-    template <typename ItemT, typename CompressedItemT>
-    std::ostream &operator<<(std::ostream &os, const typename db0::SparseIndexBase<ItemT, CompressedItemT>::BlockHeader &header);
+    template <typename ItemT, typename CompressedItemT, typename SparseIndexMixinT>
+    std::ostream &operator<<(std::ostream &os, const typename db0::SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::BlockHeader &header);
 }
 
 #include <dbzero/core/collections/SGB_Tree/SGB_CompressedLookupTree.hpp>
 #include <dbzero/core/collections/rle/RLE_Sequence.hpp>
 #include <dbzero/core/dram/DRAM_Prefix.hpp>
 #include <dbzero/core/dram/DRAM_Allocator.hpp>
-#include <dbzero/core/compiler_attributes.hpp>
+#include <dbzero/core/dram/MS_Address.hpp>
 #include <limits>
 #include <new>
 #include <optional>
@@ -30,7 +30,7 @@ namespace db0
     
     class DRAM_Prefix;
     class DRAM_Allocator;    
-    
+
     /**
      * The in-memory sparse index implementation
      * it utilizes DRAMSpace (in-memory) for storage and SGB_Tree as the data structure
@@ -38,37 +38,35 @@ namespace db0
      * @tparam ItemT the (uncompressed item type) for operations
      * @tparam CompressedItemT the compressed item type for storage
     */
-    template <typename ItemT, typename CompressedItemT> class SparseIndexBase
+    template <typename ItemT, typename CompressedItemT, typename SparseIndexMixinT = StorageRootMetadataMixin>
+    class SparseIndexBase
     {
     public:
         using SI_ItemT = ItemT;
         using SI_CompressedItemT = CompressedItemT;
+        using MixInT = SparseIndexMixinT;
+        using TreeHeaderMixinT = typename SparseIndexMixinT::OverlayT;
+        using MixInAPIT = typename SparseIndexMixinT::template ApiT<SparseIndexBase>;
         using PageNumT = std::uint64_t;
         using StateNumT = std::uint32_t;
         using ItemCompT = typename ItemT::CompT;
         using ItemEqualT = typename ItemT::EqualT;
         using CompressedItemCompT = typename CompressedItemT::CompT;
         using CompressedItemEqualT = typename CompressedItemT::EqualT;
-
-        /**
-         * Create empty as read/write
-         * @param node_size size of a single in-memory data block / node
-        */
-        SparseIndexBase(std::size_t node_size, std::vector<std::uint64_t> *change_log_ptr = nullptr);
+        using SlotId = Allocator::SlotId;
+        
+        // Create a new empty sparse index
+        struct tag_create {};
+        SparseIndexBase(tag_create, DRAM_Pair, std::vector<std::uint64_t> *change_log_ptr = nullptr,
+            SlotId slot_num = 0);
         
         /**
          * Create pre-populated with existing data (e.g. after reading from disk)
          * open either for read or read/write
          * @param address pass 0 to use the first assigned address
         */
-        SparseIndexBase(DRAM_Pair, AccessType, Address address = {}, 
-            std::vector<std::uint64_t> *change_log_ptr = nullptr, StorageFlags= {},
-            Allocator::SlotId slot_num = 0);
-        
-        // Create a new empty sparse index
-        struct tag_create {};
-        SparseIndexBase(tag_create, DRAM_Pair, std::vector<std::uint64_t> *change_log_ptr = nullptr,
-            Allocator::SlotId slot_num = 0);
+        SparseIndexBase(DRAM_Pair, Address, std::vector<std::uint64_t> *change_log_ptr = nullptr,
+            StorageFlags= {}, SlotId slot_num = 0);
         
         void insert(const ItemT &item);
 
@@ -114,7 +112,7 @@ namespace db0
         std::size_t eraseBelow(PageNumT page_num, StateNumT state_num);
 
         /**
-         * Erase all descriptors while preserving index high-water counters.
+         * Erase all descriptors while preserving tree-header mix-in data.
          */
         void clear();
         
@@ -134,19 +132,11 @@ namespace db0
         const DRAM_Prefix &getDRAMPrefix() const;
 
         /**
-         * Get next storage page number expected to be assigned
-        */
-        std::optional<PageNumT> getNextStoragePageNum() const;
-        
-        /**
-         * Get the maximum used state number
-        */
-        StateNumT getMaxStateNum() const;
-        
-        /**
          * Refresh cache after underlying DRAM has been updated
         */
         void refresh();
+
+        void detach() const;
                 
         void forAll(std::function<void(const ItemT &)> callback) const {
             m_index.forAll(callback);
@@ -193,27 +183,35 @@ namespace db0
         
         Address getIndexAddress() const;
 
-    protected:
-        friend class SparsePair;
+        /**
+         * Access metadata colocated with the index root page.
+         *
+         * The mix-in is intentionally embedded in the sparse-index tree header
+         * rather than stored in a separate object: small collections and limited
+         * updates often dirty the root page anyway, so colocating tiny metadata
+         * avoids forcing an additional dirty metadata page.
+         */
+        const MixInAPIT &mixIn() const;
 
-DB0_PACKED_BEGIN
-        // tree-level header type
-        struct DB0_PACKED_ATTR o_sparse_index_header: o_fixed_versioned<o_sparse_index_header>
-        {
-            PageNumT m_next_page_num = 0;
-            StateNumT m_max_state_num = 0;
-            // the extra-data slot currently used to store reference to the dff-index
-            std::uint64_t m_extra_data = 0;
-            // reserved space for future use
-            std::array<std::uint64_t, 4> m_reserved = {0, 0, 0, 0};
-        };
-DB0_PACKED_END
+        /**
+         * Mutating access to the colocated metadata API.
+         *
+         * Use this when the storage owner updates root-level metadata that is
+         * logically separate from sparse-index descriptor operations but shares
+         * the root page to reduce write amplification for small updates.
+         */
+        MixInAPIT &modifyMixIn();
+
+    protected:
+        template <typename ConfigT> friend class SparsePairBase;
+        template <typename BaseT> friend class StorageRootMetadataAPI;
+        template <typename BaseT> friend class EmptyStorageRootMetadataAPI;
 
         // DRAM space deployed sparse index (in-memory)
         using IndexT = SGB_CompressedLookupTree<
             ItemT, CompressedItemT, BlockHeader,
             ItemCompT, CompressedItemCompT, ItemEqualT, CompressedItemEqualT,
-            o_sparse_index_header>;
+            TreeHeaderMixinT>;
         
         using ConstNodeIterator = typename IndexT::sg_tree_const_iterator;
         using ConstItemIterator = typename IndexT::ConstItemIterator;
@@ -222,121 +220,79 @@ DB0_PACKED_END
 
         ConstItemIterator findLower(PageNumT, StateNumT) const;
         
-        void setExtraData(std::uint64_t);
-
-        std::uint64_t getExtraData() const;
-
-        void updateCounters(std::uint64_t max_storage_page_num);
-        void updateCounters(PageNumT page_num, StateNumT state_num, std::uint64_t max_storage_page_num);
-        void reopen(Address address = {});
-        bool isOpen() const;
+        void recordChange(PageNumT page_num);
         
     private:
         std::shared_ptr<DRAM_Prefix> m_dram_prefix;
         std::shared_ptr<DRAM_Allocator> m_dram_allocator;
         Memspace m_dram_space;
         const AccessType m_access_type;
-        Allocator::SlotId m_slot_num = 0;
+        // slot ID is required to properly allocate SparseIndex nodes        
+        SlotId m_slot_num = 0;
         // the actual index
         IndexT m_index;
-        // copied from tree header (cached)
-        PageNumT m_next_page_num = 0;
-        StateNumT m_max_state_num = 0;
-        // change log contains the list of updates (modified items / page numbers)qweqwe
-        // first element is the state number
+        MixInAPIT m_mixin_api;
+        // change log contains the list of updates (modified items / page numbers)
         std::vector<std::uint64_t> *m_change_log_ptr = nullptr;
         
         IndexT openIndex(Address, AccessType access_type, StorageFlags);
         IndexT createIndex();
     };
     
-    template <typename ItemT, typename CompressedItemT>
-    SparseIndexBase<ItemT, CompressedItemT>::SparseIndexBase(std::size_t node_size, std::vector<std::uint64_t> *change_log_ptr)
-        : m_dram_space(DRAMSpace::create(node_size, [this](DRAM_Pair dram_pair) {
-            this->m_dram_prefix = dram_pair.first;
-            this->m_dram_allocator = dram_pair.second;
-        }))
-        , m_access_type(AccessType::READ_WRITE)
-        , m_index(m_dram_space, node_size, AccessType::READ_WRITE)
-        , m_change_log_ptr(change_log_ptr)
-    {
-    }
-
-    template <typename ItemT, typename CompressedItemT>
-    SparseIndexBase<ItemT, CompressedItemT>::SparseIndexBase(DRAM_Pair dram_pair, AccessType access_type, Address address,
-        std::vector<std::uint64_t> *change_log_ptr, StorageFlags flags, Allocator::SlotId slot_num)
+    template <typename ItemT, typename CompressedItemT, typename SparseIndexMixinT>
+    SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::SparseIndexBase(DRAM_Pair dram_pair, Address address, AccessType access_type,
+        std::vector<std::uint64_t> *change_log_ptr, StorageFlags flags, SlotId slot_num)
         : m_dram_prefix(dram_pair.first)
         , m_dram_allocator(dram_pair.second)
         , m_dram_space(DRAMSpace::create(dram_pair))
         , m_access_type(access_type)
         , m_slot_num(slot_num)
         , m_index(openIndex(address, access_type, flags))
-        // NOTE: index may NOT be loaded
-        , m_next_page_num(!!m_index ? m_index.treeHeader().m_next_page_num : 0)
-        , m_max_state_num(!!m_index ? m_index.treeHeader().m_max_state_num : 0)
+        , m_mixin_api(*this)
         , m_change_log_ptr(change_log_ptr)
     {
     }
 
-    template <typename ItemT, typename CompressedItemT>
-    SparseIndexBase<ItemT, CompressedItemT>::SparseIndexBase(tag_create, DRAM_Pair dram_pair,
-        std::vector<std::uint64_t> *change_log_ptr, Allocator::SlotId slot_num)
+    template <typename ItemT, typename CompressedItemT, typename SparseIndexMixinT>
+    SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::SparseIndexBase(tag_create, DRAM_Pair dram_pair,
+        std::vector<std::uint64_t> *change_log_ptr, SlotId slot_num)
         : m_dram_prefix(dram_pair.first)
         , m_dram_allocator(dram_pair.second)
         , m_dram_space(DRAMSpace::create(dram_pair))
         , m_access_type(AccessType::READ_WRITE)
         , m_slot_num(slot_num)
         , m_index(createIndex())
-        , m_next_page_num(m_index.treeHeader().m_next_page_num)
-        , m_max_state_num(m_index.treeHeader().m_max_state_num)
+        , m_mixin_api(*this)
         , m_change_log_ptr(change_log_ptr)
     {
     }
-
-    template <typename ItemT, typename CompressedItemT>
-    void SparseIndexBase<ItemT, CompressedItemT>::updateCounters(std::uint64_t max_storage_page_num)
-    {   
-        // update tree header if necessary
-        if (max_storage_page_num >= m_next_page_num) {
-            m_next_page_num = max_storage_page_num + 1;
-            m_index.modifyTreeHeader().m_next_page_num = m_next_page_num;
-        }
-    }
     
-    template <typename ItemT, typename CompressedItemT>
-    void SparseIndexBase<ItemT, CompressedItemT>::updateCounters(PageNumT page_num, StateNumT state_num,
-        std::uint64_t max_storage_page_num)
+    template <typename ItemT, typename CompressedItemT, typename SparseIndexMixinT>
+    void SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::recordChange(PageNumT page_num)
     {
-        // update tree header if necessary
-        this->updateCounters(max_storage_page_num);
-        if (state_num > m_max_state_num) {
-            m_max_state_num = state_num;
-            m_index.modifyTreeHeader().m_max_state_num = state_num;
-        }
-        // put the currently generated state number as the first element in the change-log
         if (m_change_log_ptr) {
-            m_change_log_ptr->push_back(page_num);
+            m_change_log_ptr->push_back(MS_Address::encode(m_slot_num, page_num));
         }
     }
 
-    template <typename ItemT, typename CompressedItemT>
-    void SparseIndexBase<ItemT, CompressedItemT>::update(PageNumT page_num, StateNumT state_num,
+    template <typename ItemT, typename CompressedItemT, typename SparseIndexMixinT>
+    void SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::update(PageNumT page_num, StateNumT state_num,
         std::uint64_t storage_page_num)
     {
         this->eraseBelow(page_num, state_num);
         m_index.insert(ItemT(page_num, state_num, storage_page_num));
-        this->updateCounters(page_num, state_num, storage_page_num);
+        this->recordChange(page_num);
     }
     
-    template <typename ItemT, typename CompressedItemT>
-    void SparseIndexBase<ItemT, CompressedItemT>::insert(const ItemT &item)
+    template <typename ItemT, typename CompressedItemT, typename SparseIndexMixinT>
+    void SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::insert(const ItemT &item)
     {
         m_index.insert(item);
-        this->updateCounters(item.m_page_num, item.m_state_num, item.m_storage_page_num);
+        this->recordChange(item.m_page_num);
     }
 
-    template <typename ItemT, typename CompressedItemT>
-    void SparseIndexBase<ItemT, CompressedItemT>::forPageRange(PageNumT first_page_num, PageNumT last_page_num,
+    template <typename ItemT, typename CompressedItemT, typename SparseIndexMixinT>
+    void SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::forPageRange(PageNumT first_page_num, PageNumT last_page_num,
         std::function<void(const ItemT &)> callback) const
     {
         m_index.forRange(
@@ -346,8 +302,8 @@ DB0_PACKED_END
         );
     }
 
-    template <typename ItemT, typename CompressedItemT>
-    bool SparseIndexBase<ItemT, CompressedItemT>::erase(PageNumT page_num, StateNumT state_num)
+    template <typename ItemT, typename CompressedItemT, typename SparseIndexMixinT>
+    bool SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::erase(PageNumT page_num, StateNumT state_num)
     {
         if (!m_index.erase_equal(std::make_pair(page_num, state_num))) {
             return false;
@@ -355,14 +311,14 @@ DB0_PACKED_END
         return true;
     }
 
-    template <typename ItemT, typename CompressedItemT>
-    std::size_t SparseIndexBase<ItemT, CompressedItemT>::eraseBelow(PageNumT page_num, StateNumT state_num)
+    template <typename ItemT, typename CompressedItemT, typename SparseIndexMixinT>
+    std::size_t SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::eraseBelow(PageNumT page_num, StateNumT state_num)
     {
         return eraseRange(page_num, {}, state_num);
     }
 
-    template <typename ItemT, typename CompressedItemT>
-    std::size_t SparseIndexBase<ItemT, CompressedItemT>::eraseRange(PageNumT page_num,
+    template <typename ItemT, typename CompressedItemT, typename SparseIndexMixinT>
+    std::size_t SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::eraseRange(PageNumT page_num,
         std::optional<StateNumT> first_state_num, std::optional<StateNumT> last_state_num)
     {
         auto first = ItemT(page_num, first_state_num.value_or(0));
@@ -378,93 +334,97 @@ DB0_PACKED_END
         return removed;
     }
 
-    template <typename ItemT, typename CompressedItemT>
-    void SparseIndexBase<ItemT, CompressedItemT>::clear()
+    template <typename ItemT, typename CompressedItemT, typename SparseIndexMixinT>
+    void SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::clear()
     {
         m_index.clear();
     }
     
-    template <typename ItemT, typename CompressedItemT>
-    typename SparseIndexBase<ItemT, CompressedItemT>::IndexT
-    SparseIndexBase<ItemT, CompressedItemT>::openIndex(Address address, AccessType access_type, StorageFlags flags)
+    template <typename ItemT, typename CompressedItemT, typename SparseIndexMixinT>
+    typename SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::IndexT
+    SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::openIndex(Address address, AccessType access_type, StorageFlags flags)
     {
-        assert((!m_dram_prefix->empty() || flags[StorageOptions::NO_LOAD])
+        assert((!m_dram_prefix->empty() || flags[StorageFlagOption::NO_LOAD])
             && "SparseIndexBase::openIndex: DRAM prefix is empty"
         );
         // NOTE: Index NOT opened if NO_LOAD flag is set
-        if (flags[StorageOptions::NO_LOAD]) {
+        if (flags[StorageFlagOption::NO_LOAD]) {
             return {};
         } else {
-            if (!address.isValid()) {
-                address = m_dram_allocator->firstAlloc();
-            }
+            // Use the first address if no specified
+            // this is the default address where the SparseIndex is located
+            if (!address) {
+                address = m_dram_allocator->firstAlloc(m_slot_num);
+            }            
             return IndexT(m_dram_space.myPtr(address), m_dram_prefix->getPageSize(), access_type,
                 {}, {}, {}, IndexT::DEFAULT_SORT_THRESHOLD, m_slot_num);
         }
     }
     
-    template <typename ItemT, typename CompressedItemT>
-    typename SparseIndexBase<ItemT, CompressedItemT>::IndexT
-    SparseIndexBase<ItemT, CompressedItemT>::createIndex() {
+    template <typename ItemT, typename CompressedItemT, typename SparseIndexMixinT>
+    typename SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::IndexT
+    SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::createIndex() 
+    {
+        // Sparse Index is created at the root address (or the slot's first address)
         return IndexT(m_dram_space, m_dram_prefix->getPageSize(), AccessType::READ_WRITE,
             {}, {}, {}, IndexT::DEFAULT_SORT_THRESHOLD, m_slot_num);
     }
     
-    template <typename ItemT, typename CompressedItemT>
-    const DRAM_Prefix &SparseIndexBase<ItemT, CompressedItemT>::getDRAMPrefix() const {
+    template <typename ItemT, typename CompressedItemT, typename SparseIndexMixinT>
+    const DRAM_Prefix &SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::getDRAMPrefix() const {
         return *m_dram_prefix;
     }
     
-    template <typename ItemT, typename CompressedItemT>
-    CompressedItemT SparseIndexBase<ItemT, CompressedItemT>::BlockHeader::compressFirst(const ItemT &item) 
+    template <typename ItemT, typename CompressedItemT, typename SparseIndexMixinT>
+    CompressedItemT SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::BlockHeader::compressFirst(const ItemT &item) 
     {
         m_first_page_num = item.m_page_num >> 24;
         return CompressedItemT(m_first_page_num, item);
     }
     
-    template <typename ItemT, typename CompressedItemT>
-    CompressedItemT SparseIndexBase<ItemT, CompressedItemT>::BlockHeader::compress(const ItemT &item) const
+    template <typename ItemT, typename CompressedItemT, typename SparseIndexMixinT>
+    CompressedItemT SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::BlockHeader::compress(const ItemT &item) const
     {
         assert(m_first_page_num == (item.m_page_num >> 24));
         return CompressedItemT(m_first_page_num, item);
     }
     
-    template <typename ItemT, typename CompressedItemT>
-    CompressedItemT SparseIndexBase<ItemT, CompressedItemT>::BlockHeader::compress(std::pair<PageNumT, StateNumT> item) const
+    template <typename ItemT, typename CompressedItemT, typename SparseIndexMixinT>
+    CompressedItemT SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::BlockHeader::compress(std::pair<PageNumT, StateNumT> item) const
     {
         assert(m_first_page_num == (item.first >> 24));
         return CompressedItemT(m_first_page_num, item.first, item.second);
     }
     
-    template <typename ItemT, typename CompressedItemT>
-    ItemT SparseIndexBase<ItemT, CompressedItemT>::BlockHeader::uncompress(const CompressedItemT &item) const {
+    template <typename ItemT, typename CompressedItemT, typename SparseIndexMixinT>
+    ItemT SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::BlockHeader::uncompress(const CompressedItemT &item) const {
         return item.uncompress(this->m_first_page_num);
     }
 
-    template <typename ItemT, typename CompressedItemT>
-    typename SparseIndexBase<ItemT, CompressedItemT>::PageNumT 
-    SparseIndexBase<ItemT, CompressedItemT>::BlockHeader::getPageNum(const CompressedItemT &item) const {
+    template <typename ItemT, typename CompressedItemT, typename SparseIndexMixinT>
+    typename SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::PageNumT 
+    SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::BlockHeader::getPageNum(const CompressedItemT &item) const {
         return item.getPageNum(this->m_first_page_num);
     }
 
-    template <typename ItemT, typename CompressedItemT>
-    bool SparseIndexBase<ItemT, CompressedItemT>::BlockHeader::canFit(const ItemT &item) const {
+    template <typename ItemT, typename CompressedItemT, typename SparseIndexMixinT>
+    bool SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::BlockHeader::canFit(const ItemT &item) const {
         return this->m_first_page_num == (item.m_page_num >> 24);
     }
     
-    template <typename ItemT, typename CompressedItemT>
-    bool SparseIndexBase<ItemT, CompressedItemT>::BlockHeader::canFit(std::pair<PageNumT, StateNumT> item) const 
+    template <typename ItemT, typename CompressedItemT, typename SparseIndexMixinT>
+    bool SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::BlockHeader::canFit(std::pair<PageNumT, StateNumT> item) const 
     {
         return this->m_first_page_num == (item.first >> 24);
     }
 
-    template <typename ItemT, typename CompressedItemT>
-    ItemT SparseIndexBase<ItemT, CompressedItemT>::lookup(PageNumT page_num, StateNumT state_num) const {
+    template <typename ItemT, typename CompressedItemT, typename SparseIndexMixinT>
+    ItemT SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::lookup(PageNumT page_num, StateNumT state_num) const {
         return lookup(std::make_pair(page_num, state_num));
     }
     
-    template <typename ItemT, typename CompressedItemT>
-    ItemT SparseIndexBase<ItemT, CompressedItemT>::lookup(std::pair<PageNumT, StateNumT> page_and_state) const
+    template <typename ItemT, typename CompressedItemT, typename SparseIndexMixinT>
+    ItemT SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::lookup(std::pair<PageNumT, StateNumT> page_and_state) const
     {
         auto result = m_index.lower_equal_bound(page_and_state);
         if (!result || result->m_page_num != page_and_state.first) {
@@ -473,8 +433,8 @@ DB0_PACKED_END
         return *result;
     }
     
-    template <typename ItemT, typename CompressedItemT>
-    ItemT SparseIndexBase<ItemT, CompressedItemT>::lookup(const ItemT &item) const
+    template <typename ItemT, typename CompressedItemT, typename SparseIndexMixinT>
+    ItemT SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::lookup(const ItemT &item) const
     {
         auto result = m_index.lower_equal_bound(item);
         if (!result || result->m_page_num != item.m_page_num) {
@@ -483,94 +443,52 @@ DB0_PACKED_END
         return *result;
     }
     
-    template <typename ItemT, typename CompressedItemT>
-    std::optional<typename SparseIndexBase<ItemT, CompressedItemT>::PageNumT> 
-    SparseIndexBase<ItemT, CompressedItemT>::getNextStoragePageNum() const 
+    template <typename ItemT, typename CompressedItemT, typename SparseIndexMixinT>
+    void SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::refresh()
     {
-        if (this->empty() ) {
-            return std::nullopt;
-        }
-        return m_next_page_num;
-    }
-    
-    template <typename ItemT, typename CompressedItemT>
-    typename SparseIndexBase<ItemT, CompressedItemT>::StateNumT
-    SparseIndexBase<ItemT, CompressedItemT>::getMaxStateNum() const {
-        return m_max_state_num;
-    }
-    
-    template <typename ItemT, typename CompressedItemT>
-    void SparseIndexBase<ItemT, CompressedItemT>::refresh()
-    {
-        if (!m_index) {
-            this->reopen();
-            return;
-        }
-        
+        assert(!!m_index && "SparseIndexBase::refresh: index is not open");
         m_index.detach();
-        m_next_page_num = m_index.treeHeader().m_next_page_num;
-        m_max_state_num = m_index.treeHeader().m_max_state_num;        
+        m_mixin_api.refresh();
     }
 
-    template <typename ItemT, typename CompressedItemT>
-    void SparseIndexBase<ItemT, CompressedItemT>::reopen(Address address)
+    template <typename ItemT, typename CompressedItemT, typename SparseIndexMixinT>
+    void SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::detach() const
     {
-        if (m_dram_prefix->empty()) {
-            return;
-        }
-        
-        if (!address.isValid()) {
-            address = m_dram_allocator->firstAlloc();
-        }
-        if (!address.isValid()) {
-            return;
-        }
-        
-        m_index.~IndexT();
-        new (&m_index) IndexT(m_dram_space.myPtr(address), m_dram_prefix->getPageSize(), m_access_type,
-            {}, {}, {}, IndexT::DEFAULT_SORT_THRESHOLD, m_slot_num);
-        m_next_page_num = m_index.treeHeader().m_next_page_num;
-        m_max_state_num = m_index.treeHeader().m_max_state_num;
+        m_index.detach();        
     }
 
-    template <typename ItemT, typename CompressedItemT>
-    bool SparseIndexBase<ItemT, CompressedItemT>::isOpen() const
-    {
-        return !!m_index;
-    }
-    
-    template <typename ItemT, typename CompressedItemT>
-    std::string SparseIndexBase<ItemT, CompressedItemT>::BlockHeader::toString(const CompressedItemT &item) const {
+    template <typename ItemT, typename CompressedItemT, typename SparseIndexMixinT>
+    std::string SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::BlockHeader::toString(const CompressedItemT &item) const {
         return item.toString();
     }
     
-    template <typename ItemT, typename CompressedItemT>
-    std::string SparseIndexBase<ItemT, CompressedItemT>::BlockHeader::toString() const 
+    template <typename ItemT, typename CompressedItemT, typename SparseIndexMixinT>
+    std::string SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::BlockHeader::toString() const 
     {
         std::stringstream _str;
         _str << "BlockHeader { first_page_num: " << m_first_page_num << " }";
         return _str.str();
     }
     
-    template <typename ItemT, typename CompressedItemT>
-    bool SparseIndexBase<ItemT, CompressedItemT>::empty() const {
+    template <typename ItemT, typename CompressedItemT, typename SparseIndexMixinT>
+    bool SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::empty() const {
         return m_index.empty();
     }
 
-    template <typename ItemT, typename CompressedItemT>
-    std::size_t SparseIndexBase<ItemT, CompressedItemT>::size() const {
+    template <typename ItemT, typename CompressedItemT, typename SparseIndexMixinT>
+    std::size_t SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::size() const {
         return m_index.size();
     }
 
-    template <typename ItemT, typename CompressedItemT>
-    const CompressedItemT *SparseIndexBase<ItemT, CompressedItemT>::lowerEqualBound(
+    template <typename ItemT, typename CompressedItemT, typename SparseIndexMixinT>
+    const CompressedItemT *SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::lowerEqualBound(
         PageNumT page_num, StateNumT state_num, ConstNodeIterator &node) const
     {
         return m_index.lower_equal_bound(std::make_pair(page_num, state_num), node);
     }
     
-    template <typename ItemT, typename CompressedItemT>
-    ItemT SparseIndexBase<ItemT, CompressedItemT>::findUpper(PageNumT page_num, StateNumT state_num) const
+    template <typename ItemT, typename CompressedItemT, typename SparseIndexMixinT>
+    ItemT SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::findUpper(PageNumT page_num, StateNumT state_num) const
     {
         auto result = m_index.upper_equal_bound(std::make_pair(page_num, state_num));
         if (!result || result->m_page_num != page_num) {
@@ -579,35 +497,37 @@ DB0_PACKED_END
         return *result;
     }
     
-    template <typename ItemT, typename CompressedItemT>
-    void SparseIndexBase<ItemT, CompressedItemT>::setExtraData(std::uint64_t data) {
-        m_index.modifyTreeHeader().m_extra_data = data;
-    }
-
-    template <typename ItemT, typename CompressedItemT>
-    std::uint64_t SparseIndexBase<ItemT, CompressedItemT>::getExtraData() const {
-        return m_index.treeHeader().m_extra_data;
-    }
-    
-    template <typename ItemT, typename CompressedItemT>
-    Address SparseIndexBase<ItemT, CompressedItemT>::getIndexAddress() const {
+    template <typename ItemT, typename CompressedItemT, typename SparseIndexMixinT>
+    Address SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::getIndexAddress() const {
         return m_index.getAddress();
     }
+
+    template <typename ItemT, typename CompressedItemT, typename SparseIndexMixinT>
+    const typename SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::MixInAPIT &
+    SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::mixIn() const {
+        return m_mixin_api;
+    }
+
+    template <typename ItemT, typename CompressedItemT, typename SparseIndexMixinT>
+    typename SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::MixInAPIT &
+    SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::modifyMixIn() {
+        return m_mixin_api;
+    }
     
-    template <typename ItemT, typename CompressedItemT>
-    typename SparseIndexBase<ItemT, CompressedItemT>::ConstItemIterator    
-    SparseIndexBase<ItemT, CompressedItemT>::findLower(PageNumT page_num, StateNumT state_num) const {
+    template <typename ItemT, typename CompressedItemT, typename SparseIndexMixinT>
+    typename SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::ConstItemIterator    
+    SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::findLower(PageNumT page_num, StateNumT state_num) const {
         return m_index.findLower(std::make_pair(page_num, state_num));
     }
 
-    template <typename ItemT, typename CompressedItemT>
-    void SparseIndexBase<ItemT, CompressedItemT>::commit() {
+    template <typename ItemT, typename CompressedItemT, typename SparseIndexMixinT>
+    void SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::commit() {
         m_index.commit();        
     }
     
-    template <typename ItemT, typename CompressedItemT>
-    bool SparseIndexBase<ItemT, CompressedItemT>::operator!() const {
+    template <typename ItemT, typename CompressedItemT, typename SparseIndexMixinT>
+    bool SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::operator!() const {
         return !m_index;
     }
-    
+
 }

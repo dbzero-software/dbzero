@@ -132,21 +132,18 @@ namespace db0
     void DI_CompressedItem::append(std::uint32_t state_num, std::uint64_t storage_page_num) {
         DiffArrayT::__ref(m_diff_data.data()).emplaceBack(state_num, storage_page_num);
     }
-
-    DiffIndex::DiffIndex(std::size_t node_size, std::vector<std::uint64_t> *change_log_ptr)
-        : SparseIndexBase(node_size, change_log_ptr)
-    {
-    }
     
     DiffIndex::DiffIndex(DRAM_Pair dram_pair, AccessType access_type, Address address, 
-        std::vector<std::uint64_t> *change_log_ptr, StorageFlags flags, Allocator::SlotId slot_num)
-        : SparseIndexBase(dram_pair, access_type, address, change_log_ptr, flags, slot_num)
+        std::vector<std::uint64_t> *change_log_ptr, StorageFlags flags, SlotId slot_num)
+        : SparseIndexBase(dram_pair, access_type, address, change_log_ptr, flags, slot_num,
+            encode_change_log_entries)
     {
     }
     
     DiffIndex::DiffIndex(tag_create, DRAM_Pair dram_pair, std::vector<std::uint64_t> *change_log_ptr,
-        Allocator::SlotId slot_num)
-        : SparseIndexBase(typename super_t::tag_create{}, dram_pair, change_log_ptr, slot_num)
+        Allocator::SlotId slot_num, bool encode_change_log_entries)
+        : SparseIndexBase(typename super_t::tag_create{}, dram_pair, change_log_ptr, slot_num,
+            encode_change_log_entries)
     {
     }
 
@@ -178,15 +175,10 @@ namespace db0
         if (item_ptr && node->header().getPageNum(*item_ptr) == page_num && item_ptr->beginAppend(relative_state_num, relative_storage_page_num)) {
             // NOTE: relative_state_num & relative_storage_page_num get converted from absolute to relative values
             db0::modifyMember(node, *item_ptr).append(relative_state_num, relative_storage_page_num);
-            // collect the change-log
-            this->updateCounters(page_num, state_num, storage_page_num + (overflow ? 1 : 0));
+            this->recordChange(page_num);
         } else {
             // create new item (with no history of updates)
             super_t::emplace(page_num, state_num, storage_page_num);
-            // we also need to account for the overflow
-            if (overflow) {
-                this->updateCounters(storage_page_num + 1);
-            }
         }
     }
     
@@ -200,34 +192,6 @@ namespace db0
             }
         }
         return super_t::findUpper(page_num, state_num);
-    }
-    
-    Address DiffIndex::getIndexAddress() const {
-        return super_t::getIndexAddress();
-    }
-    
-    std::optional<typename DiffIndex::PageNumT> DiffIndex::getNextStoragePageNum() const {
-        return super_t::getNextStoragePageNum();
-    }
-    
-    typename DiffIndex::StateNumT DiffIndex::getMaxStateNum() const {
-        return super_t::getMaxStateNum();
-    }
-    
-    void DiffIndex::refresh() {
-        super_t::refresh();
-    }
-
-    void DiffIndex::reopen(Address address) {
-        super_t::reopen(address);
-    }
-
-    bool DiffIndex::isOpen() const {
-        return super_t::isOpen();
-    }
-    
-    void DiffIndex::commit() {
-        super_t::commit();
     }
 
     DiffIndex::StateNumT DiffIndex::findLower(PageNumT page_num, StateNumT state_num) const
