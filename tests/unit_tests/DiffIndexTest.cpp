@@ -39,6 +39,25 @@ namespace tests
         void TearDown() override {        
             drop(file_name);
         }
+
+        static DRAM_Pair createDramPair(std::size_t page_size)
+        {
+            return {
+                std::make_shared<DRAM_Prefix>(page_size),
+                std::make_shared<DRAM_Allocator>(page_size)
+            };
+        }
+
+        static SparseIndex createSparseIndex(std::size_t page_size)
+        {
+            return SparseIndex(SparseIndex::tag_create(), createDramPair(page_size));
+        }
+
+        template <typename DiffIndexT = DiffIndex>
+        static DiffIndexT createDiffIndex(std::size_t page_size)
+        {
+            return DiffIndexT(DiffIndex::tag_create(), createDramPair(page_size));
+        }
     };
 
     class DiffIndexEraseTestAdapter: public DiffIndex
@@ -62,13 +81,13 @@ namespace tests
     
     TEST_F( DiffIndexTest , testDiffIndexCanBeInstantiated )
     {
-        DiffIndex cut(16 * 1024);
+        auto cut = createDiffIndex(16 * 1024);
         ASSERT_EQ(cut.size(), 0);
     }
 
     TEST_F( DiffIndexTest , testDiffIndexInsertNewItems )
     {
-        DiffIndex cut(16 * 1024);
+        auto cut = createDiffIndex(16 * 1024);
         cut.insert(1, 1, 1);
         cut.insert(2, 1, 3);
         cut.insert(3, 1, 8);
@@ -77,7 +96,7 @@ namespace tests
     
     TEST_F( DiffIndexTest , testDiffIndexExpandExistingItems )
     {
-        DiffIndex cut(16 * 1024);
+        auto cut = createDiffIndex(16 * 1024);
         cut.insert(1, 1, 1);
         cut.insert(2, 1, 3);
         cut.insert(1, 3, 8);
@@ -88,7 +107,7 @@ namespace tests
     
     TEST_F( DiffIndexTest , testDiffIndexFindLower )
     {
-        DiffIndex cut(16 * 1024);
+        auto cut = createDiffIndex(16 * 1024);
         cut.insert(1, 1, 1);
         cut.insert(2, 1, 3);
         cut.insert(1, 3, 8);
@@ -105,7 +124,7 @@ namespace tests
     
     TEST_F( DiffIndexTest , testDiffIndexFindUpper )
     {
-        DiffIndex cut(16 * 1024);
+        auto cut = createDiffIndex(16 * 1024);
         cut.insert(1, 2, 3);
         cut.insert(1, 4, 4);
         cut.insert(1, 5, 11);
@@ -120,7 +139,7 @@ namespace tests
 
     TEST_F( DiffIndexTest , testDiffIndexFindUpperIssue1 )
     {        
-        DiffIndex diff_index(16 * 1024);
+        auto diff_index = createDiffIndex(16 * 1024);
         for (auto [page, state, storage]: getDiffIndexData1()) {
             diff_index.insert(page, state, storage);
         }
@@ -131,7 +150,7 @@ namespace tests
 
     TEST_F( DiffIndexTest , testDiffIndexSparseIndexBaseCanEraseExactDescriptor )
     {
-        DiffIndexEraseTestAdapter cut(512);
+        auto cut = createDiffIndex<DiffIndexEraseTestAdapter>(512);
         cut.insert(1, 1, 10);
         cut.insert(2, 1, 20);
         cut.insert(3, 1, 30);
@@ -146,7 +165,7 @@ namespace tests
 
     TEST_F( DiffIndexTest , testDiffIndexSparseIndexBaseEraseBelowDescriptorEdgeCasesWithSmallNodes )
     {
-        DiffIndexEraseTestAdapter cut(512);
+        auto cut = createDiffIndex<DiffIndexEraseTestAdapter>(512);
         constexpr std::uint64_t storage_step = 1ull << 32;
         for (std::uint32_t state_num = 1; state_num <= 40; ++state_num) {
             cut.insert(1, state_num, storage_step * state_num);
@@ -174,7 +193,7 @@ namespace tests
 
     TEST_F( DiffIndexTest , testDiffIndexSparseIndexBaseEraseRangeDescriptorOptionalBounds )
     {
-        DiffIndexEraseTestAdapter cut(512);
+        auto cut = createDiffIndex<DiffIndexEraseTestAdapter>(512);
         constexpr std::uint64_t storage_step = 1ull << 32;
         for (std::uint32_t state_num = 1; state_num <= 12; ++state_num) {
             cut.insert(1, state_num, storage_step * state_num);
@@ -201,7 +220,7 @@ namespace tests
 
     TEST_F( DiffIndexTest , testDiffIndexClearRemovesAllDescriptors )
     {
-        DiffIndex cut(512);
+        auto cut = createDiffIndex(512);
         constexpr std::uint64_t storage_step = 1ull << 32;
         for (std::uint32_t state_num = 1; state_num <= 40; ++state_num) {
             cut.insert(1, state_num, storage_step * state_num);
@@ -225,7 +244,7 @@ namespace tests
 
     TEST_F( DiffIndexTest , testDiffIndexForPageRangeUsesHalfOpenBounds )
     {
-        DiffIndex cut(16 * 1024);
+        auto cut = createDiffIndex(16 * 1024);
         constexpr std::uint64_t slot_size = 1ull << 24;
         constexpr std::uint64_t slot_1_first = slot_size;
         constexpr std::uint64_t slot_2_first = slot_size * 2;
@@ -245,7 +264,7 @@ namespace tests
 
     TEST_F( DiffIndexTest , testDiffIndexForPageRangeReturnsDiffDescriptorsAcrossNodes )
     {
-        DiffIndex cut(512);
+        auto cut = createDiffIndex(512);
         constexpr std::uint64_t storage_step = 1ull << 32;
         for (std::uint64_t page_num = 0; page_num < 200; ++page_num) {
             cut.insert(page_num, 1, storage_step * (page_num + 1));
@@ -269,8 +288,8 @@ namespace tests
     TEST_F( DiffIndexTest , DISABLED_testDiffIndexInsertThenQuery )
     {   
         auto ops = loadArray("./tests/files/diff_index_ops.csv");
-        SparseIndex sparse_index(512);
-        DiffIndex diff_index(512);
+        auto sparse_index = createSparseIndex(512);
+        auto diff_index = createDiffIndex(512);
         std::vector<std::pair<std::uint64_t, std::uint32_t>> queries;
         unsigned int count = 0;
         

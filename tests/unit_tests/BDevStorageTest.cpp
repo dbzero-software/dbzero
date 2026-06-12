@@ -10,6 +10,7 @@
 #include <dbzero/core/storage/BDevStorage.hpp>
 #include <dbzero/core/dram/DRAM_Prefix.hpp>
 #include <dbzero/core/dram/DRAM_Allocator.hpp>
+#include <dbzero/core/dram/MS_Address.hpp>
 #include <dbzero/core/memory/AccessOptions.hpp>
 #include <algorithm>
 #include <thread>
@@ -44,7 +45,6 @@ namespace tests
     public:
         struct DRAMChangeLogRecord
         {
-            DRAMChangeLogKind m_kind;
             StateNumType m_state_num;
             std::vector<std::uint64_t> m_page_nums;
         };
@@ -104,7 +104,7 @@ namespace tests
             m_dram_changelog_io.saveState(state);
             m_dram_changelog_io.setStreamPosHead();
             while (auto change_log = m_dram_changelog_io.readChangeLogChunk()) {
-                DRAMChangeLogRecord record { change_log->kind(), change_log->m_state_num, {} };
+                DRAMChangeLogRecord record { change_log->m_state_num, {} };
                 for (auto page_num: *change_log) {
                     record.m_page_nums.push_back(page_num);
                 }
@@ -155,7 +155,11 @@ namespace tests
         }
 
         std::optional<std::pair<std::uint64_t, std::uint64_t> > descriptorPageRange() const {
-            return m_root_sparse_pair.getDescriptorPageRange();
+            auto next_desc_page_num = m_root_sparse_pair.getNextDescPageNum();
+            if (!next_desc_page_num) {
+                return {};
+            }
+            return std::make_pair(0u, *next_desc_page_num);
         }
 
         std::uint64_t appendDataPage(const std::vector<std::byte> &page) {
@@ -224,10 +228,10 @@ namespace tests
 
         auto &low_pair = cut.getApplicationSparsePair(0);
         auto &high_pair = cut.getApplicationSparsePair(20);
-        auto low_slot = MS_MetaPrefix::slotIdFromPageNum(
-            low_pair.getSparseIndex().getIndexAddress().getOffset() / cut.getDescriptorPageSize());
-        auto high_slot = MS_MetaPrefix::slotIdFromPageNum(
-            high_pair.getSparseIndex().getIndexAddress().getOffset() / cut.getDescriptorPageSize());
+        auto low_page_num = low_pair.getSparseIndex().getIndexAddress().getOffset() / cut.getDescriptorPageSize();
+        auto high_page_num = high_pair.getSparseIndex().getIndexAddress().getOffset() / cut.getDescriptorPageSize();
+        auto low_slot = MS_Address::from(low_page_num).slot_id();
+        auto high_slot = MS_Address::from(high_page_num).slot_id();
 
         ASSERT_EQ(cut.metaSlotId(0), 5u);
         ASSERT_EQ(cut.metaSlotId(20), 9u);
@@ -559,7 +563,7 @@ namespace tests
 
         bool found_sparse_pair_manager_record = false;
         for (const auto &record: cut.readDRAMChangeLogRecords()) {
-            if (record.m_kind == DRAMChangeLogKind::SPARSE_PAIR_MANAGER && record.m_state_num == 1) {
+            if (record.m_state_num == 1) {
                 found_sparse_pair_manager_record = true;
                 ASSERT_EQ(record.m_page_nums, (std::vector<std::uint64_t> { 0 }));
             }

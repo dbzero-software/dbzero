@@ -6,6 +6,7 @@
 #include <cstring>
 #include <map>
 #include <random>
+#include <unordered_set>
 #include <utils/utils.hpp>
 #include <dbzero/core/dram/DRAM_Allocator.hpp>
 #include <dbzero/core/dram/DRAM_Prefix.hpp>
@@ -79,7 +80,7 @@ namespace tests
         {
             auto &prefix = dynamic_cast<MetaPrefix &>(memspace.getPrefix());
             if (prefix.getDirtySize() != 0) {
-                sparse_pair.recordMaxStateNum(prefix.getStateNum() + 1);
+                sparse_pair.recordMaxStateNum(prefix.getStateNum(false) + 1);
             }
             return flush(prefix, io);
         }
@@ -93,16 +94,13 @@ namespace tests
         {
             auto prefix = std::dynamic_pointer_cast<DRAM_Prefix>(memspace.getPrefixPtr());
             auto meta_prefix = std::dynamic_pointer_cast<MetaPrefix>(prefix);
-            auto allocator = std::make_shared<DRAM_Allocator>(
-                [meta_prefix](DRAM_Allocator::AddressSinkFunction sink) {
-                    meta_prefix->forAllocatedAddresses([&](std::size_t address) {
-                        if (address != 0) {
-                            sink(address);
-                        }
-                    });
-                },
-                memspace.getPageSize()
-            );
+            std::unordered_set<std::size_t> allocated_addresses;
+            meta_prefix->forAllocatedAddresses([&](std::size_t address) {
+                if (address != 0) {
+                    allocated_addresses.insert(address);
+                }
+            });
+            auto allocator = std::make_shared<DRAM_Allocator>(allocated_addresses, memspace.getPageSize());
             return { prefix, allocator };
         }
 
@@ -211,7 +209,8 @@ namespace tests
 
         MetaPrefix prefix(page_size, sparse_pair);
         std::vector<std::uint64_t> loaded_pages;
-        load(prefix, io, [&](std::uint64_t page_num) {
+        load(prefix, io);
+        prefix.forAllocatedAddresses([&](std::uint64_t page_num) {
             loaded_pages.push_back(page_num);
         });
 
@@ -349,7 +348,7 @@ namespace tests
         auto &address = MS_Address::from(encoded_address);
 
         ASSERT_EQ(address.slot_id(), 7u);
-        ASSERT_EQ(address.local_page_num(), 42u);
+        ASSERT_EQ(address.local_address(), 42u);
         ASSERT_EQ(encoded_address, (7ull << 24) + 42);
     }
 
@@ -505,7 +504,7 @@ namespace tests
         fillPage(memspace, slot_3_address, 0x30);
         ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
 
-        auto reopened = MS_MetaSpace::create(page_size, sparse_pair, io, MS_MetaSpace::MappingPolicy::lazy);
+        auto reopened = MS_MetaSpace::create(page_size, sparse_pair, io, MappingPolicy::lazy);
         ASSERT_EQ(dynamic_cast<DRAM_Prefix &>(reopened.getPrefix()).size(), 0u);
 
         ASSERT_EQ(readPage(reopened, slot_2_address), std::vector<unsigned char>(page_size, 0x20));
@@ -517,25 +516,7 @@ namespace tests
 
     TEST_F( MetaSpaceTest, testMSMetaPrefixLazyLoadingUsesInjectedSlotLoader )
     {
-        auto mapping_pair = createMappingPair();
-        SparsePair sparse_pair(SparsePair::tag_create(), mapping_pair);
-        bool loaded = false;
-        auto page_num = MS_Address::encode(8, 2);
-        auto address = Address::fromOffset(page_num * page_size);
-
-        MS_MetaPrefix prefix(page_size, sparse_pair,
-            [&](MS_MetaPrefix &target, Allocator::SlotId slot_id) {
-                ASSERT_EQ(slot_id, 8u);
-                auto *buffer = target.update(page_num, false);
-                std::memset(buffer, 0x2a, page_size);
-                loaded = true;
-            });
-
-        auto lock = prefix.mapRange(address.getOffset(), page_size, { AccessOptions::read });
-        auto *data = static_cast<const unsigned char *>(static_cast<const void *>(lock));
-        ASSERT_TRUE(loaded);
-        ASSERT_EQ(data[0], 0x2a);
-        ASSERT_EQ(data[page_size - 1], 0x2a);
+        GTEST_SKIP() << "Injected slot loader API was replaced by Diff_IO-backed lazy loading.";
     }
 
     TEST_F( MetaSpaceTest, testMSMetaSpaceLazyReconstructsDiffBackedSlot )
@@ -559,7 +540,7 @@ namespace tests
         }
         ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
 
-        auto reopened = MS_MetaSpace::create(page_size, sparse_pair, io, MS_MetaSpace::MappingPolicy::lazy);
+        auto reopened = MS_MetaSpace::create(page_size, sparse_pair, io, MappingPolicy::lazy);
         ASSERT_EQ(dynamic_cast<DRAM_Prefix &>(reopened.getPrefix()).size(), 0u);
 
         auto data = readPage(reopened, address);
@@ -582,7 +563,7 @@ namespace tests
         fillPage(memspace, address, 0x44);
         ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
 
-        auto reopened = MS_MetaSpace::create(page_size, sparse_pair, io, MS_MetaSpace::MappingPolicy::lazy);
+        auto reopened = MS_MetaSpace::create(page_size, sparse_pair, io, MappingPolicy::lazy);
         ASSERT_EQ(readPage(reopened, address), std::vector<unsigned char>(page_size, 0x44));
         ASSERT_EQ(dynamic_cast<DRAM_Prefix &>(reopened.getPrefix()).size(), page_size);
 
@@ -607,7 +588,7 @@ namespace tests
         fillPage(memspace, address, 0x66);
         ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
 
-        auto reopened = MS_MetaSpace::create(page_size, sparse_pair, io, MS_MetaSpace::MappingPolicy::lazy);
+        auto reopened = MS_MetaSpace::create(page_size, sparse_pair, io, MappingPolicy::lazy);
         auto lock = reopened.getPrefix().mapRange(address.getOffset(), page_size, { AccessOptions::write });
         static_cast<unsigned char *>(lock.modify())[17] = 0x67;
 
@@ -671,7 +652,7 @@ namespace tests
 
         auto reopened_meta_space = MetaSpace::create(large_page_size, mapping_sparse_pair, io);
         auto reopened_meta_pair = createPairFromMetaSpace(reopened_meta_space);
-        SparsePair reopened(reopened_meta_pair, AccessType::READ_WRITE);
+        SparsePair reopened(reopened_meta_pair, AccessType::READ_WRITE, reopened_meta_pair.second->firstAlloc());
 
         ASSERT_GT(reopened.size(), 500u);
         ASSERT_EQ(reopened.getMaxStateNum(), state_num - 1);
@@ -909,7 +890,8 @@ namespace tests
     {
         CFile::create(file_name, {});
         CFile file(file_name, AccessType::READ_WRITE);
-        SparsePair sparse_pair(page_size);
+        auto mapping_pair = createMappingPair();
+        SparsePair sparse_pair(SparsePair::tag_create(), mapping_pair);
 
         auto io = createIO(file);
         constexpr std::uint64_t page_num = 1;
@@ -930,11 +912,11 @@ namespace tests
         sparse_pair.commit();
 
         MetaPrefix prefix(page_size, sparse_pair);
-        ASSERT_EQ(prefix.getStateNum(), 3u);
+        ASSERT_EQ(prefix.getStateNum(false), 3u);
 
         ASSERT_TRUE(compact(prefix, io));
 
-        auto compacted_item = sparse_pair.getSparseIndex().lookup(page_num, prefix.getStateNum());
+        auto compacted_item = sparse_pair.getSparseIndex().lookup(page_num, prefix.getStateNum(false));
         ASSERT_TRUE(compacted_item);
         ASSERT_EQ(compacted_item.m_storage_page_num, oldest_storage_page_num);
     }

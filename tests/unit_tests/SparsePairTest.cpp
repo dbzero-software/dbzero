@@ -12,6 +12,7 @@
 #include <dbzero/core/dram/MetaSpace.hpp>
 #include <dbzero/core/dram/DRAM_Prefix.hpp>
 #include <dbzero/core/dram/DRAM_Allocator.hpp>
+#include <dbzero/core/dram/MS_Address.hpp>
 #include <dbzero/core/storage/Diff_IO.hpp>
 #include <dbzero/core/storage/ChangeLogIOStream.hpp>
 #include <utils/utils.hpp>
@@ -29,7 +30,6 @@ namespace tests
     public:
         static constexpr const char *file_name = "my-test-prefix_1.db0";
         static constexpr std::size_t page_size = 4096;
-        using DP_ChangeLogStreamT = SparsePair::DP_ChangeLogStreamT;
 
         SparsePairTest() = default;
 
@@ -61,14 +61,14 @@ namespace tests
         {
             auto &prefix = dynamic_cast<MetaPrefix &>(memspace.getPrefix());
             if (prefix.getDirtySize() != 0) {
-                sparse_pair.recordMaxStateNum(prefix.getStateNum() + 1);
+                sparse_pair.recordMaxStateNum(prefix.getStateNum(false) + 1);
             }
             return flush(prefix, io);
         }
 
         static Allocator::SlotId addressSlotId(Address address)
         {
-            return MS_MetaPrefix::slotIdFromPageNum(address.getOffset() / page_size);
+            return MS_Address::from(address.getOffset() / page_size).slot_id();
         }
     };
 
@@ -122,7 +122,7 @@ namespace tests
                 return recorded_slot_num == slot_num;
             }));
 
-        SparsePair reopened(dram_pair, AccessType::READ_WRITE, {}, slot_num);
+        SparsePair reopened(dram_pair, AccessType::READ_WRITE, {}, {}, slot_num);
         for (std::uint64_t i = 301; i <= 600; ++i) {
             reopened.getSparseIndex().emplace(i << 24, static_cast<std::uint32_t>(i), i + 1000);
             reopened.getDiffIndex().insert((i + 1000) << 24, static_cast<std::uint32_t>(i), i + 2000);
@@ -189,8 +189,8 @@ namespace tests
         ASSERT_EQ(manager.getChangeLogSize(), 2u);
         auto page_nums = manager.extractChangeLogPages();
         ASSERT_EQ(page_nums, (std::vector<std::uint64_t> {
-            SparsePair::encodeChangeLogEntry(7, 11),
-            SparsePair::encodeChangeLogEntry(19, 12)
+            MS_Address::encode(7, 11),
+            MS_Address::encode(19, 12)
         }));
         ASSERT_EQ(manager.getChangeLogSize(), 0u);
     }
@@ -217,9 +217,9 @@ namespace tests
         ASSERT_EQ(manager.getChangeLogSize(), 3u);
         auto page_nums = manager.extractChangeLogPages();
         ASSERT_EQ(page_nums, (std::vector<std::uint64_t> {
-            SparsePair::encodeChangeLogEntry(7, 11),
-            SparsePair::encodeChangeLogEntry(19, 13),
-            SparsePair::encodeChangeLogEntry(7, 12)
+            MS_Address::encode(7, 11),
+            MS_Address::encode(19, 13),
+            MS_Address::encode(7, 12)
         }));
         ASSERT_TRUE(!!dirty_slot.getSparseIndex().lookup(11, 1));
         ASSERT_TRUE(!!other_dirty_slot.getSparseIndex().lookup(13, 1));
@@ -245,8 +245,8 @@ namespace tests
         auto *slot_7_before = &slot_7;
         auto *slot_19_before = &slot_19;
         manager.refreshPages({
-            SparsePair::encodeChangeLogEntry(7, 11),
-            SparsePair::encodeChangeLogEntry(7, 11)
+            MS_Address::encode(7, 11),
+            MS_Address::encode(7, 11)
         });
 
         ASSERT_EQ(manager.tryGetCached(7), slot_7_before);
@@ -280,8 +280,8 @@ namespace tests
         auto *slot_19_ptr = &slot_19;
 
         manager.refreshPages({
-            SparsePair::encodeChangeLogEntry(7, 11),
-            SparsePair::encodeChangeLogEntry(19, 12)
+            MS_Address::encode(7, 11),
+            MS_Address::encode(19, 12)
         });
 
         ASSERT_EQ(manager.tryGetCached(7), reopened_slot_7_ptr);
@@ -377,7 +377,6 @@ namespace tests
     TEST_F( SparsePairTest , testSparsePairCollectsChangeLogOfAddedItems )
     {   
         std::size_t node_size = 16 * 1024;
-        SparsePair sparse_pair(node_size);        
         DRAM_Pair dram_pair;
         auto dram_space = DRAMSpace::create(node_size, [&](DRAM_Pair dp) {
             dram_pair = dp;
@@ -402,15 +401,9 @@ namespace tests
         };
 
         {
-            DP_ChangeLogStreamT io(file, 0, 4096, tail_function);
-            auto &change_log = cut.extractChangeLog(io, 0);
-            std::vector<std::uint64_t> data;
-            for (auto value: change_log) {
-                data.push_back(value);
-            }
-            io.close();            
-            ASSERT_EQ(data, (std::vector<std::uint64_t> { 0, 1 }));
-            ASSERT_EQ(change_log.m_state_num, 1u);
+            auto change_log = cut.extractChangeLogPages();
+            ASSERT_EQ(change_log, (std::vector<std::uint64_t> { 1, 0 }));
+            ASSERT_EQ(cut.getMaxStateNum(), 1u);
         }
         
         std::vector<typename SparseIndex::SI_ItemT> items_2 {
@@ -424,17 +417,10 @@ namespace tests
         cut.recordMaxStateNum(5);
         
         {
-            DP_ChangeLogStreamT io(file, 0, 4096, tail_function);
-            while (io.readChangeLogChunk());
-            auto &change_log = cut.extractChangeLog(io, 0);
-            std::vector<std::uint64_t> expected_data { 0, 2, 3, 4 };
-            std::vector<std::uint64_t> data;
-            for (auto value: change_log) {
-                data.push_back(value);
-            }
-            io.close();
-            ASSERT_EQ(data, expected_data);
-            ASSERT_EQ(change_log.m_state_num, 5u);
+            auto change_log = cut.extractChangeLogPages();
+            std::vector<std::uint64_t> expected_data { 2, 3, 0, 2, 4 };
+            ASSERT_EQ(change_log, expected_data);
+            ASSERT_EQ(cut.getMaxStateNum(), 5u);
         }
     }
 
@@ -458,7 +444,7 @@ namespace tests
 
         int count = 10;
         for (int i = 0; i < count; ++i) {
-            SparsePair cut({ prefix, allocator}, AccessType::READ_WRITE);
+            SparsePair cut({ prefix, allocator}, AccessType::READ_WRITE, allocator->firstAlloc());
             auto &sparse_index = cut.getSparseIndex();
             for (unsigned int page_num = 0; page_num < 1000; ++page_num) {
                 sparse_index.emplace(page_num, i, 999);
@@ -466,10 +452,7 @@ namespace tests
             cut.recordMaxStateNum(i);
             
             // simulate change log extraction
-            DP_ChangeLogStreamT io(file, 0, 16 << 10, tail_function, AccessType::READ_WRITE);
-            while (io.readChangeLogChunk());
-            cut.extractChangeLog(io, 0);
-            io.close();
+            cut.extractChangeLogPages();
 
             // refresh updates local cached variables with DRAM prefix
             cut.refresh();

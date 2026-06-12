@@ -34,16 +34,27 @@ namespace tests
         void TearDown() override {        
             drop(file_name);
         }
+
+        template <typename SparseIndexT = SparseIndex>
+        static SparseIndexT createSparseIndex(std::size_t node_size,
+            std::vector<std::uint64_t> *change_log = nullptr)
+        {
+            DRAM_Pair dram_pair {
+                std::make_shared<DRAM_Prefix>(node_size),
+                std::make_shared<DRAM_Allocator>(node_size)
+            };
+            return SparseIndexT(typename SparseIndexT::tag_create(), dram_pair, change_log);
+        }
     };
 
     TEST_F( SparseIndexTest , testSparseIndexCanBeInstantiated ) {
-        SparseIndex cut(16 * 1024);
+        auto cut = createSparseIndex(16 * 1024);
     }
 
     TEST_F( SparseIndexTest , testSparseIndexBaseCanUseEmptyHeaderMixin )
     {
         using EmptySparseIndexBase = SparseIndexBase<SI_Item, SI_CompressedItem, EmptyMixin>;
-        EmptySparseIndexBase cut(16 * 1024);
+        auto cut = createSparseIndex<EmptySparseIndexBase>(16 * 1024);
 
         cut.emplace(1, 1, 10);
         cut.emplace(1, 3, 30);
@@ -59,13 +70,13 @@ namespace tests
 
     TEST_F( SparseIndexTest , testSparseIndexCanAppendPageDescriptors )
     {
-        SparseIndex cut(16 * 1024);
+        auto cut = createSparseIndex(16 * 1024);
         cut.emplace(0, 0, 0);
     }
 
     void testSparseIndexLookupPageDescriptors(std::size_t node_size)
     {
-        SparseIndex cut(node_size);
+        auto cut = SparseIndexTest::createSparseIndex(node_size);
         std::vector<typename SparseIndex::SI_ItemT> items {
             // page number, state number, physical page number, page type
             { 0, 1, 0 }, { 1, 1, 1 }, { 2, 1, 2 }, { 3, 2, 3 }, { 0, 2, 4 }, { 2, 3, 5 }, { 4, 4, 6 }
@@ -113,7 +124,7 @@ namespace tests
 
     TEST_F( SparseIndexTest , testSparseIndexOwnerCanRecordNextStoragePageNum )
     {
-        SparseIndex cut(16 * 1024);
+        auto cut = createSparseIndex(16 * 1024);
         cut.emplace(4, 3, 6);
         ASSERT_EQ(cut.mixIn().getNextStoragePageNum(), std::nullopt);
         cut.modifyMixIn().recordNextStoragePageNum(7);
@@ -122,7 +133,7 @@ namespace tests
     
     TEST_F( SparseIndexTest , testSparseIndexOwnerCanRecordMaxStateNum )
     {
-        SparseIndex cut(16 * 1024);
+        auto cut = createSparseIndex(16 * 1024);
         cut.emplace(4, 3, 6);
         ASSERT_EQ(cut.mixIn().getMaxStateNum(), 0);
         cut.modifyMixIn().recordMaxStateNum(3);
@@ -131,7 +142,7 @@ namespace tests
 
     TEST_F( SparseIndexTest , testSparseIndexUpdateReplacesOlderPageDescriptors )
     {
-        SparseIndex cut(16 * 1024);
+        auto cut = createSparseIndex(16 * 1024);
         cut.emplace(1, 1, 10);
         cut.emplace(1, 3, 30);
         cut.emplace(2, 2, 20);
@@ -151,7 +162,7 @@ namespace tests
     TEST_F( SparseIndexTest , testSparseIndexCanBeUpdatedByDRAMSpaceSwap )
     {   
         std::size_t node_size = 16 * 1024;     
-        SparseIndex sparse_index(node_size);
+        auto sparse_index = createSparseIndex(node_size);
         DRAM_Pair dram_pair;
         auto dram_space = DRAMSpace::create(node_size, [&](DRAM_Pair dp) {
             dram_pair = dp;
@@ -192,7 +203,7 @@ namespace tests
     TEST_F( SparseIndexTest , testSparseIndexMaxStateNumUpdatedAfterRefresh )
     {   
         std::size_t node_size = 16 * 1024;     
-        SparseIndex sparse_index(node_size);
+        auto sparse_index = createSparseIndex(node_size);
         DRAM_Pair dram_pair;
         auto dram_space = DRAMSpace::create(node_size, [&](DRAM_Pair dp) {
             dram_pair = dp;
@@ -232,7 +243,7 @@ namespace tests
             
     TEST_F( SparseIndexTest , testSparseIndexInsertFailingCase )
     {
-        SparseIndex cut(16 * 1024);
+        auto cut = createSparseIndex(16 * 1024);
         std::vector<typename SparseIndex::SI_ItemT> items {
             // page number, state number, physical page number, page type
             { 0, 1, 0 }
@@ -250,7 +261,7 @@ namespace tests
     
     TEST_F( SparseIndexTest , testSparseIndexInsertLookupFailingCase )
     {
-        SparseIndex cut(16 * 1024);
+        auto cut = createSparseIndex(16 * 1024);
         std::vector<typename SparseIndex::SI_ItemT> items {
             // page number, state number, physical page number, page type
             { 0, 1, 0 }
@@ -264,7 +275,7 @@ namespace tests
 
     TEST_F( SparseIndexTest , testSparseIndexCanEraseExactPageState )
     {
-        SparseIndex cut(16 * 1024);
+        auto cut = createSparseIndex(16 * 1024);
         cut.emplace(1, 1, 10);
         cut.emplace(1, 3, 30);
         cut.emplace(2, 1, 20);
@@ -278,7 +289,7 @@ namespace tests
 
     TEST_F( SparseIndexTest , testSparseIndexEraseBelowKeepsThresholdState )
     {
-        SparseIndex cut(16 * 1024);
+        auto cut = createSparseIndex(16 * 1024);
         cut.emplace(1, 1, 10);
         cut.emplace(1, 3, 30);
         cut.emplace(1, 5, 50);
@@ -293,7 +304,7 @@ namespace tests
 
     TEST_F( SparseIndexTest , testSparseIndexEraseBelowNoOpCases )
     {
-        SparseIndex cut(16 * 1024);
+        auto cut = createSparseIndex(16 * 1024);
         cut.emplace(1, 1, 10);
         cut.emplace(1, 3, 30);
 
@@ -305,7 +316,7 @@ namespace tests
 
     TEST_F( SparseIndexTest , testSparseIndexEraseBelowCanEraseAcrossNodes )
     {
-        SparseIndex cut(256);
+        auto cut = createSparseIndex(256);
         for (std::uint32_t state_num = 1; state_num <= 200; ++state_num) {
             cut.emplace(1, state_num, state_num);
             cut.emplace(2, state_num, 1000 + state_num);
@@ -319,7 +330,7 @@ namespace tests
 
     TEST_F( SparseIndexTest , testSparseIndexEraseRangeSupportsOptionalBounds )
     {
-        SparseIndex cut(256);
+        auto cut = createSparseIndex(256);
         for (std::uint32_t state_num = 1; state_num <= 20; ++state_num) {
             cut.emplace(1, state_num, state_num);
             cut.emplace(2, state_num, 1000 + state_num);
@@ -354,7 +365,7 @@ namespace tests
 
     TEST_F( SparseIndexTest , testSparseIndexEraseRangeNoOpCases )
     {
-        SparseIndex cut(16 * 1024);
+        auto cut = createSparseIndex(16 * 1024);
         cut.emplace(1, 1, 10);
         cut.emplace(1, 3, 30);
 
@@ -366,7 +377,7 @@ namespace tests
 
     TEST_F( SparseIndexTest , testSparseIndexEraseRangeLowerOnlyAtMaxPage )
     {
-        SparseIndex cut(16 * 1024);
+        auto cut = createSparseIndex(16 * 1024);
         constexpr auto page_num = (static_cast<std::uint64_t>(std::numeric_limits<std::uint32_t>::max()) << 24) | 0xFFFFFFu;
         constexpr auto max_state_num = std::numeric_limits<std::uint32_t>::max();
         cut.emplace(page_num, 1, 10);
@@ -381,7 +392,7 @@ namespace tests
 
     TEST_F( SparseIndexTest , testSparseIndexEraseBelowEdgeCasesWithSmallNodes )
     {
-        SparseIndex cut(192);
+        auto cut = createSparseIndex(192);
         for (std::uint32_t state_num = 1; state_num <= 80; ++state_num) {
             cut.emplace(1, state_num, state_num);
             cut.emplace(2, state_num, 1000 + state_num);
@@ -417,7 +428,7 @@ namespace tests
     TEST_F( SparseIndexTest , testSparseIndexEraseDoesNotRecordChangeLog )
     {
         std::vector<std::uint64_t> change_log;
-        SparseIndex cut(16 * 1024, &change_log);
+        auto cut = createSparseIndex(16 * 1024, &change_log);
         cut.emplace(1, 1, 10);
         cut.emplace(1, 2, 20);
         cut.emplace(1, 3, 30);
@@ -440,7 +451,7 @@ namespace tests
 
     TEST_F( SparseIndexTest , testSparseIndexClearRemovesAllDescriptorsAndPreservesCounters )
     {
-        SparseIndex cut(192);
+        auto cut = createSparseIndex(192);
         for (std::uint32_t state_num = 1; state_num <= 80; ++state_num) {
             cut.emplace(1, state_num, state_num);
             cut.emplace(2, state_num, 1000 + state_num);
@@ -470,7 +481,7 @@ namespace tests
     TEST_F( SparseIndexTest , testSparseIndexClearEmptyAndChangeLogNoOp )
     {
         std::vector<std::uint64_t> change_log;
-        SparseIndex cut(16 * 1024, &change_log);
+        auto cut = createSparseIndex(16 * 1024, &change_log);
 
         cut.clear();
         ASSERT_TRUE(cut.empty());
@@ -495,7 +506,7 @@ namespace tests
 
     TEST_F( SparseIndexTest , testSparseIndexForPageRangeUsesHalfOpenBounds )
     {
-        SparseIndex cut(16 * 1024);
+        auto cut = createSparseIndex(16 * 1024);
         constexpr std::uint64_t slot_size = 1ull << 24;
         constexpr std::uint64_t slot_1_first = slot_size;
         constexpr std::uint64_t slot_2_first = slot_size * 2;
@@ -515,14 +526,14 @@ namespace tests
 
     TEST_F( SparseIndexTest , testSparseIndexForPageRangeHandlesEmptyAndOutOfRangeScans )
     {
-        SparseIndex empty_cut(16 * 1024);
+        auto empty_cut = createSparseIndex(16 * 1024);
         std::size_t callback_count = 0;
         empty_cut.forPageRange(1, 10, [&](const SI_Item &) {
             ++callback_count;
         });
         ASSERT_EQ(callback_count, 0u);
 
-        SparseIndex cut(16 * 1024);
+        auto cut = createSparseIndex(16 * 1024);
         cut.emplace(100, 1, 10);
         cut.emplace(200, 1, 20);
 
@@ -537,7 +548,7 @@ namespace tests
 
     TEST_F( SparseIndexTest , testSparseIndexForPageRangeScansAcrossMultipleNodes )
     {
-        SparseIndex cut(512);
+        auto cut = createSparseIndex(512);
         for (std::uint64_t page_num = 0; page_num < 200; ++page_num) {
             cut.emplace(page_num, 1, page_num + 1000);
         }

@@ -6,6 +6,8 @@
 #include <iostream>
 #include <utils/TestWorkspace.hpp>
 #include <dbzero/core/memory/config.hpp>
+#include <dbzero/core/dram/DRAM_Allocator.hpp>
+#include <dbzero/core/dram/DRAM_Prefix.hpp>
 #include <dbzero/core/storage/SparseIndexQuery.hpp>
 #include <utils/diff_data_1.hpp>
 
@@ -18,13 +20,31 @@ namespace tests
 {
 
     class SparseIndexQueryTest: public testing::Test
-    {    
+    {
+    public:
+        static DRAM_Pair createDramPair(std::size_t page_size)
+        {
+            return {
+                std::make_shared<DRAM_Prefix>(page_size),
+                std::make_shared<DRAM_Allocator>(page_size)
+            };
+        }
+
+        static SparseIndex createSparseIndex(std::size_t page_size)
+        {
+            return SparseIndex(SparseIndex::tag_create(), createDramPair(page_size));
+        }
+
+        static DiffIndex createDiffIndex(std::size_t page_size)
+        {
+            return DiffIndex(DiffIndex::tag_create(), createDramPair(page_size));
+        }
     };
 
     TEST_F( SparseIndexQueryTest , testSparseIndexQueryNoDiffs )
     {
-        SparseIndex sparse_index(16 * 1024);
-        DiffIndex diff_cut(16 * 1024);
+        auto sparse_index = createSparseIndex(16 * 1024);
+        auto diff_cut = createDiffIndex(16 * 1024);
         // page num, state num, storage page num
         sparse_index.emplace(1, 1, 1);
         sparse_index.emplace(1, 3, 17);
@@ -45,8 +65,8 @@ namespace tests
     
     TEST_F( SparseIndexQueryTest , testSparseIndexQuerySingleDiff )
     {
-        SparseIndex sparse_index(16 * 1024);
-        DiffIndex diff_cut(16 * 1024);
+        auto sparse_index = createSparseIndex(16 * 1024);
+        auto diff_cut = createDiffIndex(16 * 1024);
         sparse_index.emplace(1, 1, 1);
         // append diff-mutation for page 1
         diff_cut.insert(1, 2, 3);
@@ -72,8 +92,8 @@ namespace tests
 
     TEST_F( SparseIndexQueryTest , testSparseIndexQueryMultipleDiffs )
     {
-        SparseIndex sparse_index(16 * 1024);
-        DiffIndex diff_cut(16 * 1024);
+        auto sparse_index = createSparseIndex(16 * 1024);
+        auto diff_cut = createDiffIndex(16 * 1024);
         sparse_index.emplace(1, 1, 1);
         // append multiple diff-mutations for page 1
         diff_cut.insert(1, 2, 3);
@@ -117,8 +137,8 @@ namespace tests
 
     TEST_F( SparseIndexQueryTest , testSparseIndexQueryWithLongDiffsChain )
     {
-        SparseIndex sparse_index(16 * 1024);
-        DiffIndex diff_index(16 * 1024);
+        auto sparse_index = createSparseIndex(16 * 1024);
+        auto diff_index = createDiffIndex(16 * 1024);
         sparse_index.emplace(1, 1, 1);
         sparse_index.emplace(4, 7, 2343);
         // append a long chain of diffs
@@ -149,8 +169,8 @@ namespace tests
 
     TEST_F( SparseIndexQueryTest , testFindMutationQuery )
     {
-        SparseIndex sparse_index(16 * 1024);
-        DiffIndex diff_cut(16 * 1024);
+        auto sparse_index = createSparseIndex(16 * 1024);
+        auto diff_cut = createDiffIndex(16 * 1024);
         sparse_index.emplace(1, 1, 1);
         // append multiple diff-mutations for page 1
         diff_cut.insert(1, 2, 3);
@@ -191,8 +211,8 @@ namespace tests
     
     TEST_F( SparseIndexQueryTest , testSparseIndexQueryIssue1 )
     {
-        SparseIndex sparse_index(16 * 1024);
-        DiffIndex diff_index(16 * 1024);
+        auto sparse_index = createSparseIndex(16 * 1024);
+        auto diff_index = createDiffIndex(16 * 1024);
         sparse_index.emplace(4, 500, 100);
         for (auto [page, state, storage]: getDiffIndexData1()) {
             diff_index.insert(page, state, storage);
@@ -209,8 +229,8 @@ namespace tests
     
     TEST_F( SparseIndexQueryTest , testSparseIndexQueryLeftLessThan )
     {
-        SparseIndex sparse_index(16 * 1024);
-        DiffIndex diff_index(16 * 1024);
+        auto sparse_index = createSparseIndex(16 * 1024);
+        auto diff_index = createDiffIndex(16 * 1024);
         sparse_index.emplace(4, 500, 100);
         sparse_index.emplace(3, 500, 300);
         for (auto [page, state, storage]: getDiffIndexData1()) {
@@ -233,8 +253,8 @@ namespace tests
     
     TEST_F( SparseIndexQueryTest , testSparseIndexQueryLessThan )
     {
-        SparseIndex sparse_index(16 * 1024);
-        DiffIndex diff_index(16 * 1024);
+        auto sparse_index = createSparseIndex(16 * 1024);
+        auto diff_index = createDiffIndex(16 * 1024);
         sparse_index.emplace(4, 500, 100);
         sparse_index.emplace(3, 500, 300);
         for (auto [page, state, storage]: getDiffIndexData1()) {
@@ -264,8 +284,8 @@ namespace tests
     
     TEST_F( SparseIndexQueryTest , testSparseIndexQueryStartingFromDiffPage )
     {
-        SparseIndex sparse_index(16 * 1024);
-        DiffIndex diff_index(16 * 1024);
+        auto sparse_index = createSparseIndex(16 * 1024);
+        auto diff_index = createDiffIndex(16 * 1024);
         // append multiple diff-mutations for page 1 without base page (i.e. 0x0 based)
         diff_index.insert(1, 2, 3);
         diff_index.insert(1, 4, 4);
@@ -289,8 +309,8 @@ namespace tests
 
     TEST_F( SparseIndexQueryTest , testSparseIndexQueryEmpty )
     {
-        SparseIndex sparse_index(16 * 1024);
-        DiffIndex diff_index(16 * 1024);        
+        auto sparse_index = createSparseIndex(16 * 1024);
+        auto diff_index = createDiffIndex(16 * 1024);        
         std::vector<std::tuple<std::uint64_t, std::uint32_t, std::uint32_t>> diff_data {
             { 1, 2, 3 }, { 1, 4, 4 }, { 1, 8, 11 }, { 1, 9, 12 },
             { 5, 2, 22 }, { 5, 3, 23 }, { 5, 4, 24 }, { 5, 5, 25 }, { 5, 6, 26 },
@@ -322,8 +342,8 @@ namespace tests
 
     TEST_F( SparseIndexQueryTest , testSparseIndexQueryZeroBasedChain )
     {
-        SparseIndex sparse_index(16 * 1024);
-        DiffIndex diff_index(16 * 1024);
+        auto sparse_index = createSparseIndex(16 * 1024);
+        auto diff_index = createDiffIndex(16 * 1024);
         std::vector<std::tuple<std::uint64_t, std::uint32_t, std::uint32_t>> diff_data {
             { 1, 2, 2 }, { 1, 3, 3 }, { 1, 4, 4 }, { 1, 5, 5 }, { 1, 6, 6 }, { 1, 7, 7 },
             { 1, 8, 8 }, { 1, 9, 9 }, { 1, 10, 10 }, { 1, 11, 11 }, { 1, 12, 12 }, 
@@ -351,8 +371,8 @@ namespace tests
     
     TEST_F( SparseIndexQueryTest , testSparseIndexQueryZeroBasedDiffChain )
     {
-        SparseIndex sparse_index(16 * 1024);
-        DiffIndex diff_index(16 * 1024);
+        auto sparse_index = createSparseIndex(16 * 1024);
+        auto diff_index = createDiffIndex(16 * 1024);
         std::vector<std::tuple<std::uint64_t, std::uint32_t, std::uint32_t>> diff_data {
             { 1, 2, 2 }, { 1, 3, 3 }, { 1, 4, 4 }, { 1, 5, 5 }, { 1, 6, 6 }, { 1, 7, 7 },
             { 1, 8, 8 }, { 1, 9, 9 }, { 1, 10, 10 }, { 1, 11, 11 }, { 1, 12, 12 }, 
@@ -385,8 +405,8 @@ namespace tests
 
     TEST_F( SparseIndexQueryTest , testSparseIndexQuery_Issue1 )
     {
-        SparseIndex sparse_index(16 * 1024);
-        DiffIndex diff_index(16 * 1024);        
+        auto sparse_index = createSparseIndex(16 * 1024);
+        auto diff_index = createDiffIndex(16 * 1024);        
         diff_index.insert(1, 2, 2);
         diff_index.insert(1, 3, 3);
         sparse_index.emplace(1, 4, 4);
@@ -404,8 +424,8 @@ namespace tests
     
     TEST_F( SparseIndexQueryTest , testFindMutationOfZeroBasedDPs )
     {
-        SparseIndex sparse_index(16 * 1024);
-        DiffIndex diff_index(16 * 1024);
+        auto sparse_index = createSparseIndex(16 * 1024);
+        auto diff_index = createDiffIndex(16 * 1024);
         std::vector<std::tuple<std::uint64_t, std::uint32_t, std::uint32_t>> diff_data {
             { 1, 2, 3 }, { 1, 4, 4 }, { 1, 8, 11 }, { 1, 9, 12 },
             { 5, 2, 22 }, { 5, 3, 23 }, { 5, 4, 24 }, { 5, 5, 25 }, { 5, 6, 26 },
@@ -439,8 +459,8 @@ namespace tests
     
     TEST_F( SparseIndexQueryTest , testSparseIndexStartingFromDiff )
     {
-        SparseIndex sparse_index(16 * 1024);
-        DiffIndex diff_index(16 * 1024);
+        auto sparse_index = createSparseIndex(16 * 1024);
+        auto diff_index = createDiffIndex(16 * 1024);
         sparse_index.emplace(1, 1, 1);
         sparse_index.emplace(1, 3, 17);
         sparse_index.emplace(4, 7, 2343);
