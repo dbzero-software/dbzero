@@ -157,18 +157,22 @@ namespace db0
         
         // in read-only mode need to refresh in order to retrieve a consitent DRAM state
         // since other process might be actively modifying the underlying file
-        if (m_access_type == AccessType::READ_ONLY && !m_flags.test(StorageFlagOption::NO_LOAD)) {
-            refresh();
-        }
-        if (m_access_type == AccessType::READ_ONLY && m_flags.test(StorageFlagOption::NO_LOAD)) {
-            setChangeLogTail(m_dram_changelog_io);
-            setChangeLogTail(m_desc_changelog_io);
-            setChangeLogTail(m_dp_changelog_io);
-            if (m_ext_dram_changelog_io) {
-                setChangeLogTail(*m_ext_dram_changelog_io);
+        if (m_access_type == AccessType::READ_ONLY) {
+            if (m_flags.test(StorageFlagOption::NO_LOAD)) {
+                setChangeLogTail(m_dram_changelog_io);                
+                setChangeLogTail(m_dp_changelog_io);
+                if (m_ext_dram_changelog_io) {
+                    setChangeLogTail(*m_ext_dram_changelog_io);
+                }
+            } else {
+                refresh();
             }
         }
-
+        
+        // NOTE: since the desc-changelog is not required for the initial load
+        // (descriptor pages are loaded according based on index from the root_sparse_pair)
+        // we need to advance its position to tail without any initial processing
+        setChangeLogTail(m_desc_changelog_io);
     }
     
     BDevStorage::~BDevStorage()
@@ -645,7 +649,7 @@ namespace db0
         auto &meta_prefix = *m_meta_space.getMSPrefixPtr();
         auto state_num = m_root_sparse_pair.getMaxStateNum();
         auto meta_space_dirty = meta_prefix.getDirtySize() != 0;
-        if (meta_space_dirty && state_num <= meta_prefix.getStateNum(false)) {
+        if (meta_space_dirty && state_num < meta_prefix.getStateNum(false)) {
             THROWF(db0::InternalException)
                 << "BDevStorage::flush requires caller to register state high watermark before flushing dirty metadata"
                 << "; root max state: " << state_num
