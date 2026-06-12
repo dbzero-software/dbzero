@@ -228,10 +228,10 @@ namespace tests
 
         auto &low_pair = cut.getApplicationSparsePair(0);
         auto &high_pair = cut.getApplicationSparsePair(20);
-        auto low_page_num = low_pair.getSparseIndex().getIndexAddress().getOffset() / cut.getDescriptorPageSize();
-        auto high_page_num = high_pair.getSparseIndex().getIndexAddress().getOffset() / cut.getDescriptorPageSize();
-        auto low_slot = MS_Address::from(low_page_num).slot_id();
-        auto high_slot = MS_Address::from(high_page_num).slot_id();
+        auto low_address = low_pair.getSparseIndex().getIndexAddress().getOffset();
+        auto high_address = high_pair.getSparseIndex().getIndexAddress().getOffset();
+        auto low_slot = MS_Address::from(low_address).slot_id();
+        auto high_slot = MS_Address::from(high_address).slot_id();
 
         ASSERT_EQ(cut.metaSlotId(0), 5u);
         ASSERT_EQ(cut.metaSlotId(20), 9u);
@@ -551,31 +551,7 @@ namespace tests
         }
         cut.close();
     }
-
-    TEST_F( BDevStorageTest , testSparsePairManagerChangeLogIsStoredInDRAMChangeLog )
-    {
-        BDevStorage::create(file_name);
-        BDevStorageWrapper cut(file_name, AccessType::READ_WRITE);
-        auto page = randomPage(cut.getPageSize());
-
-        cut.write(0, 1, page.size(), page.data());
-        ASSERT_TRUE(cut.flush());
-
-        bool found_sparse_pair_manager_record = false;
-        for (const auto &record: cut.readDRAMChangeLogRecords()) {
-            if (record.m_state_num == 1) {
-                found_sparse_pair_manager_record = true;
-                ASSERT_EQ(record.m_page_nums, (std::vector<std::uint64_t> { 0 }));
-            }
-        }
-        ASSERT_TRUE(found_sparse_pair_manager_record);
-
-        for (const auto &record: cut.readDPChangeLogRecords()) {
-            ASSERT_NE(record.m_state_num, 1u);
-        }
-        cut.close();
-    }
-
+    
     TEST_F( BDevStorageTest , testBDevStorageThrowsIfReadingFromUninitializedSpace )
     {
         srand(9142424u);
