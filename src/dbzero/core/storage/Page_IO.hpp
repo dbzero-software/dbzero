@@ -5,11 +5,33 @@
 
 #include "CFile.hpp"
 #include "ExtSpace.hpp"
+#include <deque>
 #include <functional>
+#include <optional>
+#include <utility>
 
 namespace db0
 
 {
+
+    class ReservePool
+    {
+    public:
+        void add(std::uint64_t page_num, std::uint32_t page_count);
+        bool empty() const;
+        std::pair<std::uint64_t, std::uint32_t> next() const;
+        std::uint64_t pop();
+        std::optional<std::uint64_t> tryPop(std::uint32_t page_count);
+
+    private:
+        struct Stride
+        {
+            std::uint64_t m_page_num = 0;
+            std::uint32_t m_page_count = 0;
+        };
+
+        std::deque<Stride> m_strides;
+    };
     
     /**
      * Page_IO organizes file's data into blocks of pages
@@ -44,8 +66,6 @@ namespace db0
         std::uint64_t append(const void *buffer, bool *is_first_page = nullptr);
         
         // Appends one or more consecutive pages to the stream.
-        // NOTE: the write must fit in the current step's contiguous page range because only the first
-        // storage page number is returned; callers that need more pages must split writes per step.
         // @return first appended page number (aka storage page number)
         std::uint64_t append(const void *buffer, std::uint64_t page_count);
 
@@ -63,7 +83,7 @@ namespace db0
         /**
          * Overwrite existing page
         */
-        void write(std::uint64_t page_num, void *buffer);
+        void write(std::uint64_t page_num, const void *buffer);
 
         void writePageOffset(std::uint64_t page_num, std::uint32_t offset, std::size_t size, const void *buffer);
         
@@ -171,9 +191,16 @@ namespace db0
         const AccessType m_access_type;
         // block number within the step
         std::optional<std::uint32_t> m_block_num;
+        // Pool of pages skipped to satisfy a larger contiguous reserve in a later step.
+        ReservePool m_reserve_pool;
 
         std::uint64_t getPageNum(std::uint64_t address) const;
+        bool isFirstPageInStep(std::uint64_t page_num) const {
+            return m_step_size > 0 && m_block_capacity > 0
+                && (page_num % (m_step_size * m_block_capacity)) == 0;
+        }
         void allocateNextBlock();
+        void collectReservePool(std::uint32_t page_count);
         
         // Update the stream's current location within the current step
         // @param page_count number of pages to move by within the current step

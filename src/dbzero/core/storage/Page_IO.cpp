@@ -8,6 +8,51 @@
 namespace db0
 
 {
+    void ReservePool::add(std::uint64_t page_num, std::uint32_t page_count)
+    {
+        if (page_count == 0) {
+            return;
+        }
+        if (!m_strides.empty() && m_strides.back().m_page_num + m_strides.back().m_page_count == page_num) {
+            m_strides.back().m_page_count += page_count;
+        } else {
+            m_strides.push_back({ page_num, page_count });
+        }
+    }
+
+    bool ReservePool::empty() const
+    {
+        return m_strides.empty();
+    }
+
+    std::pair<std::uint64_t, std::uint32_t> ReservePool::next() const
+    {
+        assert(!m_strides.empty());
+        return { m_strides.front().m_page_num, m_strides.front().m_page_count };
+    }
+
+    std::uint64_t ReservePool::pop()
+    {
+        auto result = tryPop(1);
+        assert(result);
+        return *result;
+    }
+
+    std::optional<std::uint64_t> ReservePool::tryPop(std::uint32_t page_count)
+    {
+        assert(page_count > 0);
+        if (m_strides.empty() || m_strides.front().m_page_count < page_count) {
+            return {};
+        }
+
+        auto result = m_strides.front().m_page_num;
+        m_strides.front().m_page_num += page_count;
+        m_strides.front().m_page_count -= page_count;
+        if (m_strides.front().m_page_count == 0) {
+            m_strides.pop_front();
+        }
+        return result;
+    }
 
     Page_IO::Page_IO(std::size_t header_size, CFile &file, std::uint32_t page_size, std::uint32_t block_size,
         std::uint64_t address, std::uint32_t page_count, std::uint32_t step_size, std::function<std::uint64_t()> tail_function,
@@ -44,13 +89,22 @@ namespace db0
     std::uint64_t Page_IO::append(const void *buffer, bool *is_first_page_ptr)
     {
         assert(m_access_type == AccessType::READ_WRITE);
+        if (!m_reserve_pool.empty()) {
+            auto page_num = m_reserve_pool.pop();
+            if (is_first_page_ptr) {
+                *is_first_page_ptr = isFirstPageInStep(page_num);
+            }
+            write(page_num, buffer);
+            return page_num;
+        }
+
         if (m_page_count == m_block_capacity) {
             allocateNextBlock();
         }
         
         if (is_first_page_ptr) {
             // first page of the first block in the step
-            *is_first_page_ptr = (m_page_count == 0) && (m_block_num && *m_block_num == 0);
+            *is_first_page_ptr = isFirstPageInStep(m_first_page_num + m_page_count);
         }
 
         m_file.write(m_address + m_page_count * m_page_size, m_page_size, buffer);
@@ -60,7 +114,21 @@ namespace db0
     std::uint64_t Page_IO::append(const void *buffer, std::uint64_t page_count)
     {
         assert(m_access_type == AccessType::READ_WRITE);
-        auto result = getNextPageNum().first;
+        if (page_count == 1) {
+            return append(buffer);
+        }
+        
+        if (auto available_page_num = m_reserve_pool.tryPop(page_count)) {
+            auto result = *available_page_num;
+            m_file.write(m_header_size + result * m_page_size, page_count * m_page_size, buffer);
+            return result;
+        }
+
+        if (m_page_count == m_block_capacity) {
+            allocateNextBlock();
+        }
+
+        auto result = m_first_page_num + m_page_count;
         auto step_remaining = getCurrentStepRemainingPages();
         if (page_count > step_remaining) {
             THROWF(db0::InternalException)
@@ -70,7 +138,6 @@ namespace db0
         auto to_write_bytes = page_count * m_page_size;
         m_file.write(m_address + m_page_count * m_page_size, to_write_bytes, byte_buffer);
         byte_buffer += to_write_bytes;
-        // position at the new address (within the current step)
         moveBy(page_count);
         return result;
     }
@@ -93,6 +160,9 @@ namespace db0
                     << "Page_IO::reserve: unable to reserve more pages than fit in a step";
             }
             while (getCurrentStepRemainingPages() < page_count) {
+                auto step_remaining = getCurrentStepRemainingPages();
+                collectReservePool(step_remaining);
+                moveBy(step_remaining);
                 allocateNextBlock();
             }
         } else if (page_count > (m_block_capacity - m_page_count)) {
@@ -101,7 +171,7 @@ namespace db0
         }
 
         if (is_first_page_ptr) {
-            *is_first_page_ptr = (m_page_count == 0) && (m_block_num && *m_block_num == 0);
+            *is_first_page_ptr = isFirstPageInStep(m_first_page_num + m_page_count);
         }
         auto result = m_first_page_num + m_page_count;
         if (m_block_num) {
@@ -131,6 +201,12 @@ namespace db0
             m_block_num = 0;
         }
     }
+
+    void Page_IO::collectReservePool(std::uint32_t page_count)
+    {
+        auto page_num = m_first_page_num + m_page_count;
+        m_reserve_pool.add(page_num, page_count);
+    }
     
     void Page_IO::read(std::uint64_t page_num, void *buffer) const {
         m_file.read(m_header_size + page_num * m_page_size, m_page_size, buffer);
@@ -146,7 +222,7 @@ namespace db0
         m_file.read(m_header_size + page_num * m_page_size + offset, size, buffer);
     }
 
-    void Page_IO::write(std::uint64_t page_num, void *buffer) {
+    void Page_IO::write(std::uint64_t page_num, const void *buffer) {
         m_file.write(m_header_size + page_num * m_page_size, m_page_size, buffer);
     }
 
@@ -160,7 +236,7 @@ namespace db0
     std::uint64_t Page_IO::getPageNum(std::uint64_t address) const {
         return (address - m_header_size) / m_page_size;
     }
-    
+
     std::uint64_t Page_IO::tail() const
     {
         assert(m_access_type == AccessType::READ_WRITE);
@@ -180,12 +256,20 @@ namespace db0
     std::pair<std::uint64_t, std::uint32_t> Page_IO::getNextPageNum(bool *is_first_page_ptr)
     {
         assert(m_access_type == AccessType::READ_WRITE);
+        if (!m_reserve_pool.empty()) {
+            auto result = m_reserve_pool.next();
+            if (is_first_page_ptr) {
+                *is_first_page_ptr = isFirstPageInStep(result.first);
+            }
+            return result;
+        }
+
         if (m_page_count == m_block_capacity) {
             allocateNextBlock();
         }
         if (is_first_page_ptr) {
             // first page of the first block in the step
-            *is_first_page_ptr = (m_page_count == 0) && (m_block_num && *m_block_num == 0);
+            *is_first_page_ptr = isFirstPageInStep(m_first_page_num + m_page_count);
         }
         return { m_first_page_num + m_page_count, m_block_capacity - m_page_count };
     }
@@ -195,7 +279,7 @@ namespace db0
         assert(m_access_type == AccessType::READ_WRITE);
         if (is_first_page_ptr) {
             // first page of the first block in the step
-            *is_first_page_ptr = (m_page_count == 0) && (m_block_num && *m_block_num == 0);
+            *is_first_page_ptr = isFirstPageInStep(m_first_page_num + m_page_count);
         }
         return m_first_page_num + m_page_count;
     }

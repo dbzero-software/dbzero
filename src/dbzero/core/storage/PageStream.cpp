@@ -64,7 +64,7 @@ namespace db0
         auto [page_num, remaining_pages] = getNextPageNum(is_first_page);
         assert(remaining_pages > 0);
 
-        m_page_io.write(page_num, const_cast<void *>(buffer));
+        m_page_io.write(page_num, buffer);
         ++m_current_used_pages;
         return page_num;
     }
