@@ -849,10 +849,9 @@ namespace db0
             block_num = step_size - 1;
         }
 
-        auto page_stream_chunk_pages = std::min<std::uint32_t>(64u, block_capacity * step_size);
         // NOTE: block num is unknown in this case
         return { CONFIG_BLOCK_SIZE, m_file, page_size, m_config.m_block_size, address, page_count,
-            step_size, tail_function, block_num, page_stream_chunk_pages
+            step_size, tail_function, block_num
         };
     }
     

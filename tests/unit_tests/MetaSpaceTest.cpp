@@ -46,7 +46,7 @@ namespace tests
             auto tail_function = [&file]() -> std::uint64_t {
                 return file.size();
             };
-            return Diff_IO(0, file, page_size, page_size * 16, page_size, 0, 1, tail_function, 0, 4);
+            return Diff_IO(0, file, page_size, page_size * 16, page_size, 0, 1, tail_function, 0);
         }
 
         static DRAM_Pair createMappingPair()

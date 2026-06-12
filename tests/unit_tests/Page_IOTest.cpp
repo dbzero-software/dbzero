@@ -5,7 +5,9 @@
 #include <sys/stat.h>
 #include <utils/TestWorkspace.hpp>
 #include <utils/utils.hpp>
+#include <dbzero/core/memory/diff_utils.hpp>
 #include <dbzero/core/storage/Page_IO.hpp>
+#include <dbzero/core/storage/RandomIO_Stream.hpp>
 
 using namespace std;
 using namespace db0;
@@ -28,6 +30,28 @@ namespace tests
         virtual void TearDown() override {    
             drop(file_name);
         }
+
+        static std::vector<std::byte> makePage(std::size_t size, std::byte value)
+        {
+            return std::vector<std::byte>(size, value);
+        }
+    };
+
+    class RandomIO_StreamDiffIO: public Diff_IO
+    {
+    public:
+        RandomIO_StreamDiffIO(CFile &file, std::uint32_t page_size, std::uint32_t block_size,
+            std::function<std::uint64_t()> tail_function)
+            : Diff_IO(0, file, page_size, block_size, 0, 0, 1u, tail_function, 0)
+        {
+        }
+    };
+
+    class TestRandomIO_Stream: public RandomIO_Stream
+    {
+    public:
+        using RandomIO_Stream::RandomIO_Stream;
+        using RandomIO_Stream::getPageNum;
     };
     
     TEST_F( Page_IOTest, testPage_IOAppendMultiple )
@@ -193,6 +217,385 @@ namespace tests
 
         std::vector<char> write_buf(page_size, 'x');
         ASSERT_EQ(6u, reopened.append(write_buf.data()));
+    }
+
+    TEST_F( Page_IOTest, testRandomIO_StreamAppendsLargePagesOverSmallPageIO )
+    {
+        CFile::create(file_name, {});
+        CFile file(file_name, AccessType::READ_WRITE);
+        auto tail_function = [&file]() -> std::uint64_t {
+            return file.size();
+        };
+
+        RandomIO_StreamDiffIO page_io(file, page_size, page_size * 16, tail_function);
+        RandomIO_Stream cut(page_io, std::uint32_t(5), page_size * 2);
+
+        auto first = makePage(cut.getPageSize(), std::byte(1));
+        auto second = makePage(cut.getPageSize(), std::byte(2));
+        auto third = makePage(cut.getPageSize(), std::byte(3));
+
+        bool is_first_page = false;
+        ASSERT_EQ(0u, cut.append(first.data(), &is_first_page));
+        ASSERT_TRUE(is_first_page);
+        ASSERT_EQ(2u, cut.append(second.data()));
+        ASSERT_EQ(5u, cut.append(third.data()));
+        cut.flush();
+
+        std::vector<std::byte> read_buf(cut.getPageSize());
+        cut.readRandom(0, read_buf.data());
+        ASSERT_EQ(first, read_buf);
+        cut.readRandom(2, read_buf.data());
+        ASSERT_EQ(second, read_buf);
+        cut.readRandom(5, read_buf.data());
+        ASSERT_EQ(third, read_buf);
+
+        auto reader = cut.getReader();
+        std::vector<std::uint64_t> page_nums;
+        std::uint64_t page_num = 0;
+        while (reader.readNext(read_buf.data(), &page_num)) {
+            page_nums.push_back(page_num);
+        }
+        ASSERT_EQ((std::vector<std::uint64_t> { 0, 2, 5 }), page_nums);
+    }
+
+    TEST_F( Page_IOTest, testRandomIO_StreamClearReusesLargePageBlocks )
+    {
+        CFile::create(file_name, {});
+        CFile file(file_name, AccessType::READ_WRITE);
+        auto tail_function = [&file]() -> std::uint64_t {
+            return file.size();
+        };
+
+        RandomIO_StreamDiffIO page_io(file, page_size, page_size * 16, tail_function);
+        RandomIO_Stream cut(page_io, std::uint32_t(5), page_size * 2);
+
+        auto first = makePage(cut.getPageSize(), std::byte(1));
+        auto second = makePage(cut.getPageSize(), std::byte(2));
+        auto replacement = makePage(cut.getPageSize(), std::byte(9));
+
+        ASSERT_EQ(0u, cut.append(first.data()));
+        ASSERT_EQ(2u, cut.append(second.data()));
+        cut.flush();
+        auto size_before_clear = file.size();
+
+        cut.clear();
+        ASSERT_EQ(0u, cut.append(replacement.data()));
+        cut.flush();
+        ASSERT_EQ(size_before_clear, file.size());
+
+        std::vector<std::byte> read_buf(cut.getPageSize());
+        cut.readRandom(0, read_buf.data());
+        ASSERT_EQ(replacement, read_buf);
+
+        auto reader = cut.getReader();
+        ASSERT_TRUE(reader.readNext(read_buf.data()));
+        ASSERT_EQ(replacement, read_buf);
+        ASSERT_FALSE(reader.readNext(read_buf.data()));
+    }
+
+    TEST_F( Page_IOTest, testRandomIO_StreamForwardsRandomAccessWithPageSizeTranslation )
+    {
+        CFile::create(file_name, {});
+        CFile file(file_name, AccessType::READ_WRITE);
+        auto tail_function = [&file]() -> std::uint64_t {
+            return file.size();
+        };
+
+        RandomIO_StreamDiffIO page_io(file, page_size, page_size * 16, tail_function);
+        RandomIO_Stream cut(page_io, std::uint32_t(5), page_size * 2);
+
+        auto page = makePage(cut.getPageSize(), std::byte(4));
+        auto page_num = cut.append(page.data());
+        cut.flush();
+
+        auto replacement = makePage(cut.getPageSize(), std::byte(8));
+        replacement[page_size - 1] = std::byte(0xaa);
+        replacement[page_size] = std::byte(0xbb);
+        cut.writeRandom(page_num, replacement.data());
+        
+        std::vector<std::byte> read_buf(cut.getPageSize());
+        cut.readRandom(page_num, read_buf.data());
+        ASSERT_EQ(replacement, read_buf);
+    }
+
+    TEST_F( Page_IOTest, testRandomIO_StreamRandomAccessIsIndependentOfClear )
+    {
+        CFile::create(file_name, {});
+        CFile file(file_name, AccessType::READ_WRITE);
+        auto tail_function = [&file]() -> std::uint64_t {
+            return file.size();
+        };
+
+        RandomIO_StreamDiffIO page_io(file, page_size, page_size * 16, tail_function);
+        RandomIO_Stream cut(page_io, std::uint32_t(3));
+
+        auto first = makePage(page_size, std::byte(1));
+        auto random_replacement = makePage(page_size, std::byte(7));
+        auto stream_replacement = makePage(page_size, std::byte(9));
+
+        ASSERT_EQ(0u, cut.append(first.data()));
+        cut.flush();
+
+        auto random_page_num = page_io.reserve(1);
+        cut.writeRandom(random_page_num, random_replacement.data());
+
+        cut.clear();
+
+        std::vector<std::byte> read_buf(page_size);
+        cut.readRandom(random_page_num, read_buf.data());
+        ASSERT_EQ(random_replacement, read_buf);
+
+        auto empty_reader = cut.getReader();
+        ASSERT_FALSE(empty_reader.readNext(read_buf.data()));
+
+        ASSERT_EQ(0u, cut.append(stream_replacement.data()));
+        cut.flush();
+
+        auto reader = cut.getReader();
+        ASSERT_TRUE(reader.readNext(read_buf.data()));
+        ASSERT_EQ(stream_replacement, read_buf);
+        ASSERT_FALSE(reader.readNext(read_buf.data()));
+
+        cut.readRandom(random_page_num, read_buf.data());
+        ASSERT_EQ(random_replacement, read_buf);
+    }
+
+    TEST_F( Page_IOTest, testRandomIO_StreamAppendRandomDoesNotAffectManagedStream )
+    {
+        CFile::create(file_name, {});
+        CFile file(file_name, AccessType::READ_WRITE);
+        auto tail_function = [&file]() -> std::uint64_t {
+            return file.size();
+        };
+
+        RandomIO_StreamDiffIO page_io(file, page_size, page_size * 16, tail_function);
+        RandomIO_Stream cut(page_io, std::uint32_t(3));
+
+        auto stream_first = makePage(page_size, std::byte(1));
+        auto random_page = makePage(page_size, std::byte(7));
+        auto stream_second = makePage(page_size, std::byte(2));
+
+        ASSERT_EQ(0u, cut.append(stream_first.data()));
+        cut.flush();
+
+        auto random_page_num = cut.appendRandom(random_page.data());
+        ASSERT_EQ(3u, random_page_num);
+
+        std::vector<std::byte> read_buf(page_size);
+        cut.readRandom(random_page_num, read_buf.data());
+        ASSERT_EQ(random_page, read_buf);
+
+        auto reader = cut.getReader();
+        ASSERT_TRUE(reader.readNext(read_buf.data()));
+        ASSERT_EQ(stream_first, read_buf);
+        ASSERT_FALSE(reader.readNext(read_buf.data()));
+
+        ASSERT_EQ(1u, cut.append(stream_second.data()));
+        cut.flush();
+
+        auto reopened_reader = cut.getReader();
+        ASSERT_TRUE(reopened_reader.readNext(read_buf.data()));
+        ASSERT_EQ(stream_first, read_buf);
+        ASSERT_TRUE(reopened_reader.readNext(read_buf.data()));
+        ASSERT_EQ(stream_second, read_buf);
+        ASSERT_FALSE(reopened_reader.readNext(read_buf.data()));
+
+        cut.readRandom(random_page_num, read_buf.data());
+        ASSERT_EQ(random_page, read_buf);
+    }
+
+    TEST_F( Page_IOTest, testRandomIO_StreamReadRandomCanAccessStreamAppends )
+    {
+        CFile::create(file_name, {});
+        CFile file(file_name, AccessType::READ_WRITE);
+        auto tail_function = [&file]() -> std::uint64_t {
+            return file.size();
+        };
+
+        RandomIO_StreamDiffIO page_io(file, page_size, page_size * 16, tail_function);
+        RandomIO_Stream cut(page_io, std::uint32_t(13), page_size * 4);
+
+        auto full_page = makePage(cut.getPageSize(), std::byte(4));
+        auto full_page_num = cut.append(full_page.data());
+        cut.flush();
+
+        std::vector<std::byte> read_buf(cut.getPageSize());
+        cut.readRandom(full_page_num, read_buf.data());
+        ASSERT_EQ(full_page, read_buf);
+
+        auto base_page = makePage(cut.getPageSize(), std::byte(0));
+        auto changed_page = base_page;
+        std::memset(changed_page.data() + 17, 0x11, 120);
+        std::memset(changed_page.data() + page_size * 2 + 31, 0x22, 300);
+
+        std::vector<std::uint16_t> diff_buf;
+        ASSERT_TRUE(db0::getDiffs(base_page.data(), changed_page.data(), cut.getPageSize(), diff_buf));
+
+        auto [diff_page_num, overflow] = cut.appendDiff(changed_page.data(), {11, 7}, diff_buf);
+        ASSERT_FALSE(overflow);
+        cut.flush();
+
+        cut.readRandom(diff_page_num, read_buf.data());
+        ASSERT_NE(base_page, read_buf);
+        auto result = base_page;
+        cut.applyFrom(diff_page_num, result.data(), {11, 7});
+        ASSERT_EQ(changed_page, result);
+    }
+
+    TEST_F( Page_IOTest, testRandomIO_StreamAppendDiffApplies16KBPages )
+    {
+        CFile::create(file_name, {});
+        CFile file(file_name, AccessType::READ_WRITE);
+        auto tail_function = [&file]() -> std::uint64_t {
+            return file.size();
+        };
+
+        RandomIO_StreamDiffIO page_io(file, page_size, page_size * 16, tail_function);
+        RandomIO_Stream cut(page_io, std::uint32_t(13), page_size * 4);
+
+        auto base_page = makePage(cut.getPageSize(), std::byte(0));
+        auto changed_page = base_page;
+        std::memset(changed_page.data() + 123, 0x11, 120);
+        std::memset(changed_page.data() + page_size + 31, 0x22, 300);
+        std::memset(changed_page.data() + page_size * 3 + 17, 0x33, 80);
+
+        std::vector<std::uint16_t> diff_buf;
+        ASSERT_TRUE(db0::getDiffs(base_page.data(), changed_page.data(), cut.getPageSize(), diff_buf));
+
+        bool is_first_page = false;
+        auto [page_num, overflow] = cut.appendDiff(changed_page.data(), {7, 3}, diff_buf, &is_first_page);
+        ASSERT_EQ(0u, page_num);
+        ASSERT_FALSE(overflow);
+        ASSERT_TRUE(is_first_page);
+
+        auto result = base_page;
+        cut.applyFrom(page_num, result.data(), {7, 3});
+        ASSERT_EQ(changed_page, result);
+    }
+
+    TEST_F( Page_IOTest, testRandomIO_StreamAppendDiffWithOverflowApplies16KBPages )
+    {
+        CFile::create(file_name, {});
+        CFile file(file_name, AccessType::READ_WRITE);
+        auto tail_function = [&file]() -> std::uint64_t {
+            return file.size();
+        };
+
+        RandomIO_StreamDiffIO page_io(file, page_size, page_size * 16, tail_function);
+        RandomIO_Stream cut(page_io, std::uint32_t(9), page_size * 4);
+
+        auto base_page = makePage(cut.getPageSize(), std::byte(0));
+        auto changed_page = base_page;
+        for (std::size_t i = 0; i < changed_page.size(); i += 2) {
+            changed_page[i] = std::byte(0x7f);
+        }
+
+        std::vector<std::uint16_t> diff_buf;
+        ASSERT_TRUE(db0::getDiffs(base_page.data(), changed_page.data(), cut.getPageSize(), diff_buf,
+            cut.getPageSize() * 2));
+
+        auto [page_num, overflow] = cut.appendDiff(changed_page.data(), {19, 5}, diff_buf);
+        ASSERT_EQ(0u, page_num);
+        ASSERT_TRUE(overflow);
+
+        auto result = base_page;
+        cut.applyFrom(page_num, result.data(), {19, 5});
+        ASSERT_EQ(changed_page, result);
+    }
+
+    TEST_F( Page_IOTest, testRandomIO_StreamOpenReadWritePositionsForAppend )
+    {
+        CFile::create(file_name, {});
+        CFile file(file_name, AccessType::READ_WRITE);
+        auto tail_function = [&file]() -> std::uint64_t {
+            return file.size();
+        };
+
+        RandomIO_StreamDiffIO page_io(file, page_size, page_size * 16, tail_function);
+        auto first = makePage(page_size, std::byte(1));
+        auto second = makePage(page_size, std::byte(2));
+        auto third = makePage(page_size, std::byte(3));
+        auto fourth = makePage(page_size, std::byte(4));
+
+        TestRandomIO_Stream created(page_io, std::uint32_t(3));
+        ASSERT_EQ(0u, created.append(first.data()));
+        ASSERT_EQ(1u, created.append(second.data()));
+        ASSERT_EQ(3u, created.append(third.data()));
+        created.flush();
+
+        auto stream_page_num = created.getPageNum();
+        RandomIO_Stream opened(page_io, stream_page_num, 3);
+        ASSERT_EQ(4u, opened.append(fourth.data()));
+        opened.flush();
+
+        auto reader = opened.getReader();
+        std::vector<std::byte> read_buf(opened.getPageSize());
+        std::vector<std::byte> values;
+        while (reader.readNext(read_buf.data())) {
+            values.push_back(read_buf[0]);
+        }
+
+        ASSERT_EQ((std::vector<std::byte> {
+            std::byte(1), std::byte(2), std::byte(3), std::byte(4)
+        }), values);
+    }
+
+    TEST_F( Page_IOTest, testRandomIO_StreamMaintainsIndependentStreamsOverSharedDiffIO )
+    {
+        CFile::create(file_name, {});
+        CFile file(file_name, AccessType::READ_WRITE);
+        auto tail_function = [&file]() -> std::uint64_t {
+            return file.size();
+        };
+
+        RandomIO_StreamDiffIO page_io(file, page_size, page_size * 16, tail_function);
+        auto a1 = makePage(page_size, std::byte(0xa1));
+        auto a2 = makePage(page_size, std::byte(0xa2));
+        auto a3 = makePage(page_size, std::byte(0xa3));
+        auto b1 = makePage(page_size, std::byte(0xb1));
+        auto b2 = makePage(page_size, std::byte(0xb2));
+        auto b3 = makePage(page_size, std::byte(0xb3));
+
+        TestRandomIO_Stream stream_a(page_io, std::uint32_t(3));
+        ASSERT_EQ(0u, stream_a.append(a1.data()));
+        ASSERT_EQ(1u, stream_a.append(a2.data()));
+        stream_a.flush();
+
+        TestRandomIO_Stream stream_b(page_io, std::uint32_t(3));
+        ASSERT_EQ(3u, stream_b.append(b1.data()));
+        ASSERT_EQ(4u, stream_b.append(b2.data()));
+        stream_b.flush();
+
+        auto stream_a_page_num = stream_a.getPageNum();
+        auto stream_b_page_num = stream_b.getPageNum();
+
+        RandomIO_Stream opened_a(page_io, stream_a_page_num, 3);
+        ASSERT_EQ(6u, opened_a.append(a3.data()));
+        opened_a.flush();
+
+        RandomIO_Stream opened_b(page_io, stream_b_page_num, 3);
+        ASSERT_EQ(9u, opened_b.append(b3.data()));
+        opened_b.flush();
+
+        auto reader_a = opened_a.getReader();
+        auto reader_b = opened_b.getReader();
+        std::vector<std::byte> read_buf(page_size);
+        std::vector<std::byte> values_a;
+        std::vector<std::byte> values_b;
+
+        while (reader_a.readNext(read_buf.data())) {
+            values_a.push_back(read_buf[0]);
+        }
+        while (reader_b.readNext(read_buf.data())) {
+            values_b.push_back(read_buf[0]);
+        }
+
+        ASSERT_EQ((std::vector<std::byte> {
+            std::byte(0xa1), std::byte(0xa2), std::byte(0xa3)
+        }), values_a);
+        ASSERT_EQ((std::vector<std::byte> {
+            std::byte(0xb1), std::byte(0xb2), std::byte(0xb3)
+        }), values_b);
     }
 
 }

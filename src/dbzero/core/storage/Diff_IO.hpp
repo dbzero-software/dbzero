@@ -3,16 +3,13 @@
 
 #pragma once
 
-#include "PageStream.hpp"
-#include "diff_buffer.hpp"
+#include "Diff_IOCodec.hpp"
+#include "Page_IO.hpp"
 #include <memory>
-#include <optional>
 
 namespace db0
 
 {
-
-    class DiffWriter;
 
     // Diff_IO is a Page_IO extension specialized in
     // storage & retrieval of diff sequences
@@ -21,10 +18,9 @@ namespace db0
     public:
         Diff_IO(std::size_t header_size, CFile &file, std::uint32_t page_size, std::uint32_t block_size, std::uint64_t address, 
             std::uint32_t page_count, std::uint32_t step_size, std::function<std::uint64_t()> tail_function, 
-            std::optional<std::uint32_t> block_num = {}, std::uint32_t page_stream_chunk_pages = 64);
+            std::optional<std::uint32_t> block_num = {});
         // Read-only Diff_IO
-        Diff_IO(std::size_t header_size, CFile &file, std::uint32_t page_size,
-            std::uint32_t page_stream_chunk_pages = 64);
+        Diff_IO(std::size_t header_size, CFile &file, std::uint32_t page_size);
         ~Diff_IO();
         
         // Appends a new diff-block to the stream
@@ -49,14 +45,6 @@ namespace db0
         void flush();
 
         bool modified() const;
-
-        std::optional<std::uint64_t> getFirstWrittenPageNum() const;
-
-        std::uint64_t getEndWrittenPageNum() const;
-
-        // Clear the page-wise diff stream and reuse its previously occupied pages.
-        // Existing diff page references become invalid and must be removed by caller.
-        void clearDiffStream();
         
         // Write as full-DP
         void write(std::uint64_t page_num, void *buffer);
@@ -69,17 +57,38 @@ namespace db0
         std::pair<std::size_t, std::size_t> getStats() const;
 
     protected:
+        class CodecAccess
+        {
+        public:
+            explicit CodecAccess(Page_IO &page_io)
+                : m_page_io(page_io)
+            {
+            }
+
+            std::uint32_t getPageSize() const { return m_page_io.getPageSize(); }
+            std::pair<std::uint64_t, std::uint32_t> getNextPageNum(bool *is_first_page)
+            {
+                return m_page_io.getNextPageNum(is_first_page);
+            }
+            std::uint64_t append(const void *buffer) { return m_page_io.append(buffer); }
+            void read(std::uint64_t page_num, void *buffer) const { m_page_io.read(page_num, buffer); }
+            std::uint64_t nextPageNum(std::uint64_t page_num) const { return page_num + 1; }
+
+        private:
+            Page_IO &m_page_io;
+        };
+
         mutable std::mutex m_mx_write;
+        CodecAccess m_codec_access;
         // the data buffer to hold up to 2 data pages
         std::vector<std::byte> m_write_buf;
         mutable std::mutex m_mx_read;
         mutable std::vector<std::byte> m_read_buf;
-        PageStream m_page_stream;
+        std::unique_ptr<detail::DiffIOCodecWriter<CodecAccess>> m_writer;
         // total bytes written to the stream (since class creation) using full-DP method
         std::size_t m_full_dp_bytes_written = 0;
         // total bytes written using the diff mechanism
         std::size_t m_diff_bytes_written = 0;
-        std::unique_ptr<DiffWriter> m_writer;
         bool m_modified = false;
     };
     

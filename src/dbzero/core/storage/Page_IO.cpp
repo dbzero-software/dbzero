@@ -216,21 +216,8 @@ namespace db0
         m_file.read(m_header_size + page_num * m_page_size, page_count * m_page_size, buffer);
     }
 
-    void Page_IO::readPageOffset(std::uint64_t page_num, std::uint32_t offset, std::size_t size, void *buffer) const
-    {
-        assert(offset + size <= m_page_size);
-        m_file.read(m_header_size + page_num * m_page_size + offset, size, buffer);
-    }
-
     void Page_IO::write(std::uint64_t page_num, const void *buffer) {
         m_file.write(m_header_size + page_num * m_page_size, m_page_size, buffer);
-    }
-
-    void Page_IO::writePageOffset(std::uint64_t page_num, std::uint32_t offset, std::size_t size,
-        const void *buffer)
-    {
-        assert(offset + size <= m_page_size);
-        m_file.write(m_header_size + page_num * m_page_size + offset, size, buffer);
     }
     
     std::uint64_t Page_IO::getPageNum(std::uint64_t address) const {

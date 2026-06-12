@@ -20,14 +20,14 @@ namespace tests
     {
     public:
         Diff_IOProxy(std::size_t header_size, CFile &file, std::uint32_t page_size, std::uint32_t block_size, std::uint64_t address,
-            std::uint32_t page_count, std::function<std::uint64_t()> tail_function,
-            std::uint32_t page_stream_chunk_pages = 4)
-            : Diff_IO(header_size, file, page_size, block_size, address, page_count,
-                (page_stream_chunk_pages * page_size + block_size - 1) / block_size, tail_function, 0,
-                page_stream_chunk_pages)
+            std::uint32_t page_count, std::function<std::uint64_t()> tail_function)
+            : Diff_IO(header_size, file, page_size, block_size, address, page_count, 1u, tail_function)
         {
         }
 
+        std::pair<std::uint64_t, std::uint32_t> getNextPageNum() {
+            return Page_IO::getNextPageNum();
+        }
     };
 
     class Diff_IOTest: public testing::Test
@@ -188,96 +188,10 @@ namespace tests
         
         for (unsigned int i = 0; i < 250; ++i) {
             auto [page_num, overflow] = cut.appendDiff(m_dp_2.data(), {i, i}, diff_buf);
-            (void)page_num;
-            (void)overflow;
+            // appendDiff must return the first page written to and the number of pages
+            ASSERT_EQ(page_num + (overflow ? 1 : 0), cut.getNextPageNum().first);
         }
         cut.flush();
     }
-
-    TEST_F( Diff_IOTest , testDiff_IOClearDiffStreamReusesStream )
-    {
-        CFile::create(file_name, {});
-        CFile file(file_name, AccessType::READ_WRITE);
-        auto tail_function = [&file]() -> std::uint64_t {
-            return file.size();
-        };
-
-        Diff_IOProxy cut(0, file, page_size, page_size * 2, page_size * 16, 0, tail_function);
-        std::vector<std::uint16_t> diff_buf;
-        db0::getDiffs(m_dp_0.data(), m_dp_1.data(), page_size, diff_buf);
-
-        std::vector<std::uint64_t> positions;
-        for (unsigned int i = 0; i < 100; ++i) {
-            positions.push_back(cut.appendDiff(m_dp_1.data(), {i, i}, diff_buf).first);
-        }
-        cut.flush();
-        auto first_size = file.size();
-        ASSERT_EQ(16u, positions.front());
-        ASSERT_LT(positions.front(), positions.back());
-
-        cut.clearDiffStream();
-        auto new_pos = cut.appendDiff(m_dp_1.data(), {1000, 1000}, diff_buf).first;
-        ASSERT_EQ(positions.front(), new_pos);
-        cut.flush();
-        ASSERT_EQ(first_size, file.size());
-
-        auto dp = m_dp_0;
-        cut.applyFrom(new_pos, dp.data(), {1000, 1000});
-        ASSERT_EQ(std::memcmp(m_dp_1.data(), dp.data(), page_size), 0);
-    }
-
-    TEST_F( Diff_IOTest , testDiff_IOClearDiffStreamDoesNotAffectFullDPs )
-    {
-        CFile::create(file_name, {});
-        CFile file(file_name, AccessType::READ_WRITE);
-        auto tail_function = [&file]() -> std::uint64_t {
-            return file.size();
-        };
-
-        Diff_IOProxy cut(0, file, page_size, page_size * 2, page_size * 16, 0, tail_function);
-        auto full_page_num = cut.append(m_dp_2.data());
-        cut.flush();
-
-        std::vector<std::uint16_t> diff_buf;
-        db0::getDiffs(m_dp_0.data(), m_dp_1.data(), page_size, diff_buf);
-        cut.appendDiff(m_dp_1.data(), {1, 1}, diff_buf);
-        cut.flush();
-        cut.clearDiffStream();
-
-        std::vector<std::byte> read_buf(page_size);
-        cut.read(full_page_num, read_buf.data());
-        ASSERT_EQ(std::memcmp(m_dp_2.data(), read_buf.data(), page_size), 0);
-    }
-
-    TEST_F( Diff_IOTest , testDiff_IOOverflowSkipsChunkBoundary )
-    {
-        CFile::create(file_name, {});
-        CFile file(file_name, AccessType::READ_WRITE);
-        auto tail_function = [&file]() -> std::uint64_t {
-            return file.size();
-        };
-
-        Diff_IOProxy cut(0, file, page_size, page_size * 8, 0, 0, tail_function, 4);
-        auto full_page = m_dp_0;
-        for (std::size_t i = 0; i < page_size; i += 2) {
-            full_page[i] = std::byte(0x7f);
-        }
-        std::vector<std::uint16_t> diff_buf;
-        ASSERT_TRUE(db0::getDiffs(m_dp_0.data(), full_page.data(), page_size, diff_buf, page_size * 2));
-
-        auto [first_page_num, first_overflow] = cut.appendDiff(full_page.data(), {1, 1}, diff_buf);
-        ASSERT_EQ(0u, first_page_num);
-        ASSERT_TRUE(first_overflow);
-        cut.flush();
-
-        auto [second_page_num, second_overflow] = cut.appendDiff(full_page.data(), {2, 2}, diff_buf);
-        ASSERT_EQ(4u, second_page_num);
-        ASSERT_TRUE(second_overflow);
-        cut.flush();
-
-        auto dp = m_dp_0;
-        cut.applyFrom(second_page_num, dp.data(), {2, 2});
-        ASSERT_EQ(std::memcmp(full_page.data(), dp.data(), page_size), 0);
-    }
-
+    
 }

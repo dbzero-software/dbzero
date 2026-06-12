@@ -78,14 +78,10 @@ namespace db0
         // Read multiple consecutive pages
         void read(std::uint64_t page_num, void *buffer, std::uint32_t page_count) const;
 
-        void readPageOffset(std::uint64_t page_num, std::uint32_t offset, std::size_t size, void *buffer) const;
-        
         /**
          * Overwrite existing page
         */
         void write(std::uint64_t page_num, const void *buffer);
-
-        void writePageOffset(std::uint64_t page_num, std::uint32_t offset, std::size_t size, const void *buffer);
         
         std::uint64_t tail() const;
         
