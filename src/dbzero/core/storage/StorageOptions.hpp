@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <functional>
 #include <dbzero/core/dram/MetaSpace.hpp>
+#include <dbzero/core/dram/MS_MetaPrefix.hpp>
 #include <dbzero/core/memory/MetaAllocator.hpp>
 
 namespace db0
@@ -16,7 +17,7 @@ namespace db0
     {
         using StorageSlabBucket = MetaAllocator::StorageSlabBucketingFunction::Bucket;
 
-        MS_MetaSpace::MappingPolicy m_meta_mapping_policy = MS_MetaSpace::MappingPolicy::eager;
+        MappingPolicy m_meta_mapping_policy = MappingPolicy::eager;
 
         /**
          * Maps a raw application storage byte address to the meta-space slot that

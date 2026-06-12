@@ -93,17 +93,7 @@ namespace db0
         m_sparse_index.refresh();
         m_diff_index.refresh();
     }
-
-    template <typename ConfigT>
-    void SparsePairBase<ConfigT>::refreshPages(const std::vector<std::uint64_t> &page_nums,
-        std::function<bool(Address)> reload_address)
-    {
-        for (auto page_num: page_nums) {
-            reload_address(Address::fromOffset(page_num));
-        }
-        refresh();
-    }
-
+    
     template <typename ConfigT>
     void SparsePairBase<ConfigT>::detach() const
     {
@@ -135,19 +125,7 @@ namespace db0
     {
         return m_change_log ? m_change_log->size() : 0;
     }
-
-    template <typename ConfigT>
-    typename SparsePairBase<ConfigT>::SlotId SparsePairBase<ConfigT>::changeLogEntrySlotId(ChangeLogEntryT entry)
-    {
-        return MS_Address::from(entry).slot_id();
-    }
-
-    template <typename ConfigT>
-    typename SparsePairBase<ConfigT>::PageNumT SparsePairBase<ConfigT>::changeLogEntryPageNum(ChangeLogEntryT entry)
-    {
-        return MS_Address::from(entry).local_address();
-    }
-        
+    
     template <typename ConfigT>
     Address SparsePairBase<ConfigT>::getDiffIndexAddress(
         const SparseIndexT &sparse_index)

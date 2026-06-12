@@ -136,11 +136,11 @@ namespace tests
         }
 
         std::uint64_t appendDescriptorPage(const std::vector<std::byte> &page) {
-            return m_descriptor_io.append(page.data());
+            return m_desc_io.append(page.data());
         }
 
         void readDescriptorPage(std::uint64_t page_num, std::vector<std::byte> &page) const {
-            m_descriptor_io.read(page_num, page.data());
+            m_desc_io.read(page_num, page.data());
         }
 
         void dirtyMetaSpaceWithoutStateRegistration() {

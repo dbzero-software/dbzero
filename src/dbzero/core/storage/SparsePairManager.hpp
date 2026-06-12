@@ -72,6 +72,7 @@ namespace db0
     private:
         std::shared_ptr<MS_MetaPrefix> m_prefix;
         std::shared_ptr<MS_MetaAllocator> m_allocator;
+        const std::uint32_t m_ps_shift;
         AccessType m_access_type;
         StorageFlags m_flags;
         // shared change log for all managed pairs, cleared on commit

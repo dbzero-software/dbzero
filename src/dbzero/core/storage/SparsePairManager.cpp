@@ -4,6 +4,7 @@
 #include "SparsePairManager.hpp"
 #include <dbzero/core/dram/DRAM_Prefix.hpp>
 #include <dbzero/core/dram/MS_MetaPrefix.hpp>
+#include <dbzero/core/memory/utils.hpp>
 #include <unordered_set>
 #include <utility>
 
@@ -14,6 +15,7 @@ namespace db0
     SparsePairManager::SparsePairManager(MS_MetaSpace &metaspace, AccessType access_type, StorageFlags flags)
         : m_prefix(metaspace.getMSPrefixPtr())
         , m_allocator(metaspace.getMSAllocatorPtr())
+        , m_ps_shift(db0::getPageShift(m_prefix->getPageSize()))
         , m_access_type(access_type)
         , m_flags(flags)
     {
@@ -120,8 +122,8 @@ namespace db0
             sparse_pair->detach();
             db0::load(*m_prefix, begin, end);
             sparse_pair->refresh();
-
-            // also update the allocator
+            
+            // also update the allocator (NOTE: since sparse pair exists, the slot Id must also exist in the allocator)
             auto updater = m_allocator->beginUpdate(slot_id);
             for (;begin != end; ++begin) {
                 // update with the local address
@@ -178,9 +180,10 @@ namespace db0
             return false;
         }
         
+        // Identify dirty slots from the change log and commit them (once)
         std::unordered_set<SlotId> committed_slots;
         for (auto entry: m_change_log) {
-            auto slot_id = PlainSparsePair::changeLogEntrySlotId(entry);
+            auto slot_id = MS_Address::from(entry << m_ps_shift).slot_id();
             if (!committed_slots.insert(slot_id).second) {
                 continue;
             }

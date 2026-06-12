@@ -128,12 +128,13 @@ namespace db0
         virtual void endCommit();
         
         // Retrieve the complete change log (i.e. DP updates) for each transaction from the given range
+        // this function is required for change capture API
         // @param begin_state the first state number to be included in the change log
         // @param end_state the first state number past the last state number to be included 
         //   in the change log (or up to the last state number if not specified)
-        // @param f function to be called for each transaction's change log
+        // @param callback function to be called for each transaction's change log        
         virtual void fetchDP_ChangeLogs(StateNumType begin_state, std::optional<StateNumType> end_state,
-            std::function<void(const DP_ChangeLogT &)> f) const;
+            std::function<void(const DP_ChangeLogT &)> callback) const;
         
         // Throws where this conversion is not possible
         virtual BDevStorage &asFile();

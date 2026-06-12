@@ -164,7 +164,7 @@ namespace db0
         super_t::detach();
     }
 
-    void DiffIndex::commit() {
+    void DiffIndex::commit() const {
         super_t::commit();
     }
 

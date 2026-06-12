@@ -30,7 +30,7 @@ namespace db0
         , m_dram_page_size(dram_page_size)
         , m_page_io_step_size(page_io_step_size)
         , m_descriptor_page_size(descriptor_page_size)
-        , m_descriptor_io_step_size(descriptor_io_step_size)
+        , m_desc_io_step_size(descriptor_io_step_size)
     {
         std::memset(m_reserved.data(), 0, sizeof(m_reserved));
     }
@@ -63,13 +63,13 @@ namespace db0
         return options;
     }
 
-    MS_MetaSpace::MappingPolicy getOpenMetaMappingPolicy(const StorageOptions &options, StorageFlags flags)
+    MappingPolicy getOpenMetaMappingPolicy(const StorageOptions &options, StorageFlags flags)
     {
         return flags[StorageFlagOption::NO_LOAD]
-            ? MS_MetaSpace::MappingPolicy::lazy
+            ? MappingPolicy::lazy
             : options.m_meta_mapping_policy;
     }
-
+    
     void appendSparsePairManagerChangeLog(BDevStorage::DRAM_ChangeLogStreamT &changelog_io,
         std::vector<std::uint64_t> &&page_nums, StateNumType state_num)
     {
@@ -139,10 +139,10 @@ namespace db0
             this->getMaxExtStateNum())
         )
         , m_ext_space(tryGetDRAMPair(m_ext_dram_io.get()), access_type)
-        , m_descriptor_io(getDescriptor_IO())
+        , m_desc_io(getDescriptor_IO())
         , m_options(normalizeOptions(std::move(options), m_config))
         , m_meta_space(MS_MetaSpace::create(
-            m_config.m_descriptor_page_size, m_root_sparse_pair, m_descriptor_io,
+            m_config.m_descriptor_page_size, m_root_sparse_pair, m_desc_io,
             getOpenMetaMappingPolicy(m_options, flags))
         )
         , m_sparse_pair_manager(m_meta_space, access_type, flags)
@@ -640,7 +640,7 @@ namespace db0
             THROWF(db0::IOException) << "BDevStorage::flush error: read-only stream";
         }
 
-        auto descriptor_io_was_modified = m_descriptor_io.modified();
+        auto descriptor_io_was_modified = m_desc_io.modified();
         auto application_changed = m_sparse_pair_manager.commit();
         auto &meta_prefix = *m_meta_space.getMSPrefixPtr();
         auto state_num = m_root_sparse_pair.getMaxStateNum();
@@ -652,25 +652,25 @@ namespace db0
                 << "; metadata state: " << meta_prefix.getStateNum(false)
                 << "; sparse pair manager changelog size: " << m_sparse_pair_manager.getChangeLogSize();
         }
-        auto meta_space_flushed = db0::flush(meta_prefix, m_descriptor_io, timer.get());
+        auto meta_space_flushed = db0::flush(meta_prefix, m_desc_io, timer.get());
         if (meta_space_flushed) {
             m_meta_space.commit(timer.get());
         }
-        auto descriptor_io_modified = descriptor_io_was_modified || m_descriptor_io.modified() || meta_space_flushed;
+        auto descriptor_io_modified = descriptor_io_was_modified || m_desc_io.modified() || meta_space_flushed;
         bool root_metadata_changed = false;
         if (descriptor_io_modified) {
             if (state_num == 0) {
                 THROWF(db0::InternalException)
                     << "BDevStorage::flush requires registered state high watermark before flushing descriptor metadata";
             }
-            m_root_sparse_pair.recordNextDescPageNum(m_descriptor_io.getNextPageNum().first);
+            m_root_sparse_pair.recordNextDescPageNum(m_desc_io.getNextPageNum().first);
         }
         auto root_change_log_size = m_root_sparse_pair.getChangeLogSize();
 
         // check if there're any modifications to be flushed
         if (!application_changed && !root_metadata_changed && root_change_log_size == 0) {
             if (descriptor_io_modified) {
-                m_descriptor_io.flush();
+                m_desc_io.flush();
                 m_file.fsync();
                 return false;
             }
@@ -702,7 +702,7 @@ namespace db0
             m_root_sparse_pair.recordNextStoragePageNum(end_page_io_page_num);
         }
         m_dram_io.flushUpdates(state_num, m_dram_changelog_io);
-        m_descriptor_io.flush();
+        m_desc_io.flush();
         // Flush ext streams (if existing)
         flushExt(state_num);
         // NOTE: fsync has stronger guarantees than flush in a multi-process environments
@@ -775,7 +775,7 @@ namespace db0
         result = std::max(result, m_dram_changelog_io.tail());
         result = std::max(result, m_dp_changelog_io.tail());
         result = std::max(result, m_page_io.tail());
-        result = std::max(result, m_descriptor_io.tail());
+        result = std::max(result, m_desc_io.tail());
 
         // include ext streams when initialized
         if (m_ext_dram_io) {
@@ -799,12 +799,9 @@ namespace db0
 
     Diff_IO BDevStorage::getDescriptor_IO()
     {
-        std::optional<std::uint64_t> next_page_hint;
-        if (auto descriptor_page_range = m_root_sparse_pair.getDescriptorPageRange()) {
-            next_page_hint = descriptor_page_range->second;
-        }
+        auto next_page_hint = m_root_sparse_pair.getNextDescPageNum();
         auto tail_function = getDescriptorIOTailFunction();
-        // m_descriptor_io is constructed before m_page_io, but its runtime tail
+        // m_desc_io is constructed before m_page_io, but its runtime tail
         // function must include m_page_io once construction is complete. Seed the
         // cursor only from block streams; the first write is deferred to the live
         // tail function in getDiff_IO().
@@ -814,7 +811,7 @@ namespace db0
                 ? m_file.size()
                 : blockIOTail();
         return getDiff_IO(
-            next_page_hint, m_config.m_descriptor_page_size, m_config.m_descriptor_io_step_size,
+            next_page_hint, m_config.m_descriptor_page_size, m_config.m_desc_io_step_size,
             tail_function, initial_tail_address);
     }
 
@@ -889,7 +886,7 @@ namespace db0
     std::function<std::uint64_t()> BDevStorage::getPageIOTailFunction() const
     {
         return [this]() -> std::uint64_t {
-            return std::max(blockIOTail(), m_descriptor_io.tail());
+            return std::max(blockIOTail(), m_desc_io.tail());
         };
     }
     
@@ -976,9 +973,10 @@ namespace db0
                 // Descriptor changelog entries are stored separately from DRAM IO.
                 // Reload pages after restoring stream position because page reload
                 // may consult stream tails.
-                std::vector<std::uint64_t> refresh_pages;
+                std::vector<std::uint64_t> updated_desc_pages;
                 m_desc_changelog_io.setStreamPos(desc_changelog_io_pos);
                 auto desc_state_is_consistent = true;
+                // NOTE: descriptor pages don't report to the on_page_updated callback
                 scanChangeLogs(m_desc_changelog_io,
                     [&](const DRAM_ChangeLogT &change_log) {
                         if (change_log.m_state_num > *dram_state_num) {
@@ -986,14 +984,10 @@ namespace db0
                             return;
                         }
                         for (auto entry: change_log) {
-                            refresh_pages.push_back(entry);
-                            if (on_page_updated) {
-                                auto page_num = SparsePair::changeLogEntryPageNum(entry);
-                                on_page_updated(page_num, change_log.m_state_num);
-                            }
+                            updated_desc_pages.push_back(entry);
                         }
                     }
-                );                    
+                );
                 if (!desc_state_is_consistent) {
                     m_desc_changelog_io.setStreamPos(desc_changelog_io_pos);
                     continue;
@@ -1005,7 +999,8 @@ namespace db0
                 // the latest MetaSpace allocator state.
                 m_flags = m_flags & ~StorageFlags { StorageFlagOption::NO_LOAD };
                 m_root_sparse_pair.refresh();
-                m_sparse_pair_manager.refreshPages(refresh_pages);
+                // refresh the updated descriptor pages
+                m_sparse_pair_manager.refreshPages(updated_desc_pages);
 
                 m_dp_changelog_io.refresh();
             } catch (db0::IOException &) {
@@ -1078,31 +1073,19 @@ namespace db0
 #endif
     
     void BDevStorage::fetchDP_ChangeLogs(StateNumType begin_state, std::optional<StateNumType> end_state,
-        std::function<void(const DP_ChangeLogT &)> f) const
+        std::function<void(const DP_ChangeLogT &)> callback) const
     {
         std::unique_lock<std::shared_mutex> lock(m_mutex);
-        if (m_dp_changelog_io.modified()) {
-            THROWF(db0::IOException) << "BDevStorage::fetchChangeLogs: dp-changelog is modified and needs to be flushed first";
-        }
-        if (m_dram_changelog_io.modified()) {
-            THROWF(db0::IOException) << "BDevStorage::fetchChangeLogs: dram-changelog is modified and needs to be flushed first";
-        }
-        if (m_desc_changelog_io.modified()) {
-            THROWF(db0::IOException) << "BDevStorage::fetchChangeLogs: desc-changelog is modified and needs to be flushed first";
-        }
         auto &dp_changelog_io = const_cast<DP_ChangeLogStreamT &>(m_dp_changelog_io);
-        auto &desc_changelog_io = const_cast<DRAM_ChangeLogStreamT &>(m_desc_changelog_io);
         DP_ChangeLogStreamT::State dp_state;
-        DRAM_ChangeLogStreamT::State desc_state;
         dp_changelog_io.saveState(dp_state);
-        desc_changelog_io.saveState(desc_state);
         
         {
             std::vector<char> buf;
             // try locating the nearest meta-log entry to position the dp-changelog
             auto meta_log_ptr = m_meta_io.lowerBound(begin_state, buf);
             if (meta_log_ptr) {
-                // the 1st meta-item is associated with tha dp_change_log
+                // the 1st meta-item is associated with the dp_change_log
                 auto &item = *meta_log_ptr->getMetaItems().begin();
                 dp_changelog_io.setStreamPos(item.m_address, item.m_stream_pos);
             } else {
@@ -1131,18 +1114,8 @@ namespace db0
                     }
                 }
             }
-
-            desc_changelog_io.setStreamPosHead();
+            
             std::vector<char> buffer;
-            scanChangeLogs(desc_changelog_io,
-                [&](const DRAM_ChangeLogT &change_log) {
-                    auto &page_nums = change_log_pages[change_log.m_state_num];
-                    for (auto entry: change_log) {
-                        page_nums.push_back(SparsePair::changeLogEntryPageNum(entry));
-                    }
-                },
-                begin_state, end_state);
-
             for (auto &[state_num, page_nums]: change_log_pages) {
                 if (page_nums.empty()) {
                     continue;
@@ -1152,14 +1125,12 @@ namespace db0
                 auto size_of = DP_ChangeLogT::measure(data, state_num, 0);
                 buffer.resize(size_of);
                 auto &dp_change_log = DP_ChangeLogT::__new(buffer.data(), data, state_num, 0);
-                f(dp_change_log);
+                callback(dp_change_log);
             }
-        } catch (...) {
-            desc_changelog_io.restoreState(desc_state);
+        } catch (...) {            
             dp_changelog_io.restoreState(dp_state);            
             throw;
-        }
-        desc_changelog_io.restoreState(desc_state);
+        }        
         dp_changelog_io.restoreState(dp_state);
     }
     
@@ -1261,12 +1232,7 @@ namespace db0
         // copy page-IO data streams (descriptors first)
         copyPageIO(m_desc_io, m_ext_space, out.m_desc_io, end_page_num, out.m_ext_space);
         copyPageIO(m_page_io, m_ext_space, out.m_page_io, end_page_num, out.m_ext_space);
-
-        out.m_meta_space = MS_MetaSpace::create(
-            out.m_config.m_descriptor_page_size, out.m_root_sparse_pair, out.m_descriptor_io,
-            out.m_options.m_meta_mapping_policy);
-        out.m_sparse_pair_manager = SparsePairManager(out.m_meta_space, out.m_access_type, out.m_flags);
-        
+                
         // NOTE: meta_is stream can't be copied since it's structure depends on the managed streams
         // NOTE: for simplicity we don't generate the entire meta-io, just save the last checkpoint
         out.m_meta_io.checkAndAppend(max_state_num);

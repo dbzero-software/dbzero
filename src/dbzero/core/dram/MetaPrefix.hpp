@@ -58,7 +58,8 @@ namespace db0
         friend void load(MetaPrefix &prefix, Diff_IO &page_io);
         friend bool fetchPage(MetaPrefix &prefix, Diff_IO &page_io, std::uint64_t page_num,
             StateNumType state_num, void *buffer);
-        friend void load(MetaPrefix &prefix, Diff_IO &page_io, const std::vector<std::uint64_t> &page_nums);
+        friend void load(MetaPrefix &prefix, Diff_IO &page_io, const std::uint64_t *page_num, 
+            const std::uint64_t *end);
 
         friend bool flush(MetaPrefix &prefix, Diff_IO &page_io, ProcessTimer *timer);
 
@@ -72,6 +73,7 @@ namespace db0
     // this operation is optimized for large page batches
     // @param page_nums sorted page numbers to load
     void load(MetaPrefix &, Diff_IO &, const std::vector<std::uint64_t> &page_nums);
+    void load(MetaPrefix &, Diff_IO &, const std::uint64_t *page_num, const std::uint64_t *end);
 
     bool flush(MetaPrefix &prefix, Diff_IO &page_io, ProcessTimer *timer = nullptr);
 

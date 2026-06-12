@@ -28,9 +28,8 @@ namespace db0
             DRAM_Allocator &m_allocator;
             std::uint64_t m_max_page_id = FIRST_PAGE_ID;
             const std::size_t m_page_size;
-            const bool m_is_empty;
 
-            Updater(DRAM_Allocator &, bool is_empty);
+            Updater(DRAM_Allocator &);
             // must be called after all updates to finalize the state
             ~Updater();
 

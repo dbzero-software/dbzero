@@ -143,7 +143,8 @@ DB0_PACKED_END
         // the operations SparsePair needs to manage the paired index lifecycle.
         void refresh();
         void detach() const;
-        void commit();
+        void commit() const;
+        
         Address getIndexAddress() const;
 
         /**

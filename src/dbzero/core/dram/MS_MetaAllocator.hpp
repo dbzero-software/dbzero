@@ -48,6 +48,9 @@ namespace db0
         std::optional<Address> tryFirstAlloc(Allocator::SlotId);
 
         void evictSlot(Allocator::SlotId);
+        
+        // For scoped refresh / updates of the allocator state
+        DRAM_Allocator::Updater beginUpdate(Allocator::SlotId);
 
     private:
         SparsePair &m_sparse_pair;

@@ -57,7 +57,7 @@ DB0_PACKED_BEGIN
         // This value (entire step) corresponts to a single entry in the REL_Index (if it's used)
         std::uint32_t m_page_io_step_size;
         std::uint32_t m_descriptor_page_size = 0;
-        std::uint32_t m_descriptor_io_step_size = 0;
+        std::uint32_t m_desc_io_step_size = 0;
         std::uint64_t m_ext_dram_io_offset = 0;
         std::uint32_t m_ext_dram_page_size = 0;
         std::uint64_t m_ext_dram_changelog_io_offset = 0;
@@ -155,7 +155,7 @@ DB0_PACKED_END
         }
 
         const Diff_IO &getDescriptorIO() const {
-            return m_descriptor_io;
+            return m_desc_io;
         }
 
         const MetaIOStream &getMetaIO() const {
@@ -201,8 +201,8 @@ DB0_PACKED_END
         std::unique_ptr<DRAM_ChangeLogStreamT> m_ext_dram_changelog_io;
         std::unique_ptr<DRAM_IOStream> m_ext_dram_io;
         ExtSpace m_ext_space;
-        // the stream for future descriptor-backed metadata
-        Diff_IO m_descriptor_io;
+        // the stream for descriptor-backed metadata
+        Diff_IO m_desc_io;
         StorageOptions m_options;
         // Multi-slot metadata space hosts application data-page sparse pairs.
         MS_MetaSpace m_meta_space;

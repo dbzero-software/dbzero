@@ -79,4 +79,9 @@ namespace db0
         db0::load(*this, m_diff_io, slot_page_nums);
     }
 
+    void load(MS_MetaPrefix &prefix, const std::uint64_t *page_num, const std::uint64_t *end)
+    {
+        load(prefix, prefix.m_diff_io, page_num, end);
+    }
+    
 }

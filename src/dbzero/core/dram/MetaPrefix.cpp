@@ -122,6 +122,11 @@ namespace db0
 
     void load(MetaPrefix &prefix, Diff_IO &page_io, const std::vector<std::uint64_t> &page_nums)
     {
+        load(prefix, page_io, page_nums.data(), page_nums.data() + page_nums.size());
+    }
+
+    void load(MetaPrefix &prefix, Diff_IO &page_io, const std::uint64_t *page_num, const std::uint64_t *end)
+    {
         auto state_num = prefix.getStateNum(false);
         // For I/O performace we first determine the operations and then execute ordered for better locality
         std::vector<Load_OP> load_ops;
@@ -129,13 +134,13 @@ namespace db0
 
         auto &sparse_index = prefix.m_sparse_pair.getSparseIndex();
         auto &diff_index = prefix.m_sparse_pair.getDiffIndex();
-        for (auto page_num: page_nums) {
-            SparseIndexQuery query(sparse_index, diff_index, page_num, state_num);
+        for (;page_num != end; ++page_num) {
+            SparseIndexQuery query(sparse_index, diff_index, *page_num, state_num);
             if (query.empty()) {
                 continue;
             }
 
-            auto page_buf = prefix.update(page_num, false);
+            auto page_buf = prefix.update(*page_num, false);
             auto storage_page_num = query.first();
             if (storage_page_num) {
                 load_ops.push_back(Load_OP { storage_page_num, page_buf });
@@ -145,7 +150,7 @@ namespace db0
 
             StateNumType diff_state_num = 0;
             while (query.next(diff_state_num, storage_page_num)) {
-                load_diff_ops.push_back(LoadDiff_OP { storage_page_num, page_num, diff_state_num, page_buf });
+                load_diff_ops.push_back(LoadDiff_OP { storage_page_num, *page_num, diff_state_num, page_buf });
             }
         }
 
@@ -167,7 +172,7 @@ namespace db0
             page_io.applyFrom(op.m_storage_page_num, op.m_buffer, { op.m_page_num, op.m_diff_state_num });
         }
     }
-
+    
     MemLock MetaPrefix::mapRange(std::uint64_t address, std::size_t size, FlagSet<AccessOptions> access_mode)
     {
         bool became_dirty = false;

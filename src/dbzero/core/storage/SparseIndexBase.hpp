@@ -154,7 +154,7 @@ namespace db0
         // Get the total number of data page descriptors stored in the index
         std::size_t size() const;
 
-        void commit();
+        void commit() const;
 
         bool operator!() const;
 
@@ -521,7 +521,7 @@ namespace db0
     }
 
     template <typename ItemT, typename CompressedItemT, typename SparseIndexMixinT>
-    void SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::commit() {
+    void SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::commit() const {
         m_index.commit();        
     }
     

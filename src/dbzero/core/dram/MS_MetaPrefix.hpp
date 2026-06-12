@@ -59,6 +59,10 @@ namespace db0
 
         void ensureSlot(SlotId);
         void loadSlot(SlotId);
+
+        friend void load(MS_MetaPrefix &, const std::uint64_t *, const std::uint64_t *);
     };
+    
+    void load(MS_MetaPrefix &, const std::uint64_t *page_num, const std::uint64_t *end);
 
 }
