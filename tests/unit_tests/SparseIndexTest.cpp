@@ -562,5 +562,36 @@ namespace tests
         ASSERT_EQ(page_nums.front(), 40u);
         ASSERT_EQ(page_nums.back(), 74u);
     }
+
+    TEST_F( SparseIndexTest , testSparseIndexForUniquePageRangeDeduplicatesMultipleStates )
+    {
+        auto cut = createSparseIndex(512);
+        constexpr std::uint64_t page_count = 300;
+        constexpr std::uint32_t high_state_count = 20;
+
+        for (std::uint64_t page_num = 0; page_num < page_count; ++page_num) {
+            cut.emplace(page_num, 1, page_num + 1000);
+            if (page_num % 13 == 0) {
+                for (std::uint32_t state_num = 2; state_num <= high_state_count; ++state_num) {
+                    cut.emplace(page_num, state_num, page_num + (state_num * 1000));
+                }
+            }
+        }
+
+        std::vector<typename SparseIndex::SI_ItemT> items;
+        cut.forUniquePageRange(40, 260, [&](const SI_Item &item) {
+            items.push_back(item);
+        });
+
+        ASSERT_EQ(items.size(), 220u);
+        for (std::size_t i = 0; i < items.size(); ++i) {
+            ASSERT_EQ(items[i].m_page_num, i + 40);
+            ASSERT_EQ(items[i].m_state_num, 1u);
+            if (i > 0) {
+                ASSERT_NE(items[i - 1].m_page_num, items[i].m_page_num);
+                ASSERT_TRUE(items[i - 1].m_page_num < items[i].m_page_num);
+            }
+        }
+    }
         
 }
