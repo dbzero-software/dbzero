@@ -74,12 +74,13 @@ namespace db0
         moveBy(page_count);
         return result;
     }
-    
+
     std::uint64_t Page_IO::reserve(std::uint32_t page_count, bool *is_first_page_ptr)
     {
         assert(m_access_type == AccessType::READ_WRITE);
         if (page_count == 0) {
-            THROWF(db0::InternalException) << "Page_IO::reserve: page count must be greater than zero";
+            THROWF(db0::InternalException)
+                << "Page_IO::reserve: page count must be greater than zero";
         }
 
         if (m_page_count == m_block_capacity) {
@@ -88,13 +89,15 @@ namespace db0
 
         if (m_block_num) {
             if (page_count > m_step_size * m_block_capacity) {
-                THROWF(db0::InternalException) << "Page_IO::reserve: unable to reserve more pages than fit in a step";
+                THROWF(db0::InternalException) 
+                    << "Page_IO::reserve: unable to reserve more pages than fit in a step";
             }
             while (getCurrentStepRemainingPages() < page_count) {
                 allocateNextBlock();
             }
         } else if (page_count > (m_block_capacity - m_page_count)) {
-            THROWF(db0::InternalException) << "Page_IO::reserve: unable to reserve a contiguous range without step access";
+            THROWF(db0::InternalException) 
+                << "Page_IO::reserve: unable to reserve a contiguous range without step access";
         }
 
         if (is_first_page_ptr) {
