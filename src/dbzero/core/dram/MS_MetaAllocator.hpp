@@ -50,8 +50,9 @@ namespace db0
         void evictSlot(Allocator::SlotId);
         
         // For scoped refresh / updates of the allocator state
-        DRAM_Allocator::Updater beginUpdate(Allocator::SlotId);
-
+        // NOTE: the no-op updater will be returned if the slot was restored and fully initialized
+        DRAM_Allocator::Updater tryBeginUpdate(Allocator::SlotId);
+        
     private:
         SparsePair &m_sparse_pair;
         const std::size_t m_page_size;
@@ -60,10 +61,7 @@ namespace db0
 
         void initializeAllocators();
         
-        // Collects allocated (local) addresses for the given slot
-        void forAllocatedAddresses(Allocator::SlotId, std::function<void(std::uint64_t)> sink) const;
-
-        DRAM_Allocator &ensureAllocator(Allocator::SlotId);
+        DRAM_Allocator &ensureAllocator(Allocator::SlotId, bool *is_newly_created = nullptr);
 
         const DRAM_Allocator *tryFindAllocator(Allocator::SlotId) const;
     };

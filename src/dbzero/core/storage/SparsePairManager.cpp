@@ -123,13 +123,16 @@ namespace db0
             db0::load(*m_prefix, begin, end);
             sparse_pair->refresh();
             
-            // also update the allocator (NOTE: since sparse pair exists, the slot Id must also exist in the allocator)
-            auto updater = m_allocator->beginUpdate(slot_id);
-            for (;begin != end; ++begin) {
-                // update with the local address
-                updater(MS_Address::from(*begin << m_ps_shift).local_address());
+            // also update the allocator if it's needed
+            auto updater = m_allocator->tryBeginUpdate(slot_id);
+            // NOTE: updater may not be available if the update not needed
+            if (!!updater) {
+                for (;begin != end; ++begin) {
+                    // update with the local address
+                    updater(MS_Address::from(*begin << m_ps_shift).local_address());
+                }
             }
-             return true;
+            return true;
         };
 
         // page_nums are sorted

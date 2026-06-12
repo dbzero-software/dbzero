@@ -67,14 +67,9 @@ namespace db0
     {
         auto [first_page_num, end_page_num] = getPageRange(slot_id);
         // Collect slot page numbers
-        std::vector<std::uint64_t> slot_page_nums;            
-        std::uint64_t last_page_num = 0;
-        m_sparse_pair.getSparseIndex().forPageRange(first_page_num, end_page_num, [&](const SI_Item &item) {
-            if (!item || item.m_page_num == 0 || item.m_page_num == last_page_num) {
-                return;
-            }
-            slot_page_nums.push_back(item.m_page_num);
-            last_page_num = item.m_page_num;
+        std::vector<std::uint64_t> slot_page_nums;
+        m_sparse_pair.getSparseIndex().forUniquePageRange(first_page_num, end_page_num, [&](const SI_Item &item) {
+            slot_page_nums.push_back(item.m_page_num);            
         });
         db0::load(*this, m_diff_io, slot_page_nums);
     }

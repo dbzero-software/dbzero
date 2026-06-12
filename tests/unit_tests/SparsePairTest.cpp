@@ -13,6 +13,7 @@
 #include <dbzero/core/dram/DRAM_Prefix.hpp>
 #include <dbzero/core/dram/DRAM_Allocator.hpp>
 #include <dbzero/core/dram/MS_Address.hpp>
+#include <dbzero/core/dram/MS_MetaAllocator.hpp>
 #include <dbzero/core/storage/Diff_IO.hpp>
 #include <dbzero/core/storage/ChangeLogIOStream.hpp>
 #include <utils/utils.hpp>
@@ -169,6 +170,20 @@ namespace tests
 
         ASSERT_EQ(cut.getChangeLogSize(), 2u);
         ASSERT_EQ(change_log, (SparsePair::ChangeLogT { 11, 12 }));
+    }
+
+    TEST_F( SparsePairTest , testSparsePairRecordsNextDescriptorPageNum )
+    {
+        auto dram_pair = createMappingPair();
+        SparsePair cut(SparsePair::tag_create(), dram_pair);
+
+        ASSERT_EQ(cut.getNextDescPageNum(), std::nullopt);
+        cut.recordNextDescPageNum(44);
+        ASSERT_EQ(cut.getNextDescPageNum(), 44u);
+        cut.recordNextDescPageNum(99);
+        ASSERT_EQ(cut.getNextDescPageNum(), 44u);
+        cut.recordNextDescPageNum(12);
+        ASSERT_EQ(cut.getNextDescPageNum(), 12u);
     }
 
     TEST_F( SparsePairTest , testSparsePairManagerUsesSharedChangeLog )
@@ -396,9 +411,6 @@ namespace tests
 
         CFile::create(file_name, {});
         CFile file(file_name, AccessType::READ_WRITE);
-        auto tail_function = [&]() {
-            return file.size();
-        };
 
         {
             auto change_log = cut.extractChangeLogPages();
@@ -433,9 +445,6 @@ namespace tests
         
         CFile::create(file_name, {});
         db0::CFile file(file_name, AccessType::READ_WRITE);
-        auto tail_function = [&]() {
-            return file.size();
-        };        
         
         {
             // create an empty instance

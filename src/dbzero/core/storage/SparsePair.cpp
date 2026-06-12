@@ -48,6 +48,16 @@ namespace db0
     }
 
     template <typename ConfigT>
+    std::optional<typename SparsePairBase<ConfigT>::PageNumT> SparsePairBase<ConfigT>::getNextDescPageNum() const
+    {
+        if constexpr (ConfigT::has_storage_root_metadata) {
+            return m_sparse_index.mixIn().getNextDescPageNum();
+        } else {
+            return std::nullopt;
+        }
+    }
+
+    template <typename ConfigT>
     typename SparsePairBase<ConfigT>::StateNumT SparsePairBase<ConfigT>::getMaxStateNum() const
     {
         if constexpr (ConfigT::has_storage_root_metadata) {

@@ -21,7 +21,7 @@ namespace db0
     }
     
     DRAM_Allocator::Updater::Updater(DRAM_Allocator &allocator)
-        : m_allocator(allocator)
+        : m_allocator(&allocator)
         , m_page_size(allocator.m_page_size)    
     {
     }
@@ -29,23 +29,32 @@ namespace db0
     DRAM_Allocator::Updater::~Updater()
     {
         // finalize updates
-        m_allocator.m_next_page_id = m_max_page_id;
+        if (m_allocator) {
+            m_allocator->m_next_page_id = m_max_page_id;
+        }        
     }
 
     void DRAM_Allocator::Updater::operator()(std::size_t addr)
     {
+        assert(m_allocator);
         if (addr % m_page_size != 0) {
             THROWF(db0::InternalException) << "DRAM_Allocator: invalid alloc address (" << addr << ")" << THROWF_END;
         }
+
         auto page_id = addr / m_page_size;
         for (;m_max_page_id <= page_id; ++m_max_page_id) {
             if (m_max_page_id != page_id) {
-                m_allocator.m_free_pages.insert(m_max_page_id);
+                m_allocator->m_free_pages.insert(m_max_page_id);
             }                
         }
-        m_allocator.m_free_pages.erase(page_id);
+        m_allocator->m_free_pages.erase(page_id);
     }
-
+    
+    bool DRAM_Allocator::Updater::operator!() const
+    {
+        return m_allocator == nullptr;
+    }
+    
     DRAM_Allocator::Updater DRAM_Allocator::beginUpdate()
     {
         return Updater { *this };

@@ -25,16 +25,19 @@ namespace db0
 
         struct Updater
         {
-            DRAM_Allocator &m_allocator;
+            DRAM_Allocator *m_allocator = nullptr;
             std::uint64_t m_max_page_id = FIRST_PAGE_ID;
-            const std::size_t m_page_size;
+            const std::size_t m_page_size = 0;
 
+            // no-op updater
+            Updater() = default;
             Updater(DRAM_Allocator &);
             // must be called after all updates to finalize the state
             ~Updater();
 
             // must be populated in address-ascending order
             void operator()(std::size_t addr);
+            bool operator!() const;
         };
         
         // Allows populating the initial state, only allowed when the allocator is empty

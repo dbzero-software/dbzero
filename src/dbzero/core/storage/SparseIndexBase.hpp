@@ -144,7 +144,10 @@ namespace db0
 
         void forPageRange(PageNumT first_page_num, PageNumT last_page_num,
             std::function<void(const ItemT &)> callback) const;
-
+        // Iterate over unique pages only (ignoring entries for different state numbers)
+        void forUniquePageRange(PageNumT first_page_num, PageNumT last_page_num,
+            std::function<void(const ItemT &)> callback) const;            
+        
         auto cbegin() const {
             return m_index.cbegin();
         }
@@ -290,15 +293,34 @@ namespace db0
         m_index.insert(item);
         this->recordChange(item.m_page_num);
     }
-
+    
     template <typename ItemT, typename CompressedItemT, typename SparseIndexMixinT>
-    void SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::forPageRange(PageNumT first_page_num, PageNumT last_page_num,
+    void SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::forPageRange(PageNumT first_page_num, PageNumT end_page_num,
         std::function<void(const ItemT &)> callback) const
     {
         m_index.forRange(
             ItemT(first_page_num, 0),
-            ItemT(last_page_num, 0),
+            ItemT(end_page_num, 0),
             std::move(callback)
+        );
+    }
+    
+    template <typename ItemT, typename CompressedItemT, typename SparseIndexMixinT>
+    void SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::forUniquePageRange(PageNumT first_page_num, PageNumT end_page_num,
+        std::function<void(const ItemT &)> callback) const
+    {
+        std::optional<PageNumT> last_page_num;
+        // NOTE: since forRange iterates in ascending order we can de-duplicate pages 
+        // on the fly by tracking the last seen page number
+        m_index.forRange(
+            ItemT(first_page_num, 0),
+            ItemT(end_page_num, 0),
+            [&](const ItemT &item) {
+                if (!last_page_num || item.m_page_num != *last_page_num) {
+                    callback(item);
+                    last_page_num = item.m_page_num;
+                }
+            }
         );
     }
 

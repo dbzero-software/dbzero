@@ -83,35 +83,14 @@ namespace db0
         }
         create_slot_allocator();
     }
-
-    void MS_MetaAllocator::forAllocatedAddresses(
-        Allocator::SlotId slot_id, std::function<void(std::uint64_t)> sink) const
-    {
-        auto first_addr = MS_Address::encode(slot_id, 0);
-        auto end_addr = slot_id + 1 == MS_Address::SLOT_ID_COUNT
-            ? std::numeric_limits<std::uint64_t>::max()
-            : MS_Address::encode(slot_id + 1, 0);
-        std::uint64_t last_addr = 0;
-        // iterate range of address-related pages
-        m_sparse_pair.getSparseIndex().forPageRange(first_addr >> m_ps_shift, end_addr >> m_ps_shift, [&](const SI_Item &item) {
-            if (!item || item.m_page_num == 0) {
-                return;
-            }
-
-            auto ext_addr = item.m_page_num << m_ps_shift;
-            auto &address = MS_Address::from(ext_addr);
-            auto local_addr = address.local_address();
-            if (local_addr != 0 && local_addr != last_addr) {
-                sink(local_addr);
-                last_addr = local_addr;
-            }
-        });
-    }
     
-    DRAM_Allocator &MS_MetaAllocator::ensureAllocator(Allocator::SlotId slot_id)
+    DRAM_Allocator &MS_MetaAllocator::ensureAllocator(Allocator::SlotId slot_id, bool *is_newly_created)
     {
         auto it = m_allocators.find(slot_id);
         if (it != m_allocators.end()) {
+            if (is_newly_created) {
+                *is_newly_created = false;
+            }
             return *it->second;
         }
 
@@ -119,9 +98,21 @@ namespace db0
         // initialize allocator with the updater
         {
             auto updater = allocator->beginUpdate();
-            forAllocatedAddresses(slot_id, [&](std::uint64_t local_addr) {
-                updater(local_addr);
+
+            auto first_addr = MS_Address::encode(slot_id, 0);
+            auto end_addr = slot_id + 1 == MS_Address::SLOT_ID_COUNT
+                ? std::numeric_limits<std::uint64_t>::max()
+                : MS_Address::encode(slot_id + 1, 0);
+
+            // scan SparseIndex as the source of truth
+            m_sparse_pair.getSparseIndex().forUniquePageRange(first_addr >> m_ps_shift, end_addr >> m_ps_shift, [&](const SI_Item &item) {            
+                auto ext_addr = item.m_page_num << m_ps_shift;
+                updater(MS_Address::from(ext_addr).local_address());
             });
+        }
+
+        if (is_newly_created) {
+            *is_newly_created = true;
         }
 
         auto [new_it, inserted] = m_allocators.emplace(slot_id, std::move(allocator));
@@ -204,6 +195,17 @@ namespace db0
     void MS_MetaAllocator::evictSlot(Allocator::SlotId slot_id)
     {
         m_allocators.erase(slot_id);
+    }
+    
+    DRAM_Allocator::Updater MS_MetaAllocator::tryBeginUpdate(Allocator::SlotId slot_id)
+    {   
+        bool is_newly_created = false;
+        auto &allocator = ensureAllocator(slot_id, &is_newly_created);
+        if (is_newly_created) {
+            // no need to update if the slot was just created and fully initialized
+            return {};
+        }
+        return allocator.beginUpdate();
     }
 
     void MS_MetaAllocator::commit() const

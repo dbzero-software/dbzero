@@ -171,7 +171,7 @@ namespace db0
     Address DiffIndex::getIndexAddress() const {
         return super_t::getIndexAddress();
     }
-
+    
     void DiffIndex::clear() {
         super_t::clear();
     }
