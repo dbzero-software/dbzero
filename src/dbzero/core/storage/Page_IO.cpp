@@ -61,28 +61,20 @@ namespace db0
     {
         assert(m_access_type == AccessType::READ_WRITE);
         auto result = getNextPageNum().first;
-        const std::byte *byte_buffer = static_cast<const std::byte *>(buffer);        
-        while (page_count > 0) {
-            // allocate next block or step
-            if (page_count > 0 && m_page_count == m_block_capacity) {
-                allocateNextBlock();
-            }
-
-            // the number of pages remaining in the current step
-            auto step_remaining = getCurrentStepRemainingPages();
-            if (step_remaining > 0) {
-                auto to_write_pages = std::min(static_cast<std::uint32_t>(page_count), step_remaining);
-                auto to_write_bytes = to_write_pages * m_page_size;
-                m_file.write(m_address + m_page_count * m_page_size, to_write_bytes, byte_buffer);
-                byte_buffer += to_write_bytes;
-                // position at the new address (within the current step)
-                moveBy(to_write_pages);
-                page_count -= to_write_pages;
-            }
+        auto step_remaining = getCurrentStepRemainingPages();
+        if (page_count > step_remaining) {
+            THROWF(db0::InternalException)
+                << "Page_IO::append: multi-page append must fit in the current consecutive step";
         }
+        const std::byte *byte_buffer = static_cast<const std::byte *>(buffer);        
+        auto to_write_bytes = page_count * m_page_size;
+        m_file.write(m_address + m_page_count * m_page_size, to_write_bytes, byte_buffer);
+        byte_buffer += to_write_bytes;
+        // position at the new address (within the current step)
+        moveBy(page_count);
         return result;
     }
-
+    
     std::uint64_t Page_IO::reserve(std::uint32_t page_count, bool *is_first_page_ptr)
     {
         assert(m_access_type == AccessType::READ_WRITE);

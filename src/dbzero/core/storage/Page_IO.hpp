@@ -43,7 +43,9 @@ namespace db0
         // NOTE: first block (on first page) must be registered with REL_Index if it's maintained
         std::uint64_t append(const void *buffer, bool *is_first_page = nullptr);
         
-        // Appends one or more pages to the stream
+        // Appends one or more consecutive pages to the stream.
+        // NOTE: the write must fit in the current step's contiguous page range because only the first
+        // storage page number is returned; callers that need more pages must split writes per step.
         // @return first appended page number (aka storage page number)
         std::uint64_t append(const void *buffer, std::uint64_t page_count);
 
