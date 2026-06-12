@@ -136,11 +136,11 @@ namespace tests
         }
 
         std::uint64_t appendDescriptorPage(const std::vector<std::byte> &page) {
-            return m_desc_io.append(page.data());
+            return m_desc_io.appendRandom(page.data());
         }
 
         void readDescriptorPage(std::uint64_t page_num, std::vector<std::byte> &page) const {
-            m_desc_io.read(page_num, page.data());
+            m_desc_io.readRandom(page_num, page.data());
         }
 
         void dirtyMetaSpaceWithoutStateRegistration() {
@@ -155,11 +155,7 @@ namespace tests
         }
 
         std::optional<std::pair<std::uint64_t, std::uint64_t> > descriptorPageRange() const {
-            auto next_desc_page_num = m_root_sparse_pair.getNextDescPageNum();
-            if (!next_desc_page_num) {
-                return {};
-            }
-            return std::make_pair(0u, *next_desc_page_num);
+            return std::make_pair(m_config.m_desc_io_head, m_page_io.getEndPageNum());
         }
 
         std::uint64_t appendDataPage(const std::vector<std::byte> &page) {

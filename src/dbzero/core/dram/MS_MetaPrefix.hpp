@@ -35,10 +35,10 @@ namespace db0
 
         /**
          * Creates a metadata prefix over the shared sparse mapping.
-         * diff_io reference is required for lazy / mixed slot loading policy
+         * page_io reference is required for lazy / mixed slot loading policy
          */
         MS_MetaPrefix(std::size_t page_size, SparsePair &sparse_pair,
-            Diff_IO &diff_io, MappingPolicy mapping_policy = MappingPolicy::eager);
+            RandomIO_Stream &page_io, MappingPolicy mapping_policy = MappingPolicy::eager);
 
         MemLock mapRange(std::uint64_t address, std::size_t size, FlagSet<AccessOptions> = {}) override;
         
@@ -52,7 +52,7 @@ namespace db0
         friend struct MS_MetaSpace;
         
         const std::uint32_t m_ps_shift;
-        Diff_IO &m_diff_io;
+        RandomIO_Stream &m_page_io;
         const MappingPolicy m_mapping_policy;
         // the loaded slot IDs
         std::unordered_set<SlotId> m_slot_ids;

@@ -24,10 +24,8 @@ DB0_PACKED_BEGIN
         std::uint32_t m_max_state_num = 0;
         // The extra-data slot currently stores the paired diff-index address.
         std::uint64_t m_extra_data = 0;
-        // descriptor_io stream positioning variable
-        std::uint64_t m_next_desc_page_num = 0;
         // reserved for future use
-        std::array<std::uint64_t, 2> m_reserved = {0, 0};
+        std::array<std::uint64_t, 3> m_reserved = {0, 0, 0};
     };
 DB0_PACKED_END
 
@@ -93,7 +91,6 @@ DB0_PACKED_END
         {
             auto &header = this->m_base->m_index.treeHeader();
             m_next_page_num = header.m_next_page_num;            
-            m_next_desc_page_num = header.m_next_desc_page_num;
             m_max_state_num = header.m_max_state_num;
         }
 
@@ -103,14 +100,6 @@ DB0_PACKED_END
                 return std::nullopt;
             }
             return m_next_page_num;
-        }
-
-        std::optional<PageNumT> getNextDescPageNum() const
-        {
-            if (m_next_desc_page_num == 0) {
-                return std::nullopt;
-            }
-            return m_next_desc_page_num;
         }
 
         StateNumT getMaxStateNum() const
@@ -134,22 +123,9 @@ DB0_PACKED_END
             }
         }
 
-        void recordNextDescPageNum(PageNumT next_desc_page_num)
-        {
-            if (next_desc_page_num == 0) {
-                return;
-            }
-            auto &header = this->m_base->m_index.modifyTreeHeader();
-            if (m_next_desc_page_num == 0 || next_desc_page_num < m_next_desc_page_num) {
-                m_next_desc_page_num = next_desc_page_num;
-                header.m_next_desc_page_num = next_desc_page_num;
-            }            
-        }
-
     private:        
         PageNumT m_next_page_num = 0;
         StateNumT m_max_state_num = 0;
-        PageNumT m_next_desc_page_num = 0;
     };
     
     struct StorageRootMetadataMixin

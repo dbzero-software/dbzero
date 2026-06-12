@@ -3,7 +3,7 @@
 
 #include "MetaPrefix.hpp"
 #include <dbzero/core/memory/diff_utils.hpp>
-#include <dbzero/core/storage/Diff_IO.hpp>
+#include <dbzero/core/storage/RandomIO_Stream.hpp>
 #include <dbzero/core/storage/SparseIndexQuery.hpp>
 #include <dbzero/core/storage/SparsePair.hpp>
 #include <cstring>
@@ -65,7 +65,7 @@ namespace db0
     {
     }
 
-    void load(MetaPrefix &prefix, Diff_IO &page_io)
+    void load(MetaPrefix &prefix, RandomIO_Stream &page_io)
     {        
         // Collect unique page numbers first (there might more than one state number available per page)
         std::uint64_t last_page_num = 0;
@@ -97,7 +97,7 @@ namespace db0
     };
     
     // fetch a single page from storage
-    bool fetchPage(MetaPrefix &prefix, Diff_IO &page_io, std::uint64_t page_num, StateNumType state_num,
+    bool fetchPage(MetaPrefix &prefix, RandomIO_Stream &page_io, std::uint64_t page_num, StateNumType state_num,
         void *buffer)
     {
         SparseIndexQuery query(prefix.m_sparse_pair.getSparseIndex(), prefix.m_sparse_pair.getDiffIndex(),
@@ -108,7 +108,7 @@ namespace db0
 
         auto storage_page_num = query.first();
         if (storage_page_num) {
-            page_io.read(storage_page_num, buffer);
+            page_io.readRandom(storage_page_num, buffer);
         } else {
             std::memset(buffer, 0, prefix.getPageSize());
         }
@@ -120,12 +120,12 @@ namespace db0
         return true;
     }
 
-    void load(MetaPrefix &prefix, Diff_IO &page_io, const std::vector<std::uint64_t> &page_nums)
+    void load(MetaPrefix &prefix, RandomIO_Stream &page_io, const std::vector<std::uint64_t> &page_nums)
     {
         load(prefix, page_io, page_nums.data(), page_nums.data() + page_nums.size());
     }
 
-    void load(MetaPrefix &prefix, Diff_IO &page_io, const std::uint64_t *page_num, const std::uint64_t *end)
+    void load(MetaPrefix &prefix, RandomIO_Stream &page_io, const std::uint64_t *page_num, const std::uint64_t *end)
     {
         auto state_num = prefix.getStateNum(false);
         // For I/O performace we first determine the operations and then execute ordered for better locality
@@ -161,7 +161,7 @@ namespace db0
 
         // Load full pages first
         for (const auto &op: load_ops) {
-            page_io.read(op.m_storage_page_num, op.m_buffer);
+            page_io.readRandom(op.m_storage_page_num, op.m_buffer);
         }
         
         // Apply diffs next
@@ -204,11 +204,12 @@ namespace db0
 
     std::uint64_t MetaPrefix::commit(ProcessTimer *)
     {
-        // MetaPrefix dirty pages must already be persisted by flush(MetaPrefix &, Diff_IO &).
+        // MetaPrefix dirty pages must already be persisted by flush(MetaPrefix &, RandomIO_Stream &).
         // Commit is only the post-flush transaction boundary; accepting dirty pages here
         // would hide a missed detach/cache-commit preparation step in the owner.
         if (isDirty()) {
-            THROWF(db0::InternalException) << "MetaPrefix::commit requires flush(MetaPrefix &, Diff_IO &) for dirty pages";
+            THROWF(db0::InternalException) 
+                << "MetaPrefix::commit requires flush(MetaPrefix &, RandomIO_Stream &) for dirty pages";
         }
 
         // The sparse pair belongs to this MetaPrefix and may still have pending
@@ -219,7 +220,7 @@ namespace db0
         return getStateNum(false);
     }
 
-    bool flush(MetaPrefix &prefix, Diff_IO &page_io, ProcessTimer *)
+    bool flush(MetaPrefix &prefix, RandomIO_Stream &page_io, ProcessTimer *)
     {
         // The owner must complete metadata detach/cache-commit preparation before
         // this scan. Flush only persists an already registered application state;
@@ -239,7 +240,7 @@ namespace db0
         return true;
     }
 
-    bool MetaPrefix::flushPage(Diff_IO &page_io, std::uint64_t page_num, const void *buffer, StateNumType state_num)
+    bool MetaPrefix::flushPage(RandomIO_Stream &page_io, std::uint64_t page_num, const void *buffer, StateNumType state_num)
     {
         auto cow_page = m_cow_pages.find(page_num);
         if (cow_page != m_cow_pages.end()) {
@@ -257,8 +258,7 @@ namespace db0
             }
         }
 
-        bool is_first_page = false;
-        auto storage_page_num = page_io.append(buffer, &is_first_page);
+        auto storage_page_num = page_io.appendRandom(buffer);
         if (storage_page_num == 0) {
             THROWF(db0::InternalException) << "MetaPrefix: storage page 0 is reserved as an empty full-DP sentinel";
         }
@@ -266,16 +266,15 @@ namespace db0
         return true;
     }
 
-    std::uint64_t MetaPrefix::writeFullPage(Diff_IO &page_io, const void *buffer,
+    std::uint64_t MetaPrefix::writeFullPage(RandomIO_Stream &page_io, const void *buffer,
         std::uint64_t reusable_storage_page_num)
     {
         if (reusable_storage_page_num != 0) {
-            page_io.write(reusable_storage_page_num, const_cast<void *>(buffer));
+            page_io.writeRandom(reusable_storage_page_num, buffer);
             return reusable_storage_page_num;
         }
 
-        bool is_first_page = false;
-        auto storage_page_num = page_io.append(buffer, &is_first_page);
+        auto storage_page_num = page_io.appendRandom(buffer);
         if (storage_page_num == 0) {
             THROWF(db0::InternalException) << "MetaPrefix: storage page 0 is reserved as an empty full-DP sentinel";
         }
@@ -290,7 +289,7 @@ namespace db0
         flushDirty([&](std::uint64_t, const void *) {});
     }
 
-    bool compact(MetaPrefix &prefix, Diff_IO &page_io, ProcessTimer *)
+    bool compact(MetaPrefix &prefix, RandomIO_Stream &page_io, ProcessTimer *)
     {
         std::map<std::uint64_t, const void *> dirty_pages;
         prefix.forEachDirtyPage([&](std::uint64_t page_num, const void *buffer) {
@@ -373,7 +372,7 @@ namespace db0
     
     std::size_t MetaPrefix::flushDirty(std::size_t)
     {
-        THROWF(db0::InternalException) << "MetaPrefix::flushDirty(std::size_t) is unsupported; use flush(MetaPrefix &, Diff_IO &)";
+        THROWF(db0::InternalException) << "MetaPrefix::flushDirty(std::size_t) is unsupported; use flush(MetaPrefix &, RandomIO_Stream &)";
         return 0;
     }
     

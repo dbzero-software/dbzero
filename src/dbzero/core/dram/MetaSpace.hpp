@@ -10,17 +10,17 @@ namespace db0
 
 {
 
-    class Diff_IO;
+    class RandomIO_Stream;
 
     struct MetaSpace: public DRAMSpace
     {
-        static Memspace create(std::size_t page_size, SparsePair &sparse_pair, Diff_IO &page_io);
+        static Memspace create(std::size_t page_size, SparsePair &sparse_pair, RandomIO_Stream &page_io);
     };
     
     class MS_MetaSpace: public Memspace
     {
     public:        
-        static MS_MetaSpace create(std::size_t page_size, SparsePair &sparse_pair, Diff_IO &page_io,
+        static MS_MetaSpace create(std::size_t page_size, SparsePair &sparse_pair, RandomIO_Stream &page_io,
             MappingPolicy mapping_policy = MappingPolicy::eager);
 
         std::shared_ptr<MS_MetaPrefix> getMSPrefixPtr() const;

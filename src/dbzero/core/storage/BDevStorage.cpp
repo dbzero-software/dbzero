@@ -24,13 +24,13 @@ namespace db0
 
     o_prefix_config::o_prefix_config(std::uint32_t block_size, std::uint32_t page_size,
         std::uint32_t dram_page_size, std::uint32_t page_io_step_size,
-        std::uint32_t descriptor_page_size, std::uint32_t descriptor_io_step_size)
+        std::uint32_t descriptor_page_size, std::uint64_t desc_io_head)
         : m_block_size(block_size)
         , m_page_size(page_size)
         , m_dram_page_size(dram_page_size)
         , m_page_io_step_size(page_io_step_size)
         , m_descriptor_page_size(descriptor_page_size)
-        , m_desc_io_step_size(descriptor_io_step_size)
+        , m_desc_io_head(desc_io_head)
     {
         std::memset(m_reserved.data(), 0, sizeof(m_reserved));
     }
@@ -139,14 +139,14 @@ namespace db0
             this->getMaxExtStateNum())
         )
         , m_ext_space(tryGetDRAMPair(m_ext_dram_io.get()), access_type)
-        , m_desc_io(getDescriptor_IO())
         , m_options(normalizeOptions(std::move(options), m_config))
+        , m_page_io(getPage_IO(getNextStoragePageNum(), m_config.m_page_io_step_size))
+        , m_desc_io(getDesc_IO())
         , m_meta_space(MS_MetaSpace::create(
             m_config.m_descriptor_page_size, m_root_sparse_pair, m_desc_io,
             getOpenMetaMappingPolicy(m_options, flags))
         )
         , m_sparse_pair_manager(m_meta_space, access_type, flags)
-        , m_page_io(getPage_IO(getNextStoragePageNum(), m_config.m_page_io_step_size))
 #ifndef NDEBUG
         , m_data_mirror(m_config.m_page_size)
 #endif
@@ -252,6 +252,49 @@ namespace db0
         auto rel_pages = (rel_address + page_size - 1) / page_size;
         return header_size + rel_pages * page_size;
     }
+
+    std::uint32_t getDesc_IOStride(std::uint32_t page_size, std::uint32_t descriptor_page_size,
+        std::uint32_t stride_hint = 64)
+    {
+        if (descriptor_page_size < page_size || descriptor_page_size % page_size != 0) {
+            THROWF(db0::InternalException)
+                << "Descriptor page size must be a multiple of storage page size";
+        }
+        auto page_ratio = descriptor_page_size / page_size;
+        if (stride_hint <= 1) {
+            return page_ratio + 1;
+        }
+        auto descriptor_capacity = (stride_hint - 1 + page_ratio - 1) / page_ratio;
+        return descriptor_capacity * page_ratio + 1;
+    }
+
+    void createDesc_IO(CFile &file, o_prefix_config &config, std::vector<char> &config_buffer,
+        std::function<std::uint64_t()> tail_function, std::uint32_t descriptor_stream_stride,
+        std::uint64_t config_block_size)
+    {
+        auto block_capacity = config.m_block_size / config.m_page_size;
+        auto initial_page_io_address = alignStorageAddress(tail_function(), config.m_page_size, config_block_size);
+
+        // Open a temporary page_io cursor after the block-backed streams that
+        // were already materialized during prefix creation.
+        auto page_io = Diff_IO(
+            config_block_size, file, config.m_page_size, config.m_block_size,
+            initial_page_io_address, block_capacity, config.m_page_io_step_size,
+            tail_function, config.m_page_io_step_size - 1);
+
+        // Reserve the descriptor RandomIO stream control chunk on top of
+        // page_io and write the initial empty stream control page.
+        RandomIO_Stream desc_io(page_io, descriptor_stream_stride, config.m_descriptor_page_size);
+        desc_io.flush();
+
+        // Flush the backing page_io so the descriptor stream control page is
+        // present before the config starts pointing at it.
+        page_io.flush();
+
+        // Persist the fixed descriptor stream head in the prefix config.
+        config.m_desc_io_head = desc_io.getHeadPageNum();
+        file.write(0, config_block_size, config_buffer.data());
+    }
     
     void BDevStorage::create(const std::string &file_name, std::optional<std::size_t> page_size,
         std::uint32_t dram_page_size_hint, std::optional<std::size_t> step_size_hint,
@@ -263,6 +306,7 @@ namespace db0
         if (!descriptor_page_size) {
             descriptor_page_size = 16u << 10;
         }
+        auto descriptor_stream_stride = getDesc_IOStride(*page_size, *descriptor_page_size);
         
         std::vector<char> buffer(CONFIG_BLOCK_SIZE);
         // calculate block size to be page aligned and sufficient to fit a single sparse index node
@@ -275,11 +319,14 @@ namespace db0
         auto dram_page_size = block_size - BlockIOStream::sizeOfHeaders(DRAM_IOStream::ENABLE_CHECKSUMS) - 
             DRAM_IOStream::sizeOfHeader();
         auto page_io_step_size = getDiffIOStepSize(block_size, *page_size, step_size_hint);
-        auto descriptor_io_step_size = getDiffIOStepSize(block_size, *descriptor_page_size, {});
+        auto block_capacity = block_size / *page_size;
+        auto min_descriptor_step_size = static_cast<std::uint32_t>(
+            (descriptor_stream_stride + block_capacity - 1) / block_capacity);
+        page_io_step_size = std::max(page_io_step_size, min_descriptor_step_size);
 
         // create a new config using placement new
         auto config = new (buffer.data()) o_prefix_config(
-            block_size, *page_size, dram_page_size, page_io_step_size, *descriptor_page_size, descriptor_io_step_size
+            block_size, *page_size, dram_page_size, page_io_step_size, *descriptor_page_size
         );
         
         std::uint64_t offset = CONFIG_BLOCK_SIZE;
@@ -370,6 +417,9 @@ namespace db0
                 ext_dram_io_ptr->close();
                 ext_dram_changelog_io_ptr->close();
             }
+
+            createDesc_IO(file, *config, buffer, tail_function, descriptor_stream_stride,
+                CONFIG_BLOCK_SIZE);
             
             file.close();
         }
@@ -667,7 +717,6 @@ namespace db0
                 THROWF(db0::InternalException)
                     << "BDevStorage::flush requires registered state high watermark before flushing descriptor metadata";
             }
-            m_root_sparse_pair.recordNextDescPageNum(m_desc_io.getNextPageNum().first);
         }
         auto root_change_log_size = m_root_sparse_pair.getChangeLogSize();
 
@@ -675,6 +724,7 @@ namespace db0
         if (!application_changed && !root_metadata_changed && root_change_log_size == 0) {
             if (descriptor_io_modified) {
                 m_desc_io.flush();
+                m_page_io.flush();
                 m_file.fsync();
                 return false;
             }
@@ -689,6 +739,7 @@ namespace db0
             m_meta_io.flush();
         }
         
+        m_desc_io.flush();
         m_page_io.flush();
         // Extract & flush sparse index change log first (on condition of any updates)
         // we also need to collect the end storage page number, possibly relative (sentinel)
@@ -707,6 +758,7 @@ namespace db0
         }
         m_dram_io.flushUpdates(state_num, m_dram_changelog_io);
         m_desc_io.flush();
+        m_page_io.flush();
         // Flush ext streams (if existing)
         flushExt(state_num);
         // NOTE: fsync has stronger guarantees than flush in a multi-process environments
@@ -741,6 +793,7 @@ namespace db0
         m_desc_changelog_io.close();
         m_dp_changelog_io.close(); 
         m_meta_io.close();
+        m_desc_io.close();
         m_file.close();
     }
     
@@ -779,7 +832,6 @@ namespace db0
         result = std::max(result, m_dram_changelog_io.tail());
         result = std::max(result, m_dp_changelog_io.tail());
         result = std::max(result, m_page_io.tail());
-        result = std::max(result, m_desc_io.tail());
 
         // include ext streams when initialized
         if (m_ext_dram_io) {
@@ -792,8 +844,13 @@ namespace db0
     
     Diff_IO BDevStorage::getPage_IO(std::optional<std::uint64_t> next_page_hint, std::uint32_t step_size)
     {
+        auto descriptor_end_page_num = m_config.m_desc_io_head
+            + getDesc_IOStride(m_config.m_page_size, m_config.m_descriptor_page_size);
         if (!next_page_hint && m_flags[StorageFlagOption::NO_LOAD]) {
             next_page_hint = (m_file.size() - CONFIG_BLOCK_SIZE) / m_config.m_page_size;
+        }
+        if (!next_page_hint || *next_page_hint < descriptor_end_page_num) {
+            next_page_hint = descriptor_end_page_num;
         }
         auto tail_function = getPageIOTailFunction();
         auto initial_tail_address = next_page_hint ? 0 : tail_function();
@@ -801,22 +858,13 @@ namespace db0
             next_page_hint, m_config.m_page_size, step_size, tail_function, initial_tail_address);
     }
 
-    Diff_IO BDevStorage::getDescriptor_IO()
+    RandomIO_Stream BDevStorage::getDesc_IO()
     {
-        auto next_page_hint = m_root_sparse_pair.getNextDescPageNum();
-        auto tail_function = getDescriptorIOTailFunction();
-        // m_desc_io is constructed before m_page_io, but its runtime tail
-        // function must include m_page_io once construction is complete. Seed the
-        // cursor only from block streams; the first write is deferred to the live
-        // tail function in getDiff_IO().
-        auto initial_tail_address = next_page_hint
-            ? 0
-            : m_flags[StorageFlagOption::NO_LOAD]
-                ? m_file.size()
-                : blockIOTail();
-        return getDiff_IO(
-            next_page_hint, m_config.m_descriptor_page_size, m_config.m_desc_io_step_size,
-            tail_function, initial_tail_address);
+        return {
+            m_page_io, m_config.m_desc_io_head,
+            getDesc_IOStride(m_config.m_page_size, m_config.m_descriptor_page_size),
+            m_config.m_descriptor_page_size
+        };
     }
 
     Diff_IO BDevStorage::getDiff_IO(std::optional<std::uint64_t> next_page_hint, std::uint32_t page_size,
@@ -879,17 +927,10 @@ namespace db0
         return result;
     }
 
-    std::function<std::uint64_t()> BDevStorage::getDescriptorIOTailFunction() const
-    {
-        return [this]() -> std::uint64_t {
-            return std::max(blockIOTail(), m_page_io.tail());
-        };
-    }
-
     std::function<std::uint64_t()> BDevStorage::getPageIOTailFunction() const
     {
         return [this]() -> std::uint64_t {
-            return std::max(blockIOTail(), m_desc_io.tail());
+            return blockIOTail();
         };
     }
     
@@ -1165,24 +1206,6 @@ namespace db0
         root_sparse_pair.refresh();
     }
     
-    void copyDescriptorIO(const Diff_IO &in, Diff_IO &out, std::uint64_t begin_page_num, std::uint64_t end_page_num)
-    {
-        if (begin_page_num >= end_page_num) {
-            return;
-        }
-        if (in.getPageSize() != out.getPageSize()) {
-            THROWF(db0::IOException) << "copyDescriptorIO: page size mismatch between input and output streams";
-        }
-
-        std::vector<std::byte> buffer(in.getPageSize());
-        for (auto page_num = begin_page_num; page_num < end_page_num; ++page_num) {
-            in.read(page_num, buffer.data());
-            out.write(page_num, buffer.data());
-        }
-        out.flush();
-        out.setAtPageNum(end_page_num);
-    }
-    
     void BDevStorage::copyTo(BDevStorage &out)
     {
         if (!out.m_ext_space) {
@@ -1231,9 +1254,6 @@ namespace db0
         if (src_page_tail) {
             end_page_num = std::max(end_page_num, *src_page_tail);
         }
-        // FIXME: end_page_num must be revisited
-        // copy page-IO data streams (descriptors first)
-        copyPageIO(m_desc_io, m_ext_space, out.m_desc_io, end_page_num, out.m_ext_space);
         copyPageIO(m_page_io, m_ext_space, out.m_page_io, end_page_num, out.m_ext_space);
                 
         // NOTE: meta_is stream can't be copied since it's structure depends on the managed streams

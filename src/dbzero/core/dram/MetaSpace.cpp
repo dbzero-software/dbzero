@@ -4,7 +4,7 @@
 #include "MetaSpace.hpp"
 #include "MetaPrefix.hpp"
 #include <dbzero/core/dram/DRAM_Allocator.hpp>
-#include <dbzero/core/storage/Diff_IO.hpp>
+#include <dbzero/core/storage/RandomIO_Stream.hpp>
 #include <dbzero/core/storage/SparsePair.hpp>
 #include <algorithm>
 #include <utility>
@@ -13,7 +13,7 @@ namespace db0
 
 {
     
-    Memspace MetaSpace::create(std::size_t page_size, SparsePair &sparse_pair, Diff_IO &page_io)
+    Memspace MetaSpace::create(std::size_t page_size, SparsePair &sparse_pair, RandomIO_Stream &page_io)
     {
         auto prefix = std::make_shared<MetaPrefix>(page_size, sparse_pair);
         load(*prefix, page_io);
@@ -30,7 +30,7 @@ namespace db0
     {
     }
     
-    MS_MetaSpace MS_MetaSpace::create(std::size_t page_size, SparsePair &sparse_pair, Diff_IO &page_io,
+    MS_MetaSpace MS_MetaSpace::create(std::size_t page_size, SparsePair &sparse_pair, RandomIO_Stream &page_io,
         MappingPolicy mapping_policy)
     {        
         auto prefix = std::make_shared<MS_MetaPrefix>(page_size, sparse_pair, page_io, mapping_policy);

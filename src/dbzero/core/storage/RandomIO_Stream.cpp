@@ -152,7 +152,7 @@ namespace db0
             THROWF(db0::InternalException) << "RandomIO_Stream does not exist";
         }
 
-        m_begin_chunk_page_num = page_num;
+        m_head_page_num = page_num;
         std::uint64_t chunk_page_num = page_num;
         while (true) {
             std::uint32_t type = 0;
@@ -187,6 +187,7 @@ namespace db0
             access, m_write_buf.data(), m_write_buf.data() + m_write_buf.size());
         auto result = detail::appendDiff(access, writer, dp_data, page_and_state, diff_data, is_first_page);
         writer.flush();        
+        m_modified = true;
         return result;
     }
     
@@ -205,6 +206,7 @@ namespace db0
 
         writeRandom(page_num, buffer);
         ++m_current_used_pages;
+        m_modified = true;
         return page_num;
     }
 
@@ -215,7 +217,10 @@ namespace db0
 
     std::uint64_t RandomIO_Stream::appendRandom(const void *buffer)
     {
-        return static_cast<Page_IO &>(m_page_io).append(buffer, m_page_ratio);
+        m_modified = true;
+        auto page_num = static_cast<Page_IO &>(m_page_io).reserve(m_page_ratio);
+        writeRandom(page_num, buffer);
+        return page_num;
     }
 
     void RandomIO_Stream::writeRandom(std::uint64_t page_num, const void *buffer)
@@ -225,11 +230,13 @@ namespace db0
         for (std::uint32_t i = 0; i < m_page_ratio; ++i) {
             static_cast<Page_IO &>(m_page_io).write(page_num + i, byte_buffer + i * underlying_page_size);
         }
+        m_modified = true;
     }
 
     void RandomIO_Stream::flush()
     {
         writeCurrentControl(CONTROL_END, m_current_used_pages);
+        m_modified = false;
     }
 
     void RandomIO_Stream::close()
@@ -240,7 +247,8 @@ namespace db0
     void RandomIO_Stream::clear()
     {
         ++m_generation;
-        loadNextChunk(m_begin_chunk_page_num);
+        loadNextChunk(m_head_page_num);
+        m_modified = true;
         flush();
     }
 
@@ -262,12 +270,22 @@ namespace db0
 
     std::uint64_t RandomIO_Stream::getPageNum() const
     {
-        return m_begin_chunk_page_num;
+        return m_head_page_num;
     }
 
     std::uint32_t RandomIO_Stream::getPageSize() const
     {
         return m_page_size;
+    }
+
+    std::uint64_t RandomIO_Stream::getHeadPageNum() const
+    {
+        return m_head_page_num;
+    }
+
+    bool RandomIO_Stream::modified() const
+    {
+        return m_modified;
     }
 
     RandomIO_Stream::Reader RandomIO_Stream::getReader() const
@@ -289,7 +307,7 @@ namespace db0
     {
         bool is_first_page = false;
         m_current_chunk_page_num = m_page_io.reserve(m_stride, &is_first_page);
-        m_begin_chunk_page_num = m_current_chunk_page_num;
+        m_head_page_num = m_current_chunk_page_num;
         m_current_next_chunk_page_num = 0;
         m_current_used_pages = 0;
         m_current_first_data_is_first_page = is_first_page;
@@ -384,7 +402,7 @@ namespace db0
     RandomIO_Stream::Reader::Reader(const RandomIO_Stream &stream)
         : m_stream(stream)
     {
-        loadChunk(m_stream.m_begin_chunk_page_num);
+        loadChunk(m_stream.m_head_page_num);
     }
 
     bool RandomIO_Stream::Reader::readNext(void *buffer, std::uint64_t *page_num)

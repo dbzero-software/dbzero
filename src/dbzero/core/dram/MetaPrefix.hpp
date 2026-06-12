@@ -15,7 +15,7 @@ namespace db0
 
 {
     
-    class Diff_IO;
+    class RandomIO_Stream;
 
     class MetaPrefix: public DRAM_Prefix
     {
@@ -46,36 +46,36 @@ namespace db0
     private:
         std::unordered_map<std::uint64_t, std::vector<std::byte> > m_cow_pages;
 
-        bool flushPage(Diff_IO &page_io, std::uint64_t page_num, const void *buffer, StateNumType state_num);
+        bool flushPage(RandomIO_Stream &page_io, std::uint64_t page_num, const void *buffer, StateNumType state_num);
 
-        std::uint64_t writeFullPage(Diff_IO &page_io, const void *buffer,
+        std::uint64_t writeFullPage(RandomIO_Stream &page_io, const void *buffer,
             std::uint64_t reusable_storage_page_num = 0);
 
         void publishCompactedState(StateNumType state_num);
 
         void captureCoWPage(std::uint64_t page_num, const MemLock &lock);
 
-        friend void load(MetaPrefix &prefix, Diff_IO &page_io);
-        friend bool fetchPage(MetaPrefix &prefix, Diff_IO &page_io, std::uint64_t page_num,
+        friend void load(MetaPrefix &prefix, RandomIO_Stream &page_io);
+        friend bool fetchPage(MetaPrefix &prefix, RandomIO_Stream &page_io, std::uint64_t page_num,
             StateNumType state_num, void *buffer);
-        friend void load(MetaPrefix &prefix, Diff_IO &page_io, const std::uint64_t *page_num, 
+        friend void load(MetaPrefix &prefix, RandomIO_Stream &page_io, const std::uint64_t *page_num, 
             const std::uint64_t *end);
 
-        friend bool flush(MetaPrefix &prefix, Diff_IO &page_io, ProcessTimer *timer);
+        friend bool flush(MetaPrefix &prefix, RandomIO_Stream &page_io, ProcessTimer *timer);
 
-        friend bool compact(MetaPrefix &prefix, Diff_IO &page_io, ProcessTimer *timer);
+        friend bool compact(MetaPrefix &prefix, RandomIO_Stream &page_io, ProcessTimer *timer);
     };
 
     // Load or refresh all pages from the current head state
-    void load(MetaPrefix &, Diff_IO &);
+    void load(MetaPrefix &, RandomIO_Stream &);
 
     // Load or refresh specific pages from the current head state
     // this operation is optimized for large page batches
     // @param page_nums sorted page numbers to load
-    void load(MetaPrefix &, Diff_IO &, const std::vector<std::uint64_t> &page_nums);
-    void load(MetaPrefix &, Diff_IO &, const std::uint64_t *page_num, const std::uint64_t *end);
+    void load(MetaPrefix &, RandomIO_Stream &, const std::vector<std::uint64_t> &page_nums);
+    void load(MetaPrefix &, RandomIO_Stream &, const std::uint64_t *page_num, const std::uint64_t *end);
 
-    bool flush(MetaPrefix &prefix, Diff_IO &page_io, ProcessTimer *timer = nullptr);
+    bool flush(MetaPrefix &prefix, RandomIO_Stream &page_io, ProcessTimer *timer = nullptr);
 
     /**
      * Manually compact MetaSpace page storage.
@@ -90,6 +90,6 @@ namespace db0
      * @return true if a compacted state was published, false when there are no
      * metadata pages to compact.
      */
-    bool compact(MetaPrefix &prefix, Diff_IO &page_io, ProcessTimer *timer = nullptr);
+    bool compact(MetaPrefix &prefix, RandomIO_Stream &page_io, ProcessTimer *timer = nullptr);
 
 }

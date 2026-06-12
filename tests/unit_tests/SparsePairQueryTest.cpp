@@ -8,6 +8,7 @@
 #include <dbzero/core/dram/MetaSpace.hpp>
 #include <dbzero/core/storage/CFile.hpp>
 #include <dbzero/core/storage/Diff_IO.hpp>
+#include <dbzero/core/storage/RandomIO_Stream.hpp>
 #include <dbzero/core/storage/SparsePairQuery.hpp>
 
 using namespace db0;
@@ -49,6 +50,11 @@ namespace tests
             };
             return Diff_IO(0, file, page_size, page_size * 16, page_size, 0, 1, tail_function, 0);
         }
+
+        static RandomIO_Stream createStream(Diff_IO &io)
+        {
+            return RandomIO_Stream(io, 2);
+        }
     };
 
     TEST_F( SparsePairQueryTest , testSinglePageUsesSinglePageMapping )
@@ -67,8 +73,9 @@ namespace tests
 
         CFile file(file_name, AccessType::READ_WRITE);
         auto io = createIO(file);
+        auto stream = createStream(io);
         SparsePair root_pair(SparsePair::tag_create(), createMappingPair());
-        auto meta_space = MS_MetaSpace::create(page_size, root_pair, io);
+        auto meta_space = MS_MetaSpace::create(page_size, root_pair, stream);
         SparsePairManager manager(meta_space, AccessType::READ_WRITE, {});
 
         SparsePairQuery<true> query(options, page_size, 3, 4, manager);
@@ -95,8 +102,9 @@ namespace tests
 
         CFile file(file_name, AccessType::READ_WRITE);
         auto io = createIO(file);
+        auto stream = createStream(io);
         SparsePair root_pair(SparsePair::tag_create(), createMappingPair());
-        auto meta_space = MS_MetaSpace::create(page_size, root_pair, io);
+        auto meta_space = MS_MetaSpace::create(page_size, root_pair, stream);
         SparsePairManager manager(meta_space, AccessType::READ_WRITE, {});
         SparsePairQuery<true> query(options, page_size, 4, 6, manager);
 
@@ -126,8 +134,9 @@ namespace tests
 
         CFile file(file_name, AccessType::READ_WRITE);
         auto io = createIO(file);
+        auto stream = createStream(io);
         SparsePair root_pair(SparsePair::tag_create(), createMappingPair());
-        auto meta_space = MS_MetaSpace::create(page_size, root_pair, io);
+        auto meta_space = MS_MetaSpace::create(page_size, root_pair, stream);
         SparsePairManager manager(meta_space, AccessType::READ_WRITE, {});
         SparsePairQuery<true> query(options, page_size, 0, 2, manager);
 
@@ -146,8 +155,9 @@ namespace tests
 
         CFile file(file_name, AccessType::READ_WRITE);
         auto io = createIO(file);
+        auto stream = createStream(io);
         SparsePair root_pair(SparsePair::tag_create(), createMappingPair());
-        auto meta_space = MS_MetaSpace::create(page_size, root_pair, io);
+        auto meta_space = MS_MetaSpace::create(page_size, root_pair, stream);
         SparsePairManager manager(meta_space, AccessType::READ_WRITE, {});
 
         SparsePairQuery<false> query(options, page_size, 0, 1, manager);

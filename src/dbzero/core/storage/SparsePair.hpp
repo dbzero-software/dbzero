@@ -74,15 +74,12 @@ namespace db0
         }
 
         std::optional<PageNumT> getNextStoragePageNum() const;
-        std::optional<PageNumT> getNextDescPageNum() const;
         
         StateNumT getMaxStateNum() const;
 
         void recordMaxStateNum(StateNumT state_num);
 
         void recordNextStoragePageNum(PageNumT);
-
-        void recordNextDescPageNum(PageNumT);
 
         bool empty() const;
         std::size_t size() const;

@@ -23,10 +23,10 @@ namespace db0
     static_assert(std::is_standard_layout_v<MS_Address>);
     
     MS_MetaPrefix::MS_MetaPrefix(std::size_t page_size,
-        SparsePair &sparse_pair, Diff_IO &diff_io, MappingPolicy mapping_policy)
+        SparsePair &sparse_pair, RandomIO_Stream &page_io, MappingPolicy mapping_policy)
         : MetaPrefix(page_size, sparse_pair)
         , m_ps_shift(db0::getPageShift(page_size))        
-        , m_diff_io(diff_io)
+        , m_page_io(page_io)
         , m_mapping_policy(mapping_policy)
     {    
     }
@@ -58,7 +58,7 @@ namespace db0
             return false;
         }
         auto [first_page_num, end_page_num] = getPageRange(slot_id);
-        // NOTE: this is sufficiently fast becuse DRAM_Prefix prunes the range internally
+        // NOTE: this is sufficiently fast becuse DRAM_Prefix prunes the range internally        
         evictPageRange(first_page_num, end_page_num);
         return true;
     }
@@ -71,12 +71,12 @@ namespace db0
         m_sparse_pair.getSparseIndex().forUniquePageRange(first_page_num, end_page_num, [&](const SI_Item &item) {
             slot_page_nums.push_back(item.m_page_num);            
         });
-        db0::load(*this, m_diff_io, slot_page_nums);
+        db0::load(*this, m_page_io, slot_page_nums);
     }
 
     void load(MS_MetaPrefix &prefix, const std::uint64_t *page_num, const std::uint64_t *end)
     {
-        load(prefix, prefix.m_diff_io, page_num, end);
+        load(prefix, prefix.m_page_io, page_num, end);
     }
     
 }

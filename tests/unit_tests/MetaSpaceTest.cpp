@@ -13,6 +13,7 @@
 #include <dbzero/core/dram/MetaPrefix.hpp>
 #include <dbzero/core/dram/MetaSpace.hpp>
 #include <dbzero/core/storage/Diff_IO.hpp>
+#include <dbzero/core/storage/RandomIO_Stream.hpp>
 #include <dbzero/core/storage/SparseIndexQuery.hpp>
 #include <dbzero/core/storage/SparsePair.hpp>
 
@@ -49,6 +50,11 @@ namespace tests
             return Diff_IO(0, file, page_size, page_size * 16, page_size, 0, 1, tail_function, 0);
         }
 
+        static RandomIO_Stream createStream(Diff_IO &io)
+        {
+            return RandomIO_Stream(io, 2);
+        }
+
         static DRAM_Pair createMappingPair()
         {
             return createMappingPair(page_size);
@@ -76,7 +82,7 @@ namespace tests
             return result;
         }
 
-        static bool flushMeta(Memspace &memspace, Diff_IO &io, SparsePair &sparse_pair)
+        static bool flushMeta(Memspace &memspace, RandomIO_Stream &io, SparsePair &sparse_pair)
         {
             auto &prefix = dynamic_cast<MetaPrefix &>(memspace.getPrefix());
             if (prefix.getDirtySize() != 0) {
@@ -85,7 +91,7 @@ namespace tests
             return flush(prefix, io);
         }
 
-        static bool compactMeta(Memspace &memspace, Diff_IO &io)
+        static bool compactMeta(Memspace &memspace, RandomIO_Stream &io)
         {
             return compact(dynamic_cast<MetaPrefix &>(memspace.getPrefix()), io);
         }
@@ -121,10 +127,10 @@ namespace tests
             return std::nullopt;
         }
 
-        static std::vector<unsigned char> readStoragePage(Diff_IO &io, std::uint64_t storage_page_num)
+        static std::vector<unsigned char> readStoragePage(RandomIO_Stream &io, std::uint64_t storage_page_num)
         {
             std::vector<unsigned char> result(page_size);
-            io.read(storage_page_num, result.data());
+            io.readRandom(storage_page_num, result.data());
             return result;
         }
 
@@ -152,13 +158,14 @@ namespace tests
         SparsePair sparse_pair(SparsePair::tag_create(), mapping_pair);
 
         auto io = createIO(file);
-        auto memspace = MetaSpace::create(page_size, sparse_pair, io);
+        auto stream = createStream(io);
+        auto memspace = MetaSpace::create(page_size, sparse_pair, stream);
         auto address = memspace.alloc(page_size);
         fillPage(memspace, address, 0x42);
 
-        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
+        ASSERT_TRUE(flushMeta(memspace, stream, sparse_pair));
 
-        auto reopened = MetaSpace::create(page_size, sparse_pair, io);
+        auto reopened = MetaSpace::create(page_size, sparse_pair, stream);
         auto data = readPage(reopened, address);
         ASSERT_EQ(data, std::vector<unsigned char>(page_size, 0x42));
     }
@@ -171,10 +178,11 @@ namespace tests
         SparsePair sparse_pair(SparsePair::tag_create(), mapping_pair);
 
         auto io = createIO(file);
-        auto memspace = MetaSpace::create(page_size, sparse_pair, io);
+        auto stream = createStream(io);
+        auto memspace = MetaSpace::create(page_size, sparse_pair, stream);
         auto address = memspace.alloc(page_size);
         fillPage(memspace, address, 0x11);
-        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
+        ASSERT_TRUE(flushMeta(memspace, stream, sparse_pair));
 
         {
             auto lock = memspace.getPrefix().mapRange(address.getOffset(), page_size, { AccessOptions::write });
@@ -182,10 +190,10 @@ namespace tests
             data[17] = 0x22;
             data[1234] = 0x33;
         }
-        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
-        ASSERT_GT(io.getStats().second, 0u);
+        ASSERT_TRUE(flushMeta(memspace, stream, sparse_pair));
+        ASSERT_GT(sparse_pair.getDiffIndex().size(), 0u);
 
-        auto reopened = MetaSpace::create(page_size, sparse_pair, io);
+        auto reopened = MetaSpace::create(page_size, sparse_pair, stream);
         auto data = readPage(reopened, address);
         ASSERT_EQ(data[0], 0x11);
         ASSERT_EQ(data[17], 0x22);
@@ -200,18 +208,19 @@ namespace tests
         SparsePair sparse_pair(SparsePair::tag_create(), mapping_pair);
 
         auto io = createIO(file);
-        auto memspace = MetaSpace::create(page_size, sparse_pair, io);
+        auto stream = createStream(io);
+        auto memspace = MetaSpace::create(page_size, sparse_pair, stream);
         auto first = memspace.alloc(page_size);
         auto second = memspace.alloc(page_size);
         fillPage(memspace, first, 0x11);
         fillPage(memspace, second, 0x22);
-        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
+        ASSERT_TRUE(flushMeta(memspace, stream, sparse_pair));
 
         MetaPrefix prefix(page_size, sparse_pair);
         std::vector<std::uint64_t> loaded_pages;
-        load(prefix, io);
-        prefix.forAllocatedAddresses([&](std::uint64_t page_num) {
-            loaded_pages.push_back(page_num);
+        load(prefix, stream);
+        prefix.forAllocatedAddresses([&](std::uint64_t address) {
+            loaded_pages.push_back(address / page_size);
         });
 
         std::sort(loaded_pages.begin(), loaded_pages.end());
@@ -228,10 +237,11 @@ namespace tests
         SparsePair sparse_pair(SparsePair::tag_create(), mapping_pair);
 
         auto io = createIO(file);
-        auto memspace = MetaSpace::create(page_size, sparse_pair, io);
+        auto stream = createStream(io);
+        auto memspace = MetaSpace::create(page_size, sparse_pair, stream);
         auto address = memspace.alloc(page_size);
         fillPage(memspace, address, 0x11);
-        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
+        ASSERT_TRUE(flushMeta(memspace, stream, sparse_pair));
 
         {
             auto lock = memspace.getPrefix().mapRange(address.getOffset(), page_size, { AccessOptions::write });
@@ -243,9 +253,9 @@ namespace tests
             auto *data = static_cast<unsigned char *>(lock.modify());
             data[1234] = 0x33;
         }
-        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
+        ASSERT_TRUE(flushMeta(memspace, stream, sparse_pair));
 
-        auto reopened = MetaSpace::create(page_size, sparse_pair, io);
+        auto reopened = MetaSpace::create(page_size, sparse_pair, stream);
         auto data = readPage(reopened, address);
         ASSERT_EQ(data[0], 0x11);
         ASSERT_EQ(data[17], 0x22);
@@ -260,13 +270,14 @@ namespace tests
         SparsePair sparse_pair(SparsePair::tag_create(), mapping_pair);
 
         auto io = createIO(file);
-        auto memspace = MetaSpace::create(page_size, sparse_pair, io);
+        auto stream = createStream(io);
+        auto memspace = MetaSpace::create(page_size, sparse_pair, stream);
         auto address = memspace.alloc(page_size);
         fillPage(memspace, address, 0x7f);
-        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
+        ASSERT_TRUE(flushMeta(memspace, stream, sparse_pair));
         auto state_num = memspace.getStateNum();
 
-        ASSERT_FALSE(flushMeta(memspace, io, sparse_pair));
+        ASSERT_FALSE(flushMeta(memspace, stream, sparse_pair));
         ASSERT_EQ(memspace.getStateNum(), state_num);
     }
 
@@ -278,7 +289,8 @@ namespace tests
         SparsePair sparse_pair(SparsePair::tag_create(), mapping_pair);
 
         auto io = createIO(file);
-        auto memspace = MetaSpace::create(page_size, sparse_pair, io);
+        auto stream = createStream(io);
+        auto memspace = MetaSpace::create(page_size, sparse_pair, stream);
         auto first = memspace.alloc(page_size);
         auto second = memspace.alloc(page_size);
         fillPage(memspace, first, 0x01);
@@ -287,9 +299,9 @@ namespace tests
         auto reused = memspace.alloc(page_size);
         ASSERT_EQ(reused, second);
         fillPage(memspace, reused, 0x03);
-        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
+        ASSERT_TRUE(flushMeta(memspace, stream, sparse_pair));
 
-        auto reopened = MetaSpace::create(page_size, sparse_pair, io);
+        auto reopened = MetaSpace::create(page_size, sparse_pair, stream);
         auto next = reopened.alloc(page_size);
         ASSERT_EQ(next.getOffset(), second.getOffset() + page_size);
     }
@@ -302,15 +314,16 @@ namespace tests
         SparsePair sparse_pair(SparsePair::tag_create(), mapping_pair);
 
         auto io = createIO(file);
-        auto memspace = MetaSpace::create(page_size, sparse_pair, io);
+        auto stream = createStream(io);
+        auto memspace = MetaSpace::create(page_size, sparse_pair, stream);
         auto first = memspace.alloc(page_size);
         auto second = memspace.alloc(page_size);
         auto third = memspace.alloc(page_size);
         fillPage(memspace, first, 0x01);
         fillPage(memspace, third, 0x03);
-        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
+        ASSERT_TRUE(flushMeta(memspace, stream, sparse_pair));
 
-        auto reopened = MetaSpace::create(page_size, sparse_pair, io);
+        auto reopened = MetaSpace::create(page_size, sparse_pair, stream);
         auto reused = reopened.alloc(page_size);
         ASSERT_EQ(reused, second);
     }
@@ -323,21 +336,20 @@ namespace tests
         SparsePair sparse_pair(SparsePair::tag_create(), mapping_pair);
 
         auto io = createIO(file);
-        auto memspace = MS_MetaSpace::create(page_size, sparse_pair, io);
+        auto stream = createStream(io);
+        auto memspace = MS_MetaSpace::create(page_size, sparse_pair, stream);
         auto slot_0_address = memspace.alloc(page_size, 0);
         auto slot_7_address = memspace.alloc(page_size, 7);
         fillPage(memspace, slot_0_address, 0x10);
         fillPage(memspace, slot_7_address, 0x70);
 
-        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
+        ASSERT_TRUE(flushMeta(memspace, stream, sparse_pair));
 
-        constexpr std::uint64_t local_page_count = 1ull << 24;
-        constexpr std::uint64_t slot_size = local_page_count * page_size;
         ASSERT_EQ(slot_0_address.getOffset() / page_size, 1u);
-        ASSERT_EQ(slot_7_address.getOffset(), slot_size * 7 + page_size);
+        ASSERT_EQ(slot_7_address.getOffset(), (7ull << 24) + page_size);
         ASSERT_TRUE(sparse_pair.getSparseIndex().lookup(slot_7_address.getOffset() / page_size, memspace.getStateNum()));
 
-        auto reopened = MS_MetaSpace::create(page_size, sparse_pair, io);
+        auto reopened = MS_MetaSpace::create(page_size, sparse_pair, stream);
         ASSERT_EQ(readPage(reopened, slot_0_address), std::vector<unsigned char>(page_size, 0x10));
         ASSERT_EQ(readPage(reopened, slot_7_address), std::vector<unsigned char>(page_size, 0x70));
     }
@@ -360,15 +372,16 @@ namespace tests
         SparsePair sparse_pair(SparsePair::tag_create(), mapping_pair);
 
         auto io = createIO(file);
-        auto memspace = MS_MetaSpace::create(page_size, sparse_pair, io);
+        auto stream = createStream(io);
+        auto memspace = MS_MetaSpace::create(page_size, sparse_pair, stream);
         auto first = memspace.alloc(page_size, 3);
         auto second = memspace.alloc(page_size, 3);
         auto third = memspace.alloc(page_size, 3);
         fillPage(memspace, first, 0x01);
         fillPage(memspace, third, 0x03);
-        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
+        ASSERT_TRUE(flushMeta(memspace, stream, sparse_pair));
 
-        auto reopened = MS_MetaSpace::create(page_size, sparse_pair, io);
+        auto reopened = MS_MetaSpace::create(page_size, sparse_pair, stream);
         auto reused = reopened.alloc(page_size, 3);
         ASSERT_EQ(reused, second);
     }
@@ -381,12 +394,13 @@ namespace tests
         SparsePair sparse_pair(SparsePair::tag_create(), mapping_pair);
 
         auto io = createIO(file);
-        auto memspace = MS_MetaSpace::create(page_size, sparse_pair, io);
+        auto stream = createStream(io);
+        auto memspace = MS_MetaSpace::create(page_size, sparse_pair, stream);
         auto slot_7_address = memspace.alloc(page_size, 7);
         fillPage(memspace, slot_7_address, 0x77);
-        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
+        ASSERT_TRUE(flushMeta(memspace, stream, sparse_pair));
 
-        auto reopened = MS_MetaSpace::create(page_size, sparse_pair, io);
+        auto reopened = MS_MetaSpace::create(page_size, sparse_pair, stream);
         std::size_t alloc_size = 0;
         ASSERT_TRUE(reopened.getAllocator().isAllocated(slot_7_address, &alloc_size));
         ASSERT_EQ(alloc_size, page_size);
@@ -404,13 +418,14 @@ namespace tests
         SparsePair sparse_pair(SparsePair::tag_create(), mapping_pair);
 
         auto io = createIO(file);
-        auto memspace = MS_MetaSpace::create(page_size, sparse_pair, io);
+        auto stream = createStream(io);
+        auto memspace = MS_MetaSpace::create(page_size, sparse_pair, stream);
         auto slot_1_address = memspace.alloc(page_size, 1);
         auto slot_2_address = memspace.alloc(page_size, 2);
         fillPage(memspace, slot_1_address, 0x11);
         fillPage(memspace, slot_2_address, 0x22);
 
-        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
+        ASSERT_TRUE(flushMeta(memspace, stream, sparse_pair));
 
         auto state_num = memspace.getStateNum();
         ASSERT_EQ(state_num, 1u);
@@ -429,10 +444,11 @@ namespace tests
         SparsePair sparse_pair(SparsePair::tag_create(), mapping_pair);
 
         auto io = createIO(file);
-        auto memspace = MS_MetaSpace::create(page_size, sparse_pair, io);
+        auto stream = createStream(io);
+        auto memspace = MS_MetaSpace::create(page_size, sparse_pair, stream);
         auto address = memspace.alloc(page_size, 9);
         fillPage(memspace, address, 0x19);
-        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
+        ASSERT_TRUE(flushMeta(memspace, stream, sparse_pair));
 
         {
             auto lock = memspace.getPrefix().mapRange(address.getOffset(), page_size, { AccessOptions::write });
@@ -440,14 +456,14 @@ namespace tests
             data[17] = 0x91;
             data[1024] = 0x92;
         }
-        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
+        ASSERT_TRUE(flushMeta(memspace, stream, sparse_pair));
 
         auto encoded_page_num = address.getOffset() / page_size;
         auto diff_item = sparse_pair.getDiffIndex().findUpper(encoded_page_num, memspace.getStateNum());
         ASSERT_TRUE(diff_item);
         ASSERT_EQ(diff_item.m_page_num, encoded_page_num);
 
-        auto reopened = MS_MetaSpace::create(page_size, sparse_pair, io);
+        auto reopened = MS_MetaSpace::create(page_size, sparse_pair, stream);
         auto data = readPage(reopened, address);
         ASSERT_EQ(data[0], 0x19);
         ASSERT_EQ(data[17], 0x91);
@@ -462,12 +478,13 @@ namespace tests
         SparsePair sparse_pair(SparsePair::tag_create(), mapping_pair);
 
         auto io = createIO(file);
-        auto memspace = MS_MetaSpace::create(page_size, sparse_pair, io);
+        auto stream = createStream(io);
+        auto memspace = MS_MetaSpace::create(page_size, sparse_pair, stream);
         auto slot_4_address = memspace.alloc(page_size, 4);
         auto slot_5_address = memspace.alloc(page_size, 5);
         fillPage(memspace, slot_4_address, 0x44);
         fillPage(memspace, slot_5_address, 0x55);
-        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
+        ASSERT_TRUE(flushMeta(memspace, stream, sparse_pair));
 
         {
             auto lock = memspace.getPrefix().mapRange(slot_4_address.getOffset(), page_size, { AccessOptions::write });
@@ -478,9 +495,9 @@ namespace tests
             static_cast<unsigned char *>(lock.modify())[17] = 0x50;
         }
 
-        ASSERT_TRUE(compact(dynamic_cast<MS_MetaPrefix &>(memspace.getPrefix()), io));
+        ASSERT_TRUE(compact(dynamic_cast<MS_MetaPrefix &>(memspace.getPrefix()), stream));
 
-        auto reopened = MS_MetaSpace::create(page_size, sparse_pair, io);
+        auto reopened = MS_MetaSpace::create(page_size, sparse_pair, stream);
         auto slot_4_data = readPage(reopened, slot_4_address);
         auto slot_5_data = readPage(reopened, slot_5_address);
         ASSERT_EQ(slot_4_data[0], 0x44);
@@ -497,14 +514,15 @@ namespace tests
         SparsePair sparse_pair(SparsePair::tag_create(), mapping_pair);
 
         auto io = createIO(file);
-        auto memspace = MS_MetaSpace::create(page_size, sparse_pair, io);
+        auto stream = createStream(io);
+        auto memspace = MS_MetaSpace::create(page_size, sparse_pair, stream);
         auto slot_2_address = memspace.alloc(page_size, 2);
         auto slot_3_address = memspace.alloc(page_size, 3);
         fillPage(memspace, slot_2_address, 0x20);
         fillPage(memspace, slot_3_address, 0x30);
-        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
+        ASSERT_TRUE(flushMeta(memspace, stream, sparse_pair));
 
-        auto reopened = MS_MetaSpace::create(page_size, sparse_pair, io, MappingPolicy::lazy);
+        auto reopened = MS_MetaSpace::create(page_size, sparse_pair, stream, MappingPolicy::lazy);
         ASSERT_EQ(dynamic_cast<DRAM_Prefix &>(reopened.getPrefix()).size(), 0u);
 
         ASSERT_EQ(readPage(reopened, slot_2_address), std::vector<unsigned char>(page_size, 0x20));
@@ -527,10 +545,11 @@ namespace tests
         SparsePair sparse_pair(SparsePair::tag_create(), mapping_pair);
 
         auto io = createIO(file);
-        auto memspace = MS_MetaSpace::create(page_size, sparse_pair, io);
+        auto stream = createStream(io);
+        auto memspace = MS_MetaSpace::create(page_size, sparse_pair, stream);
         auto address = memspace.alloc(page_size, 9);
         fillPage(memspace, address, 0x19);
-        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
+        ASSERT_TRUE(flushMeta(memspace, stream, sparse_pair));
 
         {
             auto lock = memspace.getPrefix().mapRange(address.getOffset(), page_size, { AccessOptions::write });
@@ -538,9 +557,9 @@ namespace tests
             data[17] = 0x91;
             data[1024] = 0x92;
         }
-        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
+        ASSERT_TRUE(flushMeta(memspace, stream, sparse_pair));
 
-        auto reopened = MS_MetaSpace::create(page_size, sparse_pair, io, MappingPolicy::lazy);
+        auto reopened = MS_MetaSpace::create(page_size, sparse_pair, stream, MappingPolicy::lazy);
         ASSERT_EQ(dynamic_cast<DRAM_Prefix &>(reopened.getPrefix()).size(), 0u);
 
         auto data = readPage(reopened, address);
@@ -558,12 +577,13 @@ namespace tests
         SparsePair sparse_pair(SparsePair::tag_create(), mapping_pair);
 
         auto io = createIO(file);
-        auto memspace = MS_MetaSpace::create(page_size, sparse_pair, io);
+        auto stream = createStream(io);
+        auto memspace = MS_MetaSpace::create(page_size, sparse_pair, stream);
         auto address = memspace.alloc(page_size, 4);
         fillPage(memspace, address, 0x44);
-        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
+        ASSERT_TRUE(flushMeta(memspace, stream, sparse_pair));
 
-        auto reopened = MS_MetaSpace::create(page_size, sparse_pair, io, MappingPolicy::lazy);
+        auto reopened = MS_MetaSpace::create(page_size, sparse_pair, stream, MappingPolicy::lazy);
         ASSERT_EQ(readPage(reopened, address), std::vector<unsigned char>(page_size, 0x44));
         ASSERT_EQ(dynamic_cast<DRAM_Prefix &>(reopened.getPrefix()).size(), page_size);
 
@@ -583,12 +603,13 @@ namespace tests
         SparsePair sparse_pair(SparsePair::tag_create(), mapping_pair);
 
         auto io = createIO(file);
-        auto memspace = MS_MetaSpace::create(page_size, sparse_pair, io);
+        auto stream = createStream(io);
+        auto memspace = MS_MetaSpace::create(page_size, sparse_pair, stream);
         auto address = memspace.alloc(page_size, 6);
         fillPage(memspace, address, 0x66);
-        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
+        ASSERT_TRUE(flushMeta(memspace, stream, sparse_pair));
 
-        auto reopened = MS_MetaSpace::create(page_size, sparse_pair, io, MappingPolicy::lazy);
+        auto reopened = MS_MetaSpace::create(page_size, sparse_pair, stream, MappingPolicy::lazy);
         auto lock = reopened.getPrefix().mapRange(address.getOffset(), page_size, { AccessOptions::write });
         static_cast<unsigned char *>(lock.modify())[17] = 0x67;
 
@@ -607,7 +628,8 @@ namespace tests
         SparsePair mapping_sparse_pair(SparsePair::tag_create(), mapping_pair);
 
         auto io = createIO(file, large_page_size);
-        auto meta_space = MetaSpace::create(large_page_size, mapping_sparse_pair, io);
+        auto stream = createStream(io);
+        auto meta_space = MetaSpace::create(large_page_size, mapping_sparse_pair, stream);
         auto meta_pair = createPairFromMetaSpace(meta_space);
 
         using PageModel = std::map<std::uint32_t, std::uint64_t>;
@@ -648,9 +670,9 @@ namespace tests
         }
         cut.commit();
 
-        ASSERT_TRUE(flushMeta(meta_space, io, mapping_sparse_pair));
+        ASSERT_TRUE(flushMeta(meta_space, stream, mapping_sparse_pair));
 
-        auto reopened_meta_space = MetaSpace::create(large_page_size, mapping_sparse_pair, io);
+        auto reopened_meta_space = MetaSpace::create(large_page_size, mapping_sparse_pair, stream);
         auto reopened_meta_pair = createPairFromMetaSpace(reopened_meta_space);
         SparsePair reopened(reopened_meta_pair, AccessType::READ_WRITE, reopened_meta_pair.second->firstAlloc());
 
@@ -728,10 +750,11 @@ namespace tests
         SparsePair sparse_pair(SparsePair::tag_create(), mapping_pair);
 
         auto io = createIO(file);
-        auto memspace = MetaSpace::create(page_size, sparse_pair, io);
+        auto stream = createStream(io);
+        auto memspace = MetaSpace::create(page_size, sparse_pair, stream);
         auto address = memspace.alloc(page_size);
         fillPage(memspace, address, 0x11);
-        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
+        ASSERT_TRUE(flushMeta(memspace, stream, sparse_pair));
 
         {
             auto lock = memspace.getPrefix().mapRange(address.getOffset(), page_size, { AccessOptions::write });
@@ -739,28 +762,28 @@ namespace tests
             data[17] = 0x22;
             data[1234] = 0x33;
         }
-        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
+        ASSERT_TRUE(flushMeta(memspace, stream, sparse_pair));
         ASSERT_GT(sparse_pair.getDiffIndex().size(), 0u);
         auto diff_item = sparse_pair.getDiffIndex().findUpper(address.getOffset() / page_size, memspace.getStateNum());
         ASSERT_TRUE(diff_item);
         auto stale_diff_storage_page = findDiffStoragePage(diff_item, memspace.getStateNum());
         ASSERT_TRUE(stale_diff_storage_page);
 
-        ASSERT_TRUE(compactMeta(memspace, io));
+        ASSERT_TRUE(compactMeta(memspace, stream));
         ASSERT_GT(sparse_pair.getDiffIndex().size(), 0u);
 
         {
             auto lock = memspace.getPrefix().mapRange(address.getOffset(), page_size, { AccessOptions::write });
             static_cast<unsigned char *>(lock.modify())[2048] = 0x44;
         }
-        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
+        ASSERT_TRUE(flushMeta(memspace, stream, sparse_pair));
         auto next_diff_item = sparse_pair.getDiffIndex().findUpper(address.getOffset() / page_size, memspace.getStateNum());
         ASSERT_TRUE(next_diff_item);
         auto next_diff_storage_page = findDiffStoragePage(next_diff_item, memspace.getStateNum());
         ASSERT_TRUE(next_diff_storage_page);
         ASSERT_NE(*next_diff_storage_page, *stale_diff_storage_page);
 
-        auto reopened = MetaSpace::create(page_size, sparse_pair, io);
+        auto reopened = MetaSpace::create(page_size, sparse_pair, stream);
         auto data = readPage(reopened, address);
         ASSERT_EQ(data[0], 0x11);
         ASSERT_EQ(data[17], 0x22);
@@ -776,16 +799,17 @@ namespace tests
         SparsePair sparse_pair(SparsePair::tag_create(), mapping_pair);
 
         auto io = createIO(file);
-        auto memspace = MetaSpace::create(page_size, sparse_pair, io);
+        auto stream = createStream(io);
+        auto memspace = MetaSpace::create(page_size, sparse_pair, stream);
         auto address = memspace.alloc(page_size);
         fillPage(memspace, address, 0x10);
-        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
+        ASSERT_TRUE(flushMeta(memspace, stream, sparse_pair));
         auto initial_item = sparse_pair.getSparseIndex().lookup(address.getOffset() / page_size, memspace.getStateNum());
         ASSERT_TRUE(initial_item);
         auto stale_storage_page = initial_item.m_storage_page_num;
         ASSERT_NE(stale_storage_page, 0u);
 
-        ASSERT_TRUE(compactMeta(memspace, io));
+        ASSERT_TRUE(compactMeta(memspace, stream));
         auto first_compact_item = sparse_pair.getSparseIndex().lookup(address.getOffset() / page_size, memspace.getStateNum());
         ASSERT_TRUE(first_compact_item);
         ASSERT_NE(first_compact_item.m_storage_page_num, stale_storage_page);
@@ -794,8 +818,8 @@ namespace tests
             auto lock = memspace.getPrefix().mapRange(address.getOffset(), page_size, { AccessOptions::write });
             static_cast<unsigned char *>(lock.modify())[0] = 0x20;
         }
-        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
-        ASSERT_TRUE(compactMeta(memspace, io));
+        ASSERT_TRUE(flushMeta(memspace, stream, sparse_pair));
+        ASSERT_TRUE(compactMeta(memspace, stream));
 
         auto second_compact_item = sparse_pair.getSparseIndex().lookup(address.getOffset() / page_size, memspace.getStateNum());
         ASSERT_TRUE(second_compact_item);
@@ -805,14 +829,14 @@ namespace tests
             auto lock = memspace.getPrefix().mapRange(address.getOffset(), page_size, { AccessOptions::write });
             static_cast<unsigned char *>(lock.modify())[0] = 0x30;
         }
-        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
-        ASSERT_TRUE(compactMeta(memspace, io));
+        ASSERT_TRUE(flushMeta(memspace, stream, sparse_pair));
+        ASSERT_TRUE(compactMeta(memspace, stream));
 
         auto third_compact_item = sparse_pair.getSparseIndex().lookup(address.getOffset() / page_size, memspace.getStateNum());
         ASSERT_TRUE(third_compact_item);
         ASSERT_NE(third_compact_item.m_storage_page_num, 0u);
 
-        auto reopened = MetaSpace::create(page_size, sparse_pair, io);
+        auto reopened = MetaSpace::create(page_size, sparse_pair, stream);
         auto data = readPage(reopened, address);
         ASSERT_EQ(data[0], 0x30);
     }
@@ -825,10 +849,11 @@ namespace tests
         SparsePair sparse_pair(SparsePair::tag_create(), mapping_pair);
 
         auto io = createIO(file);
-        auto memspace = MetaSpace::create(page_size, sparse_pair, io);
+        auto stream = createStream(io);
+        auto memspace = MetaSpace::create(page_size, sparse_pair, stream);
         auto address = memspace.alloc(page_size);
         fillPage(memspace, address, 0x10);
-        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
+        ASSERT_TRUE(flushMeta(memspace, stream, sparse_pair));
 
         auto page_num = address.getOffset() / page_size;
         auto head_state_num = memspace.getStateNum();
@@ -841,8 +866,8 @@ namespace tests
             static_cast<unsigned char *>(lock.modify())[0] = 0x20;
         }
 
-        ASSERT_TRUE(compactMeta(memspace, io));
-        auto current_head_data = readStoragePage(io, head_storage_page_num);
+        ASSERT_TRUE(compactMeta(memspace, stream));
+        auto current_head_data = readStoragePage(stream, head_storage_page_num);
         ASSERT_EQ(current_head_data, std::vector<unsigned char>(page_size, 0x10));
     }
 
@@ -854,10 +879,11 @@ namespace tests
         SparsePair sparse_pair(SparsePair::tag_create(), mapping_pair);
 
         auto io = createIO(file);
-        auto memspace = MetaSpace::create(page_size, sparse_pair, io);
+        auto stream = createStream(io);
+        auto memspace = MetaSpace::create(page_size, sparse_pair, stream);
         auto address = memspace.alloc(page_size);
         fillPage(memspace, address, 0x11);
-        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
+        ASSERT_TRUE(flushMeta(memspace, stream, sparse_pair));
 
         {
             auto lock = memspace.getPrefix().mapRange(address.getOffset(), page_size, { AccessOptions::write });
@@ -865,7 +891,7 @@ namespace tests
             data[17] = 0x22;
             data[1234] = 0x33;
         }
-        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
+        ASSERT_TRUE(flushMeta(memspace, stream, sparse_pair));
 
         auto page_num = address.getOffset() / page_size;
         auto head_state_num = memspace.getStateNum();
@@ -878,7 +904,7 @@ namespace tests
         ASSERT_TRUE(query.next(diff_state_num, diff_storage_page_num));
         ASSERT_EQ(diff_state_num, head_state_num);
 
-        ASSERT_TRUE(compactMeta(memspace, io));
+        ASSERT_TRUE(compactMeta(memspace, stream));
 
         io.applyFrom(diff_storage_page_num, current_head_buffer.data(), { page_num, diff_state_num });
         ASSERT_EQ(current_head_buffer[0], 0x11);
@@ -894,6 +920,7 @@ namespace tests
         SparsePair sparse_pair(SparsePair::tag_create(), mapping_pair);
 
         auto io = createIO(file);
+        auto stream = createStream(io);
         constexpr std::uint64_t page_num = 1;
         bool is_first_page = false;
 
@@ -914,7 +941,7 @@ namespace tests
         MetaPrefix prefix(page_size, sparse_pair);
         ASSERT_EQ(prefix.getStateNum(false), 3u);
 
-        ASSERT_TRUE(compact(prefix, io));
+        ASSERT_TRUE(compact(prefix, stream));
 
         auto compacted_item = sparse_pair.getSparseIndex().lookup(page_num, prefix.getStateNum(false));
         ASSERT_TRUE(compacted_item);
@@ -929,16 +956,17 @@ namespace tests
         SparsePair sparse_pair(SparsePair::tag_create(), mapping_pair);
 
         auto io = createIO(file);
-        auto memspace = MetaSpace::create(page_size, sparse_pair, io);
+        auto stream = createStream(io);
+        auto memspace = MetaSpace::create(page_size, sparse_pair, stream);
         auto address = memspace.alloc(page_size);
         fillPage(memspace, address, 0x55);
 
-        ASSERT_TRUE(compactMeta(memspace, io));
+        ASSERT_TRUE(compactMeta(memspace, stream));
         auto item = sparse_pair.getSparseIndex().lookup(address.getOffset() / page_size, memspace.getStateNum());
         ASSERT_TRUE(item);
         ASSERT_NE(item.m_storage_page_num, 0u);
 
-        auto reopened = MetaSpace::create(page_size, sparse_pair, io);
+        auto reopened = MetaSpace::create(page_size, sparse_pair, stream);
         auto data = readPage(reopened, address);
         ASSERT_EQ(data, std::vector<unsigned char>(page_size, 0x55));
     }
@@ -951,7 +979,8 @@ namespace tests
         SparsePair sparse_pair(SparsePair::tag_create(), mapping_pair);
 
         auto io = createIO(file);
-        auto memspace = MetaSpace::create(page_size, sparse_pair, io);
+        auto stream = createStream(io);
+        auto memspace = MetaSpace::create(page_size, sparse_pair, stream);
         constexpr std::size_t page_count = 640;
         std::vector<Address> addresses;
         std::vector<std::vector<unsigned char> > expected_pages;
@@ -970,7 +999,7 @@ namespace tests
             expected_pages.emplace_back(page_size, static_cast<unsigned char>((i + 1) & 0xFF));
             fillPage(memspace, address, expected_pages.back()[0]);
         }
-        ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
+        ASSERT_TRUE(flushMeta(memspace, stream, sparse_pair));
 
         for (std::uint32_t round = 1; round <= 9; ++round) {
             auto operation_count = page_count / 2 + round * 17;
@@ -980,7 +1009,7 @@ namespace tests
                     memspace, addresses[page_index], expected_pages[page_index], rng, sparse_write_count_dist(rng)
                 );
             }
-            ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
+            ASSERT_TRUE(flushMeta(memspace, stream, sparse_pair));
         }
         ASSERT_GT(sparse_pair.getDiffIndex().size(), 0u);
 
@@ -989,7 +1018,7 @@ namespace tests
             ASSERT_EQ(readPage(memspace, addresses[page_index]), expected_pages[page_index])
                 << "pre-compact page index " << page_index;
         }
-        ASSERT_TRUE(compactMeta(memspace, io));
+        ASSERT_TRUE(compactMeta(memspace, stream));
         ASSERT_EQ(sparse_pair.getSparseIndex().size(), page_count);
         for (std::size_t i = 0; i < 16; ++i) {
             auto page_index = page_dist(rng);
@@ -1009,7 +1038,7 @@ namespace tests
                 }
             }
             if (round != 12) {
-                ASSERT_TRUE(flushMeta(memspace, io, sparse_pair));
+                ASSERT_TRUE(flushMeta(memspace, stream, sparse_pair));
             }
         }
 
@@ -1017,7 +1046,7 @@ namespace tests
             ASSERT_EQ(readPage(memspace, addresses[page_index]), expected_pages[page_index])
                 << "pre-second-compact page index " << page_index;
         }
-        ASSERT_TRUE(compactMeta(memspace, io));
+        ASSERT_TRUE(compactMeta(memspace, stream));
         ASSERT_EQ(sparse_pair.getSparseIndex().size(), page_count);
         for (std::size_t i = 0; i < 16; ++i) {
             auto page_index = page_dist(rng);
@@ -1029,12 +1058,12 @@ namespace tests
                 addresses[page_index].getOffset() / page_size, memspace.getStateNum()
             );
             ASSERT_TRUE(item) << "page index " << page_index;
-            ASSERT_EQ(readStoragePage(io, item.m_storage_page_num), expected_pages[page_index])
+            ASSERT_EQ(readStoragePage(stream, item.m_storage_page_num), expected_pages[page_index])
                 << "storage page check page index " << page_index
                 << " dirty before second compact " << dirty_before_second_compact[page_index];
         }
 
-        auto reopened = MetaSpace::create(page_size, sparse_pair, io);
+        auto reopened = MetaSpace::create(page_size, sparse_pair, stream);
         for (std::size_t i = 0; i < page_count; ++i) {
             auto data = readPage(reopened, addresses[i]);
             ASSERT_EQ(data, expected_pages[i]) << "page index " << i << " address " << addresses[i].getOffset();

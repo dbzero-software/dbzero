@@ -15,6 +15,7 @@
 #include <dbzero/core/dram/MS_Address.hpp>
 #include <dbzero/core/dram/MS_MetaAllocator.hpp>
 #include <dbzero/core/storage/Diff_IO.hpp>
+#include <dbzero/core/storage/RandomIO_Stream.hpp>
 #include <dbzero/core/storage/ChangeLogIOStream.hpp>
 #include <utils/utils.hpp>
 
@@ -58,7 +59,12 @@ namespace tests
             return Diff_IO(0, file, page_size, page_size * 16, page_size, 0, 1, tail_function, 0);
         }
 
-        static bool flushMeta(Memspace &memspace, Diff_IO &io, SparsePair &sparse_pair)
+        static RandomIO_Stream createStream(Diff_IO &io)
+        {
+            return RandomIO_Stream(io, 2);
+        }
+
+        static bool flushMeta(Memspace &memspace, RandomIO_Stream &io, SparsePair &sparse_pair)
         {
             auto &prefix = dynamic_cast<MetaPrefix &>(memspace.getPrefix());
             if (prefix.getDirtySize() != 0) {
@@ -141,9 +147,10 @@ namespace tests
         CFile::create(file_name, {});
         CFile file(file_name, AccessType::READ_WRITE);
         auto io = createIO(file);
+        auto stream = createStream(io);
         auto mapping_pair = createMappingPair();
         SparsePair meta_pair(SparsePair::tag_create(), mapping_pair);
-        auto meta_space = MS_MetaSpace::create(page_size, meta_pair, io);
+        auto meta_space = MS_MetaSpace::create(page_size, meta_pair, stream);
         SparsePairManager manager(meta_space);
 
         auto &slot_7_first = manager.getOrCreate(7);
@@ -172,28 +179,15 @@ namespace tests
         ASSERT_EQ(change_log, (SparsePair::ChangeLogT { 11, 12 }));
     }
 
-    TEST_F( SparsePairTest , testSparsePairRecordsNextDescriptorPageNum )
-    {
-        auto dram_pair = createMappingPair();
-        SparsePair cut(SparsePair::tag_create(), dram_pair);
-
-        ASSERT_EQ(cut.getNextDescPageNum(), std::nullopt);
-        cut.recordNextDescPageNum(44);
-        ASSERT_EQ(cut.getNextDescPageNum(), 44u);
-        cut.recordNextDescPageNum(99);
-        ASSERT_EQ(cut.getNextDescPageNum(), 44u);
-        cut.recordNextDescPageNum(12);
-        ASSERT_EQ(cut.getNextDescPageNum(), 12u);
-    }
-
     TEST_F( SparsePairTest , testSparsePairManagerUsesSharedChangeLog )
     {
         CFile::create(file_name, {});
         CFile file(file_name, AccessType::READ_WRITE);
         auto io = createIO(file);
+        auto stream = createStream(io);
         auto mapping_pair = createMappingPair();
         SparsePair meta_pair(SparsePair::tag_create(), mapping_pair);
-        auto meta_space = MS_MetaSpace::create(page_size, meta_pair, io);
+        auto meta_space = MS_MetaSpace::create(page_size, meta_pair, stream);
         SparsePairManager manager(meta_space);
 
         auto &slot_7 = manager.getOrCreate(7);
@@ -215,9 +209,10 @@ namespace tests
         CFile::create(file_name, {});
         CFile file(file_name, AccessType::READ_WRITE);
         auto io = createIO(file);
+        auto stream = createStream(io);
         auto mapping_pair = createMappingPair();
         SparsePair meta_pair(SparsePair::tag_create(), mapping_pair);
-        auto meta_space = MS_MetaSpace::create(page_size, meta_pair, io);
+        auto meta_space = MS_MetaSpace::create(page_size, meta_pair, stream);
         SparsePairManager manager(meta_space);
 
         auto &dirty_slot = manager.getOrCreate(7);
@@ -246,16 +241,17 @@ namespace tests
         CFile::create(file_name, {});
         CFile file(file_name, AccessType::READ_WRITE);
         auto io = createIO(file);
+        auto stream = createStream(io);
         auto mapping_pair = createMappingPair();
         SparsePair meta_pair(SparsePair::tag_create(), mapping_pair);
-        auto meta_space = MS_MetaSpace::create(page_size, meta_pair, io);
+        auto meta_space = MS_MetaSpace::create(page_size, meta_pair, stream);
         SparsePairManager manager(meta_space);
 
         auto &slot_7 = manager.getOrCreate(7);
         auto &slot_19 = manager.getOrCreate(19);
         slot_7.getSparseIndex().insert({ 11, 1, 100 });
         manager.commit();
-        ASSERT_TRUE(flushMeta(meta_space, io, meta_pair));
+        ASSERT_TRUE(flushMeta(meta_space, stream, meta_pair));
 
         auto *slot_7_before = &slot_7;
         auto *slot_19_before = &slot_19;
@@ -275,9 +271,10 @@ namespace tests
         CFile::create(file_name, {});
         CFile file(file_name, AccessType::READ_WRITE);
         auto io = createIO(file);
+        auto stream = createStream(io);
         auto mapping_pair = createMappingPair();
         SparsePair meta_pair(SparsePair::tag_create(), mapping_pair);
-        auto meta_space = MS_MetaSpace::create(page_size, meta_pair, io);
+        auto meta_space = MS_MetaSpace::create(page_size, meta_pair, stream);
         SparsePairManager manager(meta_space);
 
         auto &slot_7 = manager.getOrCreate(7);
@@ -285,7 +282,7 @@ namespace tests
         slot_7.getSparseIndex().insert({ 11, 1, 100 });
         slot_19.getSparseIndex().insert({ 12, 1, 101 });
         manager.commit();
-        ASSERT_TRUE(flushMeta(meta_space, io, meta_pair));
+        ASSERT_TRUE(flushMeta(meta_space, stream, meta_pair));
 
         manager.evictSlot(7);
 
@@ -312,9 +309,10 @@ namespace tests
         CFile::create(file_name, {});
         CFile file(file_name, AccessType::READ_WRITE);
         auto io = createIO(file);
+        auto stream = createStream(io);
         auto mapping_pair = createMappingPair();
         SparsePair meta_pair(SparsePair::tag_create(), mapping_pair);
-        auto meta_space = MS_MetaSpace::create(page_size, meta_pair, io);
+        auto meta_space = MS_MetaSpace::create(page_size, meta_pair, stream);
 
         {
             SparsePairManager manager(meta_space);
@@ -337,18 +335,19 @@ namespace tests
         CFile::create(file_name, {});
         CFile file(file_name, AccessType::READ_WRITE);
         auto io = createIO(file);
+        auto stream = createStream(io);
         auto mapping_pair = createMappingPair();
         SparsePair meta_pair(SparsePair::tag_create(), mapping_pair);
 
         {
-            auto meta_space = MS_MetaSpace::create(page_size, meta_pair, io);
+            auto meta_space = MS_MetaSpace::create(page_size, meta_pair, stream);
             SparsePairManager manager(meta_space);
             auto &slot_pair = manager.getOrCreate(23);
             slot_pair.getSparseIndex().insert({ 100, 5, 700 });
-            ASSERT_TRUE(flushMeta(meta_space, io, meta_pair));
+            ASSERT_TRUE(flushMeta(meta_space, stream, meta_pair));
         }
 
-        auto reopened_meta_space = MS_MetaSpace::create(page_size, meta_pair, io);
+        auto reopened_meta_space = MS_MetaSpace::create(page_size, meta_pair, stream);
         SparsePairManager manager(reopened_meta_space);
         auto &reopened_pair = manager.getOrCreate(23);
         auto sparse_item = reopened_pair.getSparseIndex().lookup(100, 5);
@@ -362,11 +361,12 @@ namespace tests
         CFile::create(file_name, {});
         CFile file(file_name, AccessType::READ_WRITE);
         auto io = createIO(file);
+        auto stream = createStream(io);
         auto mapping_pair = createMappingPair();
         SparsePair meta_pair(SparsePair::tag_create(), mapping_pair);
 
-        auto writer_meta_space = MS_MetaSpace::create(page_size, meta_pair, io);
-        auto reader_meta_space = MS_MetaSpace::create(page_size, meta_pair, io);
+        auto writer_meta_space = MS_MetaSpace::create(page_size, meta_pair, stream);
+        auto reader_meta_space = MS_MetaSpace::create(page_size, meta_pair, stream);
         SparsePairManager reader_manager(reader_meta_space);
 
         ASSERT_EQ(reader_manager.tryGetExisting(0), nullptr);
@@ -377,7 +377,7 @@ namespace tests
             slot_pair.getSparseIndex().insert({ 200, 7, 900 });
             writer_manager.commit();
             auto changed_pages = writer_manager.extractChangeLogPages();
-            ASSERT_TRUE(flushMeta(writer_meta_space, io, meta_pair));
+            ASSERT_TRUE(flushMeta(writer_meta_space, stream, meta_pair));
             reader_manager.refreshPages(changed_pages);
         }
 

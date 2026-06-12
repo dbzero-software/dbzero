@@ -11,6 +11,7 @@
 #include "BlockIOStream.hpp"
 #include "Page_IO.hpp"
 #include "Diff_IO.hpp"
+#include "RandomIO_Stream.hpp"
 #include "StorageOptions.hpp"
 #include <optional>
 #include <functional>
@@ -57,7 +58,7 @@ DB0_PACKED_BEGIN
         // This value (entire step) corresponts to a single entry in the REL_Index (if it's used)
         std::uint32_t m_page_io_step_size;
         std::uint32_t m_descriptor_page_size = 0;
-        std::uint32_t m_desc_io_step_size = 0;
+        std::uint64_t m_desc_io_head = 0;
         std::uint64_t m_ext_dram_io_offset = 0;
         std::uint32_t m_ext_dram_page_size = 0;
         std::uint64_t m_ext_dram_changelog_io_offset = 0;
@@ -67,7 +68,7 @@ DB0_PACKED_BEGIN
         
         o_prefix_config(std::uint32_t block_size, std::uint32_t page_size, std::uint32_t dram_page_size,
             std::uint32_t page_io_step_size, std::uint32_t descriptor_page_size,
-            std::uint32_t descriptor_io_step_size);
+            std::uint64_t desc_io_head = 0);
     };
 DB0_PACKED_END
     
@@ -154,10 +155,6 @@ DB0_PACKED_END
             return m_page_io;
         }
 
-        const Diff_IO &getDescriptorIO() const {
-            return m_desc_io;
-        }
-
         const MetaIOStream &getMetaIO() const {
             return m_meta_io;
         }
@@ -201,14 +198,15 @@ DB0_PACKED_END
         std::unique_ptr<DRAM_ChangeLogStreamT> m_ext_dram_changelog_io;
         std::unique_ptr<DRAM_IOStream> m_ext_dram_io;
         ExtSpace m_ext_space;
-        // the stream for descriptor-backed metadata
-        Diff_IO m_desc_io;
         StorageOptions m_options;
+        // the stream for storing & reading full-DPs and diff-encoded DPs
+        Diff_IO m_page_io;
+        // the stream for descriptor-backed metadata, stored on top of m_page_io
+        // this is not a separate stream, rather a view over m_page_io
+        RandomIO_Stream m_desc_io;
         // Multi-slot metadata space hosts application data-page sparse pairs.
         MS_MetaSpace m_meta_space;
         SparsePairManager m_sparse_pair_manager;
-        // the stream for storing & reading full-DPs and diff-encoded DPs
-        Diff_IO m_page_io;
 #ifndef NDEBUG
         MemBaseStorage m_data_mirror;
 #endif
@@ -265,12 +263,13 @@ DB0_PACKED_END
 
         MetaIOStream getMetaIOStream(std::uint64_t first_block_pos, std::size_t step_size, AccessType);
         
-        Diff_IO getPage_IO(std::optional<std::uint64_t> next_page_hint, std::uint32_t step_size);
-        Diff_IO getDescriptor_IO();
+        Diff_IO getPage_IO(std::optional<std::uint64_t> next_page_hint, std::uint32_t step_size);        
         Diff_IO getDiff_IO(std::optional<std::uint64_t> next_page_hint, std::uint32_t page_size,
             std::uint32_t step_size, std::function<std::uint64_t()> tail_function,
             std::uint64_t initial_tail_address);
         
+        // Create the descriptor stream on top of the page I/O stream
+        RandomIO_Stream getDesc_IO();
         o_prefix_config readConfig() const;
 
         Allocator::SlotId getMetaSlotId(std::uint64_t page_num) const;
@@ -283,8 +282,6 @@ DB0_PACKED_END
         std::function<std::uint64_t()> getTailFunction() const;
 
         std::uint64_t blockIOTail() const;
-
-        std::function<std::uint64_t()> getDescriptorIOTailFunction() const;
 
         std::function<std::uint64_t()> getPageIOTailFunction() const;
         

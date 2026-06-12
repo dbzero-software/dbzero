@@ -78,6 +78,10 @@ namespace db0
         void writeRandom(std::uint64_t page_num, const void *buffer);
 
         std::uint32_t getPageSize() const;
+
+        std::uint64_t getHeadPageNum() const;
+
+        bool modified() const;
         
         void flush();
         void close();
@@ -102,12 +106,13 @@ namespace db0
         std::vector<std::byte> m_write_buf;
         mutable std::vector<std::byte> m_read_buf;
         mutable std::vector<std::byte> m_control_buf;
-        std::uint64_t m_begin_chunk_page_num = 0;
+        std::uint64_t m_head_page_num = 0;
         std::uint64_t m_current_chunk_page_num = 0;
         std::uint64_t m_current_next_chunk_page_num = 0;
         std::uint32_t m_current_used_pages = 0;
         std::uint32_t m_generation = 1;
         bool m_current_first_data_is_first_page = false;
+        bool m_modified = false;
 
         std::pair<std::uint64_t, std::uint32_t> getNextPageNum(bool *is_first_page = nullptr);
         void advanceChunk();
