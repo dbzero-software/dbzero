@@ -51,6 +51,8 @@ namespace db0
         
         std::uint64_t append(const void *buffer, bool *is_first_page = nullptr);
 
+        std::uint64_t reserve(std::uint32_t page_count, bool *is_first_page = nullptr);
+
         void read(std::uint64_t page_num, void *buffer) const;
         
         // @return total bytes written/ diff bytes written

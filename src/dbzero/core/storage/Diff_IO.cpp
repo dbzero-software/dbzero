@@ -96,6 +96,17 @@ namespace db0
         m_modified = true;
         return Page_IO::append(buffer, is_first_page_ptr);
     }
+
+    std::uint64_t Diff_IO::reserve(std::uint32_t page_count, bool *is_first_page)
+    {
+        // Reservations advance the shared Page_IO cursor. Flush pending diff
+        // pages first so page numbers already returned by appendDiff remain valid.
+        std::unique_lock<std::mutex> lock(m_mx_write);
+        if (m_writer) {
+            m_diff_bytes_written += m_writer->flush();
+        }
+        return Page_IO::reserve(page_count, is_first_page);
+    }
     
     std::pair<std::size_t, std::size_t> Diff_IO::getStats() const {
         return { m_full_dp_bytes_written + m_diff_bytes_written, m_diff_bytes_written };

@@ -6,6 +6,7 @@
 #include <utils/TestWorkspace.hpp>
 #include <utils/utils.hpp>
 #include <dbzero/core/storage/Diff_IO.hpp>
+#include <dbzero/core/storage/RandomIO_Stream.hpp>
 #include <thread>
 
 using namespace std;
@@ -192,6 +193,30 @@ namespace tests
             ASSERT_EQ(page_num + (overflow ? 1 : 0), cut.getNextPageNum().first);
         }
         cut.flush();
+    }
+
+    TEST_F( Diff_IOTest , testDiff_IOBufferedDiffSurvivesRandomIOReservation )
+    {
+        CFile::create(file_name, {});
+        CFile file(file_name, AccessType::READ_WRITE);
+        auto tail_function = [&file]() -> std::uint64_t {
+            return file.size();
+        };
+
+        Diff_IOProxy cut(0, file, page_size, page_size * 16, 0, 0, tail_function);
+        std::vector<std::uint16_t> diff_buf;
+        db0::getDiffs(m_dp_0.data(), m_dp_1.data(), page_size, diff_buf);
+
+        auto page_num = cut.appendDiff(m_dp_1.data(), {1, 1}, diff_buf).first;
+
+        RandomIO_Stream random_stream(cut, 4);
+        random_stream.append(m_dp_2.data());
+        random_stream.flush();
+        cut.flush();
+
+        auto dp = m_dp_0;
+        cut.applyFrom(page_num, dp.data(), {1, 1});
+        ASSERT_EQ(std::memcmp(m_dp_1.data(), dp.data(), page_size), 0);
     }
     
 }

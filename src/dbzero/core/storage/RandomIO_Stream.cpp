@@ -218,7 +218,7 @@ namespace db0
     std::uint64_t RandomIO_Stream::appendRandom(const void *buffer)
     {
         m_modified = true;
-        auto page_num = static_cast<Page_IO &>(m_page_io).reserve(m_page_ratio);
+        auto page_num = m_page_io.reserve(m_page_ratio);
         writeRandom(page_num, buffer);
         return page_num;
     }
