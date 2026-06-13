@@ -75,7 +75,7 @@ namespace tests
 
         static Allocator::SlotId addressSlotId(Address address)
         {
-            return MS_Address::from(address.getOffset() / page_size).slot_id();
+            return MS_Address::from(address.getOffset()).slot_id();
         }
     };
 
