@@ -51,7 +51,7 @@ namespace db0
         if (!m_use_bucket_mapping) {
             m_slot_id = getMetaSlotId(m_page_num);
             m_slot_initialized = true;
-            return m_sparse_pair_manager.tryGetExisting(m_slot_id, AccessType::READ_ONLY);
+            return m_sparse_pair_manager.tryGetExisting(m_slot_id);
         }
         if (m_page_num >= m_bucket_end_page_num) {
             initSparsePair(m_page_num);
@@ -104,7 +104,7 @@ namespace db0
         setBucketEndPageNum(bucket, page_num);
         m_slot_id = bucket.m_slot_id;
         m_slot_initialized = true;
-        m_sparse_pair = m_sparse_pair_manager.tryGetExisting(m_slot_id, AccessType::READ_ONLY);
+        m_sparse_pair = m_sparse_pair_manager.tryGetExisting(m_slot_id);
     }
 
     template <bool read_only>

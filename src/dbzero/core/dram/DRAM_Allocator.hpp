@@ -66,12 +66,11 @@ namespace db0
         void commit() const override;
 
         void detach() const override;
-
+        
         /**
          * Get address of the 1st allocation
-         * possibly from a specific slot (if supported, otherwise slot_num is ignored)
         */
-        Address firstAlloc(SlotId slot_num = 0) const;
+        virtual Address firstAlloc(SlotId = 0) const;
 
         bool empty() const;
 

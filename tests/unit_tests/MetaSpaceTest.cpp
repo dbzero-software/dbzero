@@ -505,38 +505,7 @@ namespace tests
         ASSERT_EQ(slot_5_data[0], 0x55);
         ASSERT_EQ(slot_5_data[17], 0x50);
     }
-
-    TEST_F( MetaSpaceTest, testMSMetaSpaceLazyMapsSlotOnFirstAccess )
-    {
-        CFile::create(file_name, {});
-        CFile file(file_name, AccessType::READ_WRITE);
-        auto mapping_pair = createMappingPair();
-        SparsePair sparse_pair(SparsePair::tag_create(), mapping_pair);
-
-        auto io = createIO(file);
-        auto stream = createStream(io);
-        auto memspace = MS_MetaSpace::create(page_size, sparse_pair, stream);
-        auto slot_2_address = memspace.alloc(page_size, 2);
-        auto slot_3_address = memspace.alloc(page_size, 3);
-        fillPage(memspace, slot_2_address, 0x20);
-        fillPage(memspace, slot_3_address, 0x30);
-        ASSERT_TRUE(flushMeta(memspace, stream, sparse_pair));
-
-        auto reopened = MS_MetaSpace::create(page_size, sparse_pair, stream, MappingPolicy::lazy);
-        ASSERT_EQ(dynamic_cast<DRAM_Prefix &>(reopened.getPrefix()).size(), 0u);
-
-        ASSERT_EQ(readPage(reopened, slot_2_address), std::vector<unsigned char>(page_size, 0x20));
-        ASSERT_EQ(dynamic_cast<DRAM_Prefix &>(reopened.getPrefix()).size(), page_size);
-
-        ASSERT_EQ(readPage(reopened, slot_3_address), std::vector<unsigned char>(page_size, 0x30));
-        ASSERT_EQ(dynamic_cast<DRAM_Prefix &>(reopened.getPrefix()).size(), page_size * 2);
-    }
-
-    TEST_F( MetaSpaceTest, testMSMetaPrefixLazyLoadingUsesInjectedSlotLoader )
-    {
-        GTEST_SKIP() << "Injected slot loader API was replaced by Diff_IO-backed lazy loading.";
-    }
-
+    
     TEST_F( MetaSpaceTest, testMSMetaSpaceLazyReconstructsDiffBackedSlot )
     {
         CFile::create(file_name, {});

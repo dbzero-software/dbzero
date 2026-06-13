@@ -22,12 +22,11 @@ namespace db0
     static_assert(alignof(MS_Address) == alignof(std::uint64_t));
     static_assert(std::is_standard_layout_v<MS_Address>);
     
-    MS_MetaPrefix::MS_MetaPrefix(std::size_t page_size,
-        SparsePair &sparse_pair, RandomIO_Stream &page_io, MappingPolicy mapping_policy)
-        : MetaPrefix(page_size, sparse_pair)
+    MS_MetaPrefix::MS_MetaPrefix(
+        std::size_t page_size, SparsePair &parent_index, RandomIO_Stream &page_io)
+        : MetaPrefix(page_size, parent_index)
         , m_ps_shift(db0::getPageShift(page_size))        
         , m_page_io(page_io)
-        , m_mapping_policy(mapping_policy)
     {    
     }
 
@@ -39,19 +38,6 @@ namespace db0
         return { first_addr >> m_ps_shift, end_addr >> m_ps_shift };
     }
 
-    void MS_MetaPrefix::ensureSlot(Allocator::SlotId slot_id)
-    {
-        if (m_slot_ids.insert(slot_id).second) {
-            loadSlot(slot_id);
-        }
-    }
-
-    MemLock MS_MetaPrefix::mapRange(std::uint64_t address, std::size_t size, FlagSet<AccessOptions> access_mode)
-    {
-        ensureSlot(MS_Address::from(address).slot_id());
-        return MetaPrefix::mapRange(address, size, access_mode);
-    }
-    
     bool MS_MetaPrefix::evictSlot(Allocator::SlotId slot_id)
     {
         if (m_slot_ids.erase(slot_id) == 0) {
@@ -63,20 +49,34 @@ namespace db0
         return true;
     }
     
-    void MS_MetaPrefix::loadSlot(SlotId slot_id)
-    {
+    bool MS_MetaPrefix::tryLoadSlot(SlotId slot_id, MS_MetaAllocator &allocator)
+    {        
+        // FIXME: implement
+        THROWF(db0::InternalException) << "not implemented yet";
+        /*
+        m_slot_ids.insert(slot_id);
         auto [first_page_num, end_page_num] = getPageRange(slot_id);
         // Collect slot page numbers
         std::vector<std::uint64_t> slot_page_nums;
         m_sparse_pair.getSparseIndex().forUniquePageRange(first_page_num, end_page_num, [&](const SI_Item &item) {
-            slot_page_nums.push_back(item.m_page_num);            
+            slot_page_nums.push_back(item.m_page_num);
         });
-        db0::load(*this, m_page_io, slot_page_nums);
+        auto updater = allocator.beginUpdate(slot_id);
+        db0::load(*this, slot_page_nums.data(), slot_page_nums.data() + slot_page_nums.size(), std::move(updater));
+        */
+        return false;
     }
 
-    void load(MS_MetaPrefix &prefix, const std::uint64_t *page_num, const std::uint64_t *end)
+    void load(MS_MetaPrefix &prefix, const std::uint64_t *page_num, const std::uint64_t *end,
+        DRAM_Allocator::Updater &&updater)
     {
         load(prefix, prefix.m_page_io, page_num, end);
+        if (!updater) {
+            return;
+        }
+        for (; page_num != end; ++page_num) {
+            updater(MS_Address::from(*page_num << prefix.m_ps_shift).local_address());
+        }
     }
     
 }

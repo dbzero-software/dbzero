@@ -20,7 +20,7 @@ namespace db0
 {
 
     struct MS_MetaSpace;
-    
+
     // MS_MetaAllocator organizes allocations into independently managed slots
     // Slot ID is encoded in the high bits of the returned address (with 40 / 24 bit split)
     // this leaves ~16M slot capacity which is sufficient for meta-data (e.g. single SLAB metadata)
@@ -28,7 +28,8 @@ namespace db0
     class MS_MetaAllocator: public DRAM_Allocator
     {
     public:
-        MS_MetaAllocator(SparsePair &sparse_pair, std::size_t page_size);
+        using SlotId = Allocator::SlotId;
+        MS_MetaAllocator(SparsePair &parent_index, std::size_t page_size);
 
         std::optional<Address> tryAlloc(std::size_t size, Allocator::SlotId slot_num = 0,
             bool aligned = false, unsigned char realm_id = 0, unsigned char locality = 0) override;
@@ -45,25 +46,29 @@ namespace db0
 
         void detach() const override;
 
-        std::optional<Address> tryFirstAlloc(Allocator::SlotId);
+        std::optional<Address> tryFirstAlloc(SlotId);
+        Address firstAlloc(SlotId) const override;
 
-        void evictSlot(Allocator::SlotId);
+        void evictSlot(SlotId);
         
         // For scoped refresh / updates of the allocator state
         // NOTE: the no-op updater will be returned if the slot was restored and fully initialized
-        DRAM_Allocator::Updater tryBeginUpdate(Allocator::SlotId);
+        DRAM_Allocator::Updater tryBeginUpdate(SlotId);
+        
+        // This version will expose a non-initialized allocator's updater if not found
+        DRAM_Allocator::Updater beginUpdate(SlotId);
         
     private:
-        SparsePair &m_sparse_pair;
+        SparsePair &m_parent_index;
         const std::size_t m_page_size;
         const std::uint32_t m_ps_shift;
-        std::unordered_map<Allocator::SlotId, std::shared_ptr<DRAM_Allocator> > m_allocators;
+        std::unordered_map<SlotId, std::shared_ptr<DRAM_Allocator> > m_allocators;
 
         void initializeAllocators();
-        
-        DRAM_Allocator &ensureAllocator(Allocator::SlotId, bool *is_newly_created = nullptr);
 
-        const DRAM_Allocator *tryFindAllocator(Allocator::SlotId) const;
+        DRAM_Allocator &ensureAllocator(SlotId, bool *is_newly_created = nullptr);
+
+        const DRAM_Allocator *tryFindAllocator(SlotId) const;
     };
 
 }

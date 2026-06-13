@@ -172,9 +172,8 @@ namespace db0
         }
         return AllocationInfo { Address::fromOffset(pageId * m_page_size), m_page_size };
     }
-
-    Address DRAM_Allocator::firstAlloc(SlotId slot_num) const {
-        assert(slot_num == 0);
+    
+    Address DRAM_Allocator::firstAlloc(SlotId) const {
         return Address::fromOffset(FIRST_PAGE_ID * m_page_size);
     }
 

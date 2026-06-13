@@ -8,6 +8,7 @@
 #include <dbzero/core/storage/SparsePair.hpp>
 #include <cstring>
 #include <map>
+#include <utility>
 #include <vector>
 
 namespace db0
@@ -59,9 +60,9 @@ namespace db0
         }
     }
 
-    MetaPrefix::MetaPrefix(std::size_t page_size, SparsePair &sparse_pair)
+    MetaPrefix::MetaPrefix(std::size_t page_size, SparsePair &parent_index)
         : DRAM_Prefix(page_size)
-        , m_sparse_pair(sparse_pair)        
+        , m_parent_index(parent_index)
     {
     }
 
@@ -70,7 +71,7 @@ namespace db0
         // Collect unique page numbers first (there might more than one state number available per page)
         std::uint64_t last_page_num = 0;
         std::vector<std::uint64_t> page_nums;
-        for (auto it = prefix.m_sparse_pair.getSparseIndex().cbegin(); !it.is_end(); ++it) {
+        for (auto it = prefix.m_parent_index.getSparseIndex().cbegin(); !it.is_end(); ++it) {
             auto item = *it;
             if (!!item && item.m_page_num != 0 && item.m_page_num != last_page_num) {
                 page_nums.push_back(item.m_page_num);
@@ -100,7 +101,7 @@ namespace db0
     bool fetchPage(MetaPrefix &prefix, RandomIO_Stream &page_io, std::uint64_t page_num, StateNumType state_num,
         void *buffer)
     {
-        SparseIndexQuery query(prefix.m_sparse_pair.getSparseIndex(), prefix.m_sparse_pair.getDiffIndex(),
+        SparseIndexQuery query(prefix.m_parent_index.getSparseIndex(), prefix.m_parent_index.getDiffIndex(),
             page_num, state_num);
         if (query.empty()) {
             return false;
@@ -120,20 +121,22 @@ namespace db0
         return true;
     }
 
-    void load(MetaPrefix &prefix, RandomIO_Stream &page_io, const std::vector<std::uint64_t> &page_nums)
+    void load(MetaPrefix &prefix, RandomIO_Stream &page_io, const std::vector<std::uint64_t> &page_nums,
+        DRAM_Allocator::Updater &&updater)
     {
-        load(prefix, page_io, page_nums.data(), page_nums.data() + page_nums.size());
+        load(prefix, page_io, page_nums.data(), page_nums.data() + page_nums.size(), std::move(updater));
     }
 
-    void load(MetaPrefix &prefix, RandomIO_Stream &page_io, const std::uint64_t *page_num, const std::uint64_t *end)
+    void load(MetaPrefix &prefix, RandomIO_Stream &page_io, const std::uint64_t *page_num,
+        const std::uint64_t *end, DRAM_Allocator::Updater &&updater)
     {
         auto state_num = prefix.getStateNum(false);
         // For I/O performace we first determine the operations and then execute ordered for better locality
         std::vector<Load_OP> load_ops;
         std::vector<LoadDiff_OP> load_diff_ops;
 
-        auto &sparse_index = prefix.m_sparse_pair.getSparseIndex();
-        auto &diff_index = prefix.m_sparse_pair.getDiffIndex();
+        auto &sparse_index = prefix.m_parent_index.getSparseIndex();
+        auto &diff_index = prefix.m_parent_index.getDiffIndex();
         for (;page_num != end; ++page_num) {
             SparseIndexQuery query(sparse_index, diff_index, *page_num, state_num);
             if (query.empty()) {
@@ -141,6 +144,9 @@ namespace db0
             }
 
             auto page_buf = prefix.update(*page_num, false);
+            if (!!updater) {
+                updater(*page_num * prefix.getPageSize());
+            }
             auto storage_page_num = query.first();
             if (storage_page_num) {
                 load_ops.push_back(Load_OP { storage_page_num, page_buf });
@@ -215,7 +221,7 @@ namespace db0
         // The sparse pair belongs to this MetaPrefix and may still have pending
         // sparse/diff index write-backs. Commit it before dirty-page detection so
         // the flush scans the final metadata image for this transaction.
-        m_sparse_pair.commit();
+        m_parent_index.commit();
         m_cow_pages.clear();
         return getStateNum(false);
     }
@@ -250,7 +256,7 @@ namespace db0
                 auto [storage_page_num, overflow] = page_io.appendDiff(
                     buffer, { page_num, state_num }, diffs, &is_first_page
                 );
-                m_sparse_pair.getDiffIndex().insert(page_num, state_num, storage_page_num, overflow);
+                m_parent_index.getDiffIndex().insert(page_num, state_num, storage_page_num, overflow);
                 return true;
             }
             if (diffs.empty()) {
@@ -262,7 +268,7 @@ namespace db0
         if (storage_page_num == 0) {
             THROWF(db0::InternalException) << "MetaPrefix: storage page 0 is reserved as an empty full-DP sentinel";
         }
-        m_sparse_pair.getSparseIndex().emplace(page_num, state_num, storage_page_num);
+        m_parent_index.getSparseIndex().emplace(page_num, state_num, storage_page_num);
         return true;
     }
 
@@ -283,8 +289,8 @@ namespace db0
 
     void MetaPrefix::publishCompactedState(StateNumType state_num)
     {
-        m_sparse_pair.recordMaxStateNum(state_num);
-        m_sparse_pair.commit();        
+        m_parent_index.recordMaxStateNum(state_num);
+        m_parent_index.commit();        
         m_cow_pages.clear();
         flushDirty([&](std::uint64_t, const void *) {});
     }
@@ -297,9 +303,9 @@ namespace db0
         });
 
         std::vector<std::uint64_t> sparse_page_nums;
-        sparse_page_nums.reserve(prefix.m_sparse_pair.getSparseIndex().size());
+        sparse_page_nums.reserve(prefix.m_parent_index.getSparseIndex().size());
         std::uint64_t previous_page_num = 0;
-        for (auto it = prefix.m_sparse_pair.getSparseIndex().cbegin(); !it.is_end(); ++it) {
+        for (auto it = prefix.m_parent_index.getSparseIndex().cbegin(); !it.is_end(); ++it) {
             auto item = *it;
             if (!!item && item.m_page_num != 0 && item.m_page_num != previous_page_num) {
                 sparse_page_nums.push_back(item.m_page_num);
@@ -334,7 +340,7 @@ namespace db0
 
         auto before_state_num = prefix.getStateNum(false);
         auto new_state_num = before_state_num + 1;
-        auto reusable_full_pages = collectReusableFullPageNums(prefix.m_sparse_pair, before_state_num);
+        auto reusable_full_pages = collectReusableFullPageNums(prefix.m_parent_index, before_state_num);
         std::size_t next_reusable_page = 0;
         std::vector<std::byte> page_buffer(prefix.getPageSize());
 
@@ -353,7 +359,7 @@ namespace db0
                 ? reusable_full_pages[next_reusable_page++]
                 : 0;
             auto storage_page_num = prefix.writeFullPage(page_io, page_buffer.data(), reusable_storage_page_num);
-            prefix.m_sparse_pair.getSparseIndex().update(page_num, new_state_num, storage_page_num);
+            prefix.m_parent_index.getSparseIndex().update(page_num, new_state_num, storage_page_num);
         }
 
         prefix.publishCompactedState(new_state_num);
@@ -362,12 +368,12 @@ namespace db0
 
     StateNumType MetaPrefix::getStateNum() const
     {
-        return m_sparse_pair.getMaxStateNum();
+        return m_parent_index.getMaxStateNum();
     }
 
     StateNumType MetaPrefix::getStateNum(bool) const
     {
-        return m_sparse_pair.getMaxStateNum();
+        return m_parent_index.getMaxStateNum();
     }
     
     std::size_t MetaPrefix::flushDirty(std::size_t)
@@ -379,7 +385,7 @@ namespace db0
     void MetaPrefix::forAllocatedAddresses(std::function<void(std::uint64_t)> sink) const
     {
         std::uint64_t last_page_num = 0;
-        for (auto it = m_sparse_pair.getSparseIndex().cbegin(); !it.is_end(); ++it) {
+        for (auto it = m_parent_index.getSparseIndex().cbegin(); !it.is_end(); ++it) {
             auto item = *it;
             if (!!item && item.m_page_num != 0 && item.m_page_num != last_page_num) {
                 sink(item.m_page_num * getPageSize());

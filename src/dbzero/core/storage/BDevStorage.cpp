@@ -143,10 +143,8 @@ namespace db0
         , m_page_io(getPage_IO(getNextStoragePageNum(), m_config.m_page_io_step_size))
         , m_desc_io(getDesc_IO())
         , m_meta_space(MS_MetaSpace::create(
-            m_config.m_descriptor_page_size, m_root_sparse_pair, m_desc_io,
-            getOpenMetaMappingPolicy(m_options, flags))
-        )
-        , m_sparse_pair_manager(m_meta_space, access_type, flags)
+            m_config.m_descriptor_page_size, m_root_sparse_pair, m_desc_io))    
+        , m_sparse_pair_manager(m_meta_space, access_type, flags, getOpenMetaMappingPolicy(m_options, flags))
 #ifndef NDEBUG
         , m_data_mirror(m_config.m_page_size)
 #endif
@@ -435,7 +433,7 @@ namespace db0
         StateNumType &mutation_id) const
     {
         std::shared_lock<std::shared_mutex> lock(m_mutex);
-        auto *sparse_pair = m_sparse_pair_manager.tryGetExisting(getMetaSlotId(page_num), AccessType::READ_ONLY);
+        auto *sparse_pair = m_sparse_pair_manager.tryGetExisting(getMetaSlotId(page_num));
         if (!sparse_pair) {
             return false;
         }
@@ -451,7 +449,7 @@ namespace db0
 
         StateNumType result;
         std::shared_lock<std::shared_mutex> lock(m_mutex);
-        auto *sparse_pair = m_sparse_pair_manager.tryGetExisting(getMetaSlotId(page_num), AccessType::READ_ONLY);
+        auto *sparse_pair = m_sparse_pair_manager.tryGetExisting(getMetaSlotId(page_num));
         if (!sparse_pair || !db0::tryFindMutation(
             sparse_pair->getSparseIndex(), sparse_pair->getDiffIndex(), page_num, state_num, result)) {
             assert(false && "BDevStorage::findMutation: page not found");

@@ -30,14 +30,9 @@ namespace db0
     {
     }
     
-    MS_MetaSpace MS_MetaSpace::create(std::size_t page_size, SparsePair &sparse_pair, RandomIO_Stream &page_io,
-        MappingPolicy mapping_policy)
-    {        
-        auto prefix = std::make_shared<MS_MetaPrefix>(page_size, sparse_pair, page_io, mapping_policy);
-        if (mapping_policy == MappingPolicy::eager) {
-            db0::load(*prefix, page_io);
-        }
-
+    MS_MetaSpace MS_MetaSpace::create(std::size_t page_size, SparsePair &sparse_pair, RandomIO_Stream &page_io)
+    {
+        auto prefix = std::make_shared<MS_MetaPrefix>(page_size, sparse_pair, page_io);
         auto allocator = std::make_shared<MS_MetaAllocator>(sparse_pair, page_size);
         return { prefix, allocator };
     }

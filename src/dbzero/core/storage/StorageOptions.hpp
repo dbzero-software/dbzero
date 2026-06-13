@@ -8,6 +8,7 @@
 #include <dbzero/core/dram/MetaSpace.hpp>
 #include <dbzero/core/dram/MS_MetaPrefix.hpp>
 #include <dbzero/core/memory/MetaAllocator.hpp>
+#include "SparsePairManager.hpp"
 
 namespace db0
 

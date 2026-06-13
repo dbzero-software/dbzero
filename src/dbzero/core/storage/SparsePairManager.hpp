@@ -19,6 +19,12 @@ namespace db0
     class DRAM_Prefix;
     class MS_MetaAllocator;
 
+    enum class MappingPolicy
+    {
+        eager,
+        lazy
+    };
+
     /**
      * Owns per-slot SparsePair instances stored inside one MS_MetaSpace.
      *
@@ -45,18 +51,14 @@ namespace db0
         using SlotId = Allocator::SlotId;
 
         SparsePairManager(MS_MetaSpace &metaspace, AccessType access_type = AccessType::READ_WRITE,
-            StorageFlags flags = {});
+            StorageFlags flags = {}, MappingPolicy = MappingPolicy::eager);
 
         PlainSparsePair &getOrCreate(SlotId slot_id);
 
-        PlainSparsePair *tryGetExisting(SlotId slot_id, AccessType access_type) const;
+        PlainSparsePair *tryGetExisting(SlotId) const;        
 
-        PlainSparsePair *tryGetExisting(SlotId slot_id) const;
-
-        PlainSparsePair *tryGetCached(SlotId slot_id) const noexcept;
-
-        PlainSparsePair *tryGetCached(SlotId slot_id, AccessType access_type) const noexcept;
-
+        PlainSparsePair *tryGetCached(SlotId) const noexcept;
+        
         void evictSlot(SlotId slot_id);
 
         void refreshPages(const std::vector<std::uint64_t> &page_nums);
@@ -73,29 +75,20 @@ namespace db0
         std::shared_ptr<MS_MetaPrefix> m_prefix;
         std::shared_ptr<MS_MetaAllocator> m_allocator;
         const std::uint32_t m_ps_shift;
+        const MappingPolicy m_mapping_policy;
         AccessType m_access_type;
         StorageFlags m_flags;
         // shared change log for all managed pairs, cleared on commit
         // it contains page numbers which after translating to MS_Address also reveal slot IDs
         mutable ChangeLogT m_change_log;
-
-        struct PairEntry
-        {
-            std::unique_ptr<PlainSparsePair> m_pair;
-            AccessType m_access_type;
-        };
-
-        mutable std::unordered_map<SlotId, PairEntry> m_pairs;
-        mutable SlotId m_hot_slot_id = 0;
-        mutable PlainSparsePair *m_hot_pair = nullptr;
-        mutable AccessType m_hot_access_type = AccessType::READ_ONLY;
-
-        DRAM_Pair createDRAMPair(SlotId slot_id) const;
         
-        static bool canUseCached(AccessType cached_access_type, AccessType requested_access_type) noexcept;
+        mutable std::unordered_map<SlotId, std::unique_ptr<PlainSparsePair> > m_pairs;
+        mutable SlotId m_hot_slot_id = 0;
+        mutable PlainSparsePair *m_hot_pair = nullptr;        
 
-        void cacheHotPair(SlotId slot_id, PlainSparsePair &sparse_pair,
-            AccessType access_type) const noexcept;
+        DRAM_Pair createDRAMPair(SlotId) const;
+        
+        void cacheHotPair(SlotId, PlainSparsePair &) const noexcept;
     };
 
 }

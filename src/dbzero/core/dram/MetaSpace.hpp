@@ -20,8 +20,7 @@ namespace db0
     class MS_MetaSpace: public Memspace
     {
     public:        
-        static MS_MetaSpace create(std::size_t page_size, SparsePair &sparse_pair, RandomIO_Stream &page_io,
-            MappingPolicy mapping_policy = MappingPolicy::eager);
+        static MS_MetaSpace create(std::size_t page_size, SparsePair &sparse_pair, RandomIO_Stream &);
 
         std::shared_ptr<MS_MetaPrefix> getMSPrefixPtr() const;
 

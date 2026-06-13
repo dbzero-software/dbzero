@@ -12,18 +12,24 @@ namespace db0
 
 {
 
-    SparsePairManager::SparsePairManager(MS_MetaSpace &metaspace, AccessType access_type, StorageFlags flags)
+    SparsePairManager::SparsePairManager(MS_MetaSpace &metaspace, AccessType access_type, 
+        StorageFlags flags, MappingPolicy mapping_policy)
         : m_prefix(metaspace.getMSPrefixPtr())
         , m_allocator(metaspace.getMSAllocatorPtr())
         , m_ps_shift(db0::getPageShift(m_prefix->getPageSize()))
+        , m_mapping_policy(mapping_policy)
         , m_access_type(access_type)
         , m_flags(flags)
     {
+        if (mapping_policy == MappingPolicy::eager) {
+            // fully initialize with "eager" mapping policy
+            db0::load(*m_prefix, *m_allocator);
+        }
     }
-
-    PlainSparsePair *SparsePairManager::tryGetCached(Allocator::SlotId slot_id, AccessType access_type) const noexcept
+    
+    PlainSparsePair *SparsePairManager::tryGetCached(Allocator::SlotId slot_id) const noexcept
     {
-        if (m_hot_pair && m_hot_slot_id == slot_id && canUseCached(m_hot_access_type, access_type)) {
+        if (m_hot_pair && m_hot_slot_id == slot_id) {
             return m_hot_pair;
         }
 
@@ -31,70 +37,63 @@ namespace db0
         if (it == m_pairs.end()) {
             return nullptr;
         }
-        if (!canUseCached(it->second.m_access_type, access_type)) {
-            return nullptr;
-        }
-        cacheHotPair(slot_id, *it->second.m_pair, it->second.m_access_type);
-        return it->second.m_pair.get();
-    }
-
-    PlainSparsePair *SparsePairManager::tryGetCached(Allocator::SlotId slot_id) const noexcept
-    {
-        return tryGetCached(slot_id, m_access_type);
+        cacheHotPair(slot_id, *it->second);
+        return it->second.get();
     }
 
     PlainSparsePair &SparsePairManager::getOrCreate(Allocator::SlotId slot_id)
     {
-        if (auto *existing = tryGetExisting(slot_id, m_access_type)) {
+        if (auto *existing = tryGetExisting(slot_id)) {
             return *existing;
         }
-
+        
+        // Create new sparse pair over a newly created slot
         auto dram_pair = createDRAMPair(slot_id);
         auto sparse_pair = std::make_unique<PlainSparsePair>(
             PlainSparsePair::tag_create(), dram_pair, slot_id, &m_change_log);
+        // assert it was allocated at the expected address (1st alloc of the slot)
+        assert(sparse_pair->getAddress() == m_allocator->firstAlloc(slot_id));
         auto *result = sparse_pair.get();
-        m_pairs.insert_or_assign(slot_id, PairEntry { std::move(sparse_pair), m_access_type });
-        cacheHotPair(slot_id, *result, m_access_type);
+        m_pairs.insert_or_assign(slot_id, std::move(sparse_pair));
+        cacheHotPair(slot_id, *result);
         return *result;
-    }
-
-    PlainSparsePair *SparsePairManager::tryGetExisting(Allocator::SlotId slot_id, AccessType access_type) const
-    {
-        auto cached_it = m_pairs.find(slot_id);
-        if (cached_it != m_pairs.end() && canUseCached(cached_it->second.m_access_type, access_type)) {
-            cacheHotPair(slot_id, *cached_it->second.m_pair, cached_it->second.m_access_type);
-            return cached_it->second.m_pair.get();
-        }
-
-        auto root_address = m_allocator->tryFirstAlloc(slot_id);
-        if (!root_address) {
-            return nullptr;
-        }
-
-        auto dram_pair = createDRAMPair(slot_id);
-        auto sparse_pair = std::make_unique<PlainSparsePair>(
-            dram_pair, access_type, *root_address, m_flags, slot_id, &m_change_log);
-        auto *result = sparse_pair.get();
-        m_pairs.insert_or_assign(slot_id, PairEntry { std::move(sparse_pair), access_type });
-        cacheHotPair(slot_id, *result, access_type);
-        return result;
     }
 
     PlainSparsePair *SparsePairManager::tryGetExisting(Allocator::SlotId slot_id) const
     {
-        return tryGetExisting(slot_id, m_access_type);
-    }
+        auto cached_it = m_pairs.find(slot_id);        
+        if (cached_it != m_pairs.end()) {
+            cacheHotPair(slot_id, *cached_it->second);
+            return cached_it->second.get();
+        }
 
+        if (!m_prefix->tryLoadSlot(slot_id, *m_allocator)) {
+            // slot has no data yet, cannot be loaded
+            return nullptr;
+        }
+
+        // sparse pair is located at the slot's root address
+        auto root_address = m_allocator->firstAlloc(slot_id);
+        // Open existing sparse pair over an already existing slot
+        auto dram_pair = createDRAMPair(slot_id);
+        auto sparse_pair = std::make_unique<PlainSparsePair>(
+            dram_pair, m_access_type, root_address, m_flags, slot_id, &m_change_log);
+        auto *result = sparse_pair.get();
+        m_pairs.insert_or_assign(slot_id, std::move(sparse_pair));
+        cacheHotPair(slot_id, *result);
+        return result;
+    }
+    
     void SparsePairManager::evictSlot(Allocator::SlotId slot_id)
     {
         auto pair_it = m_pairs.find(slot_id);
         if (pair_it == m_pairs.end()) {
             return;
         }
-        if (m_hot_pair == pair_it->second.m_pair.get()) {
+        if (m_hot_pair == pair_it->second.get()) {
             m_hot_pair = nullptr;
         }
-        pair_it->second.m_pair->detach();
+        pair_it->second->detach();
         m_pairs.erase(pair_it);
     }
     
@@ -161,7 +160,7 @@ namespace db0
     void SparsePairManager::forCachedPairs(std::function<void(Allocator::SlotId, PlainSparsePair &)> callback)
     {
         for (auto &item: m_pairs) {
-            callback(item.first, *item.second.m_pair);
+            callback(item.first, *item.second);
         }
     }
 
@@ -193,7 +192,7 @@ namespace db0
 
             auto pair_it = m_pairs.find(slot_id);
             if (pair_it != m_pairs.end()) {
-                pair_it->second.m_pair->commit();
+                pair_it->second->commit();
             }
         }
         return true;
@@ -204,18 +203,11 @@ namespace db0
         (void)slot_id;
         return { m_prefix, m_allocator };
     }
-
-    bool SparsePairManager::canUseCached(AccessType cached_access_type, AccessType requested_access_type) noexcept
-    {
-        return requested_access_type == AccessType::READ_ONLY || cached_access_type == AccessType::READ_WRITE;
-    }
-
-    void SparsePairManager::cacheHotPair(Allocator::SlotId slot_id, PlainSparsePair &sparse_pair,
-        AccessType access_type) const noexcept
+    
+    void SparsePairManager::cacheHotPair(Allocator::SlotId slot_id, PlainSparsePair &sparse_pair) const noexcept
     {
         m_hot_slot_id = slot_id;
-        m_hot_pair = &sparse_pair;
-        m_hot_access_type = access_type;
+        m_hot_pair = &sparse_pair;        
     }
         
 }

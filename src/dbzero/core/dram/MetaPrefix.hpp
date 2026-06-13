@@ -25,7 +25,7 @@ namespace db0
         /// @brief Create a MetaPrefix instance over the shared sparse mapping.
         /// @param page_size 
         /// @param sparse_pair maintains storage locations of the managed metadata pages
-        MetaPrefix(std::size_t page_size, SparsePair &sparse_pair);
+        MetaPrefix(std::size_t page_size, SparsePair &parent_index);
 
         MemLock mapRange(std::uint64_t address, std::size_t size, FlagSet<AccessOptions> = {}) override;
 
@@ -41,7 +41,7 @@ namespace db0
         StateNumType getStateNum() const;
 
     protected:
-        SparsePair &m_sparse_pair;
+        SparsePair &m_parent_index;
 
     private:
         std::unordered_map<std::uint64_t, std::vector<std::byte> > m_cow_pages;
@@ -58,22 +58,25 @@ namespace db0
         friend void load(MetaPrefix &prefix, RandomIO_Stream &page_io);
         friend bool fetchPage(MetaPrefix &prefix, RandomIO_Stream &page_io, std::uint64_t page_num,
             StateNumType state_num, void *buffer);
-        friend void load(MetaPrefix &prefix, RandomIO_Stream &page_io, const std::uint64_t *page_num, 
-            const std::uint64_t *end);
+        friend void load(MetaPrefix &prefix, RandomIO_Stream &page_io, const std::uint64_t *page_num,
+            const std::uint64_t *end, DRAM_Allocator::Updater &&updater);
 
         friend bool flush(MetaPrefix &prefix, RandomIO_Stream &page_io, ProcessTimer *timer);
 
         friend bool compact(MetaPrefix &prefix, RandomIO_Stream &page_io, ProcessTimer *timer);
     };
-
-    // Load or refresh all pages from the current head state
+    
+    // Load or refresh ALL pages from the current head state
     void load(MetaPrefix &, RandomIO_Stream &);
 
     // Load or refresh specific pages from the current head state
     // this operation is optimized for large page batches
     // @param page_nums sorted page numbers to load
-    void load(MetaPrefix &, RandomIO_Stream &, const std::vector<std::uint64_t> &page_nums);
-    void load(MetaPrefix &, RandomIO_Stream &, const std::uint64_t *page_num, const std::uint64_t *end);
+    // @param updater optional updater to initialize or refresh the associated allocator's state
+    void load(MetaPrefix &, RandomIO_Stream &, const std::vector<std::uint64_t> &page_nums,
+        DRAM_Allocator::Updater &&updater = {});
+    void load(MetaPrefix &, RandomIO_Stream &, const std::uint64_t *page_num, const std::uint64_t *end,
+        DRAM_Allocator::Updater &&updater = {});
 
     bool flush(MetaPrefix &prefix, RandomIO_Stream &page_io, ProcessTimer *timer = nullptr);
 

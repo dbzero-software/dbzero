@@ -28,9 +28,9 @@ namespace db0
         return Address::fromOffset(MS_Address::encode(slot_id, local_addr));
     }
     
-    MS_MetaAllocator::MS_MetaAllocator(SparsePair &sparse_pair, std::size_t page_size)
+    MS_MetaAllocator::MS_MetaAllocator(SparsePair &parent_index, std::size_t page_size)
         : DRAM_Allocator(page_size)
-        , m_sparse_pair(sparse_pair)
+        , m_parent_index(parent_index)
         , m_page_size(page_size)
         , m_ps_shift(db0::getPageShift(page_size))
     {
@@ -54,7 +54,7 @@ namespace db0
 
         // NOTE: sorted iteration exposes slot-ordered page number
         std::uint64_t last_addr = 0;
-        for (auto it = m_sparse_pair.getSparseIndex().cbegin(); !it.is_end(); ++it) {
+        for (auto it = m_parent_index.getSparseIndex().cbegin(); !it.is_end(); ++it) {
             auto item = *it;
             if (!item || item.m_page_num == 0) {
                 continue;
@@ -105,7 +105,7 @@ namespace db0
                 : MS_Address::encode(slot_id + 1, 0);
 
             // scan SparseIndex as the source of truth
-            m_sparse_pair.getSparseIndex().forUniquePageRange(first_addr >> m_ps_shift, end_addr >> m_ps_shift, [&](const SI_Item &item) {            
+            m_parent_index.getSparseIndex().forUniquePageRange(first_addr >> m_ps_shift, end_addr >> m_ps_shift, [&](const SI_Item &item) {            
                 auto ext_addr = item.m_page_num << m_ps_shift;
                 updater(MS_Address::from(ext_addr).local_address());
             });
@@ -119,7 +119,7 @@ namespace db0
         (void)inserted;
         return *new_it->second;
     }
-
+    
     const DRAM_Allocator *MS_MetaAllocator::tryFindAllocator(Allocator::SlotId slot_id) const
     {
         auto it = m_allocators.find(slot_id);
@@ -184,10 +184,19 @@ namespace db0
     }
 
     std::optional<Address> MS_MetaAllocator::tryFirstAlloc(Allocator::SlotId slot_id)
-    {        
+    {
+        auto allocator = tryFindAllocator(slot_id);
+        if (!allocator || allocator->empty()) {
+            return std::nullopt;
+        }
+        return ms_external_address(slot_id, allocator->firstAlloc());
+    }
+
+    Address MS_MetaAllocator::firstAlloc(SlotId slot_id) const
+    {
         auto allocator = tryFindAllocator(slot_id);
         if (!allocator) {
-            return std::nullopt;
+            THROWF(db0::BadAddressException) << "Invalid MS_MetaSpace slot ID: " << slot_id;            
         }
         return ms_external_address(slot_id, allocator->firstAlloc());
     }
@@ -198,14 +207,25 @@ namespace db0
     }
     
     DRAM_Allocator::Updater MS_MetaAllocator::tryBeginUpdate(Allocator::SlotId slot_id)
-    {   
+    {
         bool is_newly_created = false;
         auto &allocator = ensureAllocator(slot_id, &is_newly_created);
         if (is_newly_created) {
-            // no need to update if the slot was just created and fully initialized
+            // no-op updater since the allocator is newly created and has no state to refresh
             return {};
         }
         return allocator.beginUpdate();
+    }
+
+    DRAM_Allocator::Updater MS_MetaAllocator::beginUpdate(Allocator::SlotId slot_id)
+    {
+        auto it = m_allocators.find(slot_id);
+        if (it == m_allocators.end()) {
+            auto [new_it, inserted] = m_allocators.emplace(slot_id, std::make_shared<DRAM_Allocator>(m_page_size));
+            (void)inserted;
+            it = new_it;
+        }
+        return it->second->beginUpdate();
     }
 
     void MS_MetaAllocator::commit() const

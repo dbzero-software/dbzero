@@ -22,12 +22,8 @@ namespace db0
 
     struct MS_MetaSpace;
 
-    enum class MappingPolicy
-    {
-        eager,
-        lazy
-    };
-    
+    // NOTE: access to MS_MetaPrefix requires managing slots via (loadSlot / evictSlot)
+    // Use SparsePairManager to safely manage slots with a chosen policy
     class MS_MetaPrefix: public MetaPrefix
     {
     public:
@@ -37,10 +33,7 @@ namespace db0
          * Creates a metadata prefix over the shared sparse mapping.
          * page_io reference is required for lazy / mixed slot loading policy
          */
-        MS_MetaPrefix(std::size_t page_size, SparsePair &sparse_pair,
-            RandomIO_Stream &page_io, MappingPolicy mapping_policy = MappingPolicy::eager);
-
-        MemLock mapRange(std::uint64_t address, std::size_t size, FlagSet<AccessOptions> = {}) override;
+        MS_MetaPrefix(std::size_t page_size, SparsePair &parent_index, RandomIO_Stream &);
         
         // Evict dirty and unused slot (must be flushed and detached)
         bool evictSlot(SlotId);
@@ -48,21 +41,27 @@ namespace db0
         // Get slot associated desc-io logical begin / end page pair
         std::pair<std::uint64_t, std::uint64_t> getPageRange(SlotId) const;
 
+        // Load or refresh and entire slot and initialize or update the associated allocator's state
+        // @return true if the slot was loaded, false if the slot has no data yet
+        bool tryLoadSlot(SlotId, MS_MetaAllocator &);
+
     private:
         friend struct MS_MetaSpace;
         
         const std::uint32_t m_ps_shift;
-        RandomIO_Stream &m_page_io;
-        const MappingPolicy m_mapping_policy;
+        RandomIO_Stream &m_page_io;        
         // the loaded slot IDs
         std::unordered_set<SlotId> m_slot_ids;
 
-        void ensureSlot(SlotId);
-        void loadSlot(SlotId);
-
-        friend void load(MS_MetaPrefix &, const std::uint64_t *, const std::uint64_t *);
+        friend void load(MS_MetaPrefix &, const std::uint64_t *, const std::uint64_t *,
+            DRAM_Allocator::Updater &&);
     };
     
-    void load(MS_MetaPrefix &, const std::uint64_t *page_num, const std::uint64_t *end);
+    // Load the entire prefix and initialize the associated allocator's state
+    void load(MS_MetaPrefix &, MS_MetaAllocator &);
 
+    // Load or refresh pages from a single specific slot only
+    void load(MS_MetaPrefix &, const std::uint64_t *page_num, const std::uint64_t *end,
+        DRAM_Allocator::Updater &&updater = {});
+    
 }
