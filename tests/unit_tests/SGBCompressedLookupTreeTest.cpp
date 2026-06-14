@@ -161,12 +161,22 @@ namespace tests
     }
 
     template <typename TreeT>
-    std::vector<std::uint64_t> collectSortedRange(const TreeT &tree, std::uint64_t first, std::uint64_t last)
+    std::vector<std::uint64_t> collectSortedRange(const TreeT &tree, std::uint64_t first, std::uint64_t end)
     {
         std::vector<std::uint64_t> result;
-        for (auto it = tree.sortedBeginFrom(first); !it.is_end() && *it < last; ++it) {
+        for (auto it = tree.sortedBeginFrom(first); !it.is_end() && *it < end; ++it) {
             result.push_back(*it);
         }
+        return result;
+    }
+
+    template <typename TreeT>
+    std::vector<std::uint64_t> collectForRange(const TreeT &tree, std::uint64_t first, std::uint64_t end)
+    {
+        std::vector<std::uint64_t> result;
+        tree.forRange(first, end, [&](const auto &item) {
+            result.push_back(item);
+        });
         return result;
     }
 
@@ -410,6 +420,25 @@ namespace tests
         ASSERT_EQ(collectSortedRange(cut, 100u, 1001u), (std::vector<std::uint64_t> { 100, 255, 1000 }));
         ASSERT_EQ(collectSortedRange(cut, 256u, 2001u), (std::vector<std::uint64_t> { 1000, 1001, 1255, 2000 }));
         ASSERT_EQ(collectSortedRange(cut, 1256u, 1999u), (std::vector<std::uint64_t> {}));
+    }
+
+    TEST_F( SGB_CompressedLookupTreeTest , testSGBCompressedLookupTreeForRangeVisitsSortedHalfOpenRange )
+    {
+        using HeaderT = CompressingTestHeader<std::uint8_t>;
+        SGB_CompressedLookupTree<std::uint64_t, std::uint8_t, HeaderT> cut(m_bitspace,
+            page_size, AccessType::READ_WRITE);
+
+        std::vector<std::uint64_t> expected { 0, 100, 255, 1000, 1000, 1001, 1255, 2000, 2001 };
+        for (auto value : expected) {
+            cut.insert(value);
+        }
+
+        ASSERT_GT(countNodes(cut), 1);
+        ASSERT_EQ(collectForRange(cut, 100u, 1001u), (std::vector<std::uint64_t> { 100, 255, 1000, 1000 }));
+        ASSERT_EQ(collectForRange(cut, 256u, 2001u), (std::vector<std::uint64_t> { 1000, 1000, 1001, 1255, 2000 }));
+        ASSERT_EQ(collectForRange(cut, 1256u, 1999u), (std::vector<std::uint64_t> {}));
+        ASSERT_EQ(collectForRange(cut, 2001u, 2001u), (std::vector<std::uint64_t> {}));
+        ASSERT_EQ(collectForRange(cut, 2002u, 2001u), (std::vector<std::uint64_t> {}));
     }
 
     TEST_F( SGB_CompressedLookupTreeTest , testSGBCompressedLookupTreeConstSortedIteratorKeepsDuplicateItems )
