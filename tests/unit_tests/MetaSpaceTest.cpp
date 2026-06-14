@@ -16,6 +16,7 @@
 #include <dbzero/core/storage/RandomIO_Stream.hpp>
 #include <dbzero/core/storage/SparseIndexQuery.hpp>
 #include <dbzero/core/storage/SparsePair.hpp>
+#include <dbzero/core/storage/SparsePairManager.hpp>
 
 using namespace db0;
 using namespace db0::tests;
@@ -350,6 +351,7 @@ namespace tests
         ASSERT_TRUE(sparse_pair.getSparseIndex().lookup(slot_7_address.getOffset() / page_size, memspace.getStateNum()));
 
         auto reopened = MS_MetaSpace::create(page_size, sparse_pair, stream);
+        SparsePairManager manager(reopened);
         ASSERT_EQ(readPage(reopened, slot_0_address), std::vector<unsigned char>(page_size, 0x10));
         ASSERT_EQ(readPage(reopened, slot_7_address), std::vector<unsigned char>(page_size, 0x70));
     }
