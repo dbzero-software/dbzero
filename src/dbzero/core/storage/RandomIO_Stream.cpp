@@ -235,6 +235,9 @@ namespace db0
 
     void RandomIO_Stream::flush()
     {
+        if (!m_modified) {
+            return;
+        }
         writeCurrentControl(CONTROL_END, m_current_used_pages);
         m_modified = false;
     }
@@ -311,6 +314,7 @@ namespace db0
         m_current_next_chunk_page_num = 0;
         m_current_used_pages = 0;
         m_current_first_data_is_first_page = is_first_page;
+        m_modified = true;
     }
 
     void RandomIO_Stream::allocateNextChunk()

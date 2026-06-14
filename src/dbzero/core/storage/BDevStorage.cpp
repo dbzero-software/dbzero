@@ -774,7 +774,7 @@ namespace db0
     }
     
     void BDevStorage::close()
-    {    
+    {
         if (m_access_type == AccessType::READ_WRITE) {
             flush();
         }
