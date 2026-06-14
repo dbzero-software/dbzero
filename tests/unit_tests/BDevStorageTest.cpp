@@ -206,6 +206,28 @@ namespace tests
         }
     }
 
+    TEST_F( BDevStorageTest , testDescriptorRandomIODoesNotOverlapDramBlocksAcrossReopens )
+    {
+        std::size_t page_size = 4096;
+        BDevStorage::create(file_name, page_size);
+        std::vector<char> data_page(page_size, 0x41);
+        std::vector<std::byte> descriptor_page(page_size * 4, std::byte{0x5a});
+
+        for (int i = 0; i < 40; ++i) {
+            BDevStorageWrapper cut(file_name, AccessType::READ_WRITE);
+            data_page[0] = static_cast<char>(i);
+            descriptor_page[0] = static_cast<std::byte>(i);
+
+            cut.write(static_cast<std::uint64_t>(i) * page_size, i + 1, data_page.size(), data_page.data());
+            cut.appendDescriptorPage(descriptor_page);
+            ASSERT_TRUE(cut.flush());
+            cut.close();
+        }
+
+        BDevStorageWrapper reopened(file_name, AccessType::READ_WRITE);
+        reopened.close();
+    }
+
     TEST_F( BDevStorageTest , testApplicationSparsePairBucketingUsesConfiguredFunction )
     {
         std::size_t page_size = 4096;

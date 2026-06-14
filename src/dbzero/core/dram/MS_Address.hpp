@@ -47,7 +47,7 @@ namespace db0
     inline std::uint64_t MS_Address::encode(Allocator::SlotId slot_id, std::uint64_t local_address)
     {
         assert(slot_id < SLOT_ID_COUNT);
-        assert(local_address & LOCAL_ADDRESS_MASK == local_address);
+        assert((local_address & LOCAL_ADDRESS_MASK) == local_address);
         return (static_cast<std::uint64_t>(slot_id) << LOCAL_ADDRESS_BITS) | local_address;
     }
 

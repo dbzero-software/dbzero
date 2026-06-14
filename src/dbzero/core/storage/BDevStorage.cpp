@@ -405,6 +405,7 @@ namespace db0
             dram_changelog_io.flush();
             dram_io.close();
             dram_changelog_io.close();
+            desc_changelog_io.close();
             
             // create then flush the extension space
             if (has_ext_dram_io) {
@@ -419,6 +420,7 @@ namespace db0
             createDesc_IO(file, *config, buffer, tail_function, descriptor_stream_stride,
                 CONFIG_BLOCK_SIZE);
             
+            file.flush();
             file.close();
         }
     }
@@ -828,6 +830,7 @@ namespace db0
         // take max from the 4 underlying I/O streams
         auto result = std::max(m_dram_io.tail(), m_meta_io.tail());
         result = std::max(result, m_dram_changelog_io.tail());
+        result = std::max(result, m_desc_changelog_io.tail());
         result = std::max(result, m_dp_changelog_io.tail());
         result = std::max(result, m_page_io.tail());
 
@@ -851,6 +854,11 @@ namespace db0
             next_page_hint = descriptor_end_page_num;
         }
         auto tail_function = getPageIOTailFunction();
+        auto block_tail_address = alignStorageAddress(m_file.size(), m_config.m_page_size, CONFIG_BLOCK_SIZE);
+        auto block_tail_page_num = (block_tail_address - CONFIG_BLOCK_SIZE) / m_config.m_page_size;
+        if (!next_page_hint || *next_page_hint < block_tail_page_num) {
+            next_page_hint = block_tail_page_num;
+        }
         auto initial_tail_address = next_page_hint ? 0 : tail_function();
         return getDiff_IO(
             next_page_hint, m_config.m_page_size, step_size, tail_function, initial_tail_address);
@@ -916,6 +924,7 @@ namespace db0
     {
         auto result = std::max(m_dram_io.tail(), m_meta_io.tail());
         result = std::max(result, m_dram_changelog_io.tail());
+        result = std::max(result, m_desc_changelog_io.tail());
         result = std::max(result, m_dp_changelog_io.tail());
         if (m_ext_dram_io) {
             assert(m_ext_dram_changelog_io);
