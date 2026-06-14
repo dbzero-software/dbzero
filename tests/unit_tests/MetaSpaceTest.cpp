@@ -466,6 +466,7 @@ namespace tests
         ASSERT_EQ(diff_item.m_page_num, encoded_page_num);
 
         auto reopened = MS_MetaSpace::create(page_size, sparse_pair, stream);
+        SparsePairManager manager(reopened);
         auto data = readPage(reopened, address);
         ASSERT_EQ(data[0], 0x19);
         ASSERT_EQ(data[17], 0x91);
@@ -500,6 +501,7 @@ namespace tests
         ASSERT_TRUE(compact(dynamic_cast<MS_MetaPrefix &>(memspace.getPrefix()), stream));
 
         auto reopened = MS_MetaSpace::create(page_size, sparse_pair, stream);
+        SparsePairManager manager(reopened);
         auto slot_4_data = readPage(reopened, slot_4_address);
         auto slot_5_data = readPage(reopened, slot_5_address);
         ASSERT_EQ(slot_4_data[0], 0x44);
