@@ -57,10 +57,14 @@ namespace db0
         m_parent_index.forUniquePageRange(first_page_num, end_page_num, [&](std::uint64_t page_num) {
             slot_page_nums.push_back(page_num);
         });
+        // the slot does not exist
+        if (slot_page_nums.empty()) {
+            return false;
+        }
         auto updater = allocator.beginUpdate(slot_id);
         db0::load(*this, slot_page_nums.data(), slot_page_nums.data() + slot_page_nums.size(), std::move(updater));
         m_slot_ids.insert(slot_id);
-        return false;
+        return true;
     }
 
     void load(MS_MetaPrefix &prefix, const std::uint64_t *page_num, const std::uint64_t *end,

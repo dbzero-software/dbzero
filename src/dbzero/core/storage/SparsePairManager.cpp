@@ -66,18 +66,22 @@ namespace db0
             cacheHotPair(slot_id, *cached_it->second);
             return cached_it->second.get();
         }
-
-        if (!m_prefix->tryLoadSlot(slot_id, *m_allocator)) {
-            // slot has no data yet, cannot be loaded
-            return nullptr;
+        
+        // Try opening an existing slot if not cached
+        auto root_address = m_allocator->tryFirstAlloc(slot_id);
+        if (!root_address) {
+            if (!m_prefix->tryLoadSlot(slot_id, *m_allocator)) {
+                // slot has no data yet, cannot be loaded
+                return nullptr;
+            }
+            root_address = m_allocator->tryFirstAlloc(slot_id);
         }
 
         // sparse pair is located at the slot's root address
-        auto root_address = m_allocator->firstAlloc(slot_id);
         // Open existing sparse pair over an already existing slot
         auto dram_pair = createDRAMPair(slot_id);
         auto sparse_pair = std::make_unique<PlainSparsePair>(
-            dram_pair, m_access_type, root_address, m_flags, slot_id, &m_change_log);
+            dram_pair, m_access_type, *root_address, m_flags, slot_id, &m_change_log);
         auto *result = sparse_pair.get();
         m_pairs.insert_or_assign(slot_id, std::move(sparse_pair));
         cacheHotPair(slot_id, *result);
