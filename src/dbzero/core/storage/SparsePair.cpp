@@ -16,8 +16,17 @@ namespace db0
         {
         public:
             using PageNumT = typename SparseIndexT::PageNumT;
-            using SparseIteratorT = decltype(std::declval<const SparseIndexT &>().sortedBeginFrom(SI_Item()));
-            using DiffIteratorT = decltype(std::declval<const DiffIndex &>().sortedBeginFrom(DI_Item()));
+            using SparseIteratorT = decltype(std::declval<const SparseIndexT &>().sortedBegin());
+            using DiffIteratorT = decltype(std::declval<const DiffIndex &>().sortedBegin());
+
+            SparsePairUniquePageRangeIterator(const SparseIndexT &sparse_index, const DiffIndex &diff_index)
+                : m_sparse_it(sparse_index.sortedBegin())
+                , m_diff_it(diff_index.sortedBegin())
+            {
+                m_sparse_page_num = currentPageFrom(m_sparse_it);
+                m_diff_page_num = currentPageFrom(m_diff_it);
+                m_current = fromRange(selectCurrent());
+            }
 
             SparsePairUniquePageRangeIterator(const SparseIndexT &sparse_index, const DiffIndex &diff_index,
                 PageNumT first_page_num, PageNumT end_page_num)
@@ -50,7 +59,7 @@ namespace db0
         private:
             SparseIteratorT m_sparse_it;
             DiffIteratorT m_diff_it;
-            PageNumT m_end_page_num = 0;
+            std::optional<PageNumT> m_end_page_num;
             std::optional<PageNumT> m_sparse_page_num;
             std::optional<PageNumT> m_diff_page_num;
             std::optional<PageNumT> m_current;
@@ -79,7 +88,7 @@ namespace db0
 
             std::optional<PageNumT> fromRange(std::optional<PageNumT> page_num) const
             {
-                if (page_num && *page_num < m_end_page_num) {
+                if (page_num && (!m_end_page_num || *page_num < *m_end_page_num)) {
                     return page_num;
                 }
                 return std::nullopt;
@@ -214,6 +223,16 @@ namespace db0
 
         SparsePairUniquePageRangeIterator<SparseIndexT> it(
             m_sparse_index, m_diff_index, first_page_num, end_page_num);
+        while (!it.is_end()) {
+            callback(*it);
+            ++it;
+        }
+    }
+
+    template <typename ConfigT>
+    void SparsePairBase<ConfigT>::forUniquePageRange(std::function<void(PageNumT)> callback) const
+    {
+        SparsePairUniquePageRangeIterator<SparseIndexT> it(m_sparse_index, m_diff_index);
         while (!it.is_end()) {
             callback(*it);
             ++it;

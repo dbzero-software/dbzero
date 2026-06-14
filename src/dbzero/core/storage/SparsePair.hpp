@@ -112,6 +112,7 @@ namespace db0
 
         void forUniquePageRange(PageNumT first_page_num, PageNumT end_page_num,
             std::function<void(PageNumT)> callback) const;
+        void forUniquePageRange(std::function<void(PageNumT)> callback) const;
         
         std::size_t getChangeLogSize() const;
 

@@ -473,6 +473,29 @@ namespace tests
         ASSERT_EQ(page_nums, (std::vector<SparsePair::PageNumT> { 3 }));
     }
 
+    TEST_F( SparsePairTest , testSparsePairForUniquePageRangeWithoutBoundsCombinesAllUniquePages )
+    {
+        auto dram_pair = createMappingPair();
+        SparsePair cut(SparsePair::tag_create(), dram_pair);
+
+        cut.getSparseIndex().emplace(2, 1, 100);
+        cut.getSparseIndex().emplace(2, 3, 101);
+        cut.getSparseIndex().emplace(8, 1, 102);
+        cut.getSparseIndex().emplace(15, 1, 103);
+
+        cut.getDiffIndex().insert(1, 1, 200);
+        cut.getDiffIndex().insert(8, 4, 201);
+        cut.getDiffIndex().insert(11, 1, 202);
+        cut.getDiffIndex().insert(11, 3, 203);
+
+        std::vector<SparsePair::PageNumT> page_nums;
+        cut.forUniquePageRange([&](SparsePair::PageNumT page_num) {
+            page_nums.push_back(page_num);
+        });
+
+        ASSERT_EQ(page_nums, (std::vector<SparsePair::PageNumT> { 1, 2, 8, 11, 15 }));
+    }
+
     TEST_F( SparsePairTest , testSparsePairManagerRefreshSeesSlotCreatedAfterMiss )
     {
         CFile::create(file_name, {});

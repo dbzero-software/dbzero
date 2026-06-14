@@ -158,6 +158,10 @@ DB0_PACKED_END
         auto sortedBeginFrom(const DI_Item &first) const {
             return super_t::sortedBeginFrom(first);
         }
+
+        auto sortedBegin() const {
+            return super_t::sortedBegin();
+        }
         
         // Find mutation of page_num where state >= state_num
         DI_Item findUpper(PageNumT page_num, StateNumT state_num) const;
