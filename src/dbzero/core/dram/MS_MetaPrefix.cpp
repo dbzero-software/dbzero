@@ -78,5 +78,11 @@ namespace db0
             updater(MS_Address::from(*page_num << prefix.m_ps_shift).local_address());
         }
     }
+
+    void load(MS_MetaPrefix &, MS_MetaAllocator &)
+    {
+        // FIXME: implement
+        THROWF(db0::InternalException) << "not implemented yet";
+    }
     
 }

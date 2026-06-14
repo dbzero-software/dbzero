@@ -227,6 +227,7 @@ DB0_PACKED_END
         using CompT = typename super_t::CompT;
         using NodeItemCompT = typename super_t::NodeItemCompT;
         using NodeItemEqualT = typename super_t::NodeItemEqualT;
+        using HeapCompT = typename super_t::HeapCompT;
         using const_iterator = typename super_t::const_iterator;
         static constexpr unsigned int DEFAULT_SORT_THRESHOLD = super_t::DEFAULT_SORT_THRESHOLD;
 
@@ -476,7 +477,8 @@ DB0_PACKED_END
             }
         }
 
-        void forRange(const ItemT &first, const ItemT &last, const std::function<void(const ItemT &)> &f) const
+        void forRange(const ItemT &first, const ItemT &last,
+                const std::function<void(const ItemT &)> &callback) const
         {
             if (base_t::empty() || !m_raw_item_comp(first, last)) {
                 return;
@@ -503,7 +505,7 @@ DB0_PACKED_END
                     if (!m_raw_item_comp(uncompressed, last)) {
                         return;
                     }
-                    f(uncompressed);
+                    callback(uncompressed);
                 }
             }
         }
@@ -543,6 +545,99 @@ DB0_PACKED_END
         // Begin sorted iteration over all items (uncompressed)
         uncompressed_const_iterator cbegin() const {
             return super_t::cbegin();
+        }
+
+        class ConstSortedIterator
+        {
+        public:
+            ConstSortedIterator(const SGB_CompressedLookupTree &tree)
+                : m_node(tree.cbegin_nodes())
+                , m_node_end(tree.cend_nodes())
+                , m_heap_comp(tree.m_heap_comp)
+            {
+                advance_to_first();
+            }
+
+            ConstSortedIterator(const SGB_CompressedLookupTree &tree, const ItemT &first)
+                : m_node(tree.base_t::lower_equal_bound(first))
+                , m_node_end(tree.cend_nodes())
+                , m_heap_comp(tree.m_heap_comp)
+            {
+                if (m_node == m_node_end) {
+                    m_node = tree.cbegin_nodes();
+                }
+                advance_to_first(first, tree.m_raw_item_comp);
+            }
+
+            ConstSortedIterator &operator++()
+            {
+                assert(!is_end());
+                ++m_item;
+                advance_to_next();
+                return *this;
+            }
+
+            bool is_end() const {
+                return m_node == m_node_end || m_item.is_end();
+            }
+
+            ItemT operator*() const
+            {
+                assert(!is_end());
+                return m_node->header().uncompress(*m_item);
+            }
+
+        private:
+            void advance_to_first()
+            {
+                if (m_node != m_node_end) {
+                    m_item = m_node->cbegin_sorted(m_heap_comp);
+                    advance_to_next();
+                }
+            }
+
+            void advance_to_first(const ItemT &first, const ItemCompT &raw_item_comp)
+            {
+                while (m_node != m_node_end) {
+                    auto header = m_node->header();
+                    auto max_item_ptr = m_node->find_max(m_heap_comp);
+                    assert(max_item_ptr);
+                    if (raw_item_comp(header.uncompress(*max_item_ptr), first)) {
+                        ++m_node;
+                        continue;
+                    }
+
+                    m_item = m_node->cbegin_sorted(m_heap_comp);
+                    while (!m_item.is_end() && raw_item_comp(header.uncompress(*m_item), first)) {
+                        ++m_item;
+                    }
+                    advance_to_next();
+                    return;
+                }
+            }
+
+            void advance_to_next()
+            {
+                while (m_node != m_node_end && m_item.is_end()) {
+                    ++m_node;
+                    if (m_node != m_node_end) {
+                        m_item = m_node->cbegin_sorted(m_heap_comp);
+                    }
+                }
+            }
+
+            sg_tree_const_iterator m_node;
+            sg_tree_const_iterator m_node_end;
+            typename super_t::sgb_node_const_sorting_iterator m_item;
+            HeapCompT m_heap_comp;
+        };
+
+        ConstSortedIterator sortedBegin() const {
+            return ConstSortedIterator(*this);
+        }
+
+        ConstSortedIterator sortedBeginFrom(const ItemT &first) const {
+            return ConstSortedIterator(*this, first);
         }
 
     private:

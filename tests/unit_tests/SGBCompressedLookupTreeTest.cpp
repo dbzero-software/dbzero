@@ -140,6 +140,36 @@ namespace tests
         return result;
     }
 
+    template <typename TreeT>
+    std::vector<std::uint64_t> collectSorted(const TreeT &tree)
+    {
+        std::vector<std::uint64_t> result;
+        for (auto it = tree.sortedBegin(); !it.is_end(); ++it) {
+            result.push_back(*it);
+        }
+        return result;
+    }
+
+    template <typename TreeT>
+    std::vector<std::uint64_t> collectSortedFrom(const TreeT &tree, std::uint64_t first)
+    {
+        std::vector<std::uint64_t> result;
+        for (auto it = tree.sortedBeginFrom(first); !it.is_end(); ++it) {
+            result.push_back(*it);
+        }
+        return result;
+    }
+
+    template <typename TreeT>
+    std::vector<std::uint64_t> collectSortedRange(const TreeT &tree, std::uint64_t first, std::uint64_t last)
+    {
+        std::vector<std::uint64_t> result;
+        for (auto it = tree.sortedBeginFrom(first); !it.is_end() && *it < last; ++it) {
+            result.push_back(*it);
+        }
+        return result;
+    }
+
     TEST_F( SGB_CompressedLookupTreeTest , testSGBCompressedLookupTreeHeaderIsInitialized )
     {
         // compress uint64 to uint16
@@ -246,6 +276,157 @@ namespace tests
         ASSERT_EQ(cut.lower_equal_bound(199u).value(), 39u);
         ASSERT_EQ(cut.lower_equal_bound(200u).value(), 200u);
         ASSERT_EQ(cut.lower_equal_bound(1001u).value(), 1001u);
+    }
+
+    TEST_F( SGB_CompressedLookupTreeTest , testSGBCompressedLookupTreeConstSortedIteratorVisitsAllItems )
+    {
+        using HeaderT = CompressingTestHeader<std::uint8_t>;
+        SGB_CompressedLookupTree<std::uint64_t, std::uint8_t, HeaderT> cut(m_bitspace,
+            page_size, AccessType::READ_WRITE);
+
+        std::vector<std::uint64_t> expected { 3000, 0, 255, 1000, 1005, 40, 41, 2000, 2255, 5 };
+        for (auto value : expected) {
+            cut.insert(value);
+        }
+
+        std::sort(expected.begin(), expected.end());
+
+        ASSERT_GT(countNodes(cut), 1);
+        ASSERT_EQ(collectSorted(cut), expected);
+    }
+
+    TEST_F( SGB_CompressedLookupTreeTest , testSGBCompressedLookupTreeConstSortedIteratorCanStartFromItem )
+    {
+        using HeaderT = CompressingTestHeader<std::uint8_t>;
+        SGB_CompressedLookupTree<std::uint64_t, std::uint8_t, HeaderT> cut(m_bitspace,
+            page_size, AccessType::READ_WRITE);
+
+        std::vector<std::uint64_t> expected;
+        for (std::uint64_t base = 0; base <= 3000; base += 1000) {
+            for (std::uint64_t offset : { 0u, 1u, 40u, 200u, 255u }) {
+                auto value = base + offset;
+                cut.insert(value);
+                expected.push_back(value);
+            }
+        }
+        std::sort(expected.begin(), expected.end());
+
+        auto expected_begin = std::lower_bound(expected.begin(), expected.end(), 1002u);
+        ASSERT_GT(countNodes(cut), 1);
+        ASSERT_EQ(collectSortedFrom(cut, 1002u), std::vector<std::uint64_t>(expected_begin, expected.end()));
+    }
+
+    TEST_F( SGB_CompressedLookupTreeTest , testSGBCompressedLookupTreeConstSortedIteratorHandlesStartEdges )
+    {
+        using HeaderT = CompressingTestHeader<std::uint8_t>;
+        SGB_CompressedLookupTree<std::uint64_t, std::uint8_t, HeaderT> cut(m_bitspace,
+            page_size, AccessType::READ_WRITE);
+
+        std::vector<std::uint64_t> expected { 100, 101, 102, 1000 };
+        for (auto value : expected) {
+            cut.insert(value);
+        }
+        std::sort(expected.begin(), expected.end());
+
+        ASSERT_EQ(collectSortedFrom(cut, 1u), expected);
+        ASSERT_TRUE(cut.sortedBeginFrom(2000u).is_end());
+    }
+
+    TEST_F( SGB_CompressedLookupTreeTest , testSGBCompressedLookupTreeConstSortedIteratorHandlesEmptyTree )
+    {
+        using HeaderT = CompressingTestHeader<std::uint8_t>;
+        SGB_CompressedLookupTree<std::uint64_t, std::uint8_t, HeaderT> cut(m_bitspace,
+            page_size, AccessType::READ_WRITE);
+
+        ASSERT_TRUE(cut.sortedBegin().is_end());
+        ASSERT_TRUE(cut.sortedBeginFrom(100u).is_end());
+    }
+
+    TEST_F( SGB_CompressedLookupTreeTest , testSGBCompressedLookupTreeConstSortedIteratorStartsWithinSingleNode )
+    {
+        using HeaderT = CompressingTestHeader<std::uint8_t>;
+        SGB_CompressedLookupTree<std::uint64_t, std::uint8_t, HeaderT> cut(m_bitspace,
+            page_size, AccessType::READ_WRITE);
+
+        std::vector<std::uint64_t> expected { 10, 20, 30, 40 };
+        for (auto value : expected) {
+            cut.insert(value);
+        }
+
+        ASSERT_EQ(countNodes(cut), 1);
+        ASSERT_EQ(collectSortedFrom(cut, 0u), expected);
+        ASSERT_EQ(collectSortedFrom(cut, 10u), expected);
+        ASSERT_EQ(collectSortedFrom(cut, 25u), (std::vector<std::uint64_t> { 30, 40 }));
+        ASSERT_TRUE(cut.sortedBeginFrom(41u).is_end());
+    }
+
+    TEST_F( SGB_CompressedLookupTreeTest , testSGBCompressedLookupTreeConstSortedIteratorStartsAtMultiNodeBoundaries )
+    {
+        using HeaderT = CompressingTestHeader<std::uint8_t>;
+        SGB_CompressedLookupTree<std::uint64_t, std::uint8_t, HeaderT> cut(m_bitspace,
+            page_size, AccessType::READ_WRITE);
+
+        std::vector<std::uint64_t> expected { 0, 1, 255, 1000, 1001, 1255, 2000 };
+        for (auto value : expected) {
+            cut.insert(value);
+        }
+        std::sort(expected.begin(), expected.end());
+
+        ASSERT_GT(countNodes(cut), 1);
+        ASSERT_EQ(collectSortedFrom(cut, 255u), (std::vector<std::uint64_t> { 255, 1000, 1001, 1255, 2000 }));
+        ASSERT_EQ(collectSortedFrom(cut, 256u), (std::vector<std::uint64_t> { 1000, 1001, 1255, 2000 }));
+        ASSERT_EQ(collectSortedFrom(cut, 1000u), (std::vector<std::uint64_t> { 1000, 1001, 1255, 2000 }));
+        ASSERT_EQ(collectSortedFrom(cut, 1256u), (std::vector<std::uint64_t> { 2000 }));
+    }
+
+    TEST_F( SGB_CompressedLookupTreeTest , testSGBCompressedLookupTreeConstSortedIteratorSupportsBoundedSingleNodeRanges )
+    {
+        using HeaderT = CompressingTestHeader<std::uint8_t>;
+        SGB_CompressedLookupTree<std::uint64_t, std::uint8_t, HeaderT> cut(m_bitspace,
+            page_size, AccessType::READ_WRITE);
+
+        for (auto value : { 10u, 20u, 30u, 40u, 50u }) {
+            cut.insert(value);
+        }
+
+        ASSERT_EQ(countNodes(cut), 1);
+        ASSERT_EQ(collectSortedRange(cut, 15u, 45u), (std::vector<std::uint64_t> { 20, 30, 40 }));
+        ASSERT_EQ(collectSortedRange(cut, 20u, 20u), (std::vector<std::uint64_t> {}));
+        ASSERT_EQ(collectSortedRange(cut, 0u, 10u), (std::vector<std::uint64_t> {}));
+    }
+
+    TEST_F( SGB_CompressedLookupTreeTest , testSGBCompressedLookupTreeConstSortedIteratorSupportsBoundedMultiNodeRanges )
+    {
+        using HeaderT = CompressingTestHeader<std::uint8_t>;
+        SGB_CompressedLookupTree<std::uint64_t, std::uint8_t, HeaderT> cut(m_bitspace,
+            page_size, AccessType::READ_WRITE);
+
+        std::vector<std::uint64_t> expected { 0, 100, 255, 1000, 1001, 1255, 2000, 2001 };
+        for (auto value : expected) {
+            cut.insert(value);
+        }
+
+        ASSERT_GT(countNodes(cut), 1);
+        ASSERT_EQ(collectSortedRange(cut, 100u, 1001u), (std::vector<std::uint64_t> { 100, 255, 1000 }));
+        ASSERT_EQ(collectSortedRange(cut, 256u, 2001u), (std::vector<std::uint64_t> { 1000, 1001, 1255, 2000 }));
+        ASSERT_EQ(collectSortedRange(cut, 1256u, 1999u), (std::vector<std::uint64_t> {}));
+    }
+
+    TEST_F( SGB_CompressedLookupTreeTest , testSGBCompressedLookupTreeConstSortedIteratorKeepsDuplicateItems )
+    {
+        using HeaderT = CompressingTestHeader<std::uint8_t>;
+        SGB_CompressedLookupTree<std::uint64_t, std::uint8_t, HeaderT> cut(m_bitspace,
+            page_size, AccessType::READ_WRITE);
+
+        std::vector<std::uint64_t> expected { 10, 10, 20, 20, 20, 1000, 1000 };
+        for (auto value : expected) {
+            cut.insert(value);
+        }
+        std::sort(expected.begin(), expected.end());
+
+        ASSERT_GT(countNodes(cut), 1);
+        ASSERT_EQ(collectSorted(cut), expected);
+        ASSERT_EQ(collectSortedFrom(cut, 20u), (std::vector<std::uint64_t> { 20, 20, 20, 1000, 1000 }));
     }
 
     TEST_F( SGB_CompressedLookupTreeTest , testSGBCompressedLookupTreeEraseRangeEdgeCasesWithSmallNodes )
