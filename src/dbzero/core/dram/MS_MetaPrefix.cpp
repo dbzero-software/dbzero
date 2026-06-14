@@ -50,27 +50,23 @@ namespace db0
     }
     
     bool MS_MetaPrefix::tryLoadSlot(SlotId slot_id, MS_MetaAllocator &allocator)
-    {        
-        // FIXME: implement
-        THROWF(db0::InternalException) << "not implemented yet";
-        /*
-        m_slot_ids.insert(slot_id);
+    {
         auto [first_page_num, end_page_num] = getPageRange(slot_id);
-        // Collect slot page numbers
+        // Collect slot-specific storage (logical) page numbers first
         std::vector<std::uint64_t> slot_page_nums;
-        m_sparse_pair.getSparseIndex().forUniquePageRange(first_page_num, end_page_num, [&](const SI_Item &item) {
-            slot_page_nums.push_back(item.m_page_num);
+        m_parent_index.forUniquePageRange(first_page_num, end_page_num, [&](std::uint64_t page_num) {
+            slot_page_nums.push_back(page_num);
         });
         auto updater = allocator.beginUpdate(slot_id);
         db0::load(*this, slot_page_nums.data(), slot_page_nums.data() + slot_page_nums.size(), std::move(updater));
-        */
+        m_slot_ids.insert(slot_id);
         return false;
     }
 
     void load(MS_MetaPrefix &prefix, const std::uint64_t *page_num, const std::uint64_t *end,
         DRAM_Allocator::Updater &&updater)
     {
-        load(prefix, prefix.m_page_io, page_num, end);
+        db0::load(prefix, prefix.m_page_io, page_num, end);
         if (!updater) {
             return;
         }
@@ -78,11 +74,32 @@ namespace db0
             updater(MS_Address::from(*page_num << prefix.m_ps_shift).local_address());
         }
     }
-
-    void load(MS_MetaPrefix &, MS_MetaAllocator &)
-    {
-        // FIXME: implement
-        THROWF(db0::InternalException) << "not implemented yet";
-    }
     
+    void load(MS_MetaPrefix &prefix, MS_MetaAllocator &allocator)
+    {
+        std::vector<std::uint64_t> page_nums;
+        Allocator::SlotId current_slot_id = 0;
+
+        auto load_current_slot = [&]() {
+            if (!page_nums.empty()) {
+                auto updater = allocator.beginUpdate(current_slot_id);
+                db0::load(prefix, prefix.m_page_io, page_nums.data(), page_nums.data() + page_nums.size(), std::move(updater));
+                prefix.m_slot_ids.insert(current_slot_id);
+            }
+        };
+
+        // Iterate all known pages and load on a per-slot basis
+        prefix.m_parent_index.forUniquePageRange([&](std::uint64_t page_num) {
+            auto slot_id = MS_Address::from(page_num << prefix.m_ps_shift).slot_id();
+            if (slot_id != current_slot_id) {
+                load_current_slot();
+                page_nums.clear();
+                current_slot_id = slot_id;
+            }
+            page_nums.push_back(page_num);
+        });
+
+        load_current_slot();
+    }
+
 }

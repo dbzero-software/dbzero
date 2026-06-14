@@ -55,6 +55,8 @@ namespace db0
 
         friend void load(MS_MetaPrefix &, const std::uint64_t *, const std::uint64_t *,
             DRAM_Allocator::Updater &&);
+
+        friend void load(MS_MetaPrefix &, MS_MetaAllocator &);
     };
     
     // Load the entire prefix and initialize the associated allocator's state
