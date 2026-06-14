@@ -946,6 +946,27 @@ namespace tests
         reader.close();
     }
 
+    TEST_F( BDevStorageTest , testNoLoadReaderRootSparsePairSizeAfterRefresh )
+    {
+        std::size_t page_size = 4096;
+        BDevStorage::create(file_name, page_size);
+
+        BDevStorageWrapper reader(file_name, AccessType::READ_ONLY, {}, {}, { StorageFlagOption::NO_LOAD });
+
+        std::vector<char> data(page_size, 's');
+        {
+            BDevStorage writer(file_name, AccessType::READ_WRITE);
+            writer.write(0, 1, data.size(), data.data());
+            writer.flush();
+            writer.close();
+        }
+
+        reader.refresh();
+
+        ASSERT_GT(reader.getRootMetaSparsePair().size(), 0u);
+        reader.close();
+    }
+
     TEST_F( BDevStorageTest , testFlushRejectsDirtyMetadataWithoutRegisteredStateHighWatermark )
     {
         std::size_t page_size = 4096;

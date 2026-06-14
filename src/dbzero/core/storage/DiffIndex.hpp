@@ -144,6 +144,7 @@ DB0_PACKED_END
         void refresh();
         void detach() const;
         void commit() const;
+        bool operator!() const;
         
         Address getIndexAddress() const;
 

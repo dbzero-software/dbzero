@@ -80,8 +80,9 @@ namespace db0
         // sparse pair is located at the slot's root address
         // Open existing sparse pair over an already existing slot
         auto dram_pair = createDRAMPair(slot_id);
+        auto flags = m_flags & ~StorageFlags { StorageFlagOption::NO_LOAD };
         auto sparse_pair = std::make_unique<PlainSparsePair>(
-            dram_pair, m_access_type, *root_address, m_flags, slot_id, &m_change_log);
+            dram_pair, m_access_type, *root_address, flags, slot_id, &m_change_log);
         auto *result = sparse_pair.get();
         m_pairs.insert_or_assign(slot_id, std::move(sparse_pair));
         cacheHotPair(slot_id, *result);

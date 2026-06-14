@@ -184,7 +184,9 @@ namespace db0
     void SparsePairBase<ConfigT>::refresh()
     {
         m_sparse_index.refresh();
-        m_diff_index.refresh();
+        if (!!m_diff_index) {
+            m_diff_index.refresh();
+        }
     }
     
     template <typename ConfigT>
@@ -221,6 +223,14 @@ namespace db0
             return;
         }
 
+        if (!m_diff_index) {
+            m_sparse_index.forUniquePageRange(first_page_num, end_page_num,
+                [&](const auto &item) {
+                    callback(item.m_page_num);
+                });
+            return;
+        }
+
         SparsePairUniquePageRangeIterator<SparseIndexT> it(
             m_sparse_index, m_diff_index, first_page_num, end_page_num);
         while (!it.is_end()) {
@@ -249,6 +259,9 @@ namespace db0
     Address SparsePairBase<ConfigT>::getDiffIndexAddress(
         const SparseIndexT &sparse_index)
     {
+        if (!sparse_index) {
+            return {};
+        }
         return Address::fromOffset(sparse_index.mixIn().getExtraData());
     }
 

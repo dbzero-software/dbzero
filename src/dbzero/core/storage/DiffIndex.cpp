@@ -168,6 +168,10 @@ namespace db0
         super_t::commit();
     }
 
+    bool DiffIndex::operator!() const {
+        return super_t::operator!();
+    }
+
     Address DiffIndex::getIndexAddress() const {
         return super_t::getIndexAddress();
     }

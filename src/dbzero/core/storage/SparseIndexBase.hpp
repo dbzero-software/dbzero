@@ -136,6 +136,8 @@ namespace db0
         */
         void refresh();
 
+        void open(Address address = {});
+
         void detach() const;
                 
         void forAll(std::function<void(const ItemT &)> callback) const {
@@ -476,8 +478,20 @@ namespace db0
     template <typename ItemT, typename CompressedItemT, typename SparseIndexMixinT>
     void SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::refresh()
     {
-        assert(!!m_index && "SparseIndexBase::refresh: index is not open");
+        if (!m_index) {
+            open();
+            return;
+        }
         m_index.detach();
+        m_mixin_api.refresh();
+    }
+
+    template <typename ItemT, typename CompressedItemT, typename SparseIndexMixinT>
+    void SparseIndexBase<ItemT, CompressedItemT, SparseIndexMixinT>::open(Address address)
+    {
+        assert(!m_index && "SparseIndexBase::open: index is already open");
+        m_index.~IndexT();
+        new (&m_index) IndexT(openIndex(address, m_access_type, {}));
         m_mixin_api.refresh();
     }
 

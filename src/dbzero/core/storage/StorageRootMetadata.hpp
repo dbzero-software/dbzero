@@ -84,7 +84,9 @@ DB0_PACKED_END
         explicit StorageRootMetadataAPI(BaseT &base)
             : MetadataAPI<BaseT>(base)
         {
-            this->refresh();
+            if (!!base) {
+                this->refresh();
+            }
         }
 
         void refresh()
