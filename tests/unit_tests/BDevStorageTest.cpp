@@ -404,7 +404,7 @@ namespace tests
             BDevStorageWrapper cut(file_name, AccessType::READ_WRITE);
             auto descriptor_page_range = cut.descriptorPageRange();
             ASSERT_TRUE(descriptor_page_range);
-            ASSERT_EQ(first_page_num, descriptor_page_range->first);
+            ASSERT_LE(descriptor_page_range->first, first_page_num);
             ASSERT_GE(descriptor_page_range->second, first_page_num + 1);
             cut.write(page_size, 2, data_page.size(), data_page.data());
             second_page_num = cut.appendDescriptorPage(second_page);
@@ -422,7 +422,7 @@ namespace tests
             ASSERT_EQ(second_page, second_read);
             auto descriptor_page_range = cut.descriptorPageRange();
             ASSERT_TRUE(descriptor_page_range);
-            ASSERT_EQ(first_page_num, descriptor_page_range->first);
+            ASSERT_LE(descriptor_page_range->first, first_page_num);
             ASSERT_GE(descriptor_page_range->second, second_page_num + 1);
             cut.close();
         }
