@@ -154,6 +154,10 @@ DB0_PACKED_END
 
         void forPageRange(PageNumT first_page_num, PageNumT last_page_num,
             std::function<void(const DI_Item &)> callback) const;
+
+        auto sortedBeginFrom(const DI_Item &first) const {
+            return super_t::sortedBeginFrom(first);
+        }
         
         // Find mutation of page_num where state >= state_num
         DI_Item findUpper(PageNumT page_num, StateNumT state_num) const;

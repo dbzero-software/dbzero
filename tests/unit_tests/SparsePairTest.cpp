@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <iostream>
+#include <type_traits>
 #include <utils/TestWorkspace.hpp>
 #include <dbzero/core/storage/SparsePair.hpp>
 #include <dbzero/core/storage/SparsePairManager.hpp>
@@ -100,6 +101,44 @@ namespace tests
 
     private:
         std::vector<SlotId> m_slot_records;
+    };
+
+    struct TestPageItem
+    {
+        std::uint64_t m_page_num = 0;
+    };
+
+    class TestPageIterator
+    {
+    public:
+        explicit TestPageIterator(std::vector<std::uint64_t> page_nums)
+            : m_page_nums(std::move(page_nums))
+        {
+        }
+
+        bool is_end() const {
+            return m_pos >= m_page_nums.size();
+        }
+
+        TestPageItem operator*() const {
+            ++m_deref_count;
+            return { m_page_nums[m_pos] };
+        }
+
+        TestPageIterator &operator++()
+        {
+            ++m_pos;
+            return *this;
+        }
+
+        std::size_t derefCount() const {
+            return m_deref_count;
+        }
+
+    private:
+        std::vector<std::uint64_t> m_page_nums;
+        std::size_t m_pos = 0;
+        mutable std::size_t m_deref_count = 0;
     };
 
     TEST_F( SparsePairTest , testSparsePairAllocatesInternalStorageFromRequestedSlot )
@@ -354,6 +393,84 @@ namespace tests
 
         ASSERT_TRUE(!!sparse_item);
         ASSERT_EQ(sparse_item.m_storage_page_num, 700u);
+    }
+
+    TEST_F( SparsePairTest , testSparsePairPageIteratorAdvanceSkipsStaleLowerPages )
+    {
+        TestPageIterator it({ 7, 10, 10, 12 });
+
+        auto page_num = detail::advancePageIteratorPast(it, 10u);
+
+        ASSERT_EQ(page_num, 12u);
+        ASSERT_FALSE(it.is_end());
+        ASSERT_EQ((*it).m_page_num, 12u);
+    }
+
+    TEST_F( SparsePairTest , testSparsePairPageIteratorAdvanceReturnsEmptyAtEnd )
+    {
+        TestPageIterator it({ 7, 10 });
+
+        auto page_num = detail::advancePageIteratorPast(it, 10u);
+
+        ASSERT_FALSE(page_num);
+        ASSERT_TRUE(it.is_end());
+    }
+
+    TEST_F( SparsePairTest , testSparsePairForUniquePageRangeCombinesSparseAndDiffPages )
+    {
+        auto dram_pair = createMappingPair();
+        SparsePair cut(SparsePair::tag_create(), dram_pair);
+
+        cut.getSparseIndex().emplace(10, 1, 100);
+        cut.getSparseIndex().emplace(10, 3, 101);
+        cut.getSparseIndex().emplace(12, 1, 102);
+        cut.getSparseIndex().emplace(15, 1, 103);
+        cut.getSparseIndex().emplace(21, 1, 104);
+
+        cut.getDiffIndex().insert(11, 2, 200);
+        cut.getDiffIndex().insert(12, 4, 201);
+        cut.getDiffIndex().insert(14, 1, 202);
+        cut.getDiffIndex().insert(14, 3, 203);
+        cut.getDiffIndex().insert(20, 1, 204);
+
+        std::vector<SparsePair::PageNumT> page_nums;
+        cut.forUniquePageRange(10, 20, [&](SparsePair::PageNumT page_num) {
+            page_nums.push_back(page_num);
+        });
+
+        ASSERT_EQ(page_nums, (std::vector<SparsePair::PageNumT> { 10, 11, 12, 14, 15 }));
+    }
+
+    TEST_F( SparsePairTest , testSparsePairForUniquePageRangeReturnsDiffOnlyPage )
+    {
+        auto dram_pair = createMappingPair();
+        SparsePair cut(SparsePair::tag_create(), dram_pair);
+
+        cut.getSparseIndex().emplace(4, 1, 100);
+        cut.getSparseIndex().emplace(9, 1, 101);
+        cut.getDiffIndex().insert(6, 2, 200);
+
+        std::vector<SparsePair::PageNumT> page_nums;
+        cut.forUniquePageRange(5, 8, [&](SparsePair::PageNumT page_num) {
+            page_nums.push_back(page_num);
+        });
+
+        ASSERT_EQ(page_nums, (std::vector<SparsePair::PageNumT> { 6 }));
+    }
+
+    TEST_F( SparsePairTest , testSparsePairForUniquePageRangeCallbackReceivesPageNum )
+    {
+        auto dram_pair = createMappingPair();
+        SparsePair cut(SparsePair::tag_create(), dram_pair);
+        cut.getDiffIndex().insert(3, 1, 30);
+
+        std::vector<SparsePair::PageNumT> page_nums;
+        cut.forUniquePageRange(0, 10, [&](SparsePair::PageNumT page_num) {
+            static_assert(std::is_same_v<decltype(page_num), SparsePair::PageNumT>);
+            page_nums.push_back(page_num);
+        });
+
+        ASSERT_EQ(page_nums, (std::vector<SparsePair::PageNumT> { 3 }));
     }
 
     TEST_F( SparsePairTest , testSparsePairManagerRefreshSeesSlotCreatedAfterMiss )

@@ -13,12 +13,30 @@
 #include <dbzero/core/dram/MS_Address.hpp>
 #include <dbzero/core/serialization/FixedVersioned.hpp>
 #include <dbzero/core/vspace/v_object.hpp>
+#include <functional>
+#include <optional>
 #include <type_traits>
 #include <utility>
 
 namespace db0
 
 {
+    namespace detail
+    {
+        template <typename IteratorT, typename PageNumT>
+        std::optional<PageNumT> advancePageIteratorPast(IteratorT &it, PageNumT page_num)
+        {
+            while (!it.is_end()) {
+                auto item = *it;
+                PageNumT item_page_num = item.m_page_num;
+                if (item_page_num > page_num) {
+                    return item_page_num;
+                }
+                ++it;
+            }
+            return std::nullopt;
+        }
+    }
 
     struct RootSparsePairConfig
     {
@@ -77,6 +95,8 @@ namespace db0
         
         StateNumT getMaxStateNum() const;
 
+        Address getAddress() const;
+
         void recordMaxStateNum(StateNumT state_num);
 
         void recordNextStoragePageNum(PageNumT);
@@ -89,6 +109,9 @@ namespace db0
         void detach() const;
         
         void commit() const;
+
+        void forUniquePageRange(PageNumT first_page_num, PageNumT end_page_num,
+            std::function<void(PageNumT)> callback) const;
         
         std::size_t getChangeLogSize() const;
 

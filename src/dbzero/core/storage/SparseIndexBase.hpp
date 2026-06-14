@@ -151,6 +151,10 @@ namespace db0
         auto cbegin() const {
             return m_index.cbegin();
         }
+
+        auto sortedBeginFrom(const ItemT &first) const {
+            return m_index.sortedBeginFrom(first);
+        }
         
         bool empty() const;
 
