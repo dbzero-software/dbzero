@@ -188,6 +188,7 @@ namespace db0::python
 
         void PyAPI_EmbeddedSet_del(EmbeddedSet *self)
         {
+            PY_DEALLOC_GUARD();
             PY_API_FUNC
             if (PyObject_GC_IsTracked(self)) {
                 PyObject_GC_UnTrack(self);
@@ -198,6 +199,7 @@ namespace db0::python
 
         void PyAPI_EmbeddedSetIterator_del(EmbeddedSetIterator *self)
         {
+            PY_DEALLOC_GUARD();
             PY_API_FUNC
             if (PyObject_GC_IsTracked(self)) {
                 PyObject_GC_UnTrack(self);

@@ -279,6 +279,7 @@ namespace db0::python
     
     void PyAPI_ByteArrayObject_del(ByteArrayObject* bytearray_obj)
     {
+        PY_DEALLOC_GUARD();
         PY_API_FUNC
         // destroy associated DB0 ByteArray instance
         bytearray_obj->destroy();

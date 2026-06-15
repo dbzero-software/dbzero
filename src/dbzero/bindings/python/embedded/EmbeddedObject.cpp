@@ -244,6 +244,7 @@ namespace db0::python
 
         void PyAPI_EmbeddedObject_del(EmbeddedObject *self)
         {
+            PY_DEALLOC_GUARD();
             PY_API_FUNC
             if (PyObject_GC_IsTracked(self)) {
                 PyObject_GC_UnTrack(self);
@@ -254,14 +255,13 @@ namespace db0::python
 
         void PyAPI_EmbeddedMemo_del(MemoImmutableObject *self)
         {
+            PY_DEALLOC_GUARD();
             PY_API_FUNC
-            if (Py_IsInitialized()) {
-                if (PyObject_GC_IsTracked(self)) {
-                    PyObject_GC_UnTrack(self);
-                }
-                embeddedMemoRef(self).~EmbeddedObjectRef();
-                Py_TYPE(self)->tp_free(reinterpret_cast<PyObject *>(self));
+            if (PyObject_GC_IsTracked(self)) {
+                PyObject_GC_UnTrack(self);
             }
+            embeddedMemoRef(self).~EmbeddedObjectRef();
+            Py_TYPE(self)->tp_free(reinterpret_cast<PyObject *>(self));
         }
 
         int EmbeddedObject_traverse(EmbeddedObject *self, visitproc visit, void *arg)

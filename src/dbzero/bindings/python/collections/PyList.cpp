@@ -385,6 +385,7 @@ namespace db0::python
     
     void PyAPI_ListObject_del(ListObject* list_obj)
     {
+        PY_DEALLOC_GUARD();
         PY_API_FUNC
         // destroy associated DB0 List instance
         list_obj->destroy();

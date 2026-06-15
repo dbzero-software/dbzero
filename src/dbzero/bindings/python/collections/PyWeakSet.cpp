@@ -222,6 +222,7 @@ namespace db0::python
 
     void WeakSetObject_del(WeakSetObject *self)
     {
+        PY_DEALLOC_GUARD();
         PY_API_FUNC
         self->destroy();
         Py_TYPE(self)->tp_free((PyObject*)self);

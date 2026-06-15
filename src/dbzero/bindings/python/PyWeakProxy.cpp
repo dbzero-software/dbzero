@@ -14,6 +14,7 @@ namespace db0::python
     
     void PyAPI_PyWeakProxy_del(PyWeakProxy *py_weak_proxy)
     {
+        PY_DEALLOC_GUARD();
         PY_API_FUNC
         if (py_weak_proxy->m_py_object) {
             Py_DECREF(py_weak_proxy->m_py_object);            

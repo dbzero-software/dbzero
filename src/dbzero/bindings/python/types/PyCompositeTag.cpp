@@ -21,6 +21,7 @@ namespace db0::python
 
     void PyCompositeTag_del(PyCompositeTag *self)
     {
+        PY_DEALLOC_GUARD();
         PY_API_FUNC
         self->destroy();
         Py_TYPE(self)->tp_free((PyObject*)self);

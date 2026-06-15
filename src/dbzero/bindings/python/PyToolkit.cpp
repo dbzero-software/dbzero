@@ -1380,8 +1380,8 @@ namespace db0::python
             return {};            
         } 
 
-        if (!Py_IsInitialized()) {
-            // Simply return the lock after python instance was finalized
+        if (!Py_IsInitialized() || isPythonFinalizing()) {
+            // Simply return the lock after Python is finalizing/finalized.
             // This is safe because fixture threads should be stopped at this point
             return SafeRLock(m_api_mutex);
         }

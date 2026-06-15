@@ -173,6 +173,7 @@ namespace db0::python
 
         void PyAPI_EmbeddedTuple_del(EmbeddedTuple *self)
         {
+            PY_DEALLOC_GUARD();
             PY_API_FUNC
             if (PyObject_GC_IsTracked(self)) {
                 PyObject_GC_UnTrack(self);

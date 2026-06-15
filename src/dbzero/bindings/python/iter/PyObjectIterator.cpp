@@ -21,6 +21,7 @@ namespace db0::python
     
     void PyObjectIterator_del(PyObjectIterator* self)
     {
+        PY_DEALLOC_GUARD();
         PY_API_FUNC
         // destroy associated instance
         self->destroy();

@@ -51,6 +51,7 @@ namespace db0::python
     
     void PyAPI_IndexObject_del(IndexObject* index_obj)
     {
+        PY_DEALLOC_GUARD();
         PY_API_FUNC
         // destroy associated DB0 Index instance
         index_obj->destroy();
