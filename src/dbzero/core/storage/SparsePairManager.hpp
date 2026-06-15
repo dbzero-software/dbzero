@@ -55,7 +55,7 @@ namespace db0
 
         PlainSparsePair &getOrCreate(SlotId slot_id);
 
-        PlainSparsePair *tryGetExisting(SlotId) const;        
+        PlainSparsePair *tryGetExisting(SlotId, bool *is_new_slot = nullptr) const;
 
         PlainSparsePair *tryGetCached(SlotId) const noexcept;
         

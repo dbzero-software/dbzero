@@ -113,6 +113,7 @@ namespace db0
 
     RandomIO_Stream::RandomIO_Stream(Diff_IO &page_io, std::uint32_t stride, std::uint32_t page_size)
         : m_page_io(page_io)
+        , m_access_type(AccessType::READ_WRITE)
         , m_stride(stride)
         , m_page_size(page_size ? page_size : page_io.getPageSize())
         , m_page_ratio(calcPageRatio(m_page_size, page_io.getPageSize()))
@@ -129,8 +130,9 @@ namespace db0
     }
 
     RandomIO_Stream::RandomIO_Stream(Diff_IO &page_io, std::uint64_t page_num, std::uint32_t stride,
-        std::uint32_t page_size)
+        AccessType access_type, std::uint32_t page_size)
         : m_page_io(page_io)
+        , m_access_type(access_type)
         , m_stride(stride)
         , m_page_size(page_size ? page_size : page_io.getPageSize())
         , m_page_ratio(calcPageRatio(m_page_size, page_io.getPageSize()))
@@ -148,11 +150,16 @@ namespace db0
 
     void RandomIO_Stream::openExisting(std::uint64_t page_num)
     {
+        m_head_page_num = page_num;
+        // in read-only mode we don't allow stream access, just the random one
+        if (m_access_type == AccessType::READ_ONLY) {
+            return;
+        }
+
         if (page_num >= m_page_io.getEndPageNum()) {
             THROWF(db0::InternalException) << "RandomIO_Stream does not exist";
         }
-
-        m_head_page_num = page_num;
+        
         std::uint64_t chunk_page_num = page_num;
         while (true) {
             std::uint32_t type = 0;
@@ -182,6 +189,9 @@ namespace db0
         const void *dp_data, std::pair<std::uint64_t, std::uint32_t> page_and_state,
         const std::vector<std::uint16_t> &diff_data, bool *is_first_page)
     {
+        if (m_access_type == AccessType::READ_ONLY) {
+            THROWF(db0::AccessTypeException) << "RandomIO_Stream::appendDiff not allowed in read-only mode";
+        }
         CodecAccess access(*this);
         detail::DiffIOCodecWriter<CodecAccess> writer(
             access, m_write_buf.data(), m_write_buf.data() + m_write_buf.size());
@@ -201,6 +211,9 @@ namespace db0
 
     std::uint64_t RandomIO_Stream::append(const void *buffer, bool *is_first_page)
     {
+        if (m_access_type == AccessType::READ_ONLY) {
+            THROWF(db0::AccessTypeException) << "RandomIO_Stream::append not allowed in read-only mode";
+        }
         auto [page_num, remaining_pages] = getNextPageNum(is_first_page);
         assert(remaining_pages > 0);
 
@@ -217,6 +230,9 @@ namespace db0
 
     std::uint64_t RandomIO_Stream::appendRandom(const void *buffer)
     {
+        if (m_access_type == AccessType::READ_ONLY) {
+            THROWF(db0::AccessTypeException) << "RandomIO_Stream::appendRandom not allowed in read-only mode";
+        }
         m_modified = true;
         auto page_num = m_page_io.reserve(m_page_ratio);
         writeRandom(page_num, buffer);
@@ -225,6 +241,9 @@ namespace db0
 
     void RandomIO_Stream::writeRandom(std::uint64_t page_num, const void *buffer)
     {
+        if (m_access_type == AccessType::READ_ONLY) {
+            THROWF(db0::AccessTypeException) << "RandomIO_Stream::writeRandom not allowed in read-only mode";
+        }
         const std::byte *byte_buffer = static_cast<const std::byte *>(buffer);
         auto underlying_page_size = m_page_io.getPageSize();
         for (std::uint32_t i = 0; i < m_page_ratio; ++i) {
@@ -235,6 +254,9 @@ namespace db0
 
     void RandomIO_Stream::flush()
     {
+        if (m_access_type == AccessType::READ_ONLY) {
+            return;
+        }
         if (!m_modified) {
             return;
         }
@@ -249,6 +271,9 @@ namespace db0
 
     void RandomIO_Stream::clear()
     {
+        if (m_access_type == AccessType::READ_ONLY) {
+            THROWF(db0::AccessTypeException) << "RandomIO_Stream::clear not allowed in read-only mode";
+        }
         ++m_generation;
         loadNextChunk(m_head_page_num);
         m_modified = true;
@@ -289,11 +314,6 @@ namespace db0
     bool RandomIO_Stream::modified() const
     {
         return m_modified;
-    }
-
-    RandomIO_Stream::Reader RandomIO_Stream::getReader() const
-    {
-        return Reader(*this);
     }
 
     void RandomIO_Stream::advanceChunk()
@@ -367,6 +387,7 @@ namespace db0
     void RandomIO_Stream::writeCurrentControl(std::uint32_t type, std::uint32_t control_index,
         std::uint64_t next_chunk_page_num)
     {
+        assert(m_access_type == AccessType::READ_WRITE);
         assert(control_index <= m_data_pages_per_chunk);
         RandomIOStreamControlPage control = {
             RandomIOStreamControlPage::MAGIC,
@@ -401,55 +422,6 @@ namespace db0
             }
         }
         return false;
-    }
-
-    RandomIO_Stream::Reader::Reader(const RandomIO_Stream &stream)
-        : m_stream(stream)
-    {
-        loadChunk(m_stream.m_head_page_num);
-    }
-
-    bool RandomIO_Stream::Reader::readNext(void *buffer, std::uint64_t *page_num)
-    {
-        while (!m_end) {
-            if (m_page_index < m_used_pages) {
-                auto current_page_num = m_stream.dataPageNum(m_chunk_page_num, m_page_index);
-                m_stream.readRandom(current_page_num, buffer);
-                if (page_num) {
-                    *page_num = current_page_num;
-                }
-                ++m_page_index;
-                return true;
-            }
-            if (!m_next_chunk_page_num) {
-                m_end = true;
-            } else {
-                loadChunk(m_next_chunk_page_num);
-            }
-        }
-        return false;
-    }
-
-    void RandomIO_Stream::Reader::loadChunk(std::uint64_t page_num)
-    {
-        std::uint32_t type = 0;
-        std::uint32_t control_index = 0;
-        std::uint64_t next_chunk_page_num = 0;
-        bool first_data_is_first_page = false;
-        if (!m_stream.findControl(page_num, m_stream.m_generation, type, control_index, next_chunk_page_num,
-            first_data_is_first_page)) {
-            m_end = true;
-            return;
-        }
-
-        m_chunk_page_num = page_num;
-        m_page_index = 0;
-        m_used_pages = control_index;
-        m_next_chunk_page_num = 0;
-        if (type == CONTROL_LINK) {
-            m_next_chunk_page_num = next_chunk_page_num;
-        }
-        m_end = false;
     }
 
 }

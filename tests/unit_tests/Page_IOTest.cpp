@@ -249,13 +249,6 @@ namespace tests
         cut.readRandom(5, read_buf.data());
         ASSERT_EQ(third, read_buf);
 
-        auto reader = cut.getReader();
-        std::vector<std::uint64_t> page_nums;
-        std::uint64_t page_num = 0;
-        while (reader.readNext(read_buf.data(), &page_num)) {
-            page_nums.push_back(page_num);
-        }
-        ASSERT_EQ((std::vector<std::uint64_t> { 0, 2, 5 }), page_nums);
     }
 
     TEST_F( Page_IOTest, testRandomIO_StreamClearReusesLargePageBlocks )
@@ -287,10 +280,8 @@ namespace tests
         cut.readRandom(0, read_buf.data());
         ASSERT_EQ(replacement, read_buf);
 
-        auto reader = cut.getReader();
-        ASSERT_TRUE(reader.readNext(read_buf.data()));
+        cut.readRandom(0, read_buf.data());
         ASSERT_EQ(replacement, read_buf);
-        ASSERT_FALSE(reader.readNext(read_buf.data()));
     }
 
     TEST_F( Page_IOTest, testRandomIO_StreamForwardsRandomAccessWithPageSizeTranslation )
@@ -345,16 +336,11 @@ namespace tests
         cut.readRandom(random_page_num, read_buf.data());
         ASSERT_EQ(random_replacement, read_buf);
 
-        auto empty_reader = cut.getReader();
-        ASSERT_FALSE(empty_reader.readNext(read_buf.data()));
-
         ASSERT_EQ(0u, cut.append(stream_replacement.data()));
         cut.flush();
 
-        auto reader = cut.getReader();
-        ASSERT_TRUE(reader.readNext(read_buf.data()));
+        cut.readRandom(0, read_buf.data());
         ASSERT_EQ(stream_replacement, read_buf);
-        ASSERT_FALSE(reader.readNext(read_buf.data()));
 
         cut.readRandom(random_page_num, read_buf.data());
         ASSERT_EQ(random_replacement, read_buf);
@@ -385,20 +371,16 @@ namespace tests
         cut.readRandom(random_page_num, read_buf.data());
         ASSERT_EQ(random_page, read_buf);
 
-        auto reader = cut.getReader();
-        ASSERT_TRUE(reader.readNext(read_buf.data()));
+        cut.readRandom(0, read_buf.data());
         ASSERT_EQ(stream_first, read_buf);
-        ASSERT_FALSE(reader.readNext(read_buf.data()));
 
         ASSERT_EQ(1u, cut.append(stream_second.data()));
         cut.flush();
 
-        auto reopened_reader = cut.getReader();
-        ASSERT_TRUE(reopened_reader.readNext(read_buf.data()));
+        cut.readRandom(0, read_buf.data());
         ASSERT_EQ(stream_first, read_buf);
-        ASSERT_TRUE(reopened_reader.readNext(read_buf.data()));
+        cut.readRandom(1, read_buf.data());
         ASSERT_EQ(stream_second, read_buf);
-        ASSERT_FALSE(reopened_reader.readNext(read_buf.data()));
 
         cut.readRandom(random_page_num, read_buf.data());
         ASSERT_EQ(random_page, read_buf);
@@ -524,20 +506,19 @@ namespace tests
         created.flush();
 
         auto stream_page_num = created.getPageNum();
-        RandomIO_Stream opened(page_io, stream_page_num, 3);
+        RandomIO_Stream opened(page_io, stream_page_num, 3, AccessType::READ_WRITE);
         ASSERT_EQ(4u, opened.append(fourth.data()));
         opened.flush();
 
-        auto reader = opened.getReader();
         std::vector<std::byte> read_buf(opened.getPageSize());
-        std::vector<std::byte> values;
-        while (reader.readNext(read_buf.data())) {
-            values.push_back(read_buf[0]);
-        }
-
-        ASSERT_EQ((std::vector<std::byte> {
-            std::byte(1), std::byte(2), std::byte(3), std::byte(4)
-        }), values);
+        opened.readRandom(0, read_buf.data());
+        ASSERT_EQ(first, read_buf);
+        opened.readRandom(1, read_buf.data());
+        ASSERT_EQ(second, read_buf);
+        opened.readRandom(3, read_buf.data());
+        ASSERT_EQ(third, read_buf);
+        opened.readRandom(4, read_buf.data());
+        ASSERT_EQ(fourth, read_buf);
     }
 
     TEST_F( Page_IOTest, testRandomIO_StreamMaintainsIndependentStreamsOverSharedDiffIO )
@@ -569,33 +550,27 @@ namespace tests
         auto stream_a_page_num = stream_a.getPageNum();
         auto stream_b_page_num = stream_b.getPageNum();
 
-        RandomIO_Stream opened_a(page_io, stream_a_page_num, 3);
+        RandomIO_Stream opened_a(page_io, stream_a_page_num, 3, AccessType::READ_WRITE);
         ASSERT_EQ(6u, opened_a.append(a3.data()));
         opened_a.flush();
 
-        RandomIO_Stream opened_b(page_io, stream_b_page_num, 3);
+        RandomIO_Stream opened_b(page_io, stream_b_page_num, 3, AccessType::READ_WRITE);
         ASSERT_EQ(9u, opened_b.append(b3.data()));
         opened_b.flush();
 
-        auto reader_a = opened_a.getReader();
-        auto reader_b = opened_b.getReader();
         std::vector<std::byte> read_buf(page_size);
-        std::vector<std::byte> values_a;
-        std::vector<std::byte> values_b;
-
-        while (reader_a.readNext(read_buf.data())) {
-            values_a.push_back(read_buf[0]);
-        }
-        while (reader_b.readNext(read_buf.data())) {
-            values_b.push_back(read_buf[0]);
-        }
-
-        ASSERT_EQ((std::vector<std::byte> {
-            std::byte(0xa1), std::byte(0xa2), std::byte(0xa3)
-        }), values_a);
-        ASSERT_EQ((std::vector<std::byte> {
-            std::byte(0xb1), std::byte(0xb2), std::byte(0xb3)
-        }), values_b);
+        opened_a.readRandom(0, read_buf.data());
+        ASSERT_EQ(a1, read_buf);
+        opened_a.readRandom(1, read_buf.data());
+        ASSERT_EQ(a2, read_buf);
+        opened_a.readRandom(6, read_buf.data());
+        ASSERT_EQ(a3, read_buf);
+        opened_b.readRandom(3, read_buf.data());
+        ASSERT_EQ(b1, read_buf);
+        opened_b.readRandom(4, read_buf.data());
+        ASSERT_EQ(b2, read_buf);
+        opened_b.readRandom(9, read_buf.data());
+        ASSERT_EQ(b3, read_buf);
     }
 
 }

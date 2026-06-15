@@ -30,19 +30,41 @@ namespace db0
     class RandomIO_Stream
     {
     public:
-        class Reader;
-
         /**
-         * @param page_io shared underlying page store used for all reads/writes        
+         * Create a new read/write stream.
+         *
+         * The constructor reserves the first stream chunk immediately and
+         * initializes the append cursor. Use this only when allocating a new
+         * managed stream; reopening an existing stream must use the constructor
+         * that takes page_num and an explicit access_type.
+         *
+         * @param page_io shared underlying page store used for all reads/writes
          * @param stride number of underlying Page_IO pages reserved per stream chunk
          * @param page_size logical stream page size in bytes; defaults to the
          * underlying Page_IO page size and must be its exact multiple
          */
         RandomIO_Stream(Diff_IO &page_io, std::uint32_t stride, std::uint32_t page_size = 0);
 
-        // Open existing stream from a known location (page_num)
+        /**
+         * Open an existing stream from a known head page.
+         *
+         * In READ_ONLY mode, this does not scan stream control pages. Read-only
+         * users only need random access to pages that are indexed elsewhere,
+         * so the constructor records page_num and leaves cursor state unopened.
+         *
+         * In READ_WRITE mode, this scans the control chain once to position the
+         * append cursor at the stream tail. Because there is a single-writer
+         * guarantee, malformed or missing control pages are definitive errors.
+         *
+         * @param page_io shared underlying page store used for all reads/writes
+         * @param page_num head page number of the existing stream
+         * @param stride number of underlying Page_IO pages reserved per stream chunk
+         * @param access_type READ_ONLY for random page reads, READ_WRITE to append
+         * @param page_size logical stream page size in bytes; defaults to the
+         * underlying Page_IO page size and must be its exact multiple
+         */
         RandomIO_Stream(Diff_IO &page_io, std::uint64_t page_num, std::uint32_t stride,
-            std::uint32_t page_size = 0);
+            AccessType access_type, std::uint32_t page_size = 0);
 
         /**
          * Append/read data through the managed RandomIO stream.
@@ -89,8 +111,6 @@ namespace db0
         // Clear the stream part only
         void clear();
 
-        Reader getReader() const;
-
     protected:
         std::uint64_t getPageNum() const;
 
@@ -99,6 +119,7 @@ namespace db0
         class ConstCodecAccess;
 
         Diff_IO &m_page_io;
+        const AccessType m_access_type;
         const std::uint32_t m_stride;
         const std::uint32_t m_page_size;
         const std::uint32_t m_page_ratio;
@@ -127,24 +148,6 @@ namespace db0
         bool findControl(std::uint64_t chunk_page_num, std::uint32_t generation,
             std::uint32_t &type, std::uint32_t &control_index, std::uint64_t &next_chunk_page_num,
             bool &first_data_is_first_page) const;
-    };
-
-    class RandomIO_Stream::Reader
-    {
-    public:
-        explicit Reader(const RandomIO_Stream &);
-
-        bool readNext(void *buffer, std::uint64_t *page_num = nullptr);
-
-    private:
-        const RandomIO_Stream &m_stream;
-        std::uint64_t m_chunk_page_num = 0;
-        std::uint32_t m_page_index = 0;
-        std::uint32_t m_used_pages = 0;
-        std::uint64_t m_next_chunk_page_num = 0;
-        bool m_end = true;
-
-        void loadChunk(std::uint64_t page_num);
     };
 
 }

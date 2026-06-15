@@ -59,24 +59,32 @@ namespace db0
         return *result;
     }
 
-    PlainSparsePair *SparsePairManager::tryGetExisting(Allocator::SlotId slot_id) const
+    PlainSparsePair *SparsePairManager::tryGetExisting(Allocator::SlotId slot_id, bool *is_new_slot) const
     {
         auto cached_it = m_pairs.find(slot_id);        
         if (cached_it != m_pairs.end()) {
             cacheHotPair(slot_id, *cached_it->second);
+            if (is_new_slot) {
+                *is_new_slot = false;
+            }
             return cached_it->second.get();
         }
-        
+
         // Try opening an existing slot if not cached
-        auto root_address = m_allocator->tryFirstAlloc(slot_id);
+        auto root_address = m_allocator->tryFirstAlloc(slot_id);    
         if (!root_address) {
             if (!m_prefix->tryLoadSlot(slot_id, *m_allocator)) {
                 // slot has no data yet, cannot be loaded
                 return nullptr;
             }
+            if (is_new_slot) {
+                *is_new_slot = true;
+            }
             root_address = m_allocator->tryFirstAlloc(slot_id);
+        } else if (is_new_slot) {
+            *is_new_slot = false;
         }
-
+        
         // sparse pair is located at the slot's root address
         // Open existing sparse pair over an already existing slot
         auto dram_pair = createDRAMPair(slot_id);
@@ -109,20 +117,31 @@ namespace db0
         }
 
         // Refresh pages from a single specific slot only
-        auto refresh_slot = [&](std::uint64_t slot_id, const std::uint64_t *begin, const std::uint64_t *end) -> bool
+        auto refresh_slot = [&](std::uint64_t slot_id, const std::uint64_t *begin, const std::uint64_t *end)
         {
-            auto sparse_pair = tryGetCached(slot_id);
-            if (!sparse_pair) {
-                // not cached, might need to be loaded if mapping policy == eager
-                return false;
-            }
-
             if (begin == end) {
                 // no pages to refresh, just return
-                return true;
+                return;
             }
 
-            // detach before reloading
+            // Use different paths depending on mapping policy
+            PlainSparsePair *sparse_pair = nullptr;
+            if (m_mapping_policy == MappingPolicy::eager) {
+                bool is_new_slot = false;
+                sparse_pair = tryGetExisting(slot_id, &is_new_slot);
+                if (is_new_slot) {
+                    // no need for refreshing since the slot is newly loaded
+                    return;
+                }
+            } else {
+                sparse_pair = tryGetCached(slot_id);
+            }
+
+            if (!sparse_pair) {                
+                return;
+            }
+            
+            // detach before reloading / refreshing
             sparse_pair->detach();
             db0::load(*m_prefix, begin, end);
             sparse_pair->refresh();
@@ -136,7 +155,6 @@ namespace db0
                     updater(MS_Address::from(*begin << m_ps_shift).local_address());
                 }
             }
-            return true;
         };
 
         // page_nums are sorted
@@ -153,9 +171,8 @@ namespace db0
                 // move on to the next slot
                 last_slot_id = slot_id;
                 current = end;
-            } else {
-                ++end;
-            }            
+            }
+            ++end;
         }
 
         refresh_slot(last_slot_id, current, end);

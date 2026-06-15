@@ -869,7 +869,7 @@ namespace db0
         return {
             m_page_io, m_config.m_desc_io_head,
             getDesc_IOStride(m_config.m_page_size, m_config.m_descriptor_page_size),
-            m_config.m_descriptor_page_size
+            m_access_type, m_config.m_descriptor_page_size
         };
     }
 
@@ -1010,6 +1010,9 @@ namespace db0
                 if (!!m_ext_space && ext_dram_state_num) {
                     is_consistent &= m_ext_dram_io->completeApplyChanges(*ext_dram_state_num);
                     m_ext_space.refresh();
+                }
+                if (!!m_ext_space && (!ext_dram_state_num || *ext_dram_state_num != *dram_state_num)) {
+                    is_consistent = false;
                 }
                 
                 if (!is_consistent) {
