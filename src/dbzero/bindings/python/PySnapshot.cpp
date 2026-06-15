@@ -18,7 +18,8 @@ namespace db0::python
     }
     
     void PyAPI_PySnapshot_del(PySnapshotObject* snapshot_obj)
-    {        
+    {
+        PY_DEALLOC_GUARD();
         // NOTE: it's safe to destroy without API lock (not a v_object)
         // also API lock here would result in a deadlock        
         snapshot_obj->destroy();

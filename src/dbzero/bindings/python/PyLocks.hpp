@@ -24,6 +24,26 @@ namespace db0::python
 
 {
 
+    inline bool isPythonFinalizing()
+    {
+#if PY_VERSION_HEX >= 0x030D0000
+        return Py_IsFinalizing();
+#else
+        return _Py_IsFinalizing();
+#endif
+    }
+
+// Avoid running dbzero/Python cleanup from tp_dealloc while the interpreter is
+// finalizing. This surfaced as a shutdown SIGSEGV after an unhandled Python
+// exception left nested durable objects alive; deallocators tried to enter the
+// dbzero API lock / Python C API after finalization had started.
+#define PY_DEALLOC_GUARD() \
+    do { \
+        if (!Py_IsInitialized() || db0::python::isPythonFinalizing()) { \
+            return; \
+        } \
+    } while (false)
+
     struct GIL_Lock
     {
         PyGILState_STATE m_state;

@@ -18,6 +18,7 @@ namespace db0::python
     
     void PyJoinIterable_del(PyJoinIterable* self)
     {
+        PY_DEALLOC_GUARD();
         // destroy associated db0 instance
         self->destroy();
         Py_TYPE(self)->tp_free((PyObject*)self);

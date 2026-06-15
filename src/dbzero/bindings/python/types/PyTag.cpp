@@ -23,6 +23,7 @@ namespace db0::python
 
     void PyTag_del(PyTag* self)
     {
+        PY_DEALLOC_GUARD();
         // destroy associated instance
         self->destroy();
         Py_TYPE(self)->tp_free((PyObject*)self);

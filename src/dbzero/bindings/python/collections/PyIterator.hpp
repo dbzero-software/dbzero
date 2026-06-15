@@ -19,6 +19,7 @@ namespace db0::python
     template <typename IteratorObjectT> 
     void IteratorObject_del(IteratorObjectT* self)
     {
+        PY_DEALLOC_GUARD();
         PY_API_FUNC
         // destroy associated DB0 instance
         // calls destructor of ext object

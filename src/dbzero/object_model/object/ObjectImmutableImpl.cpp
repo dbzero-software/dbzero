@@ -295,7 +295,7 @@ namespace db0::object_model
             if (type.isIntern()) {
                 auto candidate = type.getContentIndex().lookup(*immutableInitializer);
                 if (candidate) {
-                    initializer.close();
+                    InitManager::instance.tryCloseInitializer(*this);
                     return candidate;
                 }
             }
@@ -329,7 +329,7 @@ namespace db0::object_model
             if (type.isIntern()) {
                 type.getContentIndex().insert((*this)->getObject(), this->getUniqueAddress());
             }
-            initializer.close();
+            InitManager::instance.tryCloseInitializer(*this);
         }
 
         assert(this->hasInstance());

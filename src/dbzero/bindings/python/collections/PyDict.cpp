@@ -126,6 +126,7 @@ namespace db0::python
     
     void PyAPI_DictObject_del(DictObject* dict_obj)
     {
+        PY_DEALLOC_GUARD();
         PY_API_FUNC
         // destroy associated DB0 Dict instance
         dict_obj->destroy();
