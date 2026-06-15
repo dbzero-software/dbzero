@@ -2,7 +2,11 @@
 # Copyright (c) 2025 DBZero Software sp. z o.o.
 
 import gc
+import os
 import random
+import subprocess
+import sys
+import textwrap
 import time
 from dataclasses import dataclass
 from dataclasses import field
@@ -13,6 +17,26 @@ import pytest
 import dbzero as db0
 
 from .conftest import DB0_DIR
+
+
+def run_intern_script(script):
+    env = os.environ.copy()
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
+    return subprocess.run(
+        [sys.executable, "-c", textwrap.dedent(script)],
+        check=False,
+        env=env,
+        text=True,
+        capture_output=True,
+    )
+
+
+def assert_intern_script_exits_cleanly(result):
+    assert result.returncode == 0, (
+        f"subprocess exited with {result.returncode}; expected clean shutdown\n"
+        f"stdout:\n{result.stdout}\n"
+        f"stderr:\n{result.stderr}"
+    )
 
 
 def get_memo_class_object(obj):
@@ -29,6 +53,13 @@ class MemoInternLeaf:
 @dataclass
 class MemoInternLeafSibling:
     name: str
+
+
+@db0.memo(immutable=True, intern=True)
+@dataclass
+class MemoInternSourceNode:
+    parent: Optional["MemoInternSourceNode"]
+    contents: str
 
 
 @db0.memo(immutable=True)
@@ -344,6 +375,203 @@ def test_embedded_interned_object_inside_container_reuses_embedded_instance(
     assert db0.uuid(embedded_leaf) == db0.uuid(leaf)
     assert db0.uuid(second) == db0.uuid(leaf)
     assert second.name == "container embedded"
+
+
+def test_hierarchical_interned_immutable_sources_dedupe_and_preserve_parents(db0_fixture):
+    def make_source(parts):
+        source = None
+        for part in parts:
+            source = db0.materialized(MemoInternSourceNode(source, part))
+        return source
+
+    def source_parts(source):
+        parts = []
+        while source is not None:
+            parts.append(source.contents)
+            source = source.parent
+        return tuple(reversed(parts))
+
+    paths = []
+    for index in range(120):
+        depth = index % 4 + 1
+        paths.append((
+            f"title-{index % 6}",
+            f"section-{index % 5}",
+            f"chapter-{index % 4}",
+            f"article-{index % 3}",
+        )[:depth])
+    assert len(paths) >= 100
+
+    expected_prefixes = {
+        path[:prefix_len]
+        for path in paths
+        for prefix_len in range(1, len(path) + 1)
+    }
+    expected_leaf_paths = set(paths)
+
+    objects = [db0.materialized(make_source(path)) for path in paths]
+    uuids_by_path = {}
+    for path, source in zip(paths, objects):
+        source_uuid = db0.uuid(source)
+        uuids_by_path.setdefault(path, source_uuid)
+        assert source_uuid == uuids_by_path[path]
+        assert source_parts(source) == path
+
+    db0.clear_cache()
+    duplicates = [db0.materialized(make_source(path)) for path in paths]
+    for path, source in zip(paths, duplicates):
+        assert db0.uuid(source) == uuids_by_path[path]
+        assert source_parts(source) == path
+
+    assert len(uuids_by_path) == len(expected_leaf_paths)
+    assert len({db0.uuid(source) for source in objects + duplicates}) == len(expected_leaf_paths)
+    assert db0.get_type_stats(MemoInternSourceNode)["content_index"]["size"] == len(expected_prefixes)
+
+
+def test_nested_interned_immutable_references_in_singleton_list_exit_cleanly():
+    result = run_intern_script(
+        """
+        from __future__ import annotations
+
+        from dataclasses import dataclass, field
+        from pathlib import Path
+        import tempfile
+
+        import dbzero as db0
+
+        DATA_PREFIX = "/tests/intern/nested-singleton-list"
+
+
+        @db0.memo(prefix=DATA_PREFIX, immutable=True, intern=True)
+        @dataclass
+        class Source:
+            parent: Source | None
+            contents: str
+
+
+        @db0.memo(prefix=DATA_PREFIX, immutable=True, intern=True)
+        @dataclass
+        class Metadata:
+            title: Source
+            source: Source
+
+
+        @db0.memo(prefix=DATA_PREFIX, immutable=True, intern=True)
+        @dataclass
+        class Record:
+            metadata: Metadata
+
+
+        @db0.memo(prefix=DATA_PREFIX, singleton=True)
+        @dataclass
+        class Root:
+            records: list[Record | None] = field(default_factory=list)
+
+
+        db0.init(str(Path(tempfile.mkdtemp()) / "dbzero"), prefix=DATA_PREFIX, autocommit=True)
+
+        root = Root()
+        title = Source(None, "Legal act title")
+        section = Source(title, "Dzial dziewiaty")
+        chapter = Source(section, "Rozdzial I")
+        article = Source(chapter, "Art. 1.")
+        record = Record(Metadata(title=title, source=article))
+
+        root.records.extend([None, record])
+        print("stored", flush=True)
+        db0.close()
+        print("closed", flush=True)
+        """
+    )
+
+    assert_intern_script_exits_cleanly(result)
+    assert "stored" in result.stdout
+    assert "closed" in result.stdout
+
+
+def test_nested_interned_immutable_keyword_factory_record_gets_uuid():
+    result = run_intern_script(
+        """
+        from __future__ import annotations
+
+        from dataclasses import dataclass
+        from pathlib import Path
+        import tempfile
+
+        import dbzero as db0
+
+        DATA_PREFIX = "/tests/intern/keyword-factory-record"
+
+
+        @db0.memo(prefix=DATA_PREFIX, immutable=True, intern=True)
+        @dataclass
+        class Source:
+            parent: Source | None
+            contents: str
+
+            @classmethod
+            def root(cls, contents: str) -> Source:
+                return cls(parent=None, contents=contents)
+
+            @classmethod
+            def from_path(cls, root: Source, path: str) -> Source:
+                source = root
+                for part in path.split("/"):
+                    source = cls(parent=source, contents=part)
+                return source
+
+
+        @db0.memo(prefix=DATA_PREFIX, immutable=True, intern=True)
+        @dataclass
+        class Metadata:
+            title: Source
+            subtitle: str
+            source: Source
+
+
+        @db0.memo(prefix=DATA_PREFIX, immutable=True, intern=True)
+        @dataclass
+        class Record:
+            id: int
+            content: str
+            metadata: Metadata
+
+            @classmethod
+            def from_schema_data(cls, data):
+                title = Source.root(data["title"])
+                source = Source.from_path(title, data["source"])
+                return cls(
+                    id=int(data["id"]),
+                    content=data["content"],
+                    metadata=Metadata(
+                        title=title,
+                        subtitle=data["subtitle"],
+                        source=source,
+                    ),
+                )
+
+
+        db0.init(str(Path(tempfile.mkdtemp()) / "dbzero"), prefix=DATA_PREFIX, autocommit=True)
+
+        record = Record.from_schema_data(
+            {
+                "id": "2",
+                "content": "Legal text excerpt body.",
+                "title": "Legal act title",
+                "subtitle": "Legal act subtitle",
+                "source": "Dzial dziewiaty/Rozdzial I/Art. 1.",
+            }
+        )
+        print("uuid-start", flush=True)
+        print(db0.uuid(record), flush=True)
+        db0.close()
+        print("closed", flush=True)
+        """
+    )
+
+    assert_intern_script_exits_cleanly(result)
+    assert "uuid-start" in result.stdout
+    assert "closed" in result.stdout
 
 
 def test_standalone_interned_object_reuses_existing_instance(db0_fixture):
