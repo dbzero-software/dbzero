@@ -274,7 +274,7 @@ namespace db0
                 }
                 
                 // clear lang cache again since flush might've released some Python instances                
-                m_lang_cache.clear(true);
+                m_lang_cache.clear(true, as_defunct);
 
                 // lock for exclusive access
                 std::unique_lock<std::shared_mutex> lock(m_commit_mutex);

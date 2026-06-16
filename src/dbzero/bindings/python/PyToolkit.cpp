@@ -1453,7 +1453,7 @@ namespace db0::python
     }
 
     bool PyToolkit::isValid() {
-        return Py_IsInitialized();
+        return Py_IsInitialized() && !isPythonFinalizing();
     }
         
     bool PyToolkit::hasTagRefs(ObjectPtr obj_ptr)
