@@ -150,7 +150,7 @@ namespace db0
         return true;
     }
     
-    void LangCache::clear(bool expired_only)
+    void LangCache::clear(bool expired_only, bool as_defunct)
     {
         std::vector<ObjectSharedExtPtr> to_destroy;
         std::unique_lock<std::shared_mutex> lock(m_mutex);
@@ -158,8 +158,13 @@ namespace db0
             // NOTE: we check for any refernces except from LangCache itself (+1)
             if (item.second.get() && (!expired_only || !LangToolkit::hasAnyLangRefs(item.second.get(), 1))) {
                 m_uid_to_index.erase(item.first);
-                // grab object for destruction outside of the lock
-                to_destroy.push_back(std::move(item.second));
+                if (as_defunct) {
+                    // Python is finalizing; release ownership without DECREF.
+                    item.second.steal();
+                } else {
+                    // grab object for destruction outside of the lock
+                    to_destroy.push_back(std::move(item.second));
+                }
                 --m_size;
             }
         }        

@@ -26,6 +26,7 @@ namespace db0::python
     
     void PyAPI_PyAtomic_del(PyAtomic* self)
     {
+        PY_DEALLOC_GUARD();
         PY_API_FUNC
         self->destroy();
         Py_TYPE(self)->tp_free((PyObject*)self);

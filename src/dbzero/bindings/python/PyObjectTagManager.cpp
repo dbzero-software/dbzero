@@ -32,6 +32,7 @@ namespace db0::python
 
     void PyAPI_PyObjectTagManager_del(PyObjectTagManager* tags_obj)
     {
+        PY_DEALLOC_GUARD();
         PY_API_FUNC
         // destroy associated DB0 instance
         tags_obj->destroy();

@@ -38,6 +38,7 @@ namespace db0::python
 
     void PyEnum_del(PyEnum* self)
     {
+        PY_DEALLOC_GUARD();
         PY_API_FUNC
         // destroy associated DB0 instance
         self->destroy();
@@ -85,6 +86,7 @@ namespace db0::python
     
     void PyEnumValue_del(PyEnumValue* self)
     {
+        PY_DEALLOC_GUARD();
         // destroy associated DB0 instance
         self->destroy();
         Py_TYPE(self)->tp_free((PyObject*)self);
@@ -92,6 +94,7 @@ namespace db0::python
 
     void PyEnumValueRepr_del(PyEnumValueRepr* self)
     {
+        PY_DEALLOC_GUARD();
         // destroy associated DB0 instance
         self->destroy();
         Py_TYPE(self)->tp_free((PyObject*)self);

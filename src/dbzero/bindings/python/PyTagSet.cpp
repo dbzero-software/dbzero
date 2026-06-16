@@ -21,7 +21,8 @@ namespace db0::python
     };
     
     void PyAPI_PyTagSet_del(PyTagSet *py_tag_set)
-    {      
+    {
+        PY_DEALLOC_GUARD();
         py_tag_set->m_tag_set.~TagSet();
         PyObject_Del(py_tag_set);
     }

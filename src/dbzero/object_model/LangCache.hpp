@@ -53,7 +53,7 @@ namespace db0
         // Remove all cached instances
         // NOTE: only instances with NO existing references will be removed from cache
         // this is to avoid instance duplication in the program (e.g. when later being fetched by UUID)
-        void clear(bool expired_only);
+        void clear(bool expired_only, bool as_defunct = false);
         
         // Release all cached instances (cannot be deleted since Python interpreter is no longer available)
         void clearDefunct();

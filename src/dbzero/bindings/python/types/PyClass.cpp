@@ -63,6 +63,7 @@ namespace db0::python
 
     void PyAPI_ClassObject_del(ClassObject* class_obj)
     {
+        PY_DEALLOC_GUARD();
         PY_API_FUNC
         // release associated shared_ptr
         class_obj->destroy();

@@ -300,6 +300,7 @@ namespace db0::python
     
     void SetObject_del(SetObject* set_obj)
     {
+        PY_DEALLOC_GUARD();
         PY_API_FUNC
         // destroy associated DB0 Set instance
         set_obj->destroy();

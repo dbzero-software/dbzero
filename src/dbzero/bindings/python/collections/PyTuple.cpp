@@ -209,6 +209,7 @@ namespace db0::python
     
     void PyAPI_TupleObject_del(TupleObject* tuple_obj)
     {
+        PY_DEALLOC_GUARD();
         PY_API_FUNC
         // destroy associated DB0 Tuple instance
         tuple_obj->destroy();
