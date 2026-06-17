@@ -66,9 +66,6 @@ def test_excluding_no_cache_instances_from_P0_cache(db0_fixture):
     gc.collect()        
     final_cache_size = db0.get_cache_stats()["P_size"]["P0"]
     # make sure cache utilization is low
-    print(f"Initial P0 cache size: {initial_cache_size}, Final P0 cache size: {final_cache_size}")
-    print(f"Difference in P0 cache size (KB): {(final_cache_size - initial_cache_size) / 1024:.3f} KB")
-    print(f"Needs to be less than 350 KB: {(350 << 10) / (1024):.3f} KB")
     assert abs(final_cache_size - initial_cache_size) < (400 << 10)
 
 

@@ -3,33 +3,11 @@
 
 import pytest
 import dbzero as db0
-from multiprocessing import Event, Process
 from .memo_test_types import MemoTestClass, MemoTestSingleton, MemoScopedSingleton, MemoDataPxSingleton
 from .memo_test_types import MemoSingletonWithMigrations
     
 from .conftest import DB0_DIR
 from dbzero.memo import __dyn_prefix
-
-
-@db0.memo(singleton=True)
-class ExistingLockedPrefixSingleton:
-    """Singleton used only to create state on the locked prefix."""
-
-
-@db0.memo(singleton=True)
-class MissingLockedPrefixSingleton:
-    """Singleton queried from the locked prefix but not created there."""
-
-
-def _hold_locked_prefix(dbzero_root: str, locked_prefix: str, ready: Event, stop: Event) -> None:
-    """Open a prefix in read-write mode and keep its dbzero lock held."""
-    db0.init(dbzero_root, read_write=True)
-    db0.open(locked_prefix, "rw")
-    ExistingLockedPrefixSingleton()
-    db0.commit()
-    ready.set()
-    stop.wait(10)
-    db0.close()
 
 
 def test_memo_singleton_is_created_once(db0_fixture):
@@ -85,37 +63,6 @@ def test_find_singleton_static_scope(db0_fixture):
     assert db0.find_singleton(MemoDataPxSingleton) is obj_1
 
 
-@pytest.mark.skip(reason="issue-1395")
-def test_find_singleton_on_missing_singleton_in_writer_locked_prefix_raises(tmp_path) -> None:
-    dbzero_root = str(tmp_path / "db0")
-    app_prefix = "app-prefix"
-    locked_prefix = "locked-prefix"
-
-    db0.init(dbzero_root, read_write=True)
-    db0.open(app_prefix, "rw")
-    db0.commit()
-    db0.close()
-
-    ready = Event()
-    stop = Event()
-    process = Process(target=_hold_locked_prefix, args=(dbzero_root, locked_prefix, ready, stop))
-    process.start()
-    assert ready.wait(5)
-    try:
-        db0.init(dbzero_root, read_write=False)
-        db0.open(app_prefix, "r")
-
-        singleton = db0.find_singleton(MissingLockedPrefixSingleton, locked_prefix)
-        assert singleton is not None
-    finally:
-        stop.set()
-        process.join(5)
-        if process.is_alive():
-            process.terminate()
-            process.join()
-        db0.close()
-    
-    
 def test_find_singleton(db0_fixture):
     assert db0.find_singleton(MemoTestSingleton) is None    
     # create on default prefix
