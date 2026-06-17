@@ -3,6 +3,7 @@
 
 #include "PyObjectIterator.hpp"
 #include <dbzero/object_model/tags/ObjectIterator.hpp>
+#include <dbzero/object_model/tags/ObjectIteratorPool.hpp>
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/object_model/tags/TagIndex.hpp>
 #include <dbzero/core/utils/base32.hpp>
@@ -23,6 +24,13 @@ namespace db0::python
     {
         PY_DEALLOC_GUARD();
         PY_API_FUNC
+        auto iterator_ptr = self->getSharedPtr();
+        if (!!iterator_ptr) {
+            auto fixture = iterator_ptr->getFixture();
+            if (auto *iterator_pool = fixture->tryGet<db0::object_model::ObjectIteratorPool>()) {
+                iterator_pool->remove(iterator_ptr.get());
+            }
+        }
         // destroy associated instance
         self->destroy();
         Py_TYPE(self)->tp_free((PyObject*)self);
