@@ -5,22 +5,21 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <vector>
-#include <dbzero/bindings/python/PyWrapper.hpp>
-#include <dbzero/bindings/python/shared_py_object.hpp>
+#include <memory>
+#include <unordered_map>
 
 namespace db0::object_model
 {
 
     class ObjectIterator;
-    using PyObjectIterator = db0::python::PySharedWrapper<ObjectIterator, false>;
 
     class ObjectIteratorPool
     {
     public:
-        using ObjectSharedExtPtr = db0::python::shared_py_object<PyObjectIterator *, true>;
+        using ObjectWeakPtr = std::weak_ptr<ObjectIterator>;
 
-        void add(ObjectSharedExtPtr object);
+        void add(const std::shared_ptr<ObjectIterator> &object);
+        void remove(ObjectIterator *object_ptr);
         std::size_t detach();
         std::size_t detach(std::uint64_t generation);
         std::size_t cleanup();
@@ -30,11 +29,11 @@ namespace db0::object_model
         bool isClosed() const;
 
     private:
-        std::vector<ObjectSharedExtPtr> m_iterators;
+        std::unordered_map<ObjectIterator *, ObjectWeakPtr> m_iterators;
         std::uint64_t m_detach_generation = 0;
         bool m_closed = false;
 
-        static ObjectIterator *getIterator(ObjectSharedExtPtr const &object);
+        static std::shared_ptr<ObjectIterator> getIterator(const ObjectWeakPtr &object);
     };
 
 }

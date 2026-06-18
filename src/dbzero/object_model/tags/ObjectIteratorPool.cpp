@@ -7,43 +7,43 @@
 namespace db0::object_model
 {
 
-    ObjectIterator *ObjectIteratorPool::getIterator(ObjectSharedExtPtr const &object)
+    std::shared_ptr<ObjectIterator> ObjectIteratorPool::getIterator(const ObjectWeakPtr &object)
     {
-        auto *py_iterator = object.get();
-        if (!py_iterator) {
-            return nullptr;
-        }
-        auto iterator_ptr = py_iterator->getSharedPtr();
-        return iterator_ptr.get();
+        return object.lock();
     }
 
-    void ObjectIteratorPool::add(ObjectSharedExtPtr object)
+    void ObjectIteratorPool::add(const std::shared_ptr<ObjectIterator> &object)
     {
         if (m_closed) {
             return;
         }
-        if (object.get() != nullptr) {
-            m_iterators.push_back(std::move(object));
+        if (!object) {
+            return;
         }
+        m_iterators.insert_or_assign(object.get(), object);
+    }
+
+    void ObjectIteratorPool::remove(ObjectIterator *object_ptr)
+    {
+        if (!object_ptr) {
+            return;
+        }
+        m_iterators.erase(object_ptr);
     }
 
     std::size_t ObjectIteratorPool::detach()
     {
         std::size_t detached_count = 0;
-        auto out = m_iterators.begin();
-        for (auto it = m_iterators.begin(); it != m_iterators.end(); ++it) {
-            auto *iterator = getIterator(*it);
+        for (auto it = m_iterators.begin(); it != m_iterators.end();) {
+            auto iterator = getIterator(it->second);
             if (!iterator) {
+                it = m_iterators.erase(it);
                 continue;
             }
             iterator->detach();
             ++detached_count;
-            if (out != it) {
-                *out = std::move(*it);
-            }
-            ++out;
+            ++it;
         }
-        m_iterators.erase(out, m_iterators.end());
         return detached_count;
     }
 
@@ -59,17 +59,13 @@ namespace db0::object_model
     std::size_t ObjectIteratorPool::cleanup()
     {
         auto old_size = m_iterators.size();
-        auto out = m_iterators.begin();
-        for (auto it = m_iterators.begin(); it != m_iterators.end(); ++it) {
-            if (!getIterator(*it)) {
-                continue;
+        for (auto it = m_iterators.begin(); it != m_iterators.end();) {
+            if (!getIterator(it->second)) {
+                it = m_iterators.erase(it);
+            } else {
+                ++it;
             }
-            if (out != it) {
-                *out = std::move(*it);
-            }
-            ++out;
         }
-        m_iterators.erase(out, m_iterators.end());
         return old_size - m_iterators.size();
     }
 

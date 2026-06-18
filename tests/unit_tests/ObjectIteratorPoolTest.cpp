@@ -165,7 +165,7 @@ namespace tests
         DetachableUniqueAddressIterator *query_ptr = nullptr;
         auto py_iter = makePyIterator(fixture, query_ptr);
 
-        pool.add(db0::object_model::ObjectIteratorPool::ObjectSharedExtPtr(py_iter.get()));
+        pool.add(py_iter->getSharedPtr());
 
         ASSERT_EQ(pool.size(), 1u);
         ASSERT_EQ(pool.detach(), 1u);
@@ -182,7 +182,7 @@ namespace tests
         DetachableUniqueAddressIterator *query_ptr = nullptr;
         auto py_iter = makePyIterator(fixture, query_ptr);
 
-        pool.add(db0::object_model::ObjectIteratorPool::ObjectSharedExtPtr(py_iter.get()));
+        pool.add(py_iter->getSharedPtr());
 
         ASSERT_EQ(pool.detach(1), 1u);
         ASSERT_EQ(query_ptr->m_detach_count, 1u);
@@ -224,10 +224,26 @@ namespace tests
         DetachableUniqueAddressIterator *query_ptr = nullptr;
         auto py_iter = makePyIterator(fixture, query_ptr);
 
-        pool.add(db0::object_model::ObjectIteratorPool::ObjectSharedExtPtr(py_iter.get()));
+        pool.add(py_iter->getSharedPtr());
         py_iter->reset();
 
         ASSERT_EQ(pool.cleanup(), 1u);
+        ASSERT_EQ(pool.size(), 0u);
+        workspace.close();
+    }
+
+    TEST_F(ObjectIteratorPoolTest, testObjectIteratorPoolDropsDestroyedPythonIteratorsImmediately)
+    {
+        Workspace workspace("", {}, {}, {}, {}, pythonFixtureInitializer());
+        auto fixture = workspace.getFixture(prefix_name);
+        auto &pool = fixture->get<db0::object_model::ObjectIteratorPool>();
+        DetachableUniqueAddressIterator *query_ptr = nullptr;
+        auto py_iter = makePyIterator(fixture, query_ptr);
+
+        pool.add(py_iter->getSharedPtr());
+
+        ASSERT_EQ(pool.size(), 1u);
+        py_iter.reset();
         ASSERT_EQ(pool.size(), 0u);
         workspace.close();
     }
@@ -242,8 +258,8 @@ namespace tests
         auto live_iter = makePyIterator(fixture, live_query_ptr);
         auto expired_iter = makePyIterator(fixture, expired_query_ptr);
 
-        pool.add(db0::object_model::ObjectIteratorPool::ObjectSharedExtPtr(live_iter.get()));
-        pool.add(db0::object_model::ObjectIteratorPool::ObjectSharedExtPtr(expired_iter.get()));
+        pool.add(live_iter->getSharedPtr());
+        pool.add(expired_iter->getSharedPtr());
         expired_iter->reset();
 
         ASSERT_EQ(pool.detach(), 1u);
@@ -261,12 +277,29 @@ namespace tests
         auto py_iter = makePyIterator(fixture, query_ptr);
 
         pool.close();
-        pool.add(db0::object_model::ObjectIteratorPool::ObjectSharedExtPtr(py_iter.get()));
+        pool.add(py_iter->getSharedPtr());
 
         ASSERT_TRUE(pool.isClosed());
         ASSERT_EQ(pool.size(), 0u);
         ASSERT_EQ(pool.detach(), 0u);
         ASSERT_FALSE(query_ptr->m_detached);
+        workspace.close();
+    }
+
+    TEST_F(ObjectIteratorPoolTest, testObjectIteratorPoolRegistrationDoesNotIncreasePythonRefcount)
+    {
+        Workspace workspace("", {}, {}, {}, {}, pythonFixtureInitializer());
+        auto fixture = workspace.getFixture(prefix_name);
+        auto &pool = fixture->get<db0::object_model::ObjectIteratorPool>();
+        DetachableUniqueAddressIterator *query_ptr = nullptr;
+        auto py_iter = makePyIterator(fixture, query_ptr);
+        auto *py_object = reinterpret_cast<PyObject *>(py_iter.get());
+        auto refcount_before = Py_REFCNT(py_object);
+
+        pool.add(py_iter->getSharedPtr());
+
+        ASSERT_EQ(Py_REFCNT(py_object), refcount_before);
+        ASSERT_EQ(pool.size(), 1u);
         workspace.close();
     }
 
