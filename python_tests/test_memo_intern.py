@@ -64,6 +64,18 @@ class MemoInternLeafSibling:
 
 @db0.memo(immutable=True, intern=True)
 @dataclass
+class MemoInternKeyword:
+    name: str
+
+
+@db0.memo(no_default_tags=True, singleton=True)
+@dataclass
+class MemoInternKeywordArrayRoot:
+    keyword_arrays: list[list[MemoInternKeyword]] = field(default_factory=list)
+
+
+@db0.memo(immutable=True, intern=True)
+@dataclass
 class MemoInternSourceNode:
     parent: Optional["MemoInternSourceNode"]
     contents: str
@@ -676,6 +688,35 @@ def test_embedded_interned_values_do_not_break_later_explicit_materialization(db
     duplicate = db0.materialized(MemoInternLeaf("keyword-0"))
 
     assert duplicate.name == "keyword-0"
+
+
+@pytest.mark.stress_test
+def test_interned_keywords_can_fill_random_durable_arrays_without_explicit_materialization(db0_fixture):
+    random_generator = random.Random(19791206)
+    array_count = 97
+    instance_count = 3000
+    keyword_count = 613
+    root = MemoInternKeywordArrayRoot([[] for _ in range(array_count)])
+    expected_names = [[] for _ in range(array_count)]
+
+    for instance_index in range(instance_count):
+        array_index = random_generator.randrange(array_count)
+        name = f"keyword-{random_generator.randrange(keyword_count)}"
+
+        root.keyword_arrays[array_index].append(MemoInternKeyword(name))
+        expected_names[array_index].append(name)
+
+        if instance_index % 31 == 0:
+            nonempty_array_indexes = [
+                index for index, expected_keywords in enumerate(expected_names) if expected_keywords
+            ]
+            read_array_index = random_generator.choice(nonempty_array_indexes)
+            read_keyword_index = random_generator.randrange(len(expected_names[read_array_index]))
+            assert root.keyword_arrays[read_array_index][read_keyword_index].name == expected_names[read_array_index][
+                read_keyword_index
+            ]
+
+    assert [[keyword.name for keyword in keywords] for keywords in root.keyword_arrays] == expected_names
 
 
 def test_composite_interned_object_reuses_equivalent_content(db0_fixture):
