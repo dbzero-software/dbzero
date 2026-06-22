@@ -5,17 +5,8 @@ import os
 import subprocess
 import sys
 import textwrap
-import pytest
 
 
-SHUTDOWN_LIFETIME_SKIP_REASON = (
-    "Known shutdown-lifetime crash in subprocesses that leave singleton-backed durable "
-    "collections with nested immutable memo references alive at interpreter teardown; "
-    "currently observed on Python 3.12/3.13 and macOS builds only."
-)
-
-
-@pytest.mark.skip(reason=SHUTDOWN_LIFETIME_SKIP_REASON)
 def test_unhandled_exception_with_nested_durable_list_does_not_segfault(tmp_path):
     """Regression for SIGSEGV during interpreter shutdown after an exception."""
     model_path = tmp_path / "repro_model.py"
