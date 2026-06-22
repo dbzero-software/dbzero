@@ -352,5 +352,21 @@ namespace db0::object_model
         *(m_initializers[m_active_count - 1]) = m_active_count - 1;
         --m_active_count;        
     }
+
+    void ObjectInitializerManager::close()
+    {
+        for (auto it = m_initializers.begin(); it != m_initializers.begin() + m_total_count; ++it) {
+            auto &initializer = *it;
+            if (auto *immutable_initializer = dynamic_cast<ImmutableObjectInitializer *>(initializer.get())) {
+                immutable_initializer->resetObjects();
+            }
+            if (initializer) {
+                initializer->reset();
+            }
+        }
+        m_initializers.clear();
+        m_active_count = 0;
+        m_total_count = 0;
+    }
     
 }

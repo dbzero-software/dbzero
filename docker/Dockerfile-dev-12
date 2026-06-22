@@ -1,4 +1,4 @@
-FROM python:3.11-bullseye
+FROM python:3.12-bullseye
 
 ARG USERNAME=dbzero
 ARG USER_UID=1000
@@ -47,7 +47,7 @@ RUN chmod 777 "$(cat /proc/sys/kernel/core_pattern | sed 's/%.*//')"
 RUN groupadd --gid "$USER_GID" "$USERNAME" \
   && useradd --uid "$USER_UID" --gid "$USER_GID" --create-home --shell /bin/bash "$USERNAME"
 
-RUN chown -R "$USERNAME:$USERNAME" /usr/local/lib/python3.11/site-packages /usr/local/bin
+RUN chown -R "$USERNAME:$USERNAME" /usr/local/lib/python3.12/site-packages /usr/local/bin
 
 WORKDIR /usr/src/dbzero
 USER $USERNAME

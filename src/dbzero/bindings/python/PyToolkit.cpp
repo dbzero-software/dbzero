@@ -289,7 +289,7 @@ namespace db0::python
         }
         return reinterpret_cast<MemoImmutableObject *>(pyObject)->ext()->getObject();
     }
-    
+
     void PyToolkit::throwErrorWithPyErrorCheck(const std::string& message, const std::string& error_detail) {
         if (PyErr_Occurred()) {
             PyObject *ptype, *pvalue, *ptraceback;
@@ -608,6 +608,60 @@ namespace db0::python
             lang_cache.add(address, obj_ptr.get());
         }
         return obj_ptr;
+    }
+
+    const object_model::o_embedded_object &PyToolkit::getMemoImmutableObjectView(
+        db0::swine_ptr<Fixture> &fixture, const ClassFactory &class_factory, UniqueAddress address,
+        AccessFlags access_mode)
+    {
+        auto &lang_cache = fixture->getLangCache();
+        auto cached_object = lang_cache.get(address.getAddress());
+        if (!!cached_object) {
+            if (auto cached_address = tryGetEmbeddedUniqueAddress(cached_object.get())) {
+                if (cached_address->getInstanceId() != address.getInstanceId()) {
+                    THROWF(db0::InputException) << "Invalid UUID or object has been deleted";
+                }
+            } else if (
+                PyToolkit::isAnyMemoObject(cached_object.get())
+                && getMemoInstanceId(cached_object.get()) != address.getInstanceId()
+            ) {
+                THROWF(db0::InputException) << "Invalid UUID or object has been deleted";
+            }
+            return getMemoImmutableObject(cached_object.get());
+        }
+
+        auto allocation = fixture->findAllocation(
+            address.getAddress(), db0::object_model::ObjectImmutableImpl::REALM_ID
+        );
+        auto embedded_offset = address.getAddress().getOffset() - allocation.address.getOffset();
+        auto stem = db0::object_model::ObjectImmutableImpl::unloadStem(
+            fixture, allocation.address, address.getInstanceId(), access_mode
+        );
+        auto type = class_factory.getTypeByClassRef(stem->getClassRef()).m_class;
+
+        if (class_factory.hasLangType(*type)) {
+            auto lang_type = class_factory.getLangType(*type);
+            auto root_object = tryUnloadObjectResolved(
+                fixture, allocation.address, class_factory, lang_type.get(), address.getInstanceId(), access_mode,
+                &allocation, false
+            );
+            if (!!root_object) {
+                auto *root_memo = reinterpret_cast<MemoImmutableObject *>(root_object.get());
+                if (embedded_offset == 0) {
+                    return root_memo->ext()->getObject();
+                }
+                return root_memo->ext().getEmbeddedObjectAtOffset(embedded_offset);
+            }
+        }
+
+        if (embedded_offset == 0) {
+            return stem->getObject();
+        }
+
+        db0::object_model::ObjectImmutableImpl root(
+            db0::object_model::ObjectImmutableImpl::tag_no_gc(), fixture, std::move(stem), std::move(type)
+        );
+        return root.getEmbeddedObjectAtOffset(embedded_offset);
     }
 
     PyToolkit::ObjectSharedPtr PyToolkit::tryUnloadObject(

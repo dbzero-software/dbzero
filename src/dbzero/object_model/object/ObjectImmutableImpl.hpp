@@ -56,6 +56,7 @@ namespace db0::object_model
         void dropMembers(db0::swine_ptr<Fixture> &, Class &) const;
 
     private:
+        UniqueAddress bindToExistingInternRoot(FixtureLock &, ObjectSharedPtr);
         ObjectPtr getLangObject() const;
 
         mutable ObjectPtr m_lang_object = nullptr;

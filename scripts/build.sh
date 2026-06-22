@@ -75,6 +75,12 @@ else
     meson_buildtype="release"
 fi
 
+python_include_dir="$(python3 -c 'import sysconfig; print(sysconfig.get_paths()["include"])')"
+if [ -f "$build_dir/compile_commands.json" ] && ! grep -q -- "-I$python_include_dir" "$build_dir/compile_commands.json"; then
+    echo "Python include path changed; recreating $build_dir"
+    rm -rf "$build_dir"
+fi
+
 if [ -d "$build_dir/meson-info" ]; then
     meson configure "$build_dir" -Dbuildtype="$meson_buildtype" $options
 else

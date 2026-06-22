@@ -240,6 +240,9 @@ namespace db0::python
         static bool hasMemoAnyRefs(ObjectPtr);
         static const object_model::Class &getMemoType(ObjectPtr);
         static const object_model::o_embedded_object &getMemoImmutableObject(ObjectPtr);
+        static const object_model::o_embedded_object &getMemoImmutableObjectView(
+            db0::swine_ptr<Fixture> &, const ClassFactory &, UniqueAddress, AccessFlags = {}
+        );
         
         inline static void incRef(ObjectPtr py_object) {
             Py_INCREF(py_object);                

@@ -4,30 +4,21 @@
 #include "ContentIndex.hpp"
 
 #include <dbzero/object_model/class/ClassFactory.hpp>
+#include <dbzero/object_model/LangConfig.hpp>
 #include <dbzero/object_model/object/InternContent.hpp>
+#include <dbzero/object_model/object/ObjectImmutableImpl.hpp>
 #include <dbzero/object_model/object/o_immutable_object.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 
 namespace db0::object_model
 {
-    namespace
-    {
-        ContentIndex::TypeObjectSharedPtr tryResolveLangType(
-            const db0::swine_ptr<db0::Fixture> &fixture, const std::shared_ptr<Class> &type)
-        {
-            auto &classFactory = fixture->get<ClassFactory>();
-            if (classFactory.hasLangType(*type)) {
-                return classFactory.getLangType(*type);
-            }
-            return {};
-        }
-    }
+    using LangToolkit = LangConfig::LangToolkit;
 
     ContentIndex::ContentIndex(db0::swine_ptr<db0::Fixture> &fixture, std::shared_ptr<Class> type)
         : super_t(*fixture)
         , m_fixture(fixture)
+        , m_class_factory(fixture->get<ClassFactory>())
         , m_class(std::move(type))
-        , m_lang_type(tryResolveLangType(fixture, m_class))
         , m_base_index(*fixture)
     {
         modify().m_base_index_ptr = m_base_index.getAddress();
@@ -36,8 +27,8 @@ namespace db0::object_model
     ContentIndex::ContentIndex(mptr ptr, db0::swine_ptr<db0::Fixture> &fixture, std::shared_ptr<Class> type)
         : super_t(ptr)
         , m_fixture(fixture)
+        , m_class_factory(fixture->get<ClassFactory>())
         , m_class(std::move(type))
-        , m_lang_type(tryResolveLangType(fixture, m_class))
         , m_base_index(myPtr((*this)->m_base_index_ptr))
     {
     }
@@ -151,25 +142,52 @@ namespace db0::object_model
         return contains(intern_hash(fixture, initializer), address);
     }
 
-    ContentIndex::LangToolkit::TypeObjectPtr ContentIndex::getLangType() const
-    {
-        if (!!m_lang_type) {
-            return m_lang_type.get();
-        }
-        m_lang_type = tryResolveLangType(m_fixture, m_class);
-        return m_lang_type.get();
-    }
-
-    bool ContentIndex::candidateMatches(const ImmutableObjectInitializer &initializer, UniqueAddress candidate) const
+    ContentIndex::ObjectSharedPtr ContentIndex::lookupCandidate(
+        const ImmutableObjectInitializer &initializer, UniqueAddress candidate
+    ) const
     {
         auto fixture = m_fixture;
         auto candidateObject = LangToolkit::unloadAnyObject(
-            fixture, candidate.getAddress(), m_class, getLangType(), candidate.getInstanceId(), AccessFlags {}
+            fixture, candidate.getAddress(), m_class_factory, nullptr, candidate.getInstanceId(), AccessFlags {}
         );
-        return intern_compare(fixture, initializer, LangToolkit::getMemoImmutableObject(candidateObject.get())) == 0;
+        if (intern_compare(
+            fixture, initializer, LangToolkit::getMemoImmutableObject(candidateObject.get())
+        ) == 0) {
+            return candidateObject;
+        }
+        return {};
     }
 
-    std::optional<UniqueAddress> ContentIndex::lookup(const ImmutableObjectInitializer &initializer) const
+    const o_embedded_object &ContentIndex::candidateObjectView(UniqueAddress candidate) const
+    {
+        auto fixture = m_fixture;
+        return LangToolkit::getMemoImmutableObjectView(fixture, m_class_factory, candidate, AccessFlags {});
+    }
+
+    ContentIndex::ObjectSharedPtr ContentIndex::lookup(const ImmutableObjectInitializer &initializer) const
+    {
+        flush();
+
+        auto fixture = m_fixture;
+        auto iterator = m_base_index.find(intern_hash(fixture, initializer));
+        if (iterator == m_base_index.end()) {
+            return {};
+        }
+
+        auto bucket = (*iterator).value.getIndex(getMemspace());
+        auto bucketIterator = bucket.beginJoin(1);
+        while (!bucketIterator.is_end()) {
+            auto candidateAddress = *bucketIterator;
+            auto candidate = lookupCandidate(initializer, candidateAddress);
+            if (!!candidate.get()) {
+                return candidate;
+            }
+            ++bucketIterator;
+        }
+        return {};
+    }
+
+    std::optional<UniqueAddress> ContentIndex::lookupAddress(const ImmutableObjectInitializer &initializer) const
     {
         flush();
 
@@ -183,7 +201,7 @@ namespace db0::object_model
         auto bucketIterator = bucket.beginJoin(1);
         while (!bucketIterator.is_end()) {
             auto candidateAddress = *bucketIterator;
-            if (candidateMatches(initializer, candidateAddress)) {
+            if (intern_compare(fixture, initializer, candidateObjectView(candidateAddress)) == 0) {
                 return candidateAddress;
             }
             ++bucketIterator;

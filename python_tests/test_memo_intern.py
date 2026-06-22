@@ -19,13 +19,6 @@ import dbzero as db0
 from .conftest import DB0_DIR
 
 
-SHUTDOWN_LIFETIME_SKIP_REASON = (
-    "Known shutdown-lifetime crash in subprocesses that leave singleton-backed durable "
-    "collections with nested immutable memo references alive at interpreter teardown; "
-    "currently observed on Python 3.12/3.13 and macOS builds only."
-)
-
-
 def run_intern_script(script):
     env = os.environ.copy()
     env["PYTHONDONTWRITEBYTECODE"] = "1"
@@ -64,9 +57,35 @@ class MemoInternLeafSibling:
 
 @db0.memo(immutable=True, intern=True)
 @dataclass
+class MemoInternKeyword:
+    name: str
+
+
+@db0.memo(no_default_tags=True, singleton=True)
+@dataclass
+class MemoInternKeywordArrayRoot:
+    keyword_arrays: list[list[MemoInternKeyword]] = field(default_factory=list)
+
+
+@db0.memo(immutable=True, intern=True)
+@dataclass
 class MemoInternSourceNode:
     parent: Optional["MemoInternSourceNode"]
     contents: str
+
+
+@db0.memo(immutable=True, intern=True)
+@dataclass
+class MemoInternNestedInner:
+    leaf: MemoInternLeaf
+    label: str
+
+
+@db0.memo(immutable=True, intern=True)
+@dataclass
+class MemoInternNestedOuter:
+    inner: MemoInternNestedInner
+    sibling: MemoInternLeaf
 
 
 @db0.memo(immutable=True)
@@ -91,6 +110,18 @@ class MemoNonInternMutableLeaf:
 class MemoRegularInternReferenceHolder:
     def __init__(self):
         self.value = None
+
+
+@db0.memo(no_default_tags=True)
+@dataclass
+class MemoInternReferenceRecord:
+    values: list[MemoInternLeaf] = field(default_factory=list)
+
+
+@db0.memo(no_default_tags=True, singleton=True)
+@dataclass
+class MemoInternReferenceRecordRoot:
+    records: list[MemoInternReferenceRecord] = field(default_factory=list)
 
 
 @db0.memo(immutable=True, intern=True)
@@ -255,6 +286,36 @@ def test_interned_object_can_reference_interned_immutable_instance(db0_fixture):
     holder = db0.materialized(MemoInternHolder(leaf))
 
     assert holder.value.name == "nested"
+
+
+def test_interned_object_inside_interned_object_reuses_without_explicit_materialize(db0_fixture):
+    first = MemoInternNestedOuter(
+        inner=MemoInternNestedInner(
+            leaf=MemoInternLeaf("nested leaf"),
+            label="inner",
+        ),
+        sibling=MemoInternLeaf("nested sibling"),
+    )
+    duplicate = MemoInternNestedOuter(
+        inner=MemoInternNestedInner(
+            leaf=MemoInternLeaf("nested leaf"),
+            label="inner",
+        ),
+        sibling=MemoInternLeaf("nested sibling"),
+    )
+
+    first_uuid = db0.uuid(first)
+    duplicate_uuid = db0.uuid(duplicate)
+
+    assert duplicate_uuid == first_uuid
+    assert db0.uuid(duplicate.inner) == db0.uuid(first.inner)
+    assert db0.uuid(duplicate.inner.leaf) == db0.uuid(first.inner.leaf)
+    assert db0.uuid(duplicate.sibling) == db0.uuid(first.sibling)
+    assert duplicate.inner.leaf.name == "nested leaf"
+    assert duplicate.inner.label == "inner"
+    assert duplicate.sibling.name == "nested sibling"
+    assert db0.get_type_stats(MemoInternNestedOuter)["content_index"]["size"] == 1
+    assert db0.get_type_stats(MemoInternNestedInner)["content_index"]["size"] == 1
 
 
 def test_assigning_non_materialized_intern_to_existing_regular_memo_materializes_reference(db0_fixture):
@@ -435,7 +496,6 @@ def test_hierarchical_interned_immutable_sources_dedupe_and_preserve_parents(db0
     assert db0.get_type_stats(MemoInternSourceNode)["content_index"]["size"] == len(expected_prefixes)
 
 
-@pytest.mark.skip(reason=SHUTDOWN_LIFETIME_SKIP_REASON)
 def test_nested_interned_immutable_references_in_singleton_list_exit_cleanly():
     result = run_intern_script(
         """
@@ -497,7 +557,6 @@ def test_nested_interned_immutable_references_in_singleton_list_exit_cleanly():
     assert "closed" in result.stdout
 
 
-@pytest.mark.skip(reason=SHUTDOWN_LIFETIME_SKIP_REASON)
 def test_nested_interned_immutable_keyword_factory_record_gets_uuid():
     result = run_intern_script(
         """
@@ -643,6 +702,56 @@ def test_standalone_interned_object_reuses_after_close_and_reopen(db0_fixture):
     assert db0.uuid(fetched) == first_uuid
     assert db0.uuid(second) == first_uuid
     assert second.name == "reopened"
+
+
+def test_embedded_interned_values_do_not_break_later_explicit_materialization(db0_fixture):
+    """Focused repro for materializing an interned value already embedded many times.
+
+    This mirrors application reindexing failures where records had durable lists
+    of interned keyword-like labels, and later `db0.materialized(Label(name))`
+    raised "critical internal error - object version invalid".
+    """
+    root = MemoInternReferenceRecordRoot()
+    for index in range(329):
+        record = MemoInternReferenceRecord()
+        record.values = [
+            MemoInternLeaf(f"keyword-{index % 100}"),
+            MemoInternLeaf(f"keyword-{(index + 1) % 100}"),
+        ]
+        root.records.append(record)
+
+    duplicate = db0.materialized(MemoInternLeaf("keyword-0"))
+
+    assert duplicate.name == "keyword-0"
+
+
+@pytest.mark.stress_test
+def test_interned_keywords_can_fill_random_durable_arrays_without_explicit_materialization(db0_fixture):
+    random_generator = random.Random(19791206)
+    array_count = 97
+    instance_count = 3000
+    keyword_count = 613
+    root = MemoInternKeywordArrayRoot([[] for _ in range(array_count)])
+    expected_names = [[] for _ in range(array_count)]
+
+    for instance_index in range(instance_count):
+        array_index = random_generator.randrange(array_count)
+        name = f"keyword-{random_generator.randrange(keyword_count)}"
+
+        root.keyword_arrays[array_index].append(MemoInternKeyword(name))
+        expected_names[array_index].append(name)
+
+        if instance_index % 31 == 0:
+            nonempty_array_indexes = [
+                index for index, expected_keywords in enumerate(expected_names) if expected_keywords
+            ]
+            read_array_index = random_generator.choice(nonempty_array_indexes)
+            read_keyword_index = random_generator.randrange(len(expected_names[read_array_index]))
+            assert root.keyword_arrays[read_array_index][read_keyword_index].name == expected_names[read_array_index][
+                read_keyword_index
+            ]
+
+    assert [[keyword.name for keyword in keywords] for keywords in root.keyword_arrays] == expected_names
 
 
 def test_composite_interned_object_reuses_equivalent_content(db0_fixture):

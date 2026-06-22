@@ -146,12 +146,25 @@ static PyMethodDef dbzero_methods[] =
     {NULL} // Sentinel
 };
 
+static void dbzero_module_free(void *)
+{
+    try {
+        py::PyToolkit::getPyWorkspace().stopThreads();
+        py::PyToolkit::getPyWorkspace().close();
+    } catch (...) {
+    }
+}
+
 static struct PyModuleDef dbzero_module = {
     PyModuleDef_HEAD_INIT,
     "dbzero",
     NULL,
     -1,
-    dbzero_methods
+    dbzero_methods,
+    NULL,
+    NULL,
+    NULL,
+    dbzero_module_free
 };
     
 static struct PyModuleDef dbzero_types_module = {

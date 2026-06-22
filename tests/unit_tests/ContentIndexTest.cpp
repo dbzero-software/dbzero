@@ -105,7 +105,7 @@ namespace tests
         ObjectImmutableImpl probe(type);
         auto &initializer = setInitializerValue(probe, type, 43);
 
-        ASSERT_FALSE(index.lookup(initializer).has_value());
+        ASSERT_FALSE(index.lookupAddress(initializer).has_value());
     }
 
     TEST_F(ContentIndexTest, testLookupMissesSameFieldsFromDifferentClass)
@@ -119,7 +119,20 @@ namespace tests
         ObjectImmutableImpl probe(lookupType);
         auto &initializer = setInitializerValue(probe, lookupType, 42);
 
-        ASSERT_FALSE(index.lookup(initializer).has_value());
+        ASSERT_FALSE(index.lookupAddress(initializer).has_value());
+    }
+
+    TEST_F(ContentIndexTest, testLookupAddressReturnsMatchingAddress)
+    {
+        auto type = makeClass("ContentIndexLookupObject");
+        auto object = makeObject(type, 42);
+        auto &index = type->getContentIndex();
+        index.insert((*object)->getObject(), object->getUniqueAddress());
+
+        ObjectImmutableImpl probe(type);
+        auto &initializer = setInitializerValue(probe, type, 42);
+
+        ASSERT_EQ(index.lookupAddress(initializer), object->getUniqueAddress());
     }
 
     TEST_F(ContentIndexTest, testRollbackDiscardsPendingInsert)
