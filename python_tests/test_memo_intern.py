@@ -657,10 +657,6 @@ def test_standalone_interned_object_reuses_after_close_and_reopen(db0_fixture):
     assert second.name == "reopened"
 
 
-@pytest.mark.xfail(
-    raises=RuntimeError,
-    reason="Intern content lookup can hit stale embedded candidates with an invalid object version",
-)
 def test_embedded_interned_values_do_not_break_later_explicit_materialization(db0_fixture):
     """Focused repro for materializing an interned value already embedded many times.
 
@@ -677,11 +673,7 @@ def test_embedded_interned_values_do_not_break_later_explicit_materialization(db
         ]
         root.records.append(record)
 
-    try:
-        duplicate = db0.materialized(MemoInternLeaf("keyword-0"))
-    except RuntimeError as exc:
-        assert "object version invalid" in str(exc)
-        raise
+    duplicate = db0.materialized(MemoInternLeaf("keyword-0"))
 
     assert duplicate.name == "keyword-0"
 

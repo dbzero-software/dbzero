@@ -15,7 +15,6 @@
 #include <dbzero/core/memory/Memspace.hpp>
 #include <dbzero/core/serialization/FixedVersioned.hpp>
 #include <dbzero/core/vspace/v_object.hpp>
-#include <dbzero/object_model/LangConfig.hpp>
 #include <dbzero/object_model/object/ObjectInitializer.hpp>
 #include <dbzero/object_model/object/o_embedded_object.hpp>
 
@@ -28,6 +27,7 @@ namespace db0::object_model
 {
 
     class Class;
+    class ClassFactory;
 
 DB0_PACKED_BEGIN
     struct DB0_PACKED_ATTR o_content_index: public db0::o_fixed_versioned<o_content_index>
@@ -69,9 +69,6 @@ DB0_PACKED_END
         using BucketIndexT = ContentBucketIndex;
         using BucketItemT = db0::key_value<HashT, ContentBucketRef>;
         using BaseIndexT = db0::v_bindex<BucketItemT>;
-        using LangToolkit = LangConfig::LangToolkit;
-        using TypeObjectSharedPtr = typename LangToolkit::TypeObjectSharedPtr;
-
         ContentIndex(db0::swine_ptr<db0::Fixture> &, std::shared_ptr<Class>);
         ContentIndex(mptr, db0::swine_ptr<db0::Fixture> &, std::shared_ptr<Class>);
         ~ContentIndex();
@@ -92,8 +89,8 @@ DB0_PACKED_END
 
     private:
         db0::swine_ptr<db0::Fixture> m_fixture;
+        ClassFactory &m_class_factory;
         std::shared_ptr<Class> m_class;
-        mutable TypeObjectSharedPtr m_lang_type;
         mutable BaseIndexT m_base_index;
         struct PendingUpdate
         {
@@ -109,7 +106,6 @@ DB0_PACKED_END
         void decrementSize() const;
         bool contains(HashT, UniqueAddress) const;
         void resyncBucket(typename BaseIndexT::iterator &, const BucketIndexT &) const;
-        typename LangToolkit::TypeObjectPtr getLangType() const;
         bool candidateMatches(const ImmutableObjectInitializer &, UniqueAddress) const;
     };
 
