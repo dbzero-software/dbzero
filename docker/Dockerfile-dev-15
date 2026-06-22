@@ -1,0 +1,57 @@
+FROM python:3.15-bullseye
+
+ARG USERNAME=dbzero
+ARG USER_UID=1000
+ARG USER_GID=1000
+ARG CODEX_VERSION=latest
+
+RUN apt-get update && apt-get install -y \
+ cmake \
+  && rm -rf /var/lib/apt/lists/*
+
+RUN apt-get update
+RUN apt-get install psmisc
+RUN apt-get install python3-pip -y
+RUN apt-get install gdb -y
+RUN apt-get install screen -y
+RUN apt-get install rsync -y
+RUN apt-get install ripgrep -y
+RUN apt-get install meson ninja-build -y
+RUN apt-get install python3-venv -y
+RUN apt-get install gettext-base -y
+RUN apt-get install valgrind -y
+RUN apt-get install curl ca-certificates gnupg -y
+
+RUN mkdir -p /etc/apt/keyrings \
+  && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
+  && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" > /etc/apt/sources.list.d/nodesource.list \
+  && apt-get update \
+  && apt-get install nodejs -y \
+  && npm install -g "@openai/codex@${CODEX_VERSION}"
+
+# for demo purposes only (bokeh is a charts package)
+RUN pip3 install jupyter
+RUN pip3 install bokeh
+RUN pip3 install psycopg2-binary
+RUN pip3 install sqlalchemy
+RUN pip3 install fastapi uvicorn
+
+RUN pip3 install build
+ADD requirements.txt requirements.txt
+RUN pip3 install -r requirements.txt --upgrade
+
+RUN ulimit -c unlimited
+RUN mkdir -p "$(cat /proc/sys/kernel/core_pattern | sed 's/%.*//')"
+RUN chmod 777 "$(cat /proc/sys/kernel/core_pattern | sed 's/%.*//')"
+
+RUN groupadd --gid "$USER_GID" "$USERNAME" \
+  && useradd --uid "$USER_UID" --gid "$USER_GID" --create-home --shell /bin/bash "$USERNAME"
+
+RUN chown -R "$USERNAME:$USERNAME" /usr/local/lib/python3.15/site-packages /usr/local/bin
+
+WORKDIR /usr/src/dbzero
+USER $USERNAME
+# RUN ./build.sh -r
+# WORKDIR /usr/src/dbzero/build/release/
+# RUN meson install
+# WORKDIR /usr/src/dbzero

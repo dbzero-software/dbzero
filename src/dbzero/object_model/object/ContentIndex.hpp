@@ -15,6 +15,7 @@
 #include <dbzero/core/memory/Memspace.hpp>
 #include <dbzero/core/serialization/FixedVersioned.hpp>
 #include <dbzero/core/vspace/v_object.hpp>
+#include <dbzero/object_model/LangConfig.hpp>
 #include <dbzero/object_model/object/ObjectInitializer.hpp>
 #include <dbzero/object_model/object/o_embedded_object.hpp>
 
@@ -28,6 +29,7 @@ namespace db0::object_model
 
     class Class;
     class ClassFactory;
+    class o_embedded_object;
 
 DB0_PACKED_BEGIN
     struct DB0_PACKED_ATTR o_content_index: public db0::o_fixed_versioned<o_content_index>
@@ -69,6 +71,7 @@ DB0_PACKED_END
         using BucketIndexT = ContentBucketIndex;
         using BucketItemT = db0::key_value<HashT, ContentBucketRef>;
         using BaseIndexT = db0::v_bindex<BucketItemT>;
+        using ObjectSharedPtr = LangConfig::ObjectSharedPtr;
         ContentIndex(db0::swine_ptr<db0::Fixture> &, std::shared_ptr<Class>);
         ContentIndex(mptr, db0::swine_ptr<db0::Fixture> &, std::shared_ptr<Class>);
         ~ContentIndex();
@@ -77,7 +80,8 @@ DB0_PACKED_END
         void remove(const o_embedded_object &, UniqueAddress) const;
         bool contains(const o_embedded_object &, UniqueAddress) const;
         bool contains(const ImmutableObjectInitializer &, UniqueAddress) const;
-        std::optional<UniqueAddress> lookup(const ImmutableObjectInitializer &) const;
+        ObjectSharedPtr lookup(const ImmutableObjectInitializer &) const;
+        std::optional<UniqueAddress> lookupAddress(const ImmutableObjectInitializer &) const;
 
         void rollback();
         void flush() const;
@@ -106,7 +110,8 @@ DB0_PACKED_END
         void decrementSize() const;
         bool contains(HashT, UniqueAddress) const;
         void resyncBucket(typename BaseIndexT::iterator &, const BucketIndexT &) const;
-        bool candidateMatches(const ImmutableObjectInitializer &, UniqueAddress) const;
+        ObjectSharedPtr lookupCandidate(const ImmutableObjectInitializer &, UniqueAddress) const;
+        const o_embedded_object &candidateObjectView(UniqueAddress) const;
     };
 
 }

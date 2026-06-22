@@ -74,6 +74,20 @@ class MemoInternSourceNode:
     contents: str
 
 
+@db0.memo(immutable=True, intern=True)
+@dataclass
+class MemoInternNestedInner:
+    leaf: MemoInternLeaf
+    label: str
+
+
+@db0.memo(immutable=True, intern=True)
+@dataclass
+class MemoInternNestedOuter:
+    inner: MemoInternNestedInner
+    sibling: MemoInternLeaf
+
+
 @db0.memo(immutable=True)
 @dataclass
 class MemoNonInternImmutableLeaf:
@@ -272,6 +286,36 @@ def test_interned_object_can_reference_interned_immutable_instance(db0_fixture):
     holder = db0.materialized(MemoInternHolder(leaf))
 
     assert holder.value.name == "nested"
+
+
+def test_interned_object_inside_interned_object_reuses_without_explicit_materialize(db0_fixture):
+    first = MemoInternNestedOuter(
+        inner=MemoInternNestedInner(
+            leaf=MemoInternLeaf("nested leaf"),
+            label="inner",
+        ),
+        sibling=MemoInternLeaf("nested sibling"),
+    )
+    duplicate = MemoInternNestedOuter(
+        inner=MemoInternNestedInner(
+            leaf=MemoInternLeaf("nested leaf"),
+            label="inner",
+        ),
+        sibling=MemoInternLeaf("nested sibling"),
+    )
+
+    first_uuid = db0.uuid(first)
+    duplicate_uuid = db0.uuid(duplicate)
+
+    assert duplicate_uuid == first_uuid
+    assert db0.uuid(duplicate.inner) == db0.uuid(first.inner)
+    assert db0.uuid(duplicate.inner.leaf) == db0.uuid(first.inner.leaf)
+    assert db0.uuid(duplicate.sibling) == db0.uuid(first.sibling)
+    assert duplicate.inner.leaf.name == "nested leaf"
+    assert duplicate.inner.label == "inner"
+    assert duplicate.sibling.name == "nested sibling"
+    assert db0.get_type_stats(MemoInternNestedOuter)["content_index"]["size"] == 1
+    assert db0.get_type_stats(MemoInternNestedInner)["content_index"]["size"] == 1
 
 
 def test_assigning_non_materialized_intern_to_existing_regular_memo_materializes_reference(db0_fixture):

@@ -294,9 +294,8 @@ namespace db0::object_model
             auto &type = *this->m_type;
             if (type.isIntern()) {
                 auto candidate = type.getContentIndex().lookup(*immutableInitializer);
-                if (candidate) {
-                    InitManager::instance.tryCloseInitializer(*this);
-                    return candidate;
+                if (!!candidate.get()) {
+                    return bindToExistingInternRoot(fixture, std::move(candidate));
                 }
             }
 
@@ -334,6 +333,33 @@ namespace db0::object_model
 
         assert(this->hasInstance());
         return std::nullopt;
+    }
+
+    UniqueAddress ObjectImmutableImpl::bindToExistingInternRoot(FixtureLock &fixture, ObjectSharedPtr candidate)
+    {
+        if (LangConfig::LangToolkit::isEmbeddedMemoObject(candidate.get())) {
+            auto address = LangConfig::LangToolkit::getMemoUniqueAddress(candidate.get());
+            InitManager::instance.tryCloseInitializer(*this);
+            return address;
+        }
+
+        using MemoImmutableObject = LangConfig::LangToolkit::TypeManager::MemoImmutableObject;
+        auto &candidateObject = reinterpret_cast<MemoImmutableObject *>(candidate.get())->ext();
+        auto address = candidateObject.getUniqueAddress();
+        ObjectStem stem(static_cast<const ObjectStem &>(candidateObject));
+        auto type = this->m_type;
+        auto langObject = m_lang_object;
+
+        // Intern lookup found an existing durable root for this value. The Python
+        // wrapper being initialized may still be used by caller code, so turn its
+        // native extension into a non-owning view of the canonical root instead of
+        // leaving it as a closed non-materialized initializer.
+        this->~ObjectImmutableImpl();
+        new ((void *)this) ObjectImmutableImpl(
+            tag_no_gc(), *fixture, std::move(stem), std::move(type)
+        );
+        m_lang_object = langObject;
+        return address;
     }
 
     void ObjectImmutableImpl::setLangObject(ObjectPtr object) const

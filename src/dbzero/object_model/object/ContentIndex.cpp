@@ -6,11 +6,14 @@
 #include <dbzero/object_model/class/ClassFactory.hpp>
 #include <dbzero/object_model/LangConfig.hpp>
 #include <dbzero/object_model/object/InternContent.hpp>
+#include <dbzero/object_model/object/ObjectImmutableImpl.hpp>
 #include <dbzero/object_model/object/o_immutable_object.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 
 namespace db0::object_model
 {
+    using LangToolkit = LangConfig::LangToolkit;
+
     ContentIndex::ContentIndex(db0::swine_ptr<db0::Fixture> &fixture, std::shared_ptr<Class> type)
         : super_t(*fixture)
         , m_fixture(fixture)
@@ -139,18 +142,52 @@ namespace db0::object_model
         return contains(intern_hash(fixture, initializer), address);
     }
 
-    bool ContentIndex::candidateMatches(const ImmutableObjectInitializer &initializer, UniqueAddress candidate) const
+    ContentIndex::ObjectSharedPtr ContentIndex::lookupCandidate(
+        const ImmutableObjectInitializer &initializer, UniqueAddress candidate
+    ) const
     {
         auto fixture = m_fixture;
-        auto candidateObject = LangConfig::LangToolkit::unloadAnyObject(
+        auto candidateObject = LangToolkit::unloadAnyObject(
             fixture, candidate.getAddress(), m_class_factory, nullptr, candidate.getInstanceId(), AccessFlags {}
         );
-        return intern_compare(
-            fixture, initializer, LangConfig::LangToolkit::getMemoImmutableObject(candidateObject.get())
-        ) == 0;
+        if (intern_compare(
+            fixture, initializer, LangToolkit::getMemoImmutableObject(candidateObject.get())
+        ) == 0) {
+            return candidateObject;
+        }
+        return {};
     }
 
-    std::optional<UniqueAddress> ContentIndex::lookup(const ImmutableObjectInitializer &initializer) const
+    const o_embedded_object &ContentIndex::candidateObjectView(UniqueAddress candidate) const
+    {
+        auto fixture = m_fixture;
+        return LangToolkit::getMemoImmutableObjectView(fixture, m_class_factory, candidate, AccessFlags {});
+    }
+
+    ContentIndex::ObjectSharedPtr ContentIndex::lookup(const ImmutableObjectInitializer &initializer) const
+    {
+        flush();
+
+        auto fixture = m_fixture;
+        auto iterator = m_base_index.find(intern_hash(fixture, initializer));
+        if (iterator == m_base_index.end()) {
+            return {};
+        }
+
+        auto bucket = (*iterator).value.getIndex(getMemspace());
+        auto bucketIterator = bucket.beginJoin(1);
+        while (!bucketIterator.is_end()) {
+            auto candidateAddress = *bucketIterator;
+            auto candidate = lookupCandidate(initializer, candidateAddress);
+            if (!!candidate.get()) {
+                return candidate;
+            }
+            ++bucketIterator;
+        }
+        return {};
+    }
+
+    std::optional<UniqueAddress> ContentIndex::lookupAddress(const ImmutableObjectInitializer &initializer) const
     {
         flush();
 
@@ -164,7 +201,7 @@ namespace db0::object_model
         auto bucketIterator = bucket.beginJoin(1);
         while (!bucketIterator.is_end()) {
             auto candidateAddress = *bucketIterator;
-            if (candidateMatches(initializer, candidateAddress)) {
+            if (intern_compare(fixture, initializer, candidateObjectView(candidateAddress)) == 0) {
                 return candidateAddress;
             }
             ++bucketIterator;
