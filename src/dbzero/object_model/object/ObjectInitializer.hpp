@@ -78,6 +78,8 @@ namespace db0::object_model
         template <typename T>
         ObjectInitializer *findInitializer(const T &object) const;
 
+        void close();
+
     protected:
         friend class ObjectInitializer;
         void closeAt(std::uint32_t loc);

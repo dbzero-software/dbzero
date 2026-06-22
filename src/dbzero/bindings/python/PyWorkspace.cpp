@@ -125,6 +125,7 @@ namespace db0::python
             // NOTE: must unlock API because workspace destroy may trigger db0 object deletions            
             m_workspace = nullptr;            
         }
+        db0::object_model::InitManager::instance.close();
         PyToolkit::getTypeManager().close(timer.get());
         m_config = nullptr;
         m_workspace = nullptr;
