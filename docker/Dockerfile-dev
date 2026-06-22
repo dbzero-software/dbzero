@@ -3,6 +3,7 @@ FROM python:3.11-bullseye
 ARG USERNAME=dbzero
 ARG USER_UID=1000
 ARG USER_GID=1000
+ARG CODEX_VERSION=latest
 
 RUN apt-get update && apt-get install -y \
  cmake \
@@ -26,7 +27,7 @@ RUN mkdir -p /etc/apt/keyrings \
   && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" > /etc/apt/sources.list.d/nodesource.list \
   && apt-get update \
   && apt-get install nodejs -y \
-  && npm install -g @openai/codex
+  && npm install -g "@openai/codex@${CODEX_VERSION}"
 
 # for demo purposes only (bokeh is a charts package)
 RUN pip3 install jupyter

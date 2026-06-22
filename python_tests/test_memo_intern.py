@@ -93,6 +93,18 @@ class MemoRegularInternReferenceHolder:
         self.value = None
 
 
+@db0.memo(no_default_tags=True)
+@dataclass
+class MemoInternReferenceRecord:
+    values: list[MemoInternLeaf] = field(default_factory=list)
+
+
+@db0.memo(no_default_tags=True, singleton=True)
+@dataclass
+class MemoInternReferenceRecordRoot:
+    records: list[MemoInternReferenceRecord] = field(default_factory=list)
+
+
 @db0.memo(immutable=True, intern=True)
 class MemoInternHolder:
     def __init__(self, value):
@@ -643,6 +655,35 @@ def test_standalone_interned_object_reuses_after_close_and_reopen(db0_fixture):
     assert db0.uuid(fetched) == first_uuid
     assert db0.uuid(second) == first_uuid
     assert second.name == "reopened"
+
+
+@pytest.mark.xfail(
+    raises=RuntimeError,
+    reason="Intern content lookup can hit stale embedded candidates with an invalid object version",
+)
+def test_embedded_interned_values_do_not_break_later_explicit_materialization(db0_fixture):
+    """Focused repro for materializing an interned value already embedded many times.
+
+    This mirrors application reindexing failures where records had durable lists
+    of interned keyword-like labels, and later `db0.materialized(Label(name))`
+    raised "critical internal error - object version invalid".
+    """
+    root = MemoInternReferenceRecordRoot()
+    for index in range(329):
+        record = MemoInternReferenceRecord()
+        record.values = [
+            MemoInternLeaf(f"keyword-{index % 100}"),
+            MemoInternLeaf(f"keyword-{(index + 1) % 100}"),
+        ]
+        root.records.append(record)
+
+    try:
+        duplicate = db0.materialized(MemoInternLeaf("keyword-0"))
+    except RuntimeError as exc:
+        assert "object version invalid" in str(exc)
+        raise
+
+    assert duplicate.name == "keyword-0"
 
 
 def test_composite_interned_object_reuses_equivalent_content(db0_fixture):
