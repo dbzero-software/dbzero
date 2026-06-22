@@ -61,8 +61,8 @@ def test_find_singleton_static_scope(db0_fixture):
     assert db0.find_singleton(MemoDataPxSingleton) is None
     obj_1 = MemoDataPxSingleton(789)
     assert db0.find_singleton(MemoDataPxSingleton) is obj_1
-    
-    
+
+
 def test_find_singleton(db0_fixture):
     assert db0.find_singleton(MemoTestSingleton) is None    
     # create on default prefix
