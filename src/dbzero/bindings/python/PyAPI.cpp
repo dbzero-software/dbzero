@@ -642,7 +642,6 @@ namespace db0::python
         auto instanceCount = refCounts.second > 0 ? refCounts.second - 1 : 0;
         PySafeDict_SetItemString(*stats, "fields", Py_OWN(PyLong_FromSize_t(type->size())));
         PySafeDict_SetItemString(*stats, "instances", Py_OWN(PyLong_FromUnsignedLong(instanceCount)));
-        PySafeDict_SetItemString(*stats, "immutable", Py_OWN(PyBool_fromBool(type->isImmutable())));
         PySafeDict_SetItemString(*stats, "singleton", Py_OWN(PyBool_fromBool(type->isSingleton())));
         PySafeDict_SetItemString(*stats, "no_default_tags", Py_OWN(PyBool_fromBool(type->isNoDefaultTags())));
         PySafeDict_SetItemString(*stats, "no_cache", Py_OWN(PyBool_fromBool(type->isNoCache())));

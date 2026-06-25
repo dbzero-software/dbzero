@@ -3,7 +3,6 @@
 
 import pytest
 import dbzero as db0
-from dataclasses import dataclass
 from .conftest import DB0_DIR
 
 
@@ -106,13 +105,6 @@ class MemoWithProperty:
     @property
     def value(self):
         return self.__value
-
-
-@db0.memo(immutable=True, no_default_tags=True)
-@dataclass
-class MemoImmutable:
-    data: str
-    count: int = 0
 
 
 # --- dir() tests ---
@@ -527,26 +519,6 @@ def test_dir_many_dynamic_fields(db0_fixture):
     result = dir(obj)
     for key in kwargs:
         assert key in result
-
-
-def test_vars_immutable_memo(db0_fixture):
-    obj = MemoImmutable(data="hello", count=3)
-    result = vars(obj)
-    assert result["data"] == "hello"
-    assert result["count"] == 3
-
-
-def test_dict_immutable_memo(db0_fixture):
-    obj = MemoImmutable(data="hello", count=3)
-    assert obj.__dict__["data"] == "hello"
-    assert obj.__dict__["count"] == 3
-
-
-def test_dir_immutable_memo(db0_fixture):
-    obj = MemoImmutable(data="hello", count=3)
-    result = dir(obj)
-    assert "data" in result
-    assert "count" in result
 
 
 def test_vars_is_snapshot_not_live_view(db0_fixture):

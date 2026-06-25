@@ -40,10 +40,6 @@ Never mark a task done while tests are failing.
 
 Never make cosmetic changes unless they are explicitly requested by the task.
 
-### Temporary immutable objects design
-
-When working on immutable objects, use `design/IMMUTABLE_OBJECTS_DESIGN.md` as the implementation design reference. This file is temporary and should be removed after the feature is complete.
-
 ### v_object constructor conventions
 
 Types derived from `v_object` should follow the project-wide constructor pattern:

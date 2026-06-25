@@ -1206,11 +1206,7 @@ namespace db0::python
     
     bool PyToolkit::isImmutable(TypeObjectPtr py_type)
     {
-        if (isAnyMemoType(py_type)) {
-            return MemoTypeDecoration::get(py_type).getFlags()[MemoOptions::IMMUTABLE];
-        } else {
-            return false;
-        }
+        return false;
     }
 
     bool PyToolkit::isAccessControl(TypeObjectPtr py_type)

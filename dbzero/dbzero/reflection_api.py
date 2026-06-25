@@ -84,7 +84,6 @@ class MemoMetaClass:
         self.__type_flags = type_flags or {
             "singleton": False,
             "no_default_tags": False,
-            "immutable": False,
             "access_control": False,
         }
         self.__instance_uuid = instance_uuid
