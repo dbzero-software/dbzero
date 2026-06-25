@@ -3,35 +3,9 @@
 
 import pytest
 import dbzero as db0
-from contextvars import ContextVar
 from dataclasses import dataclass
 from .memo_test_types import (MemoTestClass, MemoTestThreeParamsClass, MemoTestCustomLoadClass, 
                               MemoTestCustomLoadClassWithParams, MemoTestSingleton)
-
-
-@db0.enum(values=["CREATE", "READ", "UPDATE", "DELETE"])
-class LoadFieldAccess:
-    pass
-
-
-@db0.memo(protect_fields=True)
-@dataclass
-class LoadProtectedClass:
-    name: str
-    value: int
-    note: str
-
-
-@db0.memo(protect_fields=True)
-@dataclass
-class LoadProtectedBaseClass:
-    base_value: str
-
-
-@db0.memo
-@dataclass
-class LoadProtectedDerivedClass(LoadProtectedBaseClass):
-    derived_value: str
 
 
 @db0.memo(immutable=True, no_default_tags=True)
@@ -173,36 +147,6 @@ def test_load_custom_immutable_memo(db0_fixture):
 
     assert db0.load(memo) == {"custom": "custom", "count": 11}
     assert db0.load_all(memo) == {"name": "custom", "count": 11}
-
-
-def test_load_protected_memo_only_loads_readable_fields(db0_fixture):
-    account_id = ContextVar("load_protected_account_id")
-    memo = LoadProtectedClass("alpha", 7, "private")
-    db0.set_field_access(LoadProtectedClass, 123, (LoadFieldAccess.READ,), "name", "value")
-    db0._init_data_masking(account_id)
-    account_id.set(123)
-
-    assert db0.load(memo) == {"name": "alpha", "value": 7}
-
-
-def test_load_protected_memo_uses_inherited_read_masks(db0_fixture):
-    account_id = ContextVar("load_protected_inherited_account_id")
-    memo = LoadProtectedDerivedClass("base", "derived")
-    db0.set_field_access(LoadProtectedBaseClass, 123, (LoadFieldAccess.READ,), "base_value")
-    db0._init_data_masking(account_id)
-    account_id.set(123)
-
-    assert db0.load(memo) == {"base_value": "base"}
-
-
-def test_load_protected_memo_applies_exclude_after_read_mask(db0_fixture):
-    account_id = ContextVar("load_protected_exclude_account_id")
-    memo = LoadProtectedClass("alpha", 7, "private")
-    db0.set_field_access(LoadProtectedClass, 123, (LoadFieldAccess.READ,), "name", "value")
-    db0._init_data_masking(account_id)
-    account_id.set(123)
-
-    assert db0.load(memo, exclude=["value"]) == {"name": "alpha"}
 
 
 def test_load_db0_list(db0_fixture):

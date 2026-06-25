@@ -35,7 +35,6 @@ namespace db0
 DB0_PACKED_BEGIN
     
     class GC0;
-    struct DataMaskingState;
     class MetaAllocator;
     class Snapshot;
     class Workspace;
@@ -307,9 +306,6 @@ DB0_PACKED_BEGIN
         
         PrefixName tryGetPrefixName() const;
 
-        void initMaskingState(std::shared_ptr<DataMaskingState>);
-        std::shared_ptr<DataMaskingState> getMaskingState() const;
-        
     private:
         const AccessType m_access_type;
         Snapshot &m_snapshot;
@@ -360,8 +356,6 @@ DB0_PACKED_BEGIN
         // DetachGuard scope; reset when the outermost guard exits.
         bool m_iterator_detached_in_guard = false;
         std::list<std::shared_ptr<MutationLog> > m_mutation_handlers;
-        std::shared_ptr<DataMaskingState> m_masking_state;
-        
         std::uint64_t getUUID(MetaAllocator &);
         
         // try commit if not closed yet

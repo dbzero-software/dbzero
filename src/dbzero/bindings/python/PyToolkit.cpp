@@ -1234,15 +1234,6 @@ namespace db0::python
         }
     }
 
-    bool PyToolkit::isProtectFields(TypeObjectPtr py_type)
-    {
-        if (isAnyMemoType(py_type)) {
-            return MemoTypeDecoration::get(py_type).getFlags()[MemoOptions::PROTECT_FIELDS];
-        } else {
-            return false;
-        }
-    }
-
     bool PyToolkit::isAccessControl(TypeObjectPtr py_type)
     {
         if (isAnyMemoType(py_type)) {

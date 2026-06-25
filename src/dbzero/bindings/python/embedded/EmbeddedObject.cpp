@@ -5,7 +5,6 @@
 
 #include <dbzero/bindings/python/Memo.hpp>
 #include <dbzero/bindings/python/MemoObject.hpp>
-#include <dbzero/bindings/python/ProtectedFieldAccess.hpp>
 #include <dbzero/bindings/python/PyInternalAPI.hpp>
 #include <dbzero/bindings/python/PySafeAPI.hpp>
 #include <dbzero/bindings/python/PyToolkit.hpp>
@@ -188,14 +187,6 @@ namespace db0::python
                 auto fixture = getRootFixture(embeddedRef.rootObject());
                 fixture->refreshIfUpdated();
                 auto memberLoc = embeddedRef.type().findField(attrName);
-                if (memberLoc.first) {
-                    auto masked = checkProtectedFieldReadAccess(
-                        embeddedRef.type(), fixture, memberLoc, attrName
-                    );
-                    if (masked || PyErr_Occurred()) {
-                        return masked;
-                    }
-                }
                 auto member = tryGetMember(embeddedRef, memberLoc);
                 if (member.get()) {
                     return member.steal();
@@ -328,15 +319,8 @@ namespace db0::python
             }
 
             auto &type = embeddedMemoRef(self).type();
-            auto fixture = getRootFixture(embeddedMemoRef(self).rootObject());
             for (const auto &name: getEmbeddedMemberNames(embeddedMemoRef(self).embeddedObject(), type)) {
                 auto memberLoc = type.findField(name.c_str());
-                if (!checkProtectedFieldAccess(type, fixture, FieldMaskOptions::READ, memberLoc, name.c_str())) {
-                    if (PyErr_Occurred()) {
-                        return nullptr;
-                    }
-                    continue;
-                }
                 auto value = tryGetMember(embeddedMemoRef(self), memberLoc);
                 if (!value.get()) {
                     continue;

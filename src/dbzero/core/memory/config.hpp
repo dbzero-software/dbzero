@@ -37,10 +37,6 @@ namespace db0
         // Function to throw the data decoding error (i.e. corrupt data detected)
         static std::function<void()> m_decode_error;
 
-        // Shortcut flag: true when data masking is enabled for at least one open prefix.
-        // Callers can use this to skip checking data masking rules when no open fixture can use them.
-        static bool m_data_masking_enabled;
-
         // reset all settings to default values
         static void reset();
     };

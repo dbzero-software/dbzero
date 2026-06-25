@@ -104,10 +104,6 @@ def test_get_memo_classes_returns_type_flags(db0_fixture):
     class ReflectionFlagsSingleton:
         pass
 
-    @db0.memo(protect_fields=True)
-    class ReflectionFlagsProtected:
-        pass
-
     @db0.memo(immutable=True)
     class ReflectionFlagsImmutable:
         pass
@@ -126,7 +122,6 @@ def test_get_memo_classes_returns_type_flags(db0_fixture):
 
     _ = ReflectionFlagsDefault()
     singleton = ReflectionFlagsSingleton()
-    _ = ReflectionFlagsProtected()
     _ = db0.materialized(ReflectionFlagsImmutable())
     _ = db0.materialized(ReflectionFlagsIntern())
     _ = ReflectionFlagsAccessControlled()
@@ -137,7 +132,6 @@ def test_get_memo_classes_returns_type_flags(db0_fixture):
         "no_default_tags",
         "immutable",
         "intern",
-        "protect_fields",
         "access_control",
     }
     memo_classes = list(db0.get_memo_classes())
@@ -162,7 +156,6 @@ def test_get_memo_classes_returns_type_flags(db0_fixture):
     assert_flags("ReflectionFlagsDefault", singleton=False)
     assert_flags("ReflectionFlagsSingleton", singleton=True)
     assert by_name("ReflectionFlagsSingleton").instance_uuid == db0.uuid(singleton)
-    assert_flags("ReflectionFlagsProtected", protect_fields=True)
     assert_flags("ReflectionFlagsImmutable", immutable=True)
     assert_flags("ReflectionFlagsIntern", immutable=True, intern=True)
     assert_flags("ReflectionFlagsAccessControlled", access_control=True)

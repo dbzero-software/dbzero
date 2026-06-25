@@ -4,7 +4,6 @@
 #pragma once
 
 #include "Field.hpp"
-#include "FieldSafe.hpp"
 #include "MemberID.hpp"
 
 #include <limits>
@@ -38,7 +37,7 @@ namespace db0
         // instances of this type opted out of auto-assigned type tags
         NO_DEFAULT_TAGS = 0x0002,
         IMMUTABLE = 0x0004,
-        PROTECT_FIELDS = 0x0008,
+        RESERVED_0008 = 0x0008,
         INTERN = 0x0010,
         ACCESS_CONTROL = 0x0020
     };
@@ -61,6 +60,7 @@ namespace db0::object_model
     class ObjectImmutableImpl;
     class ObjectAnyImpl;
     class Class;    
+    class Reserved0008;
     struct ObjectId;
 
     // fidelity + slot index
@@ -88,7 +88,7 @@ DB0_PACKED_BEGIN
         const std::uint32_t m_num_bases;
 
         // Version 1 fields.
-        db0_ptr<FieldSafe> m_field_safe_ptr;
+        db0_ptr<Reserved0008> m_reserved_0008_ptr;
         db0_ptr<ContentIndex> m_content_index_ptr;
         
         o_class(RC_LimitedStringPool &, const std::string &name, std::optional<std::string> module_name,
@@ -183,26 +183,11 @@ DB0_PACKED_END
         bool isAccessControl() const;
         bool hasOwnAccessControl() const;
         bool assignDefaultTags() const;
-        bool isProtectFields() const;
-        bool hasOwnProtectFields() const;
         void setAccessControl();
         void setOwnAccessControl();
-        void setProtectFields();
-        void resetProtectFields();
-        bool hasFieldSafe() const;
-        FieldSafe &getFieldSafe();
-        const FieldSafe &getFieldSafe() const;
         bool hasContentIndex() const;
         ContentIndex &getContentIndex();
         const ContentIndex &getContentIndex() const;
-        void setFieldAccess(const std::vector<std::uint64_t> &account_ids, FieldMaskFlags mask,
-            const std::vector<std::string> &field_names);
-        std::optional<FieldMaskFlags> tryGetFieldAccessByMember(std::uint64_t account_id, const Member &) const;
-        std::optional<FieldMaskFlags> tryGetFieldAccessByMemberLoc(std::uint64_t account_id, const MemberLoc &) const;
-        std::optional<FieldMaskFlags> tryGetFieldAccess(std::uint64_t account_id, const char *field_name) const;
-        std::optional<FieldMaskFlags> tryGetFieldAccessByName(std::uint64_t account_id, const char *field_name) const;
-        std::vector<std::pair<std::string, FieldMaskFlags> > getFieldAccess(std::uint64_t account_id) const;
-        std::uint32_t getFieldOffsetRange() const;
         
         /**
          * Check if this class has an associated singleton instance
@@ -346,10 +331,8 @@ DB0_PACKED_END
         // only holds non-default fidelities (i.e. > 0)
         VFidelityVector m_fidelities;
         Schema m_schema;
-        mutable std::optional<FieldSafe> m_field_safe;
         mutable std::optional<ContentIndex> m_content_index;
         std::shared_ptr<Class> m_base_class_ptr;
-        mutable std::optional<bool> m_protect_fields_cache;
         
         // Field by-name index (cache)
         // values: member ID / assigned on initialization flag
@@ -367,14 +350,10 @@ DB0_PACKED_END
         // A function to retrieve the total number of instances of the schema
         std::function<unsigned int()> getTotalFunc() const;
         std::function<void(const Member &)> getRefreshCallback() const;
-        MemberID addFieldInternal(const char *name, unsigned int fidelity, bool registerFieldAccess);
+        MemberID addFieldInternal(const char *name, unsigned int fidelity, bool register_field_access);
         // callback for MemberID updates
         void onMemberIDUpdated(const MemberID &) const;
-        void assertFieldSafeSupported() const;
         void assertContentIndexSupported() const;
-        void resetProtectFieldsCache() const;
-        FieldSafe &ensureFieldSafe();
-        void openFieldSafe() const;
         void openContentIndex() const;
         // translate member's field ID into a unique key
         FieldID getPrimaryKey(unsigned int index) const;

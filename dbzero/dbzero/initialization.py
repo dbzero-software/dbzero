@@ -4,7 +4,7 @@
 """dbzero initialization functions"""
 from collections.abc import Mapping
 from typing import Any
-from .dbzero import _init, _init_data_masking, open as dbzero_open
+from .dbzero import _init, open as dbzero_open
 
 def init(dbzero_root: str, **kwargs: Any) -> None:
     """Initialize the dbzero environment in a specified directory and apply global configurations.
@@ -31,7 +31,6 @@ def init(dbzero_root: str, **kwargs: Any) -> None:
         * lang_cache_size (int, default 1024) for language model data cache size
         * lock_flags (dict) to configure locking behavior when opening the prefix in read-write mode
         * rpc (dict) to initialize optional db0_rpc client configuration
-        * data_masking (dict) to initialize data masking via _init_data_masking
 
         Lock flags (dict):
         * blocking (bool, default False) wait when trying to acquire the lock
@@ -66,9 +65,3 @@ def init(dbzero_root: str, **kwargs: Any) -> None:
     if "prefix" in kwargs:
         open_mode = "rw" if kwargs.get("read_write", True) else "r"
         dbzero_open(kwargs["prefix"], open_mode=open_mode)
-
-    if "data_masking" in kwargs:
-        data_masking = kwargs["data_masking"]
-        if not isinstance(data_masking, Mapping):
-            raise TypeError("data_masking must be a mapping")
-        _init_data_masking(**data_masking)

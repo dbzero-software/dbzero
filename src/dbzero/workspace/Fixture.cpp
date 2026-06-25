@@ -373,23 +373,7 @@ namespace db0
         auto result = db0::make_swine<Fixture>(
             workspace_view, m_v_object_cache.getSharedObjectList(), px_snapshot, allocator_snapshot
         );
-        result->initMaskingState(workspace_view.getDataMaskingState(PrefixName(px_snapshot->getName())));
         return result;
-    }
-
-    void Fixture::initMaskingState(std::shared_ptr<DataMaskingState> state)
-    {
-        if (m_masking_state && state && m_masking_state != state) {
-            THROWF(db0::InternalException) << "Data masking state is already initialized for fixture";
-        }
-        if (state) {
-            m_masking_state = std::move(state);
-        }
-    }
-
-    std::shared_ptr<DataMaskingState> Fixture::getMaskingState() const
-    {
-        return m_masking_state;
     }
 
     bool Fixture::commit()

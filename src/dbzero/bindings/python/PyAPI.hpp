@@ -110,14 +110,6 @@ namespace db0::python
     
     PyObject *renameField(PyObject *self, PyObject *args, PyObject *kwargs);
 
-    PyObject *initDataMasking(PyObject *self, PyObject *args, PyObject *kwargs);
-
-    PyObject *setFieldAccess(PyObject *self, PyObject *args);
-
-    PyObject *getFieldAccess(PyObject *self, PyObject *args);
-
-    PyObject *resetProtectFields(PyObject *self, PyObject *args);
-
     PyObject *PyAPI_isSingleton(PyObject *self, PyObject *args);
 
     PyObject *PyAPI_getRefCount(PyObject *self, PyObject *args);

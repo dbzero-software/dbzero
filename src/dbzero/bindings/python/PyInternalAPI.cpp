@@ -37,7 +37,6 @@
 #include <dbzero/bindings/python/collections/PySet.hpp>
 #include <dbzero/bindings/python/types/PyEnum.hpp>
 #include <dbzero/bindings/python/types/PyClass.hpp>
-#include <dbzero/bindings/python/DataMasking.hpp>
 
 namespace db0::python
 
@@ -674,16 +673,6 @@ namespace db0::python
         }
         PySafeDict_SetItemString(*sp_dict, "size", Py_OWN(PyLong_FromLong(fixture->getLimitedStringPool().size())));
         PySafeDict_SetItemString(*stats_dict, "string_pool", sp_dict);
-
-        auto data_masking_dict = Py_OWN(PyDict_New());
-        if (!data_masking_dict) {
-            return nullptr;
-        }
-        PySafeDict_SetItemString(
-            *data_masking_dict,
-            "enabled",
-            Py_OWN(PyBool_fromBool(static_cast<bool>(fixture->getMaskingState()))));
-        PySafeDict_SetItemString(*stats_dict, "data_masking", data_masking_dict);
 
         auto cache_dict = Py_OWN(PyDict_New());
         if (!cache_dict) {

@@ -191,9 +191,6 @@ namespace db0::object_model
                 }
                 validateImmutableFlag(*type, lang_type);
                 validateInternFlag(*type, lang_type);
-                if (LangToolkit::isProtectFields(lang_type) && !type->hasOwnProtectFields()) {
-                    type->setProtectFields();
-                }
                 applyAccessControlFlag(*type, lang_type);
             } else {
                 auto fixture = getFixture();
@@ -216,7 +213,6 @@ namespace db0::object_model
                 if (memo_base) {
                     base_class = getOrCreateType(memo_base);                    
                 }
-                flags.set(ClassOptions::PROTECT_FIELDS, LangToolkit::isProtectFields(lang_type));
                 type = std::shared_ptr<Class>(new Class(fixture, LangToolkit::getTypeName(lang_type),
                     LangToolkit::tryGetModuleName(lang_type), type_id, prefix_name, init_vars, flags, base_class)
                 );
@@ -283,9 +279,6 @@ namespace db0::object_model
             apply_lang_metadata = true;
         }
         if (apply_lang_metadata) {
-            if (LangToolkit::isProtectFields(lang_type) && !it_cached->second.m_class->hasOwnProtectFields()) {
-                it_cached->second.m_class->setProtectFields();
-            }
             applyAccessControlFlag(*it_cached->second.m_class, lang_type);
         }
         return it_cached->second.m_class;
@@ -355,9 +348,6 @@ namespace db0::object_model
                 validateInternFlag(*type, lang_type);
                 type->setInitVars(LangToolkit::getInitVars(lang_type));
                 type->setRuntimeFlags(LangToolkit::getMemoFlags(lang_type));
-                if (LangToolkit::isProtectFields(lang_type) && !type->hasOwnProtectFields()) {
-                    type->setProtectFields();
-                }
                 applyAccessControlFlag(*type, lang_type);
             }
             // register the mapping to language specific type object
@@ -374,9 +364,6 @@ namespace db0::object_model
             apply_lang_metadata = true;
         }
         if (apply_lang_metadata) {
-            if (LangToolkit::isProtectFields(lang_type) && !it_cached->second.m_class->hasOwnProtectFields()) {
-                it_cached->second.m_class->setProtectFields();
-            }
             applyAccessControlFlag(*it_cached->second.m_class, lang_type);
         }
         return it_cached->second;

@@ -11,7 +11,6 @@
 #include <dbzero/bindings/python/iter/PyJoinIterable.hpp>
 #include <dbzero/bindings/python/iter/PyJoinIterator.hpp>
 #include <dbzero/bindings/python/types/PyEnum.hpp>
-#include <dbzero/bindings/python/DataMasking.hpp>
 #include <dbzero/object_model/tags/SelectModified.hpp>
 #include <dbzero/object_model/class/Class.hpp>
 #include <dbzero/core/memory/config.hpp>

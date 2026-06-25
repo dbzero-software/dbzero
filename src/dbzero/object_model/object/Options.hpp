@@ -17,7 +17,7 @@ namespace db0::object_model
         // instances of this type opted out of caching
         NO_CACHE = 0x0002,
         IMMUTABLE = 0x0004,
-        PROTECT_FIELDS = 0x0008,
+        RESERVED_0008 = 0x0008,
         INTERN = 0x0010,
         ACCESS_CONTROL = 0x0020
     };

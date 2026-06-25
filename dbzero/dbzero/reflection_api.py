@@ -86,7 +86,6 @@ class MemoMetaClass:
             "no_default_tags": False,
             "immutable": False,
             "intern": False,
-            "protect_fields": False,
             "access_control": False,
         }
         self.__instance_uuid = instance_uuid
