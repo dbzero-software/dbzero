@@ -10,6 +10,10 @@ from datetime import datetime
 import operator
 
 
+def test_predicate_api_is_not_exported():
+    assert not hasattr(db0, "predicate")
+
+
 @db0.memo()
 class DifferentClassForTags:
     def __init__(self, value):
@@ -233,65 +237,29 @@ def test_remove_tags_then_find_typed(db0_fixture):
     assert len(list(db0.find(MemoTestClass, "one"))) == 0
 
 
-def test_add_tags_to_query_result(db0_fixture):
-    objects = [MemoTestClass(i) for i in range(6)]
-    db0.tags(objects[0]).add(["token-a", "token-b"])
-    db0.tags(objects[1]).add("token-a")
-    db0.tags(objects[2]).add(["token-a", "token-b"])
-    db0.tags(objects[3]).add("token-b")
-
-    db0.tags(db0.find("token-a", "token-b")).add("token-c")
-
-    assert {item.value for item in db0.find("token-c")} == {0, 2}
-
-
-def test_remove_tags_from_query_result(db0_fixture):
-    objects = [MemoTestClass(i) for i in range(5)]
-    db0.tags(objects[0]).add(["token-a", "keep"])
-    db0.tags(objects[1]).add("token-a")
-    db0.tags(objects[2]).add(["token-a", "other"])
-    db0.tags(objects[3]).add("other")
-
-    db0.tags(db0.find("token-a")).remove("token-a")
-
-    assert list(db0.find("token-a")) == []
-    assert {item.value for item in db0.find("keep")} == {0}
-    assert {item.value for item in db0.find("other")} == {2, 3}
-
-
-def test_query_tag_target_can_be_empty_or_mixed_with_memo_target(db0_fixture):
+def test_query_result_cannot_be_used_as_tag_target(db0_fixture):
     objects = [MemoTestClass(i) for i in range(4)]
     db0.tags(objects[0]).add("source")
     db0.tags(objects[1]).add("source")
 
-    db0.tags(db0.find("missing")).add("batch")
-    assert list(db0.find("batch")) == []
+    with pytest.raises(RuntimeError, match="memo objects"):
+        db0.tags(db0.find("source"))
 
-    db0.tags(objects[2], db0.find("source")).add(["batch", "extra"])
+    with pytest.raises(RuntimeError, match="memo objects"):
+        db0.tags(objects[2], db0.find("source"))
 
-    assert {item.value for item in db0.find("batch")} == {0, 1, 2}
-    assert {item.value for item in db0.find("extra")} == {0, 1, 2}
-
-
-def test_batched_query_tags_rejected_in_read_only_context(db0_fixture):
-    obj = MemoTestClass(1)
-    db0.tags(obj).add("source")
-
-    with db0.read_only():
-        with pytest.raises(RuntimeError, match="read_only|read-only"):
-            db0.tags(db0.find("source")).add("blocked")
-
-    assert list(db0.find("blocked")) == []
+    db0.tags(objects[2]).add("batch")
+    assert {item.value for item in db0.find("batch")} == {2}
 
 
-def test_batched_query_tags_reject_snapshot_query_target(db0_fixture):
+def test_snapshot_query_cannot_be_used_as_tag_target(db0_fixture):
     obj = MemoTestClass(1)
     db0.tags(obj).add("source")
     db0.commit()
 
     with db0.snapshot() as snap:
-        with pytest.raises(RuntimeError, match="read-only"):
-            db0.tags(snap.find("source")).remove("source")
+        with pytest.raises(RuntimeError, match="memo objects"):
+            db0.tags(snap.find("source"))
 
     assert list(db0.find("source")) == [obj]
 

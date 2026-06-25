@@ -10,7 +10,7 @@ if sys.byteorder == 'big':
 
 setup(
     name='dbzero',
-    version='0.3.7',
+    version='0.4.0',
     description='DBZero community edition',
     packages=['dbzero'],
     python_requires='>=3.9',
@@ -20,4 +20,3 @@ setup(
         'Programming Language :: Python :: 3 :: Only',
     ],
 )
-

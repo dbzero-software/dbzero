@@ -290,8 +290,6 @@ namespace db0
                 bool is_default = (it->second == m_default_fixture);
                 it->second->close(false);
                 m_fixtures.erase(it);
-                updateDataMaskingSettingsFlag();
-                updateDataFilterSettingsFlag();
 
                 if (is_default) {
                     m_default_fixture = {};
@@ -338,8 +336,6 @@ namespace db0
             it->second->close(as_defunct, timer.get());
             it = m_fixtures.erase(it);
         }
-        updateDataMaskingSettingsFlag();
-        updateDataFilterSettingsFlag();
         
         if (as_defunct) {
             m_lang_cache->clearDefunct();
@@ -384,8 +380,6 @@ namespace db0
                     Fixture::formatFixture(Memspace(prefix, allocator), *allocator);
                 }
                 auto fixture = db0::make_swine<Fixture>(*this, prefix, allocator, m_next_locked_section_id);
-                fixture->initMaskingState(getDataMaskingState(prefix_name));
-                fixture->initFilterState(getDataFilterState(prefix_name));
                 if (m_fixture_initializer) {
                     // initialize fixture with a model-specific initializer
                     m_fixture_initializer(fixture, file_created, read_only, false);
@@ -404,8 +398,6 @@ namespace db0
                 }
                 
                 it = m_fixtures.emplace(fixture->getUUID(), fixture).first;
-                updateDataMaskingSettingsFlag();
-                updateDataFilterSettingsFlag();
                 m_fixture_catalog.add(prefix_name, *fixture);
                 if (*access_type == AccessType::READ_ONLY) {
                     // add read-only fixture to be monitored by the refresh thread (will be removed automatically when closed)
@@ -583,92 +575,6 @@ namespace db0
         return result;
     }
 
-    void Workspace::initDataMasking(std::shared_ptr<DataMaskingState> state)
-    {
-        if (!m_prefix_data_masking_states.empty()) {
-            THROWF(db0::InputException) << "Data masking is already configured per prefix";
-        }
-        if (m_data_masking_state && m_data_masking_state != state) {
-            THROWF(db0::InputException) << "Data masking is already configured for the workspace";
-        }
-        m_data_masking_state = std::move(state);
-        for (auto &[uuid, fixture]: m_fixtures) {
-            fixture->initMaskingState(m_data_masking_state);
-        }
-        updateDataMaskingSettingsFlag();
-    }
-
-    void Workspace::initDataMasking(const PrefixName &prefix_name, std::shared_ptr<DataMaskingState> state)
-    {
-        if (m_data_masking_state) {
-            THROWF(db0::InputException) << "Data masking is already configured for the workspace";
-        }
-        auto [it, inserted] = m_prefix_data_masking_states.emplace(prefix_name.get(), state);
-        if (!inserted && it->second != state) {
-            THROWF(db0::InputException) << "Data masking is already configured for prefix: " << prefix_name;
-        }
-        auto fixture = tryFindFixture(prefix_name);
-        if (fixture) {
-            fixture->initMaskingState(it->second);
-        }
-        updateDataMaskingSettingsFlag();
-    }
-
-    std::shared_ptr<DataMaskingState> Workspace::getDataMaskingState(const PrefixName &prefix_name) const
-    {
-        if (!prefix_name || m_data_masking_state) {
-            return m_data_masking_state;
-        }
-        auto it = m_prefix_data_masking_states.find(prefix_name.get());
-        if (it == m_prefix_data_masking_states.end()) {
-            return {};
-        }
-        return it->second;
-    }
-
-    void Workspace::initDataFilter(std::shared_ptr<DataFilterState> state)
-    {
-        if (!m_prefix_data_filter_states.empty()) {
-            THROWF(db0::InputException) << "Data filter is already configured per prefix";
-        }
-        if (m_data_filter_state && m_data_filter_state != state) {
-            THROWF(db0::InputException) << "Data filter is already configured for the workspace";
-        }
-        m_data_filter_state = std::move(state);
-        for (auto &[uuid, fixture]: m_fixtures) {
-            fixture->initFilterState(m_data_filter_state);
-        }
-        updateDataFilterSettingsFlag();
-    }
-
-    void Workspace::initDataFilter(const PrefixName &prefix_name, std::shared_ptr<DataFilterState> state)
-    {
-        if (m_data_filter_state) {
-            THROWF(db0::InputException) << "Data filter is already configured for the workspace";
-        }
-        auto [it, inserted] = m_prefix_data_filter_states.emplace(prefix_name.get(), state);
-        if (!inserted && it->second != state) {
-            THROWF(db0::InputException) << "Data filter is already configured for prefix: " << prefix_name;
-        }
-        auto fixture = tryFindFixture(prefix_name);
-        if (fixture) {
-            fixture->initFilterState(it->second);
-        }
-        updateDataFilterSettingsFlag();
-    }
-
-    std::shared_ptr<DataFilterState> Workspace::getDataFilterState(const PrefixName &prefix_name) const
-    {
-        if (!prefix_name || m_data_filter_state) {
-            return m_data_filter_state;
-        }
-        auto it = m_prefix_data_filter_states.find(prefix_name.get());
-        if (it == m_prefix_data_filter_states.end()) {
-            return {};
-        }
-        return it->second;
-    }
-    
     db0::swine_ptr<Fixture> Workspace::getCurrentFixture()
     {
         if (!m_default_fixture) {
@@ -933,26 +839,6 @@ namespace db0
         return m_fixtures.size();
     }
 
-    void Workspace::updateDataMaskingSettingsFlag() const
-    {
-        Settings::m_data_masking_enabled = std::any_of(
-            m_fixtures.begin(),
-            m_fixtures.end(),
-            [](const auto &item) {
-                return static_cast<bool>(item.second->getMaskingState());
-            });
-    }
-
-    void Workspace::updateDataFilterSettingsFlag() const
-    {
-        Settings::m_data_filter_enabled = std::any_of(
-            m_fixtures.begin(),
-            m_fixtures.end(),
-            [](const auto &item) {
-                return static_cast<bool>(item.second->getFilterState());
-            });
-    }
-    
     std::optional<std::size_t> Workspace::getLangCacheSize() const
     {
         if (m_config) {

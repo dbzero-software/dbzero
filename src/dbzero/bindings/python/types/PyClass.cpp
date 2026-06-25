@@ -27,7 +27,6 @@ namespace db0::python
         {"get_attributes", (PyCFunction)&PyAPI_PyClass_get_attributes, METH_NOARGS, "Get memo class attributes"},
         {"type_info", (PyCFunction)&PyAPI_PyClass_type_info, METH_NOARGS, "Get memo class type information"},
         {"get_type_flags", (PyCFunction)&PyAPI_PyClass_get_type_flags, METH_NOARGS, "Get persisted memo class flags"},
-        {"reset_protect_fields", (PyCFunction)&PyAPI_PyClass_reset_protect_fields, METH_NOARGS, "Disable field protection for this memo class"},
         {NULL}
     };
     
@@ -104,9 +103,6 @@ namespace db0::python
         auto py_result = Py_OWN(PyDict_New());
         PySafeDict_SetItemString(*py_result, "singleton", Py_OWN(PyBool_fromBool(type.isSingleton())));
         PySafeDict_SetItemString(*py_result, "no_default_tags", Py_OWN(PyBool_fromBool(type.isNoDefaultTags())));
-        PySafeDict_SetItemString(*py_result, "immutable", Py_OWN(PyBool_fromBool(type.isImmutable())));
-        PySafeDict_SetItemString(*py_result, "intern", Py_OWN(PyBool_fromBool(type.isIntern())));
-        PySafeDict_SetItemString(*py_result, "protect_fields", Py_OWN(PyBool_fromBool(type.isProtectFields())));
         PySafeDict_SetItemString(*py_result, "access_control", Py_OWN(PyBool_fromBool(type.isAccessControl())));
         return py_result.steal();
     }
@@ -122,18 +118,6 @@ namespace db0::python
         return runSafe(tryPyClassGetTypeFlags, self);
     }
 
-    PyObject *tryPyClassResetProtectFields(PyObject *self)
-    {
-        reinterpret_cast<ClassObject*>(self)->modifyExt().resetProtectFields();
-        Py_RETURN_NONE;
-    }
-
-    PyObject *PyAPI_PyClass_reset_protect_fields(PyObject *self, PyObject *)
-    {
-        PY_API_FUNC
-        return runSafe(tryPyClassResetProtectFields, self);
-    }
-    
     PyTypeObject ClassObjectType = {
         PYVAROBJECT_HEAD_INIT_DESIGNATED,
         .tp_name = "dbzero.Class",

@@ -15,7 +15,6 @@
 #include "PyTagSet.hpp"
 #include "PyAtomic.hpp"
 #include "PyLocked.hpp"
-#include "PyReadOnly.hpp"
 #include "PyWeakProxy.hpp"
 #include <dbzero/bindings/python/types/PyObjectId.hpp>
 #include <dbzero/bindings/python/collections/PyList.hpp>
@@ -34,7 +33,6 @@
 #include <dbzero/bindings/python/types/PyClass.hpp>
 #include <dbzero/bindings/python/types/PyEnum.hpp>
 #include <dbzero/bindings/python/types/PyTag.hpp>
-#include <dbzero/bindings/python/types/PyCompositeTag.hpp>
 #include <dbzero/bindings/python/PyTagSet.hpp>
 
 namespace py = db0::python;
@@ -48,7 +46,6 @@ static PyMethodDef dbzero_methods[] =
     {"commit", &py::PyAPI_commit, METH_VARARGS, "Commit data to disk / persistent storage"},
     {"fetch", (PyCFunction)&py::PyAPI_fetch, METH_VARARGS | METH_KEYWORDS, "Retrieve dbzero object instance by its UUID or type (in case of a singleton)"},
     {"exists", (PyCFunction)&py::PyAPI_exists, METH_VARARGS | METH_KEYWORDS, "Check if a specific UUID points to a valid dbzero object instance or if singleton of a given type exists"},
-    {"_check_interned", &py::PyAPI_checkInterned, METH_VARARGS, "Check if a UUID is present in an intern ContentIndex"},
     {"delete", &py::PyAPI_del, METH_VARARGS, "Delete dbzero object and the corresponding Python instance"},    
     {"get_type_info", &py::PyAPI_getTypeInfo, METH_VARARGS, "Get dbzero type information"},
     {"uuid", (PyCFunction)&py::PyAPI_getUUID, METH_FASTCALL, "Get unique object ID"},
@@ -62,7 +59,6 @@ static PyMethodDef dbzero_methods[] =
     {"bytearray", (PyCFunction)&py::PyAPI_makeByteArray, METH_FASTCALL, "Create a new dbzero bytearray instance"},        
     {"tags", (PyCFunction)&py::makeObjectTagManager, METH_FASTCALL | METH_KEYWORDS, ""},
     {"find", (PyCFunction)&py::PyAPI_find, METH_VARARGS | METH_KEYWORDS, "Find memo instances by tags with optional filtering"},
-    {"predicate", (PyCFunction)&py::PyAPI_predicate, METH_VARARGS | METH_KEYWORDS, "Build a non-iterable predicate query for composing filters"},
     {"join", (PyCFunction)&py::PyAPI_join, METH_VARARGS | METH_KEYWORDS, "Join memo collections by common tags with optional filtering"},
     {"refresh", (PyCFunction)&py::refresh, METH_VARARGS, ""},
     {"get_state_num", (PyCFunction)&py::PyAPI_getStateNum, METH_VARARGS | METH_KEYWORDS, ""},
@@ -71,18 +67,9 @@ static PyMethodDef dbzero_methods[] =
     {"snapshot", (PyCFunction)&py::PyAPI_getSnapshot, METH_VARARGS | METH_KEYWORDS, "Get snapshot of dbzero state"},
     {"get_snapshot_of", (PyCFunction)&py::PyAPI_getSnapshotOf, METH_FASTCALL, "Get snapshot associated with a specific object"},
     {"begin_atomic", (PyCFunction)&py::PyAPI_beginAtomic, METH_FASTCALL, "Opens a new atomic operation's context"},
-    {"begin_async_atomic", (PyCFunction)&py::PyAPI_beginAsyncAtomic, METH_FASTCALL, "Opens a new async atomic operation's context"},
-    {"_in_async_task", (PyCFunction)&py::PyAPI_inAsyncTask, METH_FASTCALL, "Returns whether the current execution is an asyncio task"},
     {"begin_locked", (PyCFunction)&py::PyAPI_beginLocked, METH_FASTCALL, "Enter a new locked section"},
-    {"begin_read_only", (PyCFunction)&py::PyAPI_beginReadOnly, METH_FASTCALL, "Enter a new read-only section"},
-    {"_in_read_only", (PyCFunction)&py::PyAPI_inReadOnly, METH_FASTCALL, "Returns whether the current execution is in a read-only section"},
     {"describe", &py::describeObject, METH_VARARGS, "Get dbzero object's description"},
     {"rename_field", (PyCFunction)&py::renameField, METH_VARARGS | METH_KEYWORDS, "Get snapshot of dbzero state"},
-    {"_init_data_masking", (PyCFunction)&py::initDataMasking, METH_VARARGS | METH_KEYWORDS, "Initialize data masking for specific prefixes"},
-    {"_init_data_filter", (PyCFunction)&py::initDataFilter, METH_VARARGS | METH_KEYWORDS, "Initialize data filtering for specific prefixes"},
-    {"set_field_access", (PyCFunction)&py::setFieldAccess, METH_VARARGS, "Set protected field access masks for a memo class"},
-    {"get_field_access", (PyCFunction)&py::getFieldAccess, METH_VARARGS, "Get protected field access masks for a memo class and account"},
-    {"reset_protect_fields", (PyCFunction)&py::resetProtectFields, METH_VARARGS, "Clear the persisted protected-fields flag for a memo class"},
     {"is_singleton", &py::PyAPI_isSingleton, METH_VARARGS, "Check if a specific instance is a dbzero singleton"},
     {"getrefcount", &py::PyAPI_getRefCount, METH_VARARGS, "Get dbzero ref counts"},
     {"no", (PyCFunction)&py::negTagSet, METH_FASTCALL, "Tag negation function"},
@@ -249,18 +236,12 @@ PyMODINIT_FUNC PyInit_dbzero(void)
         &py::TagSetType,
         &py::PyAtomicType,        
         &py::PyTagType,
-        &py::PyCompositeTagType,
         &py::PyLockedType,
-        &py::PyReadOnlyType,
         &py::PyWeakProxyType,
     };
     
     // register all types
     try {
-        if (py::initReadOnlyContextSupport() < 0) {
-            Py_DECREF(mod);
-            return NULL;
-        }
         for (auto py_type: types) {
             initPyType(types_mod, py_type);
         }

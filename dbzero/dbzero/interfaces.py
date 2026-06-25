@@ -143,7 +143,7 @@ class ByteArrayObject(bytearray):
     ...
 
 class ObjectTagManager:
-    """Manages tags of one or more Memo instances or query result sets."""
+    """Manages tags of one or more Memo instances."""
 
     def add(self, *tag: Union[Tag, Iterable[Tag]]) -> None:
         """Add one or more tags to the managed objects.

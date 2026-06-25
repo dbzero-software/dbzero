@@ -2,7 +2,7 @@
 Type stubs for dbzero module.
 """
 
-from typing import Any, Optional, Iterable, Dict, List, Tuple, Union, Callable, Sequence, ContextManager
+from typing import Any, Optional, Iterable, Dict, List, Tuple, Union, Callable, Sequence
 from .interfaces import (
     Memo, MemoWeakProxy, QueryObject, Tag, TagSet, EnumValue,
     ListObject, IndexObject, TupleObject, SetObject, DictObject, ByteArrayObject,
@@ -10,18 +10,6 @@ from .interfaces import (
 )
 
 # Core workspace management functions
-
-def read_only() -> ContextManager[Any]:
-    """Open a context manager that rejects dbzero mutations in its block."""
-    ...
-
-def _in_read_only() -> bool:
-    """Return whether the current execution is inside a dbzero read-only block."""
-    ...
-
-def in_read_only() -> bool:
-    """Return whether the current execution is inside a dbzero read-only block."""
-    ...
 
 def open(prefix_name: str, open_mode: str = "rw", **kwargs: Any) -> None:
     """Open a data prefix and set it as the current working context.
@@ -127,17 +115,11 @@ def commit(prefix_name: Optional[str] = None) -> None:
 def get_type_stats(type: type, prefix: Optional[str] = None) -> Dict[str, Any]:
     """Retrieve statistics for a memo type.
 
-    For interned types, the result includes ``content_index["size"]`` with the
-    number of currently indexed intern candidates.
     """
     ...
 
 def get_prefix_stats(prefix: Optional[str] = None) -> Dict[str, Any]:
-    """Retrieve statistics for a prefix.
-
-    The result includes ``data_masking["enabled"]`` and ``data_filter["enabled"]``
-    to report whether the opened prefix has those runtime states attached.
-    """
+    """Retrieve statistics for a prefix."""
     ...
 
 # Object retrieval and management
@@ -635,45 +617,6 @@ def rename_field(class_obj: type, from_name: str, to_name: str) -> None:
     """
     ...
 
-def set_field_access(class_obj: type, account_id: Union[int, Sequence[int]], mode: Tuple[EnumValue, ...], *fields: str) -> None:
-    """Set protected-field access flags for one or more fields of a memo class.
-
-    The memo class must be declared with ``protect_fields=True`` or inherit it
-    from a protected memo base. Pass an empty ``mode`` tuple to clear all access
-    flags for the specified account and fields.
-    """
-    ...
-
-def get_field_access(class_obj: type, account_id: int) -> Iterable[Tuple[str, Tuple[str, ...]]]:
-    """Return protected-field access flags for a memo class and account."""
-    ...
-
-def reset_protect_fields(class_obj: type) -> None:
-    """Clear the persisted protect_fields flag for a memo class.
-
-    The memo type must no longer be decorated with ``protect_fields=True`` and
-    must not inherit protected fields from a protected memo base. Remove the
-    argument or set it to ``False`` before calling this function.
-    """
-    ...
-
-def _init_data_masking(
-    context_var: Any,
-    prefix: Union[str, Any, Sequence[Any], None] = None,
-    missing_value_placeholder: Optional[Any] = None,
-    mode: str = "RELEASE",
-) -> None:
-    """Initialize workspace-wide or prefix-scoped data masking for the current process."""
-    ...
-
-def _init_data_filter(
-    context_var: Any,
-    prefix: Union[str, Any, Sequence[Any], None] = None,
-    mode: str = "RELEASE",
-) -> None:
-    """Initialize workspace-wide or prefix-scoped data filtering for the current process."""
-    ...
-
 # Cache management
 
 def clear_cache() -> None:
@@ -978,17 +921,13 @@ def bytearray(source: Union[bytes, Iterable[int]] = b'', /) -> ByteArrayObject:
 
 # Tag and query functions
 
-def tags(*objects: Union[Memo, QueryObject], passive: bool = False) -> ObjectTagManager:
+def tags(*objects: Memo) -> ObjectTagManager:
     """Get a tag manager interface for given Memo objects.
 
     Parameters
     ----------
-    *objects : Memo or QueryObject
-        One or more Memo objects or query result sets to manage tags for.
-    passive : bool, optional
-        Assign simple tags without extending the tagged object's lifetime. Passive tags require
-        another positive predicate when queried.
-
+    *objects : Memo
+        One or more Memo objects to manage tags for.
     Returns
     -------
     ObjectTagManager
@@ -1011,11 +950,6 @@ def tags(*objects: Union[Memo, QueryObject], passive: bool = False) -> ObjectTag
     >>> product1, product2 = Product("Laptop"), Product("Mouse")
     >>> dbzero.tags(product1, product2).add("sale")
     >>> dbzero.tags(product1, product2).remove("sale")
-
-    Batch operations on query results:
-
-    >>> dbzero.tags(dbzero.find("token-a", "token-b")).add("token-c")
-    >>> dbzero.tags(dbzero.find("token-a")).remove("token-a")
 
     Chain operations:
     
@@ -1087,30 +1021,21 @@ def find(*query_criteria: Union[Tag, List[Tag], Tuple[Tag], QueryObject, TagSet]
     """
     ...
 
-def predicate(*query_criteria: Union[Tag, List[Tag], Tuple[Tag], QueryObject, TagSet], prefix: Optional[str] = None) -> QueryObject:
-    """Build a predicate-only query for composing filters.
+def no(condition: Union[str, QueryObject], /) -> TagSet:
+    """Create a negative condition (NOT condition) for find queries.
 
-    Predicate queries use the same criteria grammar as ``find`` and can be used
-    as criteria in other queries or as data-filter predicates. They do not allow
-    direct iteration, counting, truth testing, indexing, or slicing.
-    """
-    ...
-
-def no(predicate: Union[str, QueryObject], /) -> TagSet:
-    """Create a negative predicate (NOT condition) for find queries.
-
-    Allows to exclude objects that match the given predicate,
+    Allows to exclude objects that match the given condition,
     enabling filtering out unwanted objects based on tags or query results.
 
     Parameters
     ----------
-    predicate : str or QueryObject
+    condition : str or QueryObject
         The condition to negate.
 
     Returns
     -------
     TagSet
-        A predicate object representing logical NOT operation.
+        A tag set representing logical NOT operation.
 
     Examples
     --------

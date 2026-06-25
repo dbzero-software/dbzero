@@ -19,7 +19,6 @@
 #include "ResourceManager.hpp"
 #include "DependencyWrapper.hpp"
 #include "MutationLog.hpp"
-#include "ReadOnlyContext.hpp"
     
 #include <dbzero/core/memory/swine_ptr.hpp>
 #include <dbzero/core/collections/full_text/FT_BaseIndex.hpp>
@@ -36,8 +35,6 @@ namespace db0
 DB0_PACKED_BEGIN
     
     class GC0;
-    struct DataMaskingState;
-    struct DataFilterState;
     class MetaAllocator;
     class Snapshot;
     class Workspace;
@@ -309,11 +306,6 @@ DB0_PACKED_BEGIN
         
         PrefixName tryGetPrefixName() const;
 
-        void initMaskingState(std::shared_ptr<DataMaskingState>);
-        std::shared_ptr<DataMaskingState> getMaskingState() const;
-        void initFilterState(std::shared_ptr<DataFilterState>);
-        std::shared_ptr<DataFilterState> getFilterState() const;
-        
     private:
         const AccessType m_access_type;
         Snapshot &m_snapshot;
@@ -364,9 +356,6 @@ DB0_PACKED_BEGIN
         // DetachGuard scope; reset when the outermost guard exits.
         bool m_iterator_detached_in_guard = false;
         std::list<std::shared_ptr<MutationLog> > m_mutation_handlers;
-        std::shared_ptr<DataMaskingState> m_masking_state;
-        std::shared_ptr<DataFilterState> m_filter_state;
-        
         std::uint64_t getUUID(MetaAllocator &);
         
         // try commit if not closed yet
@@ -439,9 +428,6 @@ DB0_PACKED_BEGIN
             : m_fixture(fixture)
             , m_lock(fixture->m_commit_mutex)
         {
-            if (db0::ReadOnlyContext::isActive()) {
-                THROWF(db0::InputException) << "dbzero read_only context forbids mutation";
-            }
             if (fixture->getAccessType() != AccessType::READ_WRITE) {
                 THROWF(db0::InputException) << "Cannot modify read-only prefix: " << fixture->getPrefix().getName();
             }

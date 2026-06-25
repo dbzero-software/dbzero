@@ -11,7 +11,7 @@
 #include <dbzero/object_model/value/StorageClass.hpp>
 #include "Schema.hpp"
 
-DEFINE_ENUM_VALUES(db0::ClassOptions, "SINGLETON", "NO_DEFAULT_TAGS", "IMMUTABLE", "PROTECT_FIELDS", "INTERN", "ACCESS_CONTROL")
+DEFINE_ENUM_VALUES(db0::ClassOptions, "SINGLETON", "NO_DEFAULT_TAGS", "IMMUTABLE", "RESERVED_0008", "RESERVED_0010", "ACCESS_CONTROL")
 
 namespace db0::object_model
 
@@ -112,9 +112,6 @@ namespace db0::object_model
         , m_uid(this->fetchUID())
         , m_member_cache(m_members, *this, this->getRefreshCallback())        
     {
-        if (isProtectFields()) {
-            ensureFieldSafe();
-        }
         if (hasOwnAccessControl()) {
             setAccessControl();
         }
@@ -130,7 +127,6 @@ namespace db0::object_model
         , m_uid(this->fetchUID())
         , m_member_cache(m_members, *this, this->getRefreshCallback())
     {
-        openFieldSafe();
         m_schema.postInit(getTotalFunc());
         // initialize base class if such exists
         if ((*this)->m_base_class_ref) {
@@ -177,7 +173,7 @@ namespace db0::object_model
         return addFieldInternal(name, fidelity, true);
     }
 
-    MemberID Class::addFieldInternal(const char *name, unsigned int fidelity, bool registerFieldAccess)
+    MemberID Class::addFieldInternal(const char *name, unsigned int fidelity, bool)
     {
         assert(fidelity < std::numeric_limits<std::uint8_t>::max());
 
@@ -192,9 +188,6 @@ namespace db0::object_model
         m_members.set(pos, o_field { getFixture()->getLimitedStringPool(), name });
         m_member_cache.reload(pos);
         auto member_id = m_index[name].first;
-        if (registerFieldAccess && m_field_safe) {
-            m_field_safe->getFieldIDMapper().onFieldIDAssigned(name, member_id.primary().first);
-        }
         return member_id;
     }
     
@@ -313,96 +306,12 @@ namespace db0::object_model
         return (*this)->m_flags[ClassOptions::IMMUTABLE];
     }
 
-    bool Class::isIntern() const {
-        return (*this)->m_flags[ClassOptions::INTERN];
-    }
-
     bool Class::hasOwnAccessControl() const {
         return (*this)->m_flags[ClassOptions::ACCESS_CONTROL];
     }
 
     bool Class::isAccessControl() const {
         return m_access_control;
-    }
-
-    bool Class::hasOwnProtectFields() const {
-        return (*this)->m_flags[ClassOptions::PROTECT_FIELDS];
-    }
-
-    bool Class::isProtectFields() const {
-        if (m_protect_fields_cache) {
-            return *m_protect_fields_cache;
-        }
-
-        m_protect_fields_cache = hasOwnProtectFields()
-            || (m_base_class_ptr && m_base_class_ptr->isProtectFields());
-        return *m_protect_fields_cache;
-    }
-
-    void Class::resetProtectFieldsCache() const
-    {
-        m_protect_fields_cache.reset();
-        getClassFactory(*getFixture()).forAll([this](const Class &type) {
-            if (type.isBaseClass(*this)) {
-                type.m_protect_fields_cache.reset();
-            }
-        });
-    }
-
-    void Class::assertFieldSafeSupported() const
-    {
-        if ((*this)->getObjVer() < FIELD_SAFE_MIN_VERSION) {
-            THROWF(db0::InputException) << "Class version too low to support protected fields. Current is: "
-                << (*this)->getObjVer() << ", for minimum support you need " << FIELD_SAFE_MIN_VERSION;
-        }
-    }
-
-    void Class::assertContentIndexSupported() const
-    {
-        if ((*this)->getObjVer() < CONTENT_INDEX_MIN_VERSION) {
-            THROWF(db0::InputException) << "Class version too low to support ContentIndex. Current is: "
-                << (*this)->getObjVer() << ", for minimum support you need " << CONTENT_INDEX_MIN_VERSION;
-        }
-    }
-
-    void Class::openFieldSafe() const
-    {
-        if ((*this)->getObjVer() >= FIELD_SAFE_MIN_VERSION && (*this)->m_field_safe_ptr && !m_field_safe) {
-            m_field_safe.emplace(getFixture()->myPtr((*this)->m_field_safe_ptr.getAddress()), getFixture()->getVObjectCache());
-        }
-    }
-
-    void Class::openContentIndex() const
-    {
-        assertContentIndexSupported();
-        if ((*this)->m_content_index_ptr && !m_content_index) {
-            auto fixture = getFixture();
-            m_content_index.emplace(
-                fixture->myPtr((*this)->m_content_index_ptr.getAddress()),
-                fixture,
-                std::const_pointer_cast<Class>(shared_from_this())
-            );
-        }
-    }
-
-    FieldSafe &Class::ensureFieldSafe()
-    {
-        if (m_field_safe) {
-            return *m_field_safe;
-        }
-        assertFieldSafeSupported();
-        openFieldSafe();
-        if (!m_field_safe) {
-            m_field_safe.emplace(*getFixture(), getFixture()->getVObjectCache());
-            modify().m_field_safe_ptr = *m_field_safe;
-        }
-        return *m_field_safe;
-    }
-
-    void Class::setProtectFields() {
-        ensureFieldSafe();
-        modify().m_flags.set(ClassOptions::PROTECT_FIELDS, true);
-        resetProtectFieldsCache();
     }
 
     void Class::setAccessControl() {
@@ -417,223 +326,6 @@ namespace db0::object_model
         setAccessControl();
     }
 
-    void Class::resetProtectFields() {
-        if (m_base_class_ptr && m_base_class_ptr->isProtectFields()) {
-            THROWF(db0::InputException)
-                << "Cannot disable protected fields on class " << getName()
-                << " because it inherits from a protect_fields base class";
-        }
-        modify().m_flags.set(ClassOptions::PROTECT_FIELDS, false);
-        resetProtectFieldsCache();
-    }
-
-    bool Class::hasFieldSafe() const
-    {
-        return (*this)->getObjVer() >= FIELD_SAFE_MIN_VERSION && (*this)->m_field_safe_ptr;
-    }
-
-    bool Class::hasContentIndex() const
-    {
-        if ((*this)->getObjVer() < CONTENT_INDEX_MIN_VERSION) {
-            return false;
-        }
-        return !!(*this)->m_content_index_ptr;
-    }
-
-    ContentIndex &Class::getContentIndex()
-    {
-        assertContentIndexSupported();
-        openContentIndex();
-        if (!m_content_index) {
-            auto fixture = getFixture();
-            auto type = shared_from_this();
-            m_content_index.emplace(fixture, type);
-            modify().m_content_index_ptr = *m_content_index;
-        }
-        return *m_content_index;
-    }
-
-    const ContentIndex &Class::getContentIndex() const
-    {
-        assertContentIndexSupported();
-        openContentIndex();
-        if (!m_content_index) {
-            THROWF(db0::InputException) << "ContentIndex is not initialized for class " << getName();
-        }
-        return *m_content_index;
-    }
-
-    FieldSafe &Class::getFieldSafe()
-    {
-        if (!m_field_safe) {
-            THROWF(db0::InputException) << "FieldSafe is not initialized for class " << getName();
-        }
-        return *m_field_safe;
-    }
-
-    const FieldSafe &Class::getFieldSafe() const
-    {
-        if (!m_field_safe) {
-            THROWF(db0::InputException) << "FieldSafe is not initialized for class " << getName();
-        }
-        return *m_field_safe;
-    }
-
-    void Class::setFieldAccess(const std::vector<std::uint64_t> &account_ids, FieldMaskFlags mask,
-        const std::vector<std::string> &field_names)
-    {
-        if (!isProtectFields()) {
-            THROWF(db0::InputException) << "Class " << getName() << " does not have protected fields enabled";
-        }
-        if (account_ids.empty()) {
-            THROWF(db0::InputException) << "At least one account ID is required";
-        }
-        if (field_names.empty()) {
-            THROWF(db0::InputException) << "At least one field name is required";
-        }
-
-        auto &field_safe = ensureFieldSafe();
-        auto &field_id_mapper = field_safe.getFieldIDMapper();
-        auto &field_mask_manager = field_safe.getFieldMaskManager();
-
-        std::vector<std::uint32_t> field_offsets;
-        field_offsets.reserve(field_names.size());
-        for (const auto &field_name: field_names) {
-            auto member = tryGetMember(field_name.c_str());
-            if (member && mask.value() != 0) {
-                field_offsets.push_back(field_id_mapper.assignFieldOffset(member->m_field_id));
-            } else {
-                field_offsets.push_back(field_id_mapper.assignFieldOffset(field_name.c_str()));
-            }
-        }
-
-        for (auto account_id: account_ids) {
-            auto field_mask = field_mask_manager.createFieldMask(account_id);
-            for (auto field_offset: field_offsets) {
-                field_mask->setMask(field_offset, mask);
-            }
-        }
-    }
-
-    std::optional<FieldMaskFlags> Class::tryGetFieldAccessByMember(std::uint64_t account_id, const Member &member) const
-    {
-        if (!isProtectFields()) {
-            return {};
-        }
-
-        if (hasFieldSafe()) {
-            auto &field_safe = getFieldSafe();
-            auto field_mask = field_safe.getFieldMaskManager().tryGetFieldMask(account_id);
-            auto maybe_offset = field_safe.getFieldIDMapper().tryGetAssignedFieldOffset(member.m_field_id);
-            if (maybe_offset && field_mask) {
-                auto mask = field_mask->getAssignedMask(*maybe_offset);
-                if (mask && !mask->none()) {
-                    return mask;
-                }
-            }
-        }
-
-        if (m_base_class_ptr && m_base_class_ptr->isProtectFields()) {
-            return m_base_class_ptr->tryGetFieldAccess(account_id, member.m_name.c_str());
-        }
-
-        return {};
-    }
-
-    std::optional<FieldMaskFlags> Class::tryGetFieldAccessByMemberLoc(std::uint64_t account_id, const MemberLoc &member_loc) const
-    {
-        const auto &member_id = member_loc.first;
-        if (!member_id) {
-            return {};
-        }
-
-        auto member = tryGetMember(member_id.primary().first);
-        if (member) {
-            return tryGetFieldAccessByMember(account_id, *member);
-        }
-        return {};
-    }
-
-    std::optional<FieldMaskFlags> Class::tryGetFieldAccess(std::uint64_t account_id, const char *field_name) const
-    {
-        auto member = tryGetMember(field_name);
-        if (member) {
-            return tryGetFieldAccessByMember(account_id, *member);
-        }
-
-        return tryGetFieldAccessByName(account_id, field_name);
-    }
-
-    std::optional<FieldMaskFlags> Class::tryGetFieldAccessByName(std::uint64_t account_id, const char *field_name) const
-    {
-        if (!isProtectFields()) {
-            return {};
-        }
-
-        if (hasFieldSafe()) {
-            auto &field_safe = getFieldSafe();
-            auto field_mask = field_safe.getFieldMaskManager().tryGetFieldMask(account_id);
-            if (field_mask) {
-                auto maybe_offset = field_safe.getFieldIDMapper().tryGetAssignedFieldOffset(field_name);
-                if (maybe_offset) {
-                    auto mask = field_mask->getAssignedMask(*maybe_offset);
-                    if (mask && !mask->none()) {
-                        return mask;
-                    }
-                }
-            }
-
-        }
-
-        if (m_base_class_ptr && m_base_class_ptr->isProtectFields()) {
-            return m_base_class_ptr->tryGetFieldAccessByName(account_id, field_name);
-        }
-
-        return {};
-    }
-
-    std::vector<std::pair<std::string, FieldMaskFlags> > Class::getFieldAccess(std::uint64_t account_id) const
-    {
-        if (!isProtectFields()) {
-            THROWF(db0::InputException) << "Class " << getName() << " does not have protected fields enabled";
-        }
-
-        auto &field_safe = getFieldSafe();
-        auto field_mask = field_safe.getFieldMaskManager().tryGetFieldMask(account_id);
-        if (!field_mask) {
-            return {};
-        }
-
-        auto &field_id_mapper = field_safe.getFieldIDMapper();
-        auto field_offsets = field_id_mapper.getAssignedNameOffsets();
-        for (const auto &[field_name, member_id]: getMembers()) {
-            auto maybe_offset = field_id_mapper.tryGetAssignedFieldOffset(member_id.primary().first);
-            if (maybe_offset) {
-                field_offsets[field_name] = *maybe_offset;
-            }
-        }
-
-        std::vector<std::pair<std::string, FieldMaskFlags> > result;
-        result.reserve(field_offsets.size());
-        for (const auto &[field_name, field_offset]: field_offsets) {
-            auto mask = field_mask->getAssignedMask(field_offset);
-            if (mask) {
-                result.emplace_back(field_name, *mask);
-            }
-        }
-        return result;
-    }
-
-    std::uint32_t Class::getFieldOffsetRange() const
-    {
-        if (!m_field_safe) {
-            return 0;
-        }
-
-        m_member_cache.refresh();
-        return m_field_safe->getFieldIDMapper().getFieldOffsetRange();
-    }
-    
     bool Class::isExistingSingleton() const {
         return isSingleton() && (*this)->m_singleton_address.isValid();
     }
@@ -785,12 +477,6 @@ namespace db0::object_model
         m_member_cache.detach();
         m_fidelities.detach();
         m_schema.detach();
-        if (m_field_safe) {
-            m_field_safe->detach();
-        }
-        if (m_content_index) {
-            m_content_index->detach();
-        }
         super_t::detach();
     }
     
@@ -800,16 +486,10 @@ namespace db0::object_model
     
     void Class::flush() const {
         m_schema.flush();
-        if (m_content_index) {
-            m_content_index->flush();
-        }
     }
     
     void Class::rollback() {
         m_schema.rollback();
-        if (m_content_index) {
-            m_content_index->rollback();
-        }
     }
 
     void Class::commit() const
@@ -817,12 +497,6 @@ namespace db0::object_model
         m_members.commit();        
         m_fidelities.commit();
         m_schema.commit();
-        if (m_field_safe) {
-            m_field_safe->commit();
-        }
-        if (m_content_index) {
-            m_content_index->commit();
-        }
         super_t::commit();
     }
     
@@ -1189,7 +863,6 @@ namespace db0::object_model
     }
     
     void Class::setRuntimeFlags(FlagSet<MemoOptions> memo_options) {
-        m_no_cache = memo_options[MemoOptions::NO_CACHE];
         if (memo_options[MemoOptions::ACCESS_CONTROL]) {
             setAccessControl();
         }

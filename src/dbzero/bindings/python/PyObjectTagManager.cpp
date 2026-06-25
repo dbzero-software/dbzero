@@ -5,8 +5,6 @@
 #include "Memo.hpp"
 #include "PyInternalAPI.hpp"
 #include "PyToolkit.hpp"
-#include "iter/PyObjectIterable.hpp"
-#include <memory>
 #include <vector>
 
 namespace db0::python
@@ -106,35 +104,16 @@ namespace db0::python
     
     PyObjectTagManager *tryMakeObjectTagManager(PyObject *, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
     {
-        bool passive = false;
         if (kwnames) {
-            auto nkwargs = PyTuple_GET_SIZE(kwnames);
-            for (Py_ssize_t i = 0; i < nkwargs; ++i) {
-                auto *kwname = PyTuple_GET_ITEM(kwnames, i);
-                if (!PyUnicode_Check(kwname) || PyUnicode_CompareWithASCIIString(kwname, "passive") != 0) {
-                    THROWF(db0::InputException) << "Unknown keyword argument for dbzero.tags" << THROWF_END;
-                }
-                auto is_true = PyObject_IsTrue(args[nargs + i]);
-                if (is_true < 0) {
-                    THROWF(db0::InputException) << "Unable to interpret passive argument as bool" << THROWF_END;
-                }
-                passive = is_true != 0;
-            }
+            THROWF(db0::InputException) << "Unknown keyword argument for dbzero.tags" << THROWF_END;
         }
 
         std::vector<PyObject*> memo_args;
-        std::vector<std::shared_ptr<ObjectIterable> > query_targets;
         memo_args.reserve(nargs);
-        query_targets.reserve(nargs);
 
         for (Py_ssize_t i = 0; i < nargs; ++i) {
-            if (PyObjectIterable_Check(args[i])) {
-                auto *query = reinterpret_cast<PyObjectIterable*>(args[i]);
-                query_targets.push_back(query->getSharedPtr());
-                continue;
-            }
             if (!PyToolkit::isAnyMemoObject(args[i])) {
-                THROWF(db0::InputException) << "All arguments must be dbzero memo objects or object queries";
+                THROWF(db0::InputException) << "All arguments must be dbzero memo objects";
             }
             if (PyMemo_Check<MemoObject>(args[i])) {
                 auto *memoObject = reinterpret_cast<MemoObject *>(args[i]);
@@ -154,9 +133,7 @@ namespace db0::python
         ObjectTagManager::makeNew(
             &tags_obj->modifyExt(),
             memo_args.data(),
-            memo_args.size(),
-            std::move(query_targets),
-            passive
+            memo_args.size()
         );
         return tags_obj.steal();
     }

@@ -6,13 +6,11 @@
 #include "PySnapshot.hpp"
 #include <dbzero/object_model/tags/SplitIterator.hpp>
 #include <dbzero/object_model/tags/TagIndex.hpp>
-#include <dbzero/object_model/tags/PredicateFactory.hpp>
 #include <dbzero/bindings/python/iter/PyObjectIterable.hpp>
 #include <dbzero/bindings/python/iter/PyObjectIterator.hpp>
 #include <dbzero/bindings/python/iter/PyJoinIterable.hpp>
 #include <dbzero/bindings/python/iter/PyJoinIterator.hpp>
 #include <dbzero/bindings/python/types/PyEnum.hpp>
-#include <dbzero/bindings/python/DataMasking.hpp>
 #include <dbzero/object_model/tags/SelectModified.hpp>
 #include <dbzero/object_model/class/Class.hpp>
 #include <dbzero/core/memory/config.hpp>
@@ -24,7 +22,7 @@ namespace db0::python
 {
 
     PyObject *findIn(db0::Snapshot &snapshot, PyObject* const *args, Py_ssize_t nargs,
-        PyObject *context, const char *prefix_name, bool bypass_data_filters, bool predicate_only)
+        PyObject *context, const char *prefix_name)
     {
         using ObjectIterable = db0::object_model::ObjectIterable;
         using TagIndex = db0::object_model::TagIndex;
@@ -38,20 +36,12 @@ namespace db0::python
             snapshot, args, nargs, find_args, type, lang_type, no_result, prefix_name
         );
         fixture->refreshIfUpdated();
-        std::vector<shared_py_object<PyObject*> > owned_predicates;
-        std::vector<std::shared_ptr<ObjectIterable> > native_predicates;
-        if (!bypass_data_filters && !appendDataFilterPredicate(fixture, type, native_predicates, owned_predicates)) {
-            return nullptr;
-        }
         auto &tag_index = fixture->get<TagIndex>();
         std::vector<std::unique_ptr<db0::object_model::QueryObserver> > query_observers;
         auto query_iterator = tag_index.find(find_args.data(), find_args.size(), type, query_observers, no_result);
         auto iter_obj = PyObjectIterableDefault_new();
         iter_obj->makeNew(fixture, std::move(query_iterator), type, lang_type, std::move(query_observers),
-            std::vector<ObjectIterable::FilterFunc>{}, predicate_only);
-        if (!native_predicates.empty()) {
-            iter_obj->modifyExt().addDataFilterPredicates(std::move(native_predicates));
-        }
+            std::vector<ObjectIterable::FilterFunc>{});
         if (context) {
             (iter_obj.get())->ext().attachContext(context);
         }

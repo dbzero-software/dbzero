@@ -42,13 +42,6 @@ namespace db0
         
         bool isMutable() const override;
 
-        // Returns the data masking state configured for a prefix. Passing the default invalid PrefixName{}
-        // queries the workspace-global state, which applies to all prefixes.
-        std::shared_ptr<DataMaskingState> getDataMaskingState(const PrefixName & = {}) const override;
-        // Returns the data filter state configured for a prefix. Passing the default invalid PrefixName{}
-        // queries the workspace-global state, which applies to all prefixes.
-        std::shared_ptr<DataFilterState> getDataFilterState(const PrefixName & = {}) const override;
-
         Snapshot &getHeadWorkspace() const override;
         
         std::optional<AccessType> tryGetAccessType() const override;

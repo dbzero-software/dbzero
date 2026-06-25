@@ -20,7 +20,7 @@ class IndexesSingleton:
   indexes: List[IndexContainer]
 
 
-@db0.memo(no_default_tags = True, no_cache=True)
+@db0.memo(no_default_tags = True)
 @dataclass
 class Value:
   index_number: int

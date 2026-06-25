@@ -14,24 +14,6 @@
 namespace db0::python
 
 {
-    namespace
-    {
-        bool ensureDataFilterPredicates(PyObjectIterable *py_iterable)
-        {
-            auto &iterable = py_iterable->modifyExt();
-            if (iterable.hasDataFilterPredicates()) {
-                return true;
-            }
-            std::vector<shared_py_object<PyObject*> > owned_predicates;
-            std::vector<std::shared_ptr<ObjectIterable> > native_predicates;
-            if (!appendDataFilterPredicate(iterable.getFixture(), iterable.getType(), native_predicates, owned_predicates)) {
-                return false;
-            }
-            iterable.addDataFilterPredicates(std::move(native_predicates));
-            return true;
-        }
-    }
-
     PyObjectIterable *PyObjectIterable_new(PyTypeObject *type, PyObject *, PyObject *) {
         return reinterpret_cast<PyObjectIterable*>(type->tp_alloc(type, 0));
     }
@@ -90,15 +72,8 @@ namespace db0::python
     
     PyObject *tryPyAPI_PyObjectIterable_iter(PyObjectIterable *py_iterable)
     {
-        if (py_iterable->ext().isPredicateOnly()) {
-            PyErr_SetString(PyExc_PermissionError, "predicate queries cannot be iterated directly");
-            return nullptr;
-        }
         // getFixture to prevent segfault in case the associated context (e.g. snapshot) has been destroyed
         auto fixture = py_iterable->ext().getFixture();
-        if (!ensureDataFilterPredicates(py_iterable)) {
-            return nullptr;
-        }
         auto py_iter = PyObjectIteratorDefault_new();
         py_iter->makeNew(py_iterable->ext().iter());
         if (auto *iterator_pool = fixture->tryGet<db0::object_model::ObjectIteratorPool>()) {
@@ -115,15 +90,8 @@ namespace db0::python
     
     Py_ssize_t tryPyObjectIterable_len(PyObjectIterable *py_iterable)
     {
-        if (py_iterable->ext().isPredicateOnly()) {
-            PyErr_SetString(PyExc_PermissionError, "predicate queries cannot be counted directly");
-            return -1;
-        }
         // getFixture to prevent segfault in case the associated context (e.g. snapshot) has been destroyed
-        auto fixture = py_iterable->ext().getFixture();
-        if (!ensureDataFilterPredicates(py_iterable)) {
-            return -1;
-        }
+        py_iterable->ext().getFixture();
         return py_iterable->ext().getSize();
     }
 
@@ -192,14 +160,6 @@ namespace db0::python
         using SliceDef = db0::object_model::SliceDef;
         using ObjectSharedPtr = PyToolkit::ObjectSharedPtr;
 
-        if (py_iterable->ext().isPredicateOnly()) {
-            PyErr_SetString(PyExc_PermissionError, "predicate queries cannot be indexed or sliced directly");
-            return nullptr;
-        }
-        if (!ensureDataFilterPredicates(py_iterable)) {
-            return nullptr;
-        }
-
         if (PyTuple_Check(py_key)) {
             // itemgetter's key (item indexes)
             auto indices = unpackTuple(py_key);
@@ -248,13 +208,6 @@ namespace db0::python
     int PyAPI_PyObjectIterable_bool(PyObjectIterable *py_iterable)
     {
         PY_API_FUNC
-        if (py_iterable->ext().isPredicateOnly()) {
-            PyErr_SetString(PyExc_PermissionError, "predicate queries cannot be tested for truth directly");
-            return -1;
-        }
-        if (!ensureDataFilterPredicates(py_iterable)) {
-            return -1;
-        }
         // check if the iterable is empty
         if (py_iterable->ext().empty()) {
             return 0; // False
@@ -321,32 +274,7 @@ namespace db0::python
         
         PY_API_FUNC
         return runSafe(findIn, PyToolkit::getPyWorkspace().getWorkspace(), (PyObject* const*)args_data.data(), 
-            num_args, nullptr, prefix_name, false, false);
+            num_args, nullptr, prefix_name);
     }
 
-    PyObject *PyAPI_predicate(PyObject *, PyObject *args, PyObject *kwargs)
-    {
-        Py_ssize_t num_args = PyTuple_Size(args);
-        std::vector<PyObject*> args_data(num_args);
-        for (Py_ssize_t i = 0; i < num_args; ++i) {
-            args_data[i] = PyTuple_GetItem(args, i);
-        }
-        
-        const char prefix_arg[] = "prefix";
-        const char *prefix_name = nullptr;
-        if (kwargs) {
-            PyObject *py_prefix_name = PyDict_GetItemString(kwargs, prefix_arg);
-            if (py_prefix_name) {                
-                prefix_name = parseStringLikeArgument(py_prefix_name, "predicate", prefix_arg);
-                if (!prefix_name) {
-                    return nullptr;
-                }
-            }
-        }
-        
-        PY_API_FUNC
-        return runSafe(findIn, PyToolkit::getPyWorkspace().getWorkspace(), (PyObject* const*)args_data.data(), 
-            num_args, nullptr, prefix_name, true, true);
-    }
-    
 }

@@ -9,7 +9,6 @@
 #include <vector>
 #include <mutex>
 #include <thread>
-#include <atomic>
 #include <dbzero/bindings/TypeId.hpp>
 
 namespace db0
@@ -65,10 +64,7 @@ namespace db0
         void close();
         
         static std::unique_lock<std::recursive_mutex> lock();
-        static bool isInAsyncTask();
-        static void assertSyncAtomicAllowed();
-        static void assertAsyncAtomicAllowed();
-        static void waitIfBlockedByActiveOwner(bool fail_same_thread = true);
+        static void waitIfBlockedByActiveOwner();
         static bool isOwnedByCurrentExecution();
         static bool isMutatingApiAtomicOwner();
         static void enterMutatingApiAtomicOwner();
@@ -77,18 +73,16 @@ namespace db0
         {
             inactive,
             owner,
-            same_thread_non_owner,
             other_thread,
         };
         static OwnerRelation getOwnerRelation();
-        static void waitIfBlockedByOwnerRelation(OwnerRelation, bool fail_same_thread = true);
+        static void waitIfBlockedByOwnerRelation(OwnerRelation);
         
     private:
         struct ExecutionIdentity
         {
             std::thread::id thread_id;
             void *py_thread_state = nullptr;
-            PyObjectPtr async_task = nullptr;
         };
 
         std::shared_ptr<Workspace> m_workspace;
@@ -102,7 +96,6 @@ namespace db0
         static std::mutex m_owner_state_mutex;
         static ExecutionIdentity m_owner_identity;
         static unsigned int m_active_depth;
-        static std::atomic<unsigned int> m_active_depth_fast;
         static thread_local unsigned int m_mutating_api_atomic_owner_depth;
 
         bool isActive() const;

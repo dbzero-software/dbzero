@@ -65,12 +65,4 @@ namespace db0
         return std::nullopt;
     }
 
-    std::shared_ptr<DataMaskingState> Snapshot::getDataMaskingState(const PrefixName &) const {
-        return {};
-    }
-
-    std::shared_ptr<DataFilterState> Snapshot::getDataFilterState(const PrefixName &) const {
-        return {};
-    }
-    
 }

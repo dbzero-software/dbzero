@@ -22,7 +22,6 @@ namespace db0
     std::mutex AtomicContext::m_owner_state_mutex;
     AtomicContext::ExecutionIdentity AtomicContext::m_owner_identity;
     unsigned int AtomicContext::m_active_depth = 0;
-    std::atomic<unsigned int> AtomicContext::m_active_depth_fast = 0;
     thread_local unsigned int AtomicContext::m_mutating_api_atomic_owner_depth = 0;
 
     // NOTE: since objects might've been destroyed inside atomic operation, we need to check before detaching
@@ -210,65 +209,13 @@ namespace db0
         ExecutionIdentity result;
         result.thread_id = std::this_thread::get_id();
         result.py_thread_state = PyThreadState_Get();
-        result.async_task = nullptr;
-
-        auto asyncio = Py_OWN(PyImport_ImportModule("asyncio"));
-        if (!asyncio) {
-            PyErr_Clear();
-            return result;
-        }
-
-        auto current_task = Py_OWN(PyObject_GetAttrString(*asyncio, "current_task"));
-        if (!current_task) {
-            PyErr_Clear();
-            return result;
-        }
-
-        auto task = Py_OWN(PyObject_CallNoArgs(*current_task));
-        if (!task) {
-            PyErr_Clear();
-            return result;
-        }
-
-        if (*task != Py_None) {
-            result.async_task = task.steal();
-        }
         return result;
-    }
-
-    bool AtomicContext::isInAsyncTask()
-    {
-        auto identity = getCurrentExecutionIdentity();
-        if (identity.async_task) {
-            Py_DECREF(identity.async_task);
-            return true;
-        }
-        return false;
-    }
-
-    void AtomicContext::assertSyncAtomicAllowed()
-    {
-        if (isInAsyncTask()) {
-            THROWF(db0::InputException)
-                << "db0.atomic is synchronous; use db0.async_atomic() inside asyncio tasks"
-                << THROWF_END;
-        }
-    }
-
-    void AtomicContext::assertAsyncAtomicAllowed()
-    {
-        if (!isInAsyncTask()) {
-            THROWF(db0::InputException)
-                << "db0.async_atomic requires a running asyncio task"
-                << THROWF_END;
-        }
     }
 
     bool AtomicContext::isSameExecution(const ExecutionIdentity &lhs, const ExecutionIdentity &rhs)
     {
         return lhs.thread_id == rhs.thread_id
-            && lhs.py_thread_state == rhs.py_thread_state
-            && lhs.async_task == rhs.async_task;
+            && lhs.py_thread_state == rhs.py_thread_state;
     }
 
     void AtomicContext::beginActiveOwner()
@@ -279,17 +226,10 @@ namespace db0
             m_owner_identity = identity;
         } else {
             if (!isSameExecution(m_owner_identity, identity)) {
-                if (identity.async_task) {
-                    Py_DECREF(identity.async_task);
-                }
                 THROWF(db0::InternalException) << "db0 atomic owner changed during nested atomic operation" << THROWF_END;
-            }
-            if (identity.async_task) {
-                Py_DECREF(identity.async_task);
             }
         }
         ++m_active_depth;
-        m_active_depth_fast.store(m_active_depth, std::memory_order_release);
     }
 
     void AtomicContext::endActiveOwner()
@@ -297,11 +237,7 @@ namespace db0
         std::lock_guard<std::mutex> guard(m_owner_state_mutex);
         assert(m_active_depth > 0);
         --m_active_depth;
-        m_active_depth_fast.store(m_active_depth, std::memory_order_release);
         if (m_active_depth == 0) {
-            if (m_owner_identity.async_task) {
-                Py_DECREF(m_owner_identity.async_task);
-            }
             m_owner_identity = {};
         }
     }
@@ -329,59 +265,26 @@ namespace db0
 
     AtomicContext::OwnerRelation AtomicContext::getOwnerRelation()
     {
-        if (m_active_depth_fast.load(std::memory_order_acquire) == 0) {
-            return OwnerRelation::inactive;
-        }
-
         auto thread_id = std::this_thread::get_id();
         auto py_thread_state = PyThreadState_Get();
-        PyObjectPtr owner_async_task = nullptr;
-        {
-            std::lock_guard<std::mutex> guard(m_owner_state_mutex);
-            if (m_active_depth == 0) {
-                return OwnerRelation::inactive;
-            }
-            if (m_owner_identity.thread_id != thread_id || m_owner_identity.py_thread_state != py_thread_state) {
-                return OwnerRelation::other_thread;
-            }
-            if (!m_owner_identity.async_task) {
-                return OwnerRelation::owner;
-            }
-            owner_async_task = m_owner_identity.async_task;
-            Py_INCREF(owner_async_task);
+        std::lock_guard<std::mutex> guard(m_owner_state_mutex);
+        if (m_active_depth == 0) {
+            return OwnerRelation::inactive;
         }
-
-        auto identity = getCurrentExecutionIdentity();
-        bool same_execution = isSameExecution({thread_id, py_thread_state, owner_async_task}, identity);
-        Py_DECREF(owner_async_task);
-        if (identity.async_task) {
-            Py_DECREF(identity.async_task);
-        }
-        return same_execution ? OwnerRelation::owner : OwnerRelation::same_thread_non_owner;
+        return m_owner_identity.thread_id == thread_id && m_owner_identity.py_thread_state == py_thread_state
+            ? OwnerRelation::owner
+            : OwnerRelation::other_thread;
     }
 
-    void AtomicContext::waitIfBlockedByActiveOwner(bool fail_same_thread)
+    void AtomicContext::waitIfBlockedByActiveOwner()
     {
-        waitIfBlockedByOwnerRelation(getOwnerRelation(), fail_same_thread);
+        waitIfBlockedByOwnerRelation(getOwnerRelation());
     }
 
-    void AtomicContext::waitIfBlockedByOwnerRelation(OwnerRelation relation, bool fail_same_thread)
+    void AtomicContext::waitIfBlockedByOwnerRelation(OwnerRelation relation)
     {
         if (relation == OwnerRelation::inactive || relation == OwnerRelation::owner) {
             return;
-        }
-
-        if (relation == OwnerRelation::same_thread_non_owner) {
-            if (!fail_same_thread) {
-                return;
-            }
-            PyErr_SetString(
-                PyExc_RuntimeError,
-                "db0.async_atomic is active in another asyncio task; use db0.async_atomic() to serialize dbzero mutations"
-            );
-            THROWF(db0::InputException)
-                << "db0.async_atomic is active in another asyncio task; use db0.async_atomic() to serialize dbzero mutations"
-                << THROWF_END;
         }
 
         assert(relation == OwnerRelation::other_thread);

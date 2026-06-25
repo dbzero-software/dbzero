@@ -71,22 +71,6 @@ namespace db0::object_model
         return false;
     }
 
-    void validateInternFlag(const Class &type, ClassFactory::TypeObjectPtr lang_type)
-    {
-        if (lang_type && type.isIntern() != ClassFactory::LangToolkit::isIntern(lang_type)) {
-            THROWF(db0::InputException)
-                << "Cannot change intern flag after memo class materialization: " << type.getName();
-        }
-    }
-
-    void validateImmutableFlag(const Class &type, ClassFactory::TypeObjectPtr lang_type)
-    {
-        if (lang_type && type.isImmutable() && !ClassFactory::LangToolkit::isImmutable(lang_type)) {
-            THROWF(db0::InputException)
-                << "Cannot change immutable flag after memo class materialization: " << type.getName();
-        }
-    }
-
     void applyAccessControlFlag(Class &type, ClassFactory::TypeObjectPtr lang_type)
     {
         // A direct @memo(access_control=True) decoration is durable metadata for this
@@ -189,11 +173,6 @@ namespace db0::object_model
                 if (memo_base) {
                     getOrCreateType(memo_base);
                 }
-                validateImmutableFlag(*type, lang_type);
-                validateInternFlag(*type, lang_type);
-                if (LangToolkit::isProtectFields(lang_type) && !type->hasOwnProtectFields()) {
-                    type->setProtectFields();
-                }
                 applyAccessControlFlag(*type, lang_type);
             } else {
                 auto fixture = getFixture();
@@ -208,15 +187,12 @@ namespace db0::object_model
                     flags += ClassOptions::SINGLETON;
                 }
                 flags.set(ClassOptions::NO_DEFAULT_TAGS, LangToolkit::isNoDefaultTags(lang_type));
-                flags.set(ClassOptions::IMMUTABLE, LangToolkit::isImmutable(lang_type));
-                flags.set(ClassOptions::INTERN, LangToolkit::isIntern(lang_type));
                 flags.set(ClassOptions::ACCESS_CONTROL, LangToolkit::isAccessControl(lang_type));
                 auto memo_base = LangToolkit::getBaseMemoType(lang_type);
                 std::shared_ptr<Class> base_class;                
                 if (memo_base) {
                     base_class = getOrCreateType(memo_base);                    
                 }
-                flags.set(ClassOptions::PROTECT_FIELDS, LangToolkit::isProtectFields(lang_type));
                 type = std::shared_ptr<Class>(new Class(fixture, LangToolkit::getTypeName(lang_type),
                     LangToolkit::tryGetModuleName(lang_type), type_id, prefix_name, init_vars, flags, base_class)
                 );
@@ -275,17 +251,12 @@ namespace db0::object_model
             apply_lang_metadata = !!lang_type;
         }
         if (lang_type && !it_cached->second.m_lang_type) {
-            validateImmutableFlag(*it_cached->second.m_class, lang_type);
-            validateInternFlag(*it_cached->second.m_class, lang_type);
             it_cached->second.m_lang_type = lang_type;
             it_cached->second.m_class->setInitVars(LangToolkit::getInitVars(lang_type));
             it_cached->second.m_class->setRuntimeFlags(LangToolkit::getMemoFlags(lang_type));
             apply_lang_metadata = true;
         }
         if (apply_lang_metadata) {
-            if (LangToolkit::isProtectFields(lang_type) && !it_cached->second.m_class->hasOwnProtectFields()) {
-                it_cached->second.m_class->setProtectFields();
-            }
             applyAccessControlFlag(*it_cached->second.m_class, lang_type);
         }
         return it_cached->second.m_class;
@@ -351,13 +322,8 @@ namespace db0::object_model
             }
             // initialize the language model
             if (lang_type) {
-                validateImmutableFlag(*type, lang_type);
-                validateInternFlag(*type, lang_type);
                 type->setInitVars(LangToolkit::getInitVars(lang_type));
                 type->setRuntimeFlags(LangToolkit::getMemoFlags(lang_type));
-                if (LangToolkit::isProtectFields(lang_type) && !type->hasOwnProtectFields()) {
-                    type->setProtectFields();
-                }
                 applyAccessControlFlag(*type, lang_type);
             }
             // register the mapping to language specific type object
@@ -366,17 +332,12 @@ namespace db0::object_model
         }
         // register the lang type mapping if missing
         if (lang_type && !it_cached->second.m_lang_type) {
-            validateImmutableFlag(*it_cached->second.m_class, lang_type);
-            validateInternFlag(*it_cached->second.m_class, lang_type);
             it_cached->second.m_lang_type = lang_type;        
             it_cached->second.m_class->setInitVars(LangToolkit::getInitVars(lang_type));
             it_cached->second.m_class->setRuntimeFlags(LangToolkit::getMemoFlags(lang_type));
             apply_lang_metadata = true;
         }
         if (apply_lang_metadata) {
-            if (LangToolkit::isProtectFields(lang_type) && !it_cached->second.m_class->hasOwnProtectFields()) {
-                it_cached->second.m_class->setProtectFields();
-            }
             applyAccessControlFlag(*it_cached->second.m_class, lang_type);
         }
         return it_cached->second;

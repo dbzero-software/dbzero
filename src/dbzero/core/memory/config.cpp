@@ -20,9 +20,6 @@ namespace db0
         THROWF(db0::IOException) << "Data decoding error: corrupt data detected";
     };
 
-    bool Settings::m_data_masking_enabled = false;
-    bool Settings::m_data_filter_enabled = false;
-    
     void Settings::reset()
     {
 #ifndef NDEBUG        
@@ -32,8 +29,6 @@ namespace db0
         __write_poison = 0;
         __dram_io_flush_poison = 0;
 #endif
-        m_data_masking_enabled = false;
-        m_data_filter_enabled = false;
     }
 
 }

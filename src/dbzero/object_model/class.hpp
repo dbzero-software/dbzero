@@ -6,7 +6,4 @@
 #include "class/Class.hpp"
 #include "class/ClassFactory.hpp"
 #include "class/Field.hpp"
-#include "class/FieldIDMapper.hpp"
-#include "class/FieldMask.hpp"
-#include "class/FieldSafe.hpp"
 #include "class/Schema.hpp"

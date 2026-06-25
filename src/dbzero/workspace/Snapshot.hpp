@@ -16,8 +16,6 @@ namespace db0
 {
 
     class Fixture;
-    struct DataMaskingState;
-    struct DataFilterState;
     class LangCache;
     class ProcessTimer;
     
@@ -56,13 +54,6 @@ namespace db0
         
         virtual bool isMutable() const = 0;
 
-        // Returns the data masking state configured for a prefix. Passing the default invalid PrefixName{}
-        // queries the workspace-global state, which applies to all prefixes.
-        virtual std::shared_ptr<DataMaskingState> getDataMaskingState(const PrefixName & = {}) const;
-        // Returns the data filter state configured for a prefix. Passing the default invalid PrefixName{}
-        // queries the workspace-global state, which applies to all prefixes.
-        virtual std::shared_ptr<DataFilterState> getDataFilterState(const PrefixName & = {}) const;
-        
         db0::swine_ptr<Fixture> findFixture(const PrefixName &) const;
         
         db0::swine_ptr<Fixture> getFixture(

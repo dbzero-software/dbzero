@@ -55,16 +55,11 @@ namespace db0::python
         return py_object.steal();
     }
     
-    PyObject *PyAPI_beginAtomicImpl(PyObject *self, Py_ssize_t nargs, bool async_atomic)
+    PyObject *PyAPI_beginAtomicImpl(PyObject *self, Py_ssize_t nargs)
     {
         if (nargs != 0) {
             PyErr_SetString(PyExc_TypeError, "beginAtomic requires no arguments");
             return NULL;
-        }
-        if (async_atomic) {
-            db0::AtomicContext::assertAsyncAtomicAllowed();
-        } else {
-            db0::AtomicContext::assertSyncAtomicAllowed();
         }
 
         // need to acquire atomic lock before API lock
@@ -79,24 +74,7 @@ namespace db0::python
 
     PyObject *PyAPI_beginAtomic(PyObject *self, PyObject *const *, Py_ssize_t nargs)
     {
-        return runSafe(PyAPI_beginAtomicImpl, self, nargs, false);
-    }
-
-    PyObject *PyAPI_beginAsyncAtomic(PyObject *self, PyObject *const *, Py_ssize_t nargs)
-    {
-        return runSafe(PyAPI_beginAtomicImpl, self, nargs, true);
-    }
-
-    PyObject *PyAPI_inAsyncTask(PyObject *, PyObject *const *, Py_ssize_t nargs)
-    {
-        if (nargs != 0) {
-            PyErr_SetString(PyExc_TypeError, "_in_async_task requires no arguments");
-            return NULL;
-        }
-        if (db0::AtomicContext::isInAsyncTask()) {
-            Py_RETURN_TRUE;
-        }
-        Py_RETURN_FALSE;
+        return runSafe(PyAPI_beginAtomicImpl, self, nargs);
     }
     
     bool PyAtomic_Check(PyObject *object) {

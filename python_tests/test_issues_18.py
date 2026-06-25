@@ -22,7 +22,7 @@ def test_unhandled_exception_with_nested_durable_list_does_not_segfault(tmp_path
             DATA_PREFIX = "/issue-18/data"
 
 
-            @db0.memo(prefix=DATA_PREFIX, immutable=True)
+            @db0.memo(prefix=DATA_PREFIX)
             @dataclass
             class Metadata:
                 title: str
@@ -32,7 +32,7 @@ def test_unhandled_exception_with_nested_durable_list_does_not_segfault(tmp_path
                 source: str
 
 
-            @db0.memo(prefix=DATA_PREFIX, immutable=True)
+            @db0.memo(prefix=DATA_PREFIX)
             @dataclass
             class LegalExcerptRecord:
                 id: int

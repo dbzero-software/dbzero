@@ -29,6 +29,5 @@ namespace db0::python
      * @return PyObjectIterable
     */    
     PyObject *PyAPI_find(PyObject *, PyObject *args, PyObject *kwargs);
-    PyObject *PyAPI_predicate(PyObject *, PyObject *args, PyObject *kwargs);
 
 }

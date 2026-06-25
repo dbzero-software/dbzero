@@ -168,20 +168,10 @@ def memo(cls: Optional[type] = None, **kwargs) -> type:
     no_default_tags : bool, default False
         If True, dbzero will not automatically add default system tags (such as the class 
         name) to new instances of this class.
-    protect_fields : bool, default False
-        If True, the persistent class is marked for field protection. Once the class is
-        materialized, removing this argument from the Python definition does not clear
-        the persisted flag; use reset_protect_fields on the dbzero Class object instead.
-        Derived memo classes inherit field protection and cannot disable it.
     access_control : bool, default False
         If True, the persistent class is marked as access controlled. This metadata is
         recorded on the decorated class and may make loaded base classes report effective
         access control at runtime; it does not enable query or fetch enforcement by itself.
-    intern : bool, default False
-        If True, the persistent class is marked for interned immutable materialization.
-        This option requires immutable=True, and interned instances may only reference
-        other interned memo instances.
-
     Returns
     -------
     type

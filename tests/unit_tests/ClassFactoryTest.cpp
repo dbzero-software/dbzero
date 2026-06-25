@@ -46,37 +46,4 @@ namespace tests
         m_workspace.close();
     }
 
-    TEST_F( ClassFactoryTest , testProtectFieldsCreatesFieldSafe )
-    {
-        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
-        auto fixture = workspace.getFixture("my-test-prefix_1");
-        auto type = std::shared_ptr<SubClass>(new SubClass(
-            fixture, "ProtectedObject", std::nullopt, "protected.object", "test_prefix", {}, ClassFlags(), nullptr)
-        );
-
-        ASSERT_FALSE(type->hasFieldSafe());
-        type->setProtectFields();
-
-        ASSERT_TRUE(type->isProtectFields());
-        ASSERT_TRUE(type->hasFieldSafe());
-        auto offset = type->getFieldSafe().getFieldIDMapper().assignFieldOffset("status");
-        ASSERT_EQ(type->getFieldSafe().getFieldIDMapper().assignFieldOffset("status"), offset);
-        workspace.close();
-    }
-
-    TEST_F( ClassFactoryTest , testProtectFieldsOnUnsupportedClassVersionRaises )
-    {
-        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
-        auto fixture = workspace.getFixture("my-test-prefix_1");
-        auto type = std::shared_ptr<SubClass>(new SubClass(
-            fixture, "LegacyObject", std::nullopt, "legacy.object", "test_prefix", {}, ClassFlags(), nullptr)
-        );
-        type->forceObjVersionForTest(0);
-
-        ASSERT_THROW(type->setProtectFields(), db0::InputException);
-        ASSERT_FALSE(type->isProtectFields());
-        ASSERT_FALSE(type->hasFieldSafe());
-        workspace.close();
-    }
-
 }
