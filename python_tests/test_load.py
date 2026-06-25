@@ -15,13 +15,6 @@ class LoadImmutableLeaf:
     count: int
 
 
-@db0.memo(immutable=True, intern=True, no_default_tags=True)
-@dataclass
-class LoadInternLeaf:
-    name: str
-    count: int
-
-
 @db0.memo(immutable=True, no_default_tags=True)
 class LoadImmutableHolder:
     def __init__(self, value):
@@ -100,12 +93,6 @@ def test_load_immutable_memo_root(db0_fixture):
     memo = LoadImmutableLeaf("immutable", 7)
 
     assert db0.load(memo) == {"name": "immutable", "count": 7}
-
-
-def test_load_intern_memo_root(db0_fixture):
-    memo = LoadInternLeaf("intern", 8)
-
-    assert db0.load(memo) == {"name": "intern", "count": 8}
 
 
 def test_load_embedded_immutable_memo_directly(db0_fixture):

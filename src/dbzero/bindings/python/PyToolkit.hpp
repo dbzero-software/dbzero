@@ -224,7 +224,6 @@ namespace db0::python
         static bool isNoCache(TypeObjectPtr);
         // type marked as immutable
         static bool isImmutable(TypeObjectPtr);
-        static bool isIntern(TypeObjectPtr);
         static bool isAccessControl(TypeObjectPtr);
         static FlagSet<MemoOptions> getMemoFlags(TypeObjectPtr);
         static bool hasMemoInstance(ObjectPtr);

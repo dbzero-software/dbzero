@@ -1213,15 +1213,6 @@ namespace db0::python
         }
     }
 
-    bool PyToolkit::isIntern(TypeObjectPtr py_type)
-    {
-        if (isAnyMemoType(py_type)) {
-            return MemoTypeDecoration::get(py_type).getFlags()[MemoOptions::INTERN];
-        } else {
-            return false;
-        }
-    }
-
     bool PyToolkit::isAccessControl(TypeObjectPtr py_type)
     {
         if (isAnyMemoType(py_type)) {

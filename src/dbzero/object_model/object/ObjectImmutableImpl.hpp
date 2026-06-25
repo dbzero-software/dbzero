@@ -35,10 +35,7 @@ namespace db0::object_model
         ObjectSharedPtr getEmbeddedInstanceAtOffset(std::uint64_t offset) const;
         const o_embedded_object &getEmbeddedObjectAtOffset(std::uint64_t offset) const;
 
-        // Returns the address of an existing durable instance on intern-index hit.
-        // Returns std::nullopt when this call created a new durable instance or
-        // when the object was already initialized.
-        std::optional<UniqueAddress> postInit(FixtureLock &);
+        void postInit(FixtureLock &);
         void setLangObject(ObjectPtr) const;
         void destroy();
         void dropInstance(FixtureLock &);
@@ -56,7 +53,6 @@ namespace db0::object_model
         void dropMembers(db0::swine_ptr<Fixture> &, Class &) const;
 
     private:
-        UniqueAddress bindToExistingInternRoot(FixtureLock &, ObjectSharedPtr);
         ObjectPtr getLangObject() const;
 
         mutable ObjectPtr m_lang_object = nullptr;

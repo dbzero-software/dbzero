@@ -172,11 +172,6 @@ def memo(cls: Optional[type] = None, **kwargs) -> type:
         If True, the persistent class is marked as access controlled. This metadata is
         recorded on the decorated class and may make loaded base classes report effective
         access control at runtime; it does not enable query or fetch enforcement by itself.
-    intern : bool, default False
-        If True, the persistent class is marked for interned immutable materialization.
-        This option requires immutable=True, and interned instances may only reference
-        other interned memo instances.
-
     Returns
     -------
     type

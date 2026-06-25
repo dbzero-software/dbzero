@@ -2,7 +2,6 @@
 # Copyright (c) 2025 DBZero Software sp. z o.o.
 
 from .dbzero import *
-from .dbzero import _check_interned
 from .memo import *
 from .enum import *
 from .fast_query import *

@@ -11,7 +11,7 @@
 #include <dbzero/object_model/value/StorageClass.hpp>
 #include "Schema.hpp"
 
-DEFINE_ENUM_VALUES(db0::ClassOptions, "SINGLETON", "NO_DEFAULT_TAGS", "IMMUTABLE", "RESERVED_0008", "INTERN", "ACCESS_CONTROL")
+DEFINE_ENUM_VALUES(db0::ClassOptions, "SINGLETON", "NO_DEFAULT_TAGS", "IMMUTABLE", "RESERVED_0008", "RESERVED_0010", "ACCESS_CONTROL")
 
 namespace db0::object_model
 
@@ -306,37 +306,12 @@ namespace db0::object_model
         return (*this)->m_flags[ClassOptions::IMMUTABLE];
     }
 
-    bool Class::isIntern() const {
-        return (*this)->m_flags[ClassOptions::INTERN];
-    }
-
     bool Class::hasOwnAccessControl() const {
         return (*this)->m_flags[ClassOptions::ACCESS_CONTROL];
     }
 
     bool Class::isAccessControl() const {
         return m_access_control;
-    }
-
-    void Class::assertContentIndexSupported() const
-    {
-        if ((*this)->getObjVer() < CONTENT_INDEX_MIN_VERSION) {
-            THROWF(db0::InputException) << "Class version too low to support ContentIndex. Current is: "
-                << (*this)->getObjVer() << ", for minimum support you need " << CONTENT_INDEX_MIN_VERSION;
-        }
-    }
-
-    void Class::openContentIndex() const
-    {
-        assertContentIndexSupported();
-        if ((*this)->m_content_index_ptr && !m_content_index) {
-            auto fixture = getFixture();
-            m_content_index.emplace(
-                fixture->myPtr((*this)->m_content_index_ptr.getAddress()),
-                fixture,
-                std::const_pointer_cast<Class>(shared_from_this())
-            );
-        }
     }
 
     void Class::setAccessControl() {
@@ -349,37 +324,6 @@ namespace db0::object_model
     void Class::setOwnAccessControl() {
         modify().m_flags.set(ClassOptions::ACCESS_CONTROL, true);
         setAccessControl();
-    }
-
-    bool Class::hasContentIndex() const
-    {
-        if ((*this)->getObjVer() < CONTENT_INDEX_MIN_VERSION) {
-            return false;
-        }
-        return !!(*this)->m_content_index_ptr;
-    }
-
-    ContentIndex &Class::getContentIndex()
-    {
-        assertContentIndexSupported();
-        openContentIndex();
-        if (!m_content_index) {
-            auto fixture = getFixture();
-            auto type = shared_from_this();
-            m_content_index.emplace(fixture, type);
-            modify().m_content_index_ptr = *m_content_index;
-        }
-        return *m_content_index;
-    }
-
-    const ContentIndex &Class::getContentIndex() const
-    {
-        assertContentIndexSupported();
-        openContentIndex();
-        if (!m_content_index) {
-            THROWF(db0::InputException) << "ContentIndex is not initialized for class " << getName();
-        }
-        return *m_content_index;
     }
 
     bool Class::isExistingSingleton() const {
@@ -533,9 +477,6 @@ namespace db0::object_model
         m_member_cache.detach();
         m_fidelities.detach();
         m_schema.detach();
-        if (m_content_index) {
-            m_content_index->detach();
-        }
         super_t::detach();
     }
     
@@ -545,16 +486,10 @@ namespace db0::object_model
     
     void Class::flush() const {
         m_schema.flush();
-        if (m_content_index) {
-            m_content_index->flush();
-        }
     }
     
     void Class::rollback() {
         m_schema.rollback();
-        if (m_content_index) {
-            m_content_index->rollback();
-        }
     }
 
     void Class::commit() const
@@ -562,9 +497,6 @@ namespace db0::object_model
         m_members.commit();        
         m_fidelities.commit();
         m_schema.commit();
-        if (m_content_index) {
-            m_content_index->commit();
-        }
         super_t::commit();
     }
     

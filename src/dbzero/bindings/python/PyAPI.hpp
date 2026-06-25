@@ -43,10 +43,6 @@ namespace db0::python
     // Similar to PyAPI_fetch, but only returns a flag True / False if object can be fetched
     PyObject *PyAPI_exists(PyObject *, PyObject *args, PyObject *kwargs);
 
-    // Test/debug helper: returns true if a UUID is present in an intern ContentIndex.
-    // Optional second argument limits the check to a specific memo type.
-    PyObject *PyAPI_checkInterned(PyObject *, PyObject *args);
-    
     /**
      * Initialize dbzero Python bindings
     */    

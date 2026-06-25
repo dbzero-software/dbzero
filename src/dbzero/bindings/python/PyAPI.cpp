@@ -168,100 +168,6 @@ namespace db0::python
         return runSafe(tryExists, py_id, reinterpret_cast<PyTypeObject*>(py_type), prefix_name);
     }
 
-    bool checkInternedAddress(
-        db0::swine_ptr<Fixture> &fixture, object_model::ClassFactory &classFactory,
-        UniqueAddress address, const std::shared_ptr<object_model::Class> &expectedType
-    )
-    {
-        db0::Allocator::AllocationInfo allocation;
-        try {
-            allocation = fixture->findAllocation(address.getAddress(), object_model::ObjectImmutableImpl::REALM_ID);
-        } catch (const db0::AbstractException &) {
-            return false;
-        }
-
-        auto root = object_model::ObjectImmutableImpl::tryUnloadStem(
-            fixture, allocation.address, address.getInstanceId(), AccessFlags {}
-        );
-        if (!root) {
-            return false;
-        }
-
-        if (address.getAddress() == allocation.address) {
-            auto type = classFactory.getTypeByClassRef(root->getClassRef()).m_class;
-            if (expectedType && type->getAddress() != expectedType->getAddress()) {
-                return false;
-            }
-            if (!type->isIntern() || !type->hasContentIndex()) {
-                return false;
-            }
-            return type->getContentIndex().contains(root->getObject(), address);
-        }
-
-        auto offset = address.getAddress().getOffset() - allocation.address.getOffset();
-        if (!root->getOffsetIndex().contains(offset)) {
-            return false;
-        }
-
-        const auto *rootBytes = reinterpret_cast<const std::byte *>(root.operator->());
-        const auto &embeddedObject = object_model::o_embedded_object::__const_ref(rootBytes + offset);
-        auto type = classFactory.getTypeByClassRef(embeddedObject.getClassRef()).m_class;
-        if (expectedType && type->getAddress() != expectedType->getAddress()) {
-            return false;
-        }
-        if (!type->isIntern() || !type->hasContentIndex()) {
-            return false;
-        }
-        return type->getContentIndex().contains(embeddedObject, address);
-    }
-
-    PyObject *tryCheckInterned(const char *uuid, PyObject *pyType)
-    {
-        auto objectId = ObjectId::tryFromBase32(uuid);
-        if (!objectId || objectId.m_storage_class != db0::object_model::StorageClass::OBJECT_REF) {
-            Py_RETURN_FALSE;
-        }
-
-        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().tryGetFixture(objectId.m_fixture_uuid);
-        if (!fixture) {
-            Py_RETURN_FALSE;
-        }
-
-        bool result = false;
-        auto &classFactory = fixture->get<object_model::ClassFactory>();
-        if (pyType && pyType != Py_None) {
-            if (!PyType_Check(pyType)) {
-                THROWF(db0::InputException) << "type must be a dbzero memo type";
-            }
-            auto *memoType = reinterpret_cast<PyTypeObject *>(pyType);
-            if (!PyAnyMemoType_Check(memoType)) {
-                THROWF(db0::InputException) << "type must be a dbzero memo type";
-            }
-
-            auto type = classFactory.tryGetExistingType(memoType);
-            if (!type || !type->isIntern() || !type->hasContentIndex()) {
-                Py_RETURN_FALSE;
-            }
-            return PyBool_fromBool(checkInternedAddress(fixture, classFactory, objectId.m_address, type));
-        }
-
-        result = checkInternedAddress(fixture, classFactory, objectId.m_address, nullptr);
-        return PyBool_fromBool(result);
-    }
-
-    PyObject *PyAPI_checkInterned(PyObject *, PyObject *args)
-    {
-        const char *uuid = nullptr;
-        PyObject *pyType = nullptr;
-        if (!PyArg_ParseTuple(args, "s|O", &uuid, &pyType)) {
-            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
-            return NULL;
-        }
-
-        PY_API_FUNC
-        return runSafe(tryCheckInterned, uuid, pyType);
-    }
-
     PyObject *tryOpen(PyObject *self, PyObject *args, PyObject *kwargs)
     {
         // prefix_name, open_mode, autocommit (bool)
@@ -737,7 +643,6 @@ namespace db0::python
         PySafeDict_SetItemString(*stats, "fields", Py_OWN(PyLong_FromSize_t(type->size())));
         PySafeDict_SetItemString(*stats, "instances", Py_OWN(PyLong_FromUnsignedLong(instanceCount)));
         PySafeDict_SetItemString(*stats, "immutable", Py_OWN(PyBool_fromBool(type->isImmutable())));
-        PySafeDict_SetItemString(*stats, "intern", Py_OWN(PyBool_fromBool(type->isIntern())));
         PySafeDict_SetItemString(*stats, "singleton", Py_OWN(PyBool_fromBool(type->isSingleton())));
         PySafeDict_SetItemString(*stats, "no_default_tags", Py_OWN(PyBool_fromBool(type->isNoDefaultTags())));
         PySafeDict_SetItemString(*stats, "no_cache", Py_OWN(PyBool_fromBool(type->isNoCache())));
@@ -750,16 +655,6 @@ namespace db0::python
         PySafeDict_SetItemString(*refCountsDict, "tags", Py_OWN(PyLong_FromUnsignedLong(refCounts.first)));
         PySafeDict_SetItemString(*refCountsDict, "objects", Py_OWN(PyLong_FromUnsignedLong(refCounts.second)));
         PySafeDict_SetItemString(*stats, "ref_counts", refCountsDict);
-
-        if (type->isIntern()) {
-            auto contentIndex = Py_OWN(PyDict_New());
-            if (!contentIndex) {
-                return nullptr;
-            }
-            auto size = type->hasContentIndex() ? type->getContentIndex().size() : 0;
-            PySafeDict_SetItemString(*contentIndex, "size", Py_OWN(PyLong_FromUnsignedLongLong(size)));
-            PySafeDict_SetItemString(*stats, "content_index", contentIndex);
-        }
 
         return stats.steal();
     }

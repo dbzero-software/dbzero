@@ -982,19 +982,11 @@ namespace db0::object_model
         }
 
         object_ptr->setLangObject(obj_ptr);
-        auto existing_intern_address = object_ptr->postInit(fixture);
-        if (!existing_intern_address) {
-            if (!object_ptr->getType().isNoCache()) {
-                (*fixture)->getLangCache().add(object_ptr->getAddress(), obj_ptr);
-            }
-            return Py_BORROW(obj_ptr);
+        object_ptr->postInit(fixture);
+        if (!object_ptr->getType().isNoCache()) {
+            (*fixture)->getLangCache().add(object_ptr->getAddress(), obj_ptr);
         }
-
-        auto &class_factory = (*fixture)->template get<ClassFactory>();
-        return PyToolkit::unloadAnyObject(
-            *fixture, existing_intern_address->getAddress(), class_factory, nullptr,
-            existing_intern_address->getInstanceId(), access_mode
-        );
+        return Py_BORROW(obj_ptr);
     }
 
     template <typename MemoImplT>
