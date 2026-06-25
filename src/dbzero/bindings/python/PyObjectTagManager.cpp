@@ -106,20 +106,8 @@ namespace db0::python
     
     PyObjectTagManager *tryMakeObjectTagManager(PyObject *, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
     {
-        bool passive = false;
         if (kwnames) {
-            auto nkwargs = PyTuple_GET_SIZE(kwnames);
-            for (Py_ssize_t i = 0; i < nkwargs; ++i) {
-                auto *kwname = PyTuple_GET_ITEM(kwnames, i);
-                if (!PyUnicode_Check(kwname) || PyUnicode_CompareWithASCIIString(kwname, "passive") != 0) {
-                    THROWF(db0::InputException) << "Unknown keyword argument for dbzero.tags" << THROWF_END;
-                }
-                auto is_true = PyObject_IsTrue(args[nargs + i]);
-                if (is_true < 0) {
-                    THROWF(db0::InputException) << "Unable to interpret passive argument as bool" << THROWF_END;
-                }
-                passive = is_true != 0;
-            }
+            THROWF(db0::InputException) << "Unknown keyword argument for dbzero.tags" << THROWF_END;
         }
 
         std::vector<PyObject*> memo_args;
@@ -155,8 +143,7 @@ namespace db0::python
             &tags_obj->modifyExt(),
             memo_args.data(),
             memo_args.size(),
-            std::move(query_targets),
-            passive
+            std::move(query_targets)
         );
         return tags_obj.steal();
     }

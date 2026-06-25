@@ -19,45 +19,24 @@ Observed on this workspace:
 - Build: release
 - Commands:
   python3 benchmarks/tagging.py --scenario fresh-tags --target-seconds 30
-  python3 benchmarks/tagging.py --scenario fresh-tags --target-seconds 30 --passive
   python3 benchmarks/tagging.py --scenario precreated-tags --target-seconds 30
-  python3 benchmarks/tagging.py --scenario precreated-tags --target-seconds 30 --passive
 - Current result, fresh-tags:
-  regular:
-    object_count=10000
-    batch_size=1000
-    tags_per_batch=1
-    batches=1442
-    elapsed_seconds=30.012787
-    tag_assignments=1442000
-    tag_assignments_per_second=48046.187
-  passive:
-    object_count=10000
-    batch_size=1000
-    tags_per_batch=1
-    batches=1546
-    elapsed_seconds=30.021849
-    tag_assignments=1546000
-    tag_assignments_per_second=51495.829
+  object_count=10000
+  batch_size=1000
+  tags_per_batch=1
+  batches=1442
+  elapsed_seconds=30.012787
+  tag_assignments=1442000
+  tag_assignments_per_second=48046.187
 - Current result, precreated-tags:
-  regular:
-    object_count=10000
-    batch_size=1000
-    tags_per_batch=1
-    precreated_tag_count=5000
-    batches=1334
-    elapsed_seconds=30.006962
-    tag_assignments=1334000
-    tag_assignments_per_second=44456.349
-  passive:
-    object_count=10000
-    batch_size=1000
-    tags_per_batch=1
-    precreated_tag_count=5000
-    batches=1484
-    elapsed_seconds=30.018302
-    tag_assignments=1484000
-    tag_assignments_per_second=49436.507
+  object_count=10000
+  batch_size=1000
+  tags_per_batch=1
+  precreated_tag_count=5000
+  batches=1334
+  elapsed_seconds=30.006962
+  tag_assignments=1334000
+  tag_assignments_per_second=44456.349
 """
 
 import argparse
@@ -96,27 +75,27 @@ def prepare_objects(object_count, batch_size):
     return objects, target_objects
 
 
-def prepare_precreated_tags(tag_count, passive):
+def prepare_precreated_tags(tag_count):
     tag_owner = TagBenchmarkMemo(-1)
     db0.commit()
     tags = [
-        f"{'passive' if passive else 'regular'}-precreated-tag-{index}"
+        f"precreated-tag-{index}"
         for index in range(tag_count)
     ]
-    db0.tags(tag_owner, passive=passive).add(tags)
+    db0.tags(tag_owner).add(tags)
     db0.commit()
     return tag_owner, tags
 
 
-def apply_tag_batch(target_objects, tags, passive):
-    db0.tags(*target_objects, passive=passive).add(tags)
+def apply_tag_batch(target_objects, tags):
+    db0.tags(*target_objects).add(tags)
     db0.commit()
     return len(target_objects) * len(tags)
 
 
-def fresh_tag_batch(passive, batch_index, tags_per_batch):
+def fresh_tag_batch(batch_index, tags_per_batch):
     return [
-        f"{'passive' if passive else 'regular'}-fresh-tag-{batch_index}-{index}"
+        f"fresh-tag-{batch_index}-{index}"
         for index in range(tags_per_batch)
     ]
 
@@ -129,7 +108,7 @@ def precreated_tag_batch(tags, batch_index, tags_per_batch):
     return tags[start:end]
 
 
-def measure(target_objects, passive, target_seconds, tags_per_batch, tag_batch_factory):
+def measure(target_objects, target_seconds, tags_per_batch, tag_batch_factory):
     total_assignments = 0
     batches = 0
     exhausted_tags = False
@@ -143,7 +122,7 @@ def measure(target_objects, passive, target_seconds, tags_per_batch, tag_batch_f
             if tags is None:
                 exhausted_tags = True
                 break
-            total_assignments += apply_tag_batch(target_objects, tags, passive)
+            total_assignments += apply_tag_batch(target_objects, tags)
             batches += 1
             if time.perf_counter() >= deadline:
                 break
@@ -161,7 +140,6 @@ def main():
         choices=("fresh-tags", "precreated-tags"),
         default="fresh-tags",
     )
-    parser.add_argument("--passive", action="store_true", help="assign passive tags")
     parser.add_argument("--target-seconds", type=float, default=30.0)
     parser.add_argument("--object-count", type=int, default=10000)
     parser.add_argument("--batch-size", type=int, default=1000)
@@ -193,13 +171,11 @@ def main():
             if args.precreated_tag_count < args.tags_per_batch:
                 parser.error("--precreated-tag-count must cover at least one measured batch")
             precreated_tag_owner, precreated_tags = prepare_precreated_tags(
-                args.precreated_tag_count,
-                args.passive,
+                args.precreated_tag_count
             )
 
         if args.scenario == "fresh-tags":
             tag_batch_factory = lambda batch: fresh_tag_batch(
-                args.passive,
                 batch,
                 args.tags_per_batch,
             )
@@ -212,7 +188,6 @@ def main():
 
         elapsed, assignments, batches, exhausted_tags = measure(
             target_objects,
-            args.passive,
             args.target_seconds,
             args.tags_per_batch,
             tag_batch_factory,
@@ -223,7 +198,6 @@ def main():
         print(f"build_flags={db0.build_flags()}")
         print(f"pid={os.getpid()}")
         print(f"scenario={args.scenario}")
-        print(f"passive={args.passive}")
         print(f"object_count={len(objects)}")
         print(f"batch_size={args.batch_size}")
         print(f"tags_per_batch={args.tags_per_batch}")

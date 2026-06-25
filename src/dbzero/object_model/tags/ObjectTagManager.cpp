@@ -83,12 +83,11 @@ namespace db0::object_model
     }
 
     ObjectTagManager::ObjectTagManager(ObjectPtr const *memo_ptr, std::size_t nargs,
-        std::vector<std::shared_ptr<ObjectIterable> > &&query_targets, bool passive)
+        std::vector<std::shared_ptr<ObjectIterable> > &&query_targets)
         : m_empty(nargs == 0 && query_targets.empty())
         , m_info_vec_ptr((nargs > 1) ? (new ObjectInfo[nargs - 1]) : nullptr)
         , m_info_vec_size(nargs > 0 ? nargs - 1 : 0)
         , m_query_targets(std::move(query_targets))
-        , m_passive(passive)
     {
         if (m_empty) {
             return;
@@ -129,13 +128,13 @@ namespace db0::object_model
     }
     
     ObjectTagManager *ObjectTagManager::makeNew(void *at_ptr, ObjectPtr const *memo_ptr, std::size_t nargs,
-        std::vector<std::shared_ptr<ObjectIterable> > &&query_targets, bool passive)
+        std::vector<std::shared_ptr<ObjectIterable> > &&query_targets)
     {
         if (nargs == 0 && query_targets.empty()) {
             // construct as empty
             return new (at_ptr) ObjectTagManager();
         }
-        return new (at_ptr) ObjectTagManager(memo_ptr, nargs, std::move(query_targets), passive);    
+        return new (at_ptr) ObjectTagManager(memo_ptr, nargs, std::move(query_targets));    
     }
     
     ObjectTagManager::ObjectInfo::ObjectInfo(ObjectPtr memo_ptr)
@@ -159,14 +158,14 @@ namespace db0::object_model
         return false;
     }
     
-    void ObjectTagManager::ObjectInfo::add(ObjectPtr const *args, Py_ssize_t nargs, bool passive)
+    void ObjectTagManager::ObjectInfo::add(ObjectPtr const *args, Py_ssize_t nargs)
     {
         assert(m_tag_index_ptr);
         auto &tag_index = *m_tag_index_ptr;
         assert(m_access_mode == AccessType::READ_WRITE);
 
         if (!hasCompositeTags(args, nargs)) {
-            tag_index.addTags(m_lang_ptr.get(), args, nargs, passive);
+            tag_index.addTags(m_lang_ptr.get(), args, nargs);
         } else {
             for (Py_ssize_t i = 0; i < nargs; ++i) {
                 if (isCompositeTag(args[i])) {
@@ -182,25 +181,25 @@ namespace db0::object_model
             }
             for (Py_ssize_t i = 0; i < nargs; ++i) {
                 if (isCompositeTag(args[i])) {
-                    addComposite(args[i], passive);
+                    addComposite(args[i]);
                 } else if (isExpandableTagBatch(args[i])) {
                     ForwardIterator it(LangToolkit::getIterator(args[i]));
                     for (auto end = ForwardIterator::end(); it != end; ++it) {
                         auto item = (*it);
                         if (isCompositeTag(item.get())) {
-                            addComposite(item.get(), passive);
+                            addComposite(item.get());
                         } else {
                             ObjectPtr tag = item.get();
-                            tag_index.addTags(m_lang_ptr.get(), &tag, 1, passive);
+                            tag_index.addTags(m_lang_ptr.get(), &tag, 1);
                         }
                     }
                 } else {
-                    tag_index.addTags(m_lang_ptr.get(), args + i, 1, passive);
+                    tag_index.addTags(m_lang_ptr.get(), args + i, 1);
                 }
             }
         }
         // assign default tags (only when adding the first tag)
-        if (!passive && !m_has_tags) {
+        if (!m_has_tags) {
             auto type = m_type;
             while (type) {
                 // also add type as tag (once)
@@ -253,7 +252,7 @@ namespace db0::object_model
         }
     }
 
-    void ObjectTagManager::ObjectInfo::addComposite(ObjectPtr arg, bool passive)
+    void ObjectTagManager::ObjectInfo::addComposite(ObjectPtr arg)
     {
         assert(m_tag_index_ptr);
         assert(isCompositeTag(arg));
@@ -272,7 +271,7 @@ namespace db0::object_model
 
         auto tagPtr = getCompositeItem(arg, length - 1);
         ObjectPtr tag = tagPtr.get();
-        currentTagIndex->addTags(m_lang_ptr.get(), &tag, 1, passive);
+        currentTagIndex->addTags(m_lang_ptr.get(), &tag, 1);
     }
 
     void ObjectTagManager::ObjectInfo::removeComposite(ObjectPtr arg)
@@ -314,13 +313,13 @@ namespace db0::object_model
         }
         validateQueryTargets();
         if (!!m_info.m_lang_ptr) {
-            m_info.add(args, nargs, m_passive);
+            m_info.add(args, nargs);
         }
         for (std::size_t i = 0; i < m_info_vec_size; ++i) {
-            m_info_vec_ptr[i].add(args, nargs, m_passive);
+            m_info_vec_ptr[i].add(args, nargs);
         }
         forEachQueryTarget([&](ObjectInfo &object_info) {
-            object_info.add(args, nargs, m_passive);
+            object_info.add(args, nargs);
         });
         onUpdated(); 
     }

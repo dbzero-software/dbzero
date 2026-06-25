@@ -13,7 +13,6 @@ namespace tests
         db0::TagAddress cut;
 
         ASSERT_FALSE(cut.isValid());
-        ASSERT_FALSE(cut.isPassive());
         ASSERT_EQ(cut.getValue(), 0u);
         ASSERT_EQ(cut.getOffset(), 0u);
     }
@@ -23,67 +22,42 @@ namespace tests
         auto cut = db0::TagAddress::fromOffset(12345);
 
         ASSERT_TRUE(cut.isValid());
-        ASSERT_FALSE(cut.isPassive());
         ASSERT_EQ(cut.getValue(), 12345u);
         ASSERT_EQ(cut.getOffset(), 12345u);
         ASSERT_EQ(cut.getAddress(), db0::Address::fromOffset(12345));
     }
 
-    TEST( TagAddressTest , testPassiveKeepsRawBitAndStripsLogicalOffset )
+    TEST( TagAddressTest , testComparisonUsesRawValue )
     {
-        auto regular = db0::TagAddress::fromOffset(12345);
-        auto passive = regular.asPassive();
+        auto lhs = db0::TagAddress::fromValue(12345);
+        auto rhs = db0::TagAddress::fromValue(12346);
 
-        ASSERT_TRUE(passive.isValid());
-        ASSERT_TRUE(passive.isPassive());
-        ASSERT_EQ(passive.getValue(), 12345u | db0::TagAddress::PASSIVE_BIT);
-        ASSERT_EQ(passive.getOffset(), 12345u);
-        ASSERT_EQ(passive.getAddress(), db0::Address::fromOffset(12345));
-        ASSERT_EQ(passive.asRegular().getValue(), 12345u);
+        ASSERT_NE(lhs, rhs);
+        ASSERT_LT(lhs, rhs);
     }
 
-    TEST( TagAddressTest , testRawValueCanReopenPassiveAddress )
+    TEST( TagAddressTest , testCastsUseRawValue )
     {
-        auto cut = db0::TagAddress::fromValue(12345u | db0::TagAddress::PASSIVE_BIT);
+        auto tag = db0::TagAddress::fromValue(12345);
 
-        ASSERT_TRUE(cut.isPassive());
-        ASSERT_EQ(cut.getValue(), 12345u | db0::TagAddress::PASSIVE_BIT);
-        ASSERT_EQ(cut.getOffset(), 12345u);
-    }
-
-    TEST( TagAddressTest , testRegularAndPassiveCompareAsSameLogicalAddress )
-    {
-        auto regular = db0::TagAddress::fromOffset(12345);
-        auto passive = regular.asPassive();
-
-        ASSERT_EQ(regular, passive);
-        ASSERT_FALSE(regular < passive);
-        ASSERT_FALSE(passive < regular);
-        ASSERT_LT(regular, db0::TagAddress::fromOffset(12346));
-    }
-
-    TEST( TagAddressTest , testCastsClearPassiveBit )
-    {
-        auto passive = db0::TagAddress::fromOffset(12345).asPassive();
-
-        db0::Address address = passive;
-        std::uint64_t value = passive;
+        db0::Address address = tag;
+        std::uint64_t value = tag;
 
         ASSERT_EQ(address, db0::Address::fromOffset(12345));
         ASSERT_EQ(value, 12345u);
     }
 
-    TEST( TagAddressTest , testHashUsesLogicalAddress )
+    TEST( TagAddressTest , testHashUsesRawValue )
     {
-        auto regular = db0::TagAddress::fromOffset(12345);
-        auto passive = regular.asPassive();
+        auto first = db0::TagAddress::fromValue(12345);
+        auto second = db0::TagAddress::fromValue(12346);
 
         std::unordered_set<db0::TagAddress> values;
-        values.insert(regular);
-        values.insert(passive);
+        values.insert(first);
+        values.insert(second);
 
-        ASSERT_EQ(values.size(), 1u);
-        ASSERT_EQ(std::hash<db0::TagAddress>()(regular), std::hash<db0::TagAddress>()(passive));
+        ASSERT_EQ(values.size(), 2u);
+        ASSERT_NE(std::hash<db0::TagAddress>()(first), std::hash<db0::TagAddress>()(second));
     }
 
     TEST( TagAddressTest , testLayoutMatchesUint64 )
