@@ -26,7 +26,6 @@
 #include <dbzero/core/memory/config.hpp>
 #include <dbzero/core/utils/to_string.hpp>
 #include <dbzero/workspace/Fixture.hpp>
-#include <dbzero/workspace/ReadOnlyContext.hpp>
 #include <dbzero/workspace/PrefixName.hpp>
 #include <dbzero/bindings/python/types/PyObjectId.hpp>
 #include <dbzero/bindings/python/types/PyClass.hpp>
@@ -261,10 +260,6 @@ namespace db0::python
         using ExtT = typename MemoImplT::ExtT;
 
         PY_MUTATING_API_FUNC(-1)
-        if (db0::ReadOnlyContext::isActive()) {
-            PyErr_SetString(PyExc_RuntimeError, "dbzero read_only context forbids mutation");
-            return -1;
-        }
 
         // the instance may already exist (e.g. if this is a singleton)        
         if (!self->ext().hasInstance()) {
@@ -465,10 +460,6 @@ namespace db0::python
         }
         
         if (isPersistentAttrName(attr_name)) {
-            if (db0::ReadOnlyContext::isActive()) {
-                PyErr_SetString(PyExc_RuntimeError, "dbzero read_only context forbids mutation");
-                return -1;
-            }
             try {
                 if (!value && !checkProtectedFieldMutateAccess(
                     self->ext().getType(), self->ext().getFixture(),

@@ -19,7 +19,6 @@
 #include "ResourceManager.hpp"
 #include "DependencyWrapper.hpp"
 #include "MutationLog.hpp"
-#include "ReadOnlyContext.hpp"
     
 #include <dbzero/core/memory/swine_ptr.hpp>
 #include <dbzero/core/collections/full_text/FT_BaseIndex.hpp>
@@ -439,9 +438,6 @@ DB0_PACKED_BEGIN
             : m_fixture(fixture)
             , m_lock(fixture->m_commit_mutex)
         {
-            if (db0::ReadOnlyContext::isActive()) {
-                THROWF(db0::InputException) << "dbzero read_only context forbids mutation";
-            }
             if (fixture->getAccessType() != AccessType::READ_WRITE) {
                 THROWF(db0::InputException) << "Cannot modify read-only prefix: " << fixture->getPrefix().getName();
             }

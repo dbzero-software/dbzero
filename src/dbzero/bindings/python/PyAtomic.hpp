@@ -22,7 +22,5 @@ namespace db0::python
     PyObject *PyAPI_PyAtomic_cancel(PyObject *, PyObject *);
     PyObject *PyAPI_PyAtomic_close(PyObject *, PyObject *);
     PyObject *PyAPI_beginAtomic(PyObject *self, PyObject *const *, Py_ssize_t nargs);
-    PyObject *PyAPI_beginAsyncAtomic(PyObject *self, PyObject *const *, Py_ssize_t nargs);
-    PyObject *PyAPI_inAsyncTask(PyObject *self, PyObject *const *, Py_ssize_t nargs);
        
 }

@@ -273,17 +273,6 @@ def test_query_tag_target_can_be_empty_or_mixed_with_memo_target(db0_fixture):
     assert {item.value for item in db0.find("extra")} == {0, 1, 2}
 
 
-def test_batched_query_tags_rejected_in_read_only_context(db0_fixture):
-    obj = MemoTestClass(1)
-    db0.tags(obj).add("source")
-
-    with db0.read_only():
-        with pytest.raises(RuntimeError, match="read_only|read-only"):
-            db0.tags(db0.find("source")).add("blocked")
-
-    assert list(db0.find("blocked")) == []
-
-
 def test_batched_query_tags_reject_snapshot_query_target(db0_fixture):
     obj = MemoTestClass(1)
     db0.tags(obj).add("source")

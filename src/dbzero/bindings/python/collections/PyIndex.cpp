@@ -4,7 +4,6 @@
 #include "PyIndex.hpp"
 #include <dbzero/bindings/python/iter/PyObjectIterable.hpp>
 #include <dbzero/workspace/Workspace.hpp>
-#include <dbzero/workspace/ReadOnlyContext.hpp>
 #include <dbzero/bindings/python/PyInternalAPI.hpp>
 
 namespace db0::python
@@ -115,9 +114,6 @@ namespace db0::python
     
     PyObject *tryIndexObject_add(IndexObject *index_obj, PyObject *const *args, Py_ssize_t nargs)
     {
-        if (db0::ReadOnlyContext::isActive()) {
-            THROWF(db0::InputException) << "dbzero read_only context forbids mutation";
-        }
         index_obj->modifyExt().add(args[0], args[1]);
         // NOTE: we don't need to lock the fixture here, because add() is a buffered operation
         index_obj->ext().getFixture()->onUpdated();
@@ -137,9 +133,6 @@ namespace db0::python
 
     PyObject *tryIndexObject_remove(IndexObject *index_obj, PyObject *const *args, Py_ssize_t nargs)
     {
-        if (db0::ReadOnlyContext::isActive()) {
-            THROWF(db0::InputException) << "dbzero read_only context forbids mutation";
-        }
         index_obj->modifyExt().remove(args[0], args[1]);
         // NOTE: we don't need to lock the fixture here, because remove() is a buffered operation
         index_obj->ext().getFixture()->onUpdated();

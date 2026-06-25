@@ -29,15 +29,6 @@ namespace db0::python
     AtomicMutationApiScope::AtomicMutationApiScope(bool register_atomic_owner)
     {
         auto relation = db0::AtomicContext::getOwnerRelation();
-        if (relation == db0::AtomicContext::OwnerRelation::same_thread_non_owner) {
-            PyErr_SetString(
-                PyExc_RuntimeError,
-                "db0.async_atomic is active in another asyncio task; use db0.async_atomic() to serialize dbzero mutations"
-            );
-            m_ok = false;
-            return;
-        }
-
         if (relation != db0::AtomicContext::OwnerRelation::owner) {
             WithGIL_Unlocked no_gil;
             m_atomic_lock = db0::AtomicContext::lock();

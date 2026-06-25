@@ -1453,7 +1453,7 @@ namespace db0::python
             }
 
             result.unlock();
-            db0::AtomicContext::waitIfBlockedByOwnerRelation(relation, false);
+            db0::AtomicContext::waitIfBlockedByOwnerRelation(relation);
         }
     }
 
