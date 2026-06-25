@@ -86,14 +86,6 @@ namespace db0::python
 
     PyObject *fetchListObject(db0::swine_ptr<Fixture> &, ObjectId);
 
-    bool authorizeDataFilterFetch(db0::swine_ptr<Fixture> &fixture, const db0::object_model::Class &type,
-        UniqueAddress address);
-
-    bool appendDataFilterPredicate(db0::swine_ptr<Fixture> fixture,
-        std::shared_ptr<db0::object_model::Class> type,
-        std::vector<std::shared_ptr<db0::object_model::ObjectIterable> > &native_predicates,
-        std::vector<shared_py_object<PyObject*> > &owned_predicates);
-    
     /**
      * Open dbzero object from a specific fixture
      * with optional type validation

@@ -73,7 +73,6 @@ static PyMethodDef dbzero_methods[] =
     {"describe", &py::describeObject, METH_VARARGS, "Get dbzero object's description"},
     {"rename_field", (PyCFunction)&py::renameField, METH_VARARGS | METH_KEYWORDS, "Get snapshot of dbzero state"},
     {"_init_data_masking", (PyCFunction)&py::initDataMasking, METH_VARARGS | METH_KEYWORDS, "Initialize data masking for specific prefixes"},
-    {"_init_data_filter", (PyCFunction)&py::initDataFilter, METH_VARARGS | METH_KEYWORDS, "Initialize data filtering for specific prefixes"},
     {"set_field_access", (PyCFunction)&py::setFieldAccess, METH_VARARGS, "Set protected field access masks for a memo class"},
     {"get_field_access", (PyCFunction)&py::getFieldAccess, METH_VARARGS, "Get protected field access masks for a memo class and account"},
     {"reset_protect_fields", (PyCFunction)&py::resetProtectFields, METH_VARARGS, "Clear the persisted protected-fields flag for a memo class"},

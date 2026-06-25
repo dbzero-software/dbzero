@@ -374,7 +374,6 @@ namespace db0
             workspace_view, m_v_object_cache.getSharedObjectList(), px_snapshot, allocator_snapshot
         );
         result->initMaskingState(workspace_view.getDataMaskingState(PrefixName(px_snapshot->getName())));
-        result->initFilterState(workspace_view.getDataFilterState(PrefixName(px_snapshot->getName())));
         return result;
     }
 
@@ -393,21 +392,6 @@ namespace db0
         return m_masking_state;
     }
 
-    void Fixture::initFilterState(std::shared_ptr<DataFilterState> state)
-    {
-        if (m_filter_state && state && m_filter_state != state) {
-            THROWF(db0::InternalException) << "Data filter state is already initialized for fixture";
-        }
-        if (state) {
-            m_filter_state = std::move(state);
-        }
-    }
-
-    std::shared_ptr<DataFilterState> Fixture::getFilterState() const
-    {
-        return m_filter_state;
-    }
-    
     bool Fixture::commit()
     {
         auto detach_guard = beginIteratorDetach();

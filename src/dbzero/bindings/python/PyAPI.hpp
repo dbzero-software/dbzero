@@ -112,8 +112,6 @@ namespace db0::python
 
     PyObject *initDataMasking(PyObject *self, PyObject *args, PyObject *kwargs);
 
-    PyObject *initDataFilter(PyObject *self, PyObject *args, PyObject *kwargs);
-
     PyObject *setFieldAccess(PyObject *self, PyObject *args);
 
     PyObject *getFieldAccess(PyObject *self, PyObject *args);

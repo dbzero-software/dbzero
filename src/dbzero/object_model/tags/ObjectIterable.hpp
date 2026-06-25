@@ -121,10 +121,6 @@ namespace db0::object_model
             return m_filters;
         }
 
-        void addDataFilterPredicates(std::vector<std::shared_ptr<ObjectIterable> > &&);
-
-        bool hasDataFilterPredicates() const;
-        
         // Get type of the results if it was specified
         std::shared_ptr<Class> getType() const;
 
@@ -148,7 +144,6 @@ namespace db0::object_model
         std::shared_ptr<IteratorFactory> m_factory;
         std::vector<std::unique_ptr<QueryObserver> > m_query_observers;
         std::vector<FilterFunc> m_filters;
-        std::vector<std::shared_ptr<ObjectIterable> > m_data_filter_predicates;
         std::shared_ptr<Class> m_type = nullptr;
         TypeObjectSharedPtr m_lang_type = nullptr;
         const SliceDef m_slice_def = {};        

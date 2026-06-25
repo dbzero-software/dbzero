@@ -17,9 +17,7 @@ from .conftest import DB0_DIR
 
 
 def allow_access_controlled_fetches():
-    predicate = ContextVar("allow_access_controlled_fetches")
-    predicate.set(None)
-    db0._init_data_filter(predicate, prefix=db0.get_current_prefix(), mode="DEBUG")
+    pass
 
 
 @db0.enum(values=["CREATE", "READ", "UPDATE", "DELETE"])

@@ -41,10 +41,6 @@ namespace db0
         // Callers can use this to skip checking data masking rules when no open fixture can use them.
         static bool m_data_masking_enabled;
 
-        // Shortcut flag: true when data filtering is enabled for at least one open prefix.
-        // Callers can use this to skip checking data filtering rules when no open fixture can use them.
-        static bool m_data_filter_enabled;
-
         // reset all settings to default values
         static void reset();
     };

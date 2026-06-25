@@ -464,10 +464,10 @@ namespace db0::object_model
         );
         if (common_stem->m_header.isImmutableObject()) {
             return PyToolkit::unloadAnyObject(
-                fixture, address, class_factory, nullptr, common_stem->m_header.getInstanceId(), {}, true
+                fixture, address, class_factory, nullptr, common_stem->m_header.getInstanceId(), {}
             );
         }
-        return PyToolkit::unloadObject(fixture, address, class_factory, nullptr, 0, {}, true);
+        return PyToolkit::unloadObject(fixture, address, class_factory, nullptr, 0, {});
     }
 
     // EMBEDDED_OBJECT_REF specialization
@@ -478,7 +478,7 @@ namespace db0::object_model
         auto &class_factory = fixture->template get<ClassFactory>();
         return PyToolkit::unloadEmbeddedObject(
             fixture, embedded_address.getAddress(), class_factory, nullptr, embedded_address.getInstanceId(), access_mode,
-            {}, nullptr, true
+            {}, nullptr
         );
     }
     
@@ -659,7 +659,7 @@ namespace db0::object_model
         auto address = value.asUniqueAddress();
         auto &class_factory = fixture->template get<ClassFactory>();
         auto result = PyToolkit::tryUnloadObject(
-            fixture, address.getAddress(), class_factory, nullptr, address.getInstanceId(), {}, true);
+            fixture, address.getAddress(), class_factory, nullptr, address.getInstanceId(), {});
         if (!!result) {
             return result;
         } else {
@@ -677,7 +677,7 @@ namespace db0::object_model
         auto address = weak_ref->m_address;
         auto &class_factory = other_fixture->template get<ClassFactory>();
         auto result = PyToolkit::tryUnloadObject(
-            other_fixture, address.getAddress(), class_factory, nullptr, address.getInstanceId(), {}, true);
+            other_fixture, address.getAddress(), class_factory, nullptr, address.getInstanceId(), {});
         if (!!result) {
             return result;
         } else {

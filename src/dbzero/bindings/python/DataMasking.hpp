@@ -45,23 +45,4 @@ namespace db0
         }
     };
 
-    struct DataFilterState
-    {
-        PyObject *contextVar = nullptr;
-        DataMaskingMode mode = DataMaskingMode::RELEASE;
-
-        DataFilterState(PyObject *contextVar, DataMaskingMode mode)
-            : contextVar(contextVar)
-            , mode(mode)
-        {
-            Py_INCREF(contextVar);
-        }
-
-        bool matches(PyObject *otherContextVar, DataMaskingMode otherMode) const
-        {
-            return contextVar == otherContextVar
-                && mode == otherMode;
-        }
-    };
-
 }

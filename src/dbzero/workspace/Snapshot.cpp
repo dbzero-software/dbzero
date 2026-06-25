@@ -69,8 +69,4 @@ namespace db0
         return {};
     }
 
-    std::shared_ptr<DataFilterState> Snapshot::getDataFilterState(const PrefixName &) const {
-        return {};
-    }
-    
 }

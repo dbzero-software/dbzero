@@ -25,7 +25,6 @@
 #include <dbzero/workspace/Utils.hpp>
 #include <dbzero/object_model/tags/ObjectIterator.hpp>
 #include <dbzero/object_model/tags/TagIndex.hpp>
-#include <dbzero/object_model/tags/PredicateFactory.hpp>
 #include <dbzero/object_model/tags/QueryObserver.hpp>
 #include <dbzero/core/serialization/Serializable.hpp>
 #include <dbzero/core/memory/config.hpp>
@@ -132,82 +131,8 @@ namespace db0::python
             return result.steal();
         }
 
-        bool setFetchPermissionError(const char *message)
-        {
-            throw PermissionException(message);
-        }
-
-        void throwMissingObject()
-        {
-            THROWF(db0::InputException) << "Invalid UUID or object has been deleted";
-        }
-
     }
 
-    bool authorizeDataFilterFetch(db0::swine_ptr<Fixture> &fixture, const db0::object_model::Class &type,
-        UniqueAddress address)
-    {
-        if (!type.isAccessControl()) {
-            return true;
-        }
-
-        auto filter_state = fixture->getFilterState();
-        if (!filter_state && !db0::Settings::m_data_filter_enabled) {
-            return setFetchPermissionError("data filter must be initialized before fetching an access-controlled type");
-        }
-        if (!filter_state) {
-            return true;
-        }
-
-        PyObject *py_predicate = nullptr;
-        if (PyContextVar_Get(filter_state->contextVar, NULL, &py_predicate) < 0) {
-            THROWF(db0::InputException) << "Unable to get data filter predicate: " << PyToolkit::getLastError();
-        }
-        auto owned_predicate = Py_OWN(py_predicate);
-        if (!py_predicate || py_predicate == Py_None) {
-            if (filter_state->mode == db0::DataMaskingMode::DEBUG) {
-                return true;
-            }
-            return setFetchPermissionError("data filter predicate is not set");
-        }
-        auto native_predicate = fixture->get<db0::object_model::PredicateFactory>().get(py_predicate);
-        if (fixture->get<db0::object_model::TagIndex>().contains(address, *native_predicate)) {
-            return true;
-        }
-        return setFetchPermissionError("data filter predicate does not include referenced object");
-    }
-
-    bool appendDataFilterPredicate(db0::swine_ptr<Fixture> fixture,
-        std::shared_ptr<db0::object_model::Class> type,
-        std::vector<std::shared_ptr<db0::object_model::ObjectIterable> > &native_predicates,
-        std::vector<shared_py_object<PyObject*> > &owned_predicates)
-    {
-        auto filter_state = fixture->getFilterState();
-        if (type && !type->isAccessControl()) {
-            return true;
-        }
-        if (type && !filter_state && !db0::Settings::m_data_filter_enabled) {
-            throw PermissionException("data filter must be initialized before querying an access-controlled type");
-        }
-        if (!filter_state) {
-            return true;
-        }
-
-        PyObject *py_predicate = nullptr;
-        if (PyContextVar_Get(filter_state->contextVar, NULL, &py_predicate) < 0) {
-            return false;
-        }
-        owned_predicates.emplace_back(Py_OWN(py_predicate));
-        if (!py_predicate || py_predicate == Py_None) {
-            if (filter_state->mode == db0::DataMaskingMode::DEBUG) {
-                return true;
-            }
-            throw PermissionException("data filter predicate is not set");
-        }
-        native_predicates.push_back(fixture->get<db0::object_model::PredicateFactory>().get(py_predicate));
-        return true;
-    }
-    
     LoadGuard::LoadGuard(std::unordered_set<const void*> *load_stack_ptr, const void *arg_ptr)
         : m_load_stack_ptr(load_stack_ptr)         
     {
@@ -356,30 +281,24 @@ namespace db0::python
         auto addr = object_id.m_address;
         if (storage_class == db0::object_model::StorageClass::OBJECT_REF) {
             auto &class_factory = db0::object_model::getClassFactory(*fixture);
-            try {
-                // validate type if requested (no validation for MemoBase)
-                if (py_expected_type && !PyToolkit::getTypeManager().isMemoBase(py_expected_type)) {
-                    // in other cases the type must match the actual object type
-                    auto expected_class = class_factory.getOrCreateType(py_expected_type);
-                    // honor class-specific access flags (e.g. type-level no_cache)
-                    auto result = PyToolkit::unloadAnyObject(
-                        fixture, addr.getAddress(), class_factory, nullptr, addr.getInstanceId(),
-                        expected_class->getInstanceFlags(), true
-                    );
-                    // NOTE: base types should be accepted
-                    if (!PyToolkit::getMemoType(result.get()).isBaseClass(*expected_class)) {
-                        THROWF(db0::InputException) << "Object type mismatch";
-                    }
-                    return result;
+            // validate type if requested (no validation for MemoBase)
+            if (py_expected_type && !PyToolkit::getTypeManager().isMemoBase(py_expected_type)) {
+                // in other cases the type must match the actual object type
+                auto expected_class = class_factory.getOrCreateType(py_expected_type);
+                // honor class-specific access flags (e.g. type-level no_cache)
+                auto result = PyToolkit::unloadAnyObject(
+                    fixture, addr.getAddress(), class_factory, nullptr, addr.getInstanceId(),
+                    expected_class->getInstanceFlags()
+                );
+                // NOTE: base types should be accepted
+                if (!PyToolkit::getMemoType(result.get()).isBaseClass(*expected_class)) {
+                    THROWF(db0::InputException) << "Object type mismatch";
                 }
-                // unload without type validation
-                return PyToolkit::unloadAnyObject(fixture, addr.getAddress(), class_factory, py_expected_type,
-                    addr.getInstanceId(), {}, true);
-            } catch (const PermissionException &) {
-                // Explicit fetch must not reveal whether a denied object exists.
-                // Preserve the same public error used for missing or deleted UUIDs.
-                throwMissingObject();
+                return result;
             }
+            // unload without type validation
+            return PyToolkit::unloadAnyObject(fixture, addr.getAddress(), class_factory, py_expected_type,
+                addr.getInstanceId(), {});
         } else if (storage_class == db0::object_model::StorageClass::DB0_CLASS) {
             auto &class_factory = db0::object_model::getClassFactory(*fixture);
             auto class_ptr = class_factory.getTypeByAddr(addr).m_class;
@@ -422,16 +341,6 @@ namespace db0::python
         if (!type->isExistingSingleton()) {
             THROWF(db0::InputException) << "Singleton instance does not exist";
         }
-        try {
-            if (!authorizeDataFilterFetch(fixture, *type, type->getSingletonObjectId().m_address)) {
-                return nullptr;
-            }
-        } catch (const PermissionException &) {
-            // Explicit fetch must not reveal whether a denied object exists.
-            // Preserve the same public error used for missing or deleted UUIDs.
-            throwMissingObject();
-        }
-
         MemoObject *memo_obj = reinterpret_cast<MemoObject*>(py_type->tp_alloc(py_type, 0));
         type->unloadSingleton(&memo_obj->modifyExt());
         return memo_obj;
@@ -775,16 +684,6 @@ namespace db0::python
             "enabled",
             Py_OWN(PyBool_fromBool(static_cast<bool>(fixture->getMaskingState()))));
         PySafeDict_SetItemString(*stats_dict, "data_masking", data_masking_dict);
-
-        auto data_filter_dict = Py_OWN(PyDict_New());
-        if (!data_filter_dict) {
-            return nullptr;
-        }
-        PySafeDict_SetItemString(
-            *data_filter_dict,
-            "enabled",
-            Py_OWN(PyBool_fromBool(static_cast<bool>(fixture->getFilterState()))));
-        PySafeDict_SetItemString(*stats_dict, "data_filter", data_filter_dict);
 
         auto cache_dict = Py_OWN(PyDict_New());
         if (!cache_dict) {

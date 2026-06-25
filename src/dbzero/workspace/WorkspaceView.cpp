@@ -270,10 +270,6 @@ namespace db0
         return m_workspace_ptr->getDataMaskingState(prefix_name);
     }
 
-    std::shared_ptr<DataFilterState> WorkspaceView::getDataFilterState(const PrefixName &prefix_name) const {
-        return m_workspace_ptr->getDataFilterState(prefix_name);
-    }
-    
     db0::swine_ptr<Fixture> WorkspaceView::tryFindFixture(const PrefixName &prefix_name) const
     {
         auto uuid = m_workspace_ptr->getUUID(prefix_name);

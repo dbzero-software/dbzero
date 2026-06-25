@@ -14,24 +14,6 @@
 namespace db0::python
 
 {
-    namespace
-    {
-        bool ensureDataFilterPredicates(PyObjectIterable *py_iterable)
-        {
-            auto &iterable = py_iterable->modifyExt();
-            if (iterable.hasDataFilterPredicates()) {
-                return true;
-            }
-            std::vector<shared_py_object<PyObject*> > owned_predicates;
-            std::vector<std::shared_ptr<ObjectIterable> > native_predicates;
-            if (!appendDataFilterPredicate(iterable.getFixture(), iterable.getType(), native_predicates, owned_predicates)) {
-                return false;
-            }
-            iterable.addDataFilterPredicates(std::move(native_predicates));
-            return true;
-        }
-    }
-
     PyObjectIterable *PyObjectIterable_new(PyTypeObject *type, PyObject *, PyObject *) {
         return reinterpret_cast<PyObjectIterable*>(type->tp_alloc(type, 0));
     }
@@ -96,9 +78,6 @@ namespace db0::python
         }
         // getFixture to prevent segfault in case the associated context (e.g. snapshot) has been destroyed
         auto fixture = py_iterable->ext().getFixture();
-        if (!ensureDataFilterPredicates(py_iterable)) {
-            return nullptr;
-        }
         auto py_iter = PyObjectIteratorDefault_new();
         py_iter->makeNew(py_iterable->ext().iter());
         if (auto *iterator_pool = fixture->tryGet<db0::object_model::ObjectIteratorPool>()) {
@@ -120,10 +99,7 @@ namespace db0::python
             return -1;
         }
         // getFixture to prevent segfault in case the associated context (e.g. snapshot) has been destroyed
-        auto fixture = py_iterable->ext().getFixture();
-        if (!ensureDataFilterPredicates(py_iterable)) {
-            return -1;
-        }
+        py_iterable->ext().getFixture();
         return py_iterable->ext().getSize();
     }
 
@@ -196,10 +172,6 @@ namespace db0::python
             PyErr_SetString(PyExc_PermissionError, "predicate queries cannot be indexed or sliced directly");
             return nullptr;
         }
-        if (!ensureDataFilterPredicates(py_iterable)) {
-            return nullptr;
-        }
-
         if (PyTuple_Check(py_key)) {
             // itemgetter's key (item indexes)
             auto indices = unpackTuple(py_key);
@@ -250,9 +222,6 @@ namespace db0::python
         PY_API_FUNC
         if (py_iterable->ext().isPredicateOnly()) {
             PyErr_SetString(PyExc_PermissionError, "predicate queries cannot be tested for truth directly");
-            return -1;
-        }
-        if (!ensureDataFilterPredicates(py_iterable)) {
             return -1;
         }
         // check if the iterable is empty
@@ -321,7 +290,7 @@ namespace db0::python
         
         PY_API_FUNC
         return runSafe(findIn, PyToolkit::getPyWorkspace().getWorkspace(), (PyObject* const*)args_data.data(), 
-            num_args, nullptr, prefix_name, false, false);
+            num_args, nullptr, prefix_name, false);
     }
 
     PyObject *PyAPI_predicate(PyObject *, PyObject *args, PyObject *kwargs)
@@ -346,7 +315,7 @@ namespace db0::python
         
         PY_API_FUNC
         return runSafe(findIn, PyToolkit::getPyWorkspace().getWorkspace(), (PyObject* const*)args_data.data(), 
-            num_args, nullptr, prefix_name, true, true);
+            num_args, nullptr, prefix_name, true);
     }
     
 }

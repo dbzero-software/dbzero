@@ -21,7 +21,6 @@ namespace db0
     };
 
     bool Settings::m_data_masking_enabled = false;
-    bool Settings::m_data_filter_enabled = false;
     
     void Settings::reset()
     {
@@ -33,7 +32,6 @@ namespace db0
         __dram_io_flush_poison = 0;
 #endif
         m_data_masking_enabled = false;
-        m_data_filter_enabled = false;
     }
 
 }
