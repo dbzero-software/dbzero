@@ -10,6 +10,10 @@ from datetime import datetime
 import operator
 
 
+def test_predicate_api_is_not_exported():
+    assert not hasattr(db0, "predicate")
+
+
 @db0.memo()
 class DifferentClassForTags:
     def __init__(self, value):

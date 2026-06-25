@@ -155,7 +155,6 @@ namespace db0::python
         // Unload from serialized bytes
         static ObjectSharedPtr deserializeObjectIterable(db0::swine_ptr<Fixture>, std::vector<std::byte>::const_iterator &iter,
             std::vector<std::byte>::const_iterator end);
-        static const db0::object_model::ObjectIterable &getPredicateIterable(ObjectPtr);
         static ObjectSharedPtr deserializeEnumValue(db0::swine_ptr<Fixture>, std::vector<std::byte>::const_iterator &iter,
             std::vector<std::byte>::const_iterator end);
         static ObjectSharedPtr deserializeEnumValueRepr(db0::swine_ptr<Fixture>, std::vector<std::byte>::const_iterator &iter,

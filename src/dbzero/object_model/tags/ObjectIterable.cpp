@@ -38,7 +38,7 @@ namespace db0::object_model
         
     ObjectIterable::ObjectIterable(db0::swine_ptr<Fixture> fixture, std::unique_ptr<QueryIterator> &&ft_query_iterator,
         std::shared_ptr<Class> type, TypeObjectPtr lang_type, std::vector<std::unique_ptr<QueryObserver> > &&query_observers,
-        const std::vector<FilterFunc> &filters, bool predicate_only)
+        const std::vector<FilterFunc> &filters)
         : m_fixture(fixture)
         , m_class_factory(getClassFactory(*fixture))
         , m_query_iterator(validated(std::move(ft_query_iterator)))
@@ -47,13 +47,12 @@ namespace db0::object_model
         , m_type(type)
         , m_lang_type(lang_type)
         , m_access_mode(getAccessMode(type))
-        , m_predicate_only(predicate_only)
     {
     }
     
     ObjectIterable::ObjectIterable(db0::swine_ptr<Fixture> fixture, std::unique_ptr<SortedIterator> &&sorted_iterator,
         std::shared_ptr<Class> type, TypeObjectPtr lang_type, std::vector<std::unique_ptr<QueryObserver> > &&query_observers,
-        const std::vector<FilterFunc> &filters, bool predicate_only)
+        const std::vector<FilterFunc> &filters)
         : m_fixture(fixture)
         , m_class_factory(getClassFactory(*fixture))
         , m_sorted_iterator(validated(std::move(sorted_iterator)))        
@@ -62,13 +61,12 @@ namespace db0::object_model
         , m_type(type)
         , m_lang_type(lang_type)    
         , m_access_mode(getAccessMode(type))
-        , m_predicate_only(predicate_only)
     {
     }
     
     ObjectIterable::ObjectIterable(db0::swine_ptr<Fixture> fixture, std::shared_ptr<IteratorFactory> factory,
         std::shared_ptr<Class> type, TypeObjectPtr lang_type, std::vector<std::unique_ptr<QueryObserver> > &&query_observers,
-        const std::vector<FilterFunc> &filters, bool predicate_only)
+        const std::vector<FilterFunc> &filters)
         : m_fixture(fixture)
         , m_class_factory(getClassFactory(*fixture))
         , m_factory(factory)        
@@ -77,7 +75,6 @@ namespace db0::object_model
         , m_type(type)
         , m_lang_type(lang_type)    
         , m_access_mode(getAccessMode(type))
-        , m_predicate_only(predicate_only)
     {
     }
 
@@ -85,7 +82,7 @@ namespace db0::object_model
         std::unique_ptr<QueryIterator> &&ft_query_iterator, std::unique_ptr<SortedIterator> &&sorted_iterator,
         std::shared_ptr<IteratorFactory> factory, std::vector<std::unique_ptr<QueryObserver> > &&query_observers,
         std::vector<FilterFunc> &&filters, std::shared_ptr<Class> type, TypeObjectPtr lang_type, 
-        const SliceDef &slice_def, AccessFlags access_mode, bool predicate_only)
+        const SliceDef &slice_def, AccessFlags access_mode)
         : m_fixture(fixture)
         , m_class_factory(class_factory)
         , m_query_iterator(std::move(ft_query_iterator))
@@ -97,7 +94,6 @@ namespace db0::object_model
         , m_lang_type(lang_type)
         , m_slice_def(slice_def)
         , m_access_mode(access_mode)
-        , m_predicate_only(predicate_only)
     {
     }
 
@@ -110,7 +106,6 @@ namespace db0::object_model
         , m_lang_type(other.m_lang_type)
         , m_slice_def(other.m_slice_def)
         , m_access_mode(other.m_access_mode)
-        , m_predicate_only(other.m_predicate_only)
     {
         m_filters.insert(m_filters.end(), filters.begin(), filters.end());
         
@@ -132,7 +127,6 @@ namespace db0::object_model
         , m_lang_type(other.m_lang_type)
         , m_slice_def(other.m_slice_def.combineWith(slice_def))
         , m_access_mode(other.m_access_mode)
-        , m_predicate_only(other.m_predicate_only)
     {
         std::unique_ptr<QueryIterator> query_iterator;
         std::unique_ptr<SortedIterator> sorted_iterator;
@@ -156,7 +150,6 @@ namespace db0::object_model
         , m_lang_type(other.m_lang_type)
         , m_slice_def(other.m_slice_def)
         , m_access_mode(other.m_access_mode)
-        , m_predicate_only(other.m_predicate_only)
     {
         m_filters.insert(m_filters.end(), filters.begin(), filters.end());
     }
@@ -173,7 +166,6 @@ namespace db0::object_model
         , m_lang_type(other.m_lang_type)
         , m_slice_def(other.m_slice_def)
         , m_access_mode(other.m_access_mode)
-        , m_predicate_only(other.m_predicate_only)
     {
         m_filters.insert(m_filters.end(), filters.begin(), filters.end());
     }
@@ -244,7 +236,6 @@ namespace db0::object_model
         // FIXTURE uuid
         db0::serial::write(buf, fixture->getUUID());
         db0::serial::write<bool>(buf, base_is_null);
-        db0::serial::write<bool>(buf, m_predicate_only);
         if (base_is_null) {
             return;
         }
@@ -283,11 +274,10 @@ namespace db0::object_model
             fixture_ = fixture->getWorkspace().getFixture(fixture_uuid);
         }
         bool is_null = db0::serial::read<bool>(iter, end);
-        bool predicate_only = db0::serial::read<bool>(iter, end);
         if (is_null) {
             // deserialize as null
             return std::make_unique<ObjectIterable>(fixture_, std::unique_ptr<QueryIterator>(), nullptr, nullptr, 
-                std::vector<std::unique_ptr<QueryObserver> >{}, std::vector<FilterFunc>{}, predicate_only);            
+                std::vector<std::unique_ptr<QueryObserver> >{}, std::vector<FilterFunc>{});            
         }
         
         std::unique_ptr<QueryIterator> query_iterator;
@@ -317,8 +307,7 @@ namespace db0::object_model
         
         auto &class_factory = fixture_->get<ClassFactory>();
         return std::unique_ptr<ObjectIterable>(new ObjectIterable(fixture_, class_factory, std::move(query_iterator),
-            std::move(sorted_iterator), factory, {}, {}, nullptr, nullptr, is_sliced ? SliceDef{start, stop, step} : SliceDef{}, {},
-            predicate_only));
+            std::move(sorted_iterator), factory, {}, {}, nullptr, nullptr, is_sliced ? SliceDef{start, stop, step} : SliceDef{}, {}));
     }
     
     double ObjectIterable::compareTo(const ObjectIterable &other) const
@@ -442,11 +431,6 @@ namespace db0::object_model
             }        
         }
         return true;
-    }
-
-    bool ObjectIterable::isPredicateOnly() const
-    {
-        return m_predicate_only;
     }
 
     AccessFlags ObjectIterable::getAccessMode(std::shared_ptr<Class> type) const

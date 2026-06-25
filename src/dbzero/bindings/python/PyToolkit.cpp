@@ -1004,18 +1004,6 @@ namespace db0::python
         return shared_py_cast<PyObject*>(std::move(py_iter));
     }
 
-    const db0::object_model::ObjectIterable &PyToolkit::getPredicateIterable(ObjectPtr py_object)
-    {
-        if (!PyObjectIterable_Check(py_object)) {
-            THROWF(db0::InputException) << "Predicate object must be an ObjectIterable";
-        }
-        auto &predicate = reinterpret_cast<PyObjectIterable*>(py_object)->ext();
-        if (!predicate.isPredicateOnly()) {
-            THROWF(db0::InputException) << "Predicate object must be created with db0.predicate";
-        }
-        return predicate;
-    }
-    
     PyToolkit::ObjectSharedPtr PyToolkit::deserializeEnumValue(db0::swine_ptr<Fixture> fixture,
         std::vector<std::byte>::const_iterator &iter, 
         std::vector<std::byte>::const_iterator end)

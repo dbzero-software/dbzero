@@ -43,7 +43,7 @@ namespace db0::python
      * @return PyObjectIterable
     */
     PyObject *findIn(db0::Snapshot &, PyObject* const *args, Py_ssize_t nargs, PyObject *context = nullptr,
-        const char *prefix_name = nullptr, bool predicate_only = false);
+        const char *prefix_name = nullptr);
     
     PyObject *PyAPI_splitBy(PyObject *, PyObject *args, PyObject *kwargs);
     

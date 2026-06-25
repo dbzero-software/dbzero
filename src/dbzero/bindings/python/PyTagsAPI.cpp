@@ -22,7 +22,7 @@ namespace db0::python
 {
 
     PyObject *findIn(db0::Snapshot &snapshot, PyObject* const *args, Py_ssize_t nargs,
-        PyObject *context, const char *prefix_name, bool predicate_only)
+        PyObject *context, const char *prefix_name)
     {
         using ObjectIterable = db0::object_model::ObjectIterable;
         using TagIndex = db0::object_model::TagIndex;
@@ -41,7 +41,7 @@ namespace db0::python
         auto query_iterator = tag_index.find(find_args.data(), find_args.size(), type, query_observers, no_result);
         auto iter_obj = PyObjectIterableDefault_new();
         iter_obj->makeNew(fixture, std::move(query_iterator), type, lang_type, std::move(query_observers),
-            std::vector<ObjectIterable::FilterFunc>{}, predicate_only);
+            std::vector<ObjectIterable::FilterFunc>{});
         if (context) {
             (iter_obj.get())->ext().attachContext(context);
         }

@@ -60,7 +60,6 @@ static PyMethodDef dbzero_methods[] =
     {"bytearray", (PyCFunction)&py::PyAPI_makeByteArray, METH_FASTCALL, "Create a new dbzero bytearray instance"},        
     {"tags", (PyCFunction)&py::makeObjectTagManager, METH_FASTCALL | METH_KEYWORDS, ""},
     {"find", (PyCFunction)&py::PyAPI_find, METH_VARARGS | METH_KEYWORDS, "Find memo instances by tags with optional filtering"},
-    {"predicate", (PyCFunction)&py::PyAPI_predicate, METH_VARARGS | METH_KEYWORDS, "Build a non-iterable predicate query for composing filters"},
     {"join", (PyCFunction)&py::PyAPI_join, METH_VARARGS | METH_KEYWORDS, "Join memo collections by common tags with optional filtering"},
     {"refresh", (PyCFunction)&py::refresh, METH_VARARGS, ""},
     {"get_state_num", (PyCFunction)&py::PyAPI_getStateNum, METH_VARARGS | METH_KEYWORDS, ""},

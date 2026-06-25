@@ -1023,30 +1023,21 @@ def find(*query_criteria: Union[Tag, List[Tag], Tuple[Tag], QueryObject, TagSet]
     """
     ...
 
-def predicate(*query_criteria: Union[Tag, List[Tag], Tuple[Tag], QueryObject, TagSet], prefix: Optional[str] = None) -> QueryObject:
-    """Build a predicate-only query for composing filters.
+def no(condition: Union[str, QueryObject], /) -> TagSet:
+    """Create a negative condition (NOT condition) for find queries.
 
-    Predicate queries use the same criteria grammar as ``find`` and can be used
-    as criteria in other queries. They do not allow direct iteration, counting,
-    truth testing, indexing, or slicing.
-    """
-    ...
-
-def no(predicate: Union[str, QueryObject], /) -> TagSet:
-    """Create a negative predicate (NOT condition) for find queries.
-
-    Allows to exclude objects that match the given predicate,
+    Allows to exclude objects that match the given condition,
     enabling filtering out unwanted objects based on tags or query results.
 
     Parameters
     ----------
-    predicate : str or QueryObject
+    condition : str or QueryObject
         The condition to negate.
 
     Returns
     -------
     TagSet
-        A predicate object representing logical NOT operation.
+        A tag set representing logical NOT operation.
 
     Examples
     --------
