@@ -1197,11 +1197,7 @@ namespace db0::python
     
     bool PyToolkit::isNoCache(TypeObjectPtr py_type)
     {
-        if (isAnyMemoType(py_type)) {
-            return MemoTypeDecoration::get(py_type).getFlags()[MemoOptions::NO_CACHE];
-        } else {
-            return false;
-        }
+        return false;
     }
     
     bool PyToolkit::isImmutable(TypeObjectPtr py_type)

@@ -644,7 +644,6 @@ namespace db0::python
         PySafeDict_SetItemString(*stats, "instances", Py_OWN(PyLong_FromUnsignedLong(instanceCount)));
         PySafeDict_SetItemString(*stats, "singleton", Py_OWN(PyBool_fromBool(type->isSingleton())));
         PySafeDict_SetItemString(*stats, "no_default_tags", Py_OWN(PyBool_fromBool(type->isNoDefaultTags())));
-        PySafeDict_SetItemString(*stats, "no_cache", Py_OWN(PyBool_fromBool(type->isNoCache())));
         PySafeDict_SetItemString(*stats, "access_control", Py_OWN(PyBool_fromBool(type->isAccessControl())));
 
         auto refCountsDict = Py_OWN(PyDict_New());

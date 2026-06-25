@@ -863,7 +863,6 @@ namespace db0::object_model
     }
     
     void Class::setRuntimeFlags(FlagSet<MemoOptions> memo_options) {
-        m_no_cache = memo_options[MemoOptions::NO_CACHE];
         if (memo_options[MemoOptions::ACCESS_CONTROL]) {
             setAccessControl();
         }

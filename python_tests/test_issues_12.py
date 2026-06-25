@@ -30,9 +30,9 @@ class Invoice:
 
 
 
-@db0.memo(no_cache=True)
+@db0.memo
 @dataclass
-class InvoiceNoCache:
+class InvoiceExtra:
   tax_id: int
   issue_dt: datetime
   data: bytes
@@ -40,7 +40,7 @@ class InvoiceNoCache:
 @db0.memo
 @dataclass
 class SimpleIssuer:
-  inv_object: InvoiceNoCache
+  inv_object: InvoiceExtra
   inv_index: db0.index
 
 def get_random_tax_id(tax_ids_set=set()):
@@ -53,7 +53,7 @@ def get_random_tax_id(tax_ids_set=set()):
 
 @pytest.mark.stress_test
 @pytest.mark.parametrize("db0_slab_size", [{"slab_size": 256 << 20, "autocommit": False}], indirect=True)
-def test_no_cache_allocator_issue(db0_slab_size):
+def test_allocator_issue(db0_slab_size):
     db0.set_cache_size(8 << 30)
     # create 25 k unique tax_id numbers
     tax_id_count = 25000
@@ -118,11 +118,11 @@ def test_no_cache_allocator_issue(db0_slab_size):
             break
     
 @pytest.mark.skip(reason="need to fix: issues/533")
-def test_free_issue_with_index_and_no_cache_object(db0_fixture):
+def test_free_issue_with_index_and_extra_object(db0_fixture):
     index = db0.index()
     new_issuer = SimpleIssuer(inv_object=None, inv_index=index)
     db0.commit()
     RANDOM_BYTES = b'DB0'*5
-    invoice = InvoiceNoCache(tax_id=None, issue_dt=datetime.now(), data=RANDOM_BYTES)
+    invoice = InvoiceExtra(tax_id=None, issue_dt=datetime.now(), data=RANDOM_BYTES)
     new_issuer.inv_object = invoice
     new_issuer.inv_index.add(datetime.now(), invoice)

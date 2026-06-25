@@ -47,6 +47,14 @@ def test_memo_rejects_removed_option():
             pass
 
 
+def test_memo_rejects_removed_cache_option():
+    removed_option = {"no_" + "cache": True}
+    with pytest.raises(TypeError):
+        @db0.memo(**removed_option)
+        class RemovedCacheMemoOption:
+            pass
+
+
 def test_memo_is_instance_operator(db0_fixture):
     obj_1 = MemoTestClass(999)    
     obj_2 = db0.fetch(db0.uuid(obj_1))
