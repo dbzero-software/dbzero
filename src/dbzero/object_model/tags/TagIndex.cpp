@@ -740,13 +740,6 @@ namespace db0::object_model
         using IterableSequence = TagMakerSequence<ForwardIterator, ObjectSharedPtr>;
         
         auto type_id = LangToolkit::getTypeManager().getTypeId(arg);
-        if (type_id == TypeId::DB0_COMPOSITE_TAG) {
-            return addCompositeIterator(
-                LangToolkit::getTypeManager().extractCompositeTag(arg),
-                factory
-            );
-        }
-
         // simple tag-convertible type
         if (type_id == TypeId::STRING || type_id == TypeId::DB0_TAG || type_id == TypeId::DB0_ENUM_VALUE || 
             type_id == TypeId::DB0_CLASS)
@@ -959,9 +952,6 @@ namespace db0::object_model
         using TypeId = db0::bindings::TypeId;
 
         auto type_id = LangToolkit::getTypeManager().getTypeId(arg);
-        if (type_id == TypeId::DB0_COMPOSITE_TAG) {
-            THROWF(db0::InputException) << "Nested composite tag leaves are not supported" << THROWF_END;
-        }
         if (isLongTag(type_id, arg)) {
             auto long_tag = getLongTag(type_id, arg);
             if (m_base_index_long.addIterator(factory, long_tag)) {

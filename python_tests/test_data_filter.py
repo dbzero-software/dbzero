@@ -547,53 +547,6 @@ def test_data_filter_predicate_is_not_serialized_with_typeless_query(db0_fixture
     assert list(db0.deserialize(query_bytes)) == [second]
 
 
-def test_data_filter_composite_access_control_switches_by_account_context(db0_fixture):
-    account_a = FilteredFindPublicClass("account-a")
-    account_b = FilteredFindPublicClass("account-b")
-    role_reader = "role-reader"
-    role_auditor = "role-auditor"
-
-    account_a_private = FilteredFindClass("account-a-private")
-    account_b_private = FilteredFindClass("account-b-private")
-    shared_by_role = FilteredFindClass("shared-by-reader-role")
-    denied_for_account_a = FilteredFindClass("denied-for-account-a")
-    denied_for_account_b_role = FilteredFindClass("denied-for-account-b-role")
-
-    db0.tags(account_a_private).add("document", db0.as_tag("GRANT", account_a))
-    db0.tags(account_b_private).add("document", db0.as_tag("GRANT", account_b))
-    db0.tags(shared_by_role).add("document", db0.as_tag("GRANT", role_reader))
-    db0.tags(denied_for_account_a).add(
-        "document",
-        db0.as_tag("GRANT", account_a),
-        db0.as_tag("DENY", account_a),
-    )
-    db0.tags(denied_for_account_b_role).add(
-        "document",
-        db0.as_tag("GRANT", role_auditor),
-        db0.as_tag("DENY", role_auditor),
-    )
-
-    def access_predicate(account, roles):
-        grants = [db0.as_tag("GRANT", account)] + [db0.as_tag("GRANT", role) for role in roles]
-        denials = [db0.as_tag("DENY", account)] + [db0.as_tag("DENY", role) for role in roles]
-        return db0.predicate(grants, db0.no(denials))
-
-    predicate.set(access_predicate(account_a, [role_reader]))
-    db0._init_data_filter(predicate, prefix=db0.get_current_prefix())
-    query_bytes = db0.serialize(db0.find(FilteredFindClass, "document"))
-
-    assert [item.value for item in db0.deserialize(query_bytes)] == [
-        "shared-by-reader-role",
-        "account-a-private",
-    ]
-
-    predicate.set(access_predicate(account_b, [role_auditor]))
-
-    assert [item.value for item in db0.deserialize(query_bytes)] == [
-        "account-b-private",
-    ]
-
-
 def test_data_filter_predicate_is_not_serialized_with_index_range(db0_fixture):
     index = db0.index()
     first = FilteredFindClass("range-serialized-first")
