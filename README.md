@@ -86,6 +86,22 @@ if __name__ == "__main__":
 
 The application state is persisted automatically; the same data will be available the next time the app starts. All objects are automatically managed by dbzero and there's no need for explicit conversions, fetching, or saving — dbzero handles persistence transparently for the entire object graph.
 
+## Example Project and Utilities
+
+### Simple CRM
+
+[simple-crm](https://github.com/dbzero-software/simple-crm) is a small tutorial app that shows how to build a persistent Python internal tool with dbzero and NiceGUI. It tracks companies, contacts, notes, tags, and follow-up tasks using dbzero-backed Python objects instead of a separate REST API, ORM, cache layer, or database server.
+
+<p>
+  <a href="https://github.com/dbzero-software/simple-crm">
+    <img alt="Simple CRM browser interface" src="https://github.com/dbzero-software/simple-crm/raw/master/docs/simple-crm-screenshot.png" width="520">
+  </a>
+</p>
+
+### dbzero-modelkit
+
+[dbzero-modelkit](https://github.com/dbzero-software/dbzero-modelkit) is an open-source package of reusable model primitives for dbzero-friendly Python apps. It includes utilities for sparse calendars, active date windows, month-indexed storage, multilingual strings, FIFO queues, and tag-based object locks.
+
 ## Core Concepts
 
 ### Memo Classes
