@@ -43,6 +43,8 @@ jobs:
   build-macos:
     runs-on: macos-latest
     timeout-minutes: ${{ fromJSON(inputs.timeout-minutes) }}
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '11.0'
     steps:
       - uses: actions/checkout@v4
       
