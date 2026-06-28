@@ -57,7 +57,8 @@ namespace db0::python
          * @param py_config reference to a python dict which holds configuration, from which configuration 
          * is dynamically fetched just-in-time
         */
-        void initWorkspace(const std::string &root_path, ObjectPtr py_config = nullptr, ObjectPtr py_lock_flags = nullptr);
+        void initWorkspace(const std::string &root_path, ObjectPtr py_config = nullptr, ObjectPtr py_lock_flags = nullptr,
+            bool restricted = false);
         
         /**
          * Opens a specific prefix for read or read/write
@@ -67,7 +68,8 @@ namespace db0::python
         */
         void open(const std::string &prefix_name, AccessType, std::optional<bool> autocommit = {},
             std::optional<std::size_t> slab_size = {}, ObjectPtr lock_flags = nullptr, 
-            std::optional<std::size_t> meta_io_step_size = {}, std::optional<std::size_t> page_io_step_size = {}
+            std::optional<std::size_t> meta_io_step_size = {}, std::optional<std::size_t> page_io_step_size = {},
+            std::optional<bool> restricted = {}
         );
         
         db0::Workspace &getWorkspace() const;

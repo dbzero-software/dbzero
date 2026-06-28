@@ -20,6 +20,18 @@ namespace db0
         THROWF(db0::IOException) << "Data decoding error: corrupt data detected";
     };
 
+    std::atomic_bool Settings::m_restricted_access_used = false;
+
+    void Settings::markRestrictedAccessUsed()
+    {
+        m_restricted_access_used.store(true, std::memory_order_relaxed);
+    }
+
+    bool Settings::hasRestrictedAccessEverBeenUsed()
+    {
+        return m_restricted_access_used.load(std::memory_order_relaxed);
+    }
+
     void Settings::reset()
     {
 #ifndef NDEBUG        

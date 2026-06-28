@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 #include <cstddef>
 #include <functional>
@@ -37,8 +38,15 @@ namespace db0
         // Function to throw the data decoding error (i.e. corrupt data detected)
         static std::function<void()> m_decode_error;
 
+        static void markRestrictedAccessUsed();
+
+        static bool hasRestrictedAccessEverBeenUsed();
+
         // reset all settings to default values
         static void reset();
+
+    private:
+        static std::atomic_bool m_restricted_access_used;
     };
     
 }

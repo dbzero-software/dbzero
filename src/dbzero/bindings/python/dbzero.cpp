@@ -25,6 +25,7 @@
 #include <dbzero/bindings/python/collections/PyTuple.hpp>
 #include <dbzero/bindings/python/collections/PyDict.hpp>
 #include <dbzero/bindings/python/PyWorkspace.hpp>
+#include <dbzero/bindings/python/PyRestrictedMethod.hpp>
 #include <dbzero/bindings/python/iter/PyObjectIterable.hpp>
 #include <dbzero/bindings/python/iter/PyObjectIterator.hpp>
 #include <dbzero/bindings/python/iter/PyJoinIterable.hpp>
@@ -203,6 +204,7 @@ PyMODINIT_FUNC PyInit_dbzero(void)
     
     std::vector<PyTypeObject*> types = {
         &py::ObjectIdType, 
+        &py::PyRestrictedMethodType,
         &py::ListObjectType,
         &py::ListIteratorObjectType,
         &py::IndexObjectType, 

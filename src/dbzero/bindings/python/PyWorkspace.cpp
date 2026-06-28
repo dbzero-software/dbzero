@@ -34,7 +34,7 @@ namespace db0::python
     
     void PyWorkspace::open(const std::string &prefix_name, AccessType access_type, std::optional<bool> autocommit,
         std::optional<std::size_t> slab_size, ObjectPtr py_lock_flags, std::optional<std::size_t> meta_io_step_size,
-        std::optional<std::size_t> page_io_step_size)
+        std::optional<std::size_t> page_io_step_size, std::optional<bool> restricted)
     {
         if (!m_workspace) {
             // initialize dbzero with current working directory
@@ -44,16 +44,17 @@ namespace db0::python
         if (py_lock_flags) {
             db0::Config lock_flags_config(py_lock_flags);
             m_workspace->open(prefix_name, access_type, autocommit, slab_size, 
-                lock_flags_config, meta_io_step_size, page_io_step_size
+                lock_flags_config, meta_io_step_size, page_io_step_size, restricted
             );
         } else {
             m_workspace->open(prefix_name, access_type, autocommit, slab_size, 
-                {}, meta_io_step_size, page_io_step_size
+                {}, meta_io_step_size, page_io_step_size, restricted
             );
         }
     }
     
-    void PyWorkspace::initWorkspace(const std::string &root_path, ObjectPtr py_config, ObjectPtr py_lock_flags)
+    void PyWorkspace::initWorkspace(const std::string &root_path, ObjectPtr py_config, ObjectPtr py_lock_flags,
+        bool restricted)
     {
         if (m_workspace) {
             THROWF(db0::InternalException) << "dbzero already initialized";
@@ -84,6 +85,7 @@ namespace db0::python
 
         m_workspace = std::shared_ptr<db0::Workspace>(
             new Workspace(root_path, std::move(cache_size), {}, {}, {}, python_fixture_initializer, m_config, default_lock_flags));
+        m_workspace->setDefaultRestricted(restricted);
 
         // register a callback to register bindings between known memo types (language specific objects)
         // and the corresponding Class instances. Note that types may be prefix agnostic therefore bindings may or

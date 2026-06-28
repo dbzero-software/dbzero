@@ -12,6 +12,7 @@
 
 #include <dbzero/core/serialization/FixedVersioned.hpp>
 #include <dbzero/core/memory/Memspace.hpp>
+#include <dbzero/core/memory/config.hpp>
 #include <dbzero/core/collections/pools/StringPools.hpp>
 #include <dbzero/core/vspace/v_object.hpp>
 #include <dbzero/core/vspace/db0_ptr.hpp>
@@ -269,6 +270,17 @@ DB0_PACKED_BEGIN
         inline AccessType getAccessType() const {
             return m_access_type;
         }
+
+        inline bool isRestricted() const {
+            return m_restricted;
+        }
+
+        inline void setRestricted(bool restricted) {
+            if (restricted) {
+                Settings::markRestrictedAccessUsed();
+            }
+            m_restricted = restricted;
+        }
         
         bool operator==(const Fixture &) const;
         bool operator!=(const Fixture &) const;
@@ -327,6 +339,7 @@ DB0_PACKED_BEGIN
         std::vector<AtomicContext*> m_atomic_context_stack;
         std::atomic<bool> m_closed = false;
         std::atomic<bool> m_commit_pending = false;
+        bool m_restricted = false;
 
         // For read/write fixtures:
         // the onUpdated is called whenever the fixture is modified

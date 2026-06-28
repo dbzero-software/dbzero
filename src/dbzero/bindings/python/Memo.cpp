@@ -9,6 +9,7 @@
 #include <type_traits>
 #include "PySnapshot.hpp"
 #include "PyInternalAPI.hpp"
+#include "PyRestrictedMethod.hpp"
 #include "Utils.hpp"
 #include "Types.hpp"
 #include "Migration.hpp"
@@ -21,6 +22,7 @@
 #include <dbzero/object_model/value/Member.hpp>
 #include <dbzero/object_model/tags/TagIndex.hpp>
 #include <dbzero/core/exception/Exceptions.hpp>
+#include <dbzero/core/memory/config.hpp>
 #include <dbzero/core/utils/to_string.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/PrefixName.hpp>
@@ -39,7 +41,7 @@ namespace db0::python
 
     using ObjectSharedPtr = PyTypes::ObjectSharedPtr;
     using TypeObjectSharedPtr = PyTypes::TypeObjectSharedPtr;
-    
+
     // @return fully qualified memo type name: <module>.<type>
     std::string getMemoTypeName(PyObject *py_module, shared_py_object<PyTypeObject*> py_class)
     {
@@ -408,6 +410,16 @@ namespace db0::python
                 return member.steal();
             }
         }
+
+        if (db0::Settings::hasRestrictedAccessEverBeenUsed() &&
+            memo_obj->ext().getFixture()->isRestricted()) {
+            return tryRestrictedMemoGetattro(
+                reinterpret_cast<PyObject *>(memo_obj),
+                attr,
+                attr_name,
+                member
+            );
+        }
         
         // Fallback to type-level attribute lookup only (no instance dict)
         auto py_result = PyObject_GenericGetAttr(reinterpret_cast<PyObject*>(memo_obj), attr);
@@ -439,7 +451,7 @@ namespace db0::python
         if (!attr_name) {
             return -1;
         }
-        
+
         if (isPersistentAttrName(attr_name)) {
             try {
                 // must materialize the object before setting as an attribute

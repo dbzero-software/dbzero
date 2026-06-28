@@ -658,6 +658,7 @@ namespace db0::python
         PySafeDict_SetItemString(*stats_dict, "name", Py_OWN(PyUnicode_FromString(fixture->getPrefix().getName().c_str())));
         PySafeDict_SetItemString(*stats_dict, "uuid", Py_OWN(PyLong_FromLong(fixture->getUUID())));
         PySafeDict_SetItemString(*stats_dict, "dp_size", Py_OWN(PyLong_FromLong(fixture->getPrefix().getPageSize())));
+        PySafeDict_SetItemString(*stats_dict, "restricted", Py_BORROW(fixture->isRestricted() ? Py_True : Py_False));
 
         auto gc0_dict = Py_OWN(PyDict_New());
         if (!gc0_dict) {
