@@ -4,6 +4,8 @@
 #include "PyRestrictedMethod.hpp"
 #include "PyToolkit.hpp"
 #include <object.h>
+#include <cstring>
+#include <cstddef>
 
 #ifndef PYVAROBJECT_HEAD_INIT_DESIGNATED
 #define PYVAROBJECT_HEAD_INIT_DESIGNATED \
@@ -19,6 +21,8 @@
 namespace db0::python
 
 {
+    thread_local bool g_restricted_memo_init = false;
+    thread_local std::size_t g_restricted_memo_user_code_depth = 0;
 
     struct PyRestrictedMethod
     {
@@ -28,6 +32,7 @@ namespace db0::python
 
     PyObject *PyRestrictedMethod_call(PyRestrictedMethod *self, PyObject *args, PyObject *kwargs)
     {
+        ScopedRestrictedMemoUserCode user_code;
         return PyObject_Call(self->m_method, args, kwargs);
     }
 
@@ -75,6 +80,28 @@ namespace db0::python
         .tp_free = PyObject_Free,
     };
 
+    ScopedRestrictedMemoInit::ScopedRestrictedMemoInit()
+        : m_was_enabled(g_restricted_memo_init)
+    {
+        g_restricted_memo_init = true;
+    }
+
+    ScopedRestrictedMemoInit::~ScopedRestrictedMemoInit()
+    {
+        g_restricted_memo_init = m_was_enabled;
+    }
+
+    ScopedRestrictedMemoUserCode::ScopedRestrictedMemoUserCode()
+        : m_previous_depth(g_restricted_memo_user_code_depth)
+    {
+        ++g_restricted_memo_user_code_depth;
+    }
+
+    ScopedRestrictedMemoUserCode::~ScopedRestrictedMemoUserCode()
+    {
+        g_restricted_memo_user_code_depth = m_previous_depth;
+    }
+
     PyObject *makeRestrictedMethod(PyObject *method)
     {
         auto result = reinterpret_cast<PyRestrictedMethod *>(PyRestrictedMethodType.tp_alloc(&PyRestrictedMethodType, 0));
@@ -91,7 +118,31 @@ namespace db0::python
         return attr_name[0] == '_';
     }
 
-    PyObject *tryGetRestrictedMethod(PyObject *memo_obj, PyObject *attr)
+    bool isRestrictedMemoContextActive()
+    {
+        return g_restricted_memo_init || g_restricted_memo_user_code_depth > 0;
+    }
+
+    bool isDunderName(const char *attr_name)
+    {
+        if (attr_name[0] != '_' || attr_name[1] != '_') {
+            return false;
+        }
+
+        auto len = std::strlen(attr_name);
+        return len >= 4 && attr_name[len - 2] == '_' && attr_name[len - 1] == '_';
+    }
+
+    PyObject *bindRestrictedMethod(PyObject *memo_obj, PyObject *raw_attr)
+    {
+        auto method = Py_OWN(PyMethod_New(raw_attr, memo_obj));
+        if (!method) {
+            return nullptr;
+        }
+        return makeRestrictedMethod(*method);
+    }
+
+    PyObject *tryGetRestrictedClassAttr(PyObject *memo_obj, PyObject *attr, const char *attr_name)
     {
         auto *type = Py_TYPE(memo_obj);
         auto *mro = type->tp_mro;
@@ -116,11 +167,23 @@ namespace db0::python
                 continue;
             }
             if (PyFunction_Check(raw_attr)) {
-                auto method = Py_OWN(PyMethod_New(raw_attr, memo_obj));
-                if (!method) {
-                    return nullptr;
+                if (isRestrictedName(attr_name)) {
+                    if (g_restricted_memo_init && std::strcmp(attr_name, "__post_init__") == 0) {
+                        return bindRestrictedMethod(memo_obj, raw_attr);
+                    }
+                    if (g_restricted_memo_user_code_depth > 0 && !isDunderName(attr_name)) {
+                        return bindRestrictedMethod(memo_obj, raw_attr);
+                    }
+                    break;
                 }
-                return makeRestrictedMethod(*method);
+                return bindRestrictedMethod(memo_obj, raw_attr);
+            }
+            if (!isRestrictedName(attr_name) && PyDescr_IsData(raw_attr)) {
+                auto *descr_get = Py_TYPE(raw_attr)->tp_descr_get;
+                if (descr_get) {
+                    ScopedRestrictedMemoUserCode user_code;
+                    return descr_get(raw_attr, memo_obj, reinterpret_cast<PyObject *>(type));
+                }
             }
             break;
         }
@@ -136,6 +199,17 @@ namespace db0::python
     )
     {
         if (isRestrictedName(attr_name)) {
+            if ((g_restricted_memo_init && std::strcmp(attr_name, "__post_init__") == 0) ||
+                (g_restricted_memo_user_code_depth > 0 && !isDunderName(attr_name))) {
+                auto restricted_method = Py_OWN(tryGetRestrictedClassAttr(memo_obj, attr, attr_name));
+                if (!restricted_method) {
+                    return nullptr;
+                }
+                if (*restricted_method != Py_None) {
+                    return restricted_method.steal();
+                }
+            }
+
             PyErr_Format(PyExc_AttributeError, "Restricted memo attribute access denied: %s", attr_name);
             return nullptr;
         }
@@ -144,7 +218,7 @@ namespace db0::python
             return member.steal();
         }
 
-        auto restricted_method = Py_OWN(tryGetRestrictedMethod(memo_obj, attr));
+        auto restricted_method = Py_OWN(tryGetRestrictedClassAttr(memo_obj, attr, attr_name));
         if (!restricted_method) {
             return nullptr;
         }

@@ -4,6 +4,9 @@
 import gc
 import os
 import shutil
+import subprocess
+import sys
+import textwrap
 
 import pytest
 import dbzero as db0
@@ -108,28 +111,52 @@ def test_open_restricted_is_scoped_to_prefix(db0_restricted_root):
     assert unrestricted.get_value.__self__ is unrestricted
 
 
-def test_unrestricted_memo_access_before_restricted_mode_is_ever_used(run_pytest_child):
-    run_pytest_child(
-        "python_tests/test_restricted_memo_access.py::test_unrestricted_memo_access_before_restricted_mode_is_ever_used_child",
-        env_flag="DB0_RESTRICTED_FAST_PATH_CHILD",
-        timeout=20,
-        failure_label="restricted memo fast-path fresh-process child",
+def test_unrestricted_memo_access_before_restricted_mode_is_ever_used():
+    code = textwrap.dedent(
+        """
+        import gc
+        import os
+        import shutil
+
+        import dbzero as db0
+
+        from python_tests.conftest import DB0_DIR
+        from python_tests.test_restricted_memo_access import (
+            RestrictedMemoAccessData,
+            _clean_db0_dir,
+        )
+
+        if "D" in db0.build_flags():
+            db0.reset_test_params()
+        _clean_db0_dir()
+        try:
+            db0.init(DB0_DIR)
+            db0.open("never-restricted-prefix")
+            obj = RestrictedMemoAccessData(123)
+
+            assert obj.value == 123
+            assert obj.get_value() == 123
+            assert obj.__class__ is RestrictedMemoAccessData
+            assert obj.get_value.__self__ is obj
+        finally:
+            gc.collect()
+            db0.close()
+            if os.path.exists(DB0_DIR):
+                shutil.rmtree(DB0_DIR)
+        """
     )
-
-
-@pytest.mark.skipif(
-    os.environ.get("DB0_RESTRICTED_FAST_PATH_CHILD") != "1",
-    reason="executed by test_unrestricted_memo_access_before_restricted_mode_is_ever_used",
-)
-def test_unrestricted_memo_access_before_restricted_mode_is_ever_used_child(db0_restricted_root):
-    db0.init(DB0_DIR)
-    db0.open("never-restricted-prefix")
-    obj = RestrictedMemoAccessData(123)
-
-    assert obj.value == 123
-    assert obj.get_value() == 123
-    assert obj.__class__ is RestrictedMemoAccessData
-    assert obj.get_value.__self__ is obj
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=os.getcwd(),
+        capture_output=True,
+        text=True,
+        timeout=20,
+        check=False,
+    )
+    assert result.returncode == 0, (
+        "restricted memo fast-path fresh-process child failed with code "
+        f"{result.returncode}\nstdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+    )
 
 
 def test_unrestricted_prefix_stays_unrestricted_after_default_restricted_was_enabled(db0_restricted_root):

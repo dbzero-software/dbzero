@@ -75,21 +75,25 @@ namespace db0::object_model
             std::move(stem))
     {
         this->m_type = type;
+        this->setInitComplete(true);
+        this->setRestricted(fixture->isRestricted());
         assert(hasValidClassRef());
     }
     
     template <typename T, typename ImplT>
-    ObjectImplBase<T, ImplT>::ObjectImplBase(std::shared_ptr<Class> db0_class)    
+    ObjectImplBase<T, ImplT>::ObjectImplBase(std::shared_ptr<Class> db0_class, bool restricted)
     {
         // prepare for initialization
         InitManager::instance.template addInitializerFor<ImplT>(*this, db0_class);
+        this->setRestricted(restricted);
     }
     
     template <typename T, typename ImplT>
-    ObjectImplBase<T, ImplT>::ObjectImplBase(TypeInitializer &&type_initializer)
+    ObjectImplBase<T, ImplT>::ObjectImplBase(TypeInitializer &&type_initializer, bool restricted)
     {
         // prepare for initialization
         InitManager::instance.template addInitializerFor<ImplT>(*this, std::move(type_initializer));
+        this->setRestricted(restricted);
     }
 
     template <typename T, typename ImplT>
@@ -100,12 +104,16 @@ namespace db0::object_model
             getAccessOptions(*type))        
     {
         this->m_type = type;
+        this->setInitComplete(true);
+        this->setRestricted(fixture->isRestricted());
     }
 
     template <typename T, typename ImplT>
     ObjectImplBase<T, ImplT>::ObjectImplBase(db0::swine_ptr<Fixture> &fixture, Address address, AccessFlags access_mode)
         : super_t(typename super_t::tag_from_address(), fixture, address, access_mode)
     {
+        this->setInitComplete(true);
+        this->setRestricted(fixture->isRestricted());
     }
     
     template <typename T, typename ImplT>
@@ -113,6 +121,8 @@ namespace db0::object_model
         : super_t(typename super_t::tag_from_stem(), fixture, std::move(stem))        
     {
         this->m_type = type;
+        this->setInitComplete(true);
+        this->setRestricted(fixture->isRestricted());
         assert(hasValidClassRef());
     }
 
@@ -213,6 +223,7 @@ namespace db0::object_model
         }
         
         assert(this->hasInstance());
+        this->setInitComplete(true);
     }
     
     template <typename T, typename ImplT>
