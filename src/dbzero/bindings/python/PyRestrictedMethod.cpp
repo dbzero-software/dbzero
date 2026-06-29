@@ -3,6 +3,8 @@
 
 #include "PyRestrictedMethod.hpp"
 #include "PyToolkit.hpp"
+#include <dbzero/workspace/Fixture.hpp>
+#include <dbzero/core/exception/Exceptions.hpp>
 #include <object.h>
 #include <cstring>
 #include <cstddef>
@@ -23,6 +25,37 @@ namespace db0::python
 {
     thread_local bool g_restricted_memo_init = false;
     thread_local std::size_t g_restricted_memo_user_code_depth = 0;
+
+    class RestrictedContextResource
+    {
+    public:
+        explicit RestrictedContextResource(PyTypes::ObjectPtr restricted_context)
+        {
+            set(restricted_context);
+        }
+
+        void set(PyTypes::ObjectPtr restricted_context)
+        {
+            if (restricted_context && restricted_context != Py_None) {
+                m_restricted_context = Py_BORROW(restricted_context);
+            } else {
+                m_restricted_context.reset();
+            }
+        }
+
+        PyTypes::ObjectPtr get() const
+        {
+            return m_restricted_context.get();
+        }
+
+        bool hasContext() const
+        {
+            return m_restricted_context.get() != nullptr;
+        }
+
+    private:
+        PyTypes::ObjectSharedPtr m_restricted_context;
+    };
 
     struct PyRestrictedMethod
     {
@@ -121,6 +154,48 @@ namespace db0::python
     bool isRestrictedMemoContextActive()
     {
         return g_restricted_memo_init || g_restricted_memo_user_code_depth > 0;
+    }
+
+    void setFixtureRestrictedContext(db0::swine_ptr<db0::Fixture> &fixture, PyTypes::ObjectPtr restricted_context)
+    {
+        auto *resource = fixture->tryGet<RestrictedContextResource>();
+        if (resource) {
+            resource->set(restricted_context);
+        } else {
+            resource = &fixture->addResource<RestrictedContextResource>(restricted_context);
+        }
+        fixture->setRestrictedCtx(resource->hasContext());
+    }
+
+    bool resolveRestrictedContextVar(PyTypes::ObjectPtr restricted_context)
+    {
+        if (!restricted_context) {
+            return false;
+        }
+
+        auto value = Py_OWN(PyObject_CallMethod(restricted_context, "get", nullptr));
+        if (!value) {
+            if (PyErr_ExceptionMatches(PyExc_LookupError)) {
+                PyErr_Clear();
+                return false;
+            }
+            THROWF(db0::InputException) << "restricted_context.get() failed";
+        }
+
+        auto is_restricted = PyObject_IsTrue(*value);
+        if (is_restricted < 0) {
+            THROWF(db0::InputException) << "restricted_context truthiness check failed";
+        }
+        return is_restricted;
+    }
+
+    bool resolveRestrictedCtx(const db0::Fixture &fixture)
+    {
+        auto *resource = fixture.tryGet<RestrictedContextResource>();
+        if (!resource) {
+            return false;
+        }
+        return resolveRestrictedContextVar(resource->get());
     }
 
     bool isDunderName(const char *attr_name)

@@ -30,6 +30,7 @@ def open(prefix_name: str, open_mode: str = "rw", **kwargs: Any) -> None:
         
         * autocommit (bool) to disable automatic commits for this prefix
         * restricted (bool) to restrict memo reflection access for this prefix
+        * restricted_context (ContextVar) to dynamically restrict memo reflection access for this prefix
         * slab_size (int) for memory slab allocation size in bytes
         * meta_io_step_size (int) for metadata I/O operation chunk size
         * lock_flags (dict) to change locking behavior when opening the prefix for read-write
@@ -1545,7 +1546,7 @@ def get_config() -> Dict[str, Any]:
         
         * autocommit (bool): True if autocommit enabled. Defaults to True.
         * autocommit_interval (int): Milliseconds between commits. Defaults to 250.
-        * restricted (bool): True if future opened prefixes default to restricted mode.
+        * restricted (bool): True if future opened prefixes default to static restricted mode.
 
     Raises
     ------

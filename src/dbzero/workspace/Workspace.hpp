@@ -233,6 +233,8 @@ namespace db0
 
         void setDefaultRestricted(bool restricted);
         bool isDefaultRestricted() const;
+        void setDefaultRestrictedCtx(bool restricted_ctx);
+        bool isDefaultRestrictedCtx() const;
         
         bool drop(const PrefixName &, bool if_exists = true);
 
@@ -329,6 +331,7 @@ namespace db0
         mutable std::shared_ptr<LangCache> m_lang_cache;
         std::unique_ptr<WorkspaceThreads> m_workspace_threads;
         bool m_default_restricted = false;
+        bool m_default_restricted_ctx = false;
         // associated workspace views (some of which may already be deleted)
         mutable db0::weak_vector<WorkspaceView> m_views;
         // the designated "head" view with the prolonged lifetime

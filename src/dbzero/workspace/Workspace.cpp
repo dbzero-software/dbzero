@@ -381,6 +381,7 @@ namespace db0
                 }
                 auto fixture = db0::make_swine<Fixture>(*this, prefix, allocator, m_next_locked_section_id);
                 fixture->setRestricted(restricted.value_or(m_default_restricted));
+                fixture->setRestrictedCtx(m_default_restricted_ctx);
                 if (m_fixture_initializer) {
                     // initialize fixture with a model-specific initializer
                     m_fixture_initializer(fixture, file_created, read_only, false);
@@ -614,6 +615,19 @@ namespace db0
     bool Workspace::isDefaultRestricted() const
     {
         return m_default_restricted;
+    }
+
+    void Workspace::setDefaultRestrictedCtx(bool restricted_ctx)
+    {
+        if (restricted_ctx) {
+            Settings::markRestrictedAccessUsed();
+        }
+        m_default_restricted_ctx = restricted_ctx;
+    }
+
+    bool Workspace::isDefaultRestrictedCtx() const
+    {
+        return m_default_restricted_ctx;
     }
     
     FixedObjectList &Workspace::getSharedObjectList() const {

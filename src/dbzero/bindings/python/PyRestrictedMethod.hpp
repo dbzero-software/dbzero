@@ -6,6 +6,14 @@
 #include <Python.h>
 #include <cstddef>
 #include "PyTypes.hpp"
+#include <dbzero/core/memory/swine_ptr.hpp>
+
+namespace db0
+{
+
+    class Fixture;
+
+}
 
 namespace db0::python
 
@@ -41,6 +49,8 @@ namespace db0::python
 
     bool isRestrictedName(const char *attr_name);
     bool isRestrictedMemoContextActive();
+    void setFixtureRestrictedContext(db0::swine_ptr<db0::Fixture> &fixture, PyTypes::ObjectPtr restricted_context);
+    bool resolveRestrictedCtx(const db0::Fixture &fixture);
     PyObject *tryRestrictedMemoGetattro(
         PyObject *memo_obj,
         PyObject *attr,

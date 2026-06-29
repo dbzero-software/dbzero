@@ -8,6 +8,7 @@
 #include <functional>
 #include <shared_mutex>
 #include <map>
+#include <utility>
 #include <vector>
 
 #include <dbzero/core/serialization/FixedVersioned.hpp>
@@ -281,6 +282,22 @@ DB0_PACKED_BEGIN
             }
             m_restricted = restricted;
         }
+
+        inline bool isRestrictedCtx() const {
+            return m_restricted_ctx;
+        }
+
+        inline std::pair<bool, bool> getObjectRestrictedFlags() const {
+            auto restricted_ctx = m_restricted_ctx;
+            return {m_restricted || restricted_ctx, restricted_ctx};
+        }
+
+        inline void setRestrictedCtx(bool restricted_ctx) {
+            if (restricted_ctx) {
+                Settings::markRestrictedAccessUsed();
+            }
+            m_restricted_ctx = restricted_ctx;
+        }
         
         bool operator==(const Fixture &) const;
         bool operator!=(const Fixture &) const;
@@ -340,6 +357,7 @@ DB0_PACKED_BEGIN
         std::atomic<bool> m_closed = false;
         std::atomic<bool> m_commit_pending = false;
         bool m_restricted = false;
+        bool m_restricted_ctx = false;
 
         // For read/write fixtures:
         // the onUpdated is called whenever the fixture is modified

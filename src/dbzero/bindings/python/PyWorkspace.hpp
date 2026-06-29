@@ -8,6 +8,7 @@
 #include <vector>
 #include <functional>
 #include <mutex>
+#include <unordered_map>
 #include "PyTypes.hpp"
 #include "PyWrapper.hpp"
 #include <dbzero/core/memory/AccessOptions.hpp>
@@ -58,7 +59,7 @@ namespace db0::python
          * is dynamically fetched just-in-time
         */
         void initWorkspace(const std::string &root_path, ObjectPtr py_config = nullptr, ObjectPtr py_lock_flags = nullptr,
-            bool restricted = false);
+            bool restricted = false, ObjectPtr restricted_context = nullptr);
         
         /**
          * Opens a specific prefix for read or read/write
@@ -69,7 +70,8 @@ namespace db0::python
         void open(const std::string &prefix_name, AccessType, std::optional<bool> autocommit = {},
             std::optional<std::size_t> slab_size = {}, ObjectPtr lock_flags = nullptr, 
             std::optional<std::size_t> meta_io_step_size = {}, std::optional<std::size_t> page_io_step_size = {},
-            std::optional<bool> restricted = {}
+            std::optional<bool> restricted = {}, ObjectPtr restricted_context = nullptr,
+            bool restricted_context_given = false
         );
         
         db0::Workspace &getWorkspace() const;
@@ -88,7 +90,14 @@ namespace db0::python
     private:
         std::shared_ptr<db0::Workspace> m_workspace;
         // optional DB0 config object
-        std::shared_ptr<db0::Config> m_config;        
+        std::shared_ptr<db0::Config> m_config;
+        ObjectSharedPtr m_restricted_context;
+        std::unordered_map<std::string, ObjectSharedPtr> m_prefix_restricted_contexts;
+
+        void setRestrictedContext(ObjectPtr restricted_context);
+        void setPrefixRestrictedContext(const std::string &prefix_name, ObjectPtr restricted_context);
+        ObjectPtr getEffectiveRestrictedContext(const db0::Fixture &fixture) const;
+        void syncRestrictedCtxFlag(const std::string &prefix_name);
     };
     
 }

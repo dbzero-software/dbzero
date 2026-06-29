@@ -3,13 +3,16 @@
 
 #include "PyWorkspace.hpp"
 #include <dbzero/workspace/Workspace.hpp>
+#include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/PrefixName.hpp>
 #include <dbzero/workspace/Config.hpp>
+#include <dbzero/core/memory/config.hpp>
 #include <dbzero/object_model/ObjectModel.hpp>
 #include <dbzero/object_model/object.hpp>
 #include <dbzero/core/exception/Exceptions.hpp>
 #include <dbzero/object_model/class/ClassFactory.hpp>
 #include <dbzero/object_model/tags/ObjectIteratorPool.hpp>
+#include "PyRestrictedMethod.hpp"
 #include "PyToolkit.hpp"
 
 namespace db0::python
@@ -34,7 +37,8 @@ namespace db0::python
     
     void PyWorkspace::open(const std::string &prefix_name, AccessType access_type, std::optional<bool> autocommit,
         std::optional<std::size_t> slab_size, ObjectPtr py_lock_flags, std::optional<std::size_t> meta_io_step_size,
-        std::optional<std::size_t> page_io_step_size, std::optional<bool> restricted)
+        std::optional<std::size_t> page_io_step_size, std::optional<bool> restricted,
+        ObjectPtr restricted_context, bool restricted_context_given)
     {
         if (!m_workspace) {
             // initialize dbzero with current working directory
@@ -51,10 +55,15 @@ namespace db0::python
                 {}, meta_io_step_size, page_io_step_size, restricted
             );
         }
+        if (restricted_context_given) {
+            setPrefixRestrictedContext(prefix_name, restricted_context);
+        } else {
+            syncRestrictedCtxFlag(prefix_name);
+        }
     }
     
     void PyWorkspace::initWorkspace(const std::string &root_path, ObjectPtr py_config, ObjectPtr py_lock_flags,
-        bool restricted)
+        bool restricted, ObjectPtr restricted_context)
     {
         if (m_workspace) {
             THROWF(db0::InternalException) << "dbzero already initialized";
@@ -66,10 +75,11 @@ namespace db0::python
         auto cache_size = m_config->get<unsigned long long>("cache_size");
 
         auto object_model_initializer = db0::object_model::initializer();
-        auto python_fixture_initializer = [object_model_initializer](db0::swine_ptr<db0::Fixture> &fixture,
+        auto python_fixture_initializer = [this, object_model_initializer](db0::swine_ptr<db0::Fixture> &fixture,
             bool is_new, bool read_only, bool is_snapshot)
         {
             object_model_initializer(fixture, is_new, read_only, is_snapshot);
+            db0::python::setFixtureRestrictedContext(fixture, getEffectiveRestrictedContext(*fixture));
             if (!is_snapshot) {
                 auto &iterator_pool = fixture->addResource<db0::object_model::ObjectIteratorPool>();
                 fixture->addIteratorDetachHandler([&iterator_pool](std::uint64_t generation) {
@@ -86,6 +96,7 @@ namespace db0::python
         m_workspace = std::shared_ptr<db0::Workspace>(
             new Workspace(root_path, std::move(cache_size), {}, {}, {}, python_fixture_initializer, m_config, default_lock_flags));
         m_workspace->setDefaultRestricted(restricted);
+        setRestrictedContext(restricted_context);
 
         // register a callback to register bindings between known memo types (language specific objects)
         // and the corresponding Class instances. Note that types may be prefix agnostic therefore bindings may or
@@ -130,6 +141,8 @@ namespace db0::python
         db0::object_model::InitManager::instance.close();
         PyToolkit::getTypeManager().close(timer.get());
         m_config = nullptr;
+        m_restricted_context.reset();
+        m_prefix_restricted_contexts.clear();
         m_workspace = nullptr;
     }
     
@@ -154,5 +167,49 @@ namespace db0::python
             THROWF(db0::InternalException) << "dbzero not initialized";
         }
         return m_config;
+    }
+
+    void PyWorkspace::setRestrictedContext(ObjectPtr restricted_context)
+    {
+        if (restricted_context && restricted_context != Py_None) {
+            db0::Settings::markRestrictedAccessUsed();
+            m_restricted_context = Py_BORROW(restricted_context);
+        } else {
+            m_restricted_context.reset();
+        }
+        if (m_workspace) {
+            m_workspace->setDefaultRestrictedCtx(m_restricted_context.get() != nullptr);
+        }
+    }
+
+    void PyWorkspace::setPrefixRestrictedContext(const std::string &prefix_name, ObjectPtr restricted_context)
+    {
+        if (restricted_context && restricted_context != Py_None) {
+            db0::Settings::markRestrictedAccessUsed();
+            m_prefix_restricted_contexts[prefix_name] = Py_BORROW(restricted_context);
+        } else {
+            m_prefix_restricted_contexts.erase(prefix_name);
+        }
+        syncRestrictedCtxFlag(prefix_name);
+    }
+
+    PyWorkspace::ObjectPtr PyWorkspace::getEffectiveRestrictedContext(const db0::Fixture &fixture) const
+    {
+        auto it = m_prefix_restricted_contexts.find(fixture.getPrefix().getName());
+        if (it != m_prefix_restricted_contexts.end()) {
+            return it->second.get();
+        }
+        return m_restricted_context.get();
+    }
+
+    void PyWorkspace::syncRestrictedCtxFlag(const std::string &prefix_name)
+    {
+        if (!m_workspace) {
+            return;
+        }
+        auto fixture = m_workspace->tryFindFixture(prefix_name);
+        if (!!fixture) {
+            db0::python::setFixtureRestrictedContext(fixture, getEffectiveRestrictedContext(*fixture));
+        }
     }
 }

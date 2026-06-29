@@ -26,6 +26,7 @@ def init(dbzero_root: str, **kwargs: Any) -> None:
         
         Configure global dbzero behavior:
         * restricted (bool, default False) to restrict memo reflection access for future opened prefixes
+        * restricted_context (ContextVar) to dynamically restrict memo reflection access
         * autocommit (bool, default True) to enable automatic commits
         * autocommit_interval (int, default 367) for commit interval in milliseconds
         * cache_size (int, default 2 GiB) for main object cache size in bytes
@@ -56,6 +57,9 @@ def init(dbzero_root: str, **kwargs: Any) -> None:
     if "restricted" in kwargs:
         init_kwargs["restricted"] = kwargs["restricted"]
 
+    if "restricted_context" in kwargs:
+        init_kwargs["restricted_context"] = kwargs["restricted_context"]
+
     rpc = kwargs.get("rpc")
     if rpc is not None and not isinstance(rpc, Mapping):
         raise TypeError("rpc must be a mapping")
@@ -71,4 +75,6 @@ def init(dbzero_root: str, **kwargs: Any) -> None:
         open_kwargs = {}
         if "restricted" in kwargs:
             open_kwargs["restricted"] = kwargs["restricted"]
+        if "restricted_context" in kwargs:
+            open_kwargs["restricted_context"] = kwargs["restricted_context"]
         dbzero_open(kwargs["prefix"], open_mode=open_mode, **open_kwargs)

@@ -42,7 +42,9 @@ namespace db0::object_model
         // runtime state: initialization has finalized
         INIT_COMPLETE = 0x04,
         // runtime state: access to this object is restricted
-        RESTRICTED = 0x08
+        RESTRICTED = 0x08,
+        // runtime state: restricted access is dynamically resolved from Python ContextVar
+        RESTRICTED_CTX = 0x10
     };
     
     using ObjectFlags = db0::FlagSet<ObjectOptions>;
@@ -129,6 +131,14 @@ namespace db0::object_model
             return m_flags.test(ObjectOptions::RESTRICTED);
         }
 
+        inline void setRestrictedCtx(bool enabled) const {
+            m_flags.set(ObjectOptions::RESTRICTED_CTX, enabled);
+        }
+
+        inline bool isRestrictedCtx() const {
+            return m_flags.test(ObjectOptions::RESTRICTED_CTX);
+        }
+
         void markDead();
 
         inline bool isDropped() const {
@@ -190,4 +200,4 @@ namespace db0::object_model
     
 }
 
-DECLARE_ENUM_VALUES(db0::object_model::ObjectOptions, 4)
+DECLARE_ENUM_VALUES(db0::object_model::ObjectOptions, 5)

@@ -67,8 +67,8 @@ namespace db0::object_model
         /**
          * Construct new Object (uninitialized, without corresponding dbzero instance yet)          
         */
-        ObjectImplBase(std::shared_ptr<Class>, bool restricted = false);
-        ObjectImplBase(TypeInitializer &&, bool restricted = false);
+        ObjectImplBase(std::shared_ptr<Class>, std::pair<bool, bool> restricted_flags = {});
+        ObjectImplBase(TypeInitializer &&, std::pair<bool, bool> restricted_flags = {});
         
         // Unload from address with a known type (possibly a base type)
         // NOTE: unload works faster if type_hint is the exact object's type

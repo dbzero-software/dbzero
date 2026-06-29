@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import sys
 import textwrap
+from contextvars import ContextVar
 
 import pytest
 import dbzero as db0
@@ -200,3 +201,116 @@ def test_global_restricted_applies_to_auto_opened_prefix(db0_restricted_root):
     assert db0.get_config()["restricted"] is True
     assert db0.get_prefix_stats("auto-open-prefix")["restricted"] is True
     _assert_restricted(fetched, writable=False)
+
+
+def test_global_restricted_context_controls_existing_objects(db0_restricted_root):
+    restricted_context = ContextVar("restricted_context", default=False)
+    db0.init(DB0_DIR, restricted_context=restricted_context)
+    assert db0.get_config()["restricted"] is False
+    db0.open("dynamic-global-prefix")
+    assert db0.get_prefix_stats("dynamic-global-prefix")["restricted"] is False
+    obj = RestrictedMemoAccessData(123)
+
+    assert obj.__class__ is RestrictedMemoAccessData
+    assert obj.get_value.__self__ is obj
+
+    token = restricted_context.set(True)
+    try:
+        _assert_restricted(obj)
+    finally:
+        restricted_context.reset(token)
+
+    assert obj.__class__ is RestrictedMemoAccessData
+    assert obj.get_value.__self__ is obj
+
+
+def test_prefix_restricted_context_overrides_global_context(db0_restricted_root):
+    global_context = ContextVar("global_context", default=True)
+    prefix_context = ContextVar("prefix_context", default=False)
+    db0.init(DB0_DIR, restricted_context=global_context)
+
+    db0.open("global-dynamic-prefix")
+    global_obj = RestrictedMemoAccessData(123)
+
+    db0.open("prefix-dynamic-prefix", restricted_context=prefix_context)
+    prefix_obj = RestrictedMemoAccessData(123)
+
+    _assert_restricted(global_obj)
+    assert prefix_obj.__class__ is RestrictedMemoAccessData
+    assert prefix_obj.get_value.__self__ is prefix_obj
+
+    token = prefix_context.set(True)
+    try:
+        _assert_restricted(prefix_obj)
+    finally:
+        prefix_context.reset(token)
+
+
+def test_prefix_restricted_context_none_restores_global_context(db0_restricted_root):
+    global_context = ContextVar("global_context", default=True)
+    prefix_context = ContextVar("prefix_context", default=False)
+    db0.init(DB0_DIR, restricted_context=global_context)
+    db0.open("prefix-reset-dynamic-prefix", restricted_context=prefix_context)
+    obj = RestrictedMemoAccessData(123)
+
+    assert obj.__class__ is RestrictedMemoAccessData
+    assert obj.get_value.__self__ is obj
+
+    db0.open("prefix-reset-dynamic-prefix", restricted_context=None)
+
+    _assert_restricted(obj)
+
+
+def test_static_restricted_without_restricted_context_remains_restricted(db0_restricted_root):
+    db0.init(DB0_DIR)
+    db0.open("static-restricted-prefix", restricted=True)
+    assert db0.get_prefix_stats("static-restricted-prefix")["restricted"] is True
+
+    _assert_restricted(RestrictedMemoAccessData(123))
+
+
+def test_static_restricted_object_does_not_resolve_later_restricted_context(db0_restricted_root):
+    class ExplodingContext:
+        def get(self):
+            raise AssertionError("restricted_context should not be resolved")
+
+    db0.init(DB0_DIR)
+    db0.open("static-no-context-prefix", restricted=True)
+    obj = RestrictedMemoAccessData(123)
+
+    db0.open("static-no-context-prefix", restricted_context=ExplodingContext())
+
+    _assert_restricted(obj)
+
+
+def test_unset_restricted_context_is_treated_as_false(db0_restricted_root):
+    restricted_context = ContextVar("restricted_context")
+    db0.init(DB0_DIR, restricted_context=restricted_context)
+    db0.open("unset-dynamic-prefix")
+    obj = RestrictedMemoAccessData(123)
+
+    assert obj.__class__ is RestrictedMemoAccessData
+    assert obj.get_value.__self__ is obj
+
+
+def test_restricted_context_uses_python_truthiness(db0_restricted_root):
+    restricted_context = ContextVar("restricted_context", default=[])
+    db0.init(DB0_DIR, restricted_context=restricted_context)
+    db0.open("truthy-dynamic-prefix")
+    obj = RestrictedMemoAccessData(123)
+
+    assert obj.__class__ is RestrictedMemoAccessData
+
+    token = restricted_context.set([object()])
+    try:
+        _assert_restricted(obj)
+    finally:
+        restricted_context.reset(token)
+
+
+def test_init_prefix_shortcut_forwards_restricted_context(db0_restricted_root):
+    restricted_context = ContextVar("restricted_context", default=True)
+    db0.init(DB0_DIR, prefix="shortcut-dynamic-prefix", restricted_context=restricted_context)
+    assert db0.get_prefix_stats("shortcut-dynamic-prefix")["restricted"] is False
+
+    _assert_restricted(RestrictedMemoAccessData(123))
