@@ -3,11 +3,16 @@
 
 #include "PyRestrictedMethod.hpp"
 #include "PyToolkit.hpp"
+#include "PySafeAPI.hpp"
 #include <dbzero/workspace/Fixture.hpp>
+#include <dbzero/workspace/Workspace.hpp>
+#include <dbzero/workspace/Config.hpp>
+#include <dbzero/core/memory/config.hpp>
 #include <dbzero/core/exception/Exceptions.hpp>
 #include <object.h>
 #include <cstring>
 #include <cstddef>
+#include <vector>
 
 #ifndef PYVAROBJECT_HEAD_INIT_DESIGNATED
 #define PYVAROBJECT_HEAD_INIT_DESIGNATED \
@@ -154,6 +159,224 @@ namespace db0::python
     bool isRestrictedMemoContextActive()
     {
         return g_restricted_memo_init || g_restricted_memo_user_code_depth > 0;
+    }
+
+    void RestrictedContextManager::clear()
+    {
+        m_default_context.reset();
+        m_prefix_contexts.clear();
+    }
+
+    void RestrictedContextManager::initDefault(db0::Workspace &workspace, ObjectPtr restricted_context)
+    {
+        setDefaultContext(workspace, restricted_context);
+    }
+
+    RestrictedContextManager::RestrictionLevel RestrictedContextManager::getDefaultLevel(
+        const db0::Workspace &workspace) const
+    {
+        if (workspace.isDefaultRestricted()) {
+            return RestrictionLevel::statically_restricted;
+        }
+        if (workspace.isDefaultRestrictedCtx()) {
+            return RestrictionLevel::context;
+        }
+        return RestrictionLevel::unrestricted;
+    }
+
+    RestrictedContextManager::RestrictionLevel RestrictedContextManager::getFixtureLevel(
+        const db0::Fixture &fixture) const
+    {
+        if (fixture.isRestricted()) {
+            return RestrictionLevel::statically_restricted;
+        }
+        if (fixture.isRestrictedCtx()) {
+            return RestrictionLevel::context;
+        }
+        return RestrictionLevel::unrestricted;
+    }
+
+    RestrictedContextManager::RestrictionLevel RestrictedContextManager::getRequestedLevel(
+        std::optional<bool> restricted, ObjectPtr restricted_context, bool restricted_context_given) const
+    {
+        if (restricted && !*restricted) {
+            THROWF(db0::InputException) << "restricted mode cannot be weakened";
+        }
+        if (restricted && *restricted) {
+            if (restricted_context_given && restricted_context && restricted_context != Py_None) {
+                THROWF(db0::InputException) << "restricted=True cannot be combined with restricted_context";
+            }
+            return RestrictionLevel::statically_restricted;
+        }
+        if (restricted_context_given && restricted_context && restricted_context != Py_None) {
+            return RestrictionLevel::context;
+        }
+        return RestrictionLevel::unrestricted;
+    }
+
+    RestrictedContextManager::ObjectPtr RestrictedContextManager::getPrefixContext(const std::string &prefix_name) const
+    {
+        auto it = m_prefix_contexts.find(prefix_name);
+        if (it != m_prefix_contexts.end()) {
+            return it->second.get();
+        }
+        return nullptr;
+    }
+
+    void RestrictedContextManager::validateUpgrade(RestrictionLevel current_level, ObjectPtr current_context,
+        RestrictionLevel requested_level, ObjectPtr requested_context) const
+    {
+        if (requested_level == RestrictionLevel::unrestricted) {
+            if (current_level != RestrictionLevel::unrestricted) {
+                THROWF(db0::InputException) << "restricted mode cannot be weakened";
+            }
+            return;
+        }
+        if (current_level == RestrictionLevel::statically_restricted &&
+            requested_level != RestrictionLevel::statically_restricted)
+        {
+            THROWF(db0::InputException) << "static restricted mode cannot be changed to context restricted mode";
+        }
+        if (current_level == RestrictionLevel::context && requested_level == RestrictionLevel::context &&
+            current_context != requested_context)
+        {
+            THROWF(db0::InputException) << "restricted_context cannot be replaced";
+        }
+    }
+
+    void RestrictedContextManager::setDefaultContext(db0::Workspace &workspace, ObjectPtr restricted_context)
+    {
+        if (restricted_context && restricted_context != Py_None) {
+            db0::Settings::markRestrictedAccessUsed();
+            m_default_context = Py_BORROW(restricted_context);
+        } else {
+            m_default_context.reset();
+        }
+        workspace.setDefaultRestrictedCtx(m_default_context.get() != nullptr);
+    }
+
+    void RestrictedContextManager::setPrefixContext(db0::Workspace &workspace, const std::string &prefix_name,
+        ObjectPtr restricted_context)
+    {
+        if (restricted_context && restricted_context != Py_None) {
+            db0::Settings::markRestrictedAccessUsed();
+            m_prefix_contexts[prefix_name] = Py_BORROW(restricted_context);
+        } else {
+            m_prefix_contexts.erase(prefix_name);
+        }
+        syncFixture(workspace, prefix_name);
+    }
+
+    void RestrictedContextManager::syncFixture(db0::Workspace &workspace, const std::string &prefix_name) const
+    {
+        auto fixture = workspace.tryFindFixture(prefix_name);
+        if (!!fixture) {
+            db0::python::setFixtureRestrictedContext(fixture, fixture->isRestricted() ? nullptr : getEffectiveContext(*fixture));
+        }
+    }
+
+    void RestrictedContextManager::syncAllFixtures(db0::Workspace &workspace) const
+    {
+        std::vector<std::string> prefix_names;
+        workspace.forEachFixture([&prefix_names](const db0::Fixture &fixture) {
+            prefix_names.push_back(fixture.getPrefix().getName());
+            return true;
+        });
+        for (auto &prefix_name: prefix_names) {
+            syncFixture(workspace, prefix_name);
+        }
+    }
+
+    RestrictedContextManager::ObjectPtr RestrictedContextManager::getEffectiveContext(const db0::Fixture &fixture) const
+    {
+        auto prefix_context = getPrefixContext(fixture.getPrefix().getName());
+        return prefix_context ? prefix_context : m_default_context.get();
+    }
+
+    void RestrictedContextManager::setConfigRestricted(std::shared_ptr<db0::Config> config, bool restricted) const
+    {
+        if (!config) {
+            return;
+        }
+        PySafeDict_SetItemString(config->getRawConfig().get(), "restricted", Py_BORROW(restricted ? Py_True : Py_False));
+    }
+
+    void RestrictedContextManager::setRestricted(db0::Workspace &workspace, std::shared_ptr<db0::Config> config,
+        std::optional<bool> restricted, ObjectPtr restricted_context, bool restricted_context_given,
+        const std::optional<std::string> &prefix_name)
+    {
+        auto requested_level = getRequestedLevel(restricted, restricted_context, restricted_context_given);
+        if (prefix_name) {
+            auto fixture = workspace.tryFindFixture(*prefix_name);
+            if (!fixture) {
+                THROWF(db0::InputException) << "Prefix is not open: " << *prefix_name;
+            }
+            validateUpgrade(getFixtureLevel(*fixture), getEffectiveContext(*fixture), requested_level, restricted_context);
+            if (requested_level == RestrictionLevel::statically_restricted) {
+                fixture->setRestricted(true);
+                setPrefixContext(workspace, *prefix_name, nullptr);
+            } else if (requested_level == RestrictionLevel::context) {
+                setPrefixContext(workspace, *prefix_name, restricted_context);
+            }
+            return;
+        }
+
+        validateUpgrade(getDefaultLevel(workspace), m_default_context.get(), requested_level, restricted_context);
+        if (requested_level == RestrictionLevel::statically_restricted) {
+            workspace.setDefaultRestricted(true);
+            setDefaultContext(workspace, nullptr);
+            setConfigRestricted(config, true);
+            std::vector<std::string> prefix_names;
+            workspace.forEachFixture([&prefix_names](const db0::Fixture &fixture) {
+                prefix_names.push_back(fixture.getPrefix().getName());
+                return true;
+            });
+            for (auto &name: prefix_names) {
+                auto fixture = workspace.tryFindFixture(name);
+                if (!!fixture) {
+                    fixture->setRestricted(true);
+                }
+            }
+            syncAllFixtures(workspace);
+        } else if (requested_level == RestrictionLevel::context) {
+            setDefaultContext(workspace, restricted_context);
+            syncAllFixtures(workspace);
+        }
+    }
+
+    void RestrictedContextManager::validateOpenRestricted(db0::Workspace &workspace, const std::string &prefix_name,
+        std::optional<bool> restricted) const
+    {
+        if (!restricted || *restricted) {
+            return;
+        }
+        auto fixture = workspace.tryFindFixture(prefix_name);
+        if (!!fixture && getFixtureLevel(*fixture) != RestrictionLevel::unrestricted) {
+            THROWF(db0::InputException) << "restricted mode cannot be weakened";
+        }
+    }
+
+    void RestrictedContextManager::applyOpenRestrictedContext(db0::Workspace &workspace, const std::string &prefix_name,
+        ObjectPtr restricted_context, bool restricted_context_given, bool is_initial_prefix_config)
+    {
+        if (!restricted_context_given) {
+            syncFixture(workspace, prefix_name);
+            return;
+        }
+        auto fixture = workspace.tryFindFixture(prefix_name);
+        if (!fixture) {
+            return;
+        }
+        auto requested_level = restricted_context && restricted_context != Py_None
+            ? RestrictionLevel::context : RestrictionLevel::unrestricted;
+        if (!is_initial_prefix_config) {
+            validateUpgrade(getFixtureLevel(*fixture), getEffectiveContext(*fixture), requested_level, restricted_context);
+        }
+        if (requested_level == RestrictionLevel::context) {
+            setPrefixContext(workspace, prefix_name, restricted_context);
+        } else {
+            syncFixture(workspace, prefix_name);
+        }
     }
 
     void setFixtureRestrictedContext(db0::swine_ptr<db0::Fixture> &fixture, PyTypes::ObjectPtr restricted_context)

@@ -4,13 +4,14 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 #include <functional>
 #include <mutex>
-#include <unordered_map>
 #include "PyTypes.hpp"
 #include "PyWrapper.hpp"
+#include "PyRestrictedMethod.hpp"
 #include <dbzero/core/memory/AccessOptions.hpp>
 #include <dbzero/core/memory/swine_ptr.hpp>
 #include "MemoObject.hpp"
@@ -44,7 +45,6 @@ namespace db0::python
     {
     public:
         using ObjectPtr = typename PyTypes::ObjectPtr;
-        using ObjectSharedPtr = typename PyTypes::ObjectSharedPtr;
         using TypeObjectPtr = typename PyTypes::TypeObjectPtr;
         
         PyWorkspace();
@@ -87,17 +87,16 @@ namespace db0::python
 
         const std::shared_ptr<db0::Config> &getConfig() const;
 
+        void setRestricted(std::optional<bool> restricted = {}, ObjectPtr restricted_context = nullptr,
+            bool restricted_context_given = false, const std::optional<std::string> &prefix_name = {});
+
     private:
         std::shared_ptr<db0::Workspace> m_workspace;
         // optional DB0 config object
         std::shared_ptr<db0::Config> m_config;
-        ObjectSharedPtr m_restricted_context;
-        std::unordered_map<std::string, ObjectSharedPtr> m_prefix_restricted_contexts;
+        RestrictedContextManager m_restricted_contexts;
 
-        void setRestrictedContext(ObjectPtr restricted_context);
-        void setPrefixRestrictedContext(const std::string &prefix_name, ObjectPtr restricted_context);
         ObjectPtr getEffectiveRestrictedContext(const db0::Fixture &fixture) const;
-        void syncRestrictedCtxFlag(const std::string &prefix_name);
     };
     
 }

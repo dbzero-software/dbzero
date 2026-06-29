@@ -246,7 +246,7 @@ def test_prefix_restricted_context_overrides_global_context(db0_restricted_root)
         prefix_context.reset(token)
 
 
-def test_prefix_restricted_context_none_restores_global_context(db0_restricted_root):
+def test_prefix_restricted_context_none_cannot_replace_existing_context(db0_restricted_root):
     global_context = ContextVar("global_context", default=True)
     prefix_context = ContextVar("prefix_context", default=False)
     db0.init(DB0_DIR, restricted_context=global_context)
@@ -256,9 +256,10 @@ def test_prefix_restricted_context_none_restores_global_context(db0_restricted_r
     assert obj.__class__ is RestrictedMemoAccessData
     assert obj.get_value.__self__ is obj
 
-    db0.open("prefix-reset-dynamic-prefix", restricted_context=None)
+    with pytest.raises(RuntimeError):
+        db0.open("prefix-reset-dynamic-prefix", restricted_context=None)
 
-    _assert_restricted(obj)
+    assert obj.__class__ is RestrictedMemoAccessData
 
 
 def test_static_restricted_without_restricted_context_remains_restricted(db0_restricted_root):
@@ -278,7 +279,8 @@ def test_static_restricted_object_does_not_resolve_later_restricted_context(db0_
     db0.open("static-no-context-prefix", restricted=True)
     obj = RestrictedMemoAccessData(123)
 
-    db0.open("static-no-context-prefix", restricted_context=ExplodingContext())
+    with pytest.raises(RuntimeError):
+        db0.open("static-no-context-prefix", restricted_context=ExplodingContext())
 
     _assert_restricted(obj)
 
@@ -314,3 +316,93 @@ def test_init_prefix_shortcut_forwards_restricted_context(db0_restricted_root):
     assert db0.get_prefix_stats("shortcut-dynamic-prefix")["restricted"] is False
 
     _assert_restricted(RestrictedMemoAccessData(123))
+
+
+def test_set_restricted_context_upgrades_existing_and_future_prefixes(db0_restricted_root):
+    restricted_context = ContextVar("restricted_context", default=False)
+    db0.init(DB0_DIR)
+    db0.open("dynamic-upgrade-prefix")
+    obj = RestrictedMemoAccessData(123)
+
+    assert obj.__class__ is RestrictedMemoAccessData
+    db0.set_restricted(restricted_context=restricted_context)
+    assert db0.get_config()["restricted"] is False
+
+    assert obj.__class__ is RestrictedMemoAccessData
+    token = restricted_context.set(True)
+    try:
+        _assert_restricted(obj)
+        db0.open("future-dynamic-upgrade-prefix")
+        _assert_restricted(RestrictedMemoAccessData(123))
+    finally:
+        restricted_context.reset(token)
+
+
+def test_set_restricted_static_upgrades_dynamic_context(db0_restricted_root):
+    restricted_context = ContextVar("restricted_context", default=False)
+    db0.init(DB0_DIR)
+    db0.set_restricted(restricted_context=restricted_context)
+    db0.open("dynamic-to-static-prefix")
+    obj = RestrictedMemoAccessData(123)
+
+    assert obj.__class__ is RestrictedMemoAccessData
+    db0.set_restricted(restricted=True)
+
+    _assert_restricted(obj)
+    db0.open("future-static-upgrade-prefix")
+    assert db0.get_prefix_stats("future-static-upgrade-prefix")["restricted"] is True
+    _assert_restricted(RestrictedMemoAccessData(123))
+
+
+def test_set_restricted_rejects_context_after_static_restricted(db0_restricted_root):
+    restricted_context = ContextVar("restricted_context", default=False)
+    db0.init(DB0_DIR, restricted=True)
+    db0.open("static-terminal-prefix")
+    obj = RestrictedMemoAccessData(123)
+
+    with pytest.raises(RuntimeError):
+        db0.set_restricted(restricted_context=restricted_context)
+
+    _assert_restricted(obj)
+
+
+def test_set_restricted_rejects_context_replacement(db0_restricted_root):
+    first_context = ContextVar("first_context", default=False)
+    second_context = ContextVar("second_context", default=True)
+    db0.init(DB0_DIR)
+    db0.set_restricted(restricted_context=first_context)
+    db0.open("context-replacement-prefix")
+    obj = RestrictedMemoAccessData(123)
+
+    with pytest.raises(RuntimeError):
+        db0.set_restricted(restricted_context=second_context)
+
+    assert obj.__class__ is RestrictedMemoAccessData
+    token = first_context.set(True)
+    try:
+        _assert_restricted(obj)
+    finally:
+        first_context.reset(token)
+
+
+def test_set_restricted_rejects_false(db0_restricted_root):
+    db0.init(DB0_DIR)
+
+    with pytest.raises(RuntimeError):
+        db0.set_restricted(restricted=False)
+
+
+def test_set_restricted_prefix_only_upgrades_target_prefix(db0_restricted_root):
+    restricted_context = ContextVar("restricted_context", default=True)
+    db0.init(DB0_DIR)
+
+    db0.open("target-prefix")
+    target = RestrictedMemoAccessData(123)
+    db0.open("other-prefix")
+    other = RestrictedMemoAccessData(123)
+
+    db0.set_restricted(prefix="target-prefix", restricted_context=restricted_context)
+
+    _assert_restricted(target)
+    assert other.__class__ is RestrictedMemoAccessData
+    assert other.get_value.__self__ is other

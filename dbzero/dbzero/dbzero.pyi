@@ -56,6 +56,14 @@ def open(prefix_name: str, open_mode: str = "rw", **kwargs: Any) -> None:
     """
     ...
 
+def set_restricted(*, restricted: Optional[bool] = None, restricted_context: Any = None,
+                   prefix: Optional[str] = None) -> None:
+    """Increase memo restricted-access mode globally or for an open prefix.
+
+    The restriction level can only increase: unrestricted -> restricted_context -> restricted.
+    """
+    ...
+
 def close(prefix_name: Optional[str] = None) -> None:
     """Gracefully shut down dbzero, persisting changes and releasing resources.
 

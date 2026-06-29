@@ -4,7 +4,7 @@
 #include "ObjectAnyImpl.hpp"
 #include "o_object.hpp"
 
-DEFINE_ENUM_VALUES(db0::object_model::ObjectOptions, "DROPPED", "DEFUNCT", "INIT_COMPLETE", "RESTRICTED", "RESTRICTED_CTX")
+DEFINE_ENUM_VALUES(db0::object_model::ObjectOptions, "DROPPED", "DEFUNCT", "INIT_COMPLETE")
 
 namespace db0::object_model
 

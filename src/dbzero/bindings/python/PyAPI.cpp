@@ -259,6 +259,48 @@ namespace db0::python
         PY_API_FUNC
         return runSafe(tryOpen, self, args, kwargs);
     }
+
+    PyObject *trySetRestricted(PyObject *, PyObject *args, PyObject *kwargs)
+    {
+        PyObject *py_restricted = nullptr;
+        PyObject *py_restricted_context = nullptr;
+        PyObject *py_prefix = nullptr;
+        static const char *kwlist[] = {"restricted", "restricted_context", "prefix", NULL};
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|OOO:set_restricted", const_cast<char**>(kwlist),
+            &py_restricted, &py_restricted_context, &py_prefix))
+        {
+            return NULL;
+        }
+
+        std::optional<bool> restricted;
+        if (py_restricted && py_restricted != Py_None) {
+            auto is_restricted = PyObject_IsTrue(py_restricted);
+            if (is_restricted < 0) {
+                return NULL;
+            }
+            restricted = is_restricted;
+        }
+
+        std::optional<std::string> prefix_name;
+        if (py_prefix && py_prefix != Py_None) {
+            if (!PyUnicode_Check(py_prefix)) {
+                PyErr_SetString(PyExc_TypeError, "Invalid argument type: prefix");
+                return NULL;
+            }
+            prefix_name = PyUnicode_AsUTF8(py_prefix);
+        }
+
+        PyToolkit::getPyWorkspace().setRestricted(
+            restricted, py_restricted_context, py_restricted_context != nullptr, prefix_name
+        );
+        Py_RETURN_NONE;
+    }
+
+    PyObject *PyAPI_setRestricted(PyObject *self, PyObject *args, PyObject *kwargs)
+    {
+        PY_API_FUNC
+        return runSafe(trySetRestricted, self, args, kwargs);
+    }
     
     PyObject *tryInit(PyObject *self, PyObject *args, PyObject *kwargs)
     {        

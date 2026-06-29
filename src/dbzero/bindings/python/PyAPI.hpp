@@ -52,6 +52,7 @@ namespace db0::python
      * Opens or creates a prefix for read or read/write
     */
     PyObject *PyAPI_open(PyObject *self, PyObject *args, PyObject *kwargs);
+    PyObject *PyAPI_setRestricted(PyObject *self, PyObject *args, PyObject *kwargs);
     
     PyObject *PyAPI_drop(PyObject *self, PyObject *args);
     

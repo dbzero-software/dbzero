@@ -76,30 +76,21 @@ namespace db0::object_model
     {
         this->m_type = type;
         this->setInitComplete(true);
-        auto [restricted, restricted_ctx] = fixture->getObjectRestrictedFlags();
-        this->setRestricted(restricted);
-        this->setRestrictedCtx(restricted_ctx);
         assert(hasValidClassRef());
     }
     
     template <typename T, typename ImplT>
-    ObjectImplBase<T, ImplT>::ObjectImplBase(std::shared_ptr<Class> db0_class, std::pair<bool, bool> restricted_flags)
+    ObjectImplBase<T, ImplT>::ObjectImplBase(std::shared_ptr<Class> db0_class)
     {
         // prepare for initialization
         InitManager::instance.template addInitializerFor<ImplT>(*this, db0_class);
-        auto [restricted, restricted_ctx] = restricted_flags;
-        this->setRestricted(restricted);
-        this->setRestrictedCtx(restricted_ctx);
     }
     
     template <typename T, typename ImplT>
-    ObjectImplBase<T, ImplT>::ObjectImplBase(TypeInitializer &&type_initializer, std::pair<bool, bool> restricted_flags)
+    ObjectImplBase<T, ImplT>::ObjectImplBase(TypeInitializer &&type_initializer)
     {
         // prepare for initialization
         InitManager::instance.template addInitializerFor<ImplT>(*this, std::move(type_initializer));
-        auto [restricted, restricted_ctx] = restricted_flags;
-        this->setRestricted(restricted);
-        this->setRestrictedCtx(restricted_ctx);
     }
 
     template <typename T, typename ImplT>
@@ -111,9 +102,6 @@ namespace db0::object_model
     {
         this->m_type = type;
         this->setInitComplete(true);
-        auto [restricted, restricted_ctx] = fixture->getObjectRestrictedFlags();
-        this->setRestricted(restricted);
-        this->setRestrictedCtx(restricted_ctx);
     }
 
     template <typename T, typename ImplT>
@@ -121,9 +109,6 @@ namespace db0::object_model
         : super_t(typename super_t::tag_from_address(), fixture, address, access_mode)
     {
         this->setInitComplete(true);
-        auto [restricted, restricted_ctx] = fixture->getObjectRestrictedFlags();
-        this->setRestricted(restricted);
-        this->setRestrictedCtx(restricted_ctx);
     }
     
     template <typename T, typename ImplT>
@@ -132,9 +117,6 @@ namespace db0::object_model
     {
         this->m_type = type;
         this->setInitComplete(true);
-        auto [restricted, restricted_ctx] = fixture->getObjectRestrictedFlags();
-        this->setRestricted(restricted);
-        this->setRestrictedCtx(restricted_ctx);
         assert(hasValidClassRef());
     }
 

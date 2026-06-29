@@ -85,7 +85,10 @@ namespace db0::object_model
     }
 
     db0::swine_ptr<Fixture> ObjectInitializer::tryGetFixture() const {
-        return getClass().tryGetFixture();
+        if (m_class) {
+            return m_class->tryGetFixture();
+        }
+        return m_fixture;
     }
 
     std::pair<const XValue*, const XValue*> ObjectInitializer::getData(PosVT::Data &data, unsigned int &offset)

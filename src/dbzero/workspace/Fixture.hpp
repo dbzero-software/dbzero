@@ -287,11 +287,6 @@ DB0_PACKED_BEGIN
             return m_restricted_ctx;
         }
 
-        inline std::pair<bool, bool> getObjectRestrictedFlags() const {
-            auto restricted_ctx = m_restricted_ctx;
-            return {m_restricted || restricted_ctx, restricted_ctx};
-        }
-
         inline void setRestrictedCtx(bool restricted_ctx) {
             if (restricted_ctx) {
                 Settings::markRestrictedAccessUsed();

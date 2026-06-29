@@ -44,6 +44,9 @@ namespace db0::python
             // initialize dbzero with current working directory
             initWorkspace("");
         }
+
+        auto is_initial_prefix_config = !m_workspace->tryFindFixture(prefix_name);
+        m_restricted_contexts.validateOpenRestricted(*m_workspace, prefix_name, restricted);
         
         if (py_lock_flags) {
             db0::Config lock_flags_config(py_lock_flags);
@@ -55,10 +58,11 @@ namespace db0::python
                 {}, meta_io_step_size, page_io_step_size, restricted
             );
         }
-        if (restricted_context_given) {
-            setPrefixRestrictedContext(prefix_name, restricted_context);
+        if (restricted && *restricted) {
+            m_restricted_contexts.setRestricted(*m_workspace, m_config, restricted, nullptr, false, prefix_name);
         } else {
-            syncRestrictedCtxFlag(prefix_name);
+            m_restricted_contexts.applyOpenRestrictedContext(*m_workspace, prefix_name, restricted_context,
+                restricted_context_given, is_initial_prefix_config);
         }
     }
     
@@ -96,7 +100,7 @@ namespace db0::python
         m_workspace = std::shared_ptr<db0::Workspace>(
             new Workspace(root_path, std::move(cache_size), {}, {}, {}, python_fixture_initializer, m_config, default_lock_flags));
         m_workspace->setDefaultRestricted(restricted);
-        setRestrictedContext(restricted_context);
+        m_restricted_contexts.initDefault(*m_workspace, restricted_context);
 
         // register a callback to register bindings between known memo types (language specific objects)
         // and the corresponding Class instances. Note that types may be prefix agnostic therefore bindings may or
@@ -141,8 +145,7 @@ namespace db0::python
         db0::object_model::InitManager::instance.close();
         PyToolkit::getTypeManager().close(timer.get());
         m_config = nullptr;
-        m_restricted_context.reset();
-        m_prefix_restricted_contexts.clear();
+        m_restricted_contexts.clear();
         m_workspace = nullptr;
     }
     
@@ -169,47 +172,18 @@ namespace db0::python
         return m_config;
     }
 
-    void PyWorkspace::setRestrictedContext(ObjectPtr restricted_context)
-    {
-        if (restricted_context && restricted_context != Py_None) {
-            db0::Settings::markRestrictedAccessUsed();
-            m_restricted_context = Py_BORROW(restricted_context);
-        } else {
-            m_restricted_context.reset();
-        }
-        if (m_workspace) {
-            m_workspace->setDefaultRestrictedCtx(m_restricted_context.get() != nullptr);
-        }
-    }
-
-    void PyWorkspace::setPrefixRestrictedContext(const std::string &prefix_name, ObjectPtr restricted_context)
-    {
-        if (restricted_context && restricted_context != Py_None) {
-            db0::Settings::markRestrictedAccessUsed();
-            m_prefix_restricted_contexts[prefix_name] = Py_BORROW(restricted_context);
-        } else {
-            m_prefix_restricted_contexts.erase(prefix_name);
-        }
-        syncRestrictedCtxFlag(prefix_name);
-    }
-
     PyWorkspace::ObjectPtr PyWorkspace::getEffectiveRestrictedContext(const db0::Fixture &fixture) const
     {
-        auto it = m_prefix_restricted_contexts.find(fixture.getPrefix().getName());
-        if (it != m_prefix_restricted_contexts.end()) {
-            return it->second.get();
-        }
-        return m_restricted_context.get();
+        return m_restricted_contexts.getEffectiveContext(fixture);
     }
 
-    void PyWorkspace::syncRestrictedCtxFlag(const std::string &prefix_name)
+    void PyWorkspace::setRestricted(std::optional<bool> restricted, ObjectPtr restricted_context,
+        bool restricted_context_given, const std::optional<std::string> &prefix_name)
     {
         if (!m_workspace) {
-            return;
+            initWorkspace("");
         }
-        auto fixture = m_workspace->tryFindFixture(prefix_name);
-        if (!!fixture) {
-            db0::python::setFixtureRestrictedContext(fixture, getEffectiveRestrictedContext(*fixture));
-        }
+        m_restricted_contexts.setRestricted(*m_workspace, m_config, restricted, restricted_context,
+            restricted_context_given, prefix_name);
     }
 }
