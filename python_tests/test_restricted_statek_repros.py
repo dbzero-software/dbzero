@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 import gc
 import os
 import shutil
+from typing import Optional
 
 import pytest
 import dbzero as db0
@@ -57,7 +58,7 @@ class RestrictedMemoWithProtectedPostInitHelper:
 @dataclass
 class RestrictedMemoWithPostInitPublicFieldRead:
     role: str
-    role_seen_in_post_init: str | None = None
+    role_seen_in_post_init: Optional[str] = None
 
     def __post_init__(self):
         self.role_seen_in_post_init = self.role
