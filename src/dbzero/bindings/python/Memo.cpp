@@ -9,6 +9,7 @@
 #include <type_traits>
 #include "PySnapshot.hpp"
 #include "PyInternalAPI.hpp"
+#include "PyRestrictedMethod.hpp"
 #include "Utils.hpp"
 #include "Types.hpp"
 #include "Migration.hpp"
@@ -21,6 +22,7 @@
 #include <dbzero/object_model/value/Member.hpp>
 #include <dbzero/object_model/tags/TagIndex.hpp>
 #include <dbzero/core/exception/Exceptions.hpp>
+#include <dbzero/core/memory/config.hpp>
 #include <dbzero/core/utils/to_string.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/PrefixName.hpp>
@@ -39,7 +41,7 @@ namespace db0::python
 
     using ObjectSharedPtr = PyTypes::ObjectSharedPtr;
     using TypeObjectSharedPtr = PyTypes::TypeObjectSharedPtr;
-    
+
     // @return fully qualified memo type name: <module>.<type>
     std::string getMemoTypeName(PyObject *py_module, shared_py_object<PyTypeObject*> py_class)
     {
@@ -69,16 +71,17 @@ namespace db0::python
         MemoImplT *memo_obj = reinterpret_cast<MemoImplT*>(py_type->tp_alloc(py_type, 0));
         
         // if type cannot be retrieved due to access mode then defer this operation (fallback)
+        auto restricted = fixture->isRestricted();
         if (type) {
             // prepare a new dbzero instance of a known db0 class
-            memo_obj->makeNew(type);
+            memo_obj->makeNew(type, restricted);
         } else {
             auto type_initializer = [py_type](db0::swine_ptr<Fixture> &fixture) {
                 auto &class_factory = fixture->get<db0::object_model::ClassFactory>();
                 return class_factory.getOrCreateType(py_type);
             };
             // prepare a new db0 instance of a known db0 class
-            memo_obj->makeNew(std::move(type_initializer));
+            memo_obj->makeNew(std::move(type_initializer), restricted);
         }
         
         return memo_obj;
@@ -189,9 +192,10 @@ namespace db0::python
         // find py type associated dbzero class with the ClassFactory
         auto type = class_factory.tryGetOrCreateType(py_type);
         MemoObject *memo_obj = nullptr;
+        auto restricted = fixture->isRestricted();
         if (type) {
             memo_obj = reinterpret_cast<MemoObject*>(py_type->tp_alloc(py_type, 0));
-            memo_obj->makeNew(type);
+            memo_obj->makeNew(type, restricted);
         } else {
             // if type cannot be retrieved due to access mode then deferr this operation (fallback)
             auto type_initializer = [py_type](db0::swine_ptr<Fixture> &fixture) {
@@ -199,7 +203,7 @@ namespace db0::python
                 return class_factory.getOrCreateType(py_type);
             };
             memo_obj = reinterpret_cast<MemoObject*>(py_type->tp_alloc(py_type, 0));
-            memo_obj->makeNew(type_initializer);
+            memo_obj->makeNew(std::move(type_initializer), restricted);
         }
         
         return memo_obj;
@@ -250,6 +254,16 @@ namespace db0::python
     initproc MemoObject_getInitFunc(MemoImplT *self);
 
     template <typename MemoImplT>
+    bool shouldUseRestrictedMemoInit(MemoImplT *memo_obj)
+    {
+        if (!db0::Settings::hasRestrictedAccessEverBeenUsed()) {
+            return false;
+        }
+
+        return memo_obj->ext().isRestricted();
+    }
+
+    template <typename MemoImplT>
     int PyAPI_MemoObject_init(MemoImplT *self, PyObject* args, PyObject* kwds)
     {
         using Class = db0::object_model::Class;
@@ -262,7 +276,16 @@ namespace db0::python
         if (!self->ext().hasInstance()) {
             auto init_func = MemoObject_getInitFunc<MemoImplT>(self);
             // invoke tp_init from base type (wrapped pyhon class)
-            if (init_func && init_func((PyObject*)self, args, kwds) < 0) {
+            bool init_failed = false;
+            if (init_func) {
+                if (shouldUseRestrictedMemoInit(self)) {
+                    ScopedRestrictedMemoInit restricted_init;
+                    init_failed = init_func((PyObject*)self, args, kwds) < 0;
+                } else {
+                    init_failed = init_func((PyObject*)self, args, kwds) < 0;
+                }
+            }
+            if (init_failed) {
                 // mark object as defunct
                 self->ext().setDefunct();
                 PyObject *ptype, *pvalue, *ptraceback;
@@ -270,8 +293,8 @@ namespace db0::python
                 if (ptype == PyToolkit::getTypeManager().getBadPrefixError()) {
                     // from pvalue
                     std::uint64_t fixture_uuid = PyLong_AsUnsignedLong(pvalue);
-                    auto type = self->ext().getClassPtr();
-                    if (type->isExistingSingleton(fixture_uuid)) {
+                    auto type = self->ext().hasResolvedClass() ? self->ext().getClassPtr() : nullptr;
+                    if (type && type->isExistingSingleton(fixture_uuid)) {
                         // drop existing instance
                         // NOTE: may use ext() because destroy does not mutate the instance itself
                         const_cast<ExtT&>(self->ext()).destroy();
@@ -375,6 +398,16 @@ namespace db0::python
     }
 
     template <typename MemoImplT>
+    bool shouldUseRestrictedMemoGetattro(MemoImplT *memo_obj)
+    {
+        if (!db0::Settings::hasRestrictedAccessEverBeenUsed()) {
+            return false;
+        }
+
+        return memo_obj->ext().isRestricted() || isRestrictedMemoContextActive();
+    }
+
+    template <typename MemoImplT>
     PyObject *tryMemoObject_getattro(MemoImplT *memo_obj, PyObject *attr)
     {
         // The method resolution order for Memo types is following:
@@ -408,6 +441,15 @@ namespace db0::python
                 return member.steal();
             }
         }
+
+        if (shouldUseRestrictedMemoGetattro(memo_obj)) {
+            return tryRestrictedMemoGetattro(
+                reinterpret_cast<PyObject *>(memo_obj),
+                attr,
+                attr_name,
+                member
+            );
+        }
         
         // Fallback to type-level attribute lookup only (no instance dict)
         auto py_result = PyObject_GenericGetAttr(reinterpret_cast<PyObject*>(memo_obj), attr);
@@ -439,7 +481,7 @@ namespace db0::python
         if (!attr_name) {
             return -1;
         }
-        
+
         if (isPersistentAttrName(attr_name)) {
             try {
                 // must materialize the object before setting as an attribute

@@ -288,6 +288,7 @@ namespace db0::object_model
         }
 
         assert(this->hasInstance());
+        this->setInitComplete(true);
     }
 
     void ObjectImmutableImpl::setLangObject(ObjectPtr object) const

@@ -1,4 +1,4 @@
-project('dbzero', 'cpp', default_options :['buildtype=release', 'b_ndebug=if-release'])
+project('dbzero', 'cpp', default_options :['buildtype=release', 'b_ndebug=if-release', 'optimization=2'])
 
 cc = meson.get_compiler('cpp')
 compiler_id = cc.get_id()
@@ -7,6 +7,8 @@ message('Compiler ID: ' + compiler_id)
 message('Build system: ' + build_machine.system())
 
 if build_machine.system() == 'linux' or  build_machine.system() == 'darwin'
+    cpp_std_option = 'cpp_std=c++17'
+
     # Common flags for both GCC and Clang on Linux/Darwin
     common_args = [
         '-Wno-unused-result',
@@ -61,14 +63,8 @@ if build_machine.system() == 'linux' or  build_machine.system() == 'darwin'
         # Linux-specific: add address-of-packed-member warning suppression
         add_project_arguments('-Wno-address-of-packed-member', language : 'cpp')
     endif
-    
-    add_project_arguments('-std=c++17', language : 'cpp')  
 else 
-    if compiler_id == 'msvc'
-        add_project_arguments('/std:c++20', language : 'cpp')
-    else
-        add_project_arguments('-std=c++20', language : 'cpp')
-    endif
+    cpp_std_option = 'cpp_std=c++20'
 endif
 
 enable_debug_exceptions = get_option('enable_debug_exceptions')
@@ -93,9 +89,7 @@ endif
 
 buildtype = get_option('buildtype')
 build_suffix = ''
-if buildtype.startswith('release')
-    add_project_arguments('-O2',  language : 'cpp')
-elif buildtype.startswith('debug')
+if buildtype.startswith('debug')
     build_suffix='D'
 endif
 
@@ -130,7 +124,12 @@ tests_sources = []
 
 
 
-dbzero_lib = static_library('pyzero', [all_srcs], include_directories:include_dirs, dependencies: [deps], install : true, install_dir: install_dir)
+dbzero_lib = static_library('pyzero', [all_srcs],
+    include_directories:include_dirs,
+    dependencies: [deps],
+    override_options: [cpp_std_option],
+    install : true,
+    install_dir: install_dir)
 all_deps = [deps]
 build_tests = get_option('build_tests')
 if build_tests
@@ -151,8 +150,9 @@ if build_tests
     all_deps += gmock_dep
     message('Building C++ tests')
     subdir('tests')
-    e = executable('tests' + build_suffix + '.x', [all_srcs,tests_sources], dependencies: [deps, gtest_dep, gmock_dep], 
-                   link_with: [dbzero_lib, link_with], include_directories:include_dirs_test, link_language : 'cpp',)
+    e = executable('tests' + build_suffix + '.x', [all_srcs,tests_sources], dependencies: [deps, gtest_dep, gmock_dep],
+                   link_with: [dbzero_lib, link_with], include_directories:include_dirs_test, link_language : 'cpp',
+                   override_options: [cpp_std_option],)
     test('gtest tests', e)
 else
     message('Skipping C++ tests build')
@@ -166,6 +166,7 @@ py3avlw = py3_inst.extension_module('dbzero',
     link_language : 'cpp',
     override_options: [
         'cpp_rtti=true',
+        cpp_std_option,
     ],
     install: true,
     subdir: 'dbzero',

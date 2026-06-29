@@ -149,7 +149,15 @@ DB0_PACKED_BEGIN
         template <typename... Args> iterator append(const HeapCompT &comp, Args&&... args)
         {
             assert(!isFull());
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstringop-overflow"
+#endif
+            // GCC cannot infer the runtime allocation size for this overlaid dynamic area.
             (*this)[m_size++] = ItemT(std::forward<Args>(args)...);
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
             // heapify (as min heap), return pointer to the position of the item
             return dheap::push<D>(begin(), end(), comp);
         }

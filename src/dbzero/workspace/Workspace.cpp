@@ -358,7 +358,7 @@ namespace db0
         std::optional<AccessType> access_type, std::optional<std::size_t> page_size, 
         std::optional<std::size_t> slab_size, std::optional<std::size_t> sparse_index_node_size, 
         std::optional<bool> autocommit, std::optional<LockFlags> lock_flags, std::optional<std::size_t> meta_io_step_size,
-        std::optional<std::size_t> page_io_step_size)
+        std::optional<std::size_t> page_io_step_size, std::optional<bool> restricted)
     {
         bool file_created = false;
         auto uuid = getUUID(prefix_name);
@@ -380,6 +380,7 @@ namespace db0
                     Fixture::formatFixture(Memspace(prefix, allocator), *allocator);
                 }
                 auto fixture = db0::make_swine<Fixture>(*this, prefix, allocator, m_next_locked_section_id);
+                fixture->setRestricted(restricted.value_or(m_default_restricted));
                 if (m_fixture_initializer) {
                     // initialize fixture with a model-specific initializer
                     m_fixture_initializer(fixture, file_created, read_only, false);
@@ -434,6 +435,9 @@ namespace db0
             // FIXME: implement
             // throw std::runtime_error("Upgrade to read/write access is not implemented");
         }
+        if (restricted) {
+            it->second->setRestricted(*restricted);
+        }
         
         return it->second;
     }
@@ -442,10 +446,11 @@ namespace db0
         std::optional<std::size_t> page_size, std::optional<std::size_t> slab_size, 
         std::optional<std::size_t> sparse_index_node_size,
         std::optional<bool> autocommit, std::optional<LockFlags> lock_flags,
-        std::optional<std::size_t> meta_io_step_size, std::optional<std::size_t> page_io_step_size)
+        std::optional<std::size_t> meta_io_step_size, std::optional<std::size_t> page_io_step_size,
+        std::optional<bool> restricted)
     {
         auto fixture = tryGetFixtureEx(px_name, access_type, page_size, slab_size, sparse_index_node_size,
-            autocommit, lock_flags, meta_io_step_size, page_io_step_size
+            autocommit, lock_flags, meta_io_step_size, page_io_step_size, restricted
         );
         if (!fixture) {
             THROWF(db0::InputException) << "Prefix: " << px_name << " not found";
@@ -585,16 +590,30 @@ namespace db0
     
     void Workspace::open(const PrefixName &prefix_name, AccessType access_type, std::optional<bool> autocommit,
         std::optional<std::size_t> slab_size, std::optional<LockFlags> lock_flags, 
-        std::optional<std::size_t> meta_io_step_size, std::optional<std::size_t> page_io_step_size)
+        std::optional<std::size_t> meta_io_step_size, std::optional<std::size_t> page_io_step_size,
+        std::optional<bool> restricted)
     {
         auto fixture = getFixtureEx(prefix_name, access_type, {}, slab_size, {}, autocommit, 
-            lock_flags, meta_io_step_size, page_io_step_size
+            lock_flags, meta_io_step_size, page_io_step_size, restricted
         );
         // update default fixture
         if (!m_default_fixture || (*m_default_fixture != *fixture)) {
             m_default_fixture = fixture;
             m_current_prefix_history.push_back(prefix_name);
         }
+    }
+
+    void Workspace::setDefaultRestricted(bool restricted)
+    {
+        if (restricted) {
+            Settings::markRestrictedAccessUsed();
+        }
+        m_default_restricted = restricted;
+    }
+
+    bool Workspace::isDefaultRestricted() const
+    {
+        return m_default_restricted;
     }
     
     FixedObjectList &Workspace::getSharedObjectList() const {

@@ -173,7 +173,7 @@ namespace db0::python
         // prefix_name, open_mode, autocommit (bool)
         static const char *kwlist[] = {
             "prefix_name", "open_mode", "autocommit", "slab_size", "lock_flags", "meta_io_step_size", 
-            "page_io_step_size", NULL
+            "page_io_step_size", "restricted", NULL
         };
         const char *prefix_name = nullptr;
         const char *open_mode = nullptr;
@@ -182,8 +182,10 @@ namespace db0::python
         PyObject *py_lock_flags = nullptr;
         PyObject *py_meta_io_step_size = nullptr;
         PyObject *py_page_io_step_size = nullptr;
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|sOOOOO:open", const_cast<char**>(kwlist),
-            &prefix_name, &open_mode, &py_autocommit, &py_slab_size, &py_lock_flags, &py_meta_io_step_size, &py_page_io_step_size))
+        PyObject *py_restricted = nullptr;
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|sOOOOOO:open", const_cast<char**>(kwlist),
+            &prefix_name, &open_mode, &py_autocommit, &py_slab_size, &py_lock_flags, &py_meta_io_step_size,
+            &py_page_io_step_size, &py_restricted))
         {
             return NULL;
         }
@@ -234,9 +236,19 @@ namespace db0::python
             page_io_step_size = PyLong_AsUnsignedLong(py_page_io_step_size);
         }
 
+        std::optional<bool> restricted;
+        if (py_restricted && py_restricted != Py_None) {
+            int is_restricted = PyObject_IsTrue(py_restricted);
+            if (is_restricted < 0) {
+                return nullptr;
+            }
+            restricted = is_restricted;
+        }
+
         auto access_type = open_mode ? parseAccessType(open_mode) : db0::AccessType::READ_WRITE;
         PyToolkit::getPyWorkspace().open(
-            prefix_name, access_type, autocommit, slab_size, py_lock_flags, meta_io_step_size, page_io_step_size
+            prefix_name, access_type, autocommit, slab_size, py_lock_flags, meta_io_step_size, page_io_step_size,
+            restricted
         );
         Py_RETURN_NONE;
     }
@@ -251,10 +263,12 @@ namespace db0::python
     {        
         PyObject *py_path = nullptr;
         PyObject *py_config = nullptr;
-        PyObject *py_flags = nullptr;        
+        PyObject *py_flags = nullptr;
+        PyObject *py_restricted = nullptr;
         // extract optional "path" string argument and "autcommit_interval" keyword argument
-        static const char *kwlist[] = {"path", "config", "lock_flags", NULL};
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|OOO:init", const_cast<char**>(kwlist), &py_path, &py_config, &py_flags)) {
+        static const char *kwlist[] = {"path", "config", "lock_flags", "restricted", NULL};
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|OOOO:init", const_cast<char**>(kwlist), &py_path, &py_config,
+            &py_flags, &py_restricted)) {
             return NULL;
         }
 
@@ -321,7 +335,18 @@ namespace db0::python
             }
         }
         
-        PyToolkit::getPyWorkspace().initWorkspace(str_path, *config_obj, py_flags);
+        bool restricted = false;
+        if (py_restricted && py_restricted != Py_None) {
+            int is_restricted = PyObject_IsTrue(py_restricted);
+            if (is_restricted < 0) {
+                return nullptr;
+            }
+            restricted = is_restricted;
+        }
+        if (PyDict_SetItemString(*config_obj, "restricted", restricted ? Py_True : Py_False)) {
+            return nullptr;
+        }
+        PyToolkit::getPyWorkspace().initWorkspace(str_path, *config_obj, py_flags, restricted);
         Py_RETURN_NONE;
     }
     

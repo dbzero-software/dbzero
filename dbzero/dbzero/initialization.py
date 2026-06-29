@@ -25,6 +25,7 @@ def init(dbzero_root: str, **kwargs: Any) -> None:
         * read_write (bool, default True) set the open mode for the prefix
         
         Configure global dbzero behavior:
+        * restricted (bool, default False) to restrict memo reflection access for future opened prefixes
         * autocommit (bool, default True) to enable automatic commits
         * autocommit_interval (int, default 367) for commit interval in milliseconds
         * cache_size (int, default 2 GiB) for main object cache size in bytes
@@ -52,6 +53,9 @@ def init(dbzero_root: str, **kwargs: Any) -> None:
     if "lock_flags" in kwargs:
         init_kwargs["lock_flags"] = kwargs["lock_flags"]
 
+    if "restricted" in kwargs:
+        init_kwargs["restricted"] = kwargs["restricted"]
+
     rpc = kwargs.get("rpc")
     if rpc is not None and not isinstance(rpc, Mapping):
         raise TypeError("rpc must be a mapping")
@@ -64,4 +68,7 @@ def init(dbzero_root: str, **kwargs: Any) -> None:
 
     if "prefix" in kwargs:
         open_mode = "rw" if kwargs.get("read_write", True) else "r"
-        dbzero_open(kwargs["prefix"], open_mode=open_mode)
+        open_kwargs = {}
+        if "restricted" in kwargs:
+            open_kwargs["restricted"] = kwargs["restricted"]
+        dbzero_open(kwargs["prefix"], open_mode=open_mode, **open_kwargs)

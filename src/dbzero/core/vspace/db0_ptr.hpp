@@ -128,7 +128,7 @@ DB0_PACKED_BEGIN
         friend struct db0_ptr_reinterpret_cast<T>;
         friend struct std::hash<db0::db0_ptr<T>>;
 
-        db0_ptr<T>(Address address)
+        db0_ptr(Address address)
             : m_address(address)
         {
         }
@@ -170,10 +170,10 @@ DB0_PACKED_BEGIN
         db0_unique_ptr<T> &operator=(const db0_unique_ptr<T> &) = delete;
 
         // copy forbidden
-        db0_unique_ptr<T>(const db0_unique_ptr<T> &) = delete;
+        db0_unique_ptr(const db0_unique_ptr &) = delete;
 
         // move constructor
-        db0_unique_ptr<T>(db0_unique_ptr<T>&& other) = delete;
+        db0_unique_ptr(db0_unique_ptr&& other) = delete;
 
         // move assignment
         db0_unique_ptr<T>& operator=(db0_unique_ptr<T>&& other) = delete;
@@ -266,4 +266,3 @@ namespace std
     };
     
 }
-

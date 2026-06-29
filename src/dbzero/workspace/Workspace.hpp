@@ -177,14 +177,14 @@ namespace db0
             std::optional<std::size_t> sparse_index_node_size = {},
             std::optional<bool> autocommit = {}, std::optional<LockFlags> lock_flags = {},
             std::optional<std::size_t> meta_io_step_size = {}, 
-            std::optional<std::size_t> page_io_step_size = {});
+            std::optional<std::size_t> page_io_step_size = {}, std::optional<bool> restricted = {});
         
         swine_ptr<Fixture> getFixtureEx(const PrefixName &, std::optional<AccessType> = AccessType::READ_WRITE,
             std::optional<std::size_t> page_size = {}, std::optional<std::size_t> slab_size = {}, 
             std::optional<std::size_t> sparse_index_node_size = {},
             std::optional<bool> autocommit = {}, std::optional<LockFlags> lock_flags = {},
             std::optional<std::size_t> meta_io_step_size = {}, 
-            std::optional<std::size_t> page_io_step_size = {});
+            std::optional<std::size_t> page_io_step_size = {}, std::optional<bool> restricted = {});
         
         /**
          * Get existing fixture by UUID
@@ -227,8 +227,12 @@ namespace db0
         */
         void open(const PrefixName &, AccessType access_type, std::optional<bool> autocommit = {},
             std::optional<std::size_t> slab_size = {}, std::optional<LockFlags> default_lock_flags = {}, 
-            std::optional<std::size_t> meta_io_step_size = {}, std::optional<std::size_t> page_io_step_size = {}
+            std::optional<std::size_t> meta_io_step_size = {}, std::optional<std::size_t> page_io_step_size = {},
+            std::optional<bool> restricted = {}
         );
+
+        void setDefaultRestricted(bool restricted);
+        bool isDefaultRestricted() const;
         
         bool drop(const PrefixName &, bool if_exists = true);
 
@@ -323,7 +327,8 @@ namespace db0
         // Python wrapper; the workspace only observes the current lexical/LIFO context.
         std::vector<AtomicContext*> m_atomic_context_stack;
         mutable std::shared_ptr<LangCache> m_lang_cache;
-        std::unique_ptr<WorkspaceThreads> m_workspace_threads;        
+        std::unique_ptr<WorkspaceThreads> m_workspace_threads;
+        bool m_default_restricted = false;
         // associated workspace views (some of which may already be deleted)
         mutable db0::weak_vector<WorkspaceView> m_views;
         // the designated "head" view with the prolonged lifetime

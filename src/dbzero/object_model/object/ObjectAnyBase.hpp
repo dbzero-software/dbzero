@@ -38,7 +38,11 @@ namespace db0::object_model
         // the dbzero instance has been deleted
         DROPPED = 0x01,
         // object is defunct - e.g. due to exception on __init__
-        DEFUNCT = 0x02
+        DEFUNCT = 0x02,
+        // runtime state: initialization has finalized
+        INIT_COMPLETE = 0x04,
+        // runtime state: access to this object is restricted
+        RESTRICTED = 0x08
     };
     
     using ObjectFlags = db0::FlagSet<ObjectOptions>;
@@ -74,6 +78,10 @@ namespace db0::object_model
         inline std::shared_ptr<Class> getClassPtr() const {
             return this->m_type ? this->m_type : InitManager::instance.getInitializer(*this).getClassPtr();
         }
+
+        inline bool hasResolvedClass() const {
+            return !!this->m_type;
+        }
         
         inline const Class &getType() const {
             return this->m_type ? *this->m_type : InitManager::instance.getInitializer(*this).getClass();
@@ -104,6 +112,22 @@ namespace db0::object_model
 
         // NOTE: the operation is marked const because the dbzero state is not affected
         void setDefunct() const;
+
+        inline void setInitComplete(bool enabled) const {
+            m_flags.set(ObjectOptions::INIT_COMPLETE, enabled);
+        }
+
+        inline bool isInitComplete() const {
+            return m_flags.test(ObjectOptions::INIT_COMPLETE);
+        }
+
+        inline void setRestricted(bool enabled) const {
+            m_flags.set(ObjectOptions::RESTRICTED, enabled);
+        }
+
+        inline bool isRestricted() const {
+            return m_flags.test(ObjectOptions::RESTRICTED);
+        }
 
         void markDead();
 
@@ -166,4 +190,4 @@ namespace db0::object_model
     
 }
 
-DECLARE_ENUM_VALUES(db0::object_model::ObjectOptions, 2)
+DECLARE_ENUM_VALUES(db0::object_model::ObjectOptions, 4)
