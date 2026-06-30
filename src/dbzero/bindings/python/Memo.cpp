@@ -71,17 +71,16 @@ namespace db0::python
         MemoImplT *memo_obj = reinterpret_cast<MemoImplT*>(py_type->tp_alloc(py_type, 0));
         
         // if type cannot be retrieved due to access mode then defer this operation (fallback)
-        auto restricted = fixture->isRestricted();
         if (type) {
             // prepare a new dbzero instance of a known db0 class
-            memo_obj->makeNew(type, restricted);
+            memo_obj->makeNew(type);
         } else {
             auto type_initializer = [py_type](db0::swine_ptr<Fixture> &fixture) {
                 auto &class_factory = fixture->get<db0::object_model::ClassFactory>();
                 return class_factory.getOrCreateType(py_type);
             };
             // prepare a new db0 instance of a known db0 class
-            memo_obj->makeNew(std::move(type_initializer), restricted);
+            memo_obj->makeNew(std::move(type_initializer));
         }
         
         return memo_obj;
@@ -192,10 +191,9 @@ namespace db0::python
         // find py type associated dbzero class with the ClassFactory
         auto type = class_factory.tryGetOrCreateType(py_type);
         MemoObject *memo_obj = nullptr;
-        auto restricted = fixture->isRestricted();
         if (type) {
             memo_obj = reinterpret_cast<MemoObject*>(py_type->tp_alloc(py_type, 0));
-            memo_obj->makeNew(type, restricted);
+            memo_obj->makeNew(type);
         } else {
             // if type cannot be retrieved due to access mode then deferr this operation (fallback)
             auto type_initializer = [py_type](db0::swine_ptr<Fixture> &fixture) {
@@ -203,7 +201,7 @@ namespace db0::python
                 return class_factory.getOrCreateType(py_type);
             };
             memo_obj = reinterpret_cast<MemoObject*>(py_type->tp_alloc(py_type, 0));
-            memo_obj->makeNew(std::move(type_initializer), restricted);
+            memo_obj->makeNew(std::move(type_initializer));
         }
         
         return memo_obj;
@@ -260,7 +258,18 @@ namespace db0::python
             return false;
         }
 
-        return memo_obj->ext().isRestricted();
+        auto fixture = memo_obj->ext().tryGetFixture();
+        if (!fixture) {
+            return false;
+        }
+
+        if (fixture->isRestricted()) {
+            return true;
+        }
+        if (!fixture->isRestrictedCtx()) {
+            return false;
+        }
+        return resolveRestrictedCtx(*fixture);
     }
 
     template <typename MemoImplT>
@@ -404,7 +413,18 @@ namespace db0::python
             return false;
         }
 
-        return memo_obj->ext().isRestricted() || isRestrictedMemoContextActive();
+        auto fixture = memo_obj->ext().tryGetFixture();
+        if (!fixture) {
+            return false;
+        }
+
+        if (fixture->isRestricted()) {
+            return true;
+        }
+        if (!fixture->isRestrictedCtx()) {
+            return false;
+        }
+        return resolveRestrictedCtx(*fixture);
     }
 
     template <typename MemoImplT>

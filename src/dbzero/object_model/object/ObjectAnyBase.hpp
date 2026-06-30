@@ -40,9 +40,7 @@ namespace db0::object_model
         // object is defunct - e.g. due to exception on __init__
         DEFUNCT = 0x02,
         // runtime state: initialization has finalized
-        INIT_COMPLETE = 0x04,
-        // runtime state: access to this object is restricted
-        RESTRICTED = 0x08
+        INIT_COMPLETE = 0x04
     };
     
     using ObjectFlags = db0::FlagSet<ObjectOptions>;
@@ -121,14 +119,6 @@ namespace db0::object_model
             return m_flags.test(ObjectOptions::INIT_COMPLETE);
         }
 
-        inline void setRestricted(bool enabled) const {
-            m_flags.set(ObjectOptions::RESTRICTED, enabled);
-        }
-
-        inline bool isRestricted() const {
-            return m_flags.test(ObjectOptions::RESTRICTED);
-        }
-
         void markDead();
 
         inline bool isDropped() const {
@@ -190,4 +180,4 @@ namespace db0::object_model
     
 }
 
-DECLARE_ENUM_VALUES(db0::object_model::ObjectOptions, 4)
+DECLARE_ENUM_VALUES(db0::object_model::ObjectOptions, 3)

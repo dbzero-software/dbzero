@@ -58,7 +58,6 @@ namespace db0::object_model
             auto fixture = this->getFixture();
             LangToolkit::setError(LangToolkit::getTypeManager().getBadPrefixError(), fixture->getUUID());
         }
-        this->setRestricted(new_fixture->isRestricted());
     }
     
     template <typename T, typename ImplT>

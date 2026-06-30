@@ -173,7 +173,7 @@ namespace db0::python
         // prefix_name, open_mode, autocommit (bool)
         static const char *kwlist[] = {
             "prefix_name", "open_mode", "autocommit", "slab_size", "lock_flags", "meta_io_step_size", 
-            "page_io_step_size", "restricted", NULL
+            "page_io_step_size", "restricted", "restricted_context", NULL
         };
         const char *prefix_name = nullptr;
         const char *open_mode = nullptr;
@@ -183,9 +183,10 @@ namespace db0::python
         PyObject *py_meta_io_step_size = nullptr;
         PyObject *py_page_io_step_size = nullptr;
         PyObject *py_restricted = nullptr;
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|sOOOOOO:open", const_cast<char**>(kwlist),
+        PyObject *py_restricted_context = nullptr;
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|sOOOOOOO:open", const_cast<char**>(kwlist),
             &prefix_name, &open_mode, &py_autocommit, &py_slab_size, &py_lock_flags, &py_meta_io_step_size,
-            &py_page_io_step_size, &py_restricted))
+            &py_page_io_step_size, &py_restricted, &py_restricted_context))
         {
             return NULL;
         }
@@ -248,7 +249,7 @@ namespace db0::python
         auto access_type = open_mode ? parseAccessType(open_mode) : db0::AccessType::READ_WRITE;
         PyToolkit::getPyWorkspace().open(
             prefix_name, access_type, autocommit, slab_size, py_lock_flags, meta_io_step_size, page_io_step_size,
-            restricted
+            restricted, py_restricted_context, py_restricted_context != nullptr
         );
         Py_RETURN_NONE;
     }
@@ -258,6 +259,48 @@ namespace db0::python
         PY_API_FUNC
         return runSafe(tryOpen, self, args, kwargs);
     }
+
+    PyObject *trySetRestricted(PyObject *, PyObject *args, PyObject *kwargs)
+    {
+        PyObject *py_restricted = nullptr;
+        PyObject *py_restricted_context = nullptr;
+        PyObject *py_prefix = nullptr;
+        static const char *kwlist[] = {"restricted", "restricted_context", "prefix", NULL};
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|OOO:set_restricted", const_cast<char**>(kwlist),
+            &py_restricted, &py_restricted_context, &py_prefix))
+        {
+            return NULL;
+        }
+
+        std::optional<bool> restricted;
+        if (py_restricted && py_restricted != Py_None) {
+            auto is_restricted = PyObject_IsTrue(py_restricted);
+            if (is_restricted < 0) {
+                return NULL;
+            }
+            restricted = is_restricted;
+        }
+
+        std::optional<std::string> prefix_name;
+        if (py_prefix && py_prefix != Py_None) {
+            if (!PyUnicode_Check(py_prefix)) {
+                PyErr_SetString(PyExc_TypeError, "Invalid argument type: prefix");
+                return NULL;
+            }
+            prefix_name = PyUnicode_AsUTF8(py_prefix);
+        }
+
+        PyToolkit::getPyWorkspace().setRestricted(
+            restricted, py_restricted_context, py_restricted_context != nullptr, prefix_name
+        );
+        Py_RETURN_NONE;
+    }
+
+    PyObject *PyAPI_setRestricted(PyObject *self, PyObject *args, PyObject *kwargs)
+    {
+        PY_API_FUNC
+        return runSafe(trySetRestricted, self, args, kwargs);
+    }
     
     PyObject *tryInit(PyObject *self, PyObject *args, PyObject *kwargs)
     {        
@@ -265,10 +308,11 @@ namespace db0::python
         PyObject *py_config = nullptr;
         PyObject *py_flags = nullptr;
         PyObject *py_restricted = nullptr;
+        PyObject *py_restricted_context = nullptr;
         // extract optional "path" string argument and "autcommit_interval" keyword argument
-        static const char *kwlist[] = {"path", "config", "lock_flags", "restricted", NULL};
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|OOOO:init", const_cast<char**>(kwlist), &py_path, &py_config,
-            &py_flags, &py_restricted)) {
+        static const char *kwlist[] = {"path", "config", "lock_flags", "restricted", "restricted_context", NULL};
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|OOOOO:init", const_cast<char**>(kwlist), &py_path, &py_config,
+            &py_flags, &py_restricted, &py_restricted_context)) {
             return NULL;
         }
 
@@ -346,7 +390,7 @@ namespace db0::python
         if (PyDict_SetItemString(*config_obj, "restricted", restricted ? Py_True : Py_False)) {
             return nullptr;
         }
-        PyToolkit::getPyWorkspace().initWorkspace(str_path, *config_obj, py_flags, restricted);
+        PyToolkit::getPyWorkspace().initWorkspace(str_path, *config_obj, py_flags, restricted, py_restricted_context);
         Py_RETURN_NONE;
     }
     

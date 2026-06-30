@@ -19,6 +19,7 @@ namespace db0
         // copy all known type mappings from the head fixture
         view->get<db0::object_model::ClassFactory>().initWith(class_factory);
         view->setRestricted(head->isRestricted());
+        view->setRestrictedCtx(head->isRestrictedCtx());
     }
     
     WorkspaceView::WorkspaceView(std::shared_ptr<Workspace> workspace, std::optional<std::uint64_t> state_num,
