@@ -228,7 +228,7 @@ namespace db0
         void open(const PrefixName &, AccessType access_type, std::optional<bool> autocommit = {},
             std::optional<std::size_t> slab_size = {}, std::optional<LockFlags> default_lock_flags = {}, 
             std::optional<std::size_t> meta_io_step_size = {}, std::optional<std::size_t> page_io_step_size = {},
-            std::optional<bool> restricted = {}
+            std::optional<bool> restricted = {}, std::optional<PrefixFlags> prefix_flags = {}
         );
 
         void setDefaultRestricted(bool restricted);
@@ -291,6 +291,10 @@ namespace db0
         
         const FixtureCatalog &getFixtureCatalog() const;
 
+        void setPrefixFlags(const PrefixName &, const PrefixFlags &);
+        std::optional<PrefixFlags> getPrefixFlags(const PrefixName &) const override;
+        bool isNoAutoMigrate(const PrefixName &) const;
+
         std::shared_ptr<WorkspaceView> getWorkspaceView(
             std::optional<std::uint64_t> state_num = {},
             const std::unordered_map<std::string, std::uint64_t> &prefix_state_nums = {}) const;
@@ -342,6 +346,7 @@ namespace db0
         std::unordered_set<unsigned int> m_locked_section_ids;
         // log of prefixes closed inside locked sections
         std::unordered_map<unsigned int, std::vector<std::pair<std::string, std::uint64_t> > > m_locked_section_log;
+        std::unordered_map<std::string, PrefixFlags> m_prefix_flags;
         // this is to prevent recursive cleanups (which might result in a deadlock)
         mutable std::atomic<bool> m_cleanup_pending = false;
         

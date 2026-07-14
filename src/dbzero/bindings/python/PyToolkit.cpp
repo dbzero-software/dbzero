@@ -26,6 +26,7 @@
 #include <dbzero/object_model/object/o_embedded_object.hpp>
 #include <dbzero/object_model/tuple/o_tuple.hpp>
 #include <dbzero/workspace/Fixture.hpp>
+#include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/bindings/python/types/DateTime.hpp>
 #include <dbzero/bindings/python/iter/PyObjectIterable.hpp>
 #include <dbzero/bindings/python/iter/PyObjectIterator.hpp>
@@ -1214,6 +1215,19 @@ namespace db0::python
         }
     }
 
+    bool PyToolkit::isNoAutoMigrate(const db0::Fixture &fixture)
+    {
+        auto prefix_name = fixture.tryGetPrefixName();
+        auto &snapshot = fixture.getWorkspace();
+        auto prefix_flags = snapshot.getPrefixFlags(prefix_name);
+        if (prefix_flags && prefix_flags->has(PrefixOptions::NO_AUTO_MIGRATE)) {
+            return prefix_flags->get(PrefixOptions::NO_AUTO_MIGRATE);
+        }
+
+        auto *workspace = dynamic_cast<const db0::Workspace *>(&snapshot.getHeadWorkspace());
+        return workspace && workspace->isNoAutoMigrate(prefix_name);
+    }
+
     FlagSet<MemoOptions> PyToolkit::getMemoFlags(TypeObjectPtr py_type)
     {
         if (isAnyMemoType(py_type)) {
@@ -1239,6 +1253,32 @@ namespace db0::python
     {
         assert(isAnyMemoType(memo_type));
         return MemoTypeDecoration::get(memo_type).getInitVars();
+    }
+
+    std::vector<std::string> PyToolkit::getTagFields(TypeObjectPtr memo_type)
+    {
+        assert(isAnyMemoType(memo_type));
+        auto py_tag_fields = Py_OWN(PyObject_GetAttrString(reinterpret_cast<PyObject*>(memo_type),
+            "__DBZERO_TAG_FIELDS_ATTR"));
+        if (!py_tag_fields) {
+            PyErr_Clear();
+            return MemoTypeDecoration::get(memo_type).getTagFields();
+        }
+        if (!PyTuple_Check(*py_tag_fields)) {
+            return MemoTypeDecoration::get(memo_type).getTagFields();
+        }
+
+        std::vector<std::string> result;
+        auto size = PyTuple_Size(*py_tag_fields);
+        result.reserve(size);
+        for (Py_ssize_t index = 0; index < size; ++index) {
+            auto item = PyTuple_GetItem(*py_tag_fields, index);
+            if (!PyUnicode_Check(item)) {
+                return MemoTypeDecoration::get(memo_type).getTagFields();
+            }
+            result.emplace_back(PyUnicode_AsUTF8(item));
+        }
+        return result;
     }
     
     bool PyToolkit::isAnyMemoType(TypeObjectPtr py_type) {

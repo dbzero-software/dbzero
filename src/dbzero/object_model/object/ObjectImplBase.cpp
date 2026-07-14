@@ -179,7 +179,7 @@ namespace db0::object_model
     }
 
     template <typename T, typename ImplT>
-    void ObjectImplBase<T, ImplT>::postInit(FixtureLock &fixture)
+    void ObjectImplBase<T, ImplT>::postInit(FixtureLock &fixture, ObjectPtr lang_object)
     {
         if constexpr (std::is_same_v<ImplT, ObjectImmutableImpl>) {
             assert(false && "ObjectImmutableImpl::postInit must be used for immutable objects");
@@ -213,6 +213,7 @@ namespace db0::object_model
             if (type.isSingleton()) {
                 type.setSingletonAddress(*this);
             }
+            initializer.flushTagFields(lang_object);
             initializer.close();            
         }
         
@@ -237,7 +238,7 @@ namespace db0::object_model
     }
     
     template <typename T, typename ImplT>
-    void ObjectImplBase<T, ImplT>::removePreInit(const char *field_name) const
+    MemberID ObjectImplBase<T, ImplT>::removePreInit(const char *field_name) const
     {
         auto &initializer = InitManager::instance.getInitializer(*this);
         auto &type = initializer.getClass();
@@ -265,14 +266,20 @@ namespace db0::object_model
                     lofi_store<2>::mask(loc.second));
             }
         }
+        return member_id;
     }
     
     template <typename T, typename ImplT>
-    void ObjectImplBase<T, ImplT>::setPreInit(const char *field_name, TypeId type_id, ObjectPtr obj_ptr) const
+    void ObjectImplBase<T, ImplT>::setPreInit(const char *field_name, TypeId type_id, ObjectPtr obj_ptr,
+        bool is_tag_field) const
     {
         assert(!this->hasInstance());
         if (!LangToolkit::isValid(obj_ptr)) {
-            removePreInit(field_name);
+            auto member_id = removePreInit(field_name);
+            if (is_tag_field) {
+                auto &initializer = InitManager::instance.getInitializer(*this);
+                initializer.setTagField(member_id.primary().first, obj_ptr);
+            }
             return;
         }
 
@@ -292,7 +299,7 @@ namespace db0::object_model
         if (!member_id || !member_id.hasFidelity(storage_fidelity)) {
             // update class definition
             // use the default fidelity for the storage class
-            member_id = type.addField(field_name, storage_fidelity);
+            member_id = type.addField(field_name, storage_fidelity, type.isDeclaredTagField(field_name));
         }
         
         if (storage_fidelity == 0) {
@@ -336,13 +343,16 @@ namespace db0::object_model
             auto mask = lofi_store<2>::mask(loc.second);
             initializer.set(loc, storage_class, value, mask);
         }
+        if (is_tag_field) {
+            initializer.setTagField(member_id.primary().first, obj_ptr);
+        }
     }
     
     template <typename T, typename ImplT>
-    void ObjectImplBase<T, ImplT>::setPreInit(const char *field_name, ObjectPtr obj_ptr) const
+    void ObjectImplBase<T, ImplT>::setPreInit(const char *field_name, ObjectPtr obj_ptr, bool is_tag_field) const
     {
         auto type_id = LangToolkit::getTypeManager().getTypeId(obj_ptr);
-        setPreInit(field_name, type_id, obj_ptr);
+        setPreInit(field_name, type_id, obj_ptr, is_tag_field);
     }
 
     template <typename T, typename ImplT>

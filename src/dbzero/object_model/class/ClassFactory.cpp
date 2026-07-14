@@ -3,11 +3,18 @@
 
 #include "ClassFactory.hpp"
 #include "Class.hpp"
+#include <dbzero/bindings/python/Memo.hpp>
+#include <dbzero/bindings/python/MigrateError.hpp>
 #include <dbzero/workspace/Fixture.hpp>
+#include <dbzero/core/memory/SieveCache.hpp>
 #include <dbzero/core/utils/conversions.hpp>
 #include <dbzero/workspace/Snapshot.hpp>
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/object_model/value/ObjectId.hpp>
+#include <dbzero/object_model/tags/ObjectIterator.hpp>
+#include <dbzero/object_model/tags/TagIndex.hpp>
+#include <algorithm>
+#include <unordered_set>
 
 namespace db0::object_model
 
@@ -85,6 +92,257 @@ namespace db0::object_model
         }
     }
 
+    bool sameFieldIds(const std::vector<FieldID> &lhs, const std::vector<FieldID> &rhs)
+    {
+        if (lhs.size() != rhs.size()) {
+            return false;
+        }
+        for (std::size_t i = 0; i < lhs.size(); ++i) {
+            if (!(lhs[i] == rhs[i])) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    std::vector<FieldID> resolveDeclaredTagFields(const Class &type, const std::vector<std::string> &tag_fields)
+    {
+        std::vector<FieldID> result;
+        std::unordered_set<std::uint32_t> seen;
+        for (const auto &field_name: tag_fields) {
+            auto member = type.tryGetMember(field_name.c_str());
+            if (member) {
+                auto long_index = member->m_field_id.getLongIndex();
+                if (seen.insert(long_index).second) {
+                    result.push_back(member->m_field_id);
+                }
+            }
+        }
+        return result;
+    }
+
+    std::unordered_set<std::uint32_t> fieldIdSet(const std::vector<FieldID> &field_ids)
+    {
+        std::unordered_set<std::uint32_t> result;
+        for (const auto &field_id: field_ids) {
+            result.insert(field_id.getLongIndex());
+        }
+        return result;
+    }
+
+    std::vector<FieldID> differenceById(const std::vector<FieldID> &lhs, const std::vector<FieldID> &rhs)
+    {
+        auto rhs_set = fieldIdSet(rhs);
+        std::vector<FieldID> result;
+        for (const auto &field_id: lhs) {
+            if (rhs_set.find(field_id.getLongIndex()) == rhs_set.end()) {
+                result.push_back(field_id);
+            }
+        }
+        return result;
+    }
+
+    struct TagFieldEdit
+    {
+        std::vector<FieldID> remove;
+        std::vector<FieldID> add;
+    };
+
+    TagFieldEdit makeOrderedTagFieldEdit(const std::vector<FieldID> &old_tag_field_ids,
+        const std::vector<FieldID> &new_tag_field_ids)
+    {
+        std::size_t common_prefix_size = 0;
+        while (common_prefix_size < old_tag_field_ids.size()
+            && common_prefix_size < new_tag_field_ids.size()
+            && old_tag_field_ids[common_prefix_size] == new_tag_field_ids[common_prefix_size])
+        {
+            ++common_prefix_size;
+        }
+
+        TagFieldEdit edit;
+        edit.remove.insert(edit.remove.end(), old_tag_field_ids.begin() + common_prefix_size,
+            old_tag_field_ids.end());
+        edit.add.insert(edit.add.end(), new_tag_field_ids.begin() + common_prefix_size,
+            new_tag_field_ids.end());
+        return edit;
+    }
+
+    std::optional<MemberLoc> tryMemberLoc(const Class &type, FieldID field_id)
+    {
+        auto member = type.tryGetMember(field_id);
+        if (!member) {
+            return {};
+        }
+        return type.findField(member->m_name.c_str());
+    }
+
+    template <typename MemoT>
+    typename TagIndex::ObjectSharedPtr tryGetMemoField(MemoT *memo_obj, const MemberLoc &member_loc)
+    {
+        return memo_obj->ext().tryGet(member_loc);
+    }
+
+    TagIndex::ObjectSharedPtr tryGetMemoField(TagIndex::ObjectPtr py_obj, const MemberLoc &member_loc)
+    {
+        if (db0::python::PyMemo_Check<db0::python::MemoObject>(py_obj)) {
+            return tryGetMemoField(reinterpret_cast<db0::python::MemoObject *>(py_obj), member_loc);
+        }
+        if (db0::python::PyMemo_Check<db0::python::MemoImmutableObject>(py_obj)) {
+            return tryGetMemoField(reinterpret_cast<db0::python::MemoImmutableObject *>(py_obj), member_loc);
+        }
+        return {};
+    }
+
+    template <typename MemoT>
+    const Class &getMemoType(MemoT *memo_obj)
+    {
+        return memo_obj->ext().getType();
+    }
+
+    const Class *tryGetMemoType(TagIndex::ObjectPtr py_obj)
+    {
+        if (db0::python::PyMemo_Check<db0::python::MemoObject>(py_obj)) {
+            return &getMemoType(reinterpret_cast<db0::python::MemoObject *>(py_obj));
+        }
+        if (db0::python::PyMemo_Check<db0::python::MemoImmutableObject>(py_obj)) {
+            return &getMemoType(reinterpret_cast<db0::python::MemoImmutableObject *>(py_obj));
+        }
+        return nullptr;
+    }
+
+    struct TagFieldMigrateMemberLocs
+    {
+        std::vector<std::optional<MemberLoc> > removed;
+        std::vector<std::optional<MemberLoc> > added;
+    };
+
+    class TagFieldMigrateCache:
+        public db0::SieveCache<const Class *, TagFieldMigrateMemberLocs, 4>
+    {
+    public:
+        using MemberLocs = TagFieldMigrateMemberLocs;
+        using Super = db0::SieveCache<const Class *, TagFieldMigrateMemberLocs, 4>;
+
+        TagFieldMigrateCache(const std::vector<FieldID> &removed_ids, const std::vector<FieldID> &added_ids)
+            : m_removed_ids(removed_ids)
+            , m_added_ids(added_ids)
+        {
+        }
+
+        const MemberLocs &get(const Class &type)
+        {
+            return Super::getOrCreate(&type, [&] {
+                return resolve(type);
+            });
+        }
+
+    private:
+        MemberLocs resolve(const Class &type) const
+        {
+            MemberLocs member_locs;
+            member_locs.removed.reserve(m_removed_ids.size());
+            for (const auto &field_id: m_removed_ids) {
+                member_locs.removed.push_back(tryMemberLoc(type, field_id));
+            }
+            member_locs.added.reserve(m_added_ids.size());
+            for (const auto &field_id: m_added_ids) {
+                member_locs.added.push_back(tryMemberLoc(type, field_id));
+            }
+            return member_locs;
+        }
+
+        const std::vector<FieldID> &m_removed_ids;
+        const std::vector<FieldID> &m_added_ids;
+    };
+
+    void migrateTagFields(Class &type, const std::vector<FieldID> &passive_removed_ids,
+        const std::vector<FieldID> &passive_added_ids, const TagFieldEdit &tag_field_edit)
+    {
+        auto fixture = type.getFixture();
+        if (fixture->getAccessType() != AccessType::READ_WRITE) {
+            return;
+        }
+
+        auto &tag_index = fixture->get<TagIndex>();
+        db0::FixtureLock lock(fixture);
+        tag_index.flush();
+        try {
+            auto query = tag_index.makeIterator(type);
+            if (query) {
+                TagFieldMigrateCache migrate_cache(passive_removed_ids, passive_added_ids);
+                ObjectIterator iterator(fixture, std::move(query), type.shared_from_this());
+                for (;;) {
+                    auto obj = iterator.next();
+                    if (!obj.get()) {
+                        break;
+                    }
+                    auto obj_type = tryGetMemoType(obj.get());
+                    if (!obj_type || !(*obj_type == type)) {
+                        continue;
+                    }
+                    const auto &member_locs = migrate_cache.get(*obj_type);
+                    for (const auto &member_loc: member_locs.removed) {
+                        if (!member_loc) {
+                            continue;
+                        }
+                        auto value = tryGetMemoField(obj.get(), *member_loc);
+                        if (!!value && value.get() != Py_None) {
+                            auto tag = tag_index.preparePassiveTag(value.get());
+                            tag_index.remove(obj.get(), tag);
+                        }
+                    }
+                    for (const auto &member_loc: member_locs.added) {
+                        if (!member_loc) {
+                            continue;
+                        }
+                        auto value = tryGetMemoField(obj.get(), *member_loc);
+                        if (!!value && value.get() != Py_None) {
+                            tag_index.validatePassiveScalar(value.get());
+                            auto tag = tag_index.preparePassiveTag(value.get());
+                            tag_index.add(obj.get(), tag);
+                        }
+                    }
+                }
+            }
+        } catch (...) {
+            tag_index.rollback();
+            throw;
+        }
+
+        for (const auto &field_id: tag_field_edit.remove) {
+            type.removeTagField(field_id);
+        }
+        for (const auto &field_id: tag_field_edit.add) {
+            type.addTagField(field_id);
+        }
+    }
+
+    void applyTagFieldDeclarations(Class &type, const std::vector<std::string> &tag_fields,
+        bool migrate, bool raise_on_mismatch)
+    {
+        auto new_tag_field_ids = resolveDeclaredTagFields(type, tag_fields);
+        const auto &old_tag_field_ids = type.getTagFieldIds();
+        auto tag_field_edit = makeOrderedTagFieldEdit(old_tag_field_ids, new_tag_field_ids);
+        if (sameFieldIds(old_tag_field_ids, new_tag_field_ids)) {
+            type.setDeclaredTagFields(tag_fields);
+            return;
+        }
+
+        if (migrate) {
+            auto passive_removed_ids = differenceById(old_tag_field_ids, new_tag_field_ids);
+            auto passive_added_ids = differenceById(new_tag_field_ids, old_tag_field_ids);
+            migrateTagFields(type, passive_removed_ids, passive_added_ids, tag_field_edit);
+            type.setDeclaredTagFields(tag_fields);
+            return;
+        }
+
+        type.setDeclaredTagFields(type.getTagFieldNames());
+        if (raise_on_mismatch) {
+            throw db0::python::MigrateException("Tag-field declaration migration is required for class "
+                + type.getName());
+        }
+    }
+
     o_class_factory::o_class_factory(Memspace &memspace)
         : m_class_map_ptrs { VClassMap(memspace), VClassMap(memspace), VClassMap(memspace), VClassMap(memspace) }
     {
@@ -135,9 +393,16 @@ namespace db0::object_model
             }
             // pull existing dbzero class instance by pointer
             std::shared_ptr<Class> type = getTypeByPtr(class_ptr, lang_type).m_class;
+            bool no_auto_migrate = LangToolkit::isNoAutoMigrate(*getFixture());
+            bool can_migrate = getFixture()->getAccessType() == AccessType::READ_WRITE && !no_auto_migrate;
+            applyTagFieldDeclarations(*type, LangToolkit::getTagFields(lang_type), can_migrate, false);
             // add to by-type cache
             it_cached = m_type_cache.insert({lang_type, type}).first;
             m_pending_types.push_back(lang_type);
+        } else if (lang_type) {
+            bool no_auto_migrate = LangToolkit::isNoAutoMigrate(*getFixture());
+            bool can_migrate = getFixture()->getAccessType() == AccessType::READ_WRITE && !no_auto_migrate;
+            applyTagFieldDeclarations(*it_cached->second, LangToolkit::getTagFields(lang_type), can_migrate, false);
         }
         return it_cached->second;
     }
@@ -174,6 +439,10 @@ namespace db0::object_model
                     getOrCreateType(memo_base);
                 }
                 applyAccessControlFlag(*type, lang_type);
+                bool no_auto_migrate = LangToolkit::isNoAutoMigrate(*getFixture());
+                bool can_migrate = getFixture()->getAccessType() == AccessType::READ_WRITE && !no_auto_migrate;
+                applyTagFieldDeclarations(*type, LangToolkit::getTagFields(lang_type), can_migrate,
+                    no_auto_migrate);
             } else {
                 auto fixture = getFixture();
                 if (!checkAccessType(*fixture, AccessType::READ_WRITE)) {
@@ -212,6 +481,10 @@ namespace db0::object_model
                 type = this->getType(class_ptr, type, lang_type);
                 if (lang_type) {       
                     type->setRuntimeFlags(LangToolkit::getMemoFlags(lang_type));
+                    type->setDeclaredTagFields(LangToolkit::getTagFields(lang_type));
+                    for (const auto &field_id: resolveDeclaredTagFields(*type, LangToolkit::getTagFields(lang_type))) {
+                        type->addTagField(field_id);
+                    }
                 }
             }
             
@@ -234,6 +507,37 @@ namespace db0::object_model
         }
 
         return result;
+    }
+
+    void ClassFactory::migrateTagFields(TypeObjectPtr lang_type)
+    {
+        if (!lang_type || !LangToolkit::isAnyMemoType(lang_type)) {
+            THROWF(db0::InputException) << "migrate requires a dbzero memo type";
+        }
+        auto fixture = getFixture();
+        assureAccessType(*fixture, AccessType::READ_WRITE);
+
+        auto memo_base = LangToolkit::getBaseMemoType(lang_type);
+        if (memo_base) {
+            migrateTagFields(memo_base);
+        }
+
+        auto it_cached = m_type_cache.find(lang_type);
+        std::shared_ptr<Class> type;
+        if (it_cached != m_type_cache.end()) {
+            type = it_cached->second;
+        } else {
+            auto class_ptr = tryFindClassPtr(lang_type, LangToolkit::getMemoTypeID(lang_type));
+            if (!class_ptr) {
+                type = getOrCreateType(lang_type);
+            } else {
+                type = getTypeByPtr(class_ptr, lang_type).m_class;
+                it_cached = m_type_cache.insert({lang_type, type}).first;
+                m_pending_types.push_back(lang_type);
+            }
+        }
+
+        applyTagFieldDeclarations(*type, LangToolkit::getTagFields(lang_type), true, false);
     }
     
     std::shared_ptr<Class> ClassFactory::getType(ClassPtr ptr, std::shared_ptr<Class> type, TypeObjectPtr lang_type) const
@@ -258,6 +562,10 @@ namespace db0::object_model
         }
         if (apply_lang_metadata) {
             applyAccessControlFlag(*it_cached->second.m_class, lang_type);
+            bool no_auto_migrate = LangToolkit::isNoAutoMigrate(*getFixture());
+            bool can_migrate = getFixture()->getAccessType() == AccessType::READ_WRITE && !no_auto_migrate;
+            applyTagFieldDeclarations(*it_cached->second.m_class, LangToolkit::getTagFields(lang_type), can_migrate,
+                no_auto_migrate);
         }
         return it_cached->second.m_class;
     }
@@ -325,6 +633,9 @@ namespace db0::object_model
                 type->setInitVars(LangToolkit::getInitVars(lang_type));
                 type->setRuntimeFlags(LangToolkit::getMemoFlags(lang_type));
                 applyAccessControlFlag(*type, lang_type);
+                bool no_auto_migrate = LangToolkit::isNoAutoMigrate(*getFixture());
+                bool can_migrate = getFixture()->getAccessType() == AccessType::READ_WRITE && !no_auto_migrate;
+                applyTagFieldDeclarations(*type, LangToolkit::getTagFields(lang_type), can_migrate, false);
             }
             // register the mapping to language specific type object
             it_cached = m_ptr_cache.insert({ptr, ClassItem { type, lang_type }}).first;
@@ -339,6 +650,10 @@ namespace db0::object_model
         }
         if (apply_lang_metadata) {
             applyAccessControlFlag(*it_cached->second.m_class, lang_type);
+            bool no_auto_migrate = LangToolkit::isNoAutoMigrate(*getFixture());
+            bool can_migrate = getFixture()->getAccessType() == AccessType::READ_WRITE && !no_auto_migrate;
+            applyTagFieldDeclarations(*it_cached->second.m_class, LangToolkit::getTagFields(lang_type), can_migrate,
+                no_auto_migrate);
         }
         return it_cached->second;
     }

@@ -14,6 +14,7 @@
 #include <dbzero/core/vspace/db0_ptr.hpp>
 #include <dbzero/core/collections/pools/StringPools.hpp>
 #include <dbzero/core/collections/vector/v_bvector.hpp>
+#include <dbzero/core/collections/vector/CachedVBVector.hpp>
 #include <dbzero/core/collections/vector/LimitedMatrixCache.hpp>
 #include <dbzero/core/utils/FlagSet.hpp>
 #include <dbzero/bindings/python/PyToolkit.hpp>
@@ -59,11 +60,12 @@ namespace db0::object_model
     class ObjectImmutableImpl;
     class ObjectAnyImpl;
     class Class;    
-    class Reserved0008;
     struct ObjectId;
 
     // fidelity + slot index
     using VFidelityVector = db0::v_bvector<std::pair<std::uint8_t, unsigned int> >;    
+    using VTagFields = db0::CachedVBVector<FieldID>;
+    using Reserved0008 = VTagFields;
     
 DB0_PACKED_BEGIN
     struct DB0_PACKED_ATTR o_class: public db0::o_fixed_versioned<o_class, 1>
@@ -138,6 +140,13 @@ DB0_PACKED_END
 
         // set the model field names
         void setInitVars(const std::vector<std::string> &init_vars);
+        void setDeclaredTagFields(const std::vector<std::string> &tag_fields);
+        bool isDeclaredTagField(const char *field_name) const;
+        void addTagField(FieldID);
+        void removeTagField(FieldID);
+        const std::vector<FieldID> &getTagFieldIds() const;
+        bool isTagField(FieldID) const;
+        std::vector<std::string> getTagFieldNames() const;
 
         // Get class name in the underlying language object model
         std::string getName() const;
@@ -146,7 +155,7 @@ DB0_PACKED_END
         
         // Add a new field to this class or a new fidelity
         // @return assigned member ID
-        MemberID addField(const char *name, unsigned int fidelity);
+        MemberID addField(const char *name, unsigned int fidelity, bool declared_tag_field = false);
         
         // @return member ID / init var flag assigned on initialization flag (see Schema Extensions)
         MemberLoc findField(const char *name) const;
@@ -325,6 +334,7 @@ DB0_PACKED_END
         // only holds non-default fidelities (i.e. > 0)
         VFidelityVector m_fidelities;
         Schema m_schema;
+        mutable VTagFields m_tag_fields;
         std::shared_ptr<Class> m_base_class_ptr;
         
         // Field by-name index (cache)
@@ -334,6 +344,9 @@ DB0_PACKED_END
         mutable std::vector<FieldID> m_unique_keys;
         // fields initialized on class creation (from static code analysis)
         std::unordered_set<std::string> m_init_vars;
+        std::unordered_set<std::string> m_declared_tag_field_set;
+        mutable std::unordered_set<std::uint32_t> m_tag_field_id_set;
+        mutable bool m_has_any_tag_fields = false;
         const std::uint32_t m_uid = 0;
         mutable MemberCacheT m_member_cache;
         // runtime flags
@@ -343,11 +356,15 @@ DB0_PACKED_END
         // A function to retrieve the total number of instances of the schema
         std::function<unsigned int()> getTotalFunc() const;
         std::function<void(const Member &)> getRefreshCallback() const;
-        MemberID addFieldInternal(const char *name, unsigned int fidelity, bool register_field_access);
+        MemberID addFieldInternal(const char *name, unsigned int fidelity, bool register_field_access,
+            bool declared_tag_field = false);
         // callback for MemberID updates
         void onMemberIDUpdated(const MemberID &) const;
         // translate member's field ID into a unique key
         FieldID getPrimaryKey(unsigned int index) const;
+        VTagFields &ensureTagFields();
+        void openTagFields() const;
+        void onTagFieldKeyChange(const FieldID &, bool added) const;
         
         // Initialization function
         std::unordered_set<std::string> makeInitVars(const std::vector<std::string> &) const;

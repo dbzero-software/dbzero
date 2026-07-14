@@ -199,6 +199,8 @@ DB0_PACKED_BEGIN
     class DB0_PACKED_ATTR TagAddress
     {
     public:
+        static constexpr std::uint64_t ENUM_BIT = 1ULL << 63;
+        static constexpr std::uint64_t PASSIVE_BIT = 1ULL << 62;
         static constexpr std::uint64_t ADDRESS_MASK = (1ULL << 50) - 1;
 
         TagAddress() = default;
@@ -216,15 +218,31 @@ DB0_PACKED_BEGIN
         }
 
         inline bool operator!() const {
-            return m_value == 0;
+            return regularValue(m_value) == 0;
         }
 
         inline bool isValid() const {
-            return m_value != 0;
+            return regularValue(m_value) != 0;
+        }
+
+        inline bool isPassive() const {
+            return isPassiveValue(m_value);
+        }
+
+        inline TagAddress asPassive() const {
+            auto regular_value = regularValue(m_value);
+            if ((regular_value & ~ADDRESS_MASK) != 0) {
+                return *this;
+            }
+            return TagAddress(regular_value | PASSIVE_BIT);
+        }
+
+        inline TagAddress asRegular() const {
+            return TagAddress(regularValue(m_value));
         }
 
         inline std::uint64_t getOffset() const {
-            return m_value;
+            return regularValue(m_value);
         }
 
         inline std::uint64_t getValue() const {
@@ -240,31 +258,39 @@ DB0_PACKED_BEGIN
         }
 
         inline operator std::uint64_t() const {
-            return m_value;
+            return regularValue(m_value);
         }
 
         inline bool operator==(const TagAddress &other) const {
-            return m_value == other.m_value;
+            return regularValue(m_value) == regularValue(other.m_value);
         }
 
         inline bool operator!=(const TagAddress &other) const {
-            return m_value != other.m_value;
+            return regularValue(m_value) != regularValue(other.m_value);
         }
 
         inline bool operator<(const TagAddress &other) const {
-            return m_value < other.m_value;
+            return regularValue(m_value) < regularValue(other.m_value);
         }
 
         inline bool operator>(const TagAddress &other) const {
-            return m_value > other.m_value;
+            return regularValue(m_value) > regularValue(other.m_value);
         }
 
         inline bool operator<=(const TagAddress &other) const {
-            return m_value <= other.m_value;
+            return regularValue(m_value) <= regularValue(other.m_value);
         }
 
         inline bool operator>=(const TagAddress &other) const {
-            return m_value >= other.m_value;
+            return regularValue(m_value) >= regularValue(other.m_value);
+        }
+
+        static inline bool isPassiveValue(std::uint64_t value) {
+            return (value & PASSIVE_BIT) != 0 && (value & ~(PASSIVE_BIT | ADDRESS_MASK)) == 0;
+        }
+
+        static inline std::uint64_t regularValue(std::uint64_t value) {
+            return isPassiveValue(value) ? (value & ADDRESS_MASK) : value;
         }
 
         inline friend std::ostream &operator<<(std::ostream &os, const TagAddress &address) {
@@ -308,7 +334,7 @@ namespace std
 
     template <> struct hash<db0::TagAddress> {
         std::size_t operator()(const db0::TagAddress &address) const noexcept {
-            return std::hash<std::uint64_t>()(address.getValue());
+            return std::hash<std::uint64_t>()(address.getOffset());
         }
     };
 

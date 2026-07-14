@@ -84,6 +84,8 @@ DB0_PACKED_END
 
         // non-throwing version of getOrCreateType
         std::shared_ptr<Class> tryGetOrCreateType(TypeObjectPtr lang_type);
+
+        void migrateTagFields(TypeObjectPtr lang_type);
         
         struct ClassItem
         {

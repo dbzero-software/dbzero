@@ -37,7 +37,8 @@ namespace db0::python
             const char *prefix_name, const char *type_id, 
             const char *file_name, std::vector<std::string> &&init_vars, MemoFlags flags,
             shared_py_object<PyObject*> py_dyn_prefix_callable,
-            std::vector<Migration> &&migrations);
+            std::vector<Migration> &&migrations,
+            std::vector<std::string> &&tag_fields = {});
         
         ~MemoTypeDecoration();
         
@@ -66,6 +67,8 @@ namespace db0::python
         const db0::PrefixName &getPrefixName() const;
         // @return variables potentially asignable during the type initialization
         const std::vector<std::string> &getInitVars() const;
+
+        const std::vector<std::string> &getTagFields() const;
         
         // @param access_type to use for opening the prefix if UUID needs to be resolved by name
         // note that read-only access cannot later be upgraded to read-write
@@ -107,6 +110,7 @@ namespace db0::python
         // dynamic prefix callable
         shared_py_object<PyObject*> m_py_dyn_prefix_callable;
         std::vector<Migration> m_migrations;
+        std::vector<std::string> m_tag_fields;
         // by-name migrations' index
         std::unordered_map<std::string, Migration*> m_ix_migrations;
 

@@ -3,6 +3,7 @@
 
 #include "ObjectInitializer.hpp"
 #include <dbzero/object_model/class.hpp>
+#include <dbzero/object_model/tags/TagIndex.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <algorithm>
 
@@ -21,9 +22,50 @@ namespace db0::object_model
         m_class = nullptr;        
         m_values.clear();
         m_has_value.clear();
+        m_tag_fields.clear();
+        m_tag_index = nullptr;
         m_ref_counts = {0, 0};
         m_type_initializer = {};
         m_fixture = {};        
+    }
+
+    void ObjectInitializer::setTagField(FieldID field_id, ObjectPtr value)
+    {
+        if (!value || value == Py_None) {
+            m_tag_fields.emplace_back(field_id.getLongIndex());
+        } else {
+            if (!m_tag_index) {
+                m_tag_index = &getFixture()->get<TagIndex>();
+            }
+            m_tag_fields.push_back(
+                m_tag_index->preparePassiveTag(value, field_id.getLongIndex())
+            );
+        }
+    }
+
+    void ObjectInitializer::flushTagFields(ObjectPtr memo_ptr)
+    {
+        if (m_tag_fields.empty()) {
+            return;
+        }
+        assert(memo_ptr);
+
+        std::stable_sort(m_tag_fields.begin(), m_tag_fields.end(), [](const auto &lhs, const auto &rhs) {
+            return lhs.m_source_id < rhs.m_source_id;
+        });
+
+        for (auto tag = m_tag_fields.end(); tag != m_tag_fields.begin();) {
+            --tag;
+            auto source_id = tag->m_source_id;
+            if (tag->hasTag()) {
+                assert(m_tag_index);
+                m_tag_index->add(memo_ptr, *tag);
+            }
+            while (tag != m_tag_fields.begin() && (tag - 1)->m_source_id == source_id) {
+                --tag;
+            }
+        }
+        m_tag_fields.clear();
     }
     
     Class &ObjectInitializer::getClass() const {

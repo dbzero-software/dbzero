@@ -178,6 +178,8 @@ namespace db0::python
     PyObject *PyAPI_touch(PyObject *, PyObject *const *args, Py_ssize_t nargs);
 
     PyObject *PyAPI_getMemoClass(PyObject *, PyObject *const *args, Py_ssize_t nargs);
+    PyObject *PyAPI_getTagFields(PyObject *, PyObject *const *args, Py_ssize_t nargs);
+    PyObject *PyAPI_migrate(PyObject *, PyObject *const *args, Py_ssize_t nargs);
     
     PyObject *PyAPI_copyPrefix(PyObject *, PyObject *args, PyObject *kwargs);
 

@@ -65,4 +65,8 @@ namespace db0
         return std::nullopt;
     }
 
+    std::optional<PrefixFlags> Snapshot::getPrefixFlags(const PrefixName &) const {
+        return {};
+    }
+
 }

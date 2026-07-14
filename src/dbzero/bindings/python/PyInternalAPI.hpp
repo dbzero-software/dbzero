@@ -17,6 +17,7 @@
 #include <type_traits>
 #include "PyToolkit.hpp"
 #include "PySafeAPI.hpp"
+#include "MigrateError.hpp"
 
 // C++20 compatible replacement for PyVarObject_HEAD_INIT(NULL, 0)
 // This macro provides designated initializers that work with C++20's requirement
@@ -136,6 +137,9 @@ namespace db0::python
             return returnError();
         } catch (const db0::IndexException &e) {
             PyErr_SetString(PyExc_IndexError, e.what());
+            return returnError();
+        } catch (const db0::python::MigrateException &e) {
+            PyErr_SetString(db0::python::getMigrateError(), e.what());
             return returnError();
         } 
         #if ENABLE_DEBUG_EXCEPTIONS

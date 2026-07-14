@@ -56,6 +56,32 @@ namespace db0::python
         str << (*py_class)->tp_name;
         return str.str();
     }
+
+    std::vector<std::string> extractStringList(PyObject *py_list, const char *arg_name)
+    {
+        std::vector<std::string> result;
+        if (!py_list) {
+            return result;
+        }
+        if (!PyList_Check(py_list) && !PyTuple_Check(py_list)) {
+            PyErr_Format(PyExc_TypeError, "Expected list or tuple of strings: %s", arg_name);
+            return result;
+        }
+        Py_ssize_t size = PySequence_Size(py_list);
+        for (Py_ssize_t i = 0; i < size; ++i) {
+            PyObject *item = PySequence_GetItem(py_list, i);
+            if (!item) {
+                return result;
+            }
+            auto item_ref = Py_OWN(item);
+            if (!PyUnicode_Check(*item_ref)) {
+                PyErr_Format(PyExc_TypeError, "Expected list or tuple of strings: %s", arg_name);
+                return result;
+            }
+            result.push_back(PyUnicode_AsUTF8(*item_ref));
+        }
+        return result;
+    }
     
     template <typename MemoImplT>
     MemoImplT *tryMemoObject_new(const MemoTypeDecoration &decor, PyTypeObject *py_type, PyObject *, PyObject *)
@@ -338,7 +364,7 @@ namespace db0::python
             if constexpr (std::is_same_v<MemoImplT, MemoImmutableObject>) {
                 object.setLangObject(reinterpret_cast<PyObject *>(self));
             }
-            object.postInit(fixture);
+            object.postInit(fixture, reinterpret_cast<PyObject *>(self));
             
             // need to call modifyExt again after postInit because the instance has just been created
             // and potentially needs to be included in the AtomicContext
@@ -494,6 +520,7 @@ namespace db0::python
     template <>
     int PyAPI_MemoObject_setattro<MemoObject>(MemoObject *self, PyObject *attr, PyObject *value)
     {
+        using TagIndex = db0::object_model::TagIndex;
         PY_MUTATING_API_FUNC(-1)
 
         // assign value to a dbzero attribute
@@ -504,10 +531,49 @@ namespace db0::python
 
         if (isPersistentAttrName(attr_name)) {
             try {
+                if (self->ext().hasInstance() && self->ext().getFixture()->isClosed()) {
+                    PyErr_SetString(PyExc_RuntimeError, "Memo instance expired");
+                    return -1;
+                }
+                auto &type = self->ext().getType();
+                auto member_loc = type.findField(attr_name);
+                auto member_id = std::get<0>(member_loc);
+                TagIndex *tag_index = nullptr;
+                if (member_id
+                    ? type.isTagField(member_id.primary().first)
+                    : type.isDeclaredTagField(attr_name))
+                {
+                    tag_index = &self->ext().getFixture()->get<TagIndex>();
+                }
+
+                std::optional<TagIndex::PassiveTag> old_tag;
+                std::optional<TagIndex::PassiveTag> new_tag;
+
+                if (tag_index) {
+                    if (value && value != Py_None) {
+                        try {
+                            tag_index->validatePassiveScalar(value);
+                        } catch (const std::exception &e) {
+                            PyErr_SetString(PyExc_TypeError, e.what());
+                            return -1;
+                        }
+                    }
+                    if (self->ext().hasInstance() && member_id) {
+                        auto old_value = self->ext().tryGet(member_loc);
+                        if (!!old_value && old_value.get() != Py_None) {
+                            old_tag = tag_index->preparePassiveTag(old_value.get());
+                        }
+                    }
+                }
+
                 // must materialize the object before setting as an attribute
                 if (value && !db0::object_model::isMaterialized(value)) {
                     db0::FixtureLock lock(self->ext().getFixture());
                     db0::object_model::materialize(lock, value);
+                }
+
+                if (tag_index && value && value != Py_None) {
+                    new_tag = tag_index->preparePassiveTag(value);
                 }
                 
                 auto maybe_type_id = PyToolkit::getTypeManager().tryGetTypeId(value);
@@ -515,9 +581,17 @@ namespace db0::python
                     if (self->ext().hasInstance()) {
                         db0::FixtureLock lock(self->ext().getFixture());
                         self->modifyExt().set(lock, attr_name, *maybe_type_id, value);
+                        if (tag_index && old_tag != new_tag) {
+                            if (old_tag) {
+                                tag_index->remove(self, *old_tag);
+                            }
+                            if (new_tag) {
+                                tag_index->add(self, *new_tag);
+                            }
+                        }
                     } else {
                         // considered as a non-mutating operation
-                        self->ext().setPreInit(attr_name, *maybe_type_id, value);
+                        self->ext().setPreInit(attr_name, *maybe_type_id, value, tag_index != nullptr);
                     }
                     return 0;
                 } else {
@@ -555,8 +629,33 @@ namespace db0::python
                 PyErr_SetString(PyExc_AttributeError, "Cannot modify an immutable memo object");
                 return -1;
             } else {
+                const char *attr_name = PyUnicode_AsUTF8(attr);
+                if (!attr_name) {
+                    return -1;
+                }
+                auto &type = self->ext().getType();
+                auto member_id = std::get<0>(type.findField(attr_name));
+                db0::object_model::TagIndex *tag_index = nullptr;
+                if (member_id
+                    ? type.isTagField(member_id.primary().first)
+                    : type.isDeclaredTagField(attr_name))
+                {
+                    tag_index = &self->ext().getFixture()->get<db0::object_model::TagIndex>();
+                }
+                if (tag_index && value && value != Py_None) {
+                    try {
+                        tag_index->validatePassiveScalar(value);
+                    } catch (const std::exception &e) {
+                        PyErr_SetString(PyExc_TypeError, e.what());
+                        return -1;
+                    }
+                    if (!db0::object_model::isMaterialized(value)) {
+                        db0::FixtureLock lock(self->ext().getFixture());
+                        db0::object_model::materialize(lock, value);
+                    }
+                }
                 // considered as a non-mutating operation
-                self->ext().setPreInit(PyUnicode_AsUTF8(attr), value);
+                self->ext().setPreInit(attr_name, value, tag_index != nullptr);
             }
         } catch (const std::exception &e) {
             PyErr_SetString(PyExc_AttributeError, e.what());
@@ -920,7 +1019,7 @@ namespace db0::python
     
     PyObject *wrapPyType(PyTypeObject *base_class, bool is_singleton, bool no_default_tags, const char *prefix_name,
         const char *type_id, const char *file_name, std::vector<std::string> &&init_vars, PyObject *py_dyn_prefix_callable,
-        std::vector<Migration> &&migrations, bool access_control)
+        std::vector<Migration> &&migrations, bool access_control, std::vector<std::string> &&tag_fields)
     {
         auto py_class = Py_BORROW(base_class);
         auto py_module = Py_OWN(findModule(*Py_OWN(PyObject_GetAttrString((PyObject*)*py_class, "__module__"))));
@@ -960,7 +1059,8 @@ namespace db0::python
             std::move(init_vars),
             type_flags,
             py_dyn_prefix_callable,
-            std::move(migrations)
+            std::move(migrations),
+            std::move(tag_fields)
         );
                 
         // add to memo type registry
@@ -990,12 +1090,13 @@ namespace db0::python
         // migrations are only processed for singleton types
         PyObject *py_migrations = nullptr;
         PyObject *py_access_control = nullptr;
+        PyObject *py_tag_fields = nullptr;
         
         static const char *kwlist[] = { "input", "singleton", "no_default_tags", "prefix", "id", "py_file", "py_init_vars", 
-            "py_dyn_prefix", "py_migrations", "access_control", NULL };
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OOOOOOOOO", const_cast<char**>(kwlist), &class_obj, &py_singleton,
+            "py_dyn_prefix", "py_migrations", "access_control", "py_tag_fields", NULL };
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OOOOOOOOOO", const_cast<char**>(kwlist), &class_obj, &py_singleton,
             &py_no_default_tags, &py_prefix_name, &py_type_id, &py_file_name, &py_init_vars, &py_dyn_prefix, &py_migrations,
-            &py_access_control))
+            &py_access_control, &py_tag_fields))
         {            
             return NULL;
         }
@@ -1006,21 +1107,13 @@ namespace db0::python
         const char *prefix_name = (py_prefix_name && py_prefix_name != Py_None) ? PyUnicode_AsUTF8(py_prefix_name) : nullptr;
         const char *type_id = py_type_id ? PyUnicode_AsUTF8(py_type_id) : nullptr;        
         const char *file_name = (py_file_name && py_file_name != Py_None) ? PyUnicode_AsUTF8(py_file_name) : nullptr;
-        std::vector<std::string> init_vars;
-        if (py_init_vars) {
-            if (!PyList_Check(py_init_vars)) {
-                PyErr_SetString(PyExc_TypeError, "Expected list of strings");
-                return NULL;
-            }
-            Py_ssize_t size = PyList_Size(py_init_vars);
-            for (Py_ssize_t i = 0; i < size; ++i) {
-                PyObject *item = PyList_GetItem(py_init_vars, i);
-                if (!PyUnicode_Check(item)) {
-                    PyErr_SetString(PyExc_TypeError, "Expected list of strings");
-                    return NULL;
-                }
-                init_vars.push_back(PyUnicode_AsUTF8(item));
-            }
+        auto init_vars = extractStringList(py_init_vars, "py_init_vars");
+        if (PyErr_Occurred()) {
+            return NULL;
+        }
+        auto tag_fields = extractStringList(py_tag_fields, "py_tag_fields");
+        if (PyErr_Occurred()) {
+            return NULL;
         }
         
         if (py_dyn_prefix == Py_None) {
@@ -1037,7 +1130,7 @@ namespace db0::python
         
         auto migrations = extractMigrations(py_migrations);
         return wrapPyType(castToType(class_obj), is_singleton, no_default_tags, prefix_name, type_id, file_name, 
-            std::move(init_vars), py_dyn_prefix, std::move(migrations), access_control
+            std::move(init_vars), py_dyn_prefix, std::move(migrations), access_control, std::move(tag_fields)
         );
     }
     

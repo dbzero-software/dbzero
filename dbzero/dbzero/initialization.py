@@ -42,7 +42,10 @@ def init(dbzero_root: str, **kwargs: Any) -> None:
 
     init_kwargs = {}
     
-    config_keys = ("autocommit", "autocommit_interval", "cache_size", "lang_cache_size")
+    if "no_auto_migration" in kwargs and "no_auto_migrate" not in kwargs:
+        kwargs["no_auto_migrate"] = kwargs["no_auto_migration"]
+
+    config_keys = ("autocommit", "autocommit_interval", "cache_size", "lang_cache_size", "no_auto_migrate")
     config = {}
     for key in config_keys:
         if key in kwargs:

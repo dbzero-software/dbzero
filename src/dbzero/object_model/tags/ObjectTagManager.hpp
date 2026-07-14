@@ -7,6 +7,7 @@
 #include <memory>
 #include <vector>
 #include <dbzero/object_model/tags/TagIndex.hpp>
+#include <dbzero/object_model/tags/ObjectIterable.hpp>
 #include <dbzero/core/memory/AccessOptions.hpp>
 #include <dbzero/workspace/WeakFixtureVector.hpp>
 #include <dbzero/object_model/object/ObjectAnyImpl.hpp>
@@ -32,7 +33,8 @@ namespace db0::object_model
 
         // construct as empty
         ObjectTagManager();
-        ObjectTagManager(ObjectPtr const *memo_ptr, std::size_t nargs);
+        ObjectTagManager(ObjectPtr const *memo_ptr, std::size_t nargs,
+            std::vector<std::shared_ptr<ObjectIterable> > &&query_targets = {}, bool passive = false);
         ~ObjectTagManager();
         
         /**
@@ -42,7 +44,8 @@ namespace db0::object_model
         
         void remove(ObjectPtr const *args, Py_ssize_t nargs);
         
-        static ObjectTagManager *makeNew(void *at_ptr, ObjectPtr const *memo_ptr, std::size_t nargs);
+        static ObjectTagManager *makeNew(void *at_ptr, ObjectPtr const *memo_ptr, std::size_t nargs,
+            std::vector<std::shared_ptr<ObjectIterable> > &&query_targets = {}, bool passive = false);
 
     private:
         // Memo object to be assigned tags to (language specific)
@@ -60,7 +63,7 @@ namespace db0::object_model
             ObjectInfo() = default;
             ObjectInfo(ObjectPtr memo_ptr);
 
-            void add(ObjectPtr const *args, Py_ssize_t nargs);
+            void add(ObjectPtr const *args, Py_ssize_t nargs, bool passive);
             void remove(ObjectPtr const *args, Py_ssize_t nargs);
             
             db0::swine_ptr<Fixture> getFixture() const;
@@ -73,11 +76,15 @@ namespace db0::object_model
         ObjectInfo *m_info_vec_ptr = nullptr;
         std::size_t m_info_vec_size = 0;
         AccessType m_access_mode = AccessType::READ_WRITE;
+        std::vector<std::shared_ptr<ObjectIterable> > m_query_targets;
+        bool m_passive = false;
         // fixtures of the tagged objects (to mark as updated)
         db0::WeakFixtureVector m_fixtures;
         bool m_on_updated = false;
         
         void onUpdated();
+        void validateQueryTargets() const;
+        void forEachQueryTarget(std::function<void(ObjectInfo &)>);
     };
     
 }

@@ -71,7 +71,7 @@ namespace db0::python
             std::optional<std::size_t> slab_size = {}, ObjectPtr lock_flags = nullptr, 
             std::optional<std::size_t> meta_io_step_size = {}, std::optional<std::size_t> page_io_step_size = {},
             std::optional<bool> restricted = {}, ObjectPtr restricted_context = nullptr,
-            bool restricted_context_given = false
+            bool restricted_context_given = false, std::optional<bool> no_auto_migrate = {}
         );
         
         db0::Workspace &getWorkspace() const;

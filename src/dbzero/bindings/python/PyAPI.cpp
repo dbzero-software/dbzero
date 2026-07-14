@@ -9,8 +9,6 @@
 #include "PyWorkspace.hpp"
 #include "Memo.hpp"
 #include "PySnapshot.hpp"
-#include "PyInternalAPI.hpp"
-#include "Memo.hpp"
 #include "Types.hpp"
 #include "PyAtomic.hpp"
 #include "PyReflectionAPI.hpp"
@@ -29,6 +27,7 @@
 #include <dbzero/object_model/object/ObjectImmutableImpl.hpp>
 #include <dbzero/object_model/class/Class.hpp>
 #include <dbzero/object_model/class/ClassFactory.hpp>
+#include <dbzero/bindings/python/MigrateError.hpp>
 #include <dbzero/object_model/tags/TagIndex.hpp>
 #include <dbzero/object_model/tags/QueryObserver.hpp>
 #include <dbzero/workspace/Workspace.hpp>
@@ -173,7 +172,7 @@ namespace db0::python
         // prefix_name, open_mode, autocommit (bool)
         static const char *kwlist[] = {
             "prefix_name", "open_mode", "autocommit", "slab_size", "lock_flags", "meta_io_step_size", 
-            "page_io_step_size", "restricted", "restricted_context", NULL
+            "page_io_step_size", "restricted", "restricted_context", "no_auto_migrate", "no_auto_migration", NULL
         };
         const char *prefix_name = nullptr;
         const char *open_mode = nullptr;
@@ -184,9 +183,12 @@ namespace db0::python
         PyObject *py_page_io_step_size = nullptr;
         PyObject *py_restricted = nullptr;
         PyObject *py_restricted_context = nullptr;
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|sOOOOOOO:open", const_cast<char**>(kwlist),
+        PyObject *py_no_auto_migrate = nullptr;
+        PyObject *py_no_auto_migration = nullptr;
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|sOOOOOOOOO:open", const_cast<char**>(kwlist),
             &prefix_name, &open_mode, &py_autocommit, &py_slab_size, &py_lock_flags, &py_meta_io_step_size,
-            &py_page_io_step_size, &py_restricted, &py_restricted_context))
+            &py_page_io_step_size, &py_restricted, &py_restricted_context, &py_no_auto_migrate,
+            &py_no_auto_migration))
         {
             return NULL;
         }
@@ -246,10 +248,31 @@ namespace db0::python
             restricted = is_restricted;
         }
 
+        if (py_no_auto_migrate && py_no_auto_migration && py_no_auto_migrate != Py_None
+            && py_no_auto_migration != Py_None)
+        {
+            PyErr_SetString(PyExc_TypeError, "Use only one of no_auto_migrate or no_auto_migration");
+            return NULL;
+        }
+        PyObject *py_no_auto = nullptr;
+        if (py_no_auto_migrate && py_no_auto_migrate != Py_None) {
+            py_no_auto = py_no_auto_migrate;
+        } else if (py_no_auto_migration && py_no_auto_migration != Py_None) {
+            py_no_auto = py_no_auto_migration;
+        }
+        std::optional<bool> no_auto_migrate;
+        if (py_no_auto) {
+            int is_no_auto = PyObject_IsTrue(py_no_auto);
+            if (is_no_auto < 0) {
+                return nullptr;
+            }
+            no_auto_migrate = is_no_auto;
+        }
+
         auto access_type = open_mode ? parseAccessType(open_mode) : db0::AccessType::READ_WRITE;
         PyToolkit::getPyWorkspace().open(
             prefix_name, access_type, autocommit, slab_size, py_lock_flags, meta_io_step_size, page_io_step_size,
-            restricted, py_restricted_context, py_restricted_context != nullptr
+            restricted, py_restricted_context, py_restricted_context != nullptr, no_auto_migrate
         );
         Py_RETURN_NONE;
     }
@@ -348,6 +371,7 @@ namespace db0::python
             {"lang_cache_size", []{ return PyLong_FromUnsignedLongLong(LangCache::DEFAULT_CAPACITY); }},
             {"autocommit", []{ Py_RETURN_TRUE; }},
             {"autocommit_interval", []{ return PyLong_FromUnsignedLongLong(Workspace::DEFAULT_AUTOCOMMIT_INTERVAL_MS); }},
+            {"no_auto_migrate", []{ Py_RETURN_FALSE; }},
         };
         for (const auto &[key_str, default_fn] : defaults) {
             // Populate default values so then can be easily accessed with get_config
@@ -1113,6 +1137,66 @@ namespace db0::python
             return NULL;
         }
         return runSafe(tryGetMemoClass, args[0]);
+    }
+
+    PyObject *tryGetTagFields(PyObject *py_type)
+    {
+        if (!PyType_Check(py_type) || !PyAnyMemoType_Check(reinterpret_cast<PyTypeObject*>(py_type))) {
+            PyErr_SetString(PyExc_TypeError, "_get_tag_fields requires a memo type");
+            return nullptr;
+        }
+
+        auto memo_type = reinterpret_cast<PyTypeObject*>(py_type);
+        auto &decor = MemoTypeDecoration::get(memo_type);
+        auto fixture_uuid = decor.getFixtureUUID(AccessType::READ_ONLY);
+        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(fixture_uuid, AccessType::READ_ONLY);
+        auto type = fixture->get<object_model::ClassFactory>().tryGetExistingType(memo_type);
+        if (!type) {
+            return PyTuple_New(0);
+        }
+
+        auto names = type->getTagFieldNames();
+        auto result = Py_OWN(PyTuple_New(names.size()));
+        Py_ssize_t index = 0;
+        for (const auto &name: names) {
+            PySafeTuple_SetItem(*result, index++, Py_OWN(PyUnicode_FromString(name.c_str())));
+        }
+        return result.steal();
+    }
+
+    PyObject *PyAPI_getTagFields(PyObject *, PyObject *const *args, Py_ssize_t nargs)
+    {
+        PY_API_FUNC
+        if (nargs != 1) {
+            PyErr_SetString(PyExc_TypeError, "_get_tag_fields requires exactly one argument");
+            return nullptr;
+        }
+        return runSafe(tryGetTagFields, args[0]);
+    }
+
+    PyObject *tryMigrate(PyObject *py_type)
+    {
+        if (!PyType_Check(py_type) || !PyAnyMemoType_Check(reinterpret_cast<PyTypeObject*>(py_type))) {
+            PyErr_SetString(PyExc_TypeError, "migrate requires a memo type");
+            return nullptr;
+        }
+
+        auto memo_type = reinterpret_cast<PyTypeObject*>(py_type);
+        auto &decor = MemoTypeDecoration::get(memo_type);
+        auto fixture_uuid = decor.getFixtureUUID(AccessType::READ_WRITE);
+        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(fixture_uuid, AccessType::READ_WRITE);
+        fixture->get<db0::object_model::ClassFactory>().migrateTagFields(memo_type);
+        Py_RETURN_NONE;
+    }
+
+    PyObject *PyAPI_migrate(PyObject *, PyObject *const *args, Py_ssize_t nargs)
+    {
+        PY_API_FUNC
+        if (nargs != 1) {
+            PyErr_SetString(PyExc_TypeError, "migrate requires exactly one argument");
+            return nullptr;
+        }
+        return runSafe(tryMigrate, args[0]);
     }
     
     PyObject *PyAPI_getMemoClasses(PyObject *self, PyObject *args, PyObject *kwargs)

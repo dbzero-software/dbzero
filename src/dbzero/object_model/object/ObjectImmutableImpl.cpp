@@ -246,8 +246,11 @@ namespace db0::object_model
 
     }
 
-    void ObjectImmutableImpl::postInit(FixtureLock &fixture)
+    void ObjectImmutableImpl::postInit(FixtureLock &fixture, ObjectPtr lang_object)
     {
+        if (lang_object) {
+            setLangObject(lang_object);
+        }
         if (!this->hasInstance()) {
             auto &initializer = InitManager::instance.getInitializer(*this);
             auto *immutableInitializer = dynamic_cast<ImmutableObjectInitializer *>(&initializer);
@@ -284,6 +287,7 @@ namespace db0::object_model
                     (*this)->m_num_type_tags + processEmbeddedObjects(*fixture, *this, m_lang_object)
                 );
             }
+            initializer.flushTagFields(m_lang_object);
             InitManager::instance.tryCloseInitializer(*this);
         }
 

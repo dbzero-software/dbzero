@@ -15,6 +15,30 @@
 namespace db0
 
 {
+    template <typename IndexKeyT>
+    struct FT_IndexKeyPolicy
+    {
+        static bool enableValueCallbacks(const IndexKeyT &) {
+            return true;
+        }
+    };
+
+    template <>
+    struct FT_IndexKeyPolicy<db0::TagAddress>
+    {
+        static bool enableValueCallbacks(db0::TagAddress tag_addr) {
+            return !tag_addr.isPassive();
+        }
+    };
+
+    template <>
+    struct FT_IndexKeyPolicy<db0::LongTagT>
+    {
+        static bool enableValueCallbacks(const db0::LongTagT &tag_addr) {
+            return !db0::isPassiveLongTag(tag_addr);
+        }
+    };
+
     // FT_BaseIndex provides common API for managing tag/type inverted lists
     // @tparam IndexKeyT the tag / element's key type
     template <typename IndexKeyT, typename KeyT = UniqueAddress, typename IndexValueT = Address>
