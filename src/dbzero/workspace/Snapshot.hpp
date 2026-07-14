@@ -3,10 +3,12 @@
 
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <optional>
 #include <dbzero/core/memory/swine_ptr.hpp>
 #include <dbzero/core/memory/AccessOptions.hpp>
+#include <dbzero/core/utils/FlagSet.hpp>
 #include <dbzero/workspace/PrefixName.hpp>
 #include <mutex>
 #include <memory>
@@ -18,6 +20,45 @@ namespace db0
     class Fixture;
     class LangCache;
     class ProcessTimer;
+
+    enum PrefixOptions: std::uint16_t
+    {
+        NO_AUTO_MIGRATE = 0x0001
+    };
+
+    using PrefixFlagSet = db0::FlagSet<PrefixOptions>;
+
+    struct PrefixFlags
+    {
+        bool has(PrefixOptions flag) const {
+            return m_specified[flag];
+        }
+
+        bool get(PrefixOptions flag) const {
+            return m_values[flag];
+        }
+
+        void set(PrefixOptions flag, bool value) {
+            m_specified.set(flag);
+            m_values.set(flag, value);
+        }
+
+        bool empty() const {
+            return m_specified.none();
+        }
+
+        void merge(const PrefixFlags &other) {
+            auto specified_value = other.m_specified.value();
+            m_specified = PrefixFlagSet::fromValue(m_specified.value() | specified_value);
+            m_values = PrefixFlagSet::fromValue(
+                (m_values.value() & ~specified_value) | (other.m_values.value() & specified_value)
+            );
+        }
+
+    private:
+        PrefixFlagSet m_specified;
+        PrefixFlagSet m_values;
+    };
     
     /**
      * Snapshot is a common interface for Workspace and WorkspaceView
@@ -54,6 +95,8 @@ namespace db0
         
         virtual bool isMutable() const = 0;
 
+        virtual std::optional<PrefixFlags> getPrefixFlags(const PrefixName &) const;
+
         db0::swine_ptr<Fixture> findFixture(const PrefixName &) const;
         
         db0::swine_ptr<Fixture> getFixture(
@@ -79,3 +122,5 @@ namespace db0
     void assureAccessType(const Fixture &fixture, std::optional<AccessType> requested);
     
 }
+
+DECLARE_ENUM_VALUES(db0::PrefixOptions, 1)

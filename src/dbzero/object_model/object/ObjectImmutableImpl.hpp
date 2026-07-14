@@ -35,7 +35,7 @@ namespace db0::object_model
         ObjectSharedPtr getEmbeddedInstanceAtOffset(std::uint64_t offset) const;
         const o_embedded_object &getEmbeddedObjectAtOffset(std::uint64_t offset) const;
 
-        void postInit(FixtureLock &);
+        void postInit(FixtureLock &, ObjectPtr lang_object = nullptr);
         void setLangObject(ObjectPtr) const;
         void destroy();
         void dropInstance(FixtureLock &);

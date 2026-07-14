@@ -172,7 +172,7 @@ namespace db0::object_model
         
         if (!member_id || !(field_id = member_id.tryGet(storage_fidelity))) {
             // try mutating the class first
-            member_id = m_type->addField(field_name, storage_fidelity);
+            member_id = m_type->addField(field_name, storage_fidelity, m_type->isDeclaredTagField(field_name));
             field_id = member_id.get(storage_fidelity);
         }
         

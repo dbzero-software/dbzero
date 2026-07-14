@@ -33,6 +33,7 @@
 #include <dbzero/workspace/Config.hpp>
 #include <dbzero/bindings/python/collections/PyTuple.hpp>
 #include <dbzero/bindings/python/collections/PyList.hpp>
+#include <cstring>
 #include <dbzero/bindings/python/collections/PyDict.hpp>
 #include <dbzero/bindings/python/collections/PySet.hpp>
 #include <dbzero/bindings/python/types/PyEnum.hpp>
@@ -413,6 +414,55 @@ namespace db0::python
         // resolve existing DB0 type from python type
         auto type = class_factory.getExistingType(py_type);
         type->renameField(from_name, to_name);
+
+        static constexpr const char *TAG_FIELDS_ATTR = "__DBZERO_TAG_FIELDS_ATTR";
+        auto py_tag_fields = Py_OWN(PyObject_GetAttrString(reinterpret_cast<PyObject*>(py_type), TAG_FIELDS_ATTR));
+        if (!py_tag_fields) {
+            PyErr_Clear();
+            return;
+        }
+        if (!PyTuple_Check(*py_tag_fields)) {
+            return;
+        }
+
+        auto size = PyTuple_Size(*py_tag_fields);
+        auto py_updated = Py_OWN(PyTuple_New(size));
+        if (!py_updated) {
+            return;
+        }
+
+        bool changed = false;
+        for (Py_ssize_t i = 0; i < size; ++i) {
+            auto item = PyTuple_GetItem(*py_tag_fields, i);
+            if (!item) {
+                return;
+            }
+            PyObject *new_item = item;
+            if (PyUnicode_Check(item)) {
+                auto value = PyUnicode_AsUTF8(item);
+                if (!value) {
+                    return;
+                }
+                if (std::strcmp(value, from_name) == 0) {
+                    new_item = PyUnicode_FromString(to_name);
+                    if (!new_item) {
+                        return;
+                    }
+                    changed = true;
+                } else {
+                    Py_INCREF(new_item);
+                }
+            } else {
+                Py_INCREF(new_item);
+            }
+            if (PyTuple_SetItem(*py_updated, i, new_item) < 0) {
+                Py_DECREF(new_item);
+                return;
+            }
+        }
+        if (changed && PyObject_SetAttrString(reinterpret_cast<PyObject*>(py_type), TAG_FIELDS_ATTR, *py_updated) < 0) {
+            return;
+        }
     }
     
 #ifndef NDEBUG

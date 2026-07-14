@@ -217,6 +217,7 @@ namespace db0::python
         // Get memo type associated type_id or nullptr if not defined
         static const char *getMemoTypeID(TypeObjectPtr memo_type);
         static const std::vector<std::string> &getInitVars(TypeObjectPtr memo_type);
+        static std::vector<std::string> getTagFields(TypeObjectPtr memo_type);
         
         static bool isSingleton(TypeObjectPtr);
         // check if a memo type is marked with no_default_tags flag
@@ -225,6 +226,7 @@ namespace db0::python
         // type marked as immutable
         static bool isImmutable(TypeObjectPtr);
         static bool isAccessControl(TypeObjectPtr);
+        static bool isNoAutoMigrate(const db0::Fixture &);
         static FlagSet<MemoOptions> getMemoFlags(TypeObjectPtr);
         static bool hasMemoInstance(ObjectPtr);
         static UniqueAddress getMemoUniqueAddress(ObjectPtr);

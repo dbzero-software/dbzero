@@ -89,7 +89,7 @@ namespace db0::object_model
         ~ObjectImplBase();
         
         // post-init invoked by memo type directly after __init__
-        void postInit(FixtureLock &);
+        void postInit(FixtureLock &, ObjectPtr lang_object = nullptr);
                 
         // Unload the object stem, to retrieve its type
         static ObjectStem tryUnloadStem(db0::swine_ptr<Fixture> &, Address, 
@@ -102,9 +102,10 @@ namespace db0::object_model
         
         // Assign field of an uninitialized instance (assumed as a non-mutating operation)
         // NOTE: if lang_value is nullptr then the member is removed
-        void setPreInit(const char *field_name, TypeId type_id, ObjectPtr lang_value) const;
-        void setPreInit(const char *field_name, ObjectPtr lang_value) const;
-        void removePreInit(const char *field_name) const;
+        void setPreInit(const char *field_name, TypeId type_id, ObjectPtr lang_value,
+            bool is_tag_field = false) const;
+        void setPreInit(const char *field_name, ObjectPtr lang_value, bool is_tag_field = false) const;
+        MemberID removePreInit(const char *field_name) const;
         
         ObjectSharedPtr tryGet(MemberLoc, bool *is_auto_generated = nullptr) const;
         ObjectSharedPtr tryGet(const char *field_name, bool *is_auto_generated = nullptr) const;

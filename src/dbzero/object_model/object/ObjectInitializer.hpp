@@ -21,6 +21,8 @@
 #include "ValueTable.hpp"
 #include "XValuesVector.hpp"
 #include "lofi_store.hpp"
+#include <dbzero/object_model/class/FieldID.hpp>
+#include <dbzero/object_model/tags/PassiveTag.hpp>
 
 namespace db0
 
@@ -39,6 +41,7 @@ namespace db0::object_model
     class ObjectImmutableImpl;
     class ObjectInitializer;
     class ImmutableObjectInitializer;
+    class TagIndex;
     using Fixture = db0::Fixture;
 
     /**
@@ -153,6 +156,8 @@ namespace db0::object_model
         virtual void set(std::pair<std::uint32_t, std::uint32_t> loc, StorageClass storage_class, Value value,
             std::uint64_t mask = 0);
         virtual bool remove(std::pair<std::uint32_t, std::uint32_t> loc, std::uint64_t mask = 0);
+        void setTagField(FieldID field_id, ObjectPtr value);
+        void flushTagFields(ObjectPtr memo_ptr);
         
         // Allows migrating initialization to other fixture (only for empty ObjectInitializer)
         // @return false if operation failed (exception not thrown)
@@ -224,6 +229,8 @@ namespace db0::object_model
     private:
         // flags indicating values presence (for fast removal pruning)
         mutable SparseBoolMatrix m_has_value;
+        std::vector<PassiveTag> m_tag_fields;
+        TagIndex *m_tag_index = nullptr;
         std::pair<std::uint32_t, std::uint32_t> m_ref_counts = {0, 0};
         mutable db0::swine_ptr<Fixture> m_fixture;
         mutable TypeInitializer m_type_initializer;

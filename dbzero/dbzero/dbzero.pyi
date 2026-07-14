@@ -31,6 +31,7 @@ def open(prefix_name: str, open_mode: str = "rw", **kwargs: Any) -> None:
         * autocommit (bool) to disable automatic commits for this prefix
         * restricted (bool) to restrict memo reflection access for this prefix
         * restricted_context (ContextVar) to dynamically restrict memo reflection access for this prefix
+        * no_auto_migrate (bool) to disable automatic tag-field schema migration
         * slab_size (int) for memory slab allocation size in bytes
         * meta_io_step_size (int) for metadata I/O operation chunk size
         * lock_flags (dict) to change locking behavior when opening the prefix for read-write
@@ -54,6 +55,10 @@ def open(prefix_name: str, open_mode: str = "rw", **kwargs: Any) -> None:
     If you try to access an object from a prefix that isn't currently open, 
     dbzero will automatically attempt to open that prefix in read-only mode.
     """
+    ...
+
+def migrate(memo_type: type) -> None:
+    """Apply pending schema migration for a memo type."""
     ...
 
 def set_restricted(*, restricted: Optional[bool] = None, restricted_context: Any = None,

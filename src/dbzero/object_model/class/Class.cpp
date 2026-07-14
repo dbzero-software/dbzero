@@ -112,6 +112,10 @@ namespace db0::object_model
         , m_uid(this->fetchUID())
         , m_member_cache(m_members, *this, this->getRefreshCallback())        
     {
+        m_tag_fields.setKeyChangeCallback([this](const FieldID &field_id, bool added) {
+            onTagFieldKeyChange(field_id, added);
+        });
+        openTagFields();
         if (hasOwnAccessControl()) {
             setAccessControl();
         }
@@ -127,6 +131,10 @@ namespace db0::object_model
         , m_uid(this->fetchUID())
         , m_member_cache(m_members, *this, this->getRefreshCallback())
     {
+        m_tag_fields.setKeyChangeCallback([this](const FieldID &field_id, bool added) {
+            onTagFieldKeyChange(field_id, added);
+        });
+        openTagFields();
         m_schema.postInit(getTotalFunc());
         // initialize base class if such exists
         if ((*this)->m_base_class_ref) {
@@ -168,12 +176,12 @@ namespace db0::object_model
         return getFixture()->getLimitedStringPool().fetch((*this)->m_type_id);
     }
     
-    MemberID Class::addField(const char *name, unsigned int fidelity)
+    MemberID Class::addField(const char *name, unsigned int fidelity, bool declared_tag_field)
     {
-        return addFieldInternal(name, fidelity, true);
+        return addFieldInternal(name, fidelity, true, declared_tag_field);
     }
 
-    MemberID Class::addFieldInternal(const char *name, unsigned int fidelity, bool)
+    MemberID Class::addFieldInternal(const char *name, unsigned int fidelity, bool, bool declared_tag_field)
     {
         assert(fidelity < std::numeric_limits<std::uint8_t>::max());
 
@@ -188,6 +196,9 @@ namespace db0::object_model
         m_members.set(pos, o_field { getFixture()->getLimitedStringPool(), name });
         m_member_cache.reload(pos);
         auto member_id = m_index[name].first;
+        if (declared_tag_field) {
+            addTagField(member_id.primary().first);
+        }
         return member_id;
     }
     
@@ -362,6 +373,77 @@ namespace db0::object_model
             }
         };
     }
+
+    void Class::openTagFields() const
+    {
+        if ((*this)->m_reserved_0008_ptr && m_tag_fields.isNull()) {
+            m_tag_fields.init(getFixture()->myPtr((*this)->m_reserved_0008_ptr.getAddress()));
+        }
+    }
+
+    void Class::onTagFieldKeyChange(const FieldID &field_id, bool added) const
+    {
+        if (added) {
+            m_tag_field_id_set.insert(field_id.getLongIndex());
+        } else {
+            m_tag_field_id_set.erase(field_id.getLongIndex());
+        }
+        m_has_any_tag_fields = !m_tag_field_id_set.empty();
+    }
+
+    VTagFields &Class::ensureTagFields()
+    {
+        if (!m_tag_fields.isNull()) {
+            return m_tag_fields;
+        }
+        openTagFields();
+        if (m_tag_fields.isNull()) {
+            m_tag_fields.init(*getFixture());
+            modify().m_reserved_0008_ptr = m_tag_fields;
+        }
+        return m_tag_fields;
+    }
+
+    void Class::addTagField(FieldID field_id)
+    {
+        auto &tag_fields = ensureTagFields();
+        for (const auto &tag_field_id: tag_fields.cached()) {
+            if (tag_field_id == field_id) {
+                return;
+            }
+        }
+        tag_fields.push_back(field_id);
+    }
+
+    void Class::removeTagField(FieldID field_id)
+    {
+        auto &tag_fields = ensureTagFields();
+        const auto &cached_tag_fields = tag_fields.cached();
+        for (std::size_t index = 0; index < cached_tag_fields.size(); ++index) {
+            if (cached_tag_fields[index] == field_id) {
+                tag_fields.erase(index);
+                return;
+            }
+        }
+    }
+
+    const std::vector<FieldID> &Class::getTagFieldIds() const
+    {
+        static const std::vector<FieldID> empty_tag_field_ids;
+        openTagFields();
+        if (m_tag_fields.isNull()) {
+            return empty_tag_field_ids;
+        }
+        return m_tag_fields.cached();
+    }
+
+    bool Class::isTagField(FieldID field_id) const
+    {
+        if (!m_has_any_tag_fields) {
+            return false;
+        }
+        return m_tag_field_id_set.find(field_id.getLongIndex()) != m_tag_field_id_set.end();
+    }
     
     std::string Class::getTypeName() const {
         return getFixture()->getLimitedStringPool().fetch((*this)->m_name);
@@ -477,6 +559,7 @@ namespace db0::object_model
         m_member_cache.detach();
         m_fidelities.detach();
         m_schema.detach();
+        m_tag_fields.detach();
         super_t::detach();
     }
     
@@ -497,6 +580,7 @@ namespace db0::object_model
         m_members.commit();        
         m_fidelities.commit();
         m_schema.commit();
+        m_tag_fields.commit();
         super_t::commit();
     }
     
@@ -607,6 +691,38 @@ namespace db0::object_model
                 std::get<1>(it->second) = true;
             }            
         }
+    }
+
+    void Class::setDeclaredTagFields(const std::vector<std::string> &tag_fields)
+    {
+        m_declared_tag_field_set.clear();
+        m_declared_tag_field_set.insert(tag_fields.begin(), tag_fields.end());
+    }
+
+    bool Class::isDeclaredTagField(const char *field_name) const
+    {
+        if (m_declared_tag_field_set.empty()) {
+            return false;
+        }
+        return m_declared_tag_field_set.find(field_name) != m_declared_tag_field_set.end();
+    }
+
+    std::vector<std::string> Class::getTagFieldNames() const
+    {
+        openTagFields();
+        if (m_tag_fields.isNull()) {
+            return {};
+        }
+
+        std::vector<std::string> result;
+        result.reserve(m_tag_fields.size());
+        for (const auto &field_id: m_tag_fields.cached()) {
+            auto member = tryGetMember(field_id);
+            if (member) {
+                result.push_back(member->m_name);
+            }
+        }
+        return result;
     }
 
     Address Class::getSingletonAddress() const {

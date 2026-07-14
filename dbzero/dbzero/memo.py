@@ -7,6 +7,44 @@ from typing import Callable, Optional
 from .dbzero import _wrap_memo_type, set_prefix
 
 
+__DBZERO_TAG_FIELDS_ATTR = "__DBZERO_TAG_FIELDS_ATTR"
+
+
+def _normalize_tag_fields(field_names):
+    tag_fields = []
+    seen = set()
+    for field_name in field_names:
+        if not isinstance(field_name, str):
+            raise TypeError("tag_fields arguments must be strings")
+        if field_name not in seen:
+            seen.add(field_name)
+            tag_fields.append(field_name)
+    return tuple(tag_fields)
+
+
+def _merge_tag_field_declarations(*declarations):
+    tag_fields = []
+    seen = set()
+    for declaration in declarations:
+        for field_name in declaration:
+            if field_name not in seen:
+                seen.add(field_name)
+                tag_fields.append(field_name)
+    return tuple(tag_fields)
+
+
+def tag_fields(*field_names):
+    new_fields = _normalize_tag_fields(field_names)
+
+    def wrap(cls):
+        existing_fields = getattr(cls, __DBZERO_TAG_FIELDS_ATTR, ())
+        merged_fields = _merge_tag_field_declarations(existing_fields, new_fields)
+        setattr(cls, __DBZERO_TAG_FIELDS_ATTR, merged_fields)
+        return cls
+
+    return wrap
+
+
 def migration(func: Callable) -> Callable:
     """Decorator for marking a function as a migration function"""
     func._db0_migration = None
@@ -271,9 +309,12 @@ def memo(cls: Optional[type] = None, **kwargs) -> type:
             dyn_prefix = None
             init_vars = []
         
+        tag_field_names = list(getattr(cls_, __DBZERO_TAG_FIELDS_ATTR, ()))
+
         wrapped = _wrap_memo_type(cls_, py_file = getfile(cls_), py_init_vars = init_vars, py_dyn_prefix = dyn_prefix, \
-            py_migrations = list(find_migrations(cls_)) if is_singleton else None, **kwargs
+            py_migrations = list(find_migrations(cls_)) if is_singleton else None, py_tag_fields = tag_field_names, **kwargs
         )
+        setattr(wrapped, __DBZERO_TAG_FIELDS_ATTR, tuple(tag_field_names))
         
         # Call __init_subclass__ on the wrapped class for any base that defines it.
         # Python normally calls __init_subclass__ before the decorator runs, so the 

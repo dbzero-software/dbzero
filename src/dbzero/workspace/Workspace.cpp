@@ -588,12 +588,45 @@ namespace db0
         }
         return m_default_fixture;
     }
+
+    void Workspace::setPrefixFlags(const PrefixName &prefix_name, const PrefixFlags &prefix_flags)
+    {
+        if (prefix_flags.empty()) {
+            return;
+        }
+        auto &stored_flags = m_prefix_flags[prefix_name.get()];
+        stored_flags.merge(prefix_flags);
+    }
+
+    std::optional<PrefixFlags> Workspace::getPrefixFlags(const PrefixName &prefix_name) const
+    {
+        if (!prefix_name) {
+            return {};
+        }
+        auto it = m_prefix_flags.find(prefix_name.get());
+        if (it == m_prefix_flags.end()) {
+            return {};
+        }
+        return it->second;
+    }
+
+    bool Workspace::isNoAutoMigrate(const PrefixName &prefix_name) const
+    {
+        auto prefix_flags = getPrefixFlags(prefix_name);
+        if (prefix_flags && prefix_flags->has(PrefixOptions::NO_AUTO_MIGRATE)) {
+            return prefix_flags->get(PrefixOptions::NO_AUTO_MIGRATE);
+        }
+        return m_config && m_config->get<bool>("no_auto_migrate", false);
+    }
     
     void Workspace::open(const PrefixName &prefix_name, AccessType access_type, std::optional<bool> autocommit,
         std::optional<std::size_t> slab_size, std::optional<LockFlags> lock_flags, 
         std::optional<std::size_t> meta_io_step_size, std::optional<std::size_t> page_io_step_size,
-        std::optional<bool> restricted)
+        std::optional<bool> restricted, std::optional<PrefixFlags> prefix_flags)
     {
+        if (prefix_flags) {
+            setPrefixFlags(prefix_name, *prefix_flags);
+        }
         auto fixture = getFixtureEx(prefix_name, access_type, {}, slab_size, {}, autocommit, 
             lock_flags, meta_io_step_size, page_io_step_size, restricted
         );

@@ -38,11 +38,17 @@ namespace db0::python
     void PyWorkspace::open(const std::string &prefix_name, AccessType access_type, std::optional<bool> autocommit,
         std::optional<std::size_t> slab_size, ObjectPtr py_lock_flags, std::optional<std::size_t> meta_io_step_size,
         std::optional<std::size_t> page_io_step_size, std::optional<bool> restricted,
-        ObjectPtr restricted_context, bool restricted_context_given)
+        ObjectPtr restricted_context, bool restricted_context_given, std::optional<bool> no_auto_migrate)
     {
         if (!m_workspace) {
             // initialize dbzero with current working directory
             initWorkspace("");
+        }
+
+        std::optional<PrefixFlags> prefix_flags;
+        if (no_auto_migrate) {
+            prefix_flags.emplace();
+            prefix_flags->set(PrefixOptions::NO_AUTO_MIGRATE, *no_auto_migrate);
         }
 
         auto is_initial_prefix_config = !m_workspace->tryFindFixture(prefix_name);
@@ -51,11 +57,11 @@ namespace db0::python
         if (py_lock_flags) {
             db0::Config lock_flags_config(py_lock_flags);
             m_workspace->open(prefix_name, access_type, autocommit, slab_size, 
-                lock_flags_config, meta_io_step_size, page_io_step_size, restricted
+                lock_flags_config, meta_io_step_size, page_io_step_size, restricted, prefix_flags
             );
         } else {
             m_workspace->open(prefix_name, access_type, autocommit, slab_size, 
-                {}, meta_io_step_size, page_io_step_size, restricted
+                {}, meta_io_step_size, page_io_step_size, restricted, prefix_flags
             );
         }
         if (restricted && *restricted) {

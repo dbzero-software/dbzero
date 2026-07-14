@@ -16,6 +16,7 @@
 #include "PyAtomic.hpp"
 #include "PyLocked.hpp"
 #include "PyWeakProxy.hpp"
+#include "MigrateError.hpp"
 #include <dbzero/bindings/python/types/PyObjectId.hpp>
 #include <dbzero/bindings/python/collections/PyList.hpp>
 #include <dbzero/bindings/python/collections/PyByteArray.hpp>
@@ -37,6 +38,15 @@
 #include <dbzero/bindings/python/PyTagSet.hpp>
 
 namespace py = db0::python;
+
+namespace db0::python
+{
+    PyObject *getMigrateError()
+    {
+        static PyObject *migrate_error = PyErr_NewException("dbzero.MigrateError", PyExc_RuntimeError, nullptr);
+        return migrate_error;
+    }
+}
     
 static PyMethodDef dbzero_methods[] = 
 {
@@ -63,6 +73,7 @@ static PyMethodDef dbzero_methods[] =
     {"find", (PyCFunction)&py::PyAPI_find, METH_VARARGS | METH_KEYWORDS, "Find memo instances by tags with optional filtering"},
     {"join", (PyCFunction)&py::PyAPI_join, METH_VARARGS | METH_KEYWORDS, "Join memo collections by common tags with optional filtering"},
     {"refresh", (PyCFunction)&py::refresh, METH_VARARGS, ""},
+    {"migrate", (PyCFunction)&py::PyAPI_migrate, METH_FASTCALL, "Apply pending memo type migrations"},
     {"get_state_num", (PyCFunction)&py::PyAPI_getStateNum, METH_VARARGS | METH_KEYWORDS, ""},
     {"get_prefix_stats", (PyCFunction)&py::getPrefixStats, METH_VARARGS | METH_KEYWORDS, "Retrieve prefix specific statistics"},
     {"get_type_stats", (PyCFunction)&py::getTypeStats, METH_VARARGS | METH_KEYWORDS, "Retrieve memo type statistics"},
@@ -96,6 +107,7 @@ static PyMethodDef dbzero_methods[] =
     {"load_all", (PyCFunction)&py::PyAPI_loadAll, METH_VARARGS | METH_KEYWORDS, "Load the entire instance graph to memory without calling an overloaded __load__ method of the top level object"},
     {"hash", (PyCFunction)&py::PyAPI_hash, METH_FASTCALL, "Returns hash of python or db0 object"},
     {"as_tag", (PyCFunction)&py::PyAPI_as_tag, METH_FASTCALL, "Returns tag of a @db0.memo object"},
+    {"_get_tag_fields", (PyCFunction)&py::PyAPI_getTagFields, METH_FASTCALL, "Get materialized tag field names for a memo class"},
     {"materialized", (PyCFunction)&py::PyAPI_materialized, METH_FASTCALL, "Returns a materialized version of a @db0.memo object"},
     {"is_memo", (PyCFunction)&py::PyAPI_PyMemo_Check, METH_FASTCALL, "Checks if passed object is memo type"},
     {"is_enum", (PyCFunction)&py::PyAPI_isEnum, METH_FASTCALL, "Checks if passed object is a db0 enum value"},
@@ -251,6 +263,7 @@ PyMODINIT_FUNC PyInit_dbzero(void)
         initPyError(mod, py::PyToolkit::getTypeManager().getBadPrefixError(), "BadPrefixError");
         initPyError(mod, py::PyToolkit::getTypeManager().getClassNotFoundError(), "ClassNotFoundError");
         initPyError(mod, py::PyToolkit::getTypeManager().getReferenceError(), "ReferenceError");
+        initPyError(mod, py::getMigrateError(), "MigrateError");
     } catch (const std::exception &e) {
         // set python error
         PyErr_SetString(PyExc_RuntimeError, e.what());
