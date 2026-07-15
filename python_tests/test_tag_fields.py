@@ -3,11 +3,26 @@
 
 import pytest
 import dbzero as db0
+from dataclasses import dataclass
 from dbzero.dbzero import _get_tag_fields
 from .memo_test_types import MemoTestClass, KVTestClass
 
 
 _TAG_FIELDS_ATTR = "__DBZERO_TAG_FIELDS_ATTR"
+
+TagFieldDataclassDefaultStatus = db0.enum(
+    "TagFieldDataclassDefaultStatus",
+    values=["lead", "archived"],
+)
+TagFieldDataclassDefaultStatusValue = type(TagFieldDataclassDefaultStatus.lead)
+
+
+@db0.memo
+@db0.tag_fields("status")
+@dataclass(eq=False)
+class DataclassEnumDefaultTag:
+    name: str
+    status: TagFieldDataclassDefaultStatusValue = TagFieldDataclassDefaultStatus.lead
 
 
 def _query_names(memo_type, *tags):
@@ -149,6 +164,13 @@ def test_initial_tag_is_hidden_until_init_completes(db0_fixture):
 
     assert seen_during_init == []
     assert list(db0.find(BufferedInitialTag, "open")) == [obj]
+
+
+def test_dataclass_enum_default_is_valid_initial_tag(db0_fixture):
+    obj = DataclassEnumDefaultTag("Avery")
+
+    assert obj.status == TagFieldDataclassDefaultStatus.lead
+    assert list(db0.find(DataclassEnumDefaultTag, TagFieldDataclassDefaultStatus.lead)) == [obj]
 
 
 def test_initial_tags_use_final_values_and_flush_together(db0_fixture):

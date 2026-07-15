@@ -260,6 +260,7 @@ namespace db0::object_model
             case TypeId::MEMO_IMMUTABLE_OBJECT:
             case TypeId::DB0_TAG:
             case TypeId::DB0_ENUM_VALUE:
+            case TypeId::DB0_ENUM_VALUE_REPR:
             case TypeId::DB0_FIELD_DEF:
             case TypeId::DB0_CLASS:
                 return;
@@ -1295,6 +1296,8 @@ namespace db0::object_model
             return tryAddShortTagFromTag(py_arg);
         } else if (type_id == TypeId::DB0_ENUM_VALUE) {
             return getShortTagFromEnumValue(py_arg);
+        } else if (type_id == TypeId::DB0_ENUM_VALUE_REPR) {
+            return getShortTagFromEnumValueRepr(py_arg);
         } else if (type_id == TypeId::DB0_FIELD_DEF) {
             return getShortTagFromFieldDef(py_arg);
         } else if (type_id == TypeId::DB0_CLASS) {

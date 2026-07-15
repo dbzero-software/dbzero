@@ -191,6 +191,14 @@ def test_enum_value_as_default_param(db0_fixture):
     assert func_to_test() == ColorsEnum.RED
     assert func_to_test(ColorsEnum.GREEN) == ColorsEnum.GREEN
     assert func_to_test(ColorsEnum.BLUE) == ColorsEnum.BLUE
+
+
+def test_enum_value_repr_can_be_added_as_tag(db0_fixture):
+    obj = MemoTestClass(1)
+
+    db0.tags(obj).add(func_to_test())
+
+    assert list(db0.find(ColorsEnum.RED)) == [obj]
     
     
 def test_enum_value_value_repr_compare(db0_fixture):
