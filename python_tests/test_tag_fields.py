@@ -1,6 +1,11 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 # Copyright (c) 2025 DBZero Software sp. z o.o.
 
+import os
+import subprocess
+import sys
+import textwrap
+
 import pytest
 import dbzero as db0
 from dataclasses import dataclass
@@ -171,6 +176,74 @@ def test_dataclass_enum_default_is_valid_initial_tag(db0_fixture):
 
     assert obj.status == TagFieldDataclassDefaultStatus.lead
     assert list(db0.find(DataclassEnumDefaultTag, TagFieldDataclassDefaultStatus.lead)) == [obj]
+
+
+@pytest.mark.parametrize(
+    "manual_tag_operation",
+    [
+        "db0.tags(self).add(db0.as_tag(self.agent))",
+        'db0.tags(self).add("TAG_X")',
+    ],
+)
+def test_manual_tag_during_dataclass_tag_field_post_init_does_not_crash(tmp_path, manual_tag_operation):
+    script = textwrap.dedent(
+        f"""
+        from dataclasses import dataclass
+        import os
+
+        import dbzero as db0
+
+        @db0.memo
+        class Agent:
+            def __init__(self, role):
+                self.role = role
+
+        @db0.memo
+        @db0.tag_fields("agent")
+        @dataclass
+        class JobDef:
+            agent: Agent
+
+            def __post_init__(self):
+                {manual_tag_operation}
+
+        db_path = {str(tmp_path / "db0")!r}
+        os.mkdir(db_path)
+        db0.init(db_path, read_write=True)
+        db0.open("test", "rw")
+
+        agent = Agent("test-agent")
+        job_def = JobDef(agent=agent)
+        assert job_def.agent.role == "test-agent"
+        db0.close()
+        """
+    )
+
+    env = os.environ.copy()
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
+    env["PYTHONFAULTHANDLER"] = "1"
+    try:
+        result = subprocess.run(
+            [sys.executable, "-c", script],
+            check=False,
+            env=env,
+            text=True,
+            capture_output=True,
+            timeout=10,
+        )
+    except subprocess.TimeoutExpired as exc:
+        pytest.fail(
+            f"manual tag during tag_fields post-init timed out for {manual_tag_operation!r}\n"
+            f"stdout:\n{exc.stdout or ''}\n"
+            f"stderr:\n{exc.stderr or ''}"
+        )
+
+    assert result.returncode == 0, (
+        f"manual tag during tag_fields post-init failed for {manual_tag_operation!r} "
+        f"with code {result.returncode}\n"
+        f"stdout:\n{result.stdout}\n"
+        f"stderr:\n{result.stderr}"
+    )
 
 
 def test_initial_tags_use_final_values_and_flush_together(db0_fixture):

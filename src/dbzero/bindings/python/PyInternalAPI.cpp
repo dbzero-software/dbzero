@@ -969,7 +969,7 @@ namespace db0::python
 
         db0::FixtureLock lock(memo_obj->ext().getFixture());
         // materialize by calling postInit
-        memo_obj->modifyExt().postInit(lock);
+        memo_obj->modifyExt().postInit(lock, reinterpret_cast<PyObject *>(memo_obj));
         if (!memo_obj->ext().getType().isNoCache()) {
             memo_obj->ext().getFixture()->getLangCache().add(memo_obj->ext().getAddress(), memo_obj);
         }
