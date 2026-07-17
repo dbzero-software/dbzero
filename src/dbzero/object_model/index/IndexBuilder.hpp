@@ -24,17 +24,22 @@ namespace db0::object_model
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
         using ObjectSharedExtPtr = typename LangToolkit::ObjectSharedExtPtr;
                 
-        IndexBuilder();
+        explicit IndexBuilder(bool passive = false);
         IndexBuilder(std::unordered_set<UniqueAddress> &&remove_null_values,
             std::unordered_set<UniqueAddress> &&add_null_values,
-            std::unordered_map<UniqueAddress, ObjectSharedPtr> &&object_cache);
+            std::unordered_map<UniqueAddress, ObjectSharedPtr> &&object_cache,
+            bool passive = false);
         ~IndexBuilder();
 
         void add(KeyT key, ObjectPtr obj_ptr);
         void remove(KeyT key, ObjectPtr obj_ptr);
+        void add(KeyT key, UniqueAddress address);
+        void remove(KeyT key, UniqueAddress address);
 
         void addNull(ObjectPtr obj_ptr);
         void removeNull(ObjectPtr obj_ptr);
+        void addNull(UniqueAddress address);
+        void removeNull(UniqueAddress address);
 
         // Flush and incRef to unique added objects
         void flush(RangeTreeT &index);
@@ -45,6 +50,7 @@ namespace db0::object_model
 
     private:
         typename LangToolkit::TypeManager &m_type_manager;
+        bool m_passive = false;
 
         // A cache of language objects held until flush/close is called
         // it's required to prevent unreferenced objects from being collected by GC
@@ -56,17 +62,19 @@ namespace db0::object_model
         UniqueAddress addToCache(ObjectPtr);
     };
     
-    template <typename KeyT> IndexBuilder<KeyT>::IndexBuilder()
+    template <typename KeyT> IndexBuilder<KeyT>::IndexBuilder(bool passive)
         : super_t()
         , m_type_manager(LangToolkit::getTypeManager())
+        , m_passive(passive)
     {
     }
     
     template <typename KeyT> IndexBuilder<KeyT>::IndexBuilder(
         std::unordered_set<UniqueAddress> &&remove_null_values, std::unordered_set<UniqueAddress> &&add_null_values, 
-        std::unordered_map<UniqueAddress, ObjectSharedPtr> &&object_cache)
+        std::unordered_map<UniqueAddress, ObjectSharedPtr> &&object_cache, bool passive)
         : super_t(std::move(remove_null_values), std::move(add_null_values))        
         , m_type_manager(LangToolkit::getTypeManager())
+        , m_passive(passive)
         , m_object_cache(std::move(object_cache))
     {
     }
@@ -79,8 +87,18 @@ namespace db0::object_model
         super_t::add(key, addToCache(obj_ptr));
     }
 
-    template <typename KeyT> void IndexBuilder<KeyT>::remove(KeyT key, ObjectPtr obj_ptr) {              
+    template <typename KeyT> void IndexBuilder<KeyT>::remove(KeyT key, ObjectPtr obj_ptr) {
         super_t::remove(key, addToCache(obj_ptr));
+    }
+
+    template <typename KeyT> void IndexBuilder<KeyT>::add(KeyT key, UniqueAddress address) {
+        assert(m_passive && "Address-only index updates are only valid for passive indexes");
+        super_t::add(key, address);
+    }
+
+    template <typename KeyT> void IndexBuilder<KeyT>::remove(KeyT key, UniqueAddress address) {
+        assert(m_passive && "Address-only index updates are only valid for passive indexes");
+        super_t::remove(key, address);
     }
 
     template <typename KeyT> void IndexBuilder<KeyT>::addNull(ObjectPtr obj_ptr) {
@@ -90,9 +108,25 @@ namespace db0::object_model
     template <typename KeyT> void IndexBuilder<KeyT>::removeNull(ObjectPtr obj_ptr) {
         super_t::removeNull(addToCache(obj_ptr));
     }
+
+    template <typename KeyT> void IndexBuilder<KeyT>::addNull(UniqueAddress address) {
+        assert(m_passive && "Address-only index updates are only valid for passive indexes");
+        super_t::addNull(address);
+    }
+
+    template <typename KeyT> void IndexBuilder<KeyT>::removeNull(UniqueAddress address) {
+        assert(m_passive && "Address-only index updates are only valid for passive indexes");
+        super_t::removeNull(address);
+    }
     
     template <typename KeyT> void IndexBuilder<KeyT>::flush(RangeTreeT &index)
-    {        
+    {
+        if (m_passive) {
+            std::function<void(UniqueAddress)> no_op_callback = [](UniqueAddress) {};
+            super_t::flush(index, &no_op_callback, &no_op_callback);
+            return;
+        }
+
         std::function<void(UniqueAddress)> add_callback = [&](UniqueAddress address) {
             auto it = m_object_cache.find(address);
             assert(it != m_object_cache.end());
@@ -114,6 +148,9 @@ namespace db0::object_model
     UniqueAddress IndexBuilder<KeyT>::addToCache(ObjectPtr obj_ptr)
     {
         auto obj_addr = m_type_manager.extractObjectUniqueAddress(obj_ptr);
+        if (m_passive) {
+            return obj_addr;
+        }
         if (m_object_cache.find(obj_addr) == m_object_cache.end()) {
             m_object_cache.emplace(obj_addr, obj_ptr);
         }

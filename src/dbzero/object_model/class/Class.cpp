@@ -9,9 +9,11 @@
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/object_model/value/ObjectId.hpp>
 #include <dbzero/object_model/value/StorageClass.hpp>
+#include <dbzero/object_model/index/Index.hpp>
 #include "Schema.hpp"
 
 DEFINE_ENUM_VALUES(db0::ClassOptions, "SINGLETON", "NO_DEFAULT_TAGS", "IMMUTABLE", "RESERVED_0008", "RESERVED_0010", "ACCESS_CONTROL")
+DEFINE_ENUM_VALUES(db0::object_model::FieldOptions, "TAG_FIELD", "INDEXED_FIELD")
 
 namespace db0::object_model
 
@@ -19,6 +21,25 @@ namespace db0::object_model
     
     using namespace db0;
     using namespace db0::pools;
+
+    template <typename KeyT>
+    void setFieldOption(std::unordered_map<KeyT, FieldFlags> &options_by_field, const KeyT &key,
+        FieldOptions option, bool enabled)
+    {
+        auto it = options_by_field.find(key);
+        if (enabled) {
+            if (it == options_by_field.end()) {
+                options_by_field.emplace(key, FieldFlags({ option }));
+            } else {
+                it->second.set(option);
+            }
+        } else if (it != options_by_field.end()) {
+            it->second.clear(option);
+            if (it->second.value() == 0) {
+                options_by_field.erase(it);
+            }
+        }
+    }
     
     GC0_Define(Class)
     
@@ -73,17 +94,19 @@ namespace db0::object_model
         }
     }
     
-    Class::Member::Member(FieldID field_id, unsigned int fidelity, const char *name)
+    Class::Member::Member(FieldID field_id, unsigned int fidelity, const char *name, FieldFlags field_options)
         : m_field_id(field_id)
         , m_fidelity(fidelity)
         , m_name(name)
+        , m_field_options(field_options)
     {
     }
     
-    Class::Member::Member(FieldID field_id, unsigned int fidelity, const std::string &name)
+    Class::Member::Member(FieldID field_id, unsigned int fidelity, const std::string &name, FieldFlags field_options)
         : m_field_id(field_id)
         , m_fidelity(fidelity)
         , m_name(name)
+        , m_field_options(field_options)
     {
     }
     
@@ -115,6 +138,9 @@ namespace db0::object_model
         m_tag_fields.setKeyChangeCallback([this](const FieldID &field_id, bool added) {
             onTagFieldKeyChange(field_id, added);
         });
+        m_indexed_fields.setKeyChangeCallback([this](const IndexedField &indexed_field, bool added) {
+            onIndexedFieldKeyChange(indexed_field, added);
+        });
         openTagFields();
         if (hasOwnAccessControl()) {
             setAccessControl();
@@ -133,6 +159,9 @@ namespace db0::object_model
     {
         m_tag_fields.setKeyChangeCallback([this](const FieldID &field_id, bool added) {
             onTagFieldKeyChange(field_id, added);
+        });
+        m_indexed_fields.setKeyChangeCallback([this](const IndexedField &indexed_field, bool added) {
+            onIndexedFieldKeyChange(indexed_field, added);
         });
         openTagFields();
         m_schema.postInit(getTotalFunc());
@@ -178,7 +207,17 @@ namespace db0::object_model
     
     MemberID Class::addField(const char *name, unsigned int fidelity, bool declared_tag_field)
     {
-        return addFieldInternal(name, fidelity, true, declared_tag_field);
+        auto member_id = addFieldInternal(name, fidelity, true, declared_tag_field);
+        if (isDeclaredIndexedField(name)) {
+            if (m_base_class_ptr
+                && (m_base_class_ptr->isDeclaredIndexedField(name) || m_base_class_ptr->tryGetFieldIndex(name))) {
+                THROWF(db0::InputException)
+                    << "Indexed field declaration overlaps an ancestor indexed field in class "
+                    << getName();
+            }
+            addIndexedField(member_id.primary().first);
+        }
+        return member_id;
     }
 
     MemberID Class::addFieldInternal(const char *name, unsigned int fidelity, bool, bool declared_tag_field)
@@ -368,6 +407,9 @@ namespace db0::object_model
             } else {
                 // extend existing member ID
                 // possibly another fidelity was added
+                if (it->second.first.tryGet(member.m_fidelity) == member.m_field_id) {
+                    return;
+                }
                 it->second.first.assign(member.m_field_id, member.m_fidelity);
                 onMemberIDUpdated(it->second.first);
             }
@@ -376,19 +418,45 @@ namespace db0::object_model
 
     void Class::openTagFields() const
     {
-        if ((*this)->m_reserved_0008_ptr && m_tag_fields.isNull()) {
-            m_tag_fields.init(getFixture()->myPtr((*this)->m_reserved_0008_ptr.getAddress()));
+        if ((*this)->m_tag_fields_ptr && m_tag_fields.isNull()) {
+            m_tag_fields.init(getFixture()->myPtr((*this)->m_tag_fields_ptr.getAddress()));
+        }
+    }
+
+    void Class::openIndexedFields() const
+    {
+        if ((*this)->getObjVer() >= 1
+            && (*this)->m_flags[ClassOptions::RESERVED_0010]
+            && (*this)->m_indexed_fields_ptr
+            && m_indexed_fields.isNull()) {
+            m_indexed_fields.init(getFixture()->myPtr((*this)->m_indexed_fields_ptr.getAddress()));
+            for (const auto &indexed_field: m_indexed_fields.cached()) {
+                onIndexedFieldKeyChange(indexed_field, true);
+            }
         }
     }
 
     void Class::onTagFieldKeyChange(const FieldID &field_id, bool added) const
     {
+        setFieldOption(m_field_options, field_id.getLongIndex(), FieldOptions::TAG_FIELD, added);
+        reloadMemberOptions(field_id);
+    }
+
+    void Class::onIndexedFieldKeyChange(const IndexedField &indexed_field, bool added) const
+    {
+        auto field_id = indexed_field.getFieldId();
         if (added) {
-            m_tag_field_id_set.insert(field_id.getLongIndex());
+            auto fixture = getFixture();
+            auto address = indexed_field.m_index_ptr.getAddress();
+            m_index_cache[indexed_field.m_field_id] = fixture->getVObjectCache().findOrPull<Index>(
+                address, true, fixture, address
+            );
+            setFieldOption(m_field_options, field_id.getLongIndex(), FieldOptions::INDEXED_FIELD, true);
         } else {
-            m_tag_field_id_set.erase(field_id.getLongIndex());
+            m_index_cache.erase(indexed_field.m_field_id);
+            setFieldOption(m_field_options, field_id.getLongIndex(), FieldOptions::INDEXED_FIELD, false);
         }
-        m_has_any_tag_fields = !m_tag_field_id_set.empty();
+        reloadMemberOptions(field_id);
     }
 
     VTagFields &Class::ensureTagFields()
@@ -399,9 +467,25 @@ namespace db0::object_model
         openTagFields();
         if (m_tag_fields.isNull()) {
             m_tag_fields.init(*getFixture());
-            modify().m_reserved_0008_ptr = m_tag_fields;
+            modify().m_tag_fields_ptr = m_tag_fields;
         }
         return m_tag_fields;
+    }
+
+    VIndexedFields &Class::ensureIndexedFields()
+    {
+        if (!m_indexed_fields.isNull()) {
+            return m_indexed_fields;
+        }
+        if (hasDeclaredIndexedFields()) {
+            openIndexedFields();
+        }
+        if (m_indexed_fields.isNull()) {
+            m_indexed_fields.init(*getFixture());
+            modify().m_indexed_fields_ptr = m_indexed_fields;
+            modify().m_flags.set(ClassOptions::RESERVED_0010);
+        }
+        return m_indexed_fields;
     }
 
     void Class::addTagField(FieldID field_id)
@@ -439,10 +523,154 @@ namespace db0::object_model
 
     bool Class::isTagField(FieldID field_id) const
     {
-        if (!m_has_any_tag_fields) {
-            return false;
+        return getOwnFieldOptions(field_id)[FieldOptions::TAG_FIELD];
+    }
+
+    void Class::addIndexedField(FieldID field_id)
+    {
+        auto &indexed_fields = ensureIndexedFields();
+        for (const auto &indexed_field: indexed_fields.cached()) {
+            if (indexed_field.getFieldId() == field_id) {
+                onIndexedFieldKeyChange(indexed_field, true);
+                return;
+            }
         }
-        return m_tag_field_id_set.find(field_id.getLongIndex()) != m_tag_field_id_set.end();
+
+        auto fixture = getFixture();
+        Index index(fixture, true);
+        index.setManaged();
+        index.incRef(false);
+        IndexedField indexed_field(field_id, db0_ptr<Index>(index));
+        indexed_fields.push_back(indexed_field);
+        onIndexedFieldKeyChange(indexed_field, true);
+    }
+
+    void Class::addIndexedField(FieldID field_id, const db0_ptr<Index> &index_ptr)
+    {
+        auto &indexed_fields = ensureIndexedFields();
+        for (const auto &indexed_field: indexed_fields.cached()) {
+            if (indexed_field.getFieldId() == field_id) {
+                onIndexedFieldKeyChange(indexed_field, true);
+                return;
+            }
+        }
+        IndexedField indexed_field(field_id, index_ptr);
+        indexed_fields.push_back(indexed_field);
+        onIndexedFieldKeyChange(indexed_field, true);
+    }
+
+    void Class::removeIndexedField(FieldID field_id)
+    {
+        auto &indexed_fields = ensureIndexedFields();
+        const auto &cached_indexed_fields = indexed_fields.cached();
+        for (std::size_t index = 0; index < cached_indexed_fields.size(); ++index) {
+            if (cached_indexed_fields[index].getFieldId() == field_id) {
+                auto indexed_field = cached_indexed_fields[index];
+                auto fixture = getFixture();
+                auto index_address = indexed_field.m_index_ptr.getAddress();
+                auto managed_index_ptr = fixture->getVObjectCache().findOrPull<Index>(
+                    index_address, true, fixture, index_address
+                );
+                indexed_fields.erase(index);
+                fixture->getLangCache().erase(index_address);
+                if (managed_index_ptr->decRef(false)) {
+                    managed_index_ptr->destroy();
+                    fixture->getVObjectCache().erase(index_address);
+                }
+                onIndexedFieldKeyChange(indexed_field, false);
+                return;
+            }
+        }
+    }
+
+    const std::vector<IndexedField> &Class::getIndexedFieldRecords() const
+    {
+        static const std::vector<IndexedField> empty_indexed_fields;
+        openIndexedFields();
+        if (m_indexed_fields.isNull()) {
+            return empty_indexed_fields;
+        }
+        return m_indexed_fields.cached();
+    }
+
+    std::vector<FieldID> Class::getIndexedFieldIds() const
+    {
+        std::vector<FieldID> result;
+        const auto &records = getIndexedFieldRecords();
+        result.reserve(records.size());
+        for (const auto &record: records) {
+            result.push_back(record.getFieldId());
+        }
+        return result;
+    }
+
+    std::shared_ptr<Index> Class::tryGetOwnIndexedFieldIndex(FieldID field_id) const
+    {
+        openIndexedFields();
+        auto long_index = field_id.getLongIndex();
+        auto it = m_index_cache.find(long_index);
+        if (it != m_index_cache.end()) {
+            if (auto index = it->second.lock()) {
+                return index;
+            }
+            m_index_cache.erase(it);
+        }
+
+        if (!m_indexed_fields.isNull()) {
+            for (const auto &indexed_field: m_indexed_fields.cached()) {
+                if (indexed_field.m_field_id == long_index) {
+                    auto fixture = getFixture();
+                    auto address = indexed_field.m_index_ptr.getAddress();
+                    auto index = fixture->getVObjectCache().findOrPull<Index>(address, true, fixture, address);
+                    m_index_cache[long_index] = index;
+                    return index;
+                }
+            }
+        }
+        return nullptr;
+    }
+
+    std::shared_ptr<Index> Class::tryGetFieldIndex(FieldID field_id) const
+    {
+        auto index = tryGetOwnIndexedFieldIndex(field_id);
+        if (index) {
+            return index;
+        }
+        if (m_base_class_ptr) {
+            return m_base_class_ptr->tryGetFieldIndex(field_id);
+        }
+        return nullptr;
+    }
+
+    std::shared_ptr<Index> Class::tryGetFieldIndex(const char *field_name) const
+    {
+        auto member_loc = findField(field_name);
+        if (!!member_loc.first) {
+            auto index = tryGetOwnIndexedFieldIndex(member_loc.first.primary().first);
+            if (index) {
+                return index;
+            }
+        }
+        if (m_base_class_ptr) {
+            return m_base_class_ptr->tryGetFieldIndex(field_name);
+        }
+        return nullptr;
+    }
+
+    std::shared_ptr<Index> Class::getExistingFieldIndex(FieldID field_id) const
+    {
+        auto index = tryGetFieldIndex(field_id);
+        if (!index) {
+            auto member = tryGetMember(field_id);
+            if (member && isDeclaredIndexedField(member->m_name.c_str())) {
+                const_cast<Class *>(this)->addIndexedField(field_id);
+                index = tryGetFieldIndex(field_id);
+            }
+        }
+        if (!index) {
+            THROWF(db0::InputException) << "Field is not an indexed field";
+        }
+        return index;
     }
     
     std::string Class::getTypeName() const {
@@ -560,6 +788,7 @@ namespace db0::object_model
         m_fidelities.detach();
         m_schema.detach();
         m_tag_fields.detach();
+        m_indexed_fields.detach();
         super_t::detach();
     }
     
@@ -581,6 +810,7 @@ namespace db0::object_model
         m_fidelities.commit();
         m_schema.commit();
         m_tag_fields.commit();
+        m_indexed_fields.commit();
         super_t::commit();
     }
     
@@ -695,16 +925,113 @@ namespace db0::object_model
 
     void Class::setDeclaredTagFields(const std::vector<std::string> &tag_fields)
     {
-        m_declared_tag_field_set.clear();
-        m_declared_tag_field_set.insert(tag_fields.begin(), tag_fields.end());
+        for (auto it = m_declared_field_options.begin(); it != m_declared_field_options.end();) {
+            it->second.clear(FieldOptions::TAG_FIELD);
+            if (it->second.value() == 0) {
+                it = m_declared_field_options.erase(it);
+            } else {
+                ++it;
+            }
+        }
+        for (const auto &field_name: tag_fields) {
+            setFieldOption(m_declared_field_options, field_name, FieldOptions::TAG_FIELD, true);
+        }
+    }
+
+    void Class::setDeclaredIndexedFields(const std::vector<std::string> &indexed_fields)
+    {
+        for (auto it = m_declared_field_options.begin(); it != m_declared_field_options.end();) {
+            it->second.clear(FieldOptions::INDEXED_FIELD);
+            if (it->second.value() == 0) {
+                it = m_declared_field_options.erase(it);
+            } else {
+                ++it;
+            }
+        }
+        for (const auto &field_name: indexed_fields) {
+            setFieldOption(m_declared_field_options, field_name, FieldOptions::INDEXED_FIELD, true);
+        }
     }
 
     bool Class::isDeclaredTagField(const char *field_name) const
     {
-        if (m_declared_tag_field_set.empty()) {
+        auto it = m_declared_field_options.find(field_name);
+        if (it == m_declared_field_options.end()) {
             return false;
         }
-        return m_declared_tag_field_set.find(field_name) != m_declared_tag_field_set.end();
+        return it->second[FieldOptions::TAG_FIELD];
+    }
+
+    bool Class::isDeclaredIndexedField(const char *field_name) const
+    {
+        auto it = m_declared_field_options.find(field_name);
+        if (it == m_declared_field_options.end()) {
+            return false;
+        }
+        return it->second[FieldOptions::INDEXED_FIELD];
+    }
+
+    bool Class::hasDeclaredIndexedFields() const
+    {
+        for (const auto &item: m_declared_field_options) {
+            if (item.second[FieldOptions::INDEXED_FIELD]) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    FieldFlags Class::getOwnFieldOptions(FieldID field_id) const
+    {
+        auto it = m_field_options.find(field_id.getLongIndex());
+        if (it != m_field_options.end()) {
+            return it->second;
+        }
+        for (const auto &entry: m_index) {
+            const auto &member_id = entry.second.first;
+            for (const auto &field_info: member_id) {
+                if (field_info.first == field_id) {
+                    it = m_field_options.find(member_id.primary().first.getLongIndex());
+                    return it == m_field_options.end() ? FieldFlags() : it->second;
+                }
+            }
+        }
+        return {};
+    }
+
+    void Class::reloadMemberOptions(FieldID field_id) const
+    {
+        auto member = m_member_cache.tryGet(field_id.getIndexAndOffset());
+        if (!member) {
+            return;
+        }
+        auto it = m_index.find(member->m_name);
+        if (it == m_index.end()) {
+            m_member_cache.reload(field_id.getIndexAndOffset());
+            return;
+        }
+        for (const auto &field_info: it->second.first) {
+            m_member_cache.reload(field_info.first.getIndexAndOffset());
+        }
+    }
+
+    FieldFlags Class::getFieldOptions(const char *field_name, const MemberID &member_id) const
+    {
+        FieldFlags result;
+        if (!!member_id) {
+            auto member = tryGetMember(member_id.primary().first);
+            result = member ? member->m_field_options : getOwnFieldOptions(member_id.primary().first);
+        } else {
+            auto it = m_declared_field_options.find(field_name);
+            if (it != m_declared_field_options.end()) {
+                result = it->second;
+            }
+        }
+
+        if (m_base_class_ptr) {
+            result = result | m_base_class_ptr->getFieldOptions(field_name);
+        }
+        return result;
     }
 
     std::vector<std::string> Class::getTagFieldNames() const
@@ -718,6 +1045,24 @@ namespace db0::object_model
         result.reserve(m_tag_fields.size());
         for (const auto &field_id: m_tag_fields.cached()) {
             auto member = tryGetMember(field_id);
+            if (member) {
+                result.push_back(member->m_name);
+            }
+        }
+        return result;
+    }
+
+    std::vector<std::string> Class::getIndexedFieldNames() const
+    {
+        openIndexedFields();
+        if (m_indexed_fields.isNull()) {
+            return {};
+        }
+
+        std::vector<std::string> result;
+        result.reserve(m_indexed_fields.size());
+        for (const auto &indexed_field: m_indexed_fields.cached()) {
+            auto member = tryGetMember(indexed_field.getFieldId());
             if (member) {
                 result.push_back(member->m_name);
             }
@@ -809,6 +1154,15 @@ namespace db0::object_model
         // NOTICE: no instance ID for the class-ref
         return { this->getAddress(), UniqueAddress::INSTANCE_ID_MAX };
     }
+
+    bool Class::isDescendantOf(const Class &base) const
+    {
+        auto current_ptr = this;
+        while (current_ptr && !(*current_ptr == base)) {
+            current_ptr = current_ptr->getBaseClassPtr();
+        }
+        return current_ptr != nullptr;
+    }
     
     bool Class::assignDefaultTags() const {
         return (*this)->m_flags[ClassOptions::NO_DEFAULT_TAGS] == false;
@@ -830,7 +1184,8 @@ namespace db0::object_model
     Class::Member Class::MemberAdapter::operator()(std::pair<std::uint32_t, std::uint32_t> loc, const o_field &field) const
     {
         auto field_name = m_class.get().getFixture()->getLimitedStringPool().fetch(field.m_name);
-        return { FieldID(loc), m_class.get().getFidelity(loc.first), field_name };
+        auto field_id = FieldID(loc);
+        return { field_id, m_class.get().getFidelity(loc.first), field_name, m_class.get().getOwnFieldOptions(field_id) };
     }
     
     unsigned int Class::Member::getLongIndex() const {

@@ -17,6 +17,7 @@
 #include "PyLocked.hpp"
 #include "PyWeakProxy.hpp"
 #include "MigrateError.hpp"
+#include "PyFieldRef.hpp"
 #include <dbzero/bindings/python/types/PyObjectId.hpp>
 #include <dbzero/bindings/python/collections/PyList.hpp>
 #include <dbzero/bindings/python/collections/PyByteArray.hpp>
@@ -63,7 +64,9 @@ static PyMethodDef dbzero_methods[] =
     {"uuid", (PyCFunction)&py::PyAPI_getUUID, METH_FASTCALL, "Get unique object ID"},
     {"clear_cache", &py::PyAPI_clearCache, METH_NOARGS, "Clear dbzero cache"},
     {"list", (PyCFunction)&py::PyAPI_makeList, METH_FASTCALL, "Create a new dbzero list instance"},
-    {"index", (PyCFunction)&py::PyAPI_makeIndex, METH_FASTCALL, "Create a new dbzero index instance"},
+    {"index", (PyCFunction)&py::PyAPI_makeIndex, METH_VARARGS | METH_KEYWORDS, "Create a new dbzero index instance"},
+    {"index_of", (PyCFunction)&py::PyAPI_indexOf, METH_VARARGS | METH_KEYWORDS, "Get the managed index for an indexed memo field"},
+    {"fields_of", (PyCFunction)&py::PyAPI_fieldsOf, METH_FASTCALL, "Get a memo field-reference namespace"},
     {"tuple", (PyCFunction)&py::PyAPI_makeTuple, METH_FASTCALL, "Create a new dbzero tuple instance"},
     {"set", (PyCFunction)&py::PyAPI_makeSet, METH_FASTCALL, "Create a new dbzero set instance"},
     {"weak_set", (PyCFunction)&py::PyAPI_makeWeakSet, METH_FASTCALL, "Create a new dbzero weak set instance"},
@@ -108,6 +111,7 @@ static PyMethodDef dbzero_methods[] =
     {"hash", (PyCFunction)&py::PyAPI_hash, METH_FASTCALL, "Returns hash of python or db0 object"},
     {"as_tag", (PyCFunction)&py::PyAPI_as_tag, METH_FASTCALL, "Returns tag of a @db0.memo object"},
     {"_get_tag_fields", (PyCFunction)&py::PyAPI_getTagFields, METH_FASTCALL, "Get materialized tag field names for a memo class"},
+    {"_get_indexed_fields", (PyCFunction)&py::PyAPI_getIndexedFields, METH_FASTCALL, "Get materialized indexed field names for a memo class"},
     {"materialized", (PyCFunction)&py::PyAPI_materialized, METH_FASTCALL, "Returns a materialized version of a @db0.memo object"},
     {"is_memo", (PyCFunction)&py::PyAPI_PyMemo_Check, METH_FASTCALL, "Checks if passed object is memo type"},
     {"is_enum", (PyCFunction)&py::PyAPI_isEnum, METH_FASTCALL, "Checks if passed object is a db0 enum value"},
@@ -247,6 +251,8 @@ PyMODINIT_FUNC PyInit_dbzero(void)
         &py::PyEnumValueReprType,
         &py::PyClassFieldsType,
         &py::PyFieldDefType,
+        &py::PyFieldNamespaceType,
+        &py::PyFieldRefType,
         &py::ClassObjectType,
         &py::TagSetType,
         &py::PyAtomicType,        

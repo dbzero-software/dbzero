@@ -8,7 +8,9 @@
 
 #include <limits>
 #include <array>
+#include <memory>
 #include <optional>
+#include <unordered_map>
 #include <dbzero/core/serialization/Types.hpp>
 #include <dbzero/core/serialization/FixedVersioned.hpp>
 #include <dbzero/core/vspace/db0_ptr.hpp>
@@ -60,12 +62,53 @@ namespace db0::object_model
     class ObjectImmutableImpl;
     class ObjectAnyImpl;
     class Class;    
+    class Index;
     struct ObjectId;
+
+    enum FieldOptions: std::uint32_t
+    {
+        TAG_FIELD = 0x0001,
+        INDEXED_FIELD = 0x0002
+    };
+
+    using FieldFlags = db0::FlagSet<FieldOptions>;
+
+}
+
+DECLARE_ENUM_VALUES(db0::object_model::FieldOptions, 2)
+
+namespace db0::object_model
+
+{
 
     // fidelity + slot index
     using VFidelityVector = db0::v_bvector<std::pair<std::uint8_t, unsigned int> >;    
     using VTagFields = db0::CachedVBVector<FieldID>;
-    using Reserved0008 = VTagFields;
+    struct DB0_PACKED_ATTR IndexedField
+    {
+        std::uint32_t m_field_id = 0;
+        db0_ptr<Index> m_index_ptr;
+
+        IndexedField() = default;
+        IndexedField(FieldID field_id, db0_ptr<Index> index_ptr)
+            : m_field_id(field_id.getLongIndex())
+            , m_index_ptr(index_ptr)
+        {
+        }
+
+        FieldID getFieldId() const
+        {
+            assert(m_field_id);
+            return FieldID::fromIndex((m_field_id - 1) >> 6, (m_field_id - 1) & 0x3F);
+        }
+
+        bool operator==(const IndexedField &other) const
+        {
+            return m_field_id == other.m_field_id
+                && m_index_ptr.getAddress() == other.m_index_ptr.getAddress();
+        }
+    };
+    using VIndexedFields = db0::CachedVBVector<IndexedField>;
     
 DB0_PACKED_BEGIN
     struct DB0_PACKED_ATTR o_class: public db0::o_fixed_versioned<o_class, 1>
@@ -89,8 +132,8 @@ DB0_PACKED_BEGIN
         const std::uint32_t m_num_bases;
 
         // Version 1 fields.
-        db0_ptr<Reserved0008> m_reserved_0008_ptr;
-        db0_ptr<Reserved0008> m_reserved_0010_ptr;
+        db0_ptr<VTagFields> m_tag_fields_ptr = {};
+        db0_ptr<VIndexedFields> m_indexed_fields_ptr = {};
         
         o_class(RC_LimitedStringPool &, const std::string &name, std::optional<std::string> module_name,
             const VFieldMatrix &, const VFidelityVector &, const Schema &, const char *type_id, const char *prefix_name, ClassFlags,
@@ -126,9 +169,10 @@ DB0_PACKED_END
             FieldID m_field_id;
             unsigned int m_fidelity = 0;
             std::string m_name;
+            FieldFlags m_field_options;
             
-            Member(FieldID, unsigned int fidelity, const char *);
-            Member(FieldID, unsigned int fidelity, const std::string &);
+            Member(FieldID, unsigned int fidelity, const char *, FieldFlags = {});
+            Member(FieldID, unsigned int fidelity, const std::string &, FieldFlags = {});
             
             // @return full index (index + offset) as a single integer
             unsigned int getLongIndex() const;
@@ -141,12 +185,25 @@ DB0_PACKED_END
         // set the model field names
         void setInitVars(const std::vector<std::string> &init_vars);
         void setDeclaredTagFields(const std::vector<std::string> &tag_fields);
+        void setDeclaredIndexedFields(const std::vector<std::string> &indexed_fields);
         bool isDeclaredTagField(const char *field_name) const;
+        bool isDeclaredIndexedField(const char *field_name) const;
+        bool hasDeclaredIndexedFields() const;
         void addTagField(FieldID);
         void removeTagField(FieldID);
         const std::vector<FieldID> &getTagFieldIds() const;
         bool isTagField(FieldID) const;
         std::vector<std::string> getTagFieldNames() const;
+        FieldFlags getFieldOptions(const char *field_name, const MemberID &member_id = {}) const;
+        void addIndexedField(FieldID);
+        void addIndexedField(FieldID, const db0_ptr<Index> &);
+        void removeIndexedField(FieldID);
+        std::vector<FieldID> getIndexedFieldIds() const;
+        const std::vector<IndexedField> &getIndexedFieldRecords() const;
+        std::vector<std::string> getIndexedFieldNames() const;
+        std::shared_ptr<Index> tryGetFieldIndex(FieldID) const;
+        std::shared_ptr<Index> tryGetFieldIndex(const char *field_name) const;
+        std::shared_ptr<Index> getExistingFieldIndex(FieldID) const;
 
         // Get class name in the underlying language object model
         std::string getName() const;
@@ -275,6 +332,7 @@ DB0_PACKED_END
         
         // NOTE: this is for type compatibility only, Class objects don't have instance_id
         UniqueAddress getUniqueAddress() const;
+        bool isDescendantOf(const Class &base) const;
         
         std::uint32_t getClassRef() const;
         
@@ -335,6 +393,8 @@ DB0_PACKED_END
         VFidelityVector m_fidelities;
         Schema m_schema;
         mutable VTagFields m_tag_fields;
+        mutable VIndexedFields m_indexed_fields;
+        mutable std::unordered_map<std::uint32_t, std::weak_ptr<Index> > m_index_cache;
         std::shared_ptr<Class> m_base_class_ptr;
         
         // Field by-name index (cache)
@@ -344,9 +404,8 @@ DB0_PACKED_END
         mutable std::vector<FieldID> m_unique_keys;
         // fields initialized on class creation (from static code analysis)
         std::unordered_set<std::string> m_init_vars;
-        std::unordered_set<std::string> m_declared_tag_field_set;
-        mutable std::unordered_set<std::uint32_t> m_tag_field_id_set;
-        mutable bool m_has_any_tag_fields = false;
+        std::unordered_map<std::string, FieldFlags> m_declared_field_options;
+        mutable std::unordered_map<std::uint32_t, FieldFlags> m_field_options;
         const std::uint32_t m_uid = 0;
         mutable MemberCacheT m_member_cache;
         // runtime flags
@@ -365,6 +424,12 @@ DB0_PACKED_END
         VTagFields &ensureTagFields();
         void openTagFields() const;
         void onTagFieldKeyChange(const FieldID &, bool added) const;
+        VIndexedFields &ensureIndexedFields();
+        void openIndexedFields() const;
+        void onIndexedFieldKeyChange(const IndexedField &, bool added) const;
+        FieldFlags getOwnFieldOptions(FieldID) const;
+        void reloadMemberOptions(FieldID) const;
+        std::shared_ptr<Index> tryGetOwnIndexedFieldIndex(FieldID) const;
         
         // Initialization function
         std::unordered_set<std::string> makeInitVars(const std::vector<std::string> &) const;

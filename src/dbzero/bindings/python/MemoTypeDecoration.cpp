@@ -27,6 +27,7 @@ namespace db0::python
         , m_py_dyn_prefix_callable(other.m_py_dyn_prefix_callable)
         , m_migrations(std::move(other.m_migrations))
         , m_tag_fields(std::move(other.m_tag_fields))
+        , m_indexed_fields(std::move(other.m_indexed_fields))
     {
         m_fixture_uuid.store(other.m_fixture_uuid.load());
         other.m_fixture_uuid = 0;
@@ -36,7 +37,8 @@ namespace db0::python
     MemoTypeDecoration::MemoTypeDecoration(shared_py_object<PyObject*> py_module,
         const char *prefix_name, const char *type_id, const char *file_name, std::vector<std::string> &&init_vars, 
         MemoFlags flags, shared_py_object<PyObject*> py_dyn_prefix_callable,
-        std::vector<Migration> &&migrations, std::vector<std::string> &&tag_fields)
+        std::vector<Migration> &&migrations, std::vector<std::string> &&tag_fields,
+        std::vector<std::string> &&indexed_fields)
         : m_py_module(py_module)
         , m_prefix_name(prefix_name)
         , m_type_id(type_id)
@@ -46,6 +48,7 @@ namespace db0::python
         , m_py_dyn_prefix_callable(py_dyn_prefix_callable)
         , m_migrations(std::move(migrations))
         , m_tag_fields(std::move(tag_fields))
+        , m_indexed_fields(std::move(indexed_fields))
     {
         init();
     }
@@ -61,6 +64,7 @@ namespace db0::python
         m_py_dyn_prefix_callable = other.m_py_dyn_prefix_callable;
         m_migrations = std::move(other.m_migrations);
         m_tag_fields = std::move(other.m_tag_fields);
+        m_indexed_fields = std::move(other.m_indexed_fields);
         m_fixture_uuid.store(other.m_fixture_uuid.load());
         other.m_fixture_uuid = 0;
         init();
@@ -125,6 +129,10 @@ namespace db0::python
 
     const std::vector<std::string> &MemoTypeDecoration::getTagFields() const {
         return m_tag_fields;
+    }
+
+    const std::vector<std::string> &MemoTypeDecoration::getIndexedFields() const {
+        return m_indexed_fields;
     }
     
     void MemoTypeDecoration::forAllMigrations(const std::unordered_set<std::string> &available_members,

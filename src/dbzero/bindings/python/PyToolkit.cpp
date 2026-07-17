@@ -24,6 +24,7 @@
 #include <dbzero/object_model/object.hpp>
 #include <dbzero/object_model/object/ObjectAnyImpl.hpp>
 #include <dbzero/object_model/object/o_embedded_object.hpp>
+#include <dbzero/object_model/Utils.hpp>
 #include <dbzero/object_model/tuple/o_tuple.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/Workspace.hpp>
@@ -234,6 +235,17 @@ namespace db0::python
             return reinterpret_cast<MemoImmutableObject *>(pyObject)->ext().getUniqueAddress();
         }
         return getTypeManager().extractAnyObject(pyObject).getUniqueAddress();
+    }
+
+    std::optional<UniqueAddress> PyToolkit::tryGetMemoUniqueAddress(ObjectPtr pyObject)
+    {
+        if (PyMemo_Check<MemoObject>(pyObject)) {
+            return db0::object_model::getMemoUniqueAddress(reinterpret_cast<MemoObject *>(pyObject));
+        }
+        if (PyMemo_Check<MemoImmutableObject>(pyObject)) {
+            return db0::object_model::getMemoUniqueAddress(reinterpret_cast<MemoImmutableObject *>(pyObject));
+        }
+        return {};
     }
 
     bool PyToolkit::isMemoDead(ObjectPtr pyObject)
@@ -881,8 +893,10 @@ namespace db0::python
         }
         
         auto py_index = Py_OWN(IndexDefaultObject_new());
-        // retrieve actual dbzero instance
-        py_index->unload(fixture, address, access_mode);
+        auto index = fixture->getVObjectCache().findOrPull<db0::object_model::Index>(
+            address, true, fixture, address, access_mode
+        );
+        py_index->makeNew(index);
 
         // add list object to cache
         // NOTE: in case of Index (which requires a flush on update) we need to cache instance
@@ -896,7 +910,7 @@ namespace db0::python
         // Keep the callback's own ref balance explicit so an unmatched clean
         // does not drop the LangCache-owned Index wrapper.
         auto dirty_ref_count = std::make_shared<std::uint32_t>(0);
-        py_index->ext().setDirtyCallback([py_index_ptr, dirty_ref_count](bool incRef) {
+        py_index->modifyExt().setDirtyCallback([py_index_ptr, dirty_ref_count](bool incRef) {
             if (incRef) {
                 Py_INCREF(py_index_ptr);
                 ++(*dirty_ref_count);
@@ -1255,30 +1269,48 @@ namespace db0::python
         return MemoTypeDecoration::get(memo_type).getInitVars();
     }
 
+    namespace
+    {
+        std::vector<std::string> getStringTupleAttributeOr(PyToolkit::TypeObjectPtr memo_type,
+            const char *attribute_name, const std::vector<std::string> &fallback)
+        {
+            auto py_fields = Py_OWN(PyObject_GetAttrString(reinterpret_cast<PyObject*>(memo_type), attribute_name));
+            if (!py_fields) {
+                PyErr_Clear();
+                return fallback;
+            }
+            if (!PyTuple_Check(*py_fields)) {
+                return fallback;
+            }
+
+            std::vector<std::string> result;
+            auto size = PyTuple_Size(*py_fields);
+            result.reserve(size);
+            for (Py_ssize_t index = 0; index < size; ++index) {
+                auto item = PyTuple_GetItem(*py_fields, index);
+                if (!PyUnicode_Check(item)) {
+                    return fallback;
+                }
+                result.emplace_back(PyUnicode_AsUTF8(item));
+            }
+            return result;
+        }
+    }
+
     std::vector<std::string> PyToolkit::getTagFields(TypeObjectPtr memo_type)
     {
         assert(isAnyMemoType(memo_type));
-        auto py_tag_fields = Py_OWN(PyObject_GetAttrString(reinterpret_cast<PyObject*>(memo_type),
-            "__DBZERO_TAG_FIELDS_ATTR"));
-        if (!py_tag_fields) {
-            PyErr_Clear();
-            return MemoTypeDecoration::get(memo_type).getTagFields();
-        }
-        if (!PyTuple_Check(*py_tag_fields)) {
-            return MemoTypeDecoration::get(memo_type).getTagFields();
-        }
+        return getStringTupleAttributeOr(
+            memo_type, "__DBZERO_TAG_FIELDS_ATTR", MemoTypeDecoration::get(memo_type).getTagFields()
+        );
+    }
 
-        std::vector<std::string> result;
-        auto size = PyTuple_Size(*py_tag_fields);
-        result.reserve(size);
-        for (Py_ssize_t index = 0; index < size; ++index) {
-            auto item = PyTuple_GetItem(*py_tag_fields, index);
-            if (!PyUnicode_Check(item)) {
-                return MemoTypeDecoration::get(memo_type).getTagFields();
-            }
-            result.emplace_back(PyUnicode_AsUTF8(item));
-        }
-        return result;
+    std::vector<std::string> PyToolkit::getIndexedFields(TypeObjectPtr memo_type)
+    {
+        assert(isAnyMemoType(memo_type));
+        return getStringTupleAttributeOr(
+            memo_type, "__DBZERO_INDEXED_FIELDS_ATTR", MemoTypeDecoration::get(memo_type).getIndexedFields()
+        );
     }
     
     bool PyToolkit::isAnyMemoType(TypeObjectPtr py_type) {

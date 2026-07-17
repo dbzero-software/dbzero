@@ -2,13 +2,49 @@
 // Copyright (c) 2025 DBZero Software sp. z o.o.
 
 #include "PyIndex.hpp"
+#include <dbzero/bindings/python/Memo.hpp>
 #include <dbzero/bindings/python/iter/PyObjectIterable.hpp>
 #include <dbzero/workspace/Workspace.hpp>
+#include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/bindings/python/PyInternalAPI.hpp>
+#include <algorithm>
 
 namespace db0::python
 
 {
+    namespace
+    {
+        void requireMutableIndex(const IndexObject *index_obj)
+        {
+            if (index_obj->ext().isManaged()) {
+                THROWF(db0::InputException) << "managed indexes are read-only";
+            }
+        }
+
+        std::shared_ptr<db0::object_model::Index> getManagedIndexForRead(const IndexObject *index_obj)
+        {
+            auto &index = index_obj->ext();
+            if (!index.isManaged() || !index.hasRefs()) {
+                return nullptr;
+            }
+            auto fixture = index.getFixture();
+            return fixture->getVObjectCache().findOrPull<db0::object_model::Index>(
+                index.getAddress(), true, fixture, index.getAddress()
+            );
+        }
+    }
+
+    bool isValidIndexedFieldName(PyTypeObject *memo_type, const char *field_name)
+    {
+        for (auto type = memo_type; type && PyAnyMemoType_Check(type); type = PyToolkit::getBaseMemoType(type)) {
+            auto fields = PyToolkit::getIndexedFields(type);
+            if (std::find(fields.begin(), fields.end(), field_name) != fields.end()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
 
     static PyMethodDef IndexObject_methods[] = {
         {"add", (PyCFunction)PyAPI_IndexObject_add, METH_FASTCALL, "Add item to index."},
@@ -47,6 +83,17 @@ namespace db0::python
     IndexObject *IndexDefaultObject_new() {
         return IndexObject_new(&IndexObjectType, NULL, NULL);
     }
+
+    IndexObject *IndexDefaultObject_new(db0::swine_ptr<Fixture> fixture, bool passive, bool managed)
+    {
+        auto py_index = IndexDefaultObject_new();
+        auto index = fixture->getVObjectCache().pull<db0::object_model::Index>(true, fixture, passive);
+        if (managed) {
+            index->setManaged();
+        }
+        py_index->makeNew(index);
+        return py_index;
+    }
     
     void PyAPI_IndexObject_del(IndexObject* index_obj)
     {
@@ -60,21 +107,28 @@ namespace db0::python
     Py_ssize_t tryIndexObject_len(IndexObject *index_obj)
     {
         index_obj->ext().getFixture()->refreshIfUpdated();
-        return index_obj->ext().size();
+        auto managed_index = getManagedIndexForRead(index_obj);
+        return managed_index ? managed_index->size() : index_obj->ext().size();
     }
 
     Py_ssize_t PyAPI_IndexObject_len(IndexObject *index_obj)
     {
         PY_API_FUNC
-        return runSafe(tryIndexObject_len, index_obj);
+        return runSafe<-1>(tryIndexObject_len, index_obj);
     }
     
-    IndexObject *tryMakeIndex(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
+    IndexObject *tryMakeIndex(PyObject *self, PyObject *args, PyObject *kwargs)
     {
+        static const char *kwlist[] = {"passive", NULL};
+        int passive = 0;
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|$p", const_cast<char**>(kwlist), &passive)) {
+            return nullptr;
+        }
+
         // make actual dbzero instance, use default fixture
-        auto py_index = Py_OWN(IndexDefaultObject_new());
         db0::FixtureLock lock(PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture());
-        auto &index = py_index->makeNew(*lock);
+        auto py_index = Py_OWN(IndexDefaultObject_new(*lock, passive != 0));
+        auto &index = py_index->modifyExt();
         
         // NOTE: this callback is important for proper lifecycle management
         // we must prevent dirty Index instance from deletion
@@ -102,18 +156,15 @@ namespace db0::python
         return py_index.steal();
     }
     
-    IndexObject *PyAPI_makeIndex(PyObject *self, PyObject *const *args, Py_ssize_t nargs)    
+    PyObject *PyAPI_makeIndex(PyObject *self, PyObject *args, PyObject *kwargs)
     {
-        if (nargs != 0) {
-            PyErr_SetString(PyExc_TypeError, "Index object does not accept arguments");
-            return NULL;
-        }        
         PY_API_FUNC
-        return runSafe(tryMakeIndex, self, args, nargs);        
+        return runSafe(tryMakeIndex, self, args, kwargs);
     }
     
     PyObject *tryIndexObject_add(IndexObject *index_obj, PyObject *const *args, Py_ssize_t nargs)
     {
+        requireMutableIndex(index_obj);
         index_obj->modifyExt().add(args[0], args[1]);
         // NOTE: we don't need to lock the fixture here, because add() is a buffered operation
         index_obj->ext().getFixture()->onUpdated();
@@ -133,6 +184,7 @@ namespace db0::python
 
     PyObject *tryIndexObject_remove(IndexObject *index_obj, PyObject *const *args, Py_ssize_t nargs)
     {
+        requireMutableIndex(index_obj);
         index_obj->modifyExt().remove(args[0], args[1]);
         // NOTE: we don't need to lock the fixture here, because remove() is a buffered operation
         index_obj->ext().getFixture()->onUpdated();
@@ -171,9 +223,10 @@ namespace db0::python
             return NULL;
         }
         
-        auto &index = py_index->ext();
+        auto managed_index = getManagedIndexForRead(py_index);
+        auto *index = managed_index ? managed_index.get() : &py_index->ext();
         auto &iter = reinterpret_cast<PyObjectIterable*>(py_iter)->modifyExt();
-        auto iter_sorted = index.sort(iter, asc, null_first);
+        auto iter_sorted = index->sort(iter, asc, null_first);
         auto iter_obj = PyObjectIterableDefault_new();
         iter_obj->makeNew(iter, std::move(iter_sorted));
         return iter_obj.steal();
@@ -204,14 +257,19 @@ namespace db0::python
             return NULL;
         }
         
-        auto &index = py_index->ext();
+        auto managed_index = getManagedIndexForRead(py_index);
+        auto *index = managed_index ? managed_index.get() : &py_index->ext();
         // construct range iterator
-        auto iter_factory = index.range(low, high, null_first);
-        auto fixture = index.getFixture();
+        auto iter_factory = index->range(low, high, null_first);
+        auto fixture = index->getFixture();
         auto py_iter_obj = PyObjectIterableDefault_new();
+        ObjectIterable::QueryPlanning query_planning {
+            index->isPassive(),
+            !index->isPassive()
+        };
         py_iter_obj->makeNew(
             fixture, std::move(iter_factory), nullptr, nullptr, std::vector<std::unique_ptr<QueryObserver> >{},
-            std::vector<ObjectIterable::FilterFunc>{}
+            std::vector<ObjectIterable::FilterFunc>{}, query_planning
         );
         return py_iter_obj.steal();
     }
@@ -228,6 +286,7 @@ namespace db0::python
     
     PyObject *tryIndexObject_flush(IndexObject *self)
     {
+        requireMutableIndex(self);
         FixtureLock lock(self->ext().getFixture());
         self->modifyExt().flush(lock);
         Py_RETURN_NONE;
@@ -241,6 +300,7 @@ namespace db0::python
 
     PyObject *tryIndexObject_clear(IndexObject *self)
     {
+        requireMutableIndex(self);
         FixtureLock lock(self->ext().getFixture());
         self->modifyExt().clear(lock);
         Py_RETURN_NONE;

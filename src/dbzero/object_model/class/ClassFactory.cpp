@@ -13,7 +13,10 @@
 #include <dbzero/object_model/value/ObjectId.hpp>
 #include <dbzero/object_model/tags/ObjectIterator.hpp>
 #include <dbzero/object_model/tags/TagIndex.hpp>
+#include <dbzero/object_model/index/Index.hpp>
+#include <dbzero/object_model/Utils.hpp>
 #include <algorithm>
+#include <utility>
 #include <unordered_set>
 
 namespace db0::object_model
@@ -121,6 +124,22 @@ namespace db0::object_model
         return result;
     }
 
+    std::vector<FieldID> resolveDeclaredIndexedFields(const Class &type, const std::vector<std::string> &indexed_fields)
+    {
+        std::vector<FieldID> result;
+        std::unordered_set<std::uint32_t> seen;
+        for (const auto &field_name: indexed_fields) {
+            auto member = type.tryGetMember(field_name.c_str());
+            if (member) {
+                auto long_index = member->m_field_id.getLongIndex();
+                if (seen.insert(long_index).second) {
+                    result.push_back(member->m_field_id);
+                }
+            }
+        }
+        return result;
+    }
+
     std::unordered_set<std::uint32_t> fieldIdSet(const std::vector<FieldID> &field_ids)
     {
         std::unordered_set<std::uint32_t> result;
@@ -177,18 +196,22 @@ namespace db0::object_model
     }
 
     template <typename MemoT>
-    typename TagIndex::ObjectSharedPtr tryGetMemoField(MemoT *memo_obj, const MemberLoc &member_loc)
+    typename TagIndex::ObjectSharedPtr tryGetMemoField(MemoT *memo_obj, const MemberLoc &member_loc,
+        bool *is_auto_generated = nullptr)
     {
-        return memo_obj->ext().tryGet(member_loc);
+        return memo_obj->ext().tryGet(member_loc, is_auto_generated);
     }
 
-    TagIndex::ObjectSharedPtr tryGetMemoField(TagIndex::ObjectPtr py_obj, const MemberLoc &member_loc)
+    TagIndex::ObjectSharedPtr tryGetMemoField(TagIndex::ObjectPtr py_obj, const MemberLoc &member_loc,
+        bool *is_auto_generated = nullptr)
     {
         if (db0::python::PyMemo_Check<db0::python::MemoObject>(py_obj)) {
-            return tryGetMemoField(reinterpret_cast<db0::python::MemoObject *>(py_obj), member_loc);
+            return tryGetMemoField(reinterpret_cast<db0::python::MemoObject *>(py_obj), member_loc,
+                is_auto_generated);
         }
         if (db0::python::PyMemo_Check<db0::python::MemoImmutableObject>(py_obj)) {
-            return tryGetMemoField(reinterpret_cast<db0::python::MemoImmutableObject *>(py_obj), member_loc);
+            return tryGetMemoField(reinterpret_cast<db0::python::MemoImmutableObject *>(py_obj), member_loc,
+                is_auto_generated);
         }
         return {};
     }
@@ -208,6 +231,34 @@ namespace db0::object_model
             return &getMemoType(reinterpret_cast<db0::python::MemoImmutableObject *>(py_obj));
         }
         return nullptr;
+    }
+
+    bool hasAncestorIndexedField(const Class &type, FieldID field_id)
+    {
+        auto member = type.tryGetMember(field_id);
+        if (!member) {
+            return false;
+        }
+        auto base_type = type.getBaseClassPtr();
+        while (base_type) {
+            if (base_type->isDeclaredIndexedField(member->m_name.c_str())
+                || base_type->tryGetFieldIndex(member->m_name.c_str())) {
+                return true;
+            }
+            base_type = base_type->getBaseClassPtr();
+        }
+        return false;
+    }
+
+    void validateIndexedFieldAncestorOverlap(const Class &type, const std::vector<FieldID> &field_ids)
+    {
+        for (const auto &field_id: field_ids) {
+            if (hasAncestorIndexedField(type, field_id)) {
+                THROWF(db0::InputException)
+                    << "Indexed field declaration overlaps an ancestor indexed field in class "
+                    << type.getName();
+            }
+        }
     }
 
     struct TagFieldMigrateMemberLocs
@@ -254,6 +305,40 @@ namespace db0::object_model
         const std::vector<FieldID> &m_removed_ids;
         const std::vector<FieldID> &m_added_ids;
     };
+
+    struct IndexedFieldMigrationIndex
+    {
+        FieldID field_id;
+        std::shared_ptr<Index> index;
+    };
+
+    std::vector<IndexedFieldMigrationIndex> createManagedIndexes(Class &type,
+        const std::vector<FieldID> &added_ids)
+    {
+        std::vector<IndexedFieldMigrationIndex> result;
+        result.reserve(added_ids.size());
+        auto fixture = type.getFixture();
+        for (const auto &field_id: added_ids) {
+            auto index = std::make_shared<Index>(fixture, true);
+            index->setManaged();
+            index->incRef(false);
+            result.push_back({ field_id, index });
+        }
+        return result;
+    }
+
+    void destroyManagedIndexes(const std::vector<IndexedFieldMigrationIndex> &indexes)
+    {
+        for (const auto &item: indexes) {
+            item.index->rollback();
+            if (item.index->decRef(false)) {
+                auto fixture = item.index->getFixture();
+                auto address = item.index->getAddress();
+                item.index->destroy();
+                fixture->getVObjectCache().erase(address);
+            }
+        }
+    }
 
     void migrateTagFields(Class &type, const std::vector<FieldID> &passive_removed_ids,
         const std::vector<FieldID> &passive_added_ids, const TagFieldEdit &tag_field_edit)
@@ -343,6 +428,90 @@ namespace db0::object_model
         }
     }
 
+    void applyIndexedFieldDeclarations(Class &type, const std::vector<std::string> &indexed_fields,
+        bool migrate, bool raise_on_mismatch)
+    {
+        if (indexed_fields.empty() && !type.hasDeclaredIndexedFields()) {
+            type.setDeclaredIndexedFields(indexed_fields);
+            return;
+        }
+        auto new_indexed_field_ids = resolveDeclaredIndexedFields(type, indexed_fields);
+        validateIndexedFieldAncestorOverlap(type, new_indexed_field_ids);
+        auto old_indexed_field_ids = type.hasDeclaredIndexedFields()
+            ? type.getIndexedFieldIds()
+            : std::vector<FieldID>();
+        if (sameFieldIds(old_indexed_field_ids, new_indexed_field_ids)) {
+            type.setDeclaredIndexedFields(indexed_fields);
+            return;
+        }
+        if (!migrate) {
+            type.setDeclaredIndexedFields(type.getIndexedFieldNames());
+            if (raise_on_mismatch) {
+                throw db0::python::MigrateException("Indexed-field declaration migration is required for class "
+                    + type.getName());
+            }
+            return;
+        }
+
+        auto removed_ids = differenceById(old_indexed_field_ids, new_indexed_field_ids);
+        auto added_ids = differenceById(new_indexed_field_ids, old_indexed_field_ids);
+        auto new_indexes = createManagedIndexes(type, added_ids);
+        auto fixture = type.getFixture();
+        auto &tag_index = fixture->get<TagIndex>();
+
+        db0::FixtureLock lock(fixture);
+        tag_index.flush();
+        try {
+            auto query = tag_index.makeIterator(type);
+            if (query) {
+                static const std::vector<FieldID> no_removed_ids;
+                TagFieldMigrateCache migrate_cache(no_removed_ids, added_ids);
+                ObjectIterator iterator(fixture, std::move(query), type.shared_from_this());
+                for (;;) {
+                    auto obj = iterator.next();
+                    if (!obj.get()) {
+                        break;
+                    }
+                    auto obj_type = tryGetMemoType(obj.get());
+                    if (!obj_type || !obj_type->isDescendantOf(type)) {
+                        continue;
+                    }
+                    auto obj_addr = ClassFactory::LangToolkit::tryGetMemoUniqueAddress(obj.get());
+                    if (!obj_addr) {
+                        continue;
+                    }
+                    const auto &member_locs = migrate_cache.get(*obj_type);
+                    for (std::size_t index = 0; index < member_locs.added.size(); ++index) {
+                        const auto &member_loc = member_locs.added[index];
+                        if (!member_loc) {
+                            continue;
+                        }
+                        bool is_auto_generated = false;
+                        auto value = tryGetMemoField(obj.get(), *member_loc, &is_auto_generated);
+                        if (!value || is_auto_generated) {
+                            continue;
+                        }
+                        new_indexes[index].index->add(value.get(), *obj_addr);
+                    }
+                }
+            }
+            for (const auto &item: new_indexes) {
+                item.index->flush(lock);
+            }
+        } catch (...) {
+            destroyManagedIndexes(new_indexes);
+            throw;
+        }
+
+        for (const auto &item: new_indexes) {
+            type.addIndexedField(item.field_id, db0_ptr<Index>(*item.index));
+        }
+        for (const auto &field_id: removed_ids) {
+            type.removeIndexedField(field_id);
+        }
+        type.setDeclaredIndexedFields(indexed_fields);
+    }
+
     o_class_factory::o_class_factory(Memspace &memspace)
         : m_class_map_ptrs { VClassMap(memspace), VClassMap(memspace), VClassMap(memspace), VClassMap(memspace) }
     {
@@ -396,6 +565,7 @@ namespace db0::object_model
             bool no_auto_migrate = LangToolkit::isNoAutoMigrate(*getFixture());
             bool can_migrate = getFixture()->getAccessType() == AccessType::READ_WRITE && !no_auto_migrate;
             applyTagFieldDeclarations(*type, LangToolkit::getTagFields(lang_type), can_migrate, false);
+            applyIndexedFieldDeclarations(*type, LangToolkit::getIndexedFields(lang_type), can_migrate, false);
             // add to by-type cache
             it_cached = m_type_cache.insert({lang_type, type}).first;
             m_pending_types.push_back(lang_type);
@@ -403,6 +573,8 @@ namespace db0::object_model
             bool no_auto_migrate = LangToolkit::isNoAutoMigrate(*getFixture());
             bool can_migrate = getFixture()->getAccessType() == AccessType::READ_WRITE && !no_auto_migrate;
             applyTagFieldDeclarations(*it_cached->second, LangToolkit::getTagFields(lang_type), can_migrate, false);
+            applyIndexedFieldDeclarations(*it_cached->second, LangToolkit::getIndexedFields(lang_type), can_migrate,
+                false);
         }
         return it_cached->second;
     }
@@ -443,6 +615,8 @@ namespace db0::object_model
                 bool can_migrate = getFixture()->getAccessType() == AccessType::READ_WRITE && !no_auto_migrate;
                 applyTagFieldDeclarations(*type, LangToolkit::getTagFields(lang_type), can_migrate,
                     no_auto_migrate);
+                applyIndexedFieldDeclarations(*type, LangToolkit::getIndexedFields(lang_type), can_migrate,
+                    no_auto_migrate);
             } else {
                 auto fixture = getFixture();
                 if (!checkAccessType(*fixture, AccessType::READ_WRITE)) {
@@ -482,9 +656,11 @@ namespace db0::object_model
                 if (lang_type) {       
                     type->setRuntimeFlags(LangToolkit::getMemoFlags(lang_type));
                     type->setDeclaredTagFields(LangToolkit::getTagFields(lang_type));
+                    type->setDeclaredIndexedFields(LangToolkit::getIndexedFields(lang_type));
                     for (const auto &field_id: resolveDeclaredTagFields(*type, LangToolkit::getTagFields(lang_type))) {
                         type->addTagField(field_id);
                     }
+                    applyIndexedFieldDeclarations(*type, LangToolkit::getIndexedFields(lang_type), true, false);
                 }
             }
             
@@ -538,6 +714,7 @@ namespace db0::object_model
         }
 
         applyTagFieldDeclarations(*type, LangToolkit::getTagFields(lang_type), true, false);
+        applyIndexedFieldDeclarations(*type, LangToolkit::getIndexedFields(lang_type), true, false);
     }
     
     std::shared_ptr<Class> ClassFactory::getType(ClassPtr ptr, std::shared_ptr<Class> type, TypeObjectPtr lang_type) const
@@ -566,6 +743,8 @@ namespace db0::object_model
             bool can_migrate = getFixture()->getAccessType() == AccessType::READ_WRITE && !no_auto_migrate;
             applyTagFieldDeclarations(*it_cached->second.m_class, LangToolkit::getTagFields(lang_type), can_migrate,
                 no_auto_migrate);
+            applyIndexedFieldDeclarations(*it_cached->second.m_class, LangToolkit::getIndexedFields(lang_type),
+                can_migrate, no_auto_migrate);
         }
         return it_cached->second.m_class;
     }
@@ -628,6 +807,10 @@ namespace db0::object_model
             if (!lang_type) {
                 lang_type = tryFindLangType(*type);
             }
+            // Register before applying language metadata; declaration migration may
+            // iterate objects and recursively resolve this class by pointer.
+            it_cached = m_ptr_cache.insert({ptr, ClassItem { type, lang_type }}).first;
+            m_pending_ptrs.push_back(ptr);
             // initialize the language model
             if (lang_type) {
                 type->setInitVars(LangToolkit::getInitVars(lang_type));
@@ -636,10 +819,8 @@ namespace db0::object_model
                 bool no_auto_migrate = LangToolkit::isNoAutoMigrate(*getFixture());
                 bool can_migrate = getFixture()->getAccessType() == AccessType::READ_WRITE && !no_auto_migrate;
                 applyTagFieldDeclarations(*type, LangToolkit::getTagFields(lang_type), can_migrate, false);
+                applyIndexedFieldDeclarations(*type, LangToolkit::getIndexedFields(lang_type), can_migrate, false);
             }
-            // register the mapping to language specific type object
-            it_cached = m_ptr_cache.insert({ptr, ClassItem { type, lang_type }}).first;
-            m_pending_ptrs.push_back(ptr);
         }
         // register the lang type mapping if missing
         if (lang_type && !it_cached->second.m_lang_type) {
@@ -654,6 +835,8 @@ namespace db0::object_model
             bool can_migrate = getFixture()->getAccessType() == AccessType::READ_WRITE && !no_auto_migrate;
             applyTagFieldDeclarations(*it_cached->second.m_class, LangToolkit::getTagFields(lang_type), can_migrate,
                 no_auto_migrate);
+            applyIndexedFieldDeclarations(*it_cached->second.m_class, LangToolkit::getIndexedFields(lang_type),
+                can_migrate, no_auto_migrate);
         }
         return it_cached->second;
     }

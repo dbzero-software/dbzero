@@ -41,13 +41,17 @@ namespace db0::object_model
         // null instance constructor
         Index();
         Index(db0::swine_ptr<Fixture> &, AccessFlags = {});
+        Index(db0::swine_ptr<Fixture> &, bool passive, AccessFlags = {});
         Index(db0::swine_ptr<Fixture> &, Address, AccessFlags = {});
         Index(const Index &) = delete;
         ~Index();
         
         std::size_t size() const;
+        static bool isSupportedKey(ObjectPtr key);
         void add(ObjectPtr key, ObjectPtr value);
         void remove(ObjectPtr key, ObjectPtr value);
+        void add(ObjectPtr key, UniqueAddress value);
+        void remove(ObjectPtr key, UniqueAddress value);
         
         /**
          * Sort results of a specific object iterator from the same fixture
@@ -92,6 +96,22 @@ namespace db0::object_model
         void clear(FixtureLock &);
 
         void clearMembers();
+
+        bool isPassive() const {
+            return (*this)->isPassive();
+        }
+
+        void setPassive() {
+            this->modify().m_flags.set(IndexOptions::Passive);
+        }
+
+        bool isManaged() const {
+            return (*this)->isManaged();
+        }
+
+        void setManaged() {
+            this->modify().setManaged();
+        }
 
     protected:
         // the default / provisional type
@@ -139,7 +159,7 @@ namespace db0::object_model
             IndexBuilder<DefaultT> &getAuto()
             {
                 if (!m_index_builder) {
-                    m_index_builder = db0::make_shared_void<IndexBuilder<DefaultT> >();
+                    m_index_builder = makeBuilder<DefaultT>();
                     m_new_type = IndexDataType::Auto;
                 }
                 return *static_cast<IndexBuilder<DefaultT>*>(m_index_builder.get());                
@@ -148,7 +168,7 @@ namespace db0::object_model
             template <typename T> IndexBuilder<T> &get()
             {
                 if (!m_index_builder) {
-                    m_index_builder = db0::make_shared_void<IndexBuilder<T> >();
+                    m_index_builder = makeBuilder<T>();
                     m_new_type = Index::dataTypeOf<T>();
                 }
                 return *static_cast<IndexBuilder<T>*>(m_index_builder.get());
@@ -171,13 +191,29 @@ namespace db0::object_model
                 }
                 
                 if (!std::is_same_v<FromType, ToType>) {
-                    m_index_builder = db0::make_shared_void<IndexBuilder<ToType> >(
+                    m_index_builder = makeBuilder<ToType>(
                         get<FromType>().releaseRemoveNullItems(),
                         get<FromType>().releaseAddNullItems(),
                         get<FromType>().releaseObjectCache()
                     );
                     m_new_type = Index::dataTypeOf<ToType>();
                 }
+            }
+
+            template <typename T> std::shared_ptr<void> makeBuilder() const
+            {
+                return db0::make_shared_void<IndexBuilder<T> >(m_index.isPassive());
+            }
+
+            template <typename T> std::shared_ptr<void> makeBuilder(
+                std::unordered_set<UniqueAddress> &&remove_null_values,
+                std::unordered_set<UniqueAddress> &&add_null_values,
+                std::unordered_map<UniqueAddress, ObjectSharedPtr> &&object_cache) const
+            {
+                return db0::make_shared_void<IndexBuilder<T> >(
+                    std::move(remove_null_values), std::move(add_null_values), std::move(object_cache),
+                    m_index.isPassive()
+                );
             }
         };
         
@@ -296,6 +332,8 @@ namespace db0::object_model
         // adds to with a null key, compatible with all types
         void addNull(ObjectPtr);
         void removeNull(ObjectPtr);
+        void addNull(UniqueAddress);
+        void removeNull(UniqueAddress);
 
         template <typename T> std::optional<T> extractOptionalValue(ObjectPtr value) const;    
     };

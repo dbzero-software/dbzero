@@ -72,6 +72,7 @@ namespace db0::python
     
     PyObject *tryPyAPI_PyObjectIterable_iter(PyObjectIterable *py_iterable)
     {
+        py_iterable->ext().requirePassiveAnchor();
         // getFixture to prevent segfault in case the associated context (e.g. snapshot) has been destroyed
         auto fixture = py_iterable->ext().getFixture();
         auto py_iter = PyObjectIteratorDefault_new();
@@ -90,6 +91,7 @@ namespace db0::python
     
     Py_ssize_t tryPyObjectIterable_len(PyObjectIterable *py_iterable)
     {
+        py_iterable->ext().requirePassiveAnchor();
         // getFixture to prevent segfault in case the associated context (e.g. snapshot) has been destroyed
         py_iterable->ext().getFixture();
         return py_iterable->ext().getSize();
@@ -160,6 +162,7 @@ namespace db0::python
         using SliceDef = db0::object_model::SliceDef;
         using ObjectSharedPtr = PyToolkit::ObjectSharedPtr;
 
+        py_iterable->ext().requirePassiveAnchor();
         if (PyTuple_Check(py_key)) {
             // itemgetter's key (item indexes)
             auto indices = unpackTuple(py_key);
@@ -208,6 +211,7 @@ namespace db0::python
     int PyAPI_PyObjectIterable_bool(PyObjectIterable *py_iterable)
     {
         PY_API_FUNC
+        py_iterable->ext().requirePassiveAnchor();
         // check if the iterable is empty
         if (py_iterable->ext().empty()) {
             return 0; // False

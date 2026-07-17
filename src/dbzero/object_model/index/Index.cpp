@@ -28,6 +28,14 @@ namespace db0::object_model
         , m_mutation_log(fixture->addMutationHandler())
     {
     }
+
+    Index::Index(db0::swine_ptr<Fixture> &fixture, bool passive, AccessFlags access_mode)
+        : Index(fixture, access_mode)
+    {
+        if (passive) {
+            setPassive();
+        }
+    }
     
     Index::Index(db0::swine_ptr<Fixture> &fixture, Address address, AccessFlags access_mode)
         : super_t(super_t::tag_from_address(), fixture, address, access_mode)
@@ -285,6 +293,15 @@ namespace db0::object_model
         }
     }
 
+    bool Index::isSupportedKey(ObjectPtr key)
+    {
+        auto &type_manager = LangToolkit::getTypeManager();
+        if (type_manager.isNull(key)) {
+            return true;
+        }
+        return isSupportedIndexKeyType(type_manager.getTypeId(key));
+    }
+
     void Index::add(ObjectPtr key, ObjectPtr value)
     {        
         assert(hasInstance());
@@ -320,6 +337,40 @@ namespace db0::object_model
                 THROWF(db0::InputException) << "Index of type " 
                     << static_cast<std::uint16_t>(m_builder.getDataType())
                     << " does not allow adding key type: " 
+                    << LangToolkit::getTypeName(key) << THROWF_END;
+        }
+        m_mutation_log->onDirty();
+    }
+
+    void Index::add(ObjectPtr key, UniqueAddress value)
+    {
+        assert(hasInstance());
+        assert(isPassive());
+        auto &type_manager = LangToolkit::getTypeManager();
+        if (type_manager.isNull(key)) {
+            addNull(value);
+            return;
+        }
+
+        if (m_builder.getDataType() == IndexDataType::Auto) {
+            m_builder.update(type_manager.getTypeId(key));
+        }
+
+        if (!isDirty()) {
+            setDirty(true);
+        }
+
+        switch (m_builder.getDataType()) {
+            case IndexDataType::Int64:
+                m_builder.get<std::int64_t>().add(type_manager.extractInt64(key), value);
+                break;
+            case IndexDataType::UInt64:
+                m_builder.get<std::uint64_t>().add(type_manager.extractUInt64(key), value);
+                break;
+            default:
+                THROWF(db0::InputException) << "Index of type "
+                    << static_cast<std::uint16_t>(m_builder.getDataType())
+                    << " does not allow adding key type: "
                     << LangToolkit::getTypeName(key) << THROWF_END;
         }
         m_mutation_log->onDirty();
@@ -364,6 +415,40 @@ namespace db0::object_model
         }
         m_mutation_log->onDirty();
     }
+
+    void Index::remove(ObjectPtr key, UniqueAddress value)
+    {
+        assert(hasInstance());
+        assert(isPassive());
+        auto &type_manager = LangToolkit::getTypeManager();
+        if (type_manager.isNull(key)) {
+            removeNull(value);
+            return;
+        }
+
+        if (m_builder.getDataType() == IndexDataType::Auto) {
+            m_builder.update(type_manager.getTypeId(key));
+        }
+
+        if (!isDirty()) {
+            setDirty(true);
+        }
+
+        switch (m_builder.getDataType()) {
+            case IndexDataType::Int64:
+                m_builder.get<std::int64_t>().remove(type_manager.extractInt64(key), value);
+                break;
+            case IndexDataType::UInt64:
+                m_builder.get<std::uint64_t>().remove(type_manager.extractUInt64(key), value);
+                break;
+            default:
+                THROWF(db0::InputException) << "Index of type "
+                    << static_cast<std::uint16_t>(m_builder.getDataType())
+                    << " does not allow keys of type: "
+                    << LangToolkit::getTypeName(key) << THROWF_END;
+        }
+        m_mutation_log->onDirty();
+    }
     
     std::unique_ptr<Index::IteratorFactory> Index::range(ObjectPtr min, ObjectPtr max, bool null_first) const
     {
@@ -400,6 +485,10 @@ namespace db0::object_model
     Index::sort(const ObjectIterable &iter, bool asc, bool null_first) const
     {
         assert(hasInstance());
+        if (isPassive() && !iter.isNonPassiveAnchor()) {
+            THROWF(db0::InputException)
+                << "Passive index queries require at least one non-passive positive predicate" << THROWF_END;
+        }
         if (isDirty()) {
             FixtureLock lock(this->getFixture());
             const_cast<Index*>(this)->flush(lock);
@@ -489,6 +578,32 @@ namespace db0::object_model
         }
         m_mutation_log->onDirty();
     }
+
+    void Index::addNull(UniqueAddress address)
+    {
+        assert(hasInstance());
+        assert(isPassive());
+        if (!isDirty()) {
+            setDirty(true);
+        }
+
+        switch (m_builder.getDataType()) {
+            case IndexDataType::Auto:
+                m_builder.getAuto().addNull(address);
+                break;
+            case IndexDataType::Int64:
+                m_builder.get<std::int64_t>().addNull(address);
+                break;
+            case IndexDataType::UInt64:
+                m_builder.get<std::uint64_t>().addNull(address);
+                break;
+            default:
+                THROWF(db0::InputException)
+                    << "Unsupported index data type: "
+                    << static_cast<std::uint16_t>(m_builder.getDataType()) << THROWF_END;
+        }
+        m_mutation_log->onDirty();
+    }
     
     // extract optional value
     template <> std::optional<std::int64_t> Index::extractOptionalValue<std::int64_t>(ObjectPtr value) const
@@ -553,6 +668,32 @@ namespace db0::object_model
         }
         m_mutation_log->onDirty();
     }
+
+    void Index::removeNull(UniqueAddress address)
+    {
+        assert(hasInstance());
+        assert(isPassive());
+        if (!isDirty()) {
+            setDirty(true);
+        }
+
+        switch (m_builder.getDataType()) {
+            case IndexDataType::Auto:
+                m_builder.getAuto().removeNull(address);
+                break;
+            case IndexDataType::Int64:
+                m_builder.get<std::int64_t>().removeNull(address);
+                break;
+            case IndexDataType::UInt64:
+                m_builder.get<std::uint64_t>().removeNull(address);
+                break;
+            default:
+                THROWF(db0::InputException)
+                    << "Unsupported index data type: "
+                    << static_cast<std::uint16_t>(m_builder.getDataType()) << THROWF_END;
+        }
+        m_mutation_log->onDirty();
+    }
     
     void Index::moveTo(db0::swine_ptr<Fixture> &fixture)
     {        
@@ -606,6 +747,7 @@ namespace db0::object_model
     
     void Index::destroy()
     {
+        unregister(true);
         m_mutation_log = nullptr;
         if (!m_builder.empty() || hasRangeTree()) {
             this->getFixture()->detachIterators();
@@ -617,31 +759,38 @@ namespace db0::object_model
             auto unref_func = [&fixture](UniqueAddress objAddr) {
                 unrefAnyMemoObject(fixture, objAddr);
             };
+            auto maybe_unref_func = isPassive() ? std::function<void(UniqueAddress)>() : unref_func;
             switch ((*this)->m_data_type) {
                 case IndexDataType::Int64: {
                     // unreference all elements
-                    getExistingRangeTree<std::int64_t>().forAll(unref_func);
+                    if (maybe_unref_func) {
+                        getExistingRangeTree<std::int64_t>().forAll(maybe_unref_func);
+                    }
                     getExistingRangeTree<std::int64_t>().destroy();
                     break;
                 }
 
                 case IndexDataType::UInt64: {
                     // unreference all elements
-                    getExistingRangeTree<std::uint64_t>().forAll(unref_func);
+                    if (maybe_unref_func) {
+                        getExistingRangeTree<std::uint64_t>().forAll(maybe_unref_func);
+                    }
                     getExistingRangeTree<std::uint64_t>().destroy();
                     break;
                 }
                 
                 case IndexDataType::Auto: {
                     // unreference all elements
-                    getExistingRangeTree<DefaultT>().forAll(unref_func);
+                    if (maybe_unref_func) {
+                        getExistingRangeTree<DefaultT>().forAll(maybe_unref_func);
+                    }
                     getExistingRangeTree<DefaultT>().destroy();
                     break;
                 }
 
                 default:
                     THROWF(db0::InputException)
-                        << "Unsupported index data type: " 
+                        << "Unsupported index data type: "
                         << static_cast<std::uint16_t>((*this)->m_data_type);
             }           
         }
@@ -690,6 +839,9 @@ namespace db0::object_model
         auto unref_func = [&fixture](UniqueAddress objAddr) {
             unrefAnyMemoObject(fixture, objAddr);
         };
+        if (isPassive()) {
+            return;
+        }
         switch ((*this)->m_data_type) {
             case IndexDataType::Int64:
                 getExistingRangeTree<std::int64_t>().forAll(unref_func);

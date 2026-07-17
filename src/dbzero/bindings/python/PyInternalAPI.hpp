@@ -97,6 +97,9 @@ namespace db0::python
     // Check if object exists with optional type validation
     bool isExistingObject(db0::swine_ptr<Fixture> &fixture, ObjectId object_id, 
         PyTypeObject *py_expected_type = nullptr);
+
+    const char *parsePrefixName(PyObject *py_prefix, const char *api_name, const char *arg_name = "prefix");
+    db0::swine_ptr<Fixture> resolveMemoTypeFixture(PyTypeObject *memo_type, const char *prefix_name);
     
     void renameMemoClassField(PyTypeObject *py_type, const char *from_name, const char *to_name);
     

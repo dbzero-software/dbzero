@@ -538,11 +538,9 @@ namespace db0::python
                 auto &type = self->ext().getType();
                 auto member_loc = type.findField(attr_name);
                 auto member_id = std::get<0>(member_loc);
+                auto field_options = type.getFieldOptions(attr_name, member_id);
                 TagIndex *tag_index = nullptr;
-                if (member_id
-                    ? type.isTagField(member_id.primary().first)
-                    : type.isDeclaredTagField(attr_name))
-                {
+                if (field_options[db0::object_model::FieldOptions::TAG_FIELD]) {
                     tag_index = &self->ext().getFixture()->get<TagIndex>();
                 }
 
@@ -591,7 +589,7 @@ namespace db0::python
                         }
                     } else {
                         // considered as a non-mutating operation
-                        self->ext().setPreInit(attr_name, *maybe_type_id, value, tag_index != nullptr);
+                        self->ext().setPreInit(attr_name, *maybe_type_id, value, field_options);
                     }
                     return 0;
                 } else {
@@ -635,11 +633,9 @@ namespace db0::python
                 }
                 auto &type = self->ext().getType();
                 auto member_id = std::get<0>(type.findField(attr_name));
+                auto field_options = type.getFieldOptions(attr_name, member_id);
                 db0::object_model::TagIndex *tag_index = nullptr;
-                if (member_id
-                    ? type.isTagField(member_id.primary().first)
-                    : type.isDeclaredTagField(attr_name))
-                {
+                if (field_options[db0::object_model::FieldOptions::TAG_FIELD]) {
                     tag_index = &self->ext().getFixture()->get<db0::object_model::TagIndex>();
                 }
                 if (tag_index && value && value != Py_None) {
@@ -655,7 +651,7 @@ namespace db0::python
                     }
                 }
                 // considered as a non-mutating operation
-                self->ext().setPreInit(attr_name, value, tag_index != nullptr);
+                self->ext().setPreInit(attr_name, value, field_options);
             }
         } catch (const std::exception &e) {
             PyErr_SetString(PyExc_AttributeError, e.what());
@@ -1019,7 +1015,8 @@ namespace db0::python
     
     PyObject *wrapPyType(PyTypeObject *base_class, bool is_singleton, bool no_default_tags, const char *prefix_name,
         const char *type_id, const char *file_name, std::vector<std::string> &&init_vars, PyObject *py_dyn_prefix_callable,
-        std::vector<Migration> &&migrations, bool access_control, std::vector<std::string> &&tag_fields)
+        std::vector<Migration> &&migrations, bool access_control, std::vector<std::string> &&tag_fields,
+        std::vector<std::string> &&indexed_fields)
     {
         auto py_class = Py_BORROW(base_class);
         auto py_module = Py_OWN(findModule(*Py_OWN(PyObject_GetAttrString((PyObject*)*py_class, "__module__"))));
@@ -1060,20 +1057,14 @@ namespace db0::python
             type_flags,
             py_dyn_prefix_callable,
             std::move(migrations),
-            std::move(tag_fields)
+            std::move(tag_fields),
+            std::move(indexed_fields)
         );
                 
         // add to memo type registry
         PyToolkit::getTypeManager().addMemoType(*new_type, type_id, std::move(type_info));
         // register new type with the module where the original type was located
         PySafeModule_AddObject(*py_module, type_name.c_str(), new_type);
-        // add class fields class member to access memo type information        
-        auto py_class_fields = Py_OWN(PyClassFields_create(*new_type));
-        if (PySafeDict_SetItemString((*new_type)->tp_dict, "__fields__", py_class_fields) < 0) {
-            PyErr_SetString(PyExc_RuntimeError, "Failed to set __fields__");
-            return nullptr;
-        }
-        
         return (PyObject*)new_type.steal();
     }
     
@@ -1091,12 +1082,13 @@ namespace db0::python
         PyObject *py_migrations = nullptr;
         PyObject *py_access_control = nullptr;
         PyObject *py_tag_fields = nullptr;
+        PyObject *py_indexed_fields = nullptr;
         
         static const char *kwlist[] = { "input", "singleton", "no_default_tags", "prefix", "id", "py_file", "py_init_vars", 
-            "py_dyn_prefix", "py_migrations", "access_control", "py_tag_fields", NULL };
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OOOOOOOOOO", const_cast<char**>(kwlist), &class_obj, &py_singleton,
+            "py_dyn_prefix", "py_migrations", "access_control", "py_tag_fields", "py_indexed_fields", NULL };
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OOOOOOOOOOO", const_cast<char**>(kwlist), &class_obj, &py_singleton,
             &py_no_default_tags, &py_prefix_name, &py_type_id, &py_file_name, &py_init_vars, &py_dyn_prefix, &py_migrations,
-            &py_access_control, &py_tag_fields))
+            &py_access_control, &py_tag_fields, &py_indexed_fields))
         {            
             return NULL;
         }
@@ -1115,6 +1107,10 @@ namespace db0::python
         if (PyErr_Occurred()) {
             return NULL;
         }
+        auto indexed_fields = extractStringList(py_indexed_fields, "py_indexed_fields");
+        if (PyErr_Occurred()) {
+            return NULL;
+        }
         
         if (py_dyn_prefix == Py_None) {
             py_dyn_prefix = nullptr;
@@ -1130,7 +1126,8 @@ namespace db0::python
         
         auto migrations = extractMigrations(py_migrations);
         return wrapPyType(castToType(class_obj), is_singleton, no_default_tags, prefix_name, type_id, file_name, 
-            std::move(init_vars), py_dyn_prefix, std::move(migrations), access_control, std::move(tag_fields)
+            std::move(init_vars), py_dyn_prefix, std::move(migrations), access_control, std::move(tag_fields),
+            std::move(indexed_fields)
         );
     }
     

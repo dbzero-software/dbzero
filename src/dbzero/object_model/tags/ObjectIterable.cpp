@@ -38,7 +38,7 @@ namespace db0::object_model
         
     ObjectIterable::ObjectIterable(db0::swine_ptr<Fixture> fixture, std::unique_ptr<QueryIterator> &&ft_query_iterator,
         std::shared_ptr<Class> type, TypeObjectPtr lang_type, std::vector<std::unique_ptr<QueryObserver> > &&query_observers,
-        const std::vector<FilterFunc> &filters)
+        const std::vector<FilterFunc> &filters, QueryPlanning query_planning)
         : m_fixture(fixture)
         , m_class_factory(getClassFactory(*fixture))
         , m_query_iterator(validated(std::move(ft_query_iterator)))
@@ -47,12 +47,13 @@ namespace db0::object_model
         , m_type(type)
         , m_lang_type(lang_type)
         , m_access_mode(getAccessMode(type))
+        , m_query_planning(query_planning)
     {
     }
     
     ObjectIterable::ObjectIterable(db0::swine_ptr<Fixture> fixture, std::unique_ptr<SortedIterator> &&sorted_iterator,
         std::shared_ptr<Class> type, TypeObjectPtr lang_type, std::vector<std::unique_ptr<QueryObserver> > &&query_observers,
-        const std::vector<FilterFunc> &filters)
+        const std::vector<FilterFunc> &filters, QueryPlanning query_planning)
         : m_fixture(fixture)
         , m_class_factory(getClassFactory(*fixture))
         , m_sorted_iterator(validated(std::move(sorted_iterator)))        
@@ -61,12 +62,13 @@ namespace db0::object_model
         , m_type(type)
         , m_lang_type(lang_type)    
         , m_access_mode(getAccessMode(type))
+        , m_query_planning(query_planning)
     {
     }
     
     ObjectIterable::ObjectIterable(db0::swine_ptr<Fixture> fixture, std::shared_ptr<IteratorFactory> factory,
         std::shared_ptr<Class> type, TypeObjectPtr lang_type, std::vector<std::unique_ptr<QueryObserver> > &&query_observers,
-        const std::vector<FilterFunc> &filters)
+        const std::vector<FilterFunc> &filters, QueryPlanning query_planning)
         : m_fixture(fixture)
         , m_class_factory(getClassFactory(*fixture))
         , m_factory(factory)        
@@ -75,6 +77,7 @@ namespace db0::object_model
         , m_type(type)
         , m_lang_type(lang_type)    
         , m_access_mode(getAccessMode(type))
+        , m_query_planning(query_planning)
     {
     }
 
@@ -82,7 +85,7 @@ namespace db0::object_model
         std::unique_ptr<QueryIterator> &&ft_query_iterator, std::unique_ptr<SortedIterator> &&sorted_iterator,
         std::shared_ptr<IteratorFactory> factory, std::vector<std::unique_ptr<QueryObserver> > &&query_observers,
         std::vector<FilterFunc> &&filters, std::shared_ptr<Class> type, TypeObjectPtr lang_type, 
-        const SliceDef &slice_def, AccessFlags access_mode)
+        const SliceDef &slice_def, AccessFlags access_mode, QueryPlanning query_planning)
         : m_fixture(fixture)
         , m_class_factory(class_factory)
         , m_query_iterator(std::move(ft_query_iterator))
@@ -94,6 +97,7 @@ namespace db0::object_model
         , m_lang_type(lang_type)
         , m_slice_def(slice_def)
         , m_access_mode(access_mode)
+        , m_query_planning(query_planning)
     {
     }
 
@@ -106,6 +110,7 @@ namespace db0::object_model
         , m_lang_type(other.m_lang_type)
         , m_slice_def(other.m_slice_def)
         , m_access_mode(other.m_access_mode)
+        , m_query_planning(other.m_query_planning)
     {
         m_filters.insert(m_filters.end(), filters.begin(), filters.end());
         
@@ -127,6 +132,7 @@ namespace db0::object_model
         , m_lang_type(other.m_lang_type)
         , m_slice_def(other.m_slice_def.combineWith(slice_def))
         , m_access_mode(other.m_access_mode)
+        , m_query_planning(other.m_query_planning)
     {
         std::unique_ptr<QueryIterator> query_iterator;
         std::unique_ptr<SortedIterator> sorted_iterator;
@@ -150,6 +156,7 @@ namespace db0::object_model
         , m_lang_type(other.m_lang_type)
         , m_slice_def(other.m_slice_def)
         , m_access_mode(other.m_access_mode)
+        , m_query_planning(other.m_query_planning)
     {
         m_filters.insert(m_filters.end(), filters.begin(), filters.end());
     }
@@ -166,6 +173,7 @@ namespace db0::object_model
         , m_lang_type(other.m_lang_type)
         , m_slice_def(other.m_slice_def)
         , m_access_mode(other.m_access_mode)
+        , m_query_planning(other.m_query_planning)
     {
         m_filters.insert(m_filters.end(), filters.begin(), filters.end());
     }
@@ -431,6 +439,14 @@ namespace db0::object_model
             }        
         }
         return true;
+    }
+
+    void ObjectIterable::requirePassiveAnchor() const
+    {
+        if (m_query_planning.m_is_passive && !m_query_planning.m_is_anchor) {
+            THROWF(db0::InputException)
+                << "Passive index queries require at least one non-passive positive predicate" << THROWF_END;
+        }
     }
 
     AccessFlags ObjectIterable::getAccessMode(std::shared_ptr<Class> type) const
