@@ -283,6 +283,11 @@ def memo(cls: Optional[type] = None, **kwargs) -> type:
         if inst.opname == "LOAD_FAST" and inst.arg == 0:
             # Traditional single load of first argument (self)
             return True
+        elif inst.opname == "LOAD_FAST_LOAD_FAST":
+            # Python 3.13+ dual local load
+            # argval is a tuple; self is the second value loaded for STORE_ATTR.
+            if isinstance(inst.argval, tuple) and len(inst.argval) == 2:
+                return inst.argval[1] == 'self'
         elif inst.opname == "LOAD_FAST_BORROW" and inst.arg == 0:
             # Python 3.14+ borrowed reference load of first argument (self)
             return True
