@@ -14,10 +14,12 @@
 #include "PyReflectionAPI.hpp"
 #include "PyHash.hpp"
 #include "PyWeakProxy.hpp"
+#include "PyFieldRef.hpp"
 #include <dbzero/bindings/python/iter/PyObjectIterable.hpp>
 #include <dbzero/bindings/python/iter/PyObjectIterator.hpp>
 #include <dbzero/bindings/python/collections/PyList.hpp>
 #include <dbzero/bindings/python/collections/PyDict.hpp>
+#include <dbzero/bindings/python/collections/PyIndex.hpp>
 #include <dbzero/bindings/python/collections/PySet.hpp>
 #include <dbzero/bindings/python/collections/PyTuple.hpp>
 #include <dbzero/bindings/python/types/PyEnum.hpp>
@@ -48,7 +50,6 @@
 namespace db0::python
 
 {
-
     using ObjectSharedPtr = PyTypes::ObjectSharedPtr;
 
     PyObject *tryGetCacheStats()
@@ -1139,10 +1140,20 @@ namespace db0::python
         return runSafe(tryGetMemoClass, args[0]);
     }
 
-    PyObject *tryGetTagFields(PyObject *py_type)
+    PyObject *fieldNamesToTuple(const std::vector<std::string> &names)
+    {
+        auto result = Py_OWN(PyTuple_New(names.size()));
+        Py_ssize_t index = 0;
+        for (const auto &name: names) {
+            PySafeTuple_SetItem(*result, index++, Py_OWN(PyUnicode_FromString(name.c_str())));
+        }
+        return result.steal();
+    }
+
+    PyObject *tryGetClassFieldNames(PyObject *py_type, const char *api_name, bool indexed_fields)
     {
         if (!PyType_Check(py_type) || !PyAnyMemoType_Check(reinterpret_cast<PyTypeObject*>(py_type))) {
-            PyErr_SetString(PyExc_TypeError, "_get_tag_fields requires a memo type");
+            PyErr_Format(PyExc_TypeError, "%s requires a memo type", api_name);
             return nullptr;
         }
 
@@ -1155,13 +1166,7 @@ namespace db0::python
             return PyTuple_New(0);
         }
 
-        auto names = type->getTagFieldNames();
-        auto result = Py_OWN(PyTuple_New(names.size()));
-        Py_ssize_t index = 0;
-        for (const auto &name: names) {
-            PySafeTuple_SetItem(*result, index++, Py_OWN(PyUnicode_FromString(name.c_str())));
-        }
-        return result.steal();
+        return fieldNamesToTuple(indexed_fields ? type->getIndexedFieldNames() : type->getTagFieldNames());
     }
 
     PyObject *PyAPI_getTagFields(PyObject *, PyObject *const *args, Py_ssize_t nargs)
@@ -1171,7 +1176,132 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "_get_tag_fields requires exactly one argument");
             return nullptr;
         }
-        return runSafe(tryGetTagFields, args[0]);
+        return runSafe(tryGetClassFieldNames, args[0], "_get_tag_fields", false);
+    }
+
+    PyObject *PyAPI_getIndexedFields(PyObject *, PyObject *const *args, Py_ssize_t nargs)
+    {
+        PY_API_FUNC
+        if (nargs != 1) {
+            PyErr_SetString(PyExc_TypeError, "_get_indexed_fields requires exactly one argument");
+            return nullptr;
+        }
+        return runSafe(tryGetClassFieldNames, args[0], "_get_indexed_fields", true);
+    }
+
+    std::shared_ptr<db0::object_model::Class> tryFindDeclaredIndexedField(
+        std::shared_ptr<db0::object_model::Class> type, const char *field_name)
+    {
+        if (!type) {
+            return nullptr;
+        }
+        if (type->isDeclaredIndexedField(field_name)) {
+            return type;
+        }
+        return tryFindDeclaredIndexedField(type->tryGetBaseClass(), field_name);
+    }
+
+    void materializeDeclaredIndexedField(std::shared_ptr<db0::object_model::Class> type, const char *field_name)
+    {
+        if (!type || !!type->findField(field_name).first) {
+            return;
+        }
+        auto declaring_type = tryFindDeclaredIndexedField(type, field_name);
+        if (!declaring_type || !!declaring_type->findField(field_name).first) {
+            return;
+        }
+        auto fixture = declaring_type->getFixture();
+        db0::FixtureLock lock(fixture);
+        declaring_type->addField(field_name, 0, declaring_type->isDeclaredTagField(field_name));
+    }
+
+    PyObject *tryIndexOf(PyObject *args, PyObject *kwargs)
+    {
+        PyObject *py_target = nullptr;
+        PyObject *py_field_name = nullptr;
+        PyObject *py_prefix = nullptr;
+        static const char *kwlist[] = {"memo_type", "field_name", "prefix", NULL};
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|O$O:index_of", const_cast<char**>(kwlist),
+            &py_target, &py_field_name, &py_prefix))
+        {
+            return nullptr;
+        }
+
+        shared_py_object<PyObject*> owned_field_name;
+        PyObject *py_type = py_target;
+        if (PyFieldRef_Check(py_target)) {
+            if (py_field_name) {
+                THROWF(db0::InputException) << "index_of(FieldRef) does not accept a field_name argument";
+            }
+            py_type = reinterpret_cast<PyObject*>(PyFieldRef_getMemoType(py_target));
+            auto field_name = PyFieldRef_getFieldName(py_target);
+            if (!field_name) {
+                THROWF(db0::InputException) << "Invalid FieldRef";
+            }
+            owned_field_name = Py_OWN(PyUnicode_FromString(field_name));
+            if (!owned_field_name) {
+                return nullptr;
+            }
+            py_field_name = *owned_field_name;
+        } else if (!py_field_name) {
+            THROWF(db0::InputException) << "index_of requires a memo type and field_name, or a FieldRef";
+        }
+
+        if (!PyType_Check(py_type) || !PyAnyMemoType_Check(reinterpret_cast<PyTypeObject*>(py_type))) {
+            THROWF(db0::InputException) << "First argument must be a dbzero memo type";
+        }
+        if (!PyUnicode_Check(py_field_name)) {
+            THROWF(db0::InputException) << "field_name must be a string";
+        }
+        auto field_name = PyUnicode_AsUTF8(py_field_name);
+        if (!field_name) {
+            THROWF(db0::InputException) << "Invalid field_name";
+        }
+
+        auto memo_type = reinterpret_cast<PyTypeObject*>(py_type);
+        auto prefix_name = parsePrefixName(py_prefix, "index_of");
+        if (PyErr_Occurred()) {
+            return nullptr;
+        }
+        auto fixture = resolveMemoTypeFixture(memo_type, prefix_name);
+        bool can_materialize = fixture->getAccessType() == db0::AccessType::READ_WRITE;
+        auto &class_factory = fixture->get<db0::object_model::ClassFactory>();
+        auto type = class_factory.tryGetExistingType(memo_type);
+        if (!type) {
+            if (!can_materialize) {
+                if (!isValidIndexedFieldName(memo_type, field_name)) {
+                    THROWF(db0::InputException) << "Field is not an indexed field: " << field_name;
+                }
+                return Py_OWN(IndexDefaultObject_new(fixture, true, true)).steal();
+            }
+            type = class_factory.tryGetOrCreateType(memo_type);
+            if (!type) {
+                THROWF(db0::InputException) << "Memo type is not materialized in the resolved prefix";
+            }
+        }
+        if (can_materialize) {
+            materializeDeclaredIndexedField(type, field_name);
+        }
+
+        auto member = type->tryGetMember(field_name);
+        if (!member) {
+            if (isValidIndexedFieldName(memo_type, field_name)) {
+                return Py_OWN(IndexDefaultObject_new(fixture, true, true)).steal();
+            }
+            THROWF(db0::InputException) << "Unknown field: " << field_name;
+        }
+
+        auto index = type->tryGetFieldIndex(field_name);
+        if (!index) {
+            THROWF(db0::InputException) << "Field is not an indexed field: " << field_name;
+        }
+        return PyToolkit::unloadIndex(fixture, index->getAddress()).steal();
+    }
+
+    PyObject *PyAPI_indexOf(PyObject *, PyObject *args, PyObject *kwargs)
+    {
+        PY_API_FUNC
+        return runSafe(tryIndexOf, args, kwargs);
     }
 
     PyObject *tryMigrate(PyObject *py_type)

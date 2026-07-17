@@ -2,7 +2,7 @@
 Type stubs for dbzero module.
 """
 
-from typing import Any, Optional, Iterable, Dict, List, Tuple, Union, Callable, Sequence
+from typing import Any, Optional, Iterable, Dict, List, Tuple, Union, Callable, Sequence, overload
 from .interfaces import (
     Memo, MemoWeakProxy, QueryObject, Tag, TagSet, EnumValue,
     ListObject, IndexObject, TupleObject, SetObject, DictObject, ByteArrayObject,
@@ -10,6 +10,28 @@ from .interfaces import (
 )
 
 # Core workspace management functions
+
+class FieldRef:
+    ...
+
+class FieldNamespace:
+    def __getattr__(self, field_name: str) -> FieldRef:
+        ...
+
+    def __getitem__(self, field_name: str) -> FieldRef:
+        ...
+
+def tag_fields(*field_names: str) -> Callable[[type], type]:
+    """Declare memo fields that should later be tag-backed."""
+    ...
+
+def indexed_fields(*field_names: str) -> Callable[[type], type]:
+    """Declare memo fields that should be backed by managed indexes."""
+    ...
+
+def fields_of(memo_type: type) -> FieldNamespace:
+    """Return a namespace for first-class memo field references."""
+    ...
 
 def open(prefix_name: str, open_mode: str = "rw", **kwargs: Any) -> None:
     """Open a data prefix and set it as the current working context.
@@ -778,6 +800,18 @@ def index() -> IndexObject:
     * Range query keys are inclusive on both sides [min_key, max_key]
     * Calling select() with no args returns all objects
     """
+    ...
+
+@overload
+def index_of(memo_type: type, field_name: str, *, prefix: Optional[str] = None) -> IndexObject:
+    ...
+
+@overload
+def index_of(field: FieldRef, *, prefix: Optional[str] = None) -> IndexObject:
+    ...
+
+def index_of(*args: Any, prefix: Optional[str] = None) -> IndexObject:
+    """Return the managed query index for an indexed memo field."""
     ...
 
 def tuple(iterable: Iterable[Any] = (), /) -> TupleObject:

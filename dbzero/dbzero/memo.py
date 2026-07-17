@@ -8,38 +8,51 @@ from .dbzero import _wrap_memo_type, set_prefix
 
 
 __DBZERO_TAG_FIELDS_ATTR = "__DBZERO_TAG_FIELDS_ATTR"
+__DBZERO_INDEXED_FIELDS_ATTR = "__DBZERO_INDEXED_FIELDS_ATTR"
 
 
-def _normalize_tag_fields(field_names):
-    tag_fields = []
+def _normalize_field_names(field_names, decorator_name):
+    fields = []
     seen = set()
     for field_name in field_names:
         if not isinstance(field_name, str):
-            raise TypeError("tag_fields arguments must be strings")
+            raise TypeError(f"{decorator_name} arguments must be strings")
         if field_name not in seen:
             seen.add(field_name)
-            tag_fields.append(field_name)
-    return tuple(tag_fields)
+            fields.append(field_name)
+    return tuple(fields)
 
 
-def _merge_tag_field_declarations(*declarations):
-    tag_fields = []
+def _merge_field_declarations(*declarations):
+    fields = []
     seen = set()
     for declaration in declarations:
         for field_name in declaration:
             if field_name not in seen:
                 seen.add(field_name)
-                tag_fields.append(field_name)
-    return tuple(tag_fields)
+                fields.append(field_name)
+    return tuple(fields)
 
 
 def tag_fields(*field_names):
-    new_fields = _normalize_tag_fields(field_names)
+    new_fields = _normalize_field_names(field_names, "tag_fields")
 
     def wrap(cls):
         existing_fields = getattr(cls, __DBZERO_TAG_FIELDS_ATTR, ())
-        merged_fields = _merge_tag_field_declarations(existing_fields, new_fields)
+        merged_fields = _merge_field_declarations(existing_fields, new_fields)
         setattr(cls, __DBZERO_TAG_FIELDS_ATTR, merged_fields)
+        return cls
+
+    return wrap
+
+
+def indexed_fields(*field_names):
+    new_fields = _normalize_field_names(field_names, "indexed_fields")
+
+    def wrap(cls):
+        existing_fields = cls.__dict__.get(__DBZERO_INDEXED_FIELDS_ATTR, ())
+        merged_fields = _merge_field_declarations(existing_fields, new_fields)
+        setattr(cls, __DBZERO_INDEXED_FIELDS_ATTR, merged_fields)
         return cls
 
     return wrap
@@ -270,6 +283,11 @@ def memo(cls: Optional[type] = None, **kwargs) -> type:
         if inst.opname == "LOAD_FAST" and inst.arg == 0:
             # Traditional single load of first argument (self)
             return True
+        elif inst.opname == "LOAD_FAST_LOAD_FAST":
+            # Python 3.13+ dual local load
+            # argval is a tuple; self is the second value loaded for STORE_ATTR.
+            if isinstance(inst.argval, tuple) and len(inst.argval) == 2:
+                return inst.argval[1] == 'self'
         elif inst.opname == "LOAD_FAST_BORROW" and inst.arg == 0:
             # Python 3.14+ borrowed reference load of first argument (self)
             return True
@@ -310,11 +328,14 @@ def memo(cls: Optional[type] = None, **kwargs) -> type:
             init_vars = []
         
         tag_field_names = list(getattr(cls_, __DBZERO_TAG_FIELDS_ATTR, ()))
+        indexed_field_names = list(cls_.__dict__.get(__DBZERO_INDEXED_FIELDS_ATTR, ()))
 
         wrapped = _wrap_memo_type(cls_, py_file = getfile(cls_), py_init_vars = init_vars, py_dyn_prefix = dyn_prefix, \
-            py_migrations = list(find_migrations(cls_)) if is_singleton else None, py_tag_fields = tag_field_names, **kwargs
+            py_migrations = list(find_migrations(cls_)) if is_singleton else None, py_tag_fields = tag_field_names,
+            py_indexed_fields = indexed_field_names, **kwargs
         )
         setattr(wrapped, __DBZERO_TAG_FIELDS_ATTR, tuple(tag_field_names))
+        setattr(wrapped, __DBZERO_INDEXED_FIELDS_ATTR, tuple(indexed_field_names))
         
         # Call __init_subclass__ on the wrapped class for any base that defines it.
         # Python normally calls __init_subclass__ before the decorator runs, so the 

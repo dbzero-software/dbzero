@@ -3,6 +3,8 @@
 
 #include "IndexBase.hpp"
 
+DEFINE_ENUM_VALUES(db0::IndexOptions, "Passive", "Managed")
+
 namespace db0
 
 {
@@ -18,7 +20,43 @@ namespace db0
     o_index::o_index(const o_index &other)
         : m_type(other.m_type)
         , m_data_type(other.m_data_type)        
+        , m_flags(other.m_flags)
     {
+    }
+
+    bool o_index::isPassive() const
+    {
+        return getObjVer() >= 1 && m_flags[IndexOptions::Passive];
+    }
+
+    bool o_index::isManaged() const
+    {
+        return getObjVer() >= 1 && m_flags[IndexOptions::Managed];
+    }
+
+    void o_index::setManaged()
+    {
+        if (getObjVer() < 1) {
+            return;
+        }
+        m_flags.set(IndexOptions::Passive);
+        m_flags.set(IndexOptions::Managed);
+    }
+
+    bool isSupportedIndexKeyType(TypeId type_id)
+    {
+        switch (type_id) {
+            case TypeId::INTEGER:
+            case TypeId::DATETIME:
+            case TypeId::DATETIME_TZ:
+            case TypeId::DATE:
+            case TypeId::TIME:
+            case TypeId::TIME_TZ:
+            case TypeId::DECIMAL:
+                return true;
+            default:
+                return false;
+        }
     }
     
     IndexDataType getIndexDataType(TypeId type_id)

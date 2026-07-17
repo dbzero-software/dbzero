@@ -3,6 +3,7 @@
 
 #include "Object.hpp"
 #include <dbzero/object_model/class.hpp>
+#include <dbzero/object_model/index/Index.hpp>
 #include <dbzero/object_model/value/Member.hpp>
 
 namespace db0::object_model
@@ -160,6 +161,19 @@ namespace db0::object_model
         assert(m_type);
         // find already existing field index
         auto [member_id, is_init_var] = m_type->findField(field_name);
+        auto member_loc = MemberLoc { member_id, is_init_var };
+        auto member = member_id ? m_type->tryGetMember(member_id.primary().first) : std::optional<Class::Member>();
+        auto managed_index = (member && member->m_field_options[FieldOptions::INDEXED_FIELD])
+            ? m_type->tryGetFieldIndex(member->m_field_id)
+            : nullptr;
+        ObjectSharedPtr old_index_key;
+        if (managed_index && member_id) {
+            bool auto_generated = false;
+            old_index_key = tryGet(member_loc, &auto_generated);
+            if (auto_generated) {
+                old_index_key = {};
+            }
+        }
         auto storage_fidelity = getStorageFidelity(storage_class);
         // get field ID matching the required storage fidelity
         FieldID field_id;
@@ -173,10 +187,17 @@ namespace db0::object_model
         if (!member_id || !(field_id = member_id.tryGet(storage_fidelity))) {
             // try mutating the class first
             member_id = m_type->addField(field_name, storage_fidelity, m_type->isDeclaredTagField(field_name));
+            member = m_type->tryGetMember(member_id.primary().first);
+            managed_index = (member && member->m_field_options[FieldOptions::INDEXED_FIELD])
+                ? m_type->tryGetFieldIndex(member->m_field_id)
+                : nullptr;
             field_id = member_id.get(storage_fidelity);
         }
         
         assert(field_id && member_id);
+        if (managed_index && !Index::isSupportedKey(lang_value)) {
+            THROWF(db0::InputException) << "Unsupported index key type";
+        }
         // NOTE: a new member inherits the parent's no-cache flag
         // FIXME: value should be destroyed on exception
         auto value = createMember<LangToolkit>(
@@ -201,6 +222,16 @@ namespace db0::object_model
             std::tie(loc_ptr, pos) = tryGetLoc(field_id);
             // Either use existing slot or create a new (kv-index)
             addWithLoc(fixture, field_id, loc_ptr, pos, storage_fidelity, storage_class, value);
+        }
+
+        if (managed_index) {
+            auto object_addr = getUniqueAddress();
+            if (!!old_index_key) {
+                managed_index->remove(old_index_key.get(), object_addr);
+            }
+            if (lang_value) {
+                managed_index->add(lang_value, object_addr);
+            }
         }
         
         // the KV-index insert operation must be registered as the potential silent mutation
@@ -238,9 +269,26 @@ namespace db0::object_model
             THROWF(db0::InputException) << "Attribute not found: " << field_name;
         }
         
+        auto member = m_type->tryGetMember(member_id.primary().first);
+        auto managed_index = (member && member->m_field_options[FieldOptions::INDEXED_FIELD])
+            ? m_type->tryGetFieldIndex(member->m_field_id)
+            : nullptr;
+        ObjectSharedPtr old_index_key;        
+        if (managed_index) {
+            bool auto_generated = false;
+            old_index_key = tryGet(MemberLoc { member_id, is_init_var }, &auto_generated);
+            if (auto_generated) {
+                old_index_key = {};
+            }
+        }
+
         // NOTE: unreference as DELETED
         unrefWithLoc(fixture, field_info.first, loc_ptr, pos, StorageClass::DELETED, 
             field_info.second);
+
+        if (managed_index && !!old_index_key) {
+            managed_index->remove(old_index_key.get(), getUniqueAddress());
+        }
         
         // the KV-index erase operation must be registered as the potential silent mutation
         // but the operation can be avoided if the object is already marked as modified

@@ -10,6 +10,7 @@
 #include <dbzero/core/serialization/Fixed.hpp>
 #include <dbzero/object_model/object_header.hpp>
 #include <dbzero/bindings/TypeId.hpp>
+#include <dbzero/core/utils/FlagSet.hpp>
 #include <dbzero/core/compiler_attributes.hpp>
 
 namespace db0
@@ -31,9 +32,25 @@ namespace db0
         Int64 = 2,
         UInt64 = 3
     };
+
+    enum class IndexOptions: std::uint16_t
+    {
+        Passive = 0x0001,
+        Managed = 0x0002
+    };
+
+    using IndexFlags = db0::FlagSet<IndexOptions>;
+
+}
+
+DECLARE_ENUM_VALUES(db0::IndexOptions, 2)
+
+namespace db0
+
+{
     
 DB0_PACKED_BEGIN
-    struct DB0_PACKED_ATTR o_index: public o_fixed_versioned<o_index>
+    struct DB0_PACKED_ATTR o_index: public o_fixed_versioned<o_index, 1>
     {
         // common object header
         o_unique_header m_header;
@@ -41,6 +58,7 @@ DB0_PACKED_BEGIN
         IndexDataType m_data_type = IndexDataType::Auto;
         // address of the actual index instance
         Address m_index_addr = {};
+        IndexFlags m_flags;
         
         o_index(IndexType, IndexDataType);
         // header not copied
@@ -49,11 +67,16 @@ DB0_PACKED_BEGIN
         bool hasRefs() const {
             return m_header.hasRefs();
         }
+
+        bool isPassive() const;
+        bool isManaged() const;
+        void setManaged();
     };
 DB0_PACKED_END
     
     using IndexBase = db0::v_object<o_index>;
     
+    bool isSupportedIndexKeyType(db0::bindings::TypeId);
     IndexDataType getIndexDataType(db0::bindings::TypeId);
 
     template <typename T> std::shared_ptr<T> tryGetRangeTree(IndexBase &index)

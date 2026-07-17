@@ -86,7 +86,7 @@ DB0_PACKED_END
                 removed_items = m_cache;
             }
             super_t::init(memspace, access_mode);
-            m_vector.initUnique(memspace, access_mode);
+            m_vector.init(memspace, flags, access_mode);
             m_cache.clear();
             auto &self = this->modify();
             self.m_vector_ptr = m_vector;
@@ -101,7 +101,7 @@ DB0_PACKED_END
         void init(mptr ptr, AccessFlags access_mode = {})
         {
             super_t::operator=(super_t(ptr, access_mode));
-            m_vector = vector_t(this->getMemspace().myPtr((*this)->m_vector_ptr.getAddress()), access_mode);
+            m_vector.init(this->getMemspace().myPtr((*this)->m_vector_ptr.getAddress()), access_mode);
             refreshCacheFromVector();
             m_detached = false;
         }

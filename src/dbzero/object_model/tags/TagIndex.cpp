@@ -773,7 +773,7 @@ namespace db0::object_model
             std::size_t offset = 0;
             bool result = !no_result;
             bool has_passive_predicate = false;
-            bool has_positive_anchor = type || !native_args.empty();
+            bool has_positive_anchor = type != nullptr;
             // apply type filter if provided (unless type is a MemoBase)
             if (type) {
                 result &= m_base_index_short.addIterator(factory, ShortTagT::fromAddress(type->getAddress()));
@@ -788,6 +788,9 @@ namespace db0::object_model
             }
             for (auto *native_arg: native_args) {
                 assert(native_arg);
+                if (native_arg->mayReadPassiveEntries()) {
+                    has_passive_predicate = true;
+                }
                 result &= addIterator(*native_arg, factory, neg_iterators, observers, &has_positive_anchor);
             }
             if (has_passive_predicate && !has_positive_anchor) {
@@ -824,7 +827,7 @@ namespace db0::object_model
             return false;
         }
         if (has_positive_anchor) {
-            *has_positive_anchor = true;
+            *has_positive_anchor = *has_positive_anchor || obj_iter.isNonPassiveAnchor();
         }
         factory.add(std::move(ft_query));
         return true;

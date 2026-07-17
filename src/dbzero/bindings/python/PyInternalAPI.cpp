@@ -42,6 +42,97 @@
 namespace db0::python
 
 {
+    namespace
+    {
+        void renameFieldTupleAttribute(PyTypeObject *py_type, const char *attr_name, const char *from_name,
+            const char *to_name)
+        {
+            auto py_fields = Py_OWN(PyObject_GetAttrString(reinterpret_cast<PyObject*>(py_type), attr_name));
+            if (!py_fields) {
+                PyErr_Clear();
+                return;
+            }
+            if (!PyTuple_Check(*py_fields)) {
+                return;
+            }
+
+            auto size = PyTuple_Size(*py_fields);
+            auto py_updated = Py_OWN(PyTuple_New(size));
+            if (!py_updated) {
+                return;
+            }
+
+            bool changed = false;
+            for (Py_ssize_t i = 0; i < size; ++i) {
+                auto item = PyTuple_GetItem(*py_fields, i);
+                if (!item) {
+                    return;
+                }
+                PyObject *new_item = item;
+                if (PyUnicode_Check(item)) {
+                    auto value = PyUnicode_AsUTF8(item);
+                    if (!value) {
+                        return;
+                    }
+                    if (std::strcmp(value, from_name) == 0) {
+                        new_item = PyUnicode_FromString(to_name);
+                        if (!new_item) {
+                            return;
+                        }
+                        changed = true;
+                    } else {
+                        Py_INCREF(new_item);
+                    }
+                } else {
+                    Py_INCREF(new_item);
+                }
+                if (PyTuple_SetItem(*py_updated, i, new_item) < 0) {
+                    Py_DECREF(new_item);
+                    return;
+                }
+            }
+            if (changed && PyObject_SetAttrString(reinterpret_cast<PyObject*>(py_type), attr_name, *py_updated) < 0) {
+                return;
+            }
+        }
+    }
+
+
+    const char *parsePrefixName(PyObject *py_prefix, const char *api_name, const char *arg_name)
+    {
+        if (!py_prefix || py_prefix == Py_None) {
+            return nullptr;
+        }
+        if (!PyUnicode_Check(py_prefix)) {
+            PyErr_Format(PyExc_TypeError, "%s() argument '%s' must be str or None, not %s",
+                api_name, arg_name, Py_TYPE(py_prefix)->tp_name);
+            return nullptr;
+        }
+        return PyUnicode_AsUTF8(py_prefix);
+    }
+
+    db0::swine_ptr<Fixture> resolveMemoTypeFixture(PyTypeObject *memo_type, const char *prefix_name)
+    {
+        auto &decor = MemoTypeDecoration::get(memo_type);
+        auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
+        if (prefix_name) {
+            auto requested_prefix = db0::PrefixName(prefix_name);
+            if (decor.isScoped() && requested_prefix != decor.getPrefixName()) {
+                THROWF(db0::InputException)
+                    << "Explicit prefix conflicts with scoped memo type prefix";
+            }
+            auto fixture = workspace.tryFindFixture(requested_prefix);
+            if (!fixture) {
+                THROWF(db0::InputException) << "Prefix is not open: " << requested_prefix.c_str();
+            }
+            return fixture;
+        }
+
+        if (decor.isScoped()) {
+            return workspace.getFixture(decor.getPrefixName(), db0::AccessType::READ_WRITE);
+        }
+        return workspace.getCurrentFixture();
+    }
 
     namespace
     {
@@ -416,53 +507,9 @@ namespace db0::python
         type->renameField(from_name, to_name);
 
         static constexpr const char *TAG_FIELDS_ATTR = "__DBZERO_TAG_FIELDS_ATTR";
-        auto py_tag_fields = Py_OWN(PyObject_GetAttrString(reinterpret_cast<PyObject*>(py_type), TAG_FIELDS_ATTR));
-        if (!py_tag_fields) {
-            PyErr_Clear();
-            return;
-        }
-        if (!PyTuple_Check(*py_tag_fields)) {
-            return;
-        }
-
-        auto size = PyTuple_Size(*py_tag_fields);
-        auto py_updated = Py_OWN(PyTuple_New(size));
-        if (!py_updated) {
-            return;
-        }
-
-        bool changed = false;
-        for (Py_ssize_t i = 0; i < size; ++i) {
-            auto item = PyTuple_GetItem(*py_tag_fields, i);
-            if (!item) {
-                return;
-            }
-            PyObject *new_item = item;
-            if (PyUnicode_Check(item)) {
-                auto value = PyUnicode_AsUTF8(item);
-                if (!value) {
-                    return;
-                }
-                if (std::strcmp(value, from_name) == 0) {
-                    new_item = PyUnicode_FromString(to_name);
-                    if (!new_item) {
-                        return;
-                    }
-                    changed = true;
-                } else {
-                    Py_INCREF(new_item);
-                }
-            } else {
-                Py_INCREF(new_item);
-            }
-            if (PyTuple_SetItem(*py_updated, i, new_item) < 0) {
-                Py_DECREF(new_item);
-                return;
-            }
-        }
-        if (changed && PyObject_SetAttrString(reinterpret_cast<PyObject*>(py_type), TAG_FIELDS_ATTR, *py_updated) < 0) {
-            return;
-        }
+        static constexpr const char *INDEXED_FIELDS_ATTR = "__DBZERO_INDEXED_FIELDS_ATTR";
+        renameFieldTupleAttribute(py_type, TAG_FIELDS_ATTR, from_name, to_name);
+        renameFieldTupleAttribute(py_type, INDEXED_FIELDS_ATTR, from_name, to_name);
     }
     
 #ifndef NDEBUG
@@ -568,7 +615,22 @@ namespace db0::python
 
     // DB0_INDEX specialization
     template <> void dropInstance<TypeId::DB0_INDEX>(PyObject *py_wrapper) {
-        PyWrapper_drop(reinterpret_cast<IndexObject*>(py_wrapper));
+        auto index_wrapper = reinterpret_cast<IndexObject*>(py_wrapper);
+        auto index = index_wrapper->getSharedPtr();
+        if (!index || !index->hasInstance()) {
+            return;
+        }
+        if (index->hasRefs()) {
+            PyErr_SetString(PyExc_RuntimeError, "delete failed: object has references");
+            return;
+        }
+
+        auto fixture = index->getFixture();
+        auto address = index->getAddress();
+        index_wrapper->modifyExt().destroy();
+        fixture->getVObjectCache().erase(address);
+        index_wrapper->reset();
+        fixture->getLangCache().erase(address);
     }
 
     void registerDropInstanceFunctions(std::vector<void (*)(PyObject *)> &functions)
@@ -577,6 +639,7 @@ namespace db0::python
         functions.resize(static_cast<int>(TypeId::COUNT));
         std::fill(functions.begin(), functions.end(), nullptr);
         functions[static_cast<int>(TypeId::MEMO_OBJECT)] = dropInstance<TypeId::MEMO_OBJECT>;
+        functions[static_cast<int>(TypeId::DB0_INDEX)] = dropInstance<TypeId::DB0_INDEX>;
     }
     
     void dropInstance(db0::bindings::TypeId type_id, PyObject *py_instance)

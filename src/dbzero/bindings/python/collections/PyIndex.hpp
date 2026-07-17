@@ -5,15 +5,17 @@
 
 #include <dbzero/object_model/index/Index.hpp>
 #include <dbzero/bindings/python/shared_py_object.hpp>
+#include <dbzero/core/memory/swine_ptr.hpp>
 
 namespace db0::python
 
 {
 
-    using IndexObject = PyWrapper<db0::object_model::Index>;
+    using IndexObject = PySharedWrapper<db0::object_model::Index, false>;
     
     IndexObject *IndexObject_new(PyTypeObject *type, PyObject *, PyObject *);
     IndexObject* IndexDefaultObject_new();
+    IndexObject* IndexDefaultObject_new(db0::swine_ptr<Fixture> fixture, bool passive, bool managed = false);
     void PyAPI_IndexObject_del(IndexObject* self);
     Py_ssize_t PyAPI_IndexObject_len(IndexObject *);
     
@@ -27,7 +29,8 @@ namespace db0::python
     
     extern PyTypeObject IndexObjectType;
     
-    IndexObject *PyAPI_makeIndex(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
+    PyObject *PyAPI_makeIndex(PyObject *self, PyObject *args, PyObject *kwargs);
     bool IndexObject_Check(PyObject *);
+    bool isValidIndexedFieldName(PyTypeObject *memo_type, const char *field_name);
 
 }

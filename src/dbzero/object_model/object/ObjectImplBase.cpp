@@ -214,6 +214,7 @@ namespace db0::object_model
                 type.setSingletonAddress(*this);
             }
             initializer.flushTagFields(lang_object);
+            initializer.flushIndexedFields(this->getUniqueAddress());
             initializer.close();            
         }
         
@@ -271,14 +272,19 @@ namespace db0::object_model
     
     template <typename T, typename ImplT>
     void ObjectImplBase<T, ImplT>::setPreInit(const char *field_name, TypeId type_id, ObjectPtr obj_ptr,
-        bool is_tag_field) const
+        FieldFlags) const
     {
         assert(!this->hasInstance());
         if (!LangToolkit::isValid(obj_ptr)) {
             auto member_id = removePreInit(field_name);
-            if (is_tag_field) {
-                auto &initializer = InitManager::instance.getInitializer(*this);
+            auto &initializer = InitManager::instance.getInitializer(*this);
+            auto &type = initializer.getClass();
+            auto field_options = type.getFieldOptions(field_name, member_id);
+            if (field_options[FieldOptions::TAG_FIELD]) {
                 initializer.setTagField(member_id.primary().first, obj_ptr);
+            }
+            if (field_options[FieldOptions::INDEXED_FIELD]) {
+                initializer.clearIndexedField(member_id.primary().first);
             }
             return;
         }
@@ -301,6 +307,7 @@ namespace db0::object_model
             // use the default fidelity for the storage class
             member_id = type.addField(field_name, storage_fidelity, type.isDeclaredTagField(field_name));
         }
+        auto field_options = type.getFieldOptions(field_name, member_id);
         
         if (storage_fidelity == 0) {
             if (member_id.hasFidelity(2)) {
@@ -343,16 +350,19 @@ namespace db0::object_model
             auto mask = lofi_store<2>::mask(loc.second);
             initializer.set(loc, storage_class, value, mask);
         }
-        if (is_tag_field) {
+        if (field_options[FieldOptions::TAG_FIELD]) {
             initializer.setTagField(member_id.primary().first, obj_ptr);
+        }
+        if (field_options[FieldOptions::INDEXED_FIELD]) {
+            initializer.setIndexedField(member_id.primary().first, obj_ptr);
         }
     }
     
     template <typename T, typename ImplT>
-    void ObjectImplBase<T, ImplT>::setPreInit(const char *field_name, ObjectPtr obj_ptr, bool is_tag_field) const
+    void ObjectImplBase<T, ImplT>::setPreInit(const char *field_name, ObjectPtr obj_ptr, FieldFlags field_options) const
     {
         auto type_id = LangToolkit::getTypeManager().getTypeId(obj_ptr);
-        setPreInit(field_name, type_id, obj_ptr, is_tag_field);
+        setPreInit(field_name, type_id, obj_ptr, field_options);
     }
 
     template <typename T, typename ImplT>
@@ -806,6 +816,32 @@ namespace db0::object_model
     }
 
     template <typename T, typename ImplT>
+    void ObjectImplBase<T, ImplT>::dropIndexedFields(Class &type) const
+    {
+        auto object_addr = this->getUniqueAddress();
+        const Class *type_ptr = &type;
+        while (type_ptr) {
+            for (const auto &indexed_field: type_ptr->getIndexedFieldRecords()) {
+                auto field_id = indexed_field.getFieldId();
+                auto index = type_ptr->tryGetFieldIndex(field_id);
+                if (!index) {
+                    continue;
+                }
+                auto member = type_ptr->tryGetMember(field_id);
+                if (!member) {
+                    continue;
+                }
+                bool is_auto_generated = false;
+                auto key = tryGet(type.findField(member->m_name.c_str()), &is_auto_generated);
+                if (!!key && !is_auto_generated) {
+                    index->remove(key.get(), object_addr);
+                }
+            }
+            type_ptr = type_ptr->getBaseClassPtr();
+        }
+    }
+
+    template <typename T, typename ImplT>
     void ObjectImplBase<T, ImplT>::dropMembers(Class &class_ref) const
     {
         auto fixture = this->getFixture();
@@ -858,8 +894,9 @@ namespace db0::object_model
                 // retrieve type from the initializer
                 type = std::const_pointer_cast<Class>(unloadType());
             }
-            
+
             dropTags(*type);
+            dropIndexedFields(*type);
             dropMembers(*type);
             // dereference associated class
             type->decRef(false);

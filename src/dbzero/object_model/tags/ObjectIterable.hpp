@@ -48,22 +48,36 @@ namespace db0::object_model
         using BaseIterator = db0::FT_IteratorBase;
         using FilterFunc = std::function<bool(ObjectPtr)>;
 
+        struct QueryPlanning
+        {
+            // True when this iterable is backed by, or includes, a passive index scan.
+            bool m_is_passive = false;
+            // True if this iterable is, or already includes, a positive non-passive predicate.
+            bool m_is_anchor = false;
+
+            QueryPlanning(bool is_passive = false, bool is_anchor = false)
+                : m_is_passive(is_passive)
+                , m_is_anchor(is_anchor)
+            {
+            }
+        };
+
         ObjectIterable(ObjectIterable &&) = default;
         
         // Construct from a full-text query iterator
         ObjectIterable(db0::swine_ptr<Fixture>, std::unique_ptr<QueryIterator> &&, std::shared_ptr<Class> = nullptr, 
             TypeObjectPtr lang_type = nullptr, std::vector<std::unique_ptr<QueryObserver> > && = {},
-            const std::vector<FilterFunc> & = {});
+            const std::vector<FilterFunc> & = {}, QueryPlanning query_planning = QueryPlanning { false, true });
 
         // Construct from a sorted iterator
         ObjectIterable(db0::swine_ptr<Fixture>, std::unique_ptr<SortedIterator> &&, std::shared_ptr<Class> = nullptr,
             TypeObjectPtr lang_type = nullptr, std::vector<std::unique_ptr<QueryObserver> > && = {},
-            const std::vector<FilterFunc> & = {});
+            const std::vector<FilterFunc> & = {}, QueryPlanning query_planning = QueryPlanning { false, true });
         
         // Construct from IteratorFactory (specialized on first use)
         ObjectIterable(db0::swine_ptr<Fixture>, std::shared_ptr<IteratorFactory> factory, std::shared_ptr<Class> = nullptr,
             TypeObjectPtr lang_type = nullptr, std::vector<std::unique_ptr<QueryObserver> > && = {},
-            const std::vector<FilterFunc> & = {});
+            const std::vector<FilterFunc> & = {}, QueryPlanning query_planning = QueryPlanning { false, true });
         
         // Construct with additional filters
         ObjectIterable(const ObjectIterable &, const std::vector<FilterFunc> &);
@@ -134,6 +148,16 @@ namespace db0::object_model
 
         bool empty() const;
 
+        bool mayReadPassiveEntries() const {
+            return m_query_planning.m_is_passive;
+        }
+
+        bool isNonPassiveAnchor() const {
+            return m_query_planning.m_is_anchor;
+        }
+
+        void requirePassiveAnchor() const;
+
     protected:
         mutable db0::weak_swine_ptr<Fixture> m_fixture;
         const ClassFactory &m_class_factory;
@@ -148,11 +172,12 @@ namespace db0::object_model
         mutable ObjectSharedPtr m_lang_context;
         // object access mode (e.g. no_cache)
         const AccessFlags m_access_mode;
+        const QueryPlanning m_query_planning = {};
         // iter constructor
         ObjectIterable(db0::swine_ptr<Fixture>, const ClassFactory &, std::unique_ptr<QueryIterator> &&,
             std::unique_ptr<SortedIterator> &&, std::shared_ptr<IteratorFactory>, std::vector<std::unique_ptr<QueryObserver> > &&,
             std::vector<FilterFunc> &&filters, std::shared_ptr<Class>, TypeObjectPtr lang_type, const SliceDef & = {}, 
-            AccessFlags access_mode = {});
+            AccessFlags access_mode = {}, QueryPlanning query_planning = QueryPlanning());
         
         // get the base iterator, possibly initialized from the factory
         const BaseIterator &getBaseIterator(std::unique_ptr<BaseIterator> &) const;        

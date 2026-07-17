@@ -7,6 +7,7 @@
 #include <deque>
 #include <optional>
 #include <mutex>
+#include <type_traits>
 #include "PyTypeManager.hpp"
 #include "PyWorkspace.hpp"
 #include "PyTypes.hpp"
@@ -36,6 +37,7 @@ namespace db0::object_model
     class o_py_tuple;
     class Object;
     class ObjectIterable;
+    class Index;
     class Class;
     class ClassFactory;
     struct EnumValue;
@@ -76,8 +78,12 @@ namespace db0::python
             return m_py_workspace;
         }
         
-        template <typename T> inline static PyWrapper<T> *getWrapperTypeOf(ObjectPtr ptr) {
-            return static_cast<PyWrapper<T> *>(ptr);
+        template <typename T> inline static auto *getWrapperTypeOf(ObjectPtr ptr) {
+            if constexpr (std::is_same_v<T, db0::object_model::Index>) {
+                return static_cast<PySharedWrapper<T, false> *>(ptr);
+            } else {
+                return static_cast<PyWrapper<T> *>(ptr);
+            }
         }
         
         /**
@@ -218,6 +224,7 @@ namespace db0::python
         static const char *getMemoTypeID(TypeObjectPtr memo_type);
         static const std::vector<std::string> &getInitVars(TypeObjectPtr memo_type);
         static std::vector<std::string> getTagFields(TypeObjectPtr memo_type);
+        static std::vector<std::string> getIndexedFields(TypeObjectPtr memo_type);
         
         static bool isSingleton(TypeObjectPtr);
         // check if a memo type is marked with no_default_tags flag
@@ -230,6 +237,7 @@ namespace db0::python
         static FlagSet<MemoOptions> getMemoFlags(TypeObjectPtr);
         static bool hasMemoInstance(ObjectPtr);
         static UniqueAddress getMemoUniqueAddress(ObjectPtr);
+        static std::optional<UniqueAddress> tryGetMemoUniqueAddress(ObjectPtr);
         static bool isMemoDead(ObjectPtr);
         static bool isMemoDropped(ObjectPtr);
         static bool hasMemoAnyRefs(ObjectPtr);

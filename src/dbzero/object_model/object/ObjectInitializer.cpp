@@ -3,6 +3,7 @@
 
 #include "ObjectInitializer.hpp"
 #include <dbzero/object_model/class.hpp>
+#include <dbzero/object_model/index/Index.hpp>
 #include <dbzero/object_model/tags/TagIndex.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <algorithm>
@@ -23,6 +24,7 @@ namespace db0::object_model
         m_values.clear();
         m_has_value.clear();
         m_tag_fields.clear();
+        m_indexed_fields.clear();
         m_tag_index = nullptr;
         m_ref_counts = {0, 0};
         m_type_initializer = {};
@@ -66,6 +68,44 @@ namespace db0::object_model
             }
         }
         m_tag_fields.clear();
+    }
+
+    void ObjectInitializer::setIndexedField(FieldID field_id, ObjectPtr value)
+    {
+        if (!Index::isSupportedKey(value)) {
+            THROWF(db0::InputException) << "Unsupported index key type";
+        }
+        m_indexed_fields.push_back({ field_id, ObjectSharedPtr(value) });
+    }
+
+    void ObjectInitializer::clearIndexedField(FieldID field_id)
+    {
+        m_indexed_fields.push_back({ field_id, ObjectSharedPtr() });
+    }
+
+    void ObjectInitializer::flushIndexedFields(UniqueAddress memo_addr)
+    {
+        if (m_indexed_fields.empty()) {
+            return;
+        }
+
+        std::stable_sort(m_indexed_fields.begin(), m_indexed_fields.end(), [](const auto &lhs, const auto &rhs) {
+            return lhs.m_field_id.getLongIndex() < rhs.m_field_id.getLongIndex();
+        });
+
+        auto &type = getClass();
+        for (auto field = m_indexed_fields.end(); field != m_indexed_fields.begin();) {
+            --field;
+            auto field_id = field->m_field_id;
+            if (!!field->m_value) {
+                auto index = type.getExistingFieldIndex(field_id);
+                index->add(field->m_value.get(), memo_addr);
+            }
+            while (field != m_indexed_fields.begin() && (field - 1)->m_field_id == field_id) {
+                --field;
+            }
+        }
+        m_indexed_fields.clear();
     }
     
     Class &ObjectInitializer::getClass() const {

@@ -113,6 +113,30 @@ DB0_PACKED_END
             , m_pb_mask(ptr_container::mask((*this)->m_page_size))            
         {
         }
+
+        void init(Memspace &mem, BVectorFlags flags = {}, AccessFlags access_mode = {})
+        {
+            super_t::init(mem, mem.getPageSize(), flags, access_mode);
+            this->m_db_shift = data_container::shift(mem.getPageSize());
+            this->m_db_mask = data_container::mask(mem.getPageSize());
+            this->m_pb_shift = ptr_container::shift(mem.getPageSize());
+            this->m_pb_mask = ptr_container::mask(mem.getPageSize());
+            this->m_pb_cache.clear();
+            this->m_last_block_key = {0, 0};
+            this->m_last_block = nullptr;
+        }
+
+        void init(mptr ptr, AccessFlags access_mode = {})
+        {
+            super_t::operator=(super_t(ptr, access_mode));
+            this->m_db_shift = data_container::shift((*this)->m_page_size);
+            this->m_db_mask = data_container::mask((*this)->m_page_size);
+            this->m_pb_shift = ptr_container::shift((*this)->m_page_size);
+            this->m_pb_mask = ptr_container::mask((*this)->m_page_size);
+            this->m_pb_cache.clear();
+            this->m_last_block_key = {0, 0};
+            this->m_last_block = nullptr;
+        }
         
         v_bvector(const v_bvector &&other)
             : super_t(std::move(other))
@@ -125,16 +149,16 @@ DB0_PACKED_END
         
         void operator=(v_bvector &&other)
         {
-            assert(this->m_db_shift == other.m_db_shift);
-            assert(this->m_db_mask == other.m_db_mask);
-            assert(this->m_pb_shift == other.m_pb_shift);
-            assert(this->m_pb_mask == other.m_pb_mask);
-
             // clean local cached objects first
             this->m_pb_cache.clear();
             this->m_last_block_key = {0, 0};
             this->m_last_block = nullptr;
             super_t::operator=(std::move(other));
+            this->m_db_shift = other.m_db_shift;
+            this->m_db_mask = other.m_db_mask;
+            this->m_pb_shift = other.m_pb_shift;
+            this->m_pb_mask = other.m_pb_mask;
+            this->m_b_class = other.m_b_class;
         }
         
         // Construct populated with values from a specific sequence

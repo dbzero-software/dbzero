@@ -5,7 +5,7 @@
 
 #include "ObjectAnyBase.hpp"
 #include <dbzero/object_model/LangConfig.hpp>
-#include <dbzero/object_model/class/MemberID.hpp>
+#include <dbzero/object_model/class/Class.hpp>
 #include <dbzero/workspace/GC0.hpp>
 #include <dbzero/core/compiler_attributes.hpp>
 #include "o_object.hpp"
@@ -103,8 +103,8 @@ namespace db0::object_model
         // Assign field of an uninitialized instance (assumed as a non-mutating operation)
         // NOTE: if lang_value is nullptr then the member is removed
         void setPreInit(const char *field_name, TypeId type_id, ObjectPtr lang_value,
-            bool is_tag_field = false) const;
-        void setPreInit(const char *field_name, ObjectPtr lang_value, bool is_tag_field = false) const;
+            FieldFlags field_options = {}) const;
+        void setPreInit(const char *field_name, ObjectPtr lang_value, FieldFlags field_options = {}) const;
         MemberID removePreInit(const char *field_name) const;
         
         ObjectSharedPtr tryGet(MemberLoc, bool *is_auto_generated = nullptr) const;
@@ -187,6 +187,7 @@ namespace db0::object_model
         void dropMembers(db0::swine_ptr<Fixture> &, Class &) const;
         void dropMembers(Class &) const;
         void dropTags(Class &) const;
+        void dropIndexedFields(Class &) const;
         
         void unrefMember(db0::swine_ptr<Fixture> &, StorageClass, Value) const;
         void unrefMember(db0::swine_ptr<Fixture> &, XValue) const;
