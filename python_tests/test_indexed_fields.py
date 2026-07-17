@@ -275,6 +275,45 @@ def test_index_of_managed_index_remains_sealed_after_reopen_and_stored_reference
             operation()
 
 
+def test_indexed_field_metadata_reopens_with_no_auto_migrate(tmp_path):
+    def declare_task():
+        @db0.indexed_fields("priority")
+        @db0.memo(id="dbzero-software/dbzero/tests/indexed-fields-no-auto-reopen-task")
+        class IndexedFieldsNoAutoReopenTask:
+            def __init__(self, priority):
+                self.priority = priority
+
+        return IndexedFieldsNoAutoReopenTask
+
+    def declare_root():
+        @db0.memo(singleton=True, id="dbzero-software/dbzero/tests/indexed-fields-no-auto-reopen-root")
+        class IndexedFieldsNoAutoReopenRoot:
+            def __init__(self):
+                self.items = []
+
+        return IndexedFieldsNoAutoReopenRoot
+
+    db0.init(str(tmp_path), no_auto_migrate=True)
+    db0.open("indexed-field-no-auto-reopen")
+    try:
+        IndexedFieldsNoAutoReopenTask = declare_task()
+        IndexedFieldsNoAutoReopenRoot = declare_root()
+        IndexedFieldsNoAutoReopenRoot().items.append(IndexedFieldsNoAutoReopenTask(7))
+        db0.commit()
+        db0.close()
+
+        db0.init(str(tmp_path), no_auto_migrate=True)
+        db0.open("indexed-field-no-auto-reopen")
+        IndexedFieldsNoAutoReopenTask = declare_task()
+        declare_root()
+
+        index = db0.index_of(IndexedFieldsNoAutoReopenTask, "priority")
+        assert len(index) == 1
+        assert _get_indexed_fields(IndexedFieldsNoAutoReopenTask) == ("priority",)
+    finally:
+        db0.close()
+
+
 def test_indexed_field_rejects_unsupported_string_keys(db0_fixture):
     @db0.indexed_fields("code")
     @db0.memo
