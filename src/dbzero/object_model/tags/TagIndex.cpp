@@ -787,6 +787,7 @@ namespace db0::object_model
         db0::FT_ANDIteratorFactory<UniqueAddress> factory;
         // the negated root-level query components
         std::vector<std::unique_ptr<QueryIterator> > neg_iterators;
+        bool empty_result = false;
         if (nargs > 0 || type || !native_args.empty()) {
             // flush pending updates before querying
             flush();
@@ -821,10 +822,14 @@ namespace db0::object_model
             if (!result) {
                 // invalidate factory since no matching results exist
                 factory.clear();
+                empty_result = true;
             }
         }
         
         auto query_iterator = factory.release();
+        if (empty_result) {
+            return query_iterator;
+        }
         // handle negated query components
         if (neg_iterators.empty()) {
             return query_iterator;
