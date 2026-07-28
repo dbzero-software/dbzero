@@ -87,6 +87,17 @@ def test_index_can_store_nulls(db0_fixture):
     assert values == [2, 0, 3, 4, 1]
 
 
+def test_find_with_negated_tag_and_empty_subquery_returns_empty(db0_fixture):
+    index = db0.index()
+    contact = MemoTestClass("not-overdue")
+    index.add(datetime(2026, 1, 2), contact)
+
+    overdue_contacts = db0.find(MemoTestClass, index.select(None, datetime(2026, 1, 1)))
+    assert not overdue_contacts
+
+    assert list(db0.find(MemoTestClass, db0.no("archived"), overdue_contacts)) == []
+
+
 def test_index_can_sort_by_multiple_criteria(db0_fixture):
     index_1 = db0.index()
     index_2 = db0.index()

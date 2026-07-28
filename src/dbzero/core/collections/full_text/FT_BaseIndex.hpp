@@ -9,36 +9,70 @@
 #include "FT_ANDIterator.hpp"
 #include "FT_ORXIterator.hpp"
 #include <dbzero/core/threading/ProgressiveMutex.hpp>
+#include <dbzero/core/memory/UniqueRef.hpp>
 #include "LongTag.hpp"
 #include <vector>
 
 namespace db0
 
 {
+    // Traits for index-key metadata carried alongside the logical key.
     template <typename IndexKeyT>
-    struct FT_IndexKeyPolicy
+    struct FT_IndexKeyTraits
     {
-        static bool enableValueCallbacks(const IndexKeyT &) {
+        static bool isPassive(const IndexKeyT &) {
+            return false;
+        }
+    };
+
+    template <>
+    struct FT_IndexKeyTraits<db0::TagAddress>
+    {
+        static bool isPassive(db0::TagAddress tag_addr) {
+            return tag_addr.isPassive();
+        }
+    };
+
+    template <>
+    struct FT_IndexKeyTraits<db0::LongTagT>
+    {
+        static bool isPassive(const db0::LongTagT &tag_addr) {
+            return db0::isPassiveLongTag(tag_addr);
+        }
+    };
+
+    template <typename KeyT>
+    struct FT_IndexValueTraits
+    {
+        static bool isPassive(const KeyT &) {
+            return false;
+        }
+
+        static constexpr bool canUpgradePassive() {
+            return false;
+        }
+
+        static KeyT asOwning(const KeyT &value) {
+            return value;
+        }
+    };
+
+    template <>
+    struct FT_IndexValueTraits<db0::UniqueRef>
+    {
+        static bool isPassive(db0::UniqueRef ref) {
+            return ref.isPassive();
+        }
+
+        static constexpr bool canUpgradePassive() {
             return true;
         }
-    };
 
-    template <>
-    struct FT_IndexKeyPolicy<db0::TagAddress>
-    {
-        static bool enableValueCallbacks(db0::TagAddress tag_addr) {
-            return !tag_addr.isPassive();
+        static db0::UniqueRef asOwning(db0::UniqueRef ref) {
+            return ref.asOwning();
         }
     };
-
-    template <>
-    struct FT_IndexKeyPolicy<db0::LongTagT>
-    {
-        static bool enableValueCallbacks(const db0::LongTagT &tag_addr) {
-            return !db0::isPassiveLongTag(tag_addr);
-        }
-    };
-
+    
     // FT_BaseIndex provides common API for managing tag/type inverted lists
     // @tparam IndexKeyT the tag / element's key type
     template <typename IndexKeyT, typename KeyT = UniqueAddress, typename IndexValueT = Address>
@@ -59,18 +93,23 @@ namespace db0
          * Collect iterator associated with a specific key (e.g. tag/type)
          * @return false if no iterator collected (e.g. no such key)
         */
-        bool addIterator(FT_IteratorFactory<KeyT> &, IndexKeyT key) const;
+        template <typename QueryKeyT = KeyT>
+        bool addIterator(FT_IteratorFactory<QueryKeyT> &, IndexKeyT key) const;
         // index_key_sequence is optional serialization metadata for nested
         // composite-tag queries; it is the root-to-leaf tag key path.
-        bool addIterator(FT_IteratorFactory<KeyT> &, IndexKeyT key, std::vector<IndexKeyT> &&index_key_sequence) const;
+        template <typename QueryKeyT = KeyT>
+        bool addIterator(FT_IteratorFactory<QueryKeyT> &, IndexKeyT key,
+            std::vector<IndexKeyT> &&index_key_sequence) const;
 
         /**
          * @param key either tag or class identifier        
         */
-        std::unique_ptr<FT_Iterator<KeyT> > makeIterator(IndexKeyT key, int direction = -1) const;
+        template <typename QueryKeyT = KeyT>
+        std::unique_ptr<FT_Iterator<QueryKeyT> > makeIterator(IndexKeyT key, int direction = -1) const;
         // See addIterator overload above: index_key_sequence is not used for
         // lookup, only to serialize enough context to reopen a nested tag path.
-        std::unique_ptr<FT_Iterator<KeyT> > makeIterator(IndexKeyT key, int direction,
+        template <typename QueryKeyT = KeyT>
+        std::unique_ptr<FT_Iterator<QueryKeyT> > makeIterator(IndexKeyT key, int direction,
             std::vector<IndexKeyT> &&index_key_sequence) const;
         
         /**
@@ -145,12 +184,30 @@ namespace db0
             template <typename T> struct ValueHash
             {
                 std::size_t operator()(const std::pair<IndexKeyT, T> &value) const {
-                    return std::hash<IndexKeyT>()(value.first) ^ std::hash<T>()(value.second);
+                    return std::hash<IndexKeyT>()(value.first)
+                        ^ std::hash<T>()(value.second)
+                        ^ (FT_IndexKeyTraits<IndexKeyT>::isPassive(value.first) ? 1 : 0)
+                        ^ (FT_IndexValueTraits<T>::isPassive(value.second) ? 2 : 0);
                 }
             };
 
-            std::unordered_set<std::pair<IndexKeyT, KeyT>, ValueHash<KeyT> > m_values;
-            std::unordered_set<std::pair<IndexKeyT, const KeyT *>, ValueHash<const KeyT *> > m_value_refs;
+            template <typename T> struct ValueEqual
+            {
+                bool operator()(const std::pair<IndexKeyT, T> &lhs,
+                    const std::pair<IndexKeyT, T> &rhs) const
+                {
+                    return lhs.first == rhs.first &&
+                        FT_IndexKeyTraits<IndexKeyT>::isPassive(lhs.first) ==
+                            FT_IndexKeyTraits<IndexKeyT>::isPassive(rhs.first) &&
+                        lhs.second == rhs.second &&
+                        FT_IndexValueTraits<T>::isPassive(lhs.second) ==
+                            FT_IndexValueTraits<T>::isPassive(rhs.second);
+                }
+            };
+
+            std::unordered_set<std::pair<IndexKeyT, KeyT>, ValueHash<KeyT>, ValueEqual<KeyT> > m_values;
+            std::unordered_set<std::pair<IndexKeyT, const KeyT *>, ValueHash<const KeyT *>, ValueEqual<const KeyT *> >
+                m_value_refs;
             // a set of keys for which all operations should be reverted / ignored
             std::unordered_set<KeyT> m_reverted;
 
@@ -331,6 +388,8 @@ namespace db0
     extern template class FT_BaseIndex<std::uint64_t, UniqueAddress>;
     extern template class FT_BaseIndex<db0::TagAddress, UniqueAddress>;
     extern template class FT_BaseIndex<db0::LongTagT, UniqueAddress>;
+    extern template class FT_BaseIndex<db0::TagAddress, UniqueRef>;
+    extern template class FT_BaseIndex<db0::LongTagT, UniqueRef>;
     
     extern template class FT_BaseIndex<std::uint64_t, std::uint64_t>;
     extern template class FT_BaseIndex<db0::LongTagT, std::uint64_t>;

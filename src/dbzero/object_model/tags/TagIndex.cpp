@@ -188,10 +188,10 @@ namespace db0::object_model
         }
 
         using IterableSequence = TagMakerSequence<ForwardIterator, ObjectSharedPtr>;
-        ActiveValueT active_key = { UniqueAddress(), nullptr };
-        auto &batch_op_short = getBatchOperationShort(memo_ptr, active_key, false);
+        ActiveValueT active_key = { UniqueRef(), nullptr };
+        auto &batch_op_short = getBatchOperationShortTag(memo_ptr, active_key, passive);
         // since it's less common, defer initialization until first occurence
-        db0::FT_BaseIndex<LongTagT>::BatchOperationBuilder *batch_op_long_ptr = nullptr;
+        TagBaseIndexLongT::BatchOperationBuilder *batch_op_long_ptr = nullptr;
         auto &type_manager = LangToolkit::getTypeManager();
         for (std::size_t i = 0; i < nargs; ++i) {
             ObjectPtr arg = args[i];
@@ -212,7 +212,7 @@ namespace db0::object_model
                 // sequence (pair) may represent a single long tag
                 if (isLongTag(arg)) {
                     if (!batch_op_long_ptr) {
-                        batch_op_long_ptr = &getBatchOperationLong(memo_ptr, active_key);
+                        batch_op_long_ptr = &getBatchOperationLongTag(memo_ptr, active_key, passive);
                     }
                     auto tag = makeLongTagFromSequence(tag_sequence);
                     if (passive) {
@@ -234,7 +234,7 @@ namespace db0::object_model
                 } else {
                     // must try adding as a long tag (item from a foreign scope)
                     if (!batch_op_long_ptr) {
-                        batch_op_long_ptr = &getBatchOperationLong(memo_ptr, active_key);
+                        batch_op_long_ptr = &getBatchOperationLongTag(memo_ptr, active_key, passive);
                     }
                     auto long_tag = getLongTag(arg);
                     if (passive) {
@@ -271,7 +271,7 @@ namespace db0::object_model
         }
     }
 
-    PassiveTag TagIndex::preparePassiveTag(ObjectPtr arg, std::uint32_t source_id) const
+    TagIndex::PassiveTag TagIndex::preparePassiveTag(ObjectPtr arg, std::uint32_t source_id) const
     {
         auto type_id = LangToolkit::getTypeManager().getTypeId(arg);
         bool inc_ref = type_id == TypeId::STRING;
@@ -286,13 +286,13 @@ namespace db0::object_model
     void TagIndex::add(ObjectPtr memo_ptr, PassiveTag &tag)
     {
         assert(tag.hasTag());
-        ActiveValueT active_key = { UniqueAddress(), nullptr };
+        ActiveValueT active_key = { UniqueRef(), nullptr };
         if (tag.is_long()) {
-            auto &batch = getBatchOperationLong(memo_ptr, active_key);
+            auto &batch = getBatchOperationLongTag(memo_ptr, active_key, true);
             auto passive_tag = asPassiveLongTag(tag.long_tag());
             batch->addTag(active_key, passive_tag);
         } else {
-            auto &batch = getBatchOperationShort(memo_ptr, active_key, false);
+            auto &batch = getBatchOperationShortTag(memo_ptr, active_key, true);
             auto short_tag = tag.short_tag();
             auto passive_tag = short_tag.asPassive();
             batch->addTag(active_key, passive_tag);
@@ -307,35 +307,48 @@ namespace db0::object_model
 
     void TagIndex::remove(ObjectPtr memo_ptr, const PassiveTag &tag)
     {
-        ActiveValueT active_key = { UniqueAddress(), nullptr };
+        ActiveValueT active_key = { UniqueRef(), nullptr };
         if (tag.is_long()) {
-            auto &batch = getBatchOperationLong(memo_ptr, active_key);
+            auto &batch = getBatchOperationLongTag(memo_ptr, active_key);
             batch->removeTag(active_key, tag.long_tag());
         } else {
-            auto &batch = getBatchOperationShort(memo_ptr, active_key, false);
+            auto &batch = getBatchOperationShortTag(memo_ptr, active_key);
             batch->removeTag(active_key, tag.short_tag());
         }
         m_mutation_log->onDirty();
     }
     
-    FT_BaseIndex<TagIndex::ShortTagT>::BatchOperationBuilder &
+    TagIndex::TagBaseIndexShortT::BatchOperationBuilder &
+    TagIndex::getBatchOperationType(ObjectPtr memo_ptr, ActiveValueT &result) const
+    {
+        return getBatchOperation(memo_ptr, m_base_index_short, m_batch_op_types, result);
+    }
+
+    TagIndex::TagBaseIndexShortT::BatchOperationBuilder &
+    TagIndex::getBatchOperationShortTag(ObjectPtr memo_ptr, ActiveValueT &result, bool passive) const
+    {
+        return getBatchOperation(memo_ptr, m_base_index_short, m_batch_op_short, result, passive);
+    }
+
+    TagIndex::TagBaseIndexLongT::BatchOperationBuilder &
+    TagIndex::getBatchOperationLongTag(ObjectPtr memo_ptr, ActiveValueT &result, bool passive) const
+    {
+        return getBatchOperation(memo_ptr, m_base_index_long, m_batch_op_long, result, passive);
+    }
+
+    TagIndex::TagBaseIndexShortT::BatchOperationBuilder &
     TagIndex::getBatchOperationShort(ObjectPtr memo_ptr, ActiveValueT &result, bool is_type) const
     {
         if (is_type) {
-            return getBatchOperation(
-                memo_ptr, m_base_index_short, m_batch_op_types, result
-            );
-        } else {
-            return getBatchOperation(
-                memo_ptr, m_base_index_short, m_batch_op_short, result
-            );
+            return getBatchOperationType(memo_ptr, result);
         }
+        return getBatchOperationShortTag(memo_ptr, result);
     }
 
-    db0::FT_BaseIndex<LongTagT>::BatchOperationBuilder &
+    TagIndex::TagBaseIndexLongT::BatchOperationBuilder &
     TagIndex::getBatchOperationLong(ObjectPtr memo_ptr, ActiveValueT &result) const
     {
-        return getBatchOperation(memo_ptr, m_base_index_long, m_batch_op_long, result);
+        return getBatchOperationLongTag(memo_ptr, result);
     }
     
     void TagIndex::addTag(ObjectPtr memo_ptr, Address tag_addr, bool is_type) {
@@ -344,15 +357,21 @@ namespace db0::object_model
     
     void TagIndex::addTag(ObjectPtr memo_ptr, ShortTagT tag, bool is_type)
     {
-        ActiveValueT active_key = { UniqueAddress(), nullptr };
-        auto &batch_operation = getBatchOperationShort(memo_ptr, active_key, is_type);
-        batch_operation->addTags(active_key, TagPtrSequence(&tag, &tag + 1));        
+        if (is_type) {
+            ActiveValueT active_key = { UniqueAddress(), nullptr };
+            auto &batch_operation = getBatchOperationType(memo_ptr, active_key);
+            batch_operation->addTags(active_key, TagPtrSequence(&tag, &tag + 1));
+        } else {
+            ActiveValueT active_key = { UniqueRef(), nullptr };
+            auto &batch_operation = getBatchOperationShortTag(memo_ptr, active_key);
+            batch_operation->addTags(active_key, TagPtrSequence(&tag, &tag + 1));
+        }
         m_mutation_log->onDirty();
     }    
     
     void TagIndex::addTag(ObjectPtr memo_ptr, LongTagT tag)
     {
-        ActiveValueT active_key = { UniqueAddress(), nullptr };
+        ActiveValueT active_key = { UniqueRef(), nullptr };
         auto &batch_operation = getBatchOperationLong(memo_ptr, active_key);
         batch_operation->addTags(active_key, TagPtrSequence(&tag, &tag + 1));        
         m_mutation_log->onDirty();        
@@ -411,7 +430,7 @@ namespace db0::object_model
     void TagIndex::removeTypeTag(UniqueAddress obj_addr, Address tag_addr)
     {
         auto &batch_operation = getBatchOperation(m_base_index_short, m_batch_op_types);
-        batch_operation->removeTag({ obj_addr, nullptr }, ShortTagT::fromAddress(tag_addr));
+        batch_operation->removeTag({ UniqueRef(obj_addr), nullptr }, ShortTagT::fromAddress(tag_addr));
         m_mutation_log->onDirty();
     }
     
@@ -423,8 +442,8 @@ namespace db0::object_model
 
         using IterableSequence = TagMakerSequence<ForwardIterator, ObjectSharedPtr>;
         ActiveValueT active_key = { UniqueAddress(), nullptr };
-        db0::FT_BaseIndex<ShortTagT>::BatchOperationBuilder *batch_op_short_ptr = nullptr;
-        db0::FT_BaseIndex<LongTagT>::BatchOperationBuilder *batch_op_long_ptr = nullptr;
+        TagBaseIndexShortT::BatchOperationBuilder *batch_op_short_ptr = nullptr;
+        TagBaseIndexLongT::BatchOperationBuilder *batch_op_long_ptr = nullptr;
         for (std::size_t i = 0; i < nargs; ++i) {
             auto type_id = LangToolkit::getTypeManager().getTypeId(args[i]);
             if (isLongTag(type_id, args[i])) {
@@ -582,7 +601,7 @@ namespace db0::object_model
 
     bool TagIndex::flush() const
     {
-        using ShortBatchOperationBulder = db0::FT_BaseIndex<ShortTagT>::BatchOperationBuilder;
+        using ShortBatchOperationBulder = TagBaseIndexShortT::BatchOperationBuilder;
 
         auto fixture = m_fixture.lock();
         std::optional<Fixture::DetachGuard> detach_guard;
@@ -646,7 +665,8 @@ namespace db0::object_model
                 fixture->detachIterators();
             }
             // the purpose of callback is to incRef objects when a new tag is assigned
-            std::function<void(UniqueAddress)> add_tag_callback = [&](UniqueAddress obj_addr) {
+            std::function<void(UniqueRef)> add_tag_callback = [&](UniqueRef obj_ref) {
+                auto obj_addr = obj_ref.asUniqueAddress();
                 auto it = m_object_cache.find(obj_addr);
                 assert(it != m_object_cache.end());
                 // NOTE: inc-ref as tag
@@ -660,7 +680,8 @@ namespace db0::object_model
             };
             
             auto &batch_op_types = getBatchOperation(m_base_index_short, m_batch_op_types);
-            std::function<void(UniqueAddress)> remove_tag_callback = [&](UniqueAddress obj_addr) {
+            std::function<void(UniqueRef)> remove_tag_callback = [&](UniqueRef obj_ref) {
+                auto obj_addr = obj_ref.asUniqueAddress();
                 auto it = m_object_cache.find(obj_addr);
                 // object may not exist if tags are removed post-deletion
                 if (it != m_object_cache.end()) {
@@ -672,7 +693,7 @@ namespace db0::object_model
                         // but it will be more efficient to do it here
                         const Class *type_ptr = &LangToolkit::getMemoType(obj_ptr);
                         while (type_ptr) {
-                            batch_op_types->removeTag({ obj_addr, nullptr }, ShortTagT::fromAddress(type_ptr->getAddress()));
+                            batch_op_types->removeTag({ UniqueRef(obj_addr), nullptr }, ShortTagT::fromAddress(type_ptr->getAddress()));
                             type_ptr = type_ptr->getBaseClassPtr();
                         }
                     }
@@ -714,7 +735,7 @@ namespace db0::object_model
                     // NOTE: we check for actual language references (excluding LangCache + TagIndex)
                     if (!LangToolkit::isMemoDropped(obj_ptr) && !LangToolkit::hasMemoAnyRefs(obj_ptr)
                         && !LangToolkit::hasAnyLangRefs(obj_ptr, 2)) {
-                        m_batch_op_types->revert(LangToolkit::getMemoUniqueAddress(obj_ptr));
+                        m_batch_op_types->revert(UniqueRef(LangToolkit::getMemoUniqueAddress(obj_ptr)));
                     }
                 }
                 // flush all type-tag updates
@@ -730,7 +751,7 @@ namespace db0::object_model
         // erase only entries that have been resolved to a real address.
         // Pre-cache ref was born in getBatchOperation; drop it here at resolution time.
         for (auto it = m_active_cache.begin(); it != m_active_cache.end(); ) {
-            if (it->second.isValid()) {
+            if (it->second.isResolved()) {
                 m_active_pre_cache.erase(ObjectSharedExtPtr(it->first));
                 it = m_active_cache.erase(it);
             } else {
@@ -750,7 +771,7 @@ namespace db0::object_model
                 auto object_addr = LangToolkit::getMemoUniqueAddress(item.first);
                 assert(object_addr.isValid());
                 // initialize active value with the actual object address
-                item.second = object_addr;
+                item.second.resolve(object_addr);
                 // add object to cache
                 if (m_object_cache.find(object_addr) == m_object_cache.end()) {
                     m_object_cache.emplace(object_addr, item.first);
@@ -766,6 +787,7 @@ namespace db0::object_model
         db0::FT_ANDIteratorFactory<UniqueAddress> factory;
         // the negated root-level query components
         std::vector<std::unique_ptr<QueryIterator> > neg_iterators;
+        bool empty_result = false;
         if (nargs > 0 || type || !native_args.empty()) {
             // flush pending updates before querying
             flush();
@@ -800,10 +822,14 @@ namespace db0::object_model
             if (!result) {
                 // invalidate factory since no matching results exist
                 factory.clear();
+                empty_result = true;
             }
         }
         
         auto query_iterator = factory.release();
+        if (empty_result) {
+            return query_iterator;
+        }
         // handle negated query components
         if (neg_iterators.empty()) {
             return query_iterator;
@@ -1379,11 +1405,11 @@ namespace db0::object_model
         for (auto it = ForwardIterator(LangToolkit::getIterator(py_arg)), end = ForwardIterator::end(); it != end; ++it) {
             if (isShortTag(*it)) {
                 ObjectSharedPtr alt_repr = *it;
-                auto tag_iterator = m_base_index_short.makeIterator(getShortTag(*it, &alt_repr));
+                auto tag_iterator = m_base_index_short.makeIterator<UniqueAddress>(getShortTag(*it, &alt_repr));
                 // use the alternative representation if such exists
                 split_factory.add(std::move(tag_iterator), alt_repr);
             } else if (isLongTag(*it)) {
-                auto tag_iterator = m_base_index_long.makeIterator(getLongTag(*it));
+                auto tag_iterator = m_base_index_long.makeIterator<UniqueAddress>(getLongTag(*it));
                 split_factory.add(std::move(tag_iterator), *it);
             } else {
                 THROWF(db0::InputException) << "Unable to convert to tag: " 
@@ -1478,15 +1504,15 @@ namespace db0::object_model
         super_t::detach();
     }
 
-    db0::FT_BaseIndex<TagIndex::ShortTagT> &TagIndex::getBaseIndexShort() {
+    TagIndex::TagBaseIndexShortT &TagIndex::getBaseIndexShort() {
         return m_base_index_short;
     }
 
-    const db0::FT_BaseIndex<TagIndex::ShortTagT> &TagIndex::getBaseIndexShort() const {
+    const TagIndex::TagBaseIndexShortT &TagIndex::getBaseIndexShort() const {
         return m_base_index_short;
     }
 
-    const db0::FT_BaseIndex<LongTagT> &TagIndex::getBaseIndexLong() const {
+    const TagIndex::TagBaseIndexLongT &TagIndex::getBaseIndexLong() const {
         return m_base_index_long;
     }
 
@@ -1530,7 +1556,7 @@ namespace db0::object_model
     
     std::unique_ptr<TagIndex::QueryIterator> TagIndex::makeIterator(ShortTagT tag) const {
         flush();
-        return m_base_index_short.makeIterator(tag);
+        return m_base_index_short.makeIterator<UniqueAddress>(tag);
     }
 
     std::unique_ptr<TagIndex::QueryIterator> TagIndex::makeIterator(const std::vector<ShortTagT> &tag_sequence,
@@ -1564,7 +1590,7 @@ namespace db0::object_model
             keep_alive.push_back(std::move(child_tag_index));
         }
 
-        return current_tag_index->m_base_index_short.makeIterator(
+        return current_tag_index->m_base_index_short.makeIterator<UniqueAddress>(
             tag_sequence.back(), direction, std::vector<ShortTagT>(tag_sequence)
         );
     }

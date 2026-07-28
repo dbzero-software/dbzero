@@ -199,8 +199,12 @@ DB0_PACKED_BEGIN
     class DB0_PACKED_ATTR TagAddress
     {
     public:
+        // TagAddress is used by the short-tag index, whose key space contains
+        // both real memory addresses and packed non-address tags. EnumValue_UID
+        // tags reserve bit 63. Address-backed tags use low 50 bits, so bit 50
+        // is available as the passive marker without colliding with addresses.
         static constexpr std::uint64_t ENUM_BIT = 1ULL << 63;
-        static constexpr std::uint64_t PASSIVE_BIT = 1ULL << 62;
+        static constexpr std::uint64_t PASSIVE_BIT = 1ULL << 50;
         static constexpr std::uint64_t ADDRESS_MASK = (1ULL << 50) - 1;
 
         TagAddress() = default;
@@ -231,6 +235,9 @@ DB0_PACKED_BEGIN
 
         inline TagAddress asPassive() const {
             auto regular_value = regularValue(m_value);
+            // Non-address tag encodings, such as enum and field-def tags, are
+            // not eligible for passive storage. Returning them unchanged keeps
+            // their packed identity intact.
             if ((regular_value & ~ADDRESS_MASK) != 0) {
                 return *this;
             }

@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <type_traits>
 #include <unordered_set>
 
 #include "mb_index_def.hpp"
@@ -10,6 +11,7 @@
 #include "bindex_interface.hpp"
 #include "bindex_iterator.hpp"
 #include <dbzero/core/serialization/Serializable.hpp>
+#include <dbzero/core/memory/UniqueRef.hpp>
 
 namespace db0
 
@@ -33,9 +35,10 @@ namespace db0
         using item_t = typename definition_t::item_t;
         using item_comp_t = typename definition_t::item_comp_t;
 
-        using interface_t = bindex::interface::Impl<definition_t>;
+		using interface_t = bindex::interface::Impl<definition_t>;
         using iterator_t = bindex::iterator::Impl<item_t>;
 		using CallbackT = std::function<void(item_t)>;
+		using HeteromorphicResolverT = typename definition_t::HeteromorphicResolverT;
 
         /**
          * 0 = empty_index (0 elements)
@@ -172,6 +175,12 @@ namespace db0
          */
 		bindex::type assessIndexType(std::size_t final_size) const
 		{
+            if constexpr (std::is_same_v<item_t, UniqueRef>) {
+                if (final_size == 0) {
+                    return bindex::type::empty;
+                }
+                return (final_size <= m_sv_limit) ? bindex::type::sorted_vector : bindex::type::bindex;
+            }
 			// depending on final size assess resulting index type
 			switch (final_size)
 			{
@@ -412,6 +421,49 @@ namespace db0
 				}
 			}
 			return m_interface.bulkInsertUnique(begin, end, callback_ptr);
+		}
+
+		/**
+		 * Like bulkInsertUnique, but duplicate identities with different bitwise values are resolved by callback.
+		 */
+		template <typename InputIterator>
+		std::pair<std::uint32_t, std::uint32_t> bulkInsertUniqueHeteromorphic(InputIterator begin, InputIterator end,
+			CallbackT *callback_ptr = nullptr, HeteromorphicResolverT *resolver_ptr = nullptr)
+		{
+			if (begin == end) {
+				return std::make_pair(0,0);
+			}
+
+			bindex::type type = getIndexType();
+			std::size_t unique_count = m_interface.countUnique(begin, end, m_sv_limit + 1);
+			if (unique_count == 0) {
+				return m_interface.bulkInsertUniqueHeteromorphic(begin, end, callback_ptr, resolver_ptr);
+			}
+
+			bindex::type type_after_insertion = getIndexTypeAfterInsertion(unique_count);
+			if (type_after_insertion > type) {
+				if (type_after_insertion == bindex::type::bindex) {
+					morphTo<bindex::type::bindex>();
+				} else if (type_after_insertion == bindex::type::sorted_vector || resolver_ptr) {
+					morphTo<bindex::type::sorted_vector>();
+				} else {
+					std::size_t diff = 0;
+					if (type_after_insertion == bindex::type::itty) {
+						assert(type==bindex::type::empty);
+						diff = morphToAndInsert<bindex::type::itty>(begin, end, callback_ptr);
+					} else if (type_after_insertion == bindex::type::array_2) {
+						diff = morphToAndInsert<bindex::type::array_2>(begin, end, callback_ptr);
+					} else if (type_after_insertion==bindex::type::array_3) {
+						diff = morphToAndInsert<bindex::type::array_3>(begin, end, callback_ptr);
+					} else if (type_after_insertion==bindex::type::array_4) {
+						diff = morphToAndInsert<bindex::type::array_4>(begin, end, callback_ptr);
+					} else {
+						assert(false);
+					}
+					return std::make_pair(std::distance(begin, end), diff);
+				}
+			}
+			return m_interface.bulkInsertUniqueHeteromorphic(begin, end, callback_ptr, resolver_ptr);
 		}
 
 		bool isNull() const {

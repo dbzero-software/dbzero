@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <dbzero/core/serialization/FixedVersioned.hpp>
 #include <dbzero/core/memory/Memspace.hpp>
+#include <dbzero/core/memory/UniqueRef.hpp>
 #include <dbzero/core/collections/map/VInstanceMap.hpp>
 #include <dbzero/core/collections/full_text/FT_BaseIndex.hpp>
 #include <dbzero/object_model/object/ObjectAnyImpl.hpp>
@@ -57,7 +58,10 @@ DB0_PACKED_END
         // string tokens and classes are represented as short tags
         using ShortTagT = db0::TagAddress;
         using ShortTagIndexMap = db0::VInstanceMap<ShortTagT, TagIndex>;
-        using PassiveTag = db0::object_model::PassiveTag;
+        using TagBaseIndexShortT = db0::FT_BaseIndex<ShortTagT, UniqueRef>;
+        using TagBaseIndexLongT = db0::FT_BaseIndex<LongTagT, UniqueRef>;
+
+        using PassiveTag = object_model::PassiveTag;
         
         TagIndex(Memspace &memspace, ClassFactory &, EnumFactory &, RC_LimitedStringPool &, VObjectCache &,
             std::shared_ptr<MutationLog> mutation_log);
@@ -127,9 +131,9 @@ DB0_PACKED_END
         
         void detach() const;
 
-        db0::FT_BaseIndex<ShortTagT> &getBaseIndexShort();
-        const db0::FT_BaseIndex<ShortTagT> &getBaseIndexShort() const;
-        const db0::FT_BaseIndex<LongTagT> &getBaseIndexLong() const;
+        TagBaseIndexShortT &getBaseIndexShort();
+        const TagBaseIndexShortT &getBaseIndexShort() const;
+        const TagBaseIndexLongT &getBaseIndexLong() const;
         ShortTagIndexMap *tryGetShortTagIndexMap();
         const ShortTagIndexMap *tryGetShortTagIndexMap() const;
         ShortTagIndexMap &getShortTagIndexMap();
@@ -163,21 +167,55 @@ DB0_PACKED_END
         
     private:
         using TypeId = db0::bindings::TypeId;
-        using ActiveValueT = typename db0::FT_BaseIndex<ShortTagT>::ActiveValueT;
+        using ActiveValueT = typename TagBaseIndexShortT::ActiveValueT;
+
+        struct ActiveAddress
+        {
+            UniqueRef m_owning_ref;
+            UniqueRef m_passive_ref = UniqueRef().asPassive();
+            bool m_owning_used = false;
+            bool m_passive_used = false;
+
+            UniqueRef &getRef(bool passive)
+            {
+                if (passive) {
+                    m_passive_used = true;
+                    return m_passive_ref;
+                }
+                m_owning_used = true;
+                return m_owning_ref;
+            }
+
+            void resolve(UniqueAddress object_addr)
+            {
+                if (m_owning_used) {
+                    m_owning_ref = UniqueRef(object_addr);
+                }
+                if (m_passive_used) {
+                    m_passive_ref = UniqueRef(object_addr, true);
+                }
+            }
+
+            bool isResolved() const
+            {
+                return (!m_owning_used || m_owning_ref.isValid())
+                    && (!m_passive_used || m_passive_ref.isValid());
+            }
+        };
         
         RC_LimitedStringPool &m_string_pool;
         ClassFactory &m_class_factory;
         EnumFactory &m_enum_factory;
         VObjectCache &m_cache;
-        db0::FT_BaseIndex<ShortTagT> m_base_index_short;
-        db0::FT_BaseIndex<LongTagT> m_base_index_long;
+        TagBaseIndexShortT m_base_index_short;
+        TagBaseIndexLongT m_base_index_long;
         // For composite tags
         std::unique_ptr<ShortTagIndexMap> m_short_tag_index_map;
         // Current batch-operation buffer (may not be initialized)
-        mutable db0::FT_BaseIndex<ShortTagT>::BatchOperationBuilder m_batch_op_short;
-        mutable db0::FT_BaseIndex<LongTagT>::BatchOperationBuilder m_batch_op_long;
+        mutable TagBaseIndexShortT::BatchOperationBuilder m_batch_op_short;
+        mutable TagBaseIndexLongT::BatchOperationBuilder m_batch_op_long;
         // batch operation associated with type-tags only (auto-assigned)
-        mutable db0::FT_BaseIndex<ShortTagT>::BatchOperationBuilder m_batch_op_types;
+        mutable TagBaseIndexShortT::BatchOperationBuilder m_batch_op_types;
         // the set of tags to which the ref-count has been increased when they were first created
         mutable std::unordered_set<ShortTagT> m_inc_refed_tags;
         // A cache of language objects held until flush/close is called
@@ -186,7 +224,7 @@ DB0_PACKED_END
         // NOTE: cache must hold "shared external" references to the objects
         mutable std::unordered_map<UniqueAddress, ObjectSharedExtPtr> m_object_cache;
         // A cache for incomplete objects (not yet fully initialized)        
-        mutable std::unordered_map<ObjectPtr, UniqueAddress> m_active_cache;
+        mutable std::unordered_map<ObjectPtr, ActiveAddress> m_active_cache;
         // Additional buffer to preserve / release ownership for active-cache objects
         mutable std::unordered_set<ObjectSharedExtPtr> m_active_pre_cache;
         db0::weak_swine_ptr<Fixture> m_fixture;
@@ -198,12 +236,19 @@ DB0_PACKED_END
         BatchOperationT &getBatchOperation(BaseIndexT &, BatchOperationT &) const;
         
         template <typename BaseIndexT, typename BatchOperationT>
-        BatchOperationT &getBatchOperation(ObjectPtr, BaseIndexT &, BatchOperationT &, ActiveValueT &result) const;
+        BatchOperationT &getBatchOperation(ObjectPtr, BaseIndexT &, BatchOperationT &, ActiveValueT &result,
+            bool passive = false) const;
         
-        db0::FT_BaseIndex<ShortTagT>::BatchOperationBuilder &getBatchOperationShort(ObjectPtr,
+        TagBaseIndexShortT::BatchOperationBuilder &getBatchOperationType(ObjectPtr, ActiveValueT &result) const;
+        TagBaseIndexShortT::BatchOperationBuilder &getBatchOperationShortTag(ObjectPtr, ActiveValueT &result,
+            bool passive = false) const;
+        TagBaseIndexLongT::BatchOperationBuilder &getBatchOperationLongTag(ObjectPtr, ActiveValueT &result,
+            bool passive = false) const;
+        
+        TagBaseIndexShortT::BatchOperationBuilder &getBatchOperationShort(ObjectPtr,
             ActiveValueT &result, bool is_type) const;
 
-        db0::FT_BaseIndex<LongTagT>::BatchOperationBuilder &getBatchOperationLong(ObjectPtr,
+        TagBaseIndexLongT::BatchOperationBuilder &getBatchOperationLong(ObjectPtr,
             ActiveValueT &result) const;
         
         /**
@@ -299,7 +344,7 @@ DB0_PACKED_END
     
     template <typename BaseIndexT, typename BatchOperationT>
     BatchOperationT &TagIndex::getBatchOperation(ObjectPtr memo_ptr, BaseIndexT &base_index, 
-        BatchOperationT &batch_op, ActiveValueT &result) const
+        BatchOperationT &batch_op, ActiveValueT &result, bool passive) const
     {
         // prepare the active value only if it's not yet initialized
         if (!result.first.isValid() && !result.second) {
@@ -310,12 +355,12 @@ DB0_PACKED_END
                 if (m_object_cache.find(object_addr) == m_object_cache.end()) {
                     m_object_cache.emplace(object_addr, memo_ptr);
                 }
-                result = ActiveValueT(object_addr, nullptr);
+                result = ActiveValueT(UniqueRef(object_addr, passive), nullptr);
             } else {
                 m_active_pre_cache.insert(memo_ptr);
-                auto it = m_active_cache.emplace(memo_ptr, UniqueAddress());
+                auto it = m_active_cache.emplace(memo_ptr, ActiveAddress());
                 // use the address placeholder for an active value
-                result = ActiveValueT(UniqueAddress(), &(it.first->second));
+                result = ActiveValueT(UniqueRef(), &(it.first->second.getRef(passive)));
             }
         }
         

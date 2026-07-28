@@ -16,6 +16,7 @@
 #include "FT_FixedKeyIterator.hpp"
 #include <dbzero/workspace/Snapshot.hpp>
 #include <dbzero/core/serialization/Serializable.hpp>
+#include <dbzero/core/memory/UniqueRef.hpp>
 #include <dbzero/core/collections/b_index/mb_index.hpp>
 #include <dbzero/core/collections/range_tree/RangeIteratorFactory.hpp>
 #include <dbzero/object_model/tags/TagIndex.hpp>
@@ -46,9 +47,12 @@ namespace db0
             // detect underlying index type (complex type)
             auto _iter = iter;
             auto index_type_id = db0::serial::read<TypeIdType>(_iter, end);
-            if (index_type_id == db0::MorphingBIndex<UniqueAddress>::getSerialTypeId()) {
+            if (index_type_id == db0::MorphingBIndex<UniqueAddress>::getSerialTypeId() ||
+                index_type_id == db0::MorphingBIndex<UniqueRef>::getSerialTypeId()) {
                 auto key_type_id = db0::serial::read<TypeIdType>(_iter, end);
                 auto index_key_type_id = db0::serial::read<TypeIdType>(_iter, end);
+                const bool unique_ref_index =
+                    index_type_id == db0::MorphingBIndex<UniqueRef>::getSerialTypeId();
                 if (key_type_id == db0::serial::typeId<std::uint64_t>()) {
                     if constexpr (std::is_same_v<KeyT, std::uint64_t>) {
                         if (index_key_type_id == db0::serial::typeId<std::uint64_t>() ||
@@ -65,6 +69,9 @@ namespace db0
                     if constexpr (std::is_same_v<KeyT, UniqueAddress>) {
                         if (index_key_type_id == db0::serial::typeId<std::uint64_t>() ||
                             index_key_type_id == db0::serial::typeId<db0::TagAddress>()) {
+                            if (unique_ref_index) {
+                                return deserializeFT_IndexIterator<db0::MorphingBIndex<UniqueRef>, KeyT, db0::TagAddress>(workspace, iter, end);
+                            }
                             return deserializeFT_IndexIterator<db0::MorphingBIndex<UniqueAddress>, KeyT, db0::TagAddress>(workspace, iter, end);
                         } else {
                             THROWF(db0::InternalException) << "Unsupported index key type ID: " << index_key_type_id

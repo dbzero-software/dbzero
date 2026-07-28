@@ -76,6 +76,7 @@ DB0_PACKED_BEGIN
         using joinable_const_iterator = db0::joinable_const_iterator<data_t, comp_t>;
         using DestroyF = std::function<void(const data_t&)>;
         using CallbackT = std::function<void(data_t)>;
+        using HeteromorphicResolverT = std::function<bool(const data_t &stored, const data_t &incoming, data_t &resolved)>;
 
         static std::size_t measure(const o_sv_container &other) {
             return other.sizeOf();
@@ -299,6 +300,83 @@ DB0_PACKED_BEGIN
                         ++unique_count;
                         if (callback_ptr) {
                             (*callback_ptr)(s_heap.front());
+                        }
+                    }
+                    s_heap.pop_front();
+                }
+            }
+            return unique_count;
+        }
+
+        template <typename iterator_t> size_t bulkInsertUniqueHeteromorphic(iterator_t data_begin, iterator_t data_end,
+            std::size_t data_size, CallbackT *callback_ptr = nullptr, HeteromorphicResolverT *resolver_ptr = nullptr)
+        {
+            if (!resolver_ptr) {
+                return bulkInsertUnique(data_begin, data_end, data_size, callback_ptr);
+            }
+
+            std::size_t unique_count = 0;
+            assert(m_size + data_size <= m_capacity);
+            SortedArray<data_t,comp_t> data_buf(begin(), end());
+            heap<data_t,comp_t> s_heap(data_size);
+            {
+                auto it = data_begin;
+                while (it != data_end) {
+                    s_heap.insert(*it);
+                    ++it;
+                }
+            }
+            data_t *item = const_cast<data_t*>(data_buf.m_begin);
+            while (!s_heap.empty() && item != data_buf.m_end) {
+                item = const_cast<data_t*>(data_buf.join(item, s_heap.front(), 1));
+                if (item != data_buf.m_end) {
+                    if (data_buf.m_comp(s_heap.front(), *item)) {
+#ifdef  __linux__
+	#pragma GCC diagnostic push
+	#pragma GCC diagnostic ignored "-Wclass-memaccess"
+#endif
+                        memmove((item + 1), item, (data_buf.m_end - item) * sizeof(data_t));
+#ifdef  __linux__
+	#pragma GCC diagnostic pop
+#endif
+                        ++(data_buf.m_end);
+                        ++(this->m_size);
+                        ++unique_count;
+                        if (callback_ptr) {
+                            (*callback_ptr)(s_heap.front());
+                        }
+                        *item = s_heap.front();
+                    } else if (std::memcmp(item, &s_heap.front(), sizeof(data_t)) != 0) {
+                        data_t resolved;
+                        if ((*resolver_ptr)(*item, s_heap.front(), resolved)) {
+                            *item = resolved;
+                        }
+                    }
+                    s_heap.pop_front();
+                }
+            }
+            if (!s_heap.empty()) {
+                item = const_cast<data_t*>(data_buf.m_end);
+                *item = s_heap.front();
+                ++unique_count;
+                if (callback_ptr) {
+                    (*callback_ptr)(s_heap.front());
+                }
+                s_heap.pop_front();
+                ++(this->m_size);
+                while (!s_heap.empty()) {
+                    if (data_buf.m_comp(*item, s_heap.front())) {
+                        ++item;
+                        *item = s_heap.front();
+                        ++(this->m_size);
+                        ++unique_count;
+                        if (callback_ptr) {
+                            (*callback_ptr)(s_heap.front());
+                        }
+                    } else if (std::memcmp(item, &s_heap.front(), sizeof(data_t)) != 0) {
+                        data_t resolved;
+                        if ((*resolver_ptr)(*item, s_heap.front(), resolved)) {
+                            *item = resolved;
                         }
                     }
                     s_heap.pop_front();
@@ -698,6 +776,7 @@ DB0_PACKED_END
         using joinable_const_iterator = typename c_type::joinable_const_iterator;
         using DestroyF = std::function<void(const data_t&)>;
         using CallbackT = std::function<void(data_t)>;
+        using HeteromorphicResolverT = typename c_type::HeteromorphicResolverT;
         
         v_sorted_vector() = default;
 
@@ -931,6 +1010,24 @@ DB0_PACKED_END
             }
             bool addr_change = growVector((*this)->m_size + data_size, max_size);
             std::size_t unique_count = this->modify().bulkInsertUnique(data_begin, data_end, data_size, callback_ptr);
+            if (result) {
+                result->second = static_cast<std::uint32_t>(unique_count);
+            }
+            return addr_change;
+        }
+
+        template <typename iterator_t> bool bulkInsertUniqueHeteromorphic(iterator_t data_begin, iterator_t data_end,
+            std::pair<std::uint32_t, std::uint32_t> *result,
+            CallbackT *callback_ptr = nullptr, HeteromorphicResolverT *resolver_ptr = nullptr,
+            std::optional<std::uint32_t> max_size = {})
+        {
+            std::size_t data_size = std::distance(data_begin, data_end);
+            if (result) {
+                result->first = static_cast<std::uint32_t>(data_size);
+            }
+            bool addr_change = growVector((*this)->m_size + data_size, max_size);
+            std::size_t unique_count = this->modify().bulkInsertUniqueHeteromorphic(
+                data_begin, data_end, data_size, callback_ptr, resolver_ptr);
             if (result) {
                 result->second = static_cast<std::uint32_t>(unique_count);
             }

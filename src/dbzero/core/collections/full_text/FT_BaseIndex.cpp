@@ -19,6 +19,10 @@ namespace db0
         return value.isValid();
     }
 
+    template <> bool is_valid(const UniqueRef &value) {
+        return value.isValid();
+    }
+
     template <typename IndexKeyT, typename KeyT, typename IndexValueT>
     FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::FT_BaseIndex(Memspace & memspace, VObjectCache &cache)
         : super_t(memspace, cache)
@@ -38,14 +42,16 @@ namespace db0
     }
     
     template <typename IndexKeyT, typename KeyT, typename IndexValueT>
-    std::unique_ptr<FT_Iterator<KeyT> > 
+    template <typename QueryKeyT>
+    std::unique_ptr<FT_Iterator<QueryKeyT> >
     FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::makeIterator(IndexKeyT key, int direction) const
     {
-        return makeIterator(key, direction, std::vector<IndexKeyT> { key });
+        return makeIterator<QueryKeyT>(key, direction, std::vector<IndexKeyT> { key });
     }
     
     template <typename IndexKeyT, typename KeyT, typename IndexValueT>
-    std::unique_ptr<FT_Iterator<KeyT> > 
+    template <typename QueryKeyT>
+    std::unique_ptr<FT_Iterator<QueryKeyT> >
     FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::makeIterator(IndexKeyT key, int direction,
         std::vector<IndexKeyT> &&index_key_sequence) const
     {
@@ -54,22 +60,25 @@ namespace db0
         if (!inverted_list_ptr) {
             return nullptr;
         }
-        return std::unique_ptr<FT_Iterator<KeyT> >(
-            new FT_IndexIterator<ListT, KeyT, IndexKeyT>(
+        return std::unique_ptr<FT_Iterator<QueryKeyT> >(
+            new FT_IndexIterator<ListT, QueryKeyT, IndexKeyT>(
                 *inverted_list_ptr, direction, key, std::move(index_key_sequence),
                 [this, key]() { return this->tryGetExistingInvertedList(key); })
         );
     }
     
     template <typename IndexKeyT, typename KeyT, typename IndexValueT>
-    bool FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::addIterator(FT_IteratorFactory<KeyT> &factory, IndexKeyT key) const
+    template <typename QueryKeyT>
+    bool FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::addIterator(FT_IteratorFactory<QueryKeyT> &factory,
+        IndexKeyT key) const
     {
-        return addIterator(factory, key, std::vector<IndexKeyT> { key });
+        return addIterator<QueryKeyT>(factory, key, std::vector<IndexKeyT> { key });
     }
     
     template <typename IndexKeyT, typename KeyT, typename IndexValueT>
-    bool FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::addIterator(FT_IteratorFactory<KeyT> &factory, IndexKeyT key,
-        std::vector<IndexKeyT> &&index_key_sequence) const
+    template <typename QueryKeyT>
+    bool FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::addIterator(FT_IteratorFactory<QueryKeyT> &factory,
+        IndexKeyT key, std::vector<IndexKeyT> &&index_key_sequence) const
     {
         using ListT = typename super_t::ListT;
         auto inverted_list_ptr = this->tryGetExistingInvertedList(key);
@@ -78,8 +87,8 @@ namespace db0
         }
         
         // key inverted index
-        factory.add(std::unique_ptr<FT_Iterator<KeyT> >(
-            new FT_IndexIterator<ListT, KeyT, IndexKeyT>(
+        factory.add(std::unique_ptr<FT_Iterator<QueryKeyT> >(
+            new FT_IndexIterator<ListT, QueryKeyT, IndexKeyT>(
                 *inverted_list_ptr, -1, key, std::move(index_key_sequence),
                 [this, key]() { return this->tryGetExistingInvertedList(key); }))
         );
@@ -179,24 +188,64 @@ namespace db0
                 if (buf_begin == buf_end) {
                     return;
                 }
-                // sort the tags list and remove duplicate elements
-                std::sort(buf_begin, buf_end);
-                buf_end = std::unique(buf_begin, buf_end);
+                auto key_is_passive = [](IndexKeyT key) {
+                    return FT_IndexKeyTraits<IndexKeyT>::isPassive(key);
+                };
+                std::function<void(KeyT)> insert_callback;
+                if (insert_callback_ptr) {
+                    insert_callback = [insert_callback_ptr](KeyT value) {
+                        if (!FT_IndexValueTraits<KeyT>::isPassive(value)) {
+                            (*insert_callback_ptr)(value);
+                        }
+                    };
+                }
+                // NOTE: due to possible mixture of passive and regular tags
+                // we must identify uniform ranges by passive state.
+                auto compare_items = [&](typename TagValueList::const_reference lhs,
+                    typename TagValueList::const_reference rhs)
+                {
+                    if (lhs.first < rhs.first) {
+                        return true;
+                    }
+                    if (rhs.first < lhs.first) {
+                        return false;
+                    }
+                    auto lhs_passive = key_is_passive(lhs.first);
+                    auto rhs_passive = key_is_passive(rhs.first);
+                    if (lhs_passive != rhs_passive) {
+                        return lhs_passive < rhs_passive;
+                    }
+                    return lhs.second < rhs.second;
+                };
+                auto equal_items = [&](typename TagValueList::const_reference lhs,
+                    typename TagValueList::const_reference rhs)
+                {
+                    return lhs.first == rhs.first &&
+                        key_is_passive(lhs.first) == key_is_passive(rhs.first) &&
+                        lhs.second == rhs.second;
+                };
+
+                // Sort the tags list and remove duplicate elements. Passive and regular keys compare
+                // equal by logical tag, so keep passive state as an explicit range dimension.
+                std::sort(buf_begin, buf_end, compare_items);
+                buf_end = std::unique(buf_begin, buf_end, equal_items);
                 
                 TagRangesVector tag_ranges;
-                // Find ranges for all tags
-                // This vector will also effectively contain all unique tags
+                // Find ranges for all logical tags and passive states.
                 tag_ranges.emplace_back(buf_begin);
                 auto last_tag = buf_begin->first;
+                auto last_passive = key_is_passive(last_tag);
                 for (auto it = buf_begin + 1; it != buf_end; ++it) {
-                    if (it->first != last_tag) {
+                    auto passive = key_is_passive(it->first);
+                    if (it->first != last_tag || passive != last_passive) {
                         tag_ranges.emplace_back(it);
                         last_tag = it->first;
+                        last_passive = passive;
                     }
                 }
                                 
                 // Create inverted lists for tags and get corresponding iterators to them
-                std::vector<typename FT_BaseIndex<IndexKeyT>::iterator> tag_index_its = index.bulkGetInvertedLists(
+                std::vector<typename self_t::iterator> tag_index_its = index.bulkGetInvertedLists(
                     TagIterator(tag_ranges.begin()),
                     TagIterator(tag_ranges.end()),
                     index_insert_callback_ptr
@@ -208,21 +257,50 @@ namespace db0
                 for (std::size_t i = 0, n = tag_ranges.size() - 1; i < n; ++i) {
                     auto range_first = tag_ranges[i], range_last = tag_ranges[i + 1];
                     // Either create new or pull existing inverted list
-                    typename FT_BaseIndex<IndexKeyT>::iterator &tag_index_it = tag_index_its[i];
+                    typename self_t::iterator &tag_index_it = tag_index_its[i];
                     assert((*tag_index_it).key == range_first->first);
                     auto tag_index_ptr = index.getInvertedList(tag_index_it);
                     auto old_addr = tag_index_ptr->getAddress();
                     auto old_map_value = addressOfMBIndex(*tag_index_ptr);
                     // NOTICE: only unique items are retained in index
                     // callback notified about unique items (objects)
-                    auto *range_insert_callback_ptr = FT_IndexKeyPolicy<IndexKeyT>::enableValueCallbacks(
-                        range_first->first
-                    ) ? insert_callback_ptr : nullptr;
-                    std::pair<std::uint32_t, std::uint32_t> stats = tag_index_ptr->bulkInsertUnique(
-                        ValueIterator(range_first),
-                        ValueIterator(range_last),
-                        range_insert_callback_ptr
-                    );
+                    // Use the actual key being inserted to decide whether values own references.
+                    auto *range_insert_callback_ptr = !key_is_passive(range_first->first) && insert_callback
+                        ? &insert_callback : nullptr;
+                    std::pair<std::uint32_t, std::uint32_t> stats;
+                    if constexpr (FT_IndexValueTraits<KeyT>::canUpgradePassive()) {
+                        if (range_insert_callback_ptr) {
+                            typename super_t::ListT::HeteromorphicResolverT resolver =
+                                [range_insert_callback_ptr](const KeyT &stored, const KeyT &incoming, KeyT &resolved) {
+                                if (FT_IndexValueTraits<KeyT>::isPassive(stored) &&
+                                    !FT_IndexValueTraits<KeyT>::isPassive(incoming))
+                                {
+                                    resolved = FT_IndexValueTraits<KeyT>::asOwning(incoming);
+                                    (*range_insert_callback_ptr)(resolved);
+                                    return true;
+                                }
+                                return false;
+                            };
+                            stats = tag_index_ptr->bulkInsertUniqueHeteromorphic(
+                                ValueIterator(range_first),
+                                ValueIterator(range_last),
+                                range_insert_callback_ptr,
+                                &resolver
+                            );
+                        } else {
+                            stats = tag_index_ptr->bulkInsertUnique(
+                                ValueIterator(range_first),
+                                ValueIterator(range_last),
+                                range_insert_callback_ptr
+                            );
+                        }
+                    } else {
+                        stats = tag_index_ptr->bulkInsertUnique(
+                            ValueIterator(range_first),
+                            ValueIterator(range_last),
+                            range_insert_callback_ptr
+                        );
+                    }
 
                     // This check is here  because tag_index's location may have been changed by insert
                     // We need to update pointer to tag_index (either address or type changed)
@@ -251,6 +329,15 @@ namespace db0
                     return;
                 }
                 
+                std::function<void(KeyT)> erase_callback;
+                if (erase_callback_ptr) {
+                    erase_callback = [erase_callback_ptr](KeyT value) {
+                        if (!FT_IndexValueTraits<KeyT>::isPassive(value)) {
+                            (*erase_callback_ptr)(value);
+                        }
+                    };
+                }
+
                 // Sort list and remove duplicate elements
                 std::sort(buf_begin, buf_end);
                 buf_end = std::unique(buf_begin, buf_end);
@@ -262,7 +349,7 @@ namespace db0
                         return first_item.first != item.first;
                     });
                     // instance collection by tag pointer
-                    typename FT_BaseIndex::MapItemT item(first_item.first);
+                    typename self_t::MapItemT item(first_item.first);
                     auto it_list = index.find(item);
                     if (it_list != index.end()) {
                         auto stored_key = (*it_list).key;
@@ -270,26 +357,32 @@ namespace db0
                         // we need to remember old type nd pointer because they may be modified by bulkErase operation
                         auto old_addr = tag_index_ptr->getAddress();
                         auto old_map_value = addressOfMBIndex(*tag_index_ptr);
-                        auto *range_erase_callback_ptr = FT_IndexKeyPolicy<IndexKeyT>::enableValueCallbacks(
-                            stored_key
-                        ) ? erase_callback_ptr : nullptr;
+                        // Removal requests may use a logically equivalent key without stored flags;
+                        // use the requested key and stored value to decide whether refs are owned.
+                        auto *range_erase_callback_ptr = !FT_IndexKeyTraits<IndexKeyT>::isPassive(
+                            first_item.first
+                        ) && erase_callback ? &erase_callback : nullptr;
                         std::size_t erased_count = tag_index_ptr->bulkErase(
                             ValueIterator(buf_begin),
                             ValueIterator(range_end),
                             range_erase_callback_ptr
                         );
                         auto new_map_value = addressOfMBIndex(*tag_index_ptr);
-                        if (old_map_value != new_map_value) {
+                        if (tag_index_ptr->empty()) {
+                            auto it = index.find(first_item.first);
+                            if (it != index.end()) {
+                                index.erase(it);
+                            }
+                            // notify callback on index erased
+                            if (index_erase_callback_ptr) {
+                                (*index_erase_callback_ptr)(stored_key);
+                            }
+                            // remove from cache since this instance has been removed
+                            index.getVObjectCache().erase(old_addr);
+                        } else if (old_map_value != new_map_value) {
                             // Update list ptr in index
                             auto it = index.find(first_item.first);
-                            if (tag_index_ptr->getIndexType() == db0::bindex::type::empty) {
-                                // remove empty inverted list completely
-                                index.erase(it);
-                                // notify callback on index erased
-                                if (index_erase_callback_ptr) {
-                                    (*index_erase_callback_ptr)(stored_key);
-                                }
-                            } else {
+                            if (it != index.end()) {
                                 it.modifyItem().value = new_map_value;
                             }
                             // remove from cache since this instance has been relocated or removed
@@ -503,7 +596,70 @@ namespace db0
     template class FT_BaseIndex<db0::TagAddress, UniqueAddress>;
     template class FT_BaseIndex<db0::LongTagT, UniqueAddress>;
 
+    template bool FT_BaseIndex<db0::TagAddress, UniqueAddress>::addIterator<UniqueAddress>(
+        FT_IteratorFactory<UniqueAddress> &, db0::TagAddress) const;
+    template bool FT_BaseIndex<db0::TagAddress, UniqueAddress>::addIterator<UniqueAddress>(
+        FT_IteratorFactory<UniqueAddress> &, db0::TagAddress, std::vector<db0::TagAddress> &&) const;
+    template std::unique_ptr<FT_Iterator<UniqueAddress> >
+    FT_BaseIndex<db0::TagAddress, UniqueAddress>::makeIterator<UniqueAddress>(db0::TagAddress, int) const;
+    template std::unique_ptr<FT_Iterator<UniqueAddress> >
+    FT_BaseIndex<db0::TagAddress, UniqueAddress>::makeIterator<UniqueAddress>(
+        db0::TagAddress, int, std::vector<db0::TagAddress> &&) const;
+
+    template bool FT_BaseIndex<db0::LongTagT, UniqueAddress>::addIterator<UniqueAddress>(
+        FT_IteratorFactory<UniqueAddress> &, db0::LongTagT) const;
+    template bool FT_BaseIndex<db0::LongTagT, UniqueAddress>::addIterator<UniqueAddress>(
+        FT_IteratorFactory<UniqueAddress> &, db0::LongTagT, std::vector<db0::LongTagT> &&) const;
+    template std::unique_ptr<FT_Iterator<UniqueAddress> >
+    FT_BaseIndex<db0::LongTagT, UniqueAddress>::makeIterator<UniqueAddress>(db0::LongTagT, int) const;
+    template std::unique_ptr<FT_Iterator<UniqueAddress> >
+    FT_BaseIndex<db0::LongTagT, UniqueAddress>::makeIterator<UniqueAddress>(
+        db0::LongTagT, int, std::vector<db0::LongTagT> &&) const;
+
+    template class FT_BaseIndex<db0::TagAddress, UniqueRef>;
+    template class FT_BaseIndex<db0::LongTagT, UniqueRef>;
+
+    template bool FT_BaseIndex<db0::TagAddress, UniqueRef>::addIterator<UniqueAddress>(
+        FT_IteratorFactory<UniqueAddress> &, db0::TagAddress) const;
+    template bool FT_BaseIndex<db0::TagAddress, UniqueRef>::addIterator<UniqueAddress>(
+        FT_IteratorFactory<UniqueAddress> &, db0::TagAddress, std::vector<db0::TagAddress> &&) const;
+    template std::unique_ptr<FT_Iterator<UniqueAddress> >
+    FT_BaseIndex<db0::TagAddress, UniqueRef>::makeIterator<UniqueAddress>(db0::TagAddress, int) const;
+    template std::unique_ptr<FT_Iterator<UniqueAddress> >
+    FT_BaseIndex<db0::TagAddress, UniqueRef>::makeIterator<UniqueAddress>(
+        db0::TagAddress, int, std::vector<db0::TagAddress> &&) const;
+
+    template bool FT_BaseIndex<db0::LongTagT, UniqueRef>::addIterator<UniqueAddress>(
+        FT_IteratorFactory<UniqueAddress> &, db0::LongTagT) const;
+    template bool FT_BaseIndex<db0::LongTagT, UniqueRef>::addIterator<UniqueAddress>(
+        FT_IteratorFactory<UniqueAddress> &, db0::LongTagT, std::vector<db0::LongTagT> &&) const;
+    template std::unique_ptr<FT_Iterator<UniqueAddress> >
+    FT_BaseIndex<db0::LongTagT, UniqueRef>::makeIterator<UniqueAddress>(db0::LongTagT, int) const;
+    template std::unique_ptr<FT_Iterator<UniqueAddress> >
+    FT_BaseIndex<db0::LongTagT, UniqueRef>::makeIterator<UniqueAddress>(
+        db0::LongTagT, int, std::vector<db0::LongTagT> &&) const;
+
     template class FT_BaseIndex<std::uint64_t, std::uint64_t>;
     template class FT_BaseIndex<db0::LongTagT, std::uint64_t>;
+
+    template bool FT_BaseIndex<std::uint64_t, std::uint64_t>::addIterator<std::uint64_t>(
+        FT_IteratorFactory<std::uint64_t> &, std::uint64_t) const;
+    template bool FT_BaseIndex<std::uint64_t, std::uint64_t>::addIterator<std::uint64_t>(
+        FT_IteratorFactory<std::uint64_t> &, std::uint64_t, std::vector<std::uint64_t> &&) const;
+    template std::unique_ptr<FT_Iterator<std::uint64_t> >
+    FT_BaseIndex<std::uint64_t, std::uint64_t>::makeIterator<std::uint64_t>(std::uint64_t, int) const;
+    template std::unique_ptr<FT_Iterator<std::uint64_t> >
+    FT_BaseIndex<std::uint64_t, std::uint64_t>::makeIterator<std::uint64_t>(
+        std::uint64_t, int, std::vector<std::uint64_t> &&) const;
+
+    template bool FT_BaseIndex<db0::LongTagT, std::uint64_t>::addIterator<std::uint64_t>(
+        FT_IteratorFactory<std::uint64_t> &, db0::LongTagT) const;
+    template bool FT_BaseIndex<db0::LongTagT, std::uint64_t>::addIterator<std::uint64_t>(
+        FT_IteratorFactory<std::uint64_t> &, db0::LongTagT, std::vector<db0::LongTagT> &&) const;
+    template std::unique_ptr<FT_Iterator<std::uint64_t> >
+    FT_BaseIndex<db0::LongTagT, std::uint64_t>::makeIterator<std::uint64_t>(db0::LongTagT, int) const;
+    template std::unique_ptr<FT_Iterator<std::uint64_t> >
+    FT_BaseIndex<db0::LongTagT, std::uint64_t>::makeIterator<std::uint64_t>(
+        db0::LongTagT, int, std::vector<db0::LongTagT> &&) const;
     
 }

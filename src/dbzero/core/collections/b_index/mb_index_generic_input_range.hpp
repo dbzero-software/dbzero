@@ -4,6 +4,7 @@
 #pragma once
 
 #include "mb_index_def.hpp"
+#include <cstring>
 
 namespace db0::bindex
 
@@ -20,6 +21,7 @@ namespace db0::bindex
         using vector_t = typename DefinitionT::vector_t;
         using bindex_t = typename DefinitionT::bindex_t;
         using CallbackT = typename DefinitionT::CallbackT;
+        using HeteromorphicResolverT = typename DefinitionT::HeteromorphicResolverT;
 
         IteratorT m_first, m_last;
 
@@ -73,6 +75,33 @@ namespace db0::bindex
             return 0;
         }
 
+        template<typename IndexContainer>
+        std::pair<std::uint32_t, std::uint32_t> indexInsertHeteromorphic(IndexContainer &index,
+            HeteromorphicResolverT *resolver_ptr)
+        {
+            using item_t = typename DefinitionT::item_t;
+            std::pair<std::uint32_t, std::uint32_t> result(0, 0);
+            for (auto it = m_first; it != m_last; ++it) {
+                item_t incoming = *it;
+                ++result.first;
+                item_t old_value;
+                if (index.updateExisting(incoming, &old_value)) {
+                    if (resolver_ptr && std::memcmp(&old_value, &incoming, sizeof(item_t)) != 0) {
+                        item_t resolved;
+                        if ((*resolver_ptr)(old_value, incoming, resolved)) {
+                            index.updateExisting(resolved, nullptr);
+                        } else {
+                            index.updateExisting(old_value, nullptr);
+                        }
+                    }
+                    continue;
+                }
+                THROWF(db0::InternalException)
+                    << "Insert not supported in immutable container";
+            }
+            return result;
+        }
+
     public:
         GenericInputRange(const IteratorT &first, const IteratorT &last)
             : m_first(first)
@@ -84,6 +113,12 @@ namespace db0::bindex
         // bindex_t
         virtual std::pair<std::uint32_t, std::uint32_t> insert(bindex_t &index, CallbackT *callback_ptr) override {
             return index.bulkInsertUnique(m_first, m_last, callback_ptr);
+        }
+
+        virtual std::pair<std::uint32_t, std::uint32_t> insertHeteromorphic(
+            bindex_t &index, CallbackT *callback_ptr, HeteromorphicResolverT *resolver_ptr) override
+        {
+            return index.bulkInsertUniqueHeteromorphic(m_first, m_last, callback_ptr, resolver_ptr);
         }
 
         virtual std::size_t erase(bindex_t &index, CallbackT *callback_ptr) override
@@ -107,6 +142,14 @@ namespace db0::bindex
             return result;
         }
 
+        virtual std::pair<std::uint32_t, std::uint32_t> insertHeteromorphic(
+            vector_t &index, CallbackT *callback_ptr, HeteromorphicResolverT *resolver_ptr) override
+        {
+            std::pair<std::uint32_t, std::uint32_t> result;
+            index.bulkInsertUniqueHeteromorphic(m_first, m_last, &result, callback_ptr, resolver_ptr);
+            return result;
+        }
+
         virtual std::size_t erase(vector_t &index, CallbackT *callback_ptr) override {
             return index.bulkErase(m_first, m_last, callback_ptr);
         }
@@ -122,6 +165,12 @@ namespace db0::bindex
         // array4_t
         virtual std::pair<std::uint32_t, std::uint32_t> insert(array4_t&, CallbackT *) override {
             return arrayInsert();
+        }
+
+        virtual std::pair<std::uint32_t, std::uint32_t> insertHeteromorphic(
+            array4_t &index, CallbackT *, HeteromorphicResolverT *resolver_ptr) override
+        {
+            return indexInsertHeteromorphic(index, resolver_ptr);
         }
 
         virtual std::size_t erase(array4_t&, CallbackT *) override {
@@ -141,6 +190,12 @@ namespace db0::bindex
             return arrayInsert();
         }
 
+        virtual std::pair<std::uint32_t, std::uint32_t> insertHeteromorphic(
+            array3_t &index, CallbackT *, HeteromorphicResolverT *resolver_ptr) override
+        {
+            return indexInsertHeteromorphic(index, resolver_ptr);
+        }
+
         virtual std::size_t erase(array3_t&, CallbackT *) override {
             return arrayErase();
         }
@@ -158,6 +213,12 @@ namespace db0::bindex
             return arrayInsert();
         }
 
+        virtual std::pair<std::uint32_t, std::uint32_t> insertHeteromorphic(
+            array2_t &index, CallbackT *, HeteromorphicResolverT *resolver_ptr) override
+        {
+            return indexInsertHeteromorphic(index, resolver_ptr);
+        }
+
         virtual std::size_t erase(array2_t&, CallbackT *) override {
             return arrayErase();
         }
@@ -173,6 +234,12 @@ namespace db0::bindex
         // itty_index_t
         virtual std::pair<std::uint32_t, std::uint32_t> insert(itty_index_t&, CallbackT *) override {
             return arrayInsert();
+        }
+
+        virtual std::pair<std::uint32_t, std::uint32_t> insertHeteromorphic(
+            itty_index_t &index, CallbackT *, HeteromorphicResolverT *resolver_ptr) override
+        {
+            return indexInsertHeteromorphic(index, resolver_ptr);
         }
 
         virtual std::size_t erase(itty_index_t&, CallbackT *) override {
@@ -212,6 +279,12 @@ namespace db0::bindex
         // empty_t
         virtual std::pair<std::uint32_t, std::uint32_t> insert(empty_t&, CallbackT *) override {
             return arrayInsert();
+        }
+
+        virtual std::pair<std::uint32_t, std::uint32_t> insertHeteromorphic(
+            empty_t &index, CallbackT *callback_ptr, HeteromorphicResolverT *) override
+        {
+            return insert(index, callback_ptr);
         }
 
         virtual std::size_t erase(empty_t&, CallbackT *) override {
