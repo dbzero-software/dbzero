@@ -32,6 +32,7 @@ namespace db0::bindex
         using vector_t = v_sorted_vector<item_t, AddrT, item_comp_t>;
         using bindex_t = v_bindex<item_t, AddrT, item_comp_t>;
         using CallbackT = std::function<void(item_t)>;
+        using HeteromorphicResolverT = std::function<bool(const item_t &stored, const item_t &incoming, item_t &resolved)>;
 
         template<typename ContainerType>
         class IContainerInputRange 
@@ -40,6 +41,8 @@ namespace db0::bindex
             virtual ~IContainerInputRange() = default;
 
             virtual std::pair<std::uint32_t, std::uint32_t> insert(ContainerType&, CallbackT *callback_ptr) = 0;
+            virtual std::pair<std::uint32_t, std::uint32_t> insertHeteromorphic(ContainerType&,
+                CallbackT *callback_ptr, HeteromorphicResolverT *resolver_ptr) = 0;
             virtual std::size_t erase(ContainerType&, CallbackT *callback_ptr) = 0;
             virtual std::size_t countNew(const ContainerType&, std::size_t max_count) = 0;
             virtual std::size_t countExisting(const ContainerType&, std::size_t max_count) = 0;

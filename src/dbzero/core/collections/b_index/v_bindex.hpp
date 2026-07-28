@@ -9,6 +9,7 @@
 #include "v_bindex_joinable_const_iterator.hpp"
 #include "v_bindex_joinable_iterator.hpp"
 #include <dbzero/core/serialization/Serializable.hpp>
+#include <cstring>
 #include <deque>
 
 namespace db0
@@ -43,6 +44,7 @@ namespace db0
         using joinable_iterator = v_bindex_joinable_iterator<item_t, AddrT, item_comp_t>;
         using DestroyF = std::function<void(const item_t &)>;
         using CallbackT = std::function<void(item_t)>;
+        using HeteromorphicResolverT = std::function<bool(const item_t &stored, const item_t &incoming, item_t &resolved)>;
 
         /**
          * Construct null instance
@@ -195,6 +197,13 @@ namespace db0
             return bulkInsert(begin_item, end_item, true, false, callback_ptr);
         }
 
+        template <typename iterator_t> std::pair<std::uint32_t, std::uint32_t>
+            bulkInsertUniqueHeteromorphic(iterator_t begin_item, iterator_t end_item,
+            CallbackT *callback_ptr = nullptr, HeteromorphicResolverT *resolver_ptr = nullptr)
+        {
+            return bulkInsert(begin_item, end_item, true, true, callback_ptr, resolver_ptr);
+        }
+
         /**
          * Either inserts new items or updates existing with specific "update" lambda function
          */
@@ -212,7 +221,7 @@ namespace db0
          */
         template <typename iterator_t> std::pair<std::uint32_t, std::uint32_t> bulkInsert(iterator_t begin_item,
             iterator_t end_item, bool unique_only = false, bool update = false,            
-            CallbackT *callback_ptr = nullptr)
+            CallbackT *callback_ptr = nullptr, HeteromorphicResolverT *resolver_ptr = nullptr)
         {
             assert(!update || unique_only);
             std::pair<std::uint32_t, std::uint32_t> result(0, 0);
@@ -225,7 +234,7 @@ namespace db0
             }
             while (!data_heap.empty()) {
                 insert_iterator insert_it(*this, data_heap.front());
-                size_diff += insert_it.bulkInsert(data_heap, unique_only, update, callback_ptr);
+                size_diff += insert_it.bulkInsert(data_heap, unique_only, update, callback_ptr, resolver_ptr);
             }
             if (size_diff != 0) {
                 this->modify().size += size_diff;
@@ -625,7 +634,7 @@ namespace db0
              * insert unique items only
              */
             std::uint32_t bulkInsertUnique(heap<item_t, item_comp_t> &data) {
-                return bulkInsert(data, true, nullptr);
+                return bulkInsert(data, true, false, nullptr);
             }
 
             /**
@@ -636,7 +645,7 @@ namespace db0
              * @return number of items inserted
              */
             std::uint32_t bulkInsert(heap<item_t, item_comp_t> &data, bool unique_only = false,
-                bool update = false, CallbackT *callback_ptr = nullptr)
+                bool update = false, CallbackT *callback_ptr = nullptr, HeteromorphicResolverT *resolver_ptr = nullptr)
             {
                 assert(!update || unique_only);
                 std::uint32_t result = 0;
@@ -668,8 +677,11 @@ namespace db0
                         } else {
                             // update existing item (value part) if not identical as existing one
                             if (item_ptr && update && std::memcmp(item_ptr, &data.front(), sizeof(item_t)) != 0) {
-                                auto at = m_data_buf->getItemIndex(item_ptr);
-                                m_data_buf.modify().modifyItem(at) = data.front();
+                                item_t resolved = data.front();
+                                if (!resolver_ptr || (*resolver_ptr)(*item_ptr, data.front(), resolved)) {
+                                    auto at = m_data_buf->getItemIndex(item_ptr);
+                                    m_data_buf.modify().modifyItem(at) = resolved;
+                                }
                             }
                             // duplicate item, remove all from insert heap
                             data.pop_front_all();

@@ -8,6 +8,7 @@
 #include <unordered_map>
 #include <dbzero/core/exception/Exceptions.hpp>
 #include <dbzero/core/memory/Address.hpp>
+#include <dbzero/core/memory/UniqueRef.hpp>
 #include <dbzero/core/serialization/Types.hpp>
 #include <dbzero/core/serialization/bounded_buf_t.hpp>
 #include <dbzero/object_model/ObjectCatalogue.hpp>
@@ -144,6 +145,7 @@ namespace db0::serial
             using TypeList = std::tuple<
                 std::int8_t, std::int16_t, std::int32_t, std::int64_t, 
                 std::uint8_t, std::uint16_t, std::uint32_t, std::uint64_t, db0::Address, db0::UniqueAddress,
+                db0::UniqueRef,
                 float, double, std::string, db0::TagAddress>;
             // compile error: binary expression in operand of fold-expression
             std::apply([&](auto... type) {

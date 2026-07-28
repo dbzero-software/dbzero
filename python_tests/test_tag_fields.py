@@ -434,6 +434,73 @@ def test_non_tag_fields_and_manual_passive_tags_are_unchanged(db0_fixture):
     assert list(db0.find(MixedRuntimeFields, "manual")) == [obj]
 
 
+def test_passive_tag_field_then_regular_foreign_tag_preserves_regular_target(db0_fixture):
+    @db0.memo
+    class Scope:
+        pass
+
+    @db0.memo
+    @db0.tag_fields("scope")
+    class PassiveRecord:
+        def __init__(self, scope):
+            self.scope = scope
+
+    @db0.memo
+    class Error:
+        pass
+
+    def add_error(scope):
+        error = Error()
+        db0.tags(error).add(db0.as_tag(scope))
+
+    scope = Scope()
+
+    PassiveRecord(scope)
+    add_error(scope)
+
+    assert len(list(db0.find(Error, db0.as_tag(scope)))) == 1
+
+
+def test_mixed_passive_regular_foreign_tag_remove_releases_regular_target(db0_fixture):
+    @db0.memo
+    class Scope:
+        pass
+
+    @db0.memo
+    @db0.tag_fields("scope")
+    class PassiveRecord:
+        def __init__(self, scope):
+            self.scope = scope
+
+    @db0.memo
+    class RegularTarget:
+        def __init__(self):
+            pass
+
+    scope = Scope()
+    tag = db0.as_tag(scope)
+    PassiveRecord(scope)
+
+    target = RegularTarget()
+    target_uuid = db0.uuid(target)
+    db0.tags(target).add(tag)
+    db0.commit()
+
+    assert list(db0.find(RegularTarget, tag)) == [target]
+    assert db0.getrefcount(target) == 1
+
+    db0.tags(target).remove(tag)
+    db0.commit()
+
+    assert list(db0.find(RegularTarget, tag)) == []
+    assert db0.getrefcount(target) == 0
+
+    del target
+    db0.commit()
+
+    assert not db0.exists(target_uuid)
+
+
 def test_tag_field_removal_preserves_manual_collision_semantics(db0_fixture):
     @db0.memo
     @db0.tag_fields("status")

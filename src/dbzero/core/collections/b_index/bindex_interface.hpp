@@ -28,6 +28,17 @@ namespace db0::bindex::interface
     using bulkInsertUniquePtr = std::pair<std::uint32_t, std::uint32_t>(*)
         (void *this_ptr, typename DefinitionT::Containers::IInputRange&, std::function<void(typename DefinitionT::item_t)> *callback_ptr);
 
+    /**
+     * Heteromorphic inserts are for item types whose comparator/equality identity can match even
+     * when the stored bit pattern differs. On such duplicates, resolver_ptr decides whether the
+     * incoming representation should replace the stored one.
+     */
+    template<typename DefinitionT>
+    using bulkInsertUniqueHeteromorphicPtr = std::pair<std::uint32_t, std::uint32_t>(*)
+        (void *this_ptr, typename DefinitionT::Containers::IInputRange&,
+            std::function<void(typename DefinitionT::item_t)> *callback_ptr,
+            typename DefinitionT::HeteromorphicResolverT *resolver_ptr);
+
     template <typename item_t> using insertPtr = void (*)(void *this_ptr, const item_t &item);
     
     template<typename DefinitionT>
@@ -97,6 +108,8 @@ namespace db0::bindex::interface
 
     template <typename DefinitionT, typename T> struct BulkInsertUniqueFunctor {};
 
+    template <typename DefinitionT, typename T> struct BulkInsertUniqueHeteromorphicFunctor {};
+
     template <typename item_t, typename T> struct InsertFunctor {};
 
     template <typename DefinitionT, typename T> struct BulkEraseFunctor {};
@@ -140,6 +153,17 @@ namespace db0::bindex::interface
     }
 
     template<typename DefinitionT, typename ContainerT>
+    std::pair<std::uint32_t, std::uint32_t>
+    insertHeteromorphicGenericImpl(void *self, typename DefinitionT::Containers::IInputRange &input,
+        std::function<void(typename DefinitionT::item_t)> *callback_ptr,
+        typename DefinitionT::HeteromorphicResolverT *resolver_ptr)
+    {
+        ContainerT &index = *reinterpret_cast<ContainerT*>(self);
+        using InputRangeT = typename DefinitionT::template IContainerInputRange<ContainerT>;
+        return static_cast<InputRangeT&>(input).insertHeteromorphic(index, callback_ptr, resolver_ptr);
+    }
+
+    template<typename DefinitionT, typename ContainerT>
     std::size_t eraseGenericImpl(void *self, typename DefinitionT::Containers::IInputRange &input,
         std::function<void(typename DefinitionT::item_t)> *callback_ptr)
     {
@@ -176,6 +200,18 @@ namespace db0::bindex::interface
         execute(void *this_ptr, typename DefinitionT::Containers::IInputRange &input, CallbackT *callback_ptr)
         {
             return insertGenericImpl<DefinitionT, db0::v_bindex<T...>>(this_ptr, input, callback_ptr);
+        }
+    };
+
+    template<typename DefinitionT, typename... T>
+    struct BulkInsertUniqueHeteromorphicFunctor<DefinitionT, db0::v_bindex<T...>> {
+        using CallbackT = std::function<void(typename DefinitionT::item_t)>;
+        static std::pair<std::uint32_t, std::uint32_t>
+        execute(void *this_ptr, typename DefinitionT::Containers::IInputRange &input, CallbackT *callback_ptr,
+            typename DefinitionT::HeteromorphicResolverT *resolver_ptr)
+        {
+            return insertHeteromorphicGenericImpl<DefinitionT, db0::v_bindex<T...>>(
+                this_ptr, input, callback_ptr, resolver_ptr);
         }
     };
 
@@ -331,6 +367,20 @@ namespace db0::bindex::interface
         {
             using ContainerT = db0::v_sorted_sequence<typename DefinitionT::item_t, N, T...>;
             return insertGenericImpl<DefinitionT, ContainerT>(this_ptr, input, callback_ptr);
+        }
+    };
+
+    template<typename DefinitionT, int N, typename... T>
+    struct BulkInsertUniqueHeteromorphicFunctor<DefinitionT, db0::v_sorted_sequence<typename DefinitionT::item_t, N, T...>>
+    {
+        using CallbackT = std::function<void(typename DefinitionT::item_t)>;
+        static std::pair<std::uint32_t, std::uint32_t>
+        execute(void *this_ptr, typename DefinitionT::Containers::IInputRange &input, CallbackT *callback_ptr,
+            typename DefinitionT::HeteromorphicResolverT *resolver_ptr)
+        {
+            using ContainerT = db0::v_sorted_sequence<typename DefinitionT::item_t, N, T...>;
+            return insertHeteromorphicGenericImpl<DefinitionT, ContainerT>(
+                this_ptr, input, callback_ptr, resolver_ptr);
         }
     };
     
@@ -492,6 +542,18 @@ namespace db0::bindex::interface
         }
     };
 
+    template<typename DefinitionT, typename... T>
+    struct BulkInsertUniqueHeteromorphicFunctor<DefinitionT, db0::v_sorted_vector<T...>> {
+        using CallbackT = std::function<void(typename DefinitionT::item_t)>;
+        static std::pair<std::uint32_t, std::uint32_t>
+        execute(void *this_ptr, typename DefinitionT::Containers::IInputRange &input, CallbackT *callback_ptr,
+            typename DefinitionT::HeteromorphicResolverT *resolver_ptr)
+        {
+            return insertHeteromorphicGenericImpl<DefinitionT, db0::v_sorted_vector<T...>>(
+                this_ptr, input, callback_ptr, resolver_ptr);
+        }
+    };
+
     template <typename item_t, typename... T> struct InsertFunctor<item_t, db0::v_sorted_vector<item_t, T...> > {
         static void execute(void *this_ptr, const item_t &item) {
             reinterpret_cast<db0::v_sorted_vector<item_t, T...>*>(this_ptr)->insert(item);
@@ -650,6 +712,18 @@ namespace db0::bindex::interface
             return insertGenericImpl<DefinitionT, db0::IttyIndex<T...>>(this_ptr, input, callback_ptr);
         }
     };
+
+    template<typename DefinitionT, typename... T>
+    struct BulkInsertUniqueHeteromorphicFunctor<DefinitionT, db0::IttyIndex<T...> > {
+        using CallbackT = std::function<void(typename DefinitionT::item_t)>;
+        static std::pair<std::uint32_t, std::uint32_t>
+        execute(void *this_ptr, typename DefinitionT::Containers::IInputRange &input, CallbackT *callback_ptr,
+            typename DefinitionT::HeteromorphicResolverT *resolver_ptr)
+        {
+            return insertHeteromorphicGenericImpl<DefinitionT, db0::IttyIndex<T...>>(
+                this_ptr, input, callback_ptr, resolver_ptr);
+        }
+    };
     
     template <typename item_t, typename... T> struct InsertFunctor<item_t, db0::IttyIndex<item_t, T...> >
     {
@@ -799,6 +873,19 @@ namespace db0::bindex::interface
             return insertGenericImpl<DefinitionT, db0::empty_index<T...> >(this_ptr, input, callback_ptr);
         }
     };
+
+    template<typename DefinitionT, typename... T>
+    struct BulkInsertUniqueHeteromorphicFunctor<DefinitionT, db0::empty_index<T...> >
+    {
+        using CallbackT = std::function<void(typename DefinitionT::item_t)>;
+        static std::pair<std::uint32_t, std::uint32_t>
+        execute(void *this_ptr, typename DefinitionT::Containers::IInputRange &input, CallbackT *callback_ptr,
+            typename DefinitionT::HeteromorphicResolverT *resolver_ptr)
+        {
+            return insertHeteromorphicGenericImpl<DefinitionT, db0::empty_index<T...> >(
+                this_ptr, input, callback_ptr, resolver_ptr);
+        }
+    };
     
     template <typename item_t, typename... T>
     struct InsertFunctor<item_t, db0::empty_index<T...> >
@@ -928,6 +1015,7 @@ namespace db0::bindex::interface
             : m_ref(ref)
             , m_ptr(m_ref.get())
             , m_bulk_insert_unique_ptr(BulkInsertUniqueFunctor<DefinitionT, T>::execute)
+            , m_bulk_insert_unique_heteromorphic_ptr(BulkInsertUniqueHeteromorphicFunctor<DefinitionT, T>::execute)
             , m_insert_ptr(InsertFunctor<item_t, T>::execute)
             , m_bulk_erase_ptr(BulkEraseFunctor<DefinitionT, T>::execute)
             , m_empty_ptr(EmptyFunctor<item_t, T>::execute)
@@ -955,6 +1043,14 @@ namespace db0::bindex::interface
         {
             db0::bindex::GenericInputRange<InputIterator, DefinitionT> input(begin, end);
             return m_bulk_insert_unique_ptr(m_ptr, input, callback_ptr);
+        }
+
+        template <typename ItemT, typename InputIterator>
+        std::pair<std::uint32_t, std::uint32_t> bulkInsertUniqueHeteromorphic(InputIterator begin, InputIterator end,
+            std::function<void(ItemT)> *callback_ptr, typename DefinitionT::HeteromorphicResolverT *resolver_ptr)
+        {
+            db0::bindex::GenericInputRange<InputIterator, DefinitionT> input(begin, end);
+            return m_bulk_insert_unique_heteromorphic_ptr(m_ptr, input, callback_ptr, resolver_ptr);
         }
         
         /**
@@ -1068,6 +1164,7 @@ namespace db0::bindex::interface
         // pointer to actual data collection (persisted in m_ref)
         void *m_ptr = nullptr;
         bulkInsertUniquePtr<DefinitionT> m_bulk_insert_unique_ptr = nullptr;
+        bulkInsertUniqueHeteromorphicPtr<DefinitionT> m_bulk_insert_unique_heteromorphic_ptr = nullptr;
         insertPtr<item_t> m_insert_ptr = nullptr;
         bulkErasePtr<DefinitionT> m_bulk_erase_ptr = nullptr;
         emptyPtr<item_t> m_empty_ptr = nullptr;

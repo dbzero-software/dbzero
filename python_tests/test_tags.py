@@ -124,21 +124,40 @@ def test_passive_tags_can_be_added_and_removed_from_find_results(db0_fixture):
     assert {item.value for item in db0.find("other")} == {3}
 
 
-def test_passive_first_then_regular_tag_remains_non_durable(db0_fixture):
+def test_passive_first_then_regular_tag_upgrades_to_durable(db0_fixture):
     object_1 = MemoNoDefTags(1)
     db0.tags(object_1, passive=True).add("passive-tag")
     db0.commit()
     db0.tags(object_1).add("passive-tag")
     db0.commit()
-    assert db0.getrefcount(object_1) == 0
+    assert db0.getrefcount(object_1) == 1
 
 
-def test_passive_first_then_regular_tag_in_same_transaction_remains_non_durable(db0_fixture):
+def test_passive_first_then_regular_tag_in_same_transaction_upgrades_to_durable(db0_fixture):
     object_1 = MemoNoDefTags(1)
     db0.tags(object_1, passive=True).add("passive-tag")
     db0.tags(object_1).add("passive-tag")
     db0.commit()
+    assert db0.getrefcount(object_1) == 1
+
+
+def test_passive_first_then_regular_tag_remove_releases_upgrade(db0_fixture):
+    object_1 = MemoNoDefTags(1)
+    object_uuid = db0.uuid(object_1)
+
+    db0.tags(object_1, passive=True).add("passive-tag")
+    db0.commit()
+    db0.tags(object_1).add("passive-tag")
+    db0.commit()
+    assert db0.getrefcount(object_1) == 1
+
+    db0.tags(object_1).remove("passive-tag")
+    db0.commit()
     assert db0.getrefcount(object_1) == 0
+
+    del object_1
+    db0.commit()
+    assert not db0.exists(object_uuid)
 
 
 def test_regular_first_then_passive_tag_remains_durable(db0_fixture):
@@ -224,7 +243,7 @@ def test_passive_foreign_tag_remove_uses_regular_remove(db0_fixture):
     assert list(db0.find(MemoClassForTags, foreign_tag)) == []
 
 
-def test_passive_foreign_tag_first_then_regular_remains_non_durable(db0_fixture):
+def test_passive_foreign_tag_first_then_regular_upgrades_to_durable(db0_fixture):
     foreign_tag_source = MemoScopedClass(2)
     foreign_tag = db0.as_tag(foreign_tag_source)
     db0.open("passive-long-tag-prefix", "rw")
@@ -234,6 +253,29 @@ def test_passive_foreign_tag_first_then_regular_remains_non_durable(db0_fixture)
     db0.tags(local_object, passive=True).add(foreign_tag)
     db0.commit()
     db0.tags(local_object).add(foreign_tag)
+    db0.commit()
+    assert db0.getrefcount(local_object) == 1
+
+    del local_object
+    db0.commit()
+    assert db0.exists(local_uuid)
+    assert [item.value for item in db0.find(MemoNoDefTags, foreign_tag)] == [1]
+
+
+def test_passive_foreign_tag_first_then_regular_remove_releases_upgrade(db0_fixture):
+    foreign_tag_source = MemoScopedClass(2)
+    foreign_tag = db0.as_tag(foreign_tag_source)
+    db0.open("passive-long-tag-prefix", "rw")
+    local_object = MemoNoDefTags(1)
+    local_uuid = db0.uuid(local_object)
+
+    db0.tags(local_object, passive=True).add(foreign_tag)
+    db0.commit()
+    db0.tags(local_object).add(foreign_tag)
+    db0.commit()
+    assert db0.getrefcount(local_object) == 1
+
+    db0.tags(local_object).remove(foreign_tag)
     db0.commit()
     assert db0.getrefcount(local_object) == 0
 

@@ -35,7 +35,8 @@ namespace tests
             return ShortTagT::fromOffset(value);
         }
 
-        void runTestCase(std::function<void(IndexBase &, std::shared_ptr<RangeTreeT>, FT_BaseIndex<ShortTagT> &)> test)
+        void runTestCase(std::function<void(IndexBase &, std::shared_ptr<RangeTreeT>,
+            TagIndex::TagBaseIndexShortT &)> test)
         {
             auto fixture = getFixture();
             // create with the limit of 8 items per range
@@ -74,8 +75,9 @@ namespace tests
     
     TEST_F( QuerySerializationTest , testRangeTreeFTSortedIteratorCanBeSerialized )
     {
-        auto test = [](IndexBase &index, std::shared_ptr<RangeTreeT> rt, FT_BaseIndex<ShortTagT> &ft_index) {
-            auto ft_query = ft_index.makeIterator(tag(1));
+        auto test = [](IndexBase &index, std::shared_ptr<RangeTreeT> rt,
+            TagIndex::TagBaseIndexShortT &ft_index) {
+            auto ft_query = ft_index.makeIterator<UniqueAddress>(tag(1));
             std::vector<std::uint64_t> values;
             RT_SortIterator<int, UniqueAddress> cut(index, rt, std::move(ft_query));
             std::vector<std::byte> buf;
@@ -87,9 +89,10 @@ namespace tests
     
     TEST_F( QuerySerializationTest , testRangeTreeFTSortedIteratorCanBeDeserialized )
     {                
-        auto test = [&](IndexBase &index, std::shared_ptr<RangeTreeT> rt, FT_BaseIndex<ShortTagT> &ft_index) {
+        auto test = [&](IndexBase &index, std::shared_ptr<RangeTreeT> rt,
+            TagIndex::TagBaseIndexShortT &ft_index) {
             std::vector<std::byte> buf;
-            auto ft_query = ft_index.makeIterator(tag(1));
+            auto ft_query = ft_index.makeIterator<UniqueAddress>(tag(1));
             std::vector<std::uint64_t> values;
             RT_SortIterator<int, UniqueAddress> cut(index, rt, std::move(ft_query));
             
