@@ -4,8 +4,8 @@ requires = ['meson-python']
 
 [project]
 name = 'dbzero'
-version = '0.6.1'
-description = 'A state management system for Python 3.x that unifies your applications business logic, data persistence, and caching into a single, efficient layer.'
+version = '0.6.2'
+description = 'DISTIC (Durable, Infinite, Shared, Transactional, Isolated, Composable) storage system for Python 3.x offering flexibility of a memory with durability of a database.'
 readme = 'README.md'
 requires-python = '>=3.9'
 license = {file = 'LICENSE'}

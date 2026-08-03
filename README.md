@@ -3,7 +3,7 @@
 </p>
 
 
-**A state management system for Python 3.x that unifies your application's business logic, data persistence, and caching into a single, efficient layer.**
+**DISTIC (Durable, Infinite, Shared, Transactional, Isolated, Composable) storage system for Python 3.x offering flexibility of a memory with durability of a database.**
 
 [![License: LGPL 2.1 or later](https://img.shields.io/badge/License-LGPL%202.1--or--later-blue.svg)](https://www.gnu.org/licenses/lgpl-2.1)
 

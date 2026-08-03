@@ -10,8 +10,8 @@ if sys.byteorder == 'big':
 
 setup(
     name='dbzero',
-    version='0.6.1',
-    description='DBZero community edition',
+    version='0.6.2',
+    description='DISTIC (Durable, Infinite, Shared, Transactional, Isolated, Composable) storage system for Python 3.x offering flexibility of a memory with durability of a database.',
     packages=['dbzero'],
     python_requires='>=3.9',
     license='LGPL-2.1-or-later',
