@@ -5,7 +5,7 @@
 
 **A state management system for Python 3.x that unifies your application's business logic, data persistence, and caching into a single, efficient layer.**
 
-[![License: LGPL 2.1](https://img.shields.io/badge/License-LGPL%202.1-blue.svg)](https://www.gnu.org/licenses/lgpl-2.1)
+[![License: LGPL 2.1 or later](https://img.shields.io/badge/License-LGPL%202.1--or--later-blue.svg)](https://www.gnu.org/licenses/lgpl-2.1)
 
 > "If we had infinite memory in our laptop, we'd have no need for clumsy databases. Instead, we could just use our objects whenever we liked."
 > 
@@ -317,10 +317,12 @@ There you can find:
 
 ## License
 
-This project is licensed under the GNU Lesser General Public License v2.1 (LGPL 2.1). See [LICENSE](./LICENSE) for the full text.
+Copyright (c) 2025-2026 Wojciech Sebastian Kozlowski
+
+dbzero is licensed under the GNU Lesser General Public License v2.1 or later (LGPL-2.1-or-later). See [LICENSE](./LICENSE) for the full text.
 
 - This library can be linked with proprietary software.
-- Modifications to the library itself must be released under LGPL 2.1.
+- Modifications to the library itself must be released under LGPL-2.1-or-later.
 - Redistributions must preserve copyright and license notices and provide source.
 
 For attribution details, see [NOTICE](./NOTICE).

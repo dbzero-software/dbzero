@@ -1,16 +1,13 @@
 dbzero — Community Edition
 
-Copyright (c) 2025 DBZero Software sp. z o.o.
-All rights reserved.
+Copyright (c) 2025-2026 Wojciech Sebastian Kozlowski
 
 ================================================================================
 LICENSE
 ================================================================================
 
-This library is free software: you can redistribute it and/or modify it under
-the terms of the GNU Lesser General Public License as published by the Free
-Software Foundation, either version 3 of the License, or (at your option) any
-later version.
+dbzero is licensed under the GNU Lesser General Public License v2.1 or later.
+See LICENSE for the full license text.
 
 This library is distributed in the hope that it will be useful, but WITHOUT
 ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
@@ -55,8 +52,8 @@ License File: THIRD_PARTY_LICENSES/BOOST_LICENSE_1_0
 
 Note: Files in src/dbzero/core/intrusive/ are derived from Boost.Intrusive
       and retain their original Boost Software License 1.0 with full copyright
-      notices. Some files may contain modifications by DBZero Software sp. z o.o.,
-      which are licensed under LGPL-3.0-or-later. See individual file headers
+      notices. Some files may contain modifications by Wojciech Sebastian Kozlowski,
+      which are licensed under LGPL-2.1-or-later. See individual file headers
       for specific copyright and licensing information.
 
 ================================================================================
