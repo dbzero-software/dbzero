@@ -5,11 +5,11 @@
 //    (See THIRD_PARTY_LICENSES/BOOST_LICENSE_1_0 or
 //     http://www.boost.org/LICENSE_1_0.txt)
 //
-// This file may contain modifications by DBZero Software sp. z o.o.
-// Any modifications are Copyright (c) 2025 DBZero Software sp. z o.o.
-// and licensed under LGPL-2.1.
+// This file may contain modifications by Wojciech Sebastian Kozlowski
+// Any modifications are Copyright (c) 2025-2026 Wojciech Sebastian Kozlowski
+// and licensed under LGPL-2.1-or-later.
 //
-// SPDX-License-Identifier: BSL-1.0 AND LGPL-2.1
+// SPDX-License-Identifier: BSL-1.0 AND LGPL-2.1-or-later
 /////////////////////////////////////////////////////////////////////////////
 //
 // The option that yields to non-floating point 1/sqrt(2) alpha is taken

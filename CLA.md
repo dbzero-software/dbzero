@@ -6,7 +6,7 @@ This Contributor License Agreement ("Agreement") is entered into by the party si
 
 ### 1. Definitions
 
-**"We," "Us," "Our"** means DBZero Software sp. z o.o. and its successors or assigns
+**"We," "Us," "Our"** means Wojciech Sebastian Kozlowski and his successors or assigns
 
 **"Contribution"** means any original work of authorship, including any modifications or additions to an existing work, that You intentionally submit to Us for inclusion in the dbzero project, in any form (source code, documentation, configuration files, etc.).
 
@@ -28,7 +28,7 @@ If any entity institutes patent litigation against You, Us, or any other entity 
 
 #### 2.3 Outbound License
 Based on the grants of rights in Sections 2.1 and 2.2, if We include Your Contribution in the dbzero project:
-- Your Contribution will be licensed to the public under the Apache License 2.0 as part of the dbzero project
+- Your Contribution will be licensed to the public under LGPL-2.1-or-later as part of the dbzero project
 - We reserve the right to also license Your Contribution under alternative licenses without any additional compensation to You, including proprietary licenses for commercial or other purposes
 
 #### 2.4 Moral Rights
@@ -130,4 +130,4 @@ By accepting this Agreement, you acknowledge that you have read, understood, and
 
 **Version:** 1.0  
 **Last Updated:** December 29, 2025
-**Maintained by:** DBZero Software sp. z o.o.
+**Maintained by:** Wojciech Sebastian Kozlowski

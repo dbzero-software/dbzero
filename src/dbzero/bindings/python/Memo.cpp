@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
-// Copyright (c) 2025 DBZero Software sp. z o.o.
+// Copyright (c) 2025-2026 Wojciech Sebastian Kozlowski
 
 #include "Memo.hpp"
 #include <dbzero/bindings/python/embedded/EmbeddedObject.hpp>
