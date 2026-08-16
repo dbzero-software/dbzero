@@ -1673,7 +1673,12 @@ namespace db0::python
         }
         
         auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
-        db0::swine_ptr<Fixture> fixture = prefix_name ? workspace.getFixture(prefix_name) : workspace.getCurrentFixture();
+        db0::swine_ptr<Fixture> fixture = prefix_name
+            ? workspace.tryGetFixture(prefix_name, AccessType::READ_ONLY)
+            : workspace.getCurrentFixture();
+        if (!fixture) {
+            Py_RETURN_NONE;
+        }
         fixture->refreshIfUpdated();
         auto py_singleton = tryMemoObject_open_singleton(reinterpret_cast<PyTypeObject*>(py_type), *fixture);
         if (!py_singleton) {

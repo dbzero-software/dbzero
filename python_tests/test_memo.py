@@ -4,6 +4,7 @@
 import pytest
 import dbzero as db0
 from .memo_test_types import MemoTestClass, TriColor, MemoAnyAttrs
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
 
@@ -37,6 +38,33 @@ class MemoClassWithSetter:
 @db0.memo
 class MemoDerivedClassNoInit(MemoTestClass):
     pass
+
+
+@db0.memo
+class MemoAbstractBase(ABC):
+    @abstractmethod
+    def describe(self):
+        pass
+
+
+@db0.memo
+class MemoConcreteDerived(MemoAbstractBase):
+    def __init__(self, value):
+        self.value = value
+
+    def describe(self):
+        return f"value={self.value}"
+
+
+@db0.memo
+class MemoManualAbstractMethods:
+    __abstractmethods__ = frozenset({"describe"})
+
+    def __init__(self, value):
+        self.value = value
+
+    def describe(self):
+        return f"value={self.value}"
     
     
 def test_memo_rejects_removed_option():
@@ -53,6 +81,21 @@ def test_memo_rejects_removed_cache_option():
         @db0.memo(**removed_option)
         class RemovedCacheMemoOption:
             pass
+
+
+def test_memo_respects_abc_abstract_instantiation_check(db0_fixture):
+    with pytest.raises(TypeError, match="abstract class"):
+        MemoAbstractBase()
+
+
+def test_memo_allows_concrete_abc_derived_class(db0_fixture):
+    obj = MemoConcreteDerived(123)
+    assert obj.describe() == "value=123"
+
+
+def test_memo_manual_abstractmethods_without_abc_does_not_block_instantiation(db0_fixture):
+    obj = MemoManualAbstractMethods(123)
+    assert obj.describe() == "value=123"
 
 
 def test_memo_is_instance_operator(db0_fixture):

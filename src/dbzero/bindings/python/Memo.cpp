@@ -35,6 +35,10 @@
 #define Py_TPFLAGS_MANAGED_DICT 0
 #endif
 
+#ifndef Py_TPFLAGS_IS_ABSTRACT
+#define Py_TPFLAGS_IS_ABSTRACT (1UL << 20)
+#endif
+
 namespace db0::python
 
 {
@@ -82,10 +86,23 @@ namespace db0::python
         }
         return result;
     }
+
+    bool checkMemoTypeAbstractInstantiation(PyTypeObject *py_type)
+    {
+        if (!(py_type->tp_flags & Py_TPFLAGS_IS_ABSTRACT)) {
+            return true;
+        }
+        PyErr_Format(PyExc_TypeError, "Can't instantiate abstract class %s", py_type->tp_name);
+        return false;
+    }
     
     template <typename MemoImplT>
     MemoImplT *tryMemoObject_new(const MemoTypeDecoration &decor, PyTypeObject *py_type, PyObject *, PyObject *)
     {        
+        if (!checkMemoTypeAbstractInstantiation(py_type)) {
+            return nullptr;
+        }
+
         // NOTE: read-only fixture access is sufficient here since objects are lazy-initialized
         // i.e. the actual dbzero instance is created on postInit
         // this is also important for dynamically scoped clases (where read/write access may not be possible on default fixture)
@@ -193,6 +210,10 @@ namespace db0::python
 
     PyObject *tryMemoObject_new_singleton(PyTypeObject *py_type, PyObject *args, PyObject *kwargs)
     {
+        if (!checkMemoTypeAbstractInstantiation(py_type)) {
+            return nullptr;
+        }
+
         std::string px_name;
         std::uint64_t fixture_uuid = 0;
         // try resolve type specific scope: static, dynamic or default
@@ -205,6 +226,12 @@ namespace db0::python
             auto result = tryMemoObject_open_singleton(py_type, *fixture);
             if (result) {
                 return result;
+            }
+            if (fixture->getAccessType() == AccessType::READ_ONLY) {
+                THROWF(db0::InputException)
+                    << "Cannot create singleton " << PyToolkit::getTypeName(py_type)
+                    << " in read-only prefix '" << fixture->getPrefix().getName()
+                    << "': singleton instance does not exist";
             }
         }
         
@@ -972,6 +999,9 @@ namespace db0::python
         
         // Enable GC for Python 3.10 compatibility - required for inheritance hierarchies
         std::uint32_t flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE;
+        if (base_class->tp_flags & Py_TPFLAGS_IS_ABSTRACT) {
+            flags |= Py_TPFLAGS_IS_ABSTRACT;
+        }
 #if PY_VERSION_HEX < 0x030B0000  // Python < 3.11
         flags |= Py_TPFLAGS_HAVE_GC;
 #endif
