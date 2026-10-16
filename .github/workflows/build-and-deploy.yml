@@ -183,9 +183,7 @@ jobs:
           uv run --no-sync ninja -C build/release
       
       - name: Run C++ tests
-        run: |
-          cd build/release
-          ./tests.x
+        run: ./scripts/run_cpp_tests.sh
 
   sdist:
     runs-on: ubuntu-latest

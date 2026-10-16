@@ -78,10 +78,10 @@ This project adheres to a code of conduct that all contributors are expected to 
 3. **Verify the installation**:
    ```bash
    # Run C++ tests (debug build)
-   ./build/debug/testsD.x
+   ./scripts/run_cpp_tests.sh --debug
    
    # Run C++ tests (release build)
-   ./build/release/tests.x
+   ./scripts/run_cpp_tests.sh
    
    # Or use Meson test runner
    uv run --no-sync meson test -C build
