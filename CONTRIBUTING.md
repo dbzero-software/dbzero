@@ -40,15 +40,18 @@ This project adheres to a code of conduct that all contributors are expected to 
 ### Prerequisites
 
 - C++ compiler (GCC 13+ or Microsoft C/C++ Optimizing Compiler 19.41+)
-- Meson
-- Ninja build system
+- uv (installs Meson and Ninja from the project lockfile)
 - Git
 - Python 3.9 or higher (for Python components and tooling)
-- A virtual environment tool (venv, virtualenv, or conda) for Python dependencies
 
 ### Setting Up Your Environment
 
-1. **Build the C++ components**:
+1. **Install the locked Python dependencies**:
+   ```bash
+   uv sync --locked --no-install-project
+   ```
+
+2. **Build the C++ components**:
    ```bash
    # Build debug version without tests
    ./scripts/build.sh
@@ -63,24 +66,16 @@ This project adheres to a code of conduct that all contributors are expected to 
    ./scripts/build.sh -r -t
    ```
    
-   Alternatively, you can use Meson directly:
+   Alternatively, you can call Meson through uv:
    ```bash
-   meson setup build
-   meson compile -C build
+   uv run --no-sync meson setup build
+   uv run --no-sync meson compile -C build
    ```
 
-2. **Create a Python virtual environment** (for Python components):
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
+   Build the Python source distribution or wheel with `uv build`. Meson compiles
+   the C++ extension through the backend declared in `pyproject.toml`.
 
-3. **Install Python dependencies**:
-   ```bash
-   pip install -r requirements.txt  # Install dependencies
-   ```
-
-4. **Verify the installation**:
+3. **Verify the installation**:
    ```bash
    # Run C++ tests (debug build)
    ./build/debug/testsD.x
@@ -89,7 +84,7 @@ This project adheres to a code of conduct that all contributors are expected to 
    ./build/release/tests.x
    
    # Or use Meson test runner
-   meson test -C build
+   uv run --no-sync meson test -C build
    
    # Run Python tests (excludes stress tests)
    ./scripts/run_tests.sh

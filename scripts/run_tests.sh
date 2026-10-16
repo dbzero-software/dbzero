@@ -28,4 +28,4 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-python3 -m pytest -m 'not integration_test' -m 'not stress_test' -c pytest.ini --capture=no "${parallel_args[@]}" "${pytest_args[@]}" -vv
+uv run --no-sync python -m pytest -m 'not integration_test' -m 'not stress_test' -c pytest.ini --capture=no "${parallel_args[@]}" "${pytest_args[@]}" -vv

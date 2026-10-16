@@ -43,10 +43,9 @@ jobs:
   test-wheels-macos:
     runs-on: macos-latest
     timeout-minutes: ${{ fromJSON(inputs.timeout-minutes) }}
-    env:
-      REQUIREMENTS_FILE: ${{ inputs.python-version == '3.9' && 'requirements.3.9.txt' || 'requirements.txt' }}
     steps:
       - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v10.3.0
       
       - name: Set up Python ${{ inputs.python-version }}
         uses: actions/setup-python@v5
@@ -61,10 +60,9 @@ jobs:
       
       - name: Install wheel and dependencies
         run: |
-          pip install pytest
-          pip install -r $REQUIREMENTS_FILE
-          pip install ./wheels/*.whl
+          uv sync --locked --no-install-project
+          uv pip install --python .venv/bin/python ./wheels/*.whl
       
       - name: Run tests
         run: |
-          python -m pytest ${{ inputs.pytest-markers }} -c pytest.ini --capture=no -vv
+          uv run --no-sync python -m pytest ${{ inputs.pytest-markers }} -c pytest.ini --capture=no -vv

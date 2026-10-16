@@ -47,6 +47,7 @@ jobs:
       MACOSX_DEPLOYMENT_TARGET: '11.0'
     steps:
       - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v10.3.0
       
       - name: Set up Python ${{ inputs.python-version }}
         uses: actions/setup-python@v5
@@ -66,11 +67,8 @@ jobs:
           rm -f .gitignore
           git add . && git commit -m "Update meson files"
       
-      - name: Install build tools
-        run: pip install build
-      
       - name: Build wheel
-        run: python3 -m build ${{ inputs.build-args }}
+        run: uv build ${{ inputs.build-args }}
         env:
           CIBW_SKIP: pp* cp36-* *-musllinux*
           CIBW_ARCHS_MACOS: x86_64 arm64
