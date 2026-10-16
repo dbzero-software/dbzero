@@ -3,3 +3,4 @@
 **/__pycache__/
 .vscode
 *.db0.lock
+.venv/
