@@ -27,6 +27,9 @@ jobs:
           - python-version: "3.13"
             python-tag: "313"
             architecture: "AMD64"
+          - python-version: "3.14"
+            python-tag: "314"
+            architecture: "AMD64"
 
     uses: ./.github/workflows/build-windows-wheel.yml
     with:
@@ -38,7 +41,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
     uses: ./.github/workflows/build-linux-wheel.yml
     with:
       python-version: ${{ matrix.python-version }}
@@ -73,6 +76,9 @@ jobs:
           - python-version: "3.13"
             python-tag: "313"
             architecture: "AMD64"
+          - python-version: "3.14"
+            python-tag: "314"
+            architecture: "AMD64"
     uses: ./.github/workflows/test-windows-wheel.yml
     with:
       python-version: ${{ matrix.python-version }}
@@ -82,7 +88,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
     uses: ./.github/workflows/test-linux-wheel.yml
     with:
       python-version: ${{ matrix.python-version }}
@@ -118,6 +124,9 @@ jobs:
           - python-version: "3.13"
             python-tag: "313"
             architecture: "AMD64"
+          - python-version: "3.14"
+            python-tag: "314"
+            architecture: "AMD64"
 
     uses: ./.github/workflows/test-windows-wheel.yml
     with:
@@ -130,7 +139,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
     uses: ./.github/workflows/test-linux-wheel.yml
     with:
       python-version: ${{ matrix.python-version }}
@@ -155,7 +164,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ${{ github.event_name == 'workflow_dispatch' && fromJSON(format('["{0}"]', inputs.python-version)) || fromJSON('["3.9", "3.10", "3.11", "3.12", "3.13"]') }}
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v10.3.0

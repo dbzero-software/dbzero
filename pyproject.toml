@@ -4,7 +4,7 @@ requires = ['meson-python==0.18.0', 'meson==1.9.1', 'ninja']
 
 [project]
 name = 'dbzero'
-version = '0.6.2'
+version = '0.7.0'
 description = 'DISTIC (Durable, Infinite, Shared, Transactional, Isolated, Composable) storage system for Python 3.x offering flexibility of a memory with durability of a database.'
 readme = 'README.md'
 requires-python = '>=3.9'
