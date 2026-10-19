@@ -967,6 +967,80 @@ namespace db0::python
     template <> PyType_Slot *getCommonSlots<MemoImmutableObject>() {
         return MemoImmutableObject_common_slots;
     }
+
+    // Metaclasses with a custom tp_new, including ABCMeta, cannot be used by
+    // PyType_FromSpecWithBases on Python 3.14. Let the metaclass create the
+    // subtype, then attach the memo layout and native slots.
+    PyTypeObject *createMemoSubtype(PyTypeObject *base_class, PyType_Spec *spec)
+    {
+        auto native_type = Py_OWN(reinterpret_cast<PyTypeObject *>(PyType_FromSpec(spec)));
+        if (!native_type) {
+            return nullptr;
+        }
+        auto namespace_dict = Py_OWN(PyDict_Copy(base_class->tp_dict));
+        if (!namespace_dict) {
+            return nullptr;
+        }
+        for (const char *key : {"__dict__", "__weakref__", "__slots__", "_abc_impl"}) {
+            if (PyDict_GetItemString(*namespace_dict, key)) {
+                PyDict_DelItemString(*namespace_dict, key);
+            }
+        }
+        PySafeDict_SetItemString(*namespace_dict, "__slots__", Py_OWN(PyTuple_New(0)));
+        auto name = Py_OWN(PyObject_GetAttrString(reinterpret_cast<PyObject *>(base_class), "__name__"));
+        if (!name) {
+            return nullptr;
+        }
+        auto bases = Py_OWN(PySafeTuple_Pack(Py_BORROW(base_class)));
+        auto result = Py_OWN(reinterpret_cast<PyTypeObject *>(PyObject_CallFunctionObjArgs(
+            reinterpret_cast<PyObject *>(Py_TYPE(base_class)), *name, *bases, *namespace_dict, nullptr)));
+        if (!result) {
+            return nullptr;
+        }
+        if (!PyType_Check(reinterpret_cast<PyObject *>(*result)) || *result == base_class
+            || (*result)->tp_base != base_class)
+        {
+            PyErr_SetString(PyExc_TypeError, "Memo metaclass must create a new direct subtype");
+            return nullptr;
+        }
+
+        auto *target = *result;
+        auto *source = *native_type;
+        target->tp_basicsize = source->tp_basicsize;
+        target->tp_itemsize = source->tp_itemsize;
+        target->tp_new = source->tp_new;
+        target->tp_init = source->tp_init;
+        target->tp_dealloc = source->tp_dealloc;
+        target->tp_alloc = source->tp_alloc;
+        target->tp_free = source->tp_free;
+        target->tp_getattro = source->tp_getattro;
+        target->tp_setattro = source->tp_setattro;
+        target->tp_richcompare = source->tp_richcompare;
+        target->tp_hash = source->tp_hash;
+        target->tp_traverse = source->tp_traverse;
+        target->tp_clear = source->tp_clear;
+        target->tp_flags &= ~(Py_TPFLAGS_HAVE_GC | Py_TPFLAGS_MANAGED_DICT);
+        target->tp_flags |= source->tp_flags & Py_TPFLAGS_HAVE_GC;
+#ifdef Py_TPFLAGS_MANAGED_WEAKREF
+        target->tp_flags &= ~Py_TPFLAGS_MANAGED_WEAKREF;
+#endif
+#ifdef Py_TPFLAGS_INLINE_VALUES
+        target->tp_flags &= ~Py_TPFLAGS_INLINE_VALUES;
+#endif
+        for (const char *key : {"__setattr__", "__delattr__"}) {
+            auto *descriptor = reinterpret_cast<PyWrapperDescrObject *>(PyDict_GetItemString(source->tp_dict, key));
+            PySafeDict_SetItemString(target->tp_dict, key,
+                Py_OWN(PyDescr_NewWrapper(target, descriptor->d_base, descriptor->d_wrapped)));
+        }
+        for (auto *method = source->tp_methods; method && method->ml_name; ++method) {
+            PySafeDict_SetItemString(target->tp_dict, method->ml_name, Py_OWN(PyDescr_NewMethod(target, method)));
+        }
+        for (auto *getset = source->tp_getset; getset && getset->name; ++getset) {
+            PySafeDict_SetItemString(target->tp_dict, getset->name, Py_OWN(PyDescr_NewGetSet(target, getset)));
+        }
+        PyType_Modified(target);
+        return result.steal();
+    }
     
     template <typename MemoImplT>
     PyTypeObject *PyMemoType_FromSpec(PyTypeObject *base_class, const char *tp_name, bool is_singleton)
@@ -999,9 +1073,6 @@ namespace db0::python
         
         // Enable GC for Python 3.10 compatibility - required for inheritance hierarchies
         std::uint32_t flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE;
-        if (base_class->tp_flags & Py_TPFLAGS_IS_ABSTRACT) {
-            flags |= Py_TPFLAGS_IS_ABSTRACT;
-        }
 #if PY_VERSION_HEX < 0x030B0000  // Python < 3.11
         flags |= Py_TPFLAGS_HAVE_GC;
 #endif
@@ -1015,10 +1086,28 @@ namespace db0::python
         };
         
         auto bases = Py_OWN(PySafeTuple_Pack(Py_BORROW(base_class)));
-        auto tp_result = Py_OWN((PyTypeObject*)PyType_FromSpecWithBases(&type_spec, *bases));        
-        auto old_dict = Py_OWN((*tp_result)->tp_dict);
-        // NOTE: take only the auto-generated __setattr__, __delattr__, __dir__ and __dict__
-        (*tp_result)->tp_dict = mergeDicts(base_class->tp_dict, *old_dict, { "__setattr__", "__delattr__", "__dir__", "__dict__" });
+        const bool custom_metaclass = Py_TYPE(base_class)->tp_new != PyType_Type.tp_new;
+        TypeObjectSharedPtr tp_result = nullptr;
+        if (custom_metaclass) {
+            tp_result = Py_OWN(createMemoSubtype(base_class, &type_spec));
+        } else {
+#if PY_VERSION_HEX >= 0x030C0000
+            tp_result = Py_OWN((PyTypeObject*)PyType_FromMetaclass(Py_TYPE(base_class), nullptr, &type_spec, *bases));
+#else
+            tp_result = Py_OWN((PyTypeObject*)PyType_FromSpecWithBases(&type_spec, *bases));
+#endif
+        }
+        if (!tp_result) {
+            return nullptr;
+        }
+        if (!custom_metaclass) {
+            auto old_dict = Py_OWN((*tp_result)->tp_dict);
+            // NOTE: take only the auto-generated __setattr__, __delattr__, __dir__ and __dict__
+            (*tp_result)->tp_dict = mergeDicts(base_class->tp_dict, *old_dict, { "__setattr__", "__delattr__", "__dir__", "__dict__" });
+        }
+        if (base_class->tp_flags & Py_TPFLAGS_IS_ABSTRACT) {
+            (*tp_result)->tp_flags |= Py_TPFLAGS_IS_ABSTRACT;
+        }
 
         // disable weak-refs (important for Python 3.11.x)
         (*tp_result)->tp_weaklistoffset = 0;
