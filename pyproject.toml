@@ -1,10 +1,10 @@
 [build-system]
 build-backend = 'mesonpy'
-requires = ['meson-python']
+requires = ['meson-python==0.18.0', 'meson==1.9.1', 'ninja']
 
 [project]
 name = 'dbzero'
-version = '0.6.2'
+version = '0.7.0'
 description = 'DISTIC (Durable, Infinite, Shared, Transactional, Isolated, Composable) storage system for Python 3.x offering flexibility of a memory with durability of a database.'
 readme = 'README.md'
 requires-python = '>=3.9'
@@ -25,6 +25,19 @@ classifiers = [
 homepage = 'https://dbzero.io/'
 documentation = 'https://docs.dbzero.io/'
 repository = 'https://github.com/dbzero-software/dbzero'
+
+[dependency-groups]
+dev = [
+    'meson==1.9.1',
+    'meson-python==0.18.0',
+    'ninja',
+    'psutil==7.0.0',
+    'pytest==8.4.2; python_version == "3.9"',
+    'pytest==9.0.1; python_version >= "3.10"',
+    'pytest-asyncio==1.2.0; python_version == "3.9"',
+    'pytest-asyncio==1.3.0; python_version >= "3.10"',
+    'pytest-xdist==3.8.0',
+]
 
 
 [tool.pytest.ini_options]

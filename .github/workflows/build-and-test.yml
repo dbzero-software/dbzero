@@ -11,51 +11,71 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
     uses: ./.github/workflows/build-linux-wheel.yml
     with:
       python-version: ${{ matrix.python-version }}
 
   build-windows:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - python-version: "3.12"
+            python-tag: "312"
+          - python-version: "3.14"
+            python-tag: "314"
     uses: ./.github/workflows/build-windows-wheel.yml
     with:
-      python-version: "3.12"
-      python-tag: "312"
+      python-version: ${{ matrix.python-version }}
+      python-tag: ${{ matrix.python-tag }}
       architecture: "AMD64"
 
   build-macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.14"]
     uses: ./.github/workflows/build-mac-wheel.yml
     with:
-      python-version: "3.12"
+      python-version: ${{ matrix.python-version }}
   
   test-wheels-linux:
     needs: build-linux
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
     uses: ./.github/workflows/test-linux-wheel.yml
     with:
       python-version: ${{ matrix.python-version }}
 
   test-wheels-windows:
     needs: build-windows
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.14"]
     uses: ./.github/workflows/test-windows-wheel.yml
     with:
-      python-version: "3.12"
+      python-version: ${{ matrix.python-version }}
 
   test-wheels-macos:
     needs: build-macos
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.14"]
     uses: ./.github/workflows/test-mac-wheel.yml
     with:
-      python-version: "3.12"
+      python-version: ${{ matrix.python-version }}
 
   stress-test-linux:
     needs: build-linux
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
     uses: ./.github/workflows/test-linux-wheel.yml
     with:
       python-version: ${{ matrix.python-version }}
@@ -102,12 +122,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ${{ github.event_name == 'workflow_dispatch' && fromJSON(format('["{0}"]', inputs.python-version)) || fromJSON('["3.9", "3.10", "3.11", "3.12", "3.13"]') }}
-    env:
-      REQUIREMENTS_FILE: ${{ matrix.python-version == '3.9' && 'requirements.3.9.txt' || 'requirements.txt' }}
-    
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v10.3.0
       
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
@@ -115,10 +133,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       
       - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y meson ninja-build
-          pip install -r $REQUIREMENTS_FILE
+        run: uv sync --locked --no-install-project
       
       - name: Generate meson files
         run: |
@@ -128,14 +143,11 @@ jobs:
       
       - name: Configure build with tests enabled
         run: |
-          meson setup --buildtype=release -Dbuild_tests=true build/release
+          uv run --no-sync meson setup --buildtype=release -Dbuild_tests=true build/release
       
       - name: Build project
         run: |
-          cd build/release
-          ninja
+          uv run --no-sync ninja -C build/release
       
       - name: Run C++ tests
-        run: |
-          cd build/release
-          ./tests.x
+        run: ./scripts/run_cpp_tests.sh

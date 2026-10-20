@@ -46,10 +46,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Set up Python ${{ inputs.python-version }}
+      - name: Set up build Python
         uses: actions/setup-python@v5
         with:
-          python-version:  ${{ inputs.python-version }}
+          python-version: '3.12'
       
       - name: Generate meson files
         run: |
@@ -69,14 +69,13 @@ jobs:
         run: echo "py_tag=$(echo ${{ inputs.python-version }} | tr -d '.')" >> $GITHUB_OUTPUT
       
       - name: Build manylinux wheels
-        uses: pypa/cibuildwheel@v2.21
+        uses: pypa/cibuildwheel@v3.4.1
         env:
           CIBW_BUILD: cp${{ steps.py-version.outputs.py_tag }}-manylinux_x86_64
           CIBW_SKIP: pp* cp36-* *-musllinux*
           CIBW_ARCHS_LINUX: x86_64
           CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
           CIBW_BUILD_VERBOSITY: 1
-          CIBW_PRERELEASE_PYTHONS: true
       
       - uses: actions/upload-artifact@v4
         with:

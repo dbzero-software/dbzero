@@ -52,6 +52,10 @@ if [ $cores -lt 1 ]; then
     exit 1;
 fi
 
+uv sync --locked --no-install-project
+export VIRTUAL_ENV="$PWD/.venv"
+export PATH="$VIRTUAL_ENV/bin:$PATH"
+
 # regenerate meson files:
 
 python3 scripts/generate_meson.py ./src/dbzero/ core

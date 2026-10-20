@@ -18,28 +18,19 @@ while true ; do
     esac
 done
 
-if ! python3 -c 'import setuptools' >/dev/null 2>&1; then
-    exit 0
-fi
-
 package_root="$PWD"
 rm -rf .build
 trap 'rm -rf "$package_root/.build"' EXIT
 mkdir -p .build/dbzero
 find ./dbzero -maxdepth 1 -type f -exec cp {} ./.build/dbzero/ \;
 cp setup.py .build/setup.py
+cp pyproject.toml .build/pyproject.toml
 cp LICENSE .build/LICENSE
 cp README.md .build/README.md
 cd .build
-python3 setup.py sdist
-# Get the current Python3 version
-PYTHON3_VERSION=$(python3 -c 'import sys; print(f"{sys.version_info.minor}")')
+uv build --sdist
 if [ "${INSTALL-}" ] ; then
-    if [ "$PYTHON3_VERSION" -ge 11 ]; then
-        pip3 install "$(ls ./dist/*.tar.gz | sort | tail -n 1)" --break-system-packages
-    else
-        pip3 install "$(ls ./dist/*.tar.gz | sort | tail -n 1)" 
-    fi
+    uv pip install "$(ls ./dist/*.tar.gz | sort | tail -n 1)"
 fi
 
 cd ..

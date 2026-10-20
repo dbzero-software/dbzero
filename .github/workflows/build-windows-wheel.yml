@@ -24,6 +24,7 @@ on:
           - '3.11'
           - '3.12'
           - '3.13'
+          - '3.14'
         default: '3.12'
       python-tag:
         description: 'Python tag (e.g., 310, 311, 312)'
@@ -35,6 +36,7 @@ on:
           - '311'
           - '312'
           - '313'
+          - '314'
         default: '312'
       architecture:
         description: 'Build architecture'
@@ -51,10 +53,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Set up Python ${{ inputs.python-version }}
+      - name: Set up build Python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ inputs.python-version }}
+          python-version: '3.12'
       
       - uses: bus1/cabuild/action/msdevshell@v1
         with:
@@ -86,13 +88,12 @@ jobs:
           Copy-Item ".github\files\*.pyz" "$cachePath\"
         shell: pwsh
 
-      - run: pip install cibuildwheel==2.23.0
+      - run: pip install cibuildwheel==3.4.1
 
       - run: python -m cibuildwheel --output-dir wheelhouse
         env:
           CIBW_BUILD: cp${{ inputs.python-tag }}-*
           CIBW_ARCHS_WINDOWS: ${{ inputs.architecture }}
-          CIBW_ENABLE: cpython-prerelease
       
       - uses: actions/upload-artifact@v4
         with:
