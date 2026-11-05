@@ -186,15 +186,6 @@ namespace db0::object_model
         return edit;
     }
 
-    std::optional<MemberLoc> tryMemberLoc(const Class &type, FieldID field_id)
-    {
-        auto member = type.tryGetMember(field_id);
-        if (!member) {
-            return {};
-        }
-        return type.findField(member->m_name.c_str());
-    }
-
     template <typename MemoT>
     typename TagIndex::ObjectSharedPtr tryGetMemoField(MemoT *memo_obj, const MemberLoc &member_loc,
         bool *is_auto_generated = nullptr)
@@ -274,9 +265,10 @@ namespace db0::object_model
         using MemberLocs = TagFieldMigrateMemberLocs;
         using Super = db0::SieveCache<const Class *, TagFieldMigrateMemberLocs, 4>;
 
-        TagFieldMigrateCache(const std::vector<FieldID> &removed_ids, const std::vector<FieldID> &added_ids)
-            : m_removed_ids(removed_ids)
-            , m_added_ids(added_ids)
+        TagFieldMigrateCache(const Class &declaring_type, const std::vector<FieldID> &removed_ids,
+            const std::vector<FieldID> &added_ids)
+            : m_removed_id_names(resolveNames(declaring_type, removed_ids))
+            , m_added_id_names(resolveNames(declaring_type, added_ids))
         {
         }
 
@@ -288,22 +280,37 @@ namespace db0::object_model
         }
 
     private:
+        // Field IDs belong to the declaring layout; descendants can use the same IDs for other fields.
+        static std::vector<std::optional<std::string> > resolveNames(const Class &type,
+            const std::vector<FieldID> &field_ids)
+        {
+            std::vector<std::optional<std::string> > names;
+            names.reserve(field_ids.size());
+            for (const auto &field_id: field_ids) {
+                auto member = type.tryGetMember(field_id);
+                names.push_back(member ? std::optional<std::string>(member->m_name) : std::nullopt);
+            }
+            return names;
+        }
+
         MemberLocs resolve(const Class &type) const
         {
             MemberLocs member_locs;
-            member_locs.removed.reserve(m_removed_ids.size());
-            for (const auto &field_id: m_removed_ids) {
-                member_locs.removed.push_back(tryMemberLoc(type, field_id));
+            member_locs.removed.reserve(m_removed_id_names.size());
+            for (const auto &field_name: m_removed_id_names) {
+                member_locs.removed.push_back(field_name
+                    ? std::optional<MemberLoc>(type.findField(field_name->c_str())) : std::nullopt);
             }
-            member_locs.added.reserve(m_added_ids.size());
-            for (const auto &field_id: m_added_ids) {
-                member_locs.added.push_back(tryMemberLoc(type, field_id));
+            member_locs.added.reserve(m_added_id_names.size());
+            for (const auto &field_name: m_added_id_names) {
+                member_locs.added.push_back(field_name
+                    ? std::optional<MemberLoc>(type.findField(field_name->c_str())) : std::nullopt);
             }
             return member_locs;
         }
 
-        const std::vector<FieldID> &m_removed_ids;
-        const std::vector<FieldID> &m_added_ids;
+        const std::vector<std::optional<std::string> > m_removed_id_names;
+        const std::vector<std::optional<std::string> > m_added_id_names;
     };
 
     struct IndexedFieldMigrationIndex
@@ -354,7 +361,7 @@ namespace db0::object_model
         try {
             auto query = tag_index.makeIterator(type);
             if (query) {
-                TagFieldMigrateCache migrate_cache(passive_removed_ids, passive_added_ids);
+                TagFieldMigrateCache migrate_cache(type, passive_removed_ids, passive_added_ids);
                 ObjectIterator iterator(fixture, std::move(query), type.shared_from_this());
                 for (;;) {
                     auto obj = iterator.next();
@@ -431,15 +438,9 @@ namespace db0::object_model
     void applyIndexedFieldDeclarations(Class &type, const std::vector<std::string> &indexed_fields,
         bool migrate, bool raise_on_mismatch)
     {
-        if (indexed_fields.empty() && !type.hasDeclaredIndexedFields()) {
-            type.setDeclaredIndexedFields(indexed_fields);
-            return;
-        }
         auto new_indexed_field_ids = resolveDeclaredIndexedFields(type, indexed_fields);
         validateIndexedFieldAncestorOverlap(type, new_indexed_field_ids);
-        auto old_indexed_field_ids = type.hasDeclaredIndexedFields()
-            ? type.getIndexedFieldIds()
-            : std::vector<FieldID>();
+        auto old_indexed_field_ids = type.getIndexedFieldIds();
         if (sameFieldIds(old_indexed_field_ids, new_indexed_field_ids)) {
             type.setDeclaredIndexedFields(indexed_fields);
             return;
@@ -465,7 +466,7 @@ namespace db0::object_model
             auto query = tag_index.makeIterator(type);
             if (query) {
                 static const std::vector<FieldID> no_removed_ids;
-                TagFieldMigrateCache migrate_cache(no_removed_ids, added_ids);
+                TagFieldMigrateCache migrate_cache(type, no_removed_ids, added_ids);
                 ObjectIterator iterator(fixture, std::move(query), type.shared_from_this());
                 for (;;) {
                     auto obj = iterator.next();

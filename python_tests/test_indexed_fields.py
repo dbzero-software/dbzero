@@ -410,6 +410,53 @@ def test_index_of_resolves_inherited_indexed_fields(db0_fixture):
         db0.index_of(IndexedFieldsBase, "priority")
 
 
+def test_indexed_field_three_level_updates_are_visible_through_middle_class(db0_fixture):
+    @db0.memo
+    @db0.indexed_fields("value")
+    class A:
+        def __init__(self, value):
+            self.value = value
+
+    @db0.memo
+    class B(A):
+        def __init__(self, value):
+            self.middle_decoy = 888
+            super().__init__(value)
+
+    @db0.memo
+    class C(B):
+        def __init__(self, value):
+            self.leaf_decoy = 999
+            super().__init__(value)
+
+    base, middle, leaf = A(10), B(20), C(30)
+    index = db0.index_of(B, "value")
+
+    def matches(value):
+        return _indexed_uuid_set(B, index, value, value)
+
+    assert matches(10) == set()  # Querying B excludes exact A instances.
+    assert matches(20) == {db0.uuid(middle)}
+    assert matches(30) == {db0.uuid(leaf)}
+    for old, new in ((30, 40), (40, 50)):
+        leaf.value = new
+        assert matches(old) == set()
+        assert matches(new) == {db0.uuid(leaf)}
+        assert _indexed_uuid_set(A, db0.index_of(A, "value"), new, new) == {db0.uuid(leaf)}
+        assert _indexed_uuid_set(C, db0.index_of(C, "value"), new, new) == {db0.uuid(leaf)}
+    leaf.middle_decoy = 777
+    leaf.leaf_decoy = 666
+    for value in (888, 999, 777, 666):
+        assert matches(value) == set()
+    assert matches(50) == {db0.uuid(leaf)}
+    del leaf.value
+    assert matches(50) == set()
+    leaf.value = 60
+    assert matches(60) == {db0.uuid(leaf)}
+    assert matches(20) == {db0.uuid(middle)}
+    assert base.value == 10
+
+
 def test_indexed_field_added_declaration_migrates_existing_objects_and_descendants(db0_fixture):
     @db0.memo
     class MigratedIndexedBase:
@@ -841,5 +888,118 @@ def test_indexed_field_migration_inheritance_persistence_stress(tmp_path):
             if len(first_regions) == 128:
                 break
         assert first_regions == sorted(first_regions, reverse=True)
+    finally:
+        db0.close()
+
+
+def test_indexed_field_subclass_reopens_with_different_field_order(tmp_path):
+    def declare_types():
+        @db0.indexed_fields("priority")
+        @db0.memo
+        class ReopenedIndexedBase:
+            def __init__(self, priority):
+                self.priority = priority
+
+        @db0.memo
+        class ReopenedIndexedSubclass(ReopenedIndexedBase):
+            def __init__(self, name):
+                # Leave priority unset; its base-class ID denotes name in this layout.
+                self.name = name
+
+        return ReopenedIndexedBase, ReopenedIndexedSubclass
+
+    db0.init(str(tmp_path))
+    db0.open("indexed-subclass-reopen")
+    try:
+        base, derived = declare_types()
+        base_item = base(1)
+        item = derived("subclass")
+        base_id = db0.uuid(base_item)
+        item_id = db0.uuid(item)
+        db0.commit()
+        db0.close()
+
+        db0.init(str(tmp_path))
+        db0.open("indexed-subclass-reopen")
+        base, derived = declare_types()
+        index = db0.index_of(base, "priority")
+        assert _indexed_uuid_set(base, index, 1, 1) == {base_id}
+        assert len(index) == 1
+        reopened = db0.fetch(item_id, derived)
+        assert reopened.name == "subclass"
+        assert not hasattr(reopened, "priority")
+    finally:
+        db0.close()
+
+
+@pytest.mark.parametrize("no_auto_migrate", [False, True])
+def test_indexed_field_reopen_preserves_index_identity_and_queries(tmp_path, no_auto_migrate):
+    def declare_type():
+        @db0.indexed_fields("priority")
+        @db0.memo
+        class ReopenedIndexedIdentity:
+            def __init__(self, name, priority):
+                self.name = name
+                self.priority = priority
+
+        return ReopenedIndexedIdentity
+
+    db0.init(str(tmp_path), no_auto_migrate=no_auto_migrate)
+    db0.open("indexed-identity-reopen")
+    try:
+        memo_type = declare_type()
+        item = memo_type("item", 7)
+        item_id = db0.uuid(item)
+        item.index = db0.index_of(memo_type, "priority")
+        db0.commit()
+        db0.close()
+
+        db0.init(str(tmp_path), no_auto_migrate=no_auto_migrate)
+        db0.open("indexed-identity-reopen")
+        memo_type = declare_type()
+        index = db0.index_of(memo_type, "priority")
+        reopened = db0.fetch(item_id, memo_type)
+        stored_index = reopened.index
+        assert _indexed_names(memo_type, stored_index, 7, 7) == ["item"]
+        assert _indexed_names(memo_type, index, 7, 7) == ["item"]
+        reopened.priority = 9
+        assert _indexed_names(memo_type, index, 7, 7) == []
+        assert _indexed_names(memo_type, index, 9, 9) == ["item"]
+        assert _indexed_names(memo_type, stored_index, 7, 7) == []
+        assert _indexed_names(memo_type, stored_index, 9, 9) == ["item"]
+    finally:
+        db0.close()
+
+
+def test_indexed_field_reopen_removes_all_declarations(tmp_path):
+    def declare_type(indexed_fields):
+        @db0.indexed_fields(*indexed_fields)
+        @db0.memo
+        class ReopenedRemovedIndex:
+            def __init__(self, priority):
+                self.priority = priority
+
+        return ReopenedRemovedIndex
+
+    db0.init(str(tmp_path))
+    db0.open("indexed-removal-reopen")
+    try:
+        memo_type = declare_type(("priority",))
+        item = memo_type(7)
+        item_id = db0.uuid(item)
+        db0.commit()
+        db0.close()
+
+        for _ in range(2):
+            db0.init(str(tmp_path))
+            memo_type = declare_type(())
+            db0.open("indexed-removal-reopen")
+            reopened = db0.fetch(item_id, memo_type)
+            assert _get_indexed_fields(memo_type) == ()
+            with pytest.raises(Exception, match="not an indexed field|Unknown field"):
+                db0.index_of(memo_type, "priority")
+            reopened.priority = "no longer an indexed key"
+            db0.commit()
+            db0.close()
     finally:
         db0.close()

@@ -274,12 +274,7 @@ namespace db0::object_model
     
     std::optional<Class::Member> Class::tryGetMember(FieldID field_id) const
     {
-        // NOTE: cache might be refreshed if not found at first attempt
-        auto member_ptr = m_member_cache.tryGet(field_id.getIndexAndOffset());
-        if (!member_ptr) {
-            return {};
-        }
-        return *member_ptr;
+        return tryGetMember(field_id.getIndexAndOffset());
     }
     
     std::optional<Class::Member> Class::tryGetMember(std::pair<std::uint32_t, std::uint32_t> loc) const
@@ -289,7 +284,26 @@ namespace db0::object_model
         if (!member_ptr) {
             return {};
         }
-        return *member_ptr;
+        auto result = *member_ptr;
+        if (!result.m_field_options[FieldOptions::INDEXED_FIELD]) {
+            // Field IDs are local to each layout; resolve inherited metadata by name.
+            auto base_type = m_base_class_ptr;
+            while (base_type) {
+                auto base_loc = base_type->findField(result.m_name.c_str());
+                auto base_member = !!base_loc.first
+                    ? base_type->tryGetMember(base_loc.first.primary().first) : std::optional<Member>();
+                if (base_member) {
+                    if (base_member->m_field_options[FieldOptions::INDEXED_FIELD]) {
+                        result.m_field_options.set(FieldOptions::INDEXED_FIELD);
+                        result.m_defined_at = base_member->m_defined_at
+                            ? base_member->m_defined_at : base_type;
+                    }
+                    break;
+                }
+                base_type = base_type->tryGetBaseClass();
+            }
+        }
+        return result;
     }
 
     Class::Member Class::getMember(FieldID field_id) const
@@ -632,14 +646,14 @@ namespace db0::object_model
 
     std::shared_ptr<Index> Class::tryGetFieldIndex(FieldID field_id) const
     {
-        auto index = tryGetOwnIndexedFieldIndex(field_id);
-        if (index) {
-            return index;
+        auto member = tryGetMember(field_id);
+        if (!member || !member->m_field_options[FieldOptions::INDEXED_FIELD]) {
+            return nullptr;
         }
-        if (m_base_class_ptr) {
-            return m_base_class_ptr->tryGetFieldIndex(field_id);
-        }
-        return nullptr;
+        const auto &defined_at = member->m_defined_at ? *member->m_defined_at : *this;
+        auto member_loc = defined_at.findField(member->m_name.c_str());
+        return !!member_loc.first
+            ? defined_at.tryGetOwnIndexedFieldIndex(member_loc.first.primary().first) : nullptr;
     }
 
     std::shared_ptr<Index> Class::tryGetFieldIndex(const char *field_name) const
@@ -673,6 +687,20 @@ namespace db0::object_model
         return index;
     }
     
+    const Class *tryFindClassWithField(const Class &type, const char *field_name, FieldID &field_id)
+    {
+        auto member_loc = type.findField(field_name);
+        if (!!member_loc.first) {
+            field_id = member_loc.first.primary().first;
+            return &type;
+        }
+        auto base_type = type.getBaseClassPtr();
+        if (base_type) {
+            return tryFindClassWithField(*base_type, field_name, field_id);
+        }
+        return nullptr;
+    }
+
     std::string Class::getTypeName() const {
         return getFixture()->getLimitedStringPool().fetch((*this)->m_name);
     }
