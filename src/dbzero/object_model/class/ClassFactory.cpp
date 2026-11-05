@@ -431,15 +431,9 @@ namespace db0::object_model
     void applyIndexedFieldDeclarations(Class &type, const std::vector<std::string> &indexed_fields,
         bool migrate, bool raise_on_mismatch)
     {
-        if (indexed_fields.empty() && !type.hasDeclaredIndexedFields()) {
-            type.setDeclaredIndexedFields(indexed_fields);
-            return;
-        }
         auto new_indexed_field_ids = resolveDeclaredIndexedFields(type, indexed_fields);
         validateIndexedFieldAncestorOverlap(type, new_indexed_field_ids);
-        auto old_indexed_field_ids = type.hasDeclaredIndexedFields()
-            ? type.getIndexedFieldIds()
-            : std::vector<FieldID>();
+        auto old_indexed_field_ids = type.getIndexedFieldIds();
         if (sameFieldIds(old_indexed_field_ids, new_indexed_field_ids)) {
             type.setDeclaredIndexedFields(indexed_fields);
             return;

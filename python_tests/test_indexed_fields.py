@@ -843,3 +843,116 @@ def test_indexed_field_migration_inheritance_persistence_stress(tmp_path):
         assert first_regions == sorted(first_regions, reverse=True)
     finally:
         db0.close()
+
+
+def test_indexed_field_subclass_reopens_with_different_field_order(tmp_path):
+    def declare_types():
+        @db0.indexed_fields("priority")
+        @db0.memo
+        class ReopenedIndexedBase:
+            def __init__(self, priority):
+                self.priority = priority
+
+        @db0.memo
+        class ReopenedIndexedSubclass(ReopenedIndexedBase):
+            def __init__(self, name):
+                # Leave priority unset; its base-class ID denotes name in this layout.
+                self.name = name
+
+        return ReopenedIndexedBase, ReopenedIndexedSubclass
+
+    db0.init(str(tmp_path))
+    db0.open("indexed-subclass-reopen")
+    try:
+        base, derived = declare_types()
+        base_item = base(1)
+        item = derived("subclass")
+        base_id = db0.uuid(base_item)
+        item_id = db0.uuid(item)
+        db0.commit()
+        db0.close()
+
+        db0.init(str(tmp_path))
+        db0.open("indexed-subclass-reopen")
+        base, derived = declare_types()
+        index = db0.index_of(base, "priority")
+        assert _indexed_uuid_set(base, index, 1, 1) == {base_id}
+        assert len(index) == 1
+        reopened = db0.fetch(item_id, derived)
+        assert reopened.name == "subclass"
+        assert not hasattr(reopened, "priority")
+    finally:
+        db0.close()
+
+
+@pytest.mark.parametrize("no_auto_migrate", [False, True])
+def test_indexed_field_reopen_preserves_index_identity_and_queries(tmp_path, no_auto_migrate):
+    def declare_type():
+        @db0.indexed_fields("priority")
+        @db0.memo
+        class ReopenedIndexedIdentity:
+            def __init__(self, name, priority):
+                self.name = name
+                self.priority = priority
+
+        return ReopenedIndexedIdentity
+
+    db0.init(str(tmp_path), no_auto_migrate=no_auto_migrate)
+    db0.open("indexed-identity-reopen")
+    try:
+        memo_type = declare_type()
+        item = memo_type("item", 7)
+        item_id = db0.uuid(item)
+        item.index = db0.index_of(memo_type, "priority")
+        db0.commit()
+        db0.close()
+
+        db0.init(str(tmp_path), no_auto_migrate=no_auto_migrate)
+        db0.open("indexed-identity-reopen")
+        memo_type = declare_type()
+        index = db0.index_of(memo_type, "priority")
+        reopened = db0.fetch(item_id, memo_type)
+        stored_index = reopened.index
+        assert _indexed_names(memo_type, stored_index, 7, 7) == ["item"]
+        assert _indexed_names(memo_type, index, 7, 7) == ["item"]
+        reopened.priority = 9
+        assert _indexed_names(memo_type, index, 7, 7) == []
+        assert _indexed_names(memo_type, index, 9, 9) == ["item"]
+        assert _indexed_names(memo_type, stored_index, 7, 7) == []
+        assert _indexed_names(memo_type, stored_index, 9, 9) == ["item"]
+    finally:
+        db0.close()
+
+
+def test_indexed_field_reopen_removes_all_declarations(tmp_path):
+    def declare_type(indexed_fields):
+        @db0.indexed_fields(*indexed_fields)
+        @db0.memo
+        class ReopenedRemovedIndex:
+            def __init__(self, priority):
+                self.priority = priority
+
+        return ReopenedRemovedIndex
+
+    db0.init(str(tmp_path))
+    db0.open("indexed-removal-reopen")
+    try:
+        memo_type = declare_type(("priority",))
+        item = memo_type(7)
+        item_id = db0.uuid(item)
+        db0.commit()
+        db0.close()
+
+        for _ in range(2):
+            db0.init(str(tmp_path))
+            memo_type = declare_type(())
+            db0.open("indexed-removal-reopen")
+            reopened = db0.fetch(item_id, memo_type)
+            assert _get_indexed_fields(memo_type) == ()
+            with pytest.raises(Exception, match="not an indexed field|Unknown field"):
+                db0.index_of(memo_type, "priority")
+            reopened.priority = "no longer an indexed key"
+            db0.commit()
+            db0.close()
+    finally:
+        db0.close()
