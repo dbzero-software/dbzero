@@ -410,6 +410,53 @@ def test_index_of_resolves_inherited_indexed_fields(db0_fixture):
         db0.index_of(IndexedFieldsBase, "priority")
 
 
+def test_indexed_field_three_level_updates_are_visible_through_middle_class(db0_fixture):
+    @db0.memo
+    @db0.indexed_fields("value")
+    class A:
+        def __init__(self, value):
+            self.value = value
+
+    @db0.memo
+    class B(A):
+        def __init__(self, value):
+            self.middle_decoy = 888
+            super().__init__(value)
+
+    @db0.memo
+    class C(B):
+        def __init__(self, value):
+            self.leaf_decoy = 999
+            super().__init__(value)
+
+    base, middle, leaf = A(10), B(20), C(30)
+    index = db0.index_of(B, "value")
+
+    def matches(value):
+        return _indexed_uuid_set(B, index, value, value)
+
+    assert matches(10) == set()  # Querying B excludes exact A instances.
+    assert matches(20) == {db0.uuid(middle)}
+    assert matches(30) == {db0.uuid(leaf)}
+    for old, new in ((30, 40), (40, 50)):
+        leaf.value = new
+        assert matches(old) == set()
+        assert matches(new) == {db0.uuid(leaf)}
+        assert _indexed_uuid_set(A, db0.index_of(A, "value"), new, new) == {db0.uuid(leaf)}
+        assert _indexed_uuid_set(C, db0.index_of(C, "value"), new, new) == {db0.uuid(leaf)}
+    leaf.middle_decoy = 777
+    leaf.leaf_decoy = 666
+    for value in (888, 999, 777, 666):
+        assert matches(value) == set()
+    assert matches(50) == {db0.uuid(leaf)}
+    del leaf.value
+    assert matches(50) == set()
+    leaf.value = 60
+    assert matches(60) == {db0.uuid(leaf)}
+    assert matches(20) == {db0.uuid(middle)}
+    assert base.value == 10
+
+
 def test_indexed_field_added_declaration_migrates_existing_objects_and_descendants(db0_fixture):
     @db0.memo
     class MigratedIndexedBase:

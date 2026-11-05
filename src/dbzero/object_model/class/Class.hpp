@@ -170,6 +170,8 @@ DB0_PACKED_END
             unsigned int m_fidelity = 0;
             std::string m_name;
             FieldFlags m_field_options;
+            // Defining ancestor for inherited indexed metadata; empty for local members.
+            std::shared_ptr<Class> m_defined_at;
             
             Member(FieldID, unsigned int fidelity, const char *, FieldFlags = {});
             Member(FieldID, unsigned int fidelity, const std::string &, FieldFlags = {});
@@ -440,6 +442,9 @@ DB0_PACKED_END
         bool hasSlot(const char *name, unsigned int fidelity) const;
     };
     
+    // Resolve a materialized field by name from a class or one of its ancestors.
+    const Class *tryFindClassWithField(const Class &type, const char *field_name, FieldID &field_id);
+
     // retrieve one of 4 possible type name variants
     std::optional<std::string> getNameVariant(std::optional<std::string> type_id, std::optional<std::string> type_name,
         std::optional<std::string> module_name, std::optional<std::string> type_fields_str, int variant_id);

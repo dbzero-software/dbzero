@@ -1283,8 +1283,9 @@ namespace db0::python
             materializeDeclaredIndexedField(type, field_name);
         }
 
-        auto member = type->tryGetMember(field_name);
-        if (!member) {
+        db0::object_model::FieldID field_id;
+        auto declaring_type = db0::object_model::tryFindClassWithField(*type, field_name, field_id);
+        if (!declaring_type) {
             if (isValidIndexedFieldName(memo_type, field_name)) {
                 return Py_OWN(IndexDefaultObject_new(fixture, true, true)).steal();
             }
